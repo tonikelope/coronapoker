@@ -227,7 +227,7 @@ public class AboutDialog extends JDialog {
         jvm.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         jvm.setDoubleBuffered(true);
         jvm.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 jvmMouseClicked(evt);
             }
         });
@@ -293,7 +293,7 @@ public class AboutDialog extends JDialog {
         mod_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         mod_label.setDoubleBuffered(true);
         mod_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 mod_labelMouseClicked(evt);
             }
         });
@@ -303,7 +303,7 @@ public class AboutDialog extends JDialog {
         corona_icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         corona_icon_label.setDoubleBuffered(true);
         corona_icon_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 corona_icon_labelMouseClicked(evt);
             }
         });
@@ -355,7 +355,7 @@ public class AboutDialog extends JDialog {
         jLabel12.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         jLabel12.setDoubleBuffered(true);
         jLabel12.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 jLabel12MouseClicked(evt);
             }
         });
@@ -480,11 +480,17 @@ public class AboutDialog extends JDialog {
     }// </editor-fold>//GEN-END:initComponents
 
     private void jLabel12MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jLabel12MouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         Helpers.openBrowserURL("https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf");
     }//GEN-LAST:event_jLabel12MouseClicked
 
     private void jvmMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jvmMouseClicked
+        if (!Helpers.isReleaseInsideComponent(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         if (Init.M1 != null && ++c == 5) {
 
@@ -553,11 +559,17 @@ public class AboutDialog extends JDialog {
     }//GEN-LAST:event_formWindowClosing
 
     private void corona_icon_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_corona_icon_labelMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         Helpers.openBrowserURL("https://github.com/tonikelope/coronapoker");
     }//GEN-LAST:event_corona_icon_labelMouseClicked
 
     private void mod_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_mod_labelMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
 
         if (!mod_bar.isVisible()) {

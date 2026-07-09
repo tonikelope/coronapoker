@@ -120,7 +120,7 @@
         <Property name="focusable" type="boolean" value="false"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="probabilityMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="probabilityMouseClicked"/>
       </Events>
     </Component>
     <Container class="javax.swing.JPanel" name="cartas_panel">

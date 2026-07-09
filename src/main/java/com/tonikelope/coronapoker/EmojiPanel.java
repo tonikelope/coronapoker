@@ -135,7 +135,10 @@ public class EmojiPanel extends javax.swing.JPanel {
 
             label.addMouseListener(new MouseAdapter() {
                 @Override
-                public void mouseClicked(MouseEvent e) {
+                public void mouseReleased(MouseEvent e) {
+                    if (!Helpers.isRealClick(e)) {
+                        return;
+                    }
                     WaitingRoomFrame.getInstance().getChat_box().insertEmoji(j, EMOJI_ICON.get(j - 1));
                     WaitingRoomFrame.getInstance().getChat_box().requestFocus();
 

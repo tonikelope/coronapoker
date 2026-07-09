@@ -4649,6 +4649,23 @@ public class Helpers {
 
     }
 
+    // Un click "de verdad" solo cuenta si se suelta DENTRO del componente donde se pulso. Se usa
+    // desde manejadores mouseReleased (no mouseClicked): mouseClicked no se dispara si el raton se
+    // desplaza unos pixeles entre pulsar y soltar, y entonces el click se pierde de forma
+    // intermitente. Escuchar el release y validar los limites replica un "click" fiable y ademas
+    // permite cancelar arrastrando fuera del componente antes de soltar. NO filtra por boton: quien
+    // necesite distinguir izquierdo/derecho lo comprueba aparte (isLeftMouseButton/isRightMouseButton).
+    public static boolean isReleaseInsideComponent(java.awt.event.MouseEvent evt) {
+        java.awt.Component c = evt.getComponent();
+        return c != null && evt.getX() >= 0 && evt.getY() >= 0
+                && evt.getX() < c.getWidth() && evt.getY() < c.getHeight();
+    }
+
+    // Atajo para el caso habitual: click simple de boton izquierdo soltado dentro del componente.
+    public static boolean isRealClick(java.awt.event.MouseEvent evt) {
+        return javax.swing.SwingUtilities.isLeftMouseButton(evt) && isReleaseInsideComponent(evt);
+    }
+
     public static Future threadRun(Runnable r) {
 
         return THREAD_POOL.submit(r);

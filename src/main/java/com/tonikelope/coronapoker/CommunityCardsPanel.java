@@ -593,7 +593,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         sound_icon.setFocusable(false);
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 sound_iconMouseClicked(evt);
             }
         });
@@ -605,7 +605,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         settings_icon.setFocusable(false);
         settings_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         settings_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 settings_iconMouseClicked(evt);
             }
         });
@@ -729,7 +729,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         last_hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         last_hand_label.setFocusable(false);
         last_hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 last_hand_labelMouseClicked(evt);
             }
         });
@@ -761,7 +761,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         hand_label.setFocusable(false);
         hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 hand_labelMouseClicked(evt);
             }
         });
@@ -792,7 +792,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         blinds_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         blinds_label.setFocusable(false);
         blinds_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 blinds_labelMouseClicked(evt);
             }
         });
@@ -881,16 +881,32 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
         // TODO add your handling code here:
 
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+
         GameFrame.setSonidos(!GameFrame.SONIDOS);
     }//GEN-LAST:event_sound_iconMouseClicked
 
     private void settings_iconMouseClicked(java.awt.event.MouseEvent evt) {
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+
         // Abre el diálogo unificado "Ajustes" (pestañas Apariencia / Audio / Partida).
         GameFrame.getInstance().openSettingsDialog();
     }
 
     private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
         // TODO add your handling code here:
+
+        // evt == null es la invocación programática (hand_label_left_click /
+        // hand_label_right_click, que fijan hand_label_click_type): se deja pasar.
+        // Para un evento real exigimos que el botón se haya soltado DENTRO del
+        // componente (migrado a mouseReleased para no perder clics con micro-arrastre).
+        if (evt != null && !Helpers.isReleaseInsideComponent(evt)) {
+            return;
+        }
 
         if (GameFrame.getInstance().isPartida_local() && getHand_label().isEnabled()) {
 
@@ -1104,6 +1120,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     }//GEN-LAST:event_lights_labelMouseReleased
 
     private void blinds_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_blinds_labelMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+
         // Al hacer clic en las ciegas del tapete no debe pasar nada: las ciegas se
         // editan ahora desde la pestaña "Partida" del diálogo unificado de ajustes.
     }//GEN-LAST:event_blinds_labelMouseClicked

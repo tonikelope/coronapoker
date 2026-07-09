@@ -187,7 +187,7 @@ public class PauseDialog extends JDialog {
         setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         setUndecorated(true);
         addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 formMouseClicked(evt);
             }
         });

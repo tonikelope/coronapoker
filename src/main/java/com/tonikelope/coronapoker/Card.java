@@ -937,7 +937,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         card_image.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         card_image.setFocusable(false);
         card_image.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 card_imageMouseClicked(evt);
             }
             public void mouseEntered(java.awt.event.MouseEvent evt) {
@@ -974,6 +974,13 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     private void card_imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseClicked
         // TODO add your handling code here:
+
+        // Migrado a mouseReleased para no perder clics (izq: ampliar/girar carta,
+        // rabbit hunting, iwtsth; dcho: cambiar de baraja): exigimos que el botón se
+        // haya soltado DENTRO del componente, conservando las ramas por botón de abajo.
+        if (!Helpers.isReleaseInsideComponent(evt)) {
+            return;
+        }
 
         if (rabbit == RABBIT_TAPADA && GameFrame.getInstance().getCrupier().isShow_time()) {
             Helpers.threadRun(() -> {

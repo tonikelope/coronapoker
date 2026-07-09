@@ -199,7 +199,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         chat.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chat.setFocusable(false);
         chat.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 chatMouseClicked(evt);
             }
         });
@@ -222,7 +222,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         image.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         image.setFocusable(false);
         image.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 imageMouseClicked(evt);
             }
         });
@@ -232,7 +232,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         rebuy.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy.setFocusable(false);
         rebuy.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 rebuyMouseClicked(evt);
             }
         });
@@ -242,7 +242,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         log.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         log.setFocusable(false);
         log.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 logMouseClicked(evt);
             }
         });
@@ -251,7 +251,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         compact.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/compact.png"))); // NOI18N
         compact.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         compact.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 compactMouseClicked(evt);
             }
         });
@@ -260,7 +260,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         zoom_out.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/zoom_out.png"))); // NOI18N
         zoom_out.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         zoom_out.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 zoom_outMouseClicked(evt);
             }
         });
@@ -269,7 +269,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         zoom_reset.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/zoom_reset.png"))); // NOI18N
         zoom_reset.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         zoom_reset.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 zoom_resetMouseClicked(evt);
             }
         });
@@ -278,7 +278,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         zoom_in.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/zoom_in.png"))); // NOI18N
         zoom_in.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         zoom_in.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 zoom_inMouseClicked(evt);
             }
         });
@@ -287,7 +287,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         fullscreen.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/fullscreen.png"))); // NOI18N
         fullscreen.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         fullscreen.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 fullscreenMouseClicked(evt);
             }
         });
@@ -314,6 +314,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_formMouseExited
 
     private void chatMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_chatMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
@@ -338,6 +341,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_micMouseReleased
 
     private void imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_imageMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
 
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
@@ -346,6 +352,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_imageMouseClicked
 
     private void compactMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_compactMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
@@ -355,6 +364,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_compactMouseClicked
 
     private void zoom_outMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_zoom_outMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
@@ -364,6 +376,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_zoom_outMouseClicked
 
     private void zoom_resetMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_zoom_resetMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
 
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
@@ -373,6 +388,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_zoom_resetMouseClicked
 
     private void zoom_inMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_zoom_inMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
@@ -382,6 +400,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_zoom_inMouseClicked
 
     private void fullscreenMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_fullscreenMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
 
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
@@ -391,6 +412,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_fullscreenMouseClicked
 
     private void rebuyMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_rebuyMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
 
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {

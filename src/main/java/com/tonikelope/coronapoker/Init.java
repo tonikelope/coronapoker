@@ -925,21 +925,8 @@ public class Init extends JFrame {
         }
     }
 
-    // Un click "de verdad" solo cuenta si se suelta con el boton izquierdo y DENTRO del componente
-    // donde se pulso. Escuchamos mouseReleased en vez de mouseClicked porque este ultimo no se
-    // dispara si el raton se desplaza unos pixeles entre pulsar y soltar, y entonces el click se
-    // pierde. El chequeo de limites permite cancelar arrastrando fuera del componente antes de soltar.
-    private static boolean isRealClick(java.awt.event.MouseEvent evt) {
-        if (!javax.swing.SwingUtilities.isLeftMouseButton(evt)) {
-            return false;
-        }
-        java.awt.Component c = evt.getComponent();
-        return c != null && evt.getX() >= 0 && evt.getY() >= 0
-                && evt.getX() < c.getWidth() && evt.getY() < c.getHeight();
-    }
-
     private void settings_iconMouseClicked(java.awt.event.MouseEvent evt) {
-        if (!isRealClick(evt)) {
+        if (!Helpers.isRealClick(evt)) {
             return;
         }
 
@@ -950,7 +937,9 @@ public class Init extends JFrame {
 
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
 
-        if (!isRealClick(evt)) {
+        // evt es null cuando el toggle de sonido se invoca por codigo (atajos de teclado); en ese
+        // caso no hay click real que validar.
+        if (evt != null && !Helpers.isRealClick(evt)) {
             return;
         }
 
@@ -1060,7 +1049,7 @@ public class Init extends JFrame {
     private void baraja_fondoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_baraja_fondoMouseClicked
         // El About se abre SOLO al hacer clic sobre el logo "corona poker" del fondo (arriba-
         // izquierda de corona_init.png), no en cualquier parte de la imagen (cartas/fichas/felpa).
-        if (isRealClick(evt) && isClickOnBackgroundLogo(evt.getX(), evt.getY())) {
+        if (Helpers.isRealClick(evt) && isClickOnBackgroundLogo(evt.getX(), evt.getY())) {
             AboutDialog dialog = new AboutDialog(this, true);
             dialog.setLocationRelativeTo(this);
             dialog.setVisible(true);
@@ -1228,7 +1217,7 @@ public class Init extends JFrame {
         language_flag.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseReleased(java.awt.event.MouseEvent e) {
-                if (isRealClick(e)) {
+                if (Helpers.isRealClick(e)) {
                     toggleLanguageByFlag();
                 }
             }

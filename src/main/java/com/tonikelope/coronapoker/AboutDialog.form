@@ -187,7 +187,7 @@
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
-                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="jvmMouseClicked"/>
+                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="jvmMouseClicked"/>
               </Events>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel3">
@@ -371,7 +371,7 @@
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
                       <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="mod_labelMouseClicked"/>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="mod_labelMouseClicked"/>
                       </Events>
                     </Component>
                     <Component class="javax.swing.JLabel" name="corona_icon_label">
@@ -386,7 +386,7 @@
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
                       <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="corona_icon_labelMouseClicked"/>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="corona_icon_labelMouseClicked"/>
                       </Events>
                     </Component>
                     <Component class="javax.swing.JProgressBar" name="mod_bar">
@@ -432,7 +432,7 @@
                     <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
                   <Events>
-                    <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="jLabel12MouseClicked"/>
+                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="jLabel12MouseClicked"/>
                   </Events>
                   <AuxValues>
                     <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel12.putClientProperty(&quot;i18n.tooltip_key&quot;, &quot;tooltip.robert_rules&quot;);"/>

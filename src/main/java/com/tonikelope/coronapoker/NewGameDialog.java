@@ -1034,7 +1034,7 @@ public class NewGameDialog extends JDialog {
         recomprar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recomprar_label.setDoubleBuffered(true);
         recomprar_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 recomprar_labelMouseClicked(evt);
             }
         });
@@ -1173,7 +1173,7 @@ public class NewGameDialog extends JDialog {
         limite_manos_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         limite_manos_label.setDoubleBuffered(true);
         limite_manos_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 limite_manos_labelMouseClicked(evt);
             }
         });
@@ -1198,7 +1198,7 @@ public class NewGameDialog extends JDialog {
         think_time_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         think_time_label.setDoubleBuffered(true);
         think_time_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 think_time_labelMouseClicked(evt);
             }
         });
@@ -1391,7 +1391,7 @@ public class NewGameDialog extends JDialog {
         nick_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         nick_label.setDoubleBuffered(true);
         nick_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 nick_labelMouseClicked(evt);
             }
         });
@@ -1412,7 +1412,7 @@ public class NewGameDialog extends JDialog {
         avatar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         avatar_label.setDoubleBuffered(true);
         avatar_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 avatar_labelMouseClicked(evt);
             }
         });
@@ -1468,7 +1468,7 @@ public class NewGameDialog extends JDialog {
         recover_checkbox_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_checkbox_label.setDoubleBuffered(true);
         recover_checkbox_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 recover_checkbox_labelMouseClicked(evt);
             }
         });
@@ -1813,6 +1813,9 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_fixed_buyin_checkboxActionPerformed
 
     private void nick_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_nick_labelMouseClicked
+        if (!Helpers.isReleaseInsideComponent(evt)) {
+            return;
+        }
         // TODO add your handling code here:
 
         if (SwingUtilities.isRightMouseButton(evt)) {
@@ -2587,21 +2590,33 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_rebuy_limit_checkboxActionPerformed
 
     private void recover_checkbox_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_recover_checkbox_labelMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         recover_checkbox.doClick();
     }//GEN-LAST:event_recover_checkbox_labelMouseClicked
 
     private void recomprar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_recomprar_labelMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         rebuy_checkbox.doClick();
     }//GEN-LAST:event_recomprar_labelMouseClicked
 
     private void limite_manos_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_limite_manos_labelMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         manos_checkbox.doClick();
     }//GEN-LAST:event_limite_manos_labelMouseClicked
 
     private void think_time_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_think_time_labelMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         think_time_checkbox.doClick();
     }//GEN-LAST:event_think_time_labelMouseClicked
 

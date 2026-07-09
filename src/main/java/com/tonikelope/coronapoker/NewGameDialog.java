@@ -185,6 +185,18 @@ public class NewGameDialog extends JDialog {
         pending_structure = null;
         populateStructureCombo(null);
 
+        // El combo de NIVELES arranca con la escalera por defecto COMPLETA
+        // (defaultLevels), no con la lista fija del diseñador, para incluir todos
+        // los niveles. populateStructureCombo solo llena el selector de estructuras.
+        {
+            double[][] def_levels = BlindStructure.defaultLevels();
+            String[] def_items = new String[def_levels.length];
+            for (int k = 0; k < def_levels.length; k++) {
+                def_items[k] = BlindStructure.formatLevel(def_levels[k][0], def_levels[k][1]);
+            }
+            ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(def_items));
+        }
+
         // El combo de Rabbit Hunting se rellena traducido aquí: el constructor de
         // CREAR/UNIRSE no pasa por el bloque de preselección del de MODIFICAR, y
         // populatePresetsCombo suprime la acción del combo de presets (no llama a

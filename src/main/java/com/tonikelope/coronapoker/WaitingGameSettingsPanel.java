@@ -1170,14 +1170,15 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 }
             }
         }
-        if (pending_structure != null) {
-            double[][] levels = pending_structure.getLevels();
-            String[] items = new String[levels.length];
-            for (int k = 0; k < levels.length; k++) {
-                items[k] = BlindStructure.formatLevel(levels[k][0], levels[k][1]);
-            }
-            ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
+        // Poblar SIEMPRE el combo desde la escalera efectiva (la estructura en uso
+        // o, sin ella, la por defecto) para que incluya todos los niveles de
+        // defaultLevels() y no la lista fija del diseñador.
+        double[][] levels = pending_structure != null ? pending_structure.getLevels() : BlindStructure.defaultLevels();
+        String[] items = new String[levels.length];
+        for (int k = 0; k < levels.length; k++) {
+            items[k] = BlindStructure.formatLevel(levels[k][0], levels[k][1]);
         }
+        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
         populateStructureCombo(selectName);
     }
 

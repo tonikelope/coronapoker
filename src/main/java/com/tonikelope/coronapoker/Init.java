@@ -748,7 +748,7 @@ public class Init extends JFrame {
         settings_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         settings_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         settings_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 settings_iconMouseClicked(evt);
             }
         });
@@ -758,7 +758,7 @@ public class Init extends JFrame {
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 sound_iconMouseClicked(evt);
             }
         });
@@ -854,7 +854,7 @@ public class Init extends JFrame {
         baraja_fondo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         baraja_fondo.setDoubleBuffered(true);
         baraja_fondo.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 baraja_fondoMouseClicked(evt);
             }
         });
@@ -925,14 +925,34 @@ public class Init extends JFrame {
         }
     }
 
+    // Un click "de verdad" solo cuenta si se suelta con el boton izquierdo y DENTRO del componente
+    // donde se pulso. Escuchamos mouseReleased en vez de mouseClicked porque este ultimo no se
+    // dispara si el raton se desplaza unos pixeles entre pulsar y soltar, y entonces el click se
+    // pierde. El chequeo de limites permite cancelar arrastrando fuera del componente antes de soltar.
+    private static boolean isRealClick(java.awt.event.MouseEvent evt) {
+        if (!javax.swing.SwingUtilities.isLeftMouseButton(evt)) {
+            return false;
+        }
+        java.awt.Component c = evt.getComponent();
+        return c != null && evt.getX() >= 0 && evt.getY() >= 0
+                && evt.getX() < c.getWidth() && evt.getY() < c.getHeight();
+    }
+
     private void settings_iconMouseClicked(java.awt.event.MouseEvent evt) {
+        if (!isRealClick(evt)) {
+            return;
+        }
+
         // Abre el diálogo de ajustes en modo general (Apariencia + Sonido): no hay
         // GameFrame en el lanzador, así que la pestaña Partida no se monta.
         SettingsDialog.open(this);
     }
 
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
-        // TODO add your handling code here:
+
+        if (!isRealClick(evt)) {
+            return;
+        }
 
         GameFrame.SONIDOS = !GameFrame.SONIDOS;
 
@@ -1040,7 +1060,7 @@ public class Init extends JFrame {
     private void baraja_fondoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_baraja_fondoMouseClicked
         // El About se abre SOLO al hacer clic sobre el logo "corona poker" del fondo (arriba-
         // izquierda de corona_init.png), no en cualquier parte de la imagen (cartas/fichas/felpa).
-        if (isClickOnBackgroundLogo(evt.getX(), evt.getY())) {
+        if (isRealClick(evt) && isClickOnBackgroundLogo(evt.getX(), evt.getY())) {
             AboutDialog dialog = new AboutDialog(this, true);
             dialog.setLocationRelativeTo(this);
             dialog.setVisible(true);
@@ -1207,8 +1227,10 @@ public class Init extends JFrame {
         updateLanguageFlag();
         language_flag.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                toggleLanguageByFlag();
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                if (isRealClick(e)) {
+                    toggleLanguageByFlag();
+                }
             }
         });
 

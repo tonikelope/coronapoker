@@ -747,7 +747,7 @@ public final class GameLogDialog extends JDialog {
 
     private void applyLogOpacity(boolean transparent) {
         try {
-            setOpacity(transparent ? 0.9f : 1.0f);
+            setOpacity(transparent ? 0.95f : 1.0f);
         } catch (Exception | Error ex) {
             // Window translucency not supported on this platform — ignore.
         }

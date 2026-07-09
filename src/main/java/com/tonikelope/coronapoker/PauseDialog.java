@@ -85,7 +85,7 @@ public class PauseDialog extends JDialog {
         // respondían). Como JDialog con owner, el banner ya se muestra sobre el tapete; y un modal
         // puede aparecer sobre él y usarse con normalidad.
         try {
-            setOpacity(0.9f);
+            setOpacity(0.95f);
         } catch (Exception | Error ex) {
         }
 

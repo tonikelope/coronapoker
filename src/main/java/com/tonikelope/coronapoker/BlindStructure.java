@@ -269,10 +269,13 @@ public final class BlindStructure {
     // ----- Built-in default ladder --------------------------------------------
 
     /**
-     * The built-in 1-2-3-5 x 10^n ladder with big blind = 2 x small blind. These
-     * are exactly the twenty levels offered by the new-game / edit-blinds combo
-     * and walked by the legacy escalation in {@code Crupier}. Returned as a fresh
-     * array on each call.
+     * The built-in 1-2-3-5 x 10^n ladder with big blind = 2 x small blind, from
+     * 0.1/0.2 up to 5,000,000/10,000,000 (the {@link #MAX_BLIND} ceiling). These
+     * are exactly the levels offered by the new-game / edit-blinds combo and the
+     * ladder walked by the default (no custom structure) escalation in
+     * {@code Crupier}. A long, aggressive-doubling game climbs many levels, so the
+     * ladder runs all the way to the money engine's cap before the blinds finally
+     * stop rising. Returned as a fresh array on each call.
      */
     public static double[][] defaultLevels() {
         double[] sbs = {
@@ -280,7 +283,10 @@ public final class BlindStructure {
             1, 2, 3, 5,
             10, 20, 30, 50,
             100, 200, 300, 500,
-            1000, 2000, 3000, 5000
+            1000, 2000, 3000, 5000,
+            10000, 20000, 30000, 50000,
+            100000, 200000, 300000, 500000,
+            1000000, 2000000, 3000000, 5000000
         };
         double[][] out = new double[sbs.length][];
         for (int i = 0; i < sbs.length; i++) {

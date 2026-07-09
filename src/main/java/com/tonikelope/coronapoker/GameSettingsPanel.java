@@ -113,8 +113,12 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         setupTooltips();
 
         // ============================ CIEGAS ============================
-        if (GameFrame.ACTIVE_BLIND_STRUCTURE != null) {
-            double[][] levels = GameFrame.ACTIVE_BLIND_STRUCTURE;
+        // El combo de niveles refleja SIEMPRE la escalera efectiva (la estructura
+        // activa o, sin ella, la escalera por defecto), no la lista fija del
+        // diseñador, para que incluya todos los niveles de defaultLevels().
+        {
+            double[][] levels = GameFrame.ACTIVE_BLIND_STRUCTURE != null
+                    ? GameFrame.ACTIVE_BLIND_STRUCTURE : BlindStructure.defaultLevels();
             String[] items = new String[levels.length];
             for (int k = 0; k < levels.length; k++) {
                 items[k] = BlindStructure.formatLevel(levels[k][0], levels[k][1]);
@@ -896,13 +900,20 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         }
     }
 
-    // Aplica al combo de NIVELES la estructura elegida, conservando el nivel de ciega
-    // actual si existe en la nueva escalera (si no, el primero). Fija pending_structure.
+    // Aplica al combo de NIVELES la estructura elegida, conservando el ESCALÓN actual
+    // por POSICIÓN (no por valor). Si la timba va por el nivel N de la escalera vieja
+    // (índice N del combo = número de subidas de ciega si se arrancó desde el primer
+    // nivel), el combo salta al nivel N de la nueva estructura, topado al último si es
+    // más corta. Así el cambio mantiene el mismo número de saltos en lugar del valor
+    // exacto; si el usuario quiere otro nivel, lo ajusta a mano antes de guardar.
+    // Fija pending_structure.
     private void applySelectedStructure() {
         Object sel = estructura_combobox.getSelectedItem();
         if (sel == null) {
             return;
         }
+        // Escalón actual en la escalera que el combo muestra AHORA (antes de repoblar).
+        int prev_index = Math.max(0, ciegas_combobox.getSelectedIndex());
         double[][] levels;
         if (sel.equals(item_estructura_por_defecto)) {
             pending_structure = null;
@@ -915,20 +926,16 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             pending_structure = bs;
             levels = bs != null ? bs.getLevels() : BlindStructure.defaultLevels();
         }
-        String current = (String) ciegas_combobox.getSelectedItem();
         String[] items = new String[levels.length];
-        int keep = -1;
         for (int i = 0; i < levels.length; i++) {
             items[i] = BlindStructure.formatLevel(levels[i][0], levels[i][1]);
-            if (items[i].equals(current)) {
-                keep = i;
-            }
         }
+        int target = Math.min(prev_index, levels.length - 1);
         boolean prev_init = init;
         init = false;
         try {
             ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
-            ciegas_combobox.setSelectedIndex(keep >= 0 ? keep : 0);
+            ciegas_combobox.setSelectedIndex(target);
         } finally {
             init = prev_init;
         }

@@ -62,6 +62,16 @@ public final class FakePotPlayer implements Player {
     }
 
     @Override
+    public void showShuffleCascadeOverlay() {
+        throw nope();
+    }
+
+    @Override
+    public void hideShuffleCascadeOverlay() {
+        throw nope();
+    }
+
+    @Override
     public void setStackDisplay(double value) {
         throw nope();
     }

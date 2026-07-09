@@ -427,7 +427,7 @@ public class BlindStructureTest {
 
     @Test
     void defaultLadderNextLevelCapsAtTop() {
-        // The helper caps the built-in ladder at its top level (5M/10M). In-engine,
+        // The helper caps the built-in ladder at its top level (2M/4M). In-engine,
         // the default (null) escalation path walks this very ladder
         // (Crupier.effectiveBlindStructure falls back to defaultLevels), so the
         // blinds stop climbing at the top level instead of running away by decades.

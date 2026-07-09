@@ -128,14 +128,26 @@ public class CardVisorDialog extends javax.swing.JDialog {
         scroll_panel.getViewport().addMouseListener(scrollListener);
 
         // Escalamos la carta para que quepa entera dentro del área disponible
-        // (respetando su proporción) y ajustamos la ventana a ese tamaño con pack():
-        // así de salida no aparece ni scroll vertical ni horizontal, pero el
-        // JScrollPane sigue ahí por si en pantallas pequeñas la carta no cupiera.
+        // (respetando su proporción); luego ajustamos la ventana justo al tamaño
+        // del icono (más los insets de la decoración) para que de salida no salga
+        // ni scroll vertical ni horizontal. El JScrollPane sigue ahí por si en
+        // pantallas pequeñas la carta no cupiera.
         showCard(carta, Math.round(0.9f * parent.getWidth()), Math.round(0.85f * parent.getHeight()));
 
+        // pack() para materializar el peer (y así conocer los insets); el tamaño
+        // que deja no vale porque el .form fija el preferido del scroll a 785x578.
         pack();
 
-        Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
+        if (card.getIcon() != null) {
+
+            java.awt.Insets ins = getInsets();
+
+            setSize(card.getIcon().getIconWidth() + ins.left + ins.right, card.getIcon().getIconHeight() + ins.top + ins.bottom);
+
+            setPreferredSize(getSize());
+
+            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
+        }
 
     }
 

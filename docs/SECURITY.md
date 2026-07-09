@@ -81,12 +81,14 @@ Pockets never receive community-key unlocks. Community cards never receive pocke
 
 ### 2.3 Showdown reveal
 
-When a player reaches showdown they broadcast `RESP_SHOWDOWN_KEY` containing their `k_pocket` and a 64-byte Ed25519 signature over `"SHOWDOWN" || HAND_ID || nick || k_pocket`. Every peer:
+When a player reaches showdown it answers the host's `REQ_SHOWDOWN_KEY` with a `RESP_SHOWDOWN_KEY` addressed only to the host, carrying its `k_pocket` and a 64-byte Ed25519 signature (domain `"SHOWDOWN\0"`, payload `HAND_ID || nick || k_pocket`). The host verifies every reply and then re-broadcasts each revealer's `(k_pocket, signature)` to the whole table in one atomic `POTCARDS` message (per revealer: `nick`, the plaintext cards, `k_pocket`, and the signature). `HAND_ID` rides inside that signature, not as a wire field, so a reveal cannot be replayed into another hand. Every peer:
 
-- Validates the signature against the peer's pinned Ed25519 pubkey.
-- Applies `k_pocket` to the single-locked residual the peer received during dealing.
-- Decodes the resulting curve point to a card index by looking it up in the genesis deck.
-- Cross-checks the result against the announcement the host broadcast.
+- Validates the signature against the revealer's pinned Ed25519 pubkey.
+- Applies `k_pocket` to the single-locked residual it received earlier during dealing (the `POCKET_CARDS` broadcast, held as `single_locked_pocket_cards[nick]`).
+- Decodes the resulting curve point to a card index with `RistrettoSRA.resolveCardIndex` against the genesis deck.
+- Cross-checks the result against the plaintext the host announced in `POTCARDS`.
+
+The host runs this same check on each `RESP_SHOWDOWN_KEY` before it will include a revealer in `POTCARDS` (`verifyAndStoreShowdownKey`).
 
 Any mismatch (bad signature, unknown point, conflicting announcement) triggers `SECURITY_LOCKDOWN` (§8) and the hand is aborted before any chips move.
 
@@ -109,7 +111,7 @@ Two further guards close the back doors found while hardening this:
 - **Self-strip guard (pockets).** A peer reads `megapacket[offsetBase]` *locally by index* and never de-locks a point inside its own pocket slot `[mySlot·2, mySlot·2+1]`, so a host that decouples the labelled `peerIdx` from the stripped point cannot make a peer reveal its own cards.
 - **GATE 6 (community).** When a peer strips its *own* community lock, the result must still be wrapped in the other peers' locks, so it should look like noise, never a real card. If instead the residual already resolves to a genuine (genesis) card, then every *other* lock was already gone and the host is using this peer as the **final** unlock to expose a board card before its street is due → refused. (The DLEQ binding of the fix above makes multiplicative blinding impossible, so a forged value cannot be dressed up to slip past this genesis-check.)
 
-All dealing flows through a single proof-chained channel (`REQ_SRA_UNLOCK_CHAIN`): no peer ever serves an unlock outside the proof chain, so a point that does not provably descend from the committed deck simply cannot be de-locked.
+All dealing flows through a single proof-chained REQ/RESP channel (`REQ_SRA_UNLOCK_CHAIN` / `RESP_SRA_UNLOCK_CHAIN`): no peer ever serves an unlock outside the proof chain, so a point that does not provably descend from the committed deck simply cannot be de-locked.
 
 The chain above proves each de-lock is honest, but it does not by itself prove the **deck** is honest (that it is a genuine permutation of 52 distinct cards with nothing duplicated or relocated between the pocket and community halves). That is §2.6.
 
@@ -178,10 +180,10 @@ Four application-level contexts are signed under distinct prefixes so a signatur
 
 | Context | What it signs |
 |---|---|
-| `"ACTION"` | A `CanonicalActionRecord` (see §5), covering every bet, check, call, fold, raise, all-in, community announce |
-| `"RECEIPT"` | `HAND_ID \|\| H_final \|\| flags`, the final receipt sent to every peer at the end of the hand |
-| `"SHOWDOWN"` | `HAND_ID \|\| nick \|\| k_pocket`, releasing one's pocket key at showdown |
-| `"JOIN"` | The join handshake commitment that pins the pubkey on first contact |
+| `"ACTION\0"` | A `CanonicalActionRecord` (see §5), covering every bet, check, call, fold, raise, all-in, community announce |
+| `"RECEIPT\0"` | `HAND_ID \|\| H_final \|\| flags`, the final receipt sent to every peer at the end of the hand |
+| `"SHOWDOWN\0"` | `HAND_ID \|\| nick \|\| k_pocket`, releasing one's pocket key at showdown |
+| `"JOIN\0"` | The join handshake commitment that pins the pubkey on first contact |
 
 The internal spec [`ec-identity-spec.md`](ec-identity-spec.md) covers each context in full detail (replay defenses, encoding rules, what each field commits to).
 
@@ -269,11 +271,11 @@ Where:
 - `flags.bit0` is set if the peer observed any invalid Ed25519 signature during the hand.
 - `flags.bit1` is set if the peer could **not** confirm the honest-shuffle proof (`DUALLOCK_BUNDLE`, §2.6) for this hand's deck. This binds the verifiable-shuffle verdict into the signed record, so the receipt attests deck honesty, not just action agreement. A peer sets the bit verified when it checks the bundle (client), when its background full-chain self-verify passes (host), or when it restores a hand on recover (the deck was verified pre-crash and the fossil is the peer's own). Otherwise the bit stays unverified.
 - `flags.bit2` **qualifies** bit1: it is set only when the peer expected a proof (a fresh deal, not a recover) and **no** `DUALLOCK_BUNDLE` ever arrived for this deck. It distinguishes a host that **withholds** the proof (bit1+bit2, suspicious, even if only some peers are starved) from a **slow peer** whose bundle did arrive but whose verification queue has not finished yet (bit1 only, benign, self-correcting). The reception marker is set when the command arrives, before parsing, so an extremely slow verifier never trips bit2.
-- `sig` is `Ed25519(privkey, "RECEIPT" || HAND_ID || H_final || flags)`. All flag bits are inside the signed payload, so a host relay cannot strip them.
+- `sig` is `Ed25519(privkey, "RECEIPT\0" || HAND_ID || H_final || flags)`. All flag bits are inside the signed payload, so a host relay cannot strip them.
 
 The host gathers the receipts from every peer and relays them to every other peer. The consensus check ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java), `waitForHandverifyTrigger` and the surrounding consensus loop) reports the strongest anomaly it finds, in priority order: **divergent** `H_final` (alert) > **missing** receipt (warning) > `flags.bit0` **invalid-sig-seen** (warning) > `flags.bit1+bit2` **no-shuffle-proof** (warning) > `flags.bit1` alone **deck-pending** (silent) > clean (info).
 
-The two lowest buckets are deliberately split. **No-shuffle-proof** (bit1+bit2) means a host did not deliver the proof to one or more peers. A correct host always does, so it warns the whole table (popup), without blocking settlement or accusing anyone, since it could equally be a modified version or a software bug. **Deck-pending** (bit1 alone) means the proof arrived but a peer's machine is just slow to verify it. That is pure noise to everyone else, so it is recorded as silent forensic evidence (JUL log + `disputed_hands` row) with **no popup and no in-game registro line**, the same policy as the TOFU-NEW notice. The deferred verification stays alive regardless and raises its own live warning if it ever *proves* dishonesty. Consensus still passes (chips move) when only bit1 is set somewhere. A clean OK requires every `sig` to verify, every `H_final` identical, and no flag bit set anywhere.
+The two lowest buckets are deliberately split. **No-shuffle-proof** (bit1+bit2) means a host did not deliver the proof to one or more peers. A correct host always does, so it warns the whole table (popup), without blocking settlement or accusing anyone, since it could equally be a modified version or a software bug. **Deck-pending** (bit1 alone) means the proof arrived but a peer's machine is just slow to verify it. That is pure noise to everyone else, so it draws **no popup**: it is recorded as forensic evidence (JUL log + `disputed_hands` row) alongside a single non-alerting yellow registro line (`game.barajado_pendiente`) that accuses no one. The deferred verification stays alive regardless and raises its own live warning if it ever *proves* dishonesty. Consensus still passes (chips move) when only bit1 is set somewhere. A clean OK requires every `sig` to verify, every `H_final` identical, and no flag bit set anywhere.
 
 Any anomaly is logged into the `disputed_hands` table of the local SQLite (row types `DIVERGENT`, `MISSING`, `INVALID_SIG_SEEN`, `DECK_NO_PROOF`, `DECK_UNVERIFIED`). The hand is not unwound (chips already moved), but the dispute is archivable evidence with cryptographic signatures attached.
 
@@ -305,6 +307,8 @@ The fossil is a single row keyed by `id_game` (INSERT OR REPLACE) containing eve
 | `BOTKEYS@`, `BOTKEYS_COMMUNITY@`, `BOTVISUAL@` | Equivalents for any local bots in the ring |
 | `POCKETS@` | Single-locked pocket residuals received from peers (for showdown verification) |
 | `VISUAL@` | The local peer's visible hole cards |
+| `RIT@` | Run-it-twice vote state (vote done, agreed, all-in street) so a recovered hand replays both boards |
+| `STRADDLE@` | Whether the UTG seat posted a voluntary straddle this hand, so recover reposts it |
 
 Source: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java), `guardarFosilSRA`. The fossil never contains another peer's pocket scalars, so reading it does not leak anything that would not be revealed at showdown anyway.
 
@@ -363,7 +367,7 @@ The warning is shown **once per distinct anomaly per game** (`warnSuspiciousHost
 
 The threat here is different from cheating. The adversary is a peer who already passed the AES + HMAC channel (an invited colleague running a modified client) and now tries to **exhaust or freeze** the table rather than read cards or forge results. Liveness answering a PING is not the same as making progress. Three layers close this off, and they all reduce to the same philosophy as §8.2: detect the abuse, remove the one peer responsible with AUTO-EXPEL, and keep the table running for everyone else.
 
-**1. Identity binding at the choke point.** Every response subcommand that carries a nick (`ACTION`, `REBUY`, `BUYIN`, `RESP_SHOWDOWN_KEY`, `DECK_CASCADE_RESP`, `DECK_ROTATION_RESP`, `RESP_SRA_UNLOCK_CHAIN`, `RIT_VOTE_RESP`, `SHOWCARDS`) is bound to the connection's **authenticated** nick before it is queued. A peer cannot act, vote, override an economy value, suppress a reveal or poison the deal **in another peer's name**. A mismatch adds a strike and can AUTO-EXPEL.
+**1. Identity binding at the choke point.** Every response subcommand that carries a nick is bound to the connection's **authenticated** nick before it is acted on. The queued set (`NICK_BOUND_SUBCOMMANDS`: `ACTION`, `REBUY`, `BUYIN`, `RESP_SHOWDOWN_KEY`, `DECK_CASCADE_RESP`, `DECK_ROTATION_RESP`, `RESP_SRA_UNLOCK_CHAIN`, `RIT_VOTE_RESP`) is bound before it ever enters `received_commands`, while `SHOWCARDS`, `HANDVERIFY` and `STRADDLE_RESP` run the same nick check in their own dedicated handlers instead of the queue. A peer cannot act, vote, override an economy value, suppress a reveal or poison the deal **in another peer's name**. A mismatch adds a strike and can AUTO-EXPEL.
 
 **2. Inbound rate limit and AUTO-EXPEL.** Every inbound text command passes a per-peer **size cap** and **token bucket** before the command switch. Over budget drops the frame (SILENT-REFUSE) and adds a strike. Enough strikes AUTO-EXPEL the peer while the table plays on. The thresholds are far above any real game, so an honest client never trips them. The **binary channel** (voice notes and the stats-sync database) is handled inline on the reader thread and never passed through the text bucket, so it has its **own** generous token bucket. A binary flood is **dropped without a strike**: a large but legitimate stats burst is indistinguishable from abuse, and dropping is harmless because imports are idempotent and resume next session. Bounding the arrival rate bounds the downstream work (threads, disk, relay bandwidth) to a constant, since the per-frame work is already size-capped. One layer earlier, before any peer is even authenticated, the accept loop bounds **concurrent handshakes** with a semaphore (`handshake_slots`): a fresh connection only proceeds to its EC key exchange if a slot is free, otherwise it is dropped at once. A connection flood therefore cannot spawn unbounded threads or key generations, and a legitimate join simply retries. This matters least in the "invited colleagues" model (no anonymous scanners) but closes the pre-auth exhaustion vector anyway.
 

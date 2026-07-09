@@ -332,9 +332,11 @@ The behaviours that make the bot hard to read, all gated so they stay +EV:
 - The bot is **not** thread-safe and does not need to be: bot decisions are
   evaluated **sequentially** (one seat at a time) on the dealer thread. The
   shared evaluator and trackers rely on that contract.
-- A fixed **`BOT_THINK_TIME` (1500 ms)** "thinking" pause is applied by the dealer
-  so a bot does not act instantly. The heavy evaluation runs off the UI thread,
-  hidden behind this pause.
+- The dealer enforces a **minimum** think time (**`BOT_THINK_TIME` = 1500 ms**) so a
+  bot never acts instantly. It evaluates the decision synchronously on the dealer
+  thread first, then sleeps only the remainder (`BOT_THINK_TIME - elapsed`). A slow
+  evaluation eats into that pad instead of adding to it, and an evaluation longer
+  than 1500 ms leaves no pause at all.
 
 ---
 

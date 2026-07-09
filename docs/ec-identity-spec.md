@@ -181,9 +181,12 @@ STREET (uint8):       ACTION_TYPE (uint8):
   2 = turn              2 = CALL
   3 = river             3 = BET
   4 = showdown          4 = RAISE
-                        5 = ALLIN
-                        6 = COMMUNITY   (§4.7)
+  11 = rit2_flop        5 = ALLIN
+  12 = rit2_turn        6 = COMMUNITY   (§4.7)
+  13 = rit2_river
 ```
+
+The `rit2_*` codes (11 to 13) tag the run-it-twice second board's community reveals, so a side-A and a side-B reveal of the same street hash to distinct records (§4.7).
 
 Translation Java↔wire is isolated in `HandStateChain` and `CanonicalActionRecord`, so refactoring the Java enums never moves the wire byte.
 
@@ -197,7 +200,7 @@ sig_t = Ed25519.sign(player_privkey, "ACTION\0" || record_t)
 
 When a peer leaves mid-hand the host broadcasts `EXIT`, every receiver flips `Participant.isExit`, and on the next betting iteration to that slot a local FOLD synth is produced with `record = sig = null` and `is_voluntary = 0`. That slot's wire `ACTION` broadcast and chain `absorb` are both skipped: **no record is contributed for that slot on any peer**, and the chain converges by mutual omission.
 
-Consequently `is_voluntary = 1` is the only value that travels on the wire today (humans signing their own actions, bot actions signed by the host, §10). `is_voluntary = 0` is **reserved**: it is set on the in-memory synth but never reaches the wire and never lands in `H_t`.
+The `is_voluntary` bit still travels on the wire in both states. It is `1` when the actor signs its own action (humans, and bot actions the host signs on their behalf, §10) and `0` when the **host** signs a record in its own name, which today is the community card reveal (§4.7). The bit tells the receiver which pubkey to verify against (§4.6), so it is load-bearing. The one `is_voluntary = 0` record that never reaches the wire is the departed-peer auto-fold synth above, dropped by mutual omission.
 
 Honest player timeouts are resolved client-side: each peer's local `auto_action` timer auto-clicks CHECK/FOLD and sends a regular signed `ACTION` (`is_voluntary = 1`). There is no host-side timeout autofold.
 
@@ -207,7 +210,7 @@ Honest player timeouts are resolved client-side: each peer's local `auto_action`
 |---|---|---|
 | 1 | Human | Actor's own pinned pubkey |
 | 1 | Bot (`Participant.isCpu()`) | **Host's** pinned pubkey (§10) |
-| 0 | - | Reserved (never on wire, reject if seen) |
+| 0 | Host-signed record (community reveal, §4.7) | **Host's** pinned pubkey |
 
 ### 4.7 Host-signed community card reveals
 
@@ -220,9 +223,9 @@ Community cards are never sent in the clear. After the SRA cascade and the commu
    ```
    The record is a canonical `ACTION_COMMUNITY` record:
    - `PLAYER_ID = SHA-256(NFC(host_nick))`
-   - `STREET` = the street being revealed (flop=1, turn=2, river=3)
+   - `STREET` = the street being revealed (flop=1, turn=2, river=3 on the live board, or 11/12/13 for the run-it-twice second board, §4.3)
    - `AMOUNT_CENTS` = the revealed card ordinals packed one byte per card, little-endian within the field (`packCommunityCards`, 1 to 3 cards)
-   - `FLAGS.is_voluntary = 1`
+   - `FLAGS.is_voluntary = 0` (the host signs this record in its own name, so it verifies against the host pubkey per §4.6)
    - `sig_t = Ed25519.sign(host_privkey, "ACTION\0" || record_t)`
 
 Each ring peer verifies the host signature, then **cross-checks the announced ordinals against the indices it decoded from its own piece**. Any mismatch is a cross-recipient fork and triggers `SECURITY_LOCKDOWN`. Only after the cross-check passes is the `(record, sig)` pair absorbed into `H_t` (with the host as the actor). Because every peer absorbs the identical signed announcement, a host that announces different boards to different peers produces divergent receipts and is caught both in real time (lockdown on mismatch vs. the local piece) and post-hand (receipt divergence).
@@ -233,7 +236,7 @@ A peer also drops any `COMM_REVEAL` whose `STREET` doesn't match the street it i
 
 | Event | Handling |
 |---|---|
-| Showdown card reveal | Transported outside the 92-byte record (carries `k_pocket` / cards). It **is** individually signed under the `"SHOWDOWN"` domain (`HAND_ID \|\| nick \|\| k_pocket`) and cross-checked, but lives outside `H_t`. |
+| Showdown card reveal | Transported outside the 92-byte record. Remote keys are gathered by `REQ_SHOWDOWN_KEY` / `RESP_SHOWDOWN_KEY` (unicast to the host), then the host re-broadcasts every revealer's key in one atomic `POTCARDS` message. The same signature also rides the voluntary mid-hand `SHOWCARDS`. It **is** individually signed under the `"SHOWDOWN\0"` domain (payload `HAND_ID \|\| nick \|\| k_pocket`) and cross-checked, but lives outside `H_t`. `HAND_ID` is bound inside the signature, not carried as a wire field. |
 | EXIT | Session-level event on the regular encrypted/HMAC'd channel (no per-event Ed25519 signature). A forged EXIT desyncs the spoofed peer's chain against a missing slot, still detectable post-hand. OOB identity verification is the actual defence against host impersonation. |
 | REBUY | Between hands, doesn't affect the current `H_t`. |
 
@@ -325,7 +328,7 @@ sig = Ed25519.sign(my_privkey, "RECEIPT\0" || HAND_ID || H_final || flags)
 ```
 
 - `H_final` is the chain value after the terminal settlement absorb (§5.3), so a matching receipt attests agreement on the pot payout as well as the action history and board.
-- `flags.bit0` (`RECEIPT_FLAG_BIT_INVALID_SIG_SEEN`) is set when the issuer observed at least one invalid Ed25519 action signature during the hand.
+- `flags.bit0` (`RECEIPT_FLAG_BIT_INVALID_SIG_SEEN`) is set when the issuer observed at least one invalid Ed25519 signature on an `ACTION` or `COMM_REVEAL` during the hand.
 - `flags.bit1` (`RECEIPT_FLAG_BIT_DECK_UNVERIFIED`) is set when the issuer could not confirm the honest-shuffle proof (`DUALLOCK_BUNDLE`) for this hand's deck.
 - `flags.bit2` (`RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF`) qualifies bit1: set only when a proof was expected (fresh deal) and none arrived (host withholding, as opposed to a slow local verifier). See [`SECURITY.md`](SECURITY.md) §6 for the full bit1/bit2 policy.
 
@@ -442,7 +445,7 @@ No special "host pubkey" exists in the protocol: host == player + extra responsi
 
 - **TOFU**: Trust On First Use. Accept a key the first time, pin it. SSH-style.
 - **PAKE**: Password-Authenticated Key Exchange. Authenticate with a shared password without revealing it.
-- **Domain separator**: Unique string prefix in every signature (and in the chain seed) so a value for one purpose cannot be replayed in another: `ACTION`, `RECEIPT`, `SHOWDOWN`, `JOIN` for the signed contexts, and `HAND` for the `H_0` chain domain.
+- **Domain separator**: Unique NUL-terminated string prefix in every signature (and in the chain absorb) so a value for one purpose cannot be replayed in another: `ACTION\0`, `RECEIPT\0`, `SHOWDOWN\0`, `JOIN\0` for the signed contexts, plus `HAND\0` for the `H_0` seed and `SETTLE\0` for the terminal settlement absorb (§5.1, §5.3).
 - **Ratchet**: One-way state update where each step depends on the previous. Reordering is impossible without breaking the chain.
 - **Receipt**: Signed commitment by a peer to a final chain state, archivable as evidence.
 - **OOB (Out-of-Band)**: A channel separate from the system being secured (e.g. a phone call to compare a fingerprint shown in the UI).

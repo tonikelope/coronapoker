@@ -1387,28 +1387,29 @@ public class Helpers {
 
     }
 
-    public static void windowAutoFitToRemoveHScrollBar(Window window, JScrollBar hbar, int max_width, float increment) {
+    public static void windowAutoFitToRemoveHScrollBar(Window window, JScrollBar hbar, int max_width) {
 
         Helpers.GUIRun(new Runnable() {
             public void run() {
 
                 if (hbar.isVisible()) {
-                    int i = 1;
-                    int new_width;
 
-                    do {
+                    // El modelo de la barra ya sabe cuánto contenido queda oculto a lo
+                    // ancho: maximum (ancho total) - visibleAmount (ancho visible). Ese
+                    // es exactamente lo que hay que ensanchar la ventana para que la barra
+                    // desaparezca, en un solo reajuste (sin crecer a saltos repackeando).
+                    int deficit = hbar.getMaximum() - hbar.getVisibleAmount();
 
-                        new_width = Math.round(window.getWidth() * (1.0f + increment * i));
+                    if (deficit > 0) {
 
-                        if (new_width < max_width) {
+                        int new_width = Math.min(window.getWidth() + deficit, max_width);
+
+                        if (new_width > window.getWidth()) {
                             window.setSize(new_width, window.getHeight());
                             window.setPreferredSize(window.getSize());
                             window.pack();
                         }
-
-                        i++;
-
-                    } while (hbar.isVisible() && new_width < max_width);
+                    }
                 }
 
                 window.revalidate();

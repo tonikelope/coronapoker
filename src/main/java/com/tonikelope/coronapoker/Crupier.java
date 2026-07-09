@@ -6943,7 +6943,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // La escalera de ciegas efectiva: la estructura personalizada activa o, en su
     // ausencia, la escalera por defecto (1-2-3-5 x 10^n, de 0.1/0.2 hasta
-    // 5000/10000). Ambas rutas escalan y TOPAN igual, a traves de
+    // 2.000.000/4.000.000). Ambas rutas escalan y TOPAN igual, a traves de
     // BlindStructure.nextLevel: al alcanzar el ultimo nivel la subida se detiene.
     // Antes la ruta por defecto escalaba por decadas SIN TOPE (el array CIEGAS
     // multiplicado por 10^j crecia indefinidamente), de modo que en timbas largas

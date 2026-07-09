@@ -48,28 +48,31 @@ public class BlindStructureTest {
     // ----- Default ladder -----------------------------------------------------
 
     @Test
-    void defaultLadderHasThirtyTwoLevelsAllDoubleBlind() {
+    void defaultLadderHasThirtyLevelsAllDoubleBlind() {
         // Arrange / Act
         double[][] def = BlindStructure.defaultLevels();
 
-        // Assert: 1-2-3-5 x 10^n from 0.1/0.2 up to 5,000,000/10,000,000 (the
-        // MAX_BLIND ceiling), bb = 2*sb throughout.
-        assertEquals(32, def.length);
+        // Assert: 1-2-3-5 x 10^n from 0.1/0.2 up to 2,000,000/4,000,000 (the top is
+        // capped so 500 BB fits in the int buy-in), bb = 2*sb throughout.
+        assertEquals(30, def.length);
         assertArrayEquals(new double[]{0.1, 0.2}, def[0], 0);
         assertArrayEquals(new double[]{0.5, 1}, def[3], 0);
         assertArrayEquals(new double[]{1, 2}, def[4], 0);
         assertArrayEquals(new double[]{5000, 10000}, def[19], 0);
-        assertArrayEquals(new double[]{5000000, 10000000}, def[31], 0);
+        assertArrayEquals(new double[]{2000000, 4000000}, def[29], 0);
         for (double[] lvl : def) {
             assertEquals(lvl[0] * 2, lvl[1], 0);
         }
+        // The top big blind stays within the int-safe buy-in bound: 500 * 4,000,000
+        // = 2,000,000,000 < Integer.MAX_VALUE.
+        assertTrue((long) BuyinRules.CEIL_MAX_BB * (long) def[29][1] <= Integer.MAX_VALUE);
     }
 
     @Test
     void defaultLadderIsAValidStructure() {
         assertNull(BlindStructure.validateLevels(BlindStructure.defaultLevels()));
         BlindStructure bs = new BlindStructure("Default copy", BlindStructure.defaultLevels());
-        assertEquals(32, bs.size());
+        assertEquals(30, bs.size());
     }
 
     @Test
@@ -431,9 +434,10 @@ public class BlindStructureTest {
         double[][] def = BlindStructure.defaultLevels();
         assertArrayEquals(new double[]{0.2, 0.4}, BlindStructure.nextLevel(def, 0.1), 0);
         assertArrayEquals(new double[]{2, 4}, BlindStructure.nextLevel(def, 1), 0);
-        // 5000 is no longer the top of the ladder; the last level is 5M/10M.
+        // 5000 is not the top of the ladder; the last level is 2M/4M.
         assertArrayEquals(new double[]{10000, 20000}, BlindStructure.nextLevel(def, 5000), 0);
-        assertNull(BlindStructure.nextLevel(def, 5000000));
+        assertArrayEquals(new double[]{2000000, 4000000}, BlindStructure.nextLevel(def, 1000000), 0);
+        assertNull(BlindStructure.nextLevel(def, 2000000));
     }
 
     @Test

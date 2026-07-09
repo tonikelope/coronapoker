@@ -82,21 +82,19 @@ public class BuyinRulesTest {
     }
 
     @Test
-    void buyinIsClampedToIntSafeCeilingAtHugeBlinds() {
-        // The buy-in (chip count) is int across the model; the tallest default
-        // ladder level (bb = 10,000,000) would make bb * 500 = 5e9 overflow int and
-        // saturate. MAX_BUYIN keeps every chip-count int-safe and deterministic.
-        double bb = 10_000_000;
-        assertTrue(BuyinRules.MAX_BUYIN < Integer.MAX_VALUE);
-        assertEquals(BuyinRules.MAX_BUYIN, BuyinRules.max(bb, BuyinRules.CEIL_MAX_BB));
-        // The full range stays inside [0, MAX_BUYIN] and keeps min <= default <= max.
+    void buyinFitsIntAtTheTopOfTheBlindRange() {
+        // The buy-in (chip count) is int across the model. BlindStructure.MAX_BLIND
+        // caps any big blind at 4,000,000, so even at the deepest range (500 BB) the
+        // buy-in stays int-safe by construction, with no clamp:
+        // 500 * 4,000,000 = 2,000,000,000 < Integer.MAX_VALUE (2,147,483,647).
+        double bb = 4_000_000; // the biggest big blind BlindStructure.MAX_BLIND allows
+        int hi = BuyinRules.max(bb, BuyinRules.CEIL_MAX_BB);
+        assertEquals(2_000_000_000, hi);
+        assertTrue(hi > 0 && hi <= Integer.MAX_VALUE);
+        // The whole range stays ordered and non-negative at that magnitude.
         int lo = BuyinRules.min(bb, 100);
         int def = BuyinRules.defaultBuyin(bb, 100, BuyinRules.CEIL_MAX_BB);
-        int hi = BuyinRules.max(bb, BuyinRules.CEIL_MAX_BB);
-        assertTrue(lo <= def && def <= hi);
-        assertTrue(hi <= BuyinRules.MAX_BUYIN);
-        // The variable cap and headroom inherit the bound (never overflow).
-        assertTrue(BuyinRules.cap(false, 0, bb, BuyinRules.CEIL_MAX_BB) <= BuyinRules.MAX_BUYIN);
+        assertTrue(lo > 0 && lo <= def && def <= hi);
         // Normal tables are completely unaffected: bb=10000, 500BB = 5,000,000.
         assertEquals(5_000_000, BuyinRules.max(10_000, 500));
         assertEquals(50, BuyinRules.max(1.0f, 50));

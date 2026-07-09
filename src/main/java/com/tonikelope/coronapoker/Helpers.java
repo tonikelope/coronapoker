@@ -3624,8 +3624,9 @@ public class Helpers {
      * Returns the largest variant of {@code base_font} (never larger than its
      * own size) whose rendering of {@code text} fits within
      * {@code available_width} pixels, measured with {@code label}'s font
-     * metrics. The size is shrunk one point at a time down to {@code min_size};
-     * if the text still overflows at the floor, that floor variant is returned.
+     * metrics. The best size is found by binary search in
+     * {@code [min_size, base_size - 1]} (stringWidth is monotonic in size); if
+     * the text still overflows at the floor, that floor variant is returned.
      * When the available width is unknown (component not laid out yet) the base
      * font is returned untouched.
      */
@@ -3639,18 +3640,33 @@ public class Helpers {
             return base_font;
         }
 
-        Font candidate = base_font;
+        int lo = min_size;
+        int hi = base_font.getSize() - 1;
 
-        for (int size = base_font.getSize() - 1; size >= min_size; size--) {
+        if (hi < lo) {
+            return base_font;
+        }
 
-            candidate = base_font.deriveFont(base_font.getStyle(), (float) size);
+        // Búsqueda binaria del mayor tamaño que quepa: el ancho del texto crece
+        // de forma monótona con el tamaño, así que basta con log2(rango) medidas
+        // en vez de bajar punto a punto. Si nada cabe se devuelve el tamaño suelo.
+        Font best = base_font.deriveFont(base_font.getStyle(), (float) min_size);
+
+        while (lo <= hi) {
+
+            int mid = (lo + hi) >>> 1;
+
+            Font candidate = base_font.deriveFont(base_font.getStyle(), (float) mid);
 
             if (label.getFontMetrics(candidate).stringWidth(text) <= available_width) {
-                return candidate;
+                best = candidate;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
             }
         }
 
-        return candidate;
+        return best;
     }
 
     public static Font createAndRegisterFont(InputStream stream) {

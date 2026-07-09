@@ -82,6 +82,27 @@ public class BuyinRulesTest {
     }
 
     @Test
+    void buyinIsClampedToIntSafeCeilingAtHugeBlinds() {
+        // The buy-in (chip count) is int across the model; the tallest default
+        // ladder level (bb = 10,000,000) would make bb * 500 = 5e9 overflow int and
+        // saturate. MAX_BUYIN keeps every chip-count int-safe and deterministic.
+        double bb = 10_000_000;
+        assertTrue(BuyinRules.MAX_BUYIN < Integer.MAX_VALUE);
+        assertEquals(BuyinRules.MAX_BUYIN, BuyinRules.max(bb, BuyinRules.CEIL_MAX_BB));
+        // The full range stays inside [0, MAX_BUYIN] and keeps min <= default <= max.
+        int lo = BuyinRules.min(bb, 100);
+        int def = BuyinRules.defaultBuyin(bb, 100, BuyinRules.CEIL_MAX_BB);
+        int hi = BuyinRules.max(bb, BuyinRules.CEIL_MAX_BB);
+        assertTrue(lo <= def && def <= hi);
+        assertTrue(hi <= BuyinRules.MAX_BUYIN);
+        // The variable cap and headroom inherit the bound (never overflow).
+        assertTrue(BuyinRules.cap(false, 0, bb, BuyinRules.CEIL_MAX_BB) <= BuyinRules.MAX_BUYIN);
+        // Normal tables are completely unaffected: bb=10000, 500BB = 5,000,000.
+        assertEquals(5_000_000, BuyinRules.max(10_000, 500));
+        assertEquals(50, BuyinRules.max(1.0f, 50));
+    }
+
+    @Test
     void applyingHeadroomNeverExceedsCapAcrossTheRange() {
         // Invariant sweep at the deepest allowed range: for any stack in [0, cap],
         // stack + headroom <= cap.

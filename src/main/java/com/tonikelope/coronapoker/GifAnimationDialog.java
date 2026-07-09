@@ -77,14 +77,13 @@ public class GifAnimationDialog extends JDialog {
 
         width = Math.round(((float) icon.getIconWidth() * height) / icon.getIconHeight());
 
-        if (width > Math.round(parent.getWidth() * 0.8f)) {
-            int i = 1;
-            int original = width;
-            while (width > Math.round(parent.getWidth() * 0.8f)) {
-                width = Math.round(original * (100 - i * 0.1f));
-                i++;
-            }
-            height = Math.round(height * (100 - (i - 1) * 0.1f));
+        int max_width = Math.round(parent.getWidth() * 0.8f);
+
+        if (width > max_width) {
+            // Encajar el ancho al tope manteniendo la proporción: la altura se
+            // reescala por el mismo factor. Cálculo directo, sin iterar.
+            height = Math.round((float) height * max_width / width);
+            width = max_width;
         }
 
         // Set container sizes to force aspect ratio

@@ -415,7 +415,7 @@ public class NewGameDialog extends JDialog {
 
             pack();
 
-            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), usable_bounds.width, 0.1f);
+            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), usable_bounds.width);
 
         }
 

@@ -127,7 +127,7 @@ public class ChatImageDialog extends JDialog {
         setSize(getWidth(), h);
         setPreferredSize(getSize());
         pack();
-        Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
+        Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth());
 
         // Initialize and start the UI update timer to poll the atomic integer
         ui_update_timer = new javax.swing.Timer(500, new java.awt.event.ActionListener() {

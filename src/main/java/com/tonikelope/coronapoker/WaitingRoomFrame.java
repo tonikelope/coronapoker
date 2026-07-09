@@ -1232,11 +1232,11 @@ public class WaitingRoomFrame extends JFrame {
             pack();
 
             Helpers.windowAutoFitToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(),
-                    (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+                    (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth());
 
         } else {
             Helpers.windowAutoFitToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(),
-                    (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+                    (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth());
         }
 
         // The stats window is ownerless and survives a screen change: close it
@@ -5965,7 +5965,7 @@ public class WaitingRoomFrame extends JFrame {
 
             pack();
             Helpers.windowAutoFitToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(),
-                    (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+                    (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth());
         });
 
         Helpers.threadRun(() -> {

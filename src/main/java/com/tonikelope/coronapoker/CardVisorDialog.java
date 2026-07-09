@@ -45,48 +45,67 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
     private final static String PALOS = "PCTD";
     private final static int CORNER = 100;
-    private final HashMap<String, Integer> valores = new HashMap<>();
-    private int carta = 0;
+
+    // Visores actualmente abiertos indexados por carta, para no abrir dos veces la
+    // misma carta a la vez: si ya hay uno visible se trae al frente en vez de duplicar.
+    private final static HashMap<Integer, CardVisorDialog> OPEN_VISORS = new HashMap<>();
 
     /**
-     * Creates new form CardVisor
+     * Traduce valor+palo al índice de carta que usa el visor (mismo cálculo que
+     * el constructor por índice).
      */
-    public CardVisorDialog(java.awt.Frame parent, boolean modal, String valor, String palo, boolean buttons) {
-        super(parent, modal);
+    public static int cartaFrom(String valor, String palo) {
+        int v;
 
-        initComponents();
+        switch (valor) {
+            case "A":
+                v = 1;
+                break;
+            case "J":
+                v = 11;
+                break;
+            case "Q":
+                v = 12;
+                break;
+            case "K":
+                v = 13;
+                break;
+            default:
+                v = Integer.parseInt(valor);
+        }
 
-        this.setFocusable(modal);
-        this.setFocusCycleRoot(modal);
-        this.setAutoRequestFocus(modal);
-        this.setFocusableWindowState(modal);
+        return CardVisorDialog.PALOS.indexOf(palo) * 13 + v;
+    }
 
-        Helpers.setTranslatedTitle(this, "ui.visor_de_cartas");
+    /**
+     * Abre el visor para una carta o, si ya hay uno abierto para esa misma carta,
+     * lo trae al frente sin crear un duplicado.
+     */
+    public static void openOrFocus(java.awt.Frame parent, int carta) {
 
-        valores.put("A", 1);
-        valores.put("J", 11);
-        valores.put("Q", 12);
-        valores.put("K", 13);
+        Audio.playWavResource("misc/card_visor.wav");
 
-        carta = CardVisorDialog.PALOS.indexOf(palo) * 13 + (valores.containsKey(valor) ? valores.get(valor) : Integer.valueOf(valor));
+        CardVisorDialog existing = OPEN_VISORS.get(carta);
 
-        scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
-        scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+        if (existing != null && existing.isShowing()) {
+            existing.toFront();
+            return;
+        }
 
-        HandScrollListener scrollListener = new HandScrollListener(card, this);
-        scroll_panel.getViewport().addMouseMotionListener(scrollListener);
-        scroll_panel.getViewport().addMouseListener(scrollListener);
+        CardVisorDialog visor = new CardVisorDialog(parent, false, carta, false);
 
-        showCard(carta);
+        OPEN_VISORS.put(carta, visor);
 
-        setSize(Math.min(Math.round(0.9f * parent.getWidth()), card.getIcon().getIconWidth()), Math.round(0.75f * parent.getHeight()));
+        visor.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosed(java.awt.event.WindowEvent e) {
+                OPEN_VISORS.remove(carta, visor);
+            }
+        });
 
-        setPreferredSize(getSize());
+        visor.setLocationRelativeTo(parent);
 
-        pack();
-
-        Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
-
+        visor.setVisible(true);
     }
 
     public CardVisorDialog(java.awt.Frame parent, boolean modal, int carta, boolean buttons) {
@@ -101,11 +120,6 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         Helpers.setTranslatedTitle(this, "ui.visor_de_cartas");
 
-        valores.put("A", 1);
-        valores.put("J", 11);
-        valores.put("Q", 12);
-        valores.put("K", 13);
-
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
@@ -113,11 +127,11 @@ public class CardVisorDialog extends javax.swing.JDialog {
         scroll_panel.getViewport().addMouseMotionListener(scrollListener);
         scroll_panel.getViewport().addMouseListener(scrollListener);
 
-        showCard(carta);
-
-        setSize(Math.min(Math.round(0.9f * parent.getWidth()), card.getIcon().getIconWidth()), Math.round(0.75f * parent.getHeight()));
-
-        setPreferredSize(getSize());
+        // Escalamos la carta para que quepa entera dentro del área disponible
+        // (respetando su proporción) y ajustamos la ventana a ese tamaño con pack():
+        // así de salida no aparece ni scroll vertical ni horizontal, pero el
+        // JScrollPane sigue ahí por si en pantallas pequeñas la carta no cupiera.
+        showCard(carta, Math.round(0.9f * parent.getWidth()), Math.round(0.85f * parent.getHeight()));
 
         pack();
 
@@ -125,7 +139,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
     }
 
-    private void showCard(int carta) {
+    private void showCard(int carta, int max_w, int max_h) {
 
         BufferedImage im;
         ImageIcon icon;
@@ -151,7 +165,19 @@ public class CardVisorDialog extends javax.swing.JDialog {
         } else {
             icon = baraja_mod ? new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c) : new ImageIcon(getClass().getResource("/images/decks/" + GameFrame.BARAJA + "/hq/" + c));
             im = Helpers.makeImageRoundedCorner(icon.getImage(), CORNER);
-            this.card.setIcon(new ImageIcon(im));
+
+            int w = im.getWidth();
+            int h = im.getHeight();
+
+            // Solo reducimos (nunca ampliamos por encima del tamaño natural) para no
+            // degradar la calidad; si la carta ya cabe se muestra a tamaño real.
+            double scale = Math.min(Math.min((double) max_w / w, (double) max_h / h), 1.0);
+
+            if (scale < 1.0) {
+                this.card.setIcon(new ImageIcon(im.getScaledInstance((int) Math.round(w * scale), (int) Math.round(h * scale), java.awt.Image.SCALE_SMOOTH)));
+            } else {
+                this.card.setIcon(new ImageIcon(im));
+            }
 
         }
     }

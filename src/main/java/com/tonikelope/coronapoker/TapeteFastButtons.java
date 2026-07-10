@@ -82,13 +82,22 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     private void zoomIcons(float factor) {
 
         Helpers.GUIRunAndWait(() -> {
-            if (!chat.isVisible()) {
-                for (Object[] b : botones) {
-                    Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round(factor * H), Math.round(factor * H));
+            for (Object[] b : botones) {
+                Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round(factor * H), Math.round(factor * H));
 
-                }
+            }
 
-                zoom_factor = factor;
+            zoom_factor = factor;
+
+            // Si la barra está desplegada (p. ej. al pulsar sus propios botones de zoom),
+            // reajustamos su tamaño y posición al vuelo para que el nuevo zoom se vea al
+            // instante, no solo tras plegarla y volver a mostrarla.
+            if (chat.isVisible()) {
+                revalidate();
+                pref_size = getPreferredSize();
+                setSize(pref_size);
+                setLocation(0, (int) (GameFrame.getInstance().getTapete().getHeight() - getSize().getHeight()));
+                repaint();
             }
         });
     }

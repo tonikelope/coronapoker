@@ -478,10 +478,12 @@ public class AudioSettingsPanel extends JPanel {
         right_col.add(Box.createVerticalStrut(8));
         right_col.add(global_note);
 
-        JPanel center_panel = new JPanel();
-        center_panel.setLayout(new BoxLayout(center_panel, BoxLayout.X_AXIS));
+        // GridLayout (no BoxLayout X): fuerza a las DOS columnas a la MISMA altura (cada una
+        // rellena su celda), así sus bordes inferiores quedan alineados en cualquier tamaño de
+        // diálogo. Con BoxLayout X cada columna se estiraba por su cuenta y en el diálogo pequeño
+        // (fuera de partida) la izquierda quedaba unos píxeles corta respecto a la derecha.
+        JPanel center_panel = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
         center_panel.add(left_col);
-        center_panel.add(Box.createHorizontalStrut(12));
         center_panel.add(right_col);
 
         add(volume_panel, BorderLayout.NORTH);

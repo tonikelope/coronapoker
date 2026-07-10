@@ -105,6 +105,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_chat_images;
     private final boolean snap_fullscreen;
     private final int snap_card_flip_duration;
+    private final int snap_card_flip_zoom;
 
     public AppearanceSettingsPanel() {
 
@@ -135,6 +136,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
         snap_card_flip_duration = GameFrame.CARD_FLIP_DURATION;
+        snap_card_flip_zoom = GameFrame.CARD_FLIP_ZOOM;
 
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
@@ -437,6 +439,55 @@ public class AppearanceSettingsPanel extends JPanel {
             flip_row.add(speed_combo);
             addLeft(anim, flip_row);
         }
+        // Efecto "acercar": 4 opciones (desactivado ... fuerte). Cuelga de "Cartas" igual que la
+        // velocidad. Guarda el porcentaje de agrandado (GameFrame.CARD_FLIP_ZOOM): 100 = desactivado.
+        {
+            final int[] acercar_pct = {100, 115, 130, 145}; // desactivado, suave, normal, fuerte
+            final String[] zoom_keys = {"settings.acercar_desactivado", "settings.acercar_suave",
+                "settings.acercar_normal", "settings.acercar_fuerte"};
+            final String[] zoom_labels = new String[zoom_keys.length];
+            for (int i = 0; i < zoom_keys.length; i++) {
+                zoom_labels[i] = Translator.translate(zoom_keys[i]);
+            }
+
+            final JLabel zoom_text = new JLabel(Translator.translate("settings.efecto_acercar") + ":");
+            final javax.swing.JComboBox<String> zoom_combo = new javax.swing.JComboBox<>(zoom_labels);
+
+            // Selecciona la opción cuyo porcentaje guardado sea el más cercano (por defecto Desactivado).
+            int sel = 0, best = Integer.MAX_VALUE;
+            for (int i = 0; i < acercar_pct.length; i++) {
+                int d = Math.abs(acercar_pct[i] - GameFrame.CARD_FLIP_ZOOM);
+                if (d < best) {
+                    best = d;
+                    sel = i;
+                }
+            }
+            zoom_combo.setSelectedIndex(sel);
+            zoom_combo.setMaximumSize(zoom_combo.getPreferredSize());
+            zoom_combo.addActionListener(e -> {
+                int pct = acercar_pct[zoom_combo.getSelectedIndex()];
+                GameFrame.CARD_FLIP_ZOOM = pct;
+                persist("card_flip_zoom", String.valueOf(pct));
+            });
+            Helpers.setTranslatedToolTip(zoom_combo, "tooltip.cfg.card_flip_zoom");
+
+            // Habilitado solo si el maestro de animaciones Y el checkbox "Cartas" están activos.
+            Runnable updateZoomEnabled = () -> {
+                boolean on = anim_master.isSelected() && cartas_cb.isSelected();
+                zoom_combo.setEnabled(on);
+                zoom_text.setEnabled(on);
+            };
+            anim_master.addActionListener(e -> updateZoomEnabled.run());
+            cartas_cb.addActionListener(e -> updateZoomEnabled.run());
+            updateZoomEnabled.run();
+
+            JPanel zoom_row = naturalRow();
+            zoom_row.add(Box.createHorizontalStrut(36)); // mismo sangrado que la velocidad
+            zoom_row.add(new JLabel(icon("/images/menu/zoom_in.png")));
+            zoom_row.add(zoom_text);
+            zoom_row.add(zoom_combo);
+            addLeft(anim, zoom_row);
+        }
         addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
                 gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas",
@@ -515,7 +566,8 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen
-                || GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration;
+                || GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration
+                || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom;
     }
 
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al
@@ -616,6 +668,12 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
             Helpers.savePropertiesFile();
         }
+        // Efecto acercar: mismo camino que la velocidad (sin item de menú ni efecto en vivo).
+        if (GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom) {
+            GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
+            Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
+            Helpers.savePropertiesFile();
+        }
     }
 
     // Revert FUERA DE PARTIDA: re-persiste cada preferencia a su snapshot (sin efecto en
@@ -642,6 +700,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.ANIMACION_CONTADORES_PREF = snap_anim_contadores;
         GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = snap_anim_cascada_overlay;
         GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
+        GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
 
         Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(snap_zoom_level));
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(snap_vista_compacta));
@@ -660,6 +719,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(snap_anim_contadores));
         Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
         Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
+        Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
         Helpers.savePropertiesFile();
 
         if (tapete_changed) {

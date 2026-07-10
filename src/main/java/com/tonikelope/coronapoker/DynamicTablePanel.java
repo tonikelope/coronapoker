@@ -267,25 +267,27 @@ public class DynamicTablePanel extends TablePanel {
             }
         }
 
-        // Comunitarias: SIEMPRE centradas en la mesa, pero por su FILA DE CARTAS, no
-        // por los bounds del panel. El CommunityCardsPanel es más ancho que las
-        // cartas (lleva el bote y los controles) y las cartas van alineadas a la
-        // izquierda dentro de él, así que centrar los bounds del panel dejaba las
-        // cartas desplazadas. Colocamos el panel de forma que el CENTRO de su
-        // cards_panel caiga en (W/2, H/2).
+        // Comunitarias: SIEMPRE centradas en la mesa por su FILA DE CARTAS, no por los
+        // bounds del panel. El CommunityCardsPanel es más ancho que las cartas (lleva el
+        // bote y los controles) y las cartas van alineadas a la IZQUIERDA dentro de él,
+        // así que centrar los bounds del panel dejaba las cartas desplazadas. Colocamos
+        // el panel de forma que el CENTRO de su cards_panel caiga en (W/2, H/2).
         //
-        // IDEMPOTENTE a propósito: durante las cinemáticas de acción (vuelos de
-        // fichas que añaden/quitan componentes) se dispara doLayout() del tapete
-        // repetidamente. Por eso NO se mueve el panel a un provisional (0,0) —eso
-        // provocaba parpadeos sobre el bote— sino que solo se ajusta el TAMAÑO (sin
-        // cambiar la ubicación), solo se relayoutea cuando el tamaño cambia, y solo
-        // se hace setBounds si la posición final difiere de la actual (si no, no-op
-        // y no hay repintado).
+        // CLAVE (por qué NO hay bucle NI transitorio): el offset de la fila de cartas
+        // dentro del panel es POSICIÓN- y ANCHO-INDEPENDIENTE (las cartas van pegadas a
+        // la izquierda: su offset = margen_izq + ancho_cartas/2, no depende del ancho
+        // TOTAL del panel, que es lo que crece/mengua cuando el botón PAUSAR cambia). Por
+        // eso se puede LEER del layout que Swing ya calculó, aunque el panel acabe de
+        // cambiar de tamaño, y sigue siendo correcto. NUNCA se fuerza community.doLayout()
+        // aquí: hacerlo re-colocaba los hijos a media pasada, el preferred size oscilaba
+        // y colgaba el EDT al pausar (bucle infinito → cuelgue total en pantalla completa).
+        //
+        // doLayout es IDEMPOTENTE por diseño: no toca el preferred de nadie, y el setBounds
+        // de abajo solo dispara cuando algo cambió de verdad; un cambio de POSICIÓN no
+        // invalida (Component.reshape solo invalida al redimensionar), y el TAMAÑO solo
+        // cambia cuando cambia el preferred (evento puntual: zoom, pausa), que se estabiliza
+        // en una pasada. Por tanto no puede realimentarse a sí mismo → no hay bucle posible.
         Dimension cd = community.getPreferredSize();
-        if (community.getWidth() != cd.width || community.getHeight() != cd.height) {
-            community.setSize(cd.width, cd.height);
-            community.doLayout();
-        }
         double off_x = cd.width / 2.0;
         double off_y = cd.height / 2.0;
         JPanel cards = community.getCards_panel();

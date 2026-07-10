@@ -594,24 +594,25 @@ public class AppearanceSettingsPanel extends JPanel {
         addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
                 gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v));
 
-        // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
-        // alineadas arriba a la izquierda; el hueco sobrante cae limpio a la derecha y
-        // abajo (mismo patrón que la pestaña Partida) sin estirar ni recortar los
-        // subpaneles.
-        pantalla.setAlignmentY(JComponent.TOP_ALIGNMENT);
+        // Fila Animaciones | (Mesa sobre Pantalla) a su ALTO NATURAL en el NORTE, alineadas arriba
+        // a la izquierda. Animaciones (la columna más alta desde que agrupa Barajado/Reparto/Destapar)
+        // va SOLA a la izquierda y las dos más bajas (Mesa y Pantalla) se apilan a la derecha, para
+        // equilibrar alturas y que el diálogo quede menos alto. El hueco sobrante cae a la derecha y
+        // abajo (mismo patrón que la pestaña Partida) sin estirar ni recortar los subpaneles.
+        anim.setAlignmentY(JComponent.TOP_ALIGNMENT);
         mesa.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        anim.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        pantalla.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         JPanel right_inner = new JPanel();
         right_inner.setLayout(new BoxLayout(right_inner, BoxLayout.Y_AXIS));
         right_inner.setAlignmentY(JComponent.TOP_ALIGNMENT);
         right_inner.add(mesa);
         right_inner.add(Box.createVerticalStrut(10));
-        right_inner.add(anim);
+        right_inner.add(pantalla);
 
         JPanel row = new JPanel();
         row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
-        row.add(pantalla);
+        row.add(anim);
         row.add(Box.createHorizontalStrut(12));
         row.add(right_inner);
 

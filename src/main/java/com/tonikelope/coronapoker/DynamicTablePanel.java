@@ -57,13 +57,27 @@ public class DynamicTablePanel extends TablePanel {
     // Pequeño: los asientos van PEGADOS a los bordes (como los tableros fijos).
     private static final int EDGE_MARGIN = 8;
 
-    // Sesgo de reparto hacia los bordes LATERALES (izquierdo/derecho) frente al
-    // superior. En una pantalla apaisada el borde superior es mucho más largo que
-    // los laterales, así que un reparto por longitud pura amontonaría los asientos
-    // arriba. Con este factor (>1) los laterales "pesan" más y atraen más asientos,
-    // reproduciendo el reparto de los tableros fijos (p.ej. 6 jugadores → 2 izq / 1
-    // arriba / 2 dcha; 10 → 3/3/3).
-    private static final double SIDE_BIAS = 1.6;
+    // Hueco (px) entre la columna lateral y el primer asiento de la fila superior,
+    // para que no se solapen en las esquinas.
+    private static final int SEAT_GAP = 14;
+
+    // Reparto de los asientos REMOTOS por número de jugadores (índice = nº de
+    // jugadores 2..10): {columna_izquierda, fila_superior, columna_derecha}. Extraído
+    // de los 9 tableros fijos originales (TablePanel2..TablePanel10) para reproducir
+    // su disposición exacta. Es simétrico (izquierda = derecha). La suma es siempre
+    // nº de jugadores − 1 (todos los remotos).
+    private static final int[][] SEAT_DISTRIBUTION = {
+        null, null, // 0 y 1 no se usan
+        {0, 1, 0}, // 2:  1 arriba
+        {1, 0, 1}, // 3:  1 izq, 1 dcha
+        {1, 1, 1}, // 4:  1 izq, 1 arriba, 1 dcha
+        {1, 2, 1}, // 5:  1 izq, 2 arriba, 1 dcha
+        {2, 1, 2}, // 6:  2 izq, 1 arriba, 2 dcha
+        {2, 2, 2}, // 7:  2 izq, 2 arriba, 2 dcha
+        {2, 3, 2}, // 8:  2 izq, 3 arriba, 2 dcha
+        {3, 2, 3}, // 9:  3 izq, 2 arriba, 3 dcha
+        {3, 3, 3}, // 10: 3 izq, 3 arriba, 3 dcha
+    };
 
     private volatile CommunityCardsPanel communityCards;
     private volatile LocalPlayer localPlayer;
@@ -168,65 +182,82 @@ public class DynamicTablePanel extends TablePanel {
         local.setBounds((int) Math.round(cx - ld.width / 2.0),
                 H - EDGE_MARGIN - ld.height, ld.width, ld.height);
 
-        final int remotes = s.length - 1;
+        final int n = s.length;
+        final int remotes = n - 1;
         if (remotes <= 0) {
             return;
         }
 
-        // Tamaño nominal de un asiento remoto (son todos iguales) para trazar el
-        // recorrido en "U" por el que se reparten. Se lee en cada layout, así que
-        // respeta el zoom automáticamente.
+        // Reparto de los remotos por bordes según el tablero original de N jugadores.
+        int[] dist = (n < SEAT_DISTRIBUTION.length) ? SEAT_DISTRIBUTION[n] : null;
+        if (dist == null) {
+            return;
+        }
+        final int left = dist[0];
+        final int top = dist[1];
+        final int right = dist[2];
+
+        // Tamaño nominal de un asiento remoto (son todos iguales); se lee en cada
+        // layout, así que respeta el zoom automáticamente.
         Dimension rd = ((JPanel) s[1]).getPreferredSize();
         final double half_w = rd.width / 2.0;
         final double half_h = rd.height / 2.0;
 
-        // Coordenadas de los CENTROS de asiento sobre los tres bordes.
-        final double x_left = EDGE_MARGIN + half_w;          // columna izquierda
-        final double x_right = W - EDGE_MARGIN - half_w;     // columna derecha
-        final double y_top = EDGE_MARGIN + half_h;           // fila superior
-        final double y_bottom = H - EDGE_MARGIN - half_h;    // fondo de las columnas
+        // Banda vertical de las columnas laterales (de arriba a abajo, pegadas) y
+        // banda horizontal de la fila superior (pegada arriba, retranqueada tras las
+        // columnas para no chocar en las esquinas).
+        final double y1 = EDGE_MARGIN + half_h;
+        final double y2 = H - EDGE_MARGIN - half_h;
+        final double span_y = Math.max(1.0, y2 - y1);
 
-        // Longitudes reales de cada tramo del recorrido (izq ↑, arriba →, dcha ↓).
-        final double side_len = Math.max(1.0, y_bottom - y_top);
-        final double top_len = Math.max(1.0, x_right - x_left);
+        final double x_col_left = EDGE_MARGIN + half_w;
+        final double x_col_right = W - EDGE_MARGIN - half_w;
+        final double tx1 = (left > 0) ? x_col_left + 2 * half_w + SEAT_GAP : x_col_left;
+        final double tx2 = (right > 0) ? x_col_right - 2 * half_w - SEAT_GAP : x_col_right;
+        final double span_x = Math.max(1.0, tx2 - tx1);
 
-        // Longitudes "efectivas" para el REPARTO: los laterales pesan más (SIDE_BIAS)
-        // para que atraigan más asientos que el largo borde superior.
-        final double eff_side = side_len * SIDE_BIAS;
-        final double eff_top = top_len;
-        final double eff_total = eff_side + eff_top + eff_side;
+        // Los remotos van en ORDEN del array (r1, r2, ...) recorriendo el anillo en
+        // sentido antihorario desde el local: primero la columna IZQUIERDA de abajo
+        // hacia arriba, luego la fila SUPERIOR de izquierda a derecha, y por último
+        // la columna DERECHA de arriba hacia abajo. Reproduce el orden de los
+        // tableros fijos.
+        int idx = 1;
 
-        for (int k = 0; k < remotes; k++) {
-
-            // Posición del asiento a lo largo del recorrido efectivo (centrada en su
-            // hueco → simétrico izquierda/derecha respecto al centro superior).
-            double eff_dist = ((k + 0.5) / remotes) * eff_total;
-
-            JPanel panel = (JPanel) s[k + 1];
-            Dimension d = panel.getPreferredSize();
-            double seat_cx;
-            double seat_cy;
-
-            if (eff_dist <= eff_side) {
-                // Borde IZQUIERDO, de abajo hacia arriba. Pegado a la izquierda.
-                double frac = eff_dist / eff_side;
-                seat_cx = EDGE_MARGIN + d.width / 2.0;
-                seat_cy = y_bottom - frac * side_len;
-            } else if (eff_dist <= eff_side + eff_top) {
-                // Borde SUPERIOR, de izquierda a derecha. Pegado arriba.
-                double along = eff_dist - eff_side;
-                seat_cx = x_left + along;
-                seat_cy = EDGE_MARGIN + d.height / 2.0;
-            } else {
-                // Borde DERECHO, de arriba hacia abajo. Pegado a la derecha.
-                double frac = (eff_dist - eff_side - eff_top) / eff_side;
-                seat_cx = W - EDGE_MARGIN - d.width / 2.0;
-                seat_cy = y_top + frac * side_len;
-            }
-
-            panel.setBounds((int) Math.round(seat_cx - d.width / 2.0),
-                    (int) Math.round(seat_cy - d.height / 2.0), d.width, d.height);
+        // Columna IZQUIERDA (de abajo hacia arriba).
+        for (int j = 0; j < left; j++) {
+            double frac = (j + 0.5) / left; // 0 = abajo del todo
+            double seat_cy = y2 - frac * span_y;
+            placeSeat((JPanel) s[idx++], EDGE_MARGIN, seat_cy, true);
         }
+
+        // Fila SUPERIOR (de izquierda a derecha).
+        for (int j = 0; j < top; j++) {
+            double frac = (top == 1) ? 0.5 : (j + 0.5) / top;
+            double seat_cx = tx1 + frac * span_x;
+            placeSeatTop((JPanel) s[idx++], seat_cx, EDGE_MARGIN);
+        }
+
+        // Columna DERECHA (de arriba hacia abajo).
+        for (int j = 0; j < right; j++) {
+            double frac = (j + 0.5) / right; // 0 = arriba del todo
+            double seat_cy = y1 + frac * span_y;
+            placeSeat((JPanel) s[idx++], EDGE_MARGIN, seat_cy, false);
+        }
+    }
+
+    // Coloca un asiento de columna lateral pegado al borde izquierdo (left=true) o
+    // derecho (left=false), centrado verticalmente en seat_cy.
+    private void placeSeat(JPanel panel, int margin, double seat_cy, boolean left) {
+        Dimension d = panel.getPreferredSize();
+        int x = left ? margin : (getWidth() - margin - d.width);
+        panel.setBounds(x, (int) Math.round(seat_cy - d.height / 2.0), d.width, d.height);
+    }
+
+    // Coloca un asiento de la fila superior pegado al borde de arriba, centrado
+    // horizontalmente en seat_cx.
+    private void placeSeatTop(JPanel panel, double seat_cx, int margin) {
+        Dimension d = panel.getPreferredSize();
+        panel.setBounds((int) Math.round(seat_cx - d.width / 2.0), margin, d.width, d.height);
     }
 
     // Tras el zoom, los asientos cambian de tamaño preferido: forzamos una

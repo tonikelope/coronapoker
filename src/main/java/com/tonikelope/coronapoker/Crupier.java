@@ -8700,13 +8700,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean animacion = GameFrame.repartoAnimOn();
 
-        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (GameFrame.REPARTO_VELOCIDAD / 100f) * (2f / this.getJugadoresActivos())));
+        // Base histórica (SIN velocidad de reparto) de la pausa entre cartas y de la duración del
+        // vuelo, cada una con su suelo (100 / 150) para que el arco se lea aún en mesa llena.
+        int pausa_base = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
+        int flight_base = Math.max(150, pausa_base);
 
-        // Duración del vuelo de cada carta tapada (centro→asiento). Escala con
-        // el nº de jugadores como la pausa pero con un suelo más alto para que
-        // el arco se lea aún en mesa llena. El vuelo es bloqueante, así que en
-        // modo animación sustituye a la pausa entre cartas.
-        int flight_dur = Math.max(150, pausa);
+        // Velocidad de reparto configurable: escala la base YA CON SU SUELO. Aplicar el factor aquí
+        // (y no antes del suelo) es lo que hace que se note también en mesa llena: con muchos
+        // jugadores la base cae al suelo y, si el factor se aplicaba antes, quedaba aplastado por el
+        // max(). Normal (100) = base EXACTA; Lento (150) más lento; Rápido (60) más rápido. El vuelo
+        // es bloqueante, así que en modo animación flight_dur sustituye a la pausa entre cartas.
+        float vel = GameFrame.REPARTO_VELOCIDAD / 100f;
+        int pausa = Math.max(60, Math.round(pausa_base * vel));
+        int flight_dur = Math.max(80, Math.round(flight_base * vel));
 
         // Straddle voluntario: si el jugador LOCAL es el UTG en una mano fresca con
         // straddle activo, sus dos hole cards se reparten BOCA ABAJO y NO se revelan
@@ -11200,9 +11206,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Re-reparto animado: un beat con el hueco vacío para que el rewind se
         // lea, y cada corrida vuelve boca abajo VOLANDO desde el dealer (mismo
-        // sistema/velocidad que repartir()).
-        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (GameFrame.REPARTO_VELOCIDAD / 100f) * (2f / this.getJugadoresActivos())));
-        int flight_dur = Math.max(150, pausa);
+        // sistema/velocidad que repartir(): base con suelo + factor de velocidad tras el suelo).
+        int pausa_base = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
+        int flight_base = Math.max(150, pausa_base);
+        float vel = GameFrame.REPARTO_VELOCIDAD / 100f;
+        int pausa = Math.max(60, Math.round(pausa_base * vel));
+        int flight_dur = Math.max(80, Math.round(flight_base * vel));
         final Card deal_origin = getDealerSeatAnchor();
 
         Helpers.pausar(pausa);

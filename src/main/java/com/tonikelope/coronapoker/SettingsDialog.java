@@ -135,10 +135,6 @@ public class SettingsDialog extends JDialog {
                 waiting_panel.applyToGame();
             }
             appearance_panel.applyPendingDisplayMode();
-            // Un cambio de baraja o zoom aquí puede dejar la caché HD de giro sin
-            // generar para la combinación nueva: la comprueba y adelanta su
-            // generación (no-op si ya está en disco o es el zoom por defecto).
-            Crupier.warmCardFlipHQCache();
             dispose();
         });
 

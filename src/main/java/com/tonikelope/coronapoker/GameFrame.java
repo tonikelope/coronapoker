@@ -173,6 +173,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean THINK_TIME_ENABLED = true;
     public static final int THINK_TIME_MIN = 10;  // segundos (tope inferior del spinner + clamp)
     public static final int THINK_TIME_MAX = 120; // segundos (tope superior del spinner + clamp)
+    // Duración (ms) de la animación de destape de carta (render Swing, CardFlipAnimator).
+    public static final int DEFAULT_CARD_FLIP_DURATION = 620; // ~ la del GIF antiguo (31 frames x 20 ms)
+    public static final int CARD_FLIP_DURATION_MIN = 150;
+    public static final int CARD_FLIP_DURATION_MAX = 1500;
+    public static volatile int CARD_FLIP_DURATION = Integer.parseInt(Helpers.PROPERTIES.getProperty("card_flip_duration", String.valueOf(DEFAULT_CARD_FLIP_DURATION)));
     public static final int HURRYUP_WARNING_SECONDS = 10; // aviso "date prisa" (bocina + parpadeo) cuando quedan estos segundos
 
     // Umbral efectivo del aviso hurryup en segundos restantes. El contador de accion arranca en
@@ -203,6 +208,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
+    // Trasera de las cartas: "default" (sigue a la baraja actual) o el nombre de otra
+    // baraja cuyo dorso se usa. Al ser "default" el que sigue a la baraja, no hace falta
+    // resetear nada al cambiar de baraja.
+    public static volatile String TRASERA = Helpers.PROPERTIES.getProperty("trasera", "default");
     public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 3;
     // Efectos de animación, con granularidad: reparto/destapes de cartas, fichas de
     // posición (ciegas+dealer), ficha al bote (apuestas) y el rodaje de los contadores
@@ -1593,6 +1602,34 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // caché es de una sola entrada: reemplaza y libera la anterior)
         Crupier.warmShuffleAnimCache();
 
+    }
+
+    // Aplica en vivo una trasera nueva (ajuste GLOBAL, independiente de la baraja):
+    // persiste, invalida la caché del giro y refresca el dorso + las cartas tapadas
+    // de la mesa (mismo refresco de cartas que cambiarBaraja).
+    public void setTrasera(String t) {
+
+        GameFrame.TRASERA = t;
+        Helpers.PROPERTIES.setProperty("trasera", t);
+        Helpers.savePropertiesFile();
+        CardFlipAnimator.clearCache();
+
+        Helpers.threadRun(() -> {
+
+            Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
+
+            for (Player jugador : tapete.getPlayers()) {
+                jugador.getHoleCard1().invalidateImagePrecache();
+                jugador.getHoleCard1().refreshCard();
+                jugador.getHoleCard2().invalidateImagePrecache();
+                jugador.getHoleCard2().refreshCard();
+            }
+
+            for (Card carta : this.tapete.getCommunityCards().getCartasComunes()) {
+                carta.invalidateImagePrecache();
+                carta.refreshCard();
+            }
+        });
     }
 
     public void vistaCompacta() {
@@ -3524,8 +3561,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.SQLITEVAC();
 
                 Helpers.closeSQLITE();
-
-                Helpers.cleanGifsicleFiles();
 
                 KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 

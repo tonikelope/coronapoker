@@ -90,6 +90,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final int snap_zoom_level;
     private final int snap_vista_compacta;
     private final String snap_baraja;
+    private final String snap_trasera;
     private final String snap_color_tapete;
     private final boolean snap_auto_zoom;
     private final boolean snap_show_clock;
@@ -103,6 +104,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_animaciones;
     private final boolean snap_chat_images;
     private final boolean snap_fullscreen;
+    private final int snap_card_flip_duration;
 
     public AppearanceSettingsPanel() {
 
@@ -114,6 +116,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_zoom_level = GameFrame.ZOOM_LEVEL;
         snap_vista_compacta = GameFrame.VISTA_COMPACTA;
         snap_baraja = GameFrame.BARAJA;
+        snap_trasera = GameFrame.TRASERA;
         snap_color_tapete = GameFrame.COLOR_TAPETE;
         snap_auto_zoom = GameFrame.AUTO_ZOOM;
         snap_show_clock = GameFrame.SHOW_CLOCK;
@@ -131,6 +134,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
+        snap_card_flip_duration = GameFrame.CARD_FLIP_DURATION;
 
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
@@ -212,11 +216,12 @@ public class AppearanceSettingsPanel extends JPanel {
         // ---------------- Mesa ----------------
         JPanel mesa = titledColumn("settings.apariencia_mesa");
 
-        // Baraja: combo con las barajas disponibles (incluye las de MODs). En partida delega
-        // en el item de radio del submenú de barajas con ese nombre (recarga las imágenes);
-        // fuera de partida solo persiste la preferencia.
         List<String> decks = new ArrayList<>(Card.BARAJAS.keySet());
         Collections.sort(decks);
+
+        // Baraja: combo con las barajas disponibles (incluye las de MODs). En partida delega
+        // en el item de radio del submenú de barajas (recarga las imágenes); fuera de partida
+        // persiste y reconstruye las imágenes estáticas (así la trasera "default" queda bien).
         JComboBox<String> baraja_combo = new JComboBox<>(decks.toArray(new String[0]));
         baraja_combo.setSelectedItem(GameFrame.BARAJA);
         baraja_combo.addActionListener(e -> {
@@ -235,10 +240,53 @@ public class AppearanceSettingsPanel extends JPanel {
                 } else {
                     GameFrame.BARAJA = sel;
                     persist("baraja", sel);
+                    Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
                 }
             }
         });
-        addLeft(mesa, labeledRow("/images/menu/baraja.png", "menu.barajas", baraja_combo));
+        addLeft(mesa, labeledRow("/images/menu/baraja.png", "settings.baraja", baraja_combo));
+
+        // Trasera: "default" (sigue a la baraja actual) + una opción por cada baraja (juego o
+        // mod) para usar su dorso con otras caras. Va con SANGRÍA bajo "Baraja". En partida
+        // aplica en vivo (refresca el dorso); fuera persiste y reconstruye el dorso estático.
+        List<String> traseras = new ArrayList<>();
+        traseras.add("default");
+        traseras.addAll(decks);
+        JComboBox<String> trasera_combo = new JComboBox<>(traseras.toArray(new String[0]));
+        // El VALOR interno sigue siendo "default" (persistencia), pero se muestra traducido.
+        trasera_combo.setRenderer(new javax.swing.DefaultListCellRenderer() {
+            @Override
+            public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                java.awt.Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if ("default".equals(value)) {
+                    setText(Translator.translate("settings.trasera_default"));
+                }
+                return c;
+            }
+        });
+        trasera_combo.setSelectedItem(Card.BARAJAS.containsKey(GameFrame.TRASERA) ? GameFrame.TRASERA : "default");
+        trasera_combo.addActionListener(e -> {
+            if (building) {
+                return;
+            }
+            String sel = (String) trasera_combo.getSelectedItem();
+            if (sel != null && !sel.equals(GameFrame.TRASERA)) {
+                if (gf != null) {
+                    gf.setTrasera(sel);
+                } else {
+                    GameFrame.TRASERA = sel;
+                    persist("trasera", sel);
+                    Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
+                }
+            }
+        });
+        JPanel trasera_row = naturalRow();
+        trasera_row.add(Box.createHorizontalStrut(24)); // sangría: cuelga de "Baraja"
+        JLabel trasera_label = new JLabel(Translator.translate("settings.trasera") + ":");
+        trasera_label.setIcon(icon("/images/menu/baraja.png"));
+        trasera_row.add(trasera_label);
+        trasera_row.add(trasera_combo);
+        addLeft(mesa, trasera_row);
 
         // Tapete: combo con los 5 colores; en partida delega en el radio correspondiente
         // (refresca la mesa); fuera de partida persiste el color base y refresca al vuelo el
@@ -284,7 +332,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 refreshLauncherTapete();
             }
         });
-        addLeft(mesa, labeledRow("/images/menu/tapetes.png", "menu.tapetes", tapete_combo));
+        addLeft(mesa, labeledRow("/images/menu/tapetes.png", "settings.tapete", tapete_combo));
 
         addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK,
                 gf != null ? gf.getTime_menu() : null,
@@ -336,6 +384,59 @@ public class AppearanceSettingsPanel extends JPanel {
                 gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_reparto",
                 gf != null ? gf.getAnim_reparto_menu() : null, "animacion_reparto", v -> GameFrame.ANIMACION_REPARTO_PREF = v));
+        // Referencia al checkbox "Cartas" recién registrado (el último de anim_sub_cb) para
+        // gobernar la habilitación del slider de duración que cuelga de él.
+        final JCheckBox cartas_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Velocidad del destape: 5 opciones (muy lenta ... muy rápida). "Normal" es el valor
+        // por defecto exacto. Cuelga (más sangrado) del ajuste "Cartas": se deshabilita si se
+        // desmarca "Cartas" o el maestro. Guarda la duración en ms (GameFrame.CARD_FLIP_DURATION).
+        {
+            final int[] speed_ms = {1100, 850, GameFrame.DEFAULT_CARD_FLIP_DURATION, 480, 350}; // muy lenta -> muy rápida
+            final String[] speed_keys = {"settings.destape_muy_lenta", "settings.destape_lenta",
+                "settings.destape_normal", "settings.destape_rapida", "settings.destape_muy_rapida"};
+            final String[] speed_labels = new String[speed_keys.length];
+            for (int i = 0; i < speed_keys.length; i++) {
+                speed_labels[i] = Translator.translate(speed_keys[i]);
+            }
+
+            final JLabel flip_text = new JLabel(Translator.translate("settings.velocidad_destape") + ":");
+            final javax.swing.JComboBox<String> speed_combo = new javax.swing.JComboBox<>(speed_labels);
+
+            // Selecciona la opción cuyo ms guardado sea el más cercano (por defecto Normal).
+            int sel = 2, best = Integer.MAX_VALUE;
+            for (int i = 0; i < speed_ms.length; i++) {
+                int d = Math.abs(speed_ms[i] - GameFrame.CARD_FLIP_DURATION);
+                if (d < best) {
+                    best = d;
+                    sel = i;
+                }
+            }
+            speed_combo.setSelectedIndex(sel);
+            speed_combo.setMaximumSize(speed_combo.getPreferredSize());
+            speed_combo.addActionListener(e -> {
+                int ms = speed_ms[speed_combo.getSelectedIndex()];
+                GameFrame.CARD_FLIP_DURATION = ms;
+                persist("card_flip_duration", String.valueOf(ms));
+            });
+            Helpers.setTranslatedToolTip(speed_combo, "tooltip.cfg.card_flip_duration");
+
+            // Habilitado solo si el maestro de animaciones Y el checkbox "Cartas" están activos.
+            Runnable updateFlipEnabled = () -> {
+                boolean on = anim_master.isSelected() && cartas_cb.isSelected();
+                speed_combo.setEnabled(on);
+                flip_text.setEnabled(on);
+            };
+            anim_master.addActionListener(e -> updateFlipEnabled.run());
+            cartas_cb.addActionListener(e -> updateFlipEnabled.run());
+            updateFlipEnabled.run();
+
+            JPanel flip_row = naturalRow();
+            flip_row.add(Box.createHorizontalStrut(36)); // más sangrado: cuelga de "Cartas"
+            flip_row.add(new JLabel(icon("/images/menu/clock.png")));
+            flip_row.add(flip_text);
+            flip_row.add(speed_combo);
+            addLeft(anim, flip_row);
+        }
         addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
                 gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas",
@@ -400,6 +501,7 @@ public class AppearanceSettingsPanel extends JPanel {
         return GameFrame.ZOOM_LEVEL != snap_zoom_level
                 || GameFrame.VISTA_COMPACTA != snap_vista_compacta
                 || !snap_baraja.equals(GameFrame.BARAJA)
+                || !snap_trasera.equals(GameFrame.TRASERA)
                 || !snap_color_tapete.equals(GameFrame.COLOR_TAPETE)
                 || GameFrame.AUTO_ZOOM != snap_auto_zoom
                 || GameFrame.SHOW_CLOCK != snap_show_clock
@@ -412,7 +514,8 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("animacion_cascada_overlay", false) != snap_anim_cascada_overlay
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
-                || pending_fullscreen != snap_fullscreen;
+                || pending_fullscreen != snap_fullscreen
+                || GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration;
     }
 
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al
@@ -438,6 +541,9 @@ public class AppearanceSettingsPanel extends JPanel {
         }
         if (!snap_baraja.equals(GameFrame.BARAJA)) {
             selectBaraja(gf, snap_baraja);
+        }
+        if (!snap_trasera.equals(GameFrame.TRASERA)) {
+            gf.setTrasera(snap_trasera);
         }
         if (!snap_color_tapete.equals(GameFrame.COLOR_TAPETE)) {
             selectTapete(gf, snap_color_tapete);
@@ -503,6 +609,13 @@ public class AppearanceSettingsPanel extends JPanel {
         if (GameFrame.CHAT_IMAGES_INGAME != snap_chat_images) {
             gf.getChat_image_menu().doClick();
         }
+        // Velocidad del destape: sin item de menú (como el overlay de cascada), se revierte
+        // fijando el flag + re-persistiendo el snapshot.
+        if (GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration) {
+            GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
+            Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
+            Helpers.savePropertiesFile();
+        }
     }
 
     // Revert FUERA DE PARTIDA: re-persiste cada preferencia a su snapshot (sin efecto en
@@ -515,6 +628,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.ZOOM_LEVEL = snap_zoom_level;
         GameFrame.VISTA_COMPACTA = snap_vista_compacta;
         GameFrame.BARAJA = snap_baraja;
+        GameFrame.TRASERA = snap_trasera;
         GameFrame.COLOR_TAPETE = snap_color_tapete;
         GameFrame.AUTO_ZOOM = snap_auto_zoom;
         GameFrame.SHOW_CLOCK = snap_show_clock;
@@ -527,10 +641,12 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.ANIMACION_APUESTAS_PREF = snap_anim_apuestas;
         GameFrame.ANIMACION_CONTADORES_PREF = snap_anim_contadores;
         GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = snap_anim_cascada_overlay;
+        GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
 
         Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(snap_zoom_level));
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(snap_vista_compacta));
         Helpers.PROPERTIES.setProperty("baraja", snap_baraja);
+        Helpers.PROPERTIES.setProperty("trasera", snap_trasera);
         Helpers.PROPERTIES.setProperty("color_tapete", snap_color_tapete);
         Helpers.PROPERTIES.setProperty("auto_zoom", String.valueOf(snap_auto_zoom));
         Helpers.PROPERTIES.setProperty("show_time", String.valueOf(snap_show_clock));
@@ -543,6 +659,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("animacion_apuestas", String.valueOf(snap_anim_apuestas));
         Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(snap_anim_contadores));
         Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
+        Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
         Helpers.savePropertiesFile();
 
         if (tapete_changed) {

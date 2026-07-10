@@ -55,6 +55,9 @@ import javax.swing.SwingUtilities;
 public class Card extends JLayeredPane implements ZoomableInterface, Comparable {
 
     public final static ConcurrentHashMap<String, Object[]> BARAJAS = new ConcurrentHashMap<>(Map.ofEntries(new HashMap.SimpleEntry<>("coronapoker", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("interstate60", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat4", new Object[]{1.345f, false, null})));
+    // La trasera es un ajuste GLOBAL que guarda el NOMBRE DE LA BARAJA cuyo dorso
+    // (trasera.jpg) se usa (juego o mod). Por defecto sigue a la baraja elegida
+    // (reset al cambiar de baraja), pero se puede cambiar a la de otra baraja.
     public final static int DEFAULT_HEIGHT = 200;
     public final static String[] PALOS = {"P", "C", "T", "D"};
     public final static String PALOS_STRING = "PCTD";
@@ -153,6 +156,18 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return compactable;
     }
 
+    public static int getCardWidth() {
+        return CARD_WIDTH;
+    }
+
+    public static int getCardHeight() {
+        return CARD_HEIGHT;
+    }
+
+    public static int getCardCorner() {
+        return CARD_CORNER;
+    }
+
     public static synchronized void updateCachedImages(float zoom, boolean force) {
 
         if (force || CURRENT_ZOOM != zoom) {
@@ -166,8 +181,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             GLOBAL_FRONT_CACHE.clear();
             GLOBAL_DISABLED_CACHE.clear();
 
-            IMAGEN_TRASERA = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
-            IMAGEN_TRASERA_B = createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
+            IMAGEN_TRASERA = createBackImageIcon(false);
+            IMAGEN_TRASERA_B = createBackImageIcon(true);
             IMAGEN_JOKER = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/joker.jpg");
             IMAGEN_RABBIT_HUNTING = createRabbitCardImageIcon("/images/bugs2.png");
             IMAGEN_RABBIT_HUNTING_B = createRabbitCardImageIcon("/images/bugs2_b.png");
@@ -267,6 +282,56 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     // aparecer en el asiento, de modo que el relevo viajera→asiento es idéntico.
     public static ImageIcon getBackImage() {
         return IMAGEN_TRASERA;
+    }
+
+    // Carga la trasera seleccionada (GameFrame.TRASERA), escalada y redondeada al
+    // tamaño de carta vigente. Del juego (recurso back/) o de un mod
+    // ("mod-{baraja}" -> mod/decks/{baraja}/trasera.jpg). disabled la dessatura.
+    private static ImageIcon createBackImageIcon(boolean disabled) {
+
+        java.awt.image.BufferedImage rounded = Helpers.makeImageRoundedCorner(
+                new ImageIcon(loadTraseraSource().getScaledInstance(CARD_WIDTH, CARD_HEIGHT, Image.SCALE_SMOOTH)).getImage(), CARD_CORNER);
+
+        return disabled ? new ImageIcon(Helpers.desaturate(rounded, DISABLED_CARD_OPACITY)) : new ImageIcon(rounded);
+    }
+
+    // Imagen fuente (resolución nativa) de la trasera seleccionada. Del juego
+    // (recurso back/) o de un mod (mod/decks/{baraja}/trasera.jpg). Fallback: naranja.
+    private static Image loadTraseraSource() {
+        String baraja = GameFrame.TRASERA;
+        // "default" (o un valor que no sea una baraja conocida): la trasera SIGUE a la
+        // baraja actual. Así no hace falta resetear TRASERA al cambiar de baraja.
+        if (baraja == null || !BARAJAS.containsKey(baraja)) {
+            baraja = GameFrame.BARAJA;
+        }
+        boolean mod = false;
+        try {
+            mod = (boolean) ((Object[]) BARAJAS.get(baraja))[1];
+        } catch (Exception ignore) {
+        }
+        if (mod) {
+            String mod_path = Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/trasera.jpg";
+            if (Files.exists(Paths.get(mod_path))) {
+                return new ImageIcon(mod_path).getImage();
+            }
+        } else if (baraja != null) {
+            java.net.URL res = Card.class.getResource("/images/decks/" + baraja + "/trasera.jpg");
+            if (res != null) {
+                return new ImageIcon(res).getImage();
+            }
+        }
+        return new ImageIcon(Card.class.getResource("/images/decks/" + GameFrame.BARAJA_DEFAULT + "/trasera.jpg")).getImage();
+    }
+
+    // ImageIcon a resolución nativa de la trasera seleccionada (para el visor HQ).
+    public static ImageIcon traseraSourceIcon() {
+        return new ImageIcon(loadTraseraSource());
+    }
+
+    // Traseras para el desplegable de ajustes: una por baraja disponible (juego + mods),
+    // identificada por el nombre de la baraja. Misma fuente que el combo de barajas.
+    public static java.util.List<String> listTraseras() {
+        return new java.util.ArrayList<>(BARAJAS.keySet());
     }
 
     private static ImageIcon createCardImageIcon(String path) {

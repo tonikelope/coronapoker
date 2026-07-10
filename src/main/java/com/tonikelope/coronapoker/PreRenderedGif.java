@@ -73,6 +73,19 @@ public class PreRenderedGif {
         this.height = height;
     }
 
+    /**
+     * Construye un PreRenderedGif a partir de frames ya renderizados (p.ej. por
+     * {@link CardFlipAnimator}) repartiendo la duración total de forma uniforme.
+     * Reutiliza el mismo motor de reproducción catch-up que los GIF decodificados.
+     */
+    public static PreRenderedGif fromFrames(BufferedImage[] frames, int total_ms) {
+        long[] end = new long[frames.length];
+        for (int i = 0; i < frames.length; i++) {
+            end[i] = Math.round((i + 1) * (double) total_ms / frames.length);
+        }
+        return new PreRenderedGif(frames, end, frames[0].getWidth(), frames[0].getHeight());
+    }
+
     public int getFrameCount() {
         return frames.length;
     }

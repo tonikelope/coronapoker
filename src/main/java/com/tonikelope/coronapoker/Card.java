@@ -323,9 +323,39 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return new ImageIcon(Card.class.getResource("/images/decks/" + GameFrame.BARAJA_DEFAULT + "/trasera.jpg")).getImage();
     }
 
-    // ImageIcon a resolución nativa de la trasera seleccionada (para el visor HQ).
+    // Imagen fuente HQ (carpeta hq/) de la trasera seleccionada, para el visor. Del
+    // juego (/images/decks/{baraja}/hq/trasera.jpg) o de un mod
+    // (mod/decks/{baraja}/hq/trasera.jpg). Si no hay versión hq cae a la normal.
+    private static Image loadTraseraSourceHQ() {
+        String baraja = GameFrame.TRASERA;
+        // "default" (o un valor que no sea una baraja conocida): la trasera SIGUE a la
+        // baraja actual. Así no hace falta resetear TRASERA al cambiar de baraja.
+        if (baraja == null || !BARAJAS.containsKey(baraja)) {
+            baraja = GameFrame.BARAJA;
+        }
+        boolean mod = false;
+        try {
+            mod = (boolean) ((Object[]) BARAJAS.get(baraja))[1];
+        } catch (Exception ignore) {
+        }
+        if (mod) {
+            String mod_path = Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/hq/trasera.jpg";
+            if (Files.exists(Paths.get(mod_path))) {
+                return new ImageIcon(mod_path).getImage();
+            }
+        } else if (baraja != null) {
+            java.net.URL res = Card.class.getResource("/images/decks/" + baraja + "/hq/trasera.jpg");
+            if (res != null) {
+                return new ImageIcon(res).getImage();
+            }
+        }
+        // Sin versión hq (p. ej. un mod que no la trae): usamos la normal.
+        return loadTraseraSource();
+    }
+
+    // ImageIcon a alta resolución de la trasera seleccionada (para el visor HQ).
     public static ImageIcon traseraSourceIcon() {
-        return new ImageIcon(loadTraseraSource());
+        return new ImageIcon(loadTraseraSourceHQ());
     }
 
     // Traseras para el desplegable de ajustes: una por baraja disponible (juego + mods),

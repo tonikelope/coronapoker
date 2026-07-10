@@ -36,34 +36,12 @@ public class TablePanelFactory {
 
     public static TablePanel getPanel(int players) {
 
-        switch (players) {
-
-            case 2:
-                return new TablePanel2();
-
-            case 3:
-                return new TablePanel3();
-
-            case 4:
-                return new TablePanel4();
-
-            case 5:
-                return new TablePanel5();
-
-            case 6:
-                return new TablePanel6();
-
-            case 7:
-                return new TablePanel7();
-
-            case 8:
-                return new TablePanel8();
-
-            case 9:
-                return new TablePanel9();
-
-            case 10:
-                return new TablePanel10();
+        // Tablero ÚNICO por geometría (DynamicTablePanel): coloca a los N jugadores
+        // sobre una elipse en vez de usar un .form fijo por cada número de jugadores.
+        // Los antiguos TablePanel2..TablePanel10 se conservan de momento por si hay
+        // que revertir; una vez validada la disposición visual se pueden eliminar.
+        if (players >= 2 && players <= 10) {
+            return new DynamicTablePanel(players);
         }
 
         return null;

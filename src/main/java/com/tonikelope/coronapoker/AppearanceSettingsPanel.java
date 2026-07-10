@@ -395,7 +395,9 @@ public class AppearanceSettingsPanel extends JPanel {
                 gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
         // --- Barajado (solo Ajustes, sin item de menú) + su subajuste Cascada SRA ---
         // Al activarlo re-calienta la caché del shuffle.gif (el warm-up de arranque pudo saltárselo).
-        addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_barajado",
+        // Padre + subcontroles anidados dentro de un recuadro fino que los agrupa.
+        JPanel barajado_group = groupBox();
+        addToGroup(barajado_group, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_barajado",
                 null, "animacion_barajado",
                 v -> { GameFrame.ANIMACION_BARAJADO_PREF = v; if (v) { Crupier.warmShuffleAnimCache(); } },
                 GameFrame.ANIMACION_BARAJADO_PREF));
@@ -420,11 +422,13 @@ public class AppearanceSettingsPanel extends JPanel {
             cascada_row.add(Box.createHorizontalStrut(36)); // sub de "Barajado"
             cascada_row.add(new JLabel(icon("/images/menu/baraja.png")));
             cascada_row.add(cascada_cb);
-            addLeft(anim, cascada_row);
+            addToGroup(barajado_group, cascada_row);
         }
+        addLeft(anim, barajado_group);
 
         // --- Reparto (era "Cartas", conserva su item de menú y la clave "animacion_reparto") ---
-        addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_reparto",
+        JPanel reparto_group = groupBox();
+        addToGroup(reparto_group, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_reparto",
                 gf != null ? gf.getAnim_reparto_menu() : null, "animacion_reparto", v -> GameFrame.ANIMACION_REPARTO_PREF = v));
         final JCheckBox reparto_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
         // Velocidad del reparto: 3 opciones (lento/normal/rápido). "Normal" = velocidad histórica
@@ -473,12 +477,14 @@ public class AppearanceSettingsPanel extends JPanel {
             deal_row.add(new JLabel(icon("/images/menu/clock.png")));
             deal_row.add(deal_text);
             deal_row.add(deal_combo);
-            addLeft(anim, deal_row);
+            addToGroup(reparto_group, deal_row);
         }
+        addLeft(anim, reparto_group);
 
         // --- Destapar (era la parte de giro del antiguo "Cartas", ahora propio, solo Ajustes) ---
         // De él cuelgan la velocidad del destape y el efecto acercar.
-        addLeft(anim, animCheckbox("/images/menu/pica_roja.png", "menu.efectos_animacion_destape",
+        JPanel destapar_group = groupBox();
+        addToGroup(destapar_group, animCheckbox("/images/menu/pica_roja.png", "menu.efectos_animacion_destape",
                 null, "animacion_destape", v -> GameFrame.ANIMACION_DESTAPE_PREF = v, GameFrame.ANIMACION_DESTAPE_PREF));
         final JCheckBox destapar_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
         // Velocidad del destape: 5 opciones (muy lenta ... muy rápida). "Normal" es el valor
@@ -529,7 +535,7 @@ public class AppearanceSettingsPanel extends JPanel {
             flip_row.add(new JLabel(icon("/images/menu/clock.png")));
             flip_row.add(flip_text);
             flip_row.add(speed_combo);
-            addLeft(anim, flip_row);
+            addToGroup(destapar_group, flip_row);
         }
         // Efecto "acercar": 4 opciones (desactivado ... fuerte). Cuelga de "Destapar" igual que la
         // velocidad. Guarda el porcentaje de agrandado (GameFrame.CARD_FLIP_ZOOM): 100 = desactivado.
@@ -578,8 +584,9 @@ public class AppearanceSettingsPanel extends JPanel {
             zoom_row.add(new JLabel(icon("/images/menu/zoom_in.png")));
             zoom_row.add(zoom_text);
             zoom_row.add(zoom_combo);
-            addLeft(anim, zoom_row);
+            addToGroup(destapar_group, zoom_row);
         }
+        addLeft(anim, destapar_group);
         addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
                 gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas",
@@ -943,6 +950,45 @@ public class AppearanceSettingsPanel extends JPanel {
     // zoom"), que se estira para igualar a la derecha.
     private static void closeColumn(JPanel column) {
         column.add(Box.createVerticalGlue());
+    }
+
+    // Recuadro de agrupación de BORDE NEGRO FINO y esquinas redondeadas para los checkboxes de
+    // animación que tienen subcontroles anidados (Barajado/Reparto/Destapar): envuelve el padre y
+    // sus subcontroles para que se lean como un grupo. Transparente (deja ver el fondo del diálogo
+    // Nimbus, texto intacto); solo dibuja el contorno. Alto natural (no se estira en el BoxLayout Y).
+    private JPanel groupBox() {
+        JPanel p = new JPanel() {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                super.paintComponent(g);
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new java.awt.Color(0, 0, 0, 150));
+                g2.setStroke(new java.awt.BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+                g2.dispose();
+            }
+
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        p.setOpaque(false);
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setBorder(BorderFactory.createEmptyBorder(4, 6, 6, 6));
+        p.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        return p;
+    }
+
+    // Añade una fila (checkbox padre o un subcontrol) al recuadro de grupo, con una separación
+    // fina entre filas (más ceñida que el strut de addLeft, para que el grupo se lea compacto).
+    private void addToGroup(JPanel group, JComponent row) {
+        row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        if (group.getComponentCount() > 0) {
+            group.add(Box.createVerticalStrut(4));
+        }
+        group.add(row);
     }
 
     // Fila (FlowLayout) cuyo alto MÁXIMO es su alto preferido: en el BoxLayout Y de la

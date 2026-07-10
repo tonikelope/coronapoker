@@ -2473,11 +2473,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // el tablero nuevo con las copias en esas mismas posiciones, así que la
         // transición es continua. Puramente visual: no toca la lógica. Configurable
         // (checkbox + velocidad en Ajustes → Apariencia); si off, corte seco de siempre.
+        DynamicTablePanel animated_panel = null;
         if (tapete instanceof DynamicTablePanel && GameFrame.downgradeAnimOn()) {
-            ((DynamicTablePanel) tapete).animateDowngrade(GameFrame.DOWNGRADE_VELOCIDAD);
+            animated_panel = (DynamicTablePanel) tapete;
+            animated_panel.animateDowngrade(GameFrame.DOWNGRADE_VELOCIDAD);
         }
 
         TablePanel nuevo_tapete = TablePanelFactory.downgradePanel(tapete);
+
+        // Defensa: la animación congela el layout del panel actual esperando el swap.
+        // Si downgradePanel NO devolviera un tablero nuevo (no debería con salidas),
+        // no habría swap y el panel quedaría congelado → lo descongelamos. Tras un swap
+        // normal 'tapete' ya apunta al nuevo, así que esta rama no se toca.
+        if (nuevo_tapete == null) {
+            if (animated_panel != null) {
+                animated_panel.thawLayout();
+            }
+            return;
+        }
 
         if (nuevo_tapete != null) {
 

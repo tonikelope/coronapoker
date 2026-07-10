@@ -1663,6 +1663,11 @@ public class Init extends JFrame {
             GameFrame.BARAJA = GameFrame.BARAJA_DEFAULT;
         }
 
+        // Persiste (una vez) las preferencias de barajado/destape derivadas del antiguo
+        // "Cartas" para romper su vínculo con animacion_reparto (evita que apagar el reparto
+        // más tarde arrastre barajado/destape en el siguiente arranque).
+        GameFrame.migrateSplitAnimationPrefs();
+
         // Pre-decodifica el shuffle.gif de la baraja actual en background desde
         // el arranque, para que la primera mano no pague el decode
         Crupier.warmShuffleAnimCache();

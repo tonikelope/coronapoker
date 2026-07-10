@@ -292,6 +292,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return ANIMACIONES && ANIMACION_DESTAPE_PREF;
     }
 
+    // Migración one-shot del antiguo checkbox "Cartas" (animacion_reparto), que se separó en
+    // barajado/reparto/destape. ANIMACION_BARAJADO_PREF y ANIMACION_DESTAPE_PREF heredan su valor
+    // la primera vez leyendo animacion_reparto como fallback; pero ese fallback SIGUE VIVO mientras
+    // sus claves no existan en el fichero, así que un cambio posterior de animacion_reparto (p.ej.
+    // desde el item de menú de Reparto) las arrastraría de nuevo en el siguiente arranque. Este
+    // método persiste las claves nuevas con su valor ya migrado UNA sola vez, rompiendo el vínculo.
+    // Idempotente: no toca una clave que ya exista. Lo llama el arranque (Init) antes del warm-up.
+    public static void migrateSplitAnimationPrefs() {
+        boolean changed = false;
+        if (Helpers.PROPERTIES.getProperty("animacion_barajado") == null) {
+            Helpers.PROPERTIES.setProperty("animacion_barajado", String.valueOf(ANIMACION_BARAJADO_PREF));
+            changed = true;
+        }
+        if (Helpers.PROPERTIES.getProperty("animacion_destape") == null) {
+            Helpers.PROPERTIES.setProperty("animacion_destape", String.valueOf(ANIMACION_DESTAPE_PREF));
+            changed = true;
+        }
+        if (changed) {
+            Helpers.savePropertiesFile();
+        }
+    }
+
     public static boolean ciegasDealerAnimOn() {
         return ANIMACIONES && ANIMACION_CIEGAS_DEALER_PREF;
     }

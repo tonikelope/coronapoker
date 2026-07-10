@@ -2100,62 +2100,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         }
 
-        // Con el tablero por anclas (DynamicTablePanel) los asientos van PEGADOS al
-        // borde y NUNCA exceden el tapete, así que el recorte por bordes de arriba casi
-        // no se dispara; pero a zoom ALTO en mesas llenas pueden SOLAPARSE entre sí o con
-        // las comunitarias. Se hace zoom-out (sin bajar del zoom por defecto) hasta que
-        // no haya solape. Guard para no colgarse. Solo actúa por encima del zoom por
-        // defecto: a zoom normal la disposición no solapa (verificado), así que es no-op.
-        int overlap_guard = 0;
-        while (GameFrame.ZOOM_LEVEL > GameFrame.DEFAULT_ZOOM_LEVEL && hasLayoutOverlap() && overlap_guard++ < 60) {
-            Helpers.GUIRunAndWait(GameFrame.getInstance().getZoom_menu_out()::doClick);
-            Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
-        }
-
-    }
-
-    // ¿Se solapa el bounding box de algún asiento con el de otro, o con la FILA DE
-    // CARTAS de las comunitarias (no el panel entero, que es más ancho por el bote y los
-    // controles → daría falsos positivos)? Lo usa autoZoom para hacer zoom-out cuando el
-    // zoom alto amontona los asientos. Devuelve false si algo no está en pantalla.
-    private boolean hasLayoutOverlap() {
-        Player[] ps = getPlayers();
-        if (ps == null) {
-            return false;
-        }
-        try {
-            java.awt.Rectangle[] rects = new java.awt.Rectangle[ps.length];
-            for (int i = 0; i < ps.length; i++) {
-                JPanel p = (JPanel) ps[i];
-                if (!p.isShowing()) {
-                    return false;
-                }
-                java.awt.Point loc = p.getLocationOnScreen();
-                rects[i] = new java.awt.Rectangle(loc.x, loc.y, p.getWidth(), p.getHeight());
-            }
-            for (int i = 0; i < rects.length; i++) {
-                for (int j = i + 1; j < rects.length; j++) {
-                    if (rects[i].intersects(rects[j])) {
-                        return true;
-                    }
-                }
-            }
-            CommunityCardsPanel cc = getCommunityCards();
-            JPanel cards = (cc != null) ? cc.getCards_panel() : null;
-            if (cards != null && cards.isShowing()) {
-                java.awt.Point cl = cards.getLocationOnScreen();
-                java.awt.Rectangle cr = new java.awt.Rectangle(cl.x, cl.y, cards.getWidth(), cards.getHeight());
-                for (java.awt.Rectangle r : rects) {
-                    if (r.intersects(cr)) {
-                        return true;
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            // getLocationOnScreen puede fallar si algo dejó de estar en pantalla justo ahora.
-            return false;
-        }
-        return false;
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

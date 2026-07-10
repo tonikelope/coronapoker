@@ -159,17 +159,8 @@ public class DynamicTablePanel extends TablePanel {
     private volatile Player[] seats;
 
     // Mientras dura la animación de downgrade, doLayout() no re-ancla los asientos
-    // (el tween los mueve a mano con setBounds y competirían). Tras la animación se
-    // deja congelado a propósito: el panel se descarta en el swap del tablero. Si por
-    // lo que sea el swap NO se produjera, thawLayout() lo reactiva (ver GameFrame).
+    // (el tween los mueve a mano con setBounds y competirían).
     private volatile boolean layout_frozen = false;
-
-    // Reactiva el re-anclaje de doLayout. Defensa para el caso (que no debería darse)
-    // en que tras animar el downgrade el swap del tablero no llegue a reemplazar este
-    // panel: sin esto quedaría congelado, sin recolocar asientos en resize/zoom.
-    public void thawLayout() {
-        layout_frozen = false;
-    }
 
     public DynamicTablePanel(int num_players) {
 

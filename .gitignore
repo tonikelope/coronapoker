@@ -144,3 +144,6 @@ $RECYCLE.BIN/
 
 # draw.io desktop backup files (created when a .drawio is opened)
 .$*.bkp
+
+# Prueba de concepto del destape (no forma parte del build de producción)
+poc/

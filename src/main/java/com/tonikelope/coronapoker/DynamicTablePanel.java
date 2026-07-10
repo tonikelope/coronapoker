@@ -158,6 +158,10 @@ public class DynamicTablePanel extends TablePanel {
     private volatile LocalPlayer localPlayer;
     private volatile Player[] seats;
 
+    // Mientras dura la animación de downgrade, doLayout() no re-ancla los asientos
+    // (el tween los mueve a mano con setBounds y competirían).
+    private volatile boolean layout_frozen = false;
+
     public DynamicTablePanel(int num_players) {
 
         // La clase base (super()) ya ha montado su layout vacío y añadido en sus
@@ -229,6 +233,12 @@ public class DynamicTablePanel extends TablePanel {
     @Override
     public void doLayout() {
 
+        // Congelado durante la animación de downgrade: el tween mueve los asientos
+        // con setBounds y un doLayout los devolvería a su ancla (competirían).
+        if (layout_frozen) {
+            return;
+        }
+
         final Player[] s = seats;
         final CommunityCardsPanel community = communityCards;
 
@@ -251,34 +261,10 @@ public class DynamicTablePanel extends TablePanel {
         // borde y no por el centro, el asiento sigue pegado aunque encoja (compacta).
         for (int i = 0; i < n; i++) {
             JPanel panel = (JPanel) s[i];
-            Dimension d = panel.getPreferredSize();
-            double fx = anchors[i][0];
-            double fy = anchors[i][1];
-
-            double d_left = fx;
-            double d_right = 1.0 - fx;
-            double d_top = fy;
-            double d_bottom = 1.0 - fy;
-            double d_min = Math.min(Math.min(d_left, d_right), Math.min(d_top, d_bottom));
-
-            double seat_cx;
-            double seat_cy;
-            if (d_min == d_left) {
-                seat_cx = EDGE_MARGIN + d.width / 2.0;
-                seat_cy = fy * H;
-            } else if (d_min == d_right) {
-                seat_cx = W - EDGE_MARGIN - d.width / 2.0;
-                seat_cy = fy * H;
-            } else if (d_min == d_top) {
-                seat_cx = fx * W;
-                seat_cy = EDGE_MARGIN + d.height / 2.0;
-            } else {
-                seat_cx = fx * W;
-                seat_cy = H - EDGE_MARGIN - d.height / 2.0;
+            java.awt.Rectangle r = seatBoundsFor(n, i, panel.getPreferredSize());
+            if (r != null) {
+                panel.setBounds(r);
             }
-
-            panel.setBounds((int) Math.round(seat_cx - d.width / 2.0),
-                    (int) Math.round(seat_cy - d.height / 2.0), d.width, d.height);
         }
 
         // Comunitarias: SIEMPRE centradas en la mesa, pero por su FILA DE CARTAS, no
@@ -314,6 +300,202 @@ public class DynamicTablePanel extends TablePanel {
         if (community.getX() != comm_x || community.getY() != comm_y
                 || community.getWidth() != cd.width || community.getHeight() != cd.height) {
             community.setBounds(comm_x, comm_y, cd.width, cd.height);
+        }
+    }
+
+    // Bounds (con el modelo de pegado al borde) del asiento 'index' en una mesa de
+    // 'total' jugadores, para un asiento de tamaño 'd', al tamaño actual del tapete.
+    // Reutilizado por doLayout() y por la animación de downgrade (que necesita saber
+    // dónde caerá cada superviviente en la mesa de M jugadores). Devuelve null si no
+    // hay anclas para ese total/índice.
+    private java.awt.Rectangle seatBoundsFor(int total, int index, Dimension d) {
+        final int W = getWidth();
+        final int H = getHeight();
+        final double[][] anchors = (total >= 0 && total < ANCHORS.length) ? ANCHORS[total] : null;
+        if (anchors == null || index < 0 || index >= anchors.length) {
+            return null;
+        }
+        double fx = anchors[index][0];
+        double fy = anchors[index][1];
+
+        double d_left = fx;
+        double d_right = 1.0 - fx;
+        double d_top = fy;
+        double d_bottom = 1.0 - fy;
+        double d_min = Math.min(Math.min(d_left, d_right), Math.min(d_top, d_bottom));
+
+        double seat_cx;
+        double seat_cy;
+        if (d_min == d_left) {
+            seat_cx = EDGE_MARGIN + d.width / 2.0;
+            seat_cy = fy * H;
+        } else if (d_min == d_right) {
+            seat_cx = W - EDGE_MARGIN - d.width / 2.0;
+            seat_cy = fy * H;
+        } else if (d_min == d_top) {
+            seat_cx = fx * W;
+            seat_cy = EDGE_MARGIN + d.height / 2.0;
+        } else {
+            seat_cx = fx * W;
+            seat_cy = H - EDGE_MARGIN - d.height / 2.0;
+        }
+
+        return new java.awt.Rectangle((int) Math.round(seat_cx - d.width / 2.0),
+                (int) Math.round(seat_cy - d.height / 2.0), d.width, d.height);
+    }
+
+    // Anima la transición de N a M jugadores cuando alguno abandona: los que se van
+    // se DESVANECEN (fantasma-snapshot con alfa 1→0) y los supervivientes se DESLIZAN
+    // de su posición actual (mesa de N) a su hueco en la mesa de M, manteniendo el
+    // orden del anillo. Funciona con 1 o varios abandonos a la vez. Bloquea al
+    // llamante (hilo del crupier, NUNCA EDT) hasta terminar. Pensado para llamarse
+    // JUSTO ANTES del swap del tablero (downgradeAndRefreshTapete): al acabar, los
+    // supervivientes quedan en las posiciones de la mesa de M, que es donde el
+    // tablero nuevo colocará sus copias → el swap es imperceptible. No toca la lógica
+    // de juego (arrays de jugadores): es puramente visual.
+    public void animateDowngrade(int duration_ms) {
+
+        final Player[] all = players;
+        if (all == null) {
+            return;
+        }
+
+        final java.util.List<JPanel> survivors = new java.util.ArrayList<>();
+        final java.util.List<JPanel> leaving = new java.util.ArrayList<>();
+        for (Player p : all) {
+            if ((p instanceof RemotePlayer) && ((RemotePlayer) p).isExit()) {
+                leaving.add((JPanel) p);
+            } else {
+                survivors.add((JPanel) p);
+            }
+        }
+
+        final int m = survivors.size();
+        final int n = all.length;
+        if (m < 2 || m >= n || m >= ANCHORS.length || ANCHORS[m] == null
+                || getWidth() <= 0 || getHeight() <= 0 || !isShowing()) {
+            return; // nada que animar (o fuera del rango de tableros)
+        }
+
+        final java.util.concurrent.CountDownLatch finished = new java.util.concurrent.CountDownLatch(1);
+        final javax.swing.Timer[] holder = new javax.swing.Timer[1];
+        final java.util.List<FadeGhost> ghosts = new java.util.ArrayList<>();
+
+        Helpers.GUIRunAndWait(() -> {
+            try {
+                // Congela el re-anclaje: a partir de aquí las posiciones las manda el tween.
+                layout_frozen = true;
+
+                final java.awt.Rectangle[] from = new java.awt.Rectangle[m];
+                final java.awt.Rectangle[] to = new java.awt.Rectangle[m];
+                for (int j = 0; j < m; j++) {
+                    JPanel sv = survivors.get(j);
+                    from[j] = sv.getBounds();
+                    java.awt.Rectangle t = seatBoundsFor(m, j, sv.getPreferredSize());
+                    to[j] = (t != null) ? t : from[j];
+                }
+
+                // Fantasma (snapshot) por cada saliente para desvanecerlo, y se oculta
+                // el asiento real debajo.
+                for (JPanel lv : leaving) {
+                    if (lv.getWidth() <= 0 || lv.getHeight() <= 0) {
+                        continue;
+                    }
+                    java.awt.image.BufferedImage snap = new java.awt.image.BufferedImage(
+                            lv.getWidth(), lv.getHeight(), java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                    java.awt.Graphics2D g = snap.createGraphics();
+                    lv.paint(g);
+                    g.dispose();
+                    FadeGhost ghost = new FadeGhost(snap);
+                    ghost.setBounds(lv.getBounds());
+                    add(ghost, JLayeredPane.DRAG_LAYER);
+                    ghosts.add(ghost);
+                    lv.setVisible(false);
+                }
+
+                final long t0 = System.nanoTime();
+                final javax.swing.Timer timer = new javax.swing.Timer(15, null);
+                holder[0] = timer;
+                timer.addActionListener(e -> {
+                    long elapsed = (System.nanoTime() - t0) / 1_000_000L;
+                    double u = Math.min(1.0, (double) elapsed / Math.max(1, duration_ms));
+                    double s = u * u * (3.0 - 2.0 * u); // smoothstep (arranque/frenada suaves)
+
+                    for (int j = 0; j < m; j++) {
+                        java.awt.Rectangle a = from[j];
+                        java.awt.Rectangle b = to[j];
+                        int x = (int) Math.round(a.x + (b.x - a.x) * s);
+                        int y = (int) Math.round(a.y + (b.y - a.y) * s);
+                        survivors.get(j).setBounds(x, y, a.width, a.height);
+                    }
+                    for (FadeGhost ghost : ghosts) {
+                        ghost.setAlpha((float) (1.0 - u));
+                        ghost.repaint();
+                    }
+
+                    if (u >= 1.0) {
+                        timer.stop();
+                        finished.countDown();
+                    }
+                });
+                timer.start();
+
+            } catch (Exception ex) {
+                java.util.logging.Logger.getLogger(DynamicTablePanel.class.getName())
+                        .log(java.util.logging.Level.SEVERE, null, ex);
+                finished.countDown();
+            }
+        });
+
+        try {
+            finished.await(GifLabel.GIF_BARRIER_TIMEOUT, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Limpieza: se quitan los fantasmas. Los supervivientes quedan en la posición
+        // destino (mesa de M). NO se descongela el layout: este panel se descarta en
+        // el swap posterior, y descongelar podría dispararse un doLayout que los
+        // devolviera a la mesa de N (parpadeo) justo antes del swap.
+        Helpers.GUIRunAndWait(() -> {
+            for (FadeGhost ghost : ghosts) {
+                remove(ghost);
+            }
+        });
+
+        Helpers.GUIRun(() -> {
+            if (holder[0] != null) {
+                holder[0].stop();
+            }
+        });
+    }
+
+    // Componente efímero que pinta un snapshot (imagen) con opacidad variable, para
+    // desvanecer un asiento que abandona la mesa.
+    private static final class FadeGhost extends javax.swing.JComponent {
+
+        private final java.awt.Image img;
+        private volatile float alpha = 1.0f;
+
+        FadeGhost(java.awt.Image img) {
+            this.img = img;
+            setOpaque(false);
+        }
+
+        void setAlpha(float a) {
+            this.alpha = a;
+        }
+
+        @Override
+        protected void paintComponent(java.awt.Graphics g) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            try {
+                g2.setComposite(java.awt.AlphaComposite.getInstance(
+                        java.awt.AlphaComposite.SRC_OVER, Math.max(0f, Math.min(1f, alpha))));
+                g2.drawImage(img, 0, 0, getWidth(), getHeight(), null);
+            } finally {
+                g2.dispose();
+            }
         }
     }
 

@@ -54,6 +54,11 @@ import javax.swing.JPanel;
  */
 public class DynamicTablePanel extends TablePanel {
 
+    // Margen (px) entre el borde exterior del asiento y el borde del tapete. Los
+    // asientos se PEGAN a su borde con este margen (no se anclan por el centro), así
+    // aprovechan el espacio y siguen pegados aunque cambien de tamaño (vista compacta).
+    private static final int EDGE_MARGIN = 14;
+
     // Anclas por número de jugadores (índice = nº de jugadores, 2..10). Cada fila es
     // un asiento en el ORDEN del array de jugadores: índice 0 = jugador local, 1..N-1
     // = remotos (remotePlayer1, remotePlayer2, ...). Los valores son {fx, fy}, el
@@ -238,9 +243,40 @@ public class DynamicTablePanel extends TablePanel {
             return;
         }
 
-        // Asientos (0 = local, 1..n-1 = remotos).
+        // Asientos (0 = local, 1..n-1 = remotos): cada uno se PEGA a su borde más
+        // cercano (según su ancla) con EDGE_MARGIN, y usa la coordenada perpendicular
+        // del ancla para conservar el reparto exacto del original. Al anclar por el
+        // borde y no por el centro, el asiento sigue pegado aunque encoja (compacta).
         for (int i = 0; i < n; i++) {
-            centerAt((JPanel) s[i], anchors[i][0] * W, anchors[i][1] * H);
+            JPanel panel = (JPanel) s[i];
+            Dimension d = panel.getPreferredSize();
+            double fx = anchors[i][0];
+            double fy = anchors[i][1];
+
+            double d_left = fx;
+            double d_right = 1.0 - fx;
+            double d_top = fy;
+            double d_bottom = 1.0 - fy;
+            double d_min = Math.min(Math.min(d_left, d_right), Math.min(d_top, d_bottom));
+
+            double seat_cx;
+            double seat_cy;
+            if (d_min == d_left) {
+                seat_cx = EDGE_MARGIN + d.width / 2.0;
+                seat_cy = fy * H;
+            } else if (d_min == d_right) {
+                seat_cx = W - EDGE_MARGIN - d.width / 2.0;
+                seat_cy = fy * H;
+            } else if (d_min == d_top) {
+                seat_cx = fx * W;
+                seat_cy = EDGE_MARGIN + d.height / 2.0;
+            } else {
+                seat_cx = fx * W;
+                seat_cy = H - EDGE_MARGIN - d.height / 2.0;
+            }
+
+            panel.setBounds((int) Math.round(seat_cx - d.width / 2.0),
+                    (int) Math.round(seat_cy - d.height / 2.0), d.width, d.height);
         }
 
         // Comunitarias: SIEMPRE centradas en la mesa, pero por su FILA DE CARTAS, no
@@ -263,13 +299,6 @@ public class DynamicTablePanel extends TablePanel {
         }
         community.setBounds((int) Math.round(W / 2.0 - off_x),
                 (int) Math.round(H / 2.0 - off_y), cd.width, cd.height);
-    }
-
-    // Coloca un componente con su tamaño preferido, centrado en (cx, cy).
-    private static void centerAt(JPanel panel, double cx, double cy) {
-        Dimension d = panel.getPreferredSize();
-        panel.setBounds((int) Math.round(cx - d.width / 2.0),
-                (int) Math.round(cy - d.height / 2.0), d.width, d.height);
     }
 
     // Tras el zoom, los asientos cambian de tamaño preferido: forzamos una

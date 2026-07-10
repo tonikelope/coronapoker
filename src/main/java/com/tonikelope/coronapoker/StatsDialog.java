@@ -200,6 +200,10 @@ public class StatsDialog extends JFrame {
 
         initComponents();
 
+        // Recuadro fino de agrupación con esquinas REDONDEADAS (antes cuadradas). Se aplica aquí
+        // (tras initComponents) para no depender del .form generado; mismo gris y grosor.
+        hands_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
+
         // Chart area below the results table, built by hand instead of in the .form: a vertical
         // split with the table on top and the charts at the bottom, swapped into the GroupLayout
         // slot table_panel used to occupy. The user can drag the divider up to enlarge the
@@ -340,7 +344,7 @@ public class StatsDialog extends JFrame {
         // comparte), enmarcado con una línea negra fina para leerse como una unidad.
         javax.swing.JPanel share_group = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 10, 2));
         share_group.setOpaque(false);
-        share_group.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.BLACK, 1));
+        share_group.setBorder(new RoundedLineBorder(java.awt.Color.BLACK, 1, 12));
         share_group.add(share_stats_checkbox);
         share_group.add(exclude_stats_button);
 

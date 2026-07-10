@@ -7487,7 +7487,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (hay_rabbits_tapadas) {
-                Audio.playWavResource("misc/uncover.wav", false);
+                Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
                 for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                     carta.destaparRabbit();
                     // Hay que destapar la carta subyacente cuando el rabbit desaparece.

@@ -3071,7 +3071,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (getHoleCard1().isIniciada() && getHoleCard1().isTapada()) {
 
                 if (sound) {
-                    Audio.playWavResource("misc/uncover.wav", false);
+                    Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
                 }
 
                 chip_label.setVisible(false);

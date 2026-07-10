@@ -1571,7 +1571,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
 
-        Audio.playWavResource("misc/uncover.wav", false);
+        Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
 
         Player[] players = tapete.getPlayers();
 

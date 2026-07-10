@@ -879,7 +879,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         if (isIniciadaConValor() && this.tapada) {
 
             if (sound) {
-                Audio.playWavResource("misc/uncover.wav", false);
+                Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
             }
 
             this.tapada = false;

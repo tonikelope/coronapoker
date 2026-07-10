@@ -1704,6 +1704,12 @@ public class Init extends JFrame {
         Helpers.threadRun(() -> {
             Audio.warmAudioDevice();
             Audio.playWavResourceAndWait("misc/init.wav");
+            // El uncover.wav del destape es deck-independent (misc/) y suena en
+            // cada giro de carta: se precarga UNA vez aquí, con el endpoint ya
+            // caliente, para que cada destape arranque instantáneo (clip
+            // pre-abierto y reutilizado, sin un open de línea por destape que
+            // llegue tarde respecto a la animación de giro). Nunca se invalida.
+            Audio.preloadWav("misc/uncover.wav");
         });
 
         Audio.playLoopMp3Resource("misc/background_music.mp3");

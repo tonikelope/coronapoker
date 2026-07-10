@@ -15297,17 +15297,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int duration = GameFrame.CARD_FLIP_DURATION;
             // Frames proporcionales a la duración (~60 fps), acotados.
             int num_frames = Math.max(20, Math.min(45, Math.round(duration / 16f)));
+            // Efecto "acercar": la carta girada se dibuja a este factor del tamaño de la estática
+            // (1.0 = desactivado, relevo pixel-perfect; >1.0 la agranda para el efecto).
+            float flip_zoom = GameFrame.CARD_FLIP_ZOOM / 100f;
 
             PreRenderedGif anim = CardFlipAnimator.generate(GameFrame.BARAJA,
                     carta.getValor() + "_" + carta.getPalo(),
-                    card_w, card_h, corner, duration, num_frames);
+                    card_w, card_h, corner, duration, num_frames, flip_zoom);
 
             if (anim == null) {
                 return null;
             }
 
-            int display_w = CardFlipAnimator.canvasWidth(card_w);
-            int display_h = CardFlipAnimator.canvasHeight(card_h);
+            int display_w = CardFlipAnimator.canvasWidth(card_w, flip_zoom);
+            int display_h = CardFlipAnimator.canvasHeight(card_h, flip_zoom);
 
             return new FlipAnim(anim, display_w, display_h, zoom_factor, carta.toShortString());
 

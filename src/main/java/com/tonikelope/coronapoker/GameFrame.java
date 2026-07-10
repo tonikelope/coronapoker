@@ -178,6 +178,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int CARD_FLIP_DURATION_MIN = 150;
     public static final int CARD_FLIP_DURATION_MAX = 1500;
     public static volatile int CARD_FLIP_DURATION = Integer.parseInt(Helpers.PROPERTIES.getProperty("card_flip_duration", String.valueOf(DEFAULT_CARD_FLIP_DURATION)));
+    // Efecto "acercar": la animación de destape se renderiza a este porcentaje del tamaño de la
+    // carta estática (100 = desactivado, alineado pixel-perfect; >100 da sensación de que la carta
+    // se acerca a la pantalla y luego se asienta a su tamaño real al terminar el giro).
+    public static final int DEFAULT_CARD_FLIP_ZOOM = 100; // desactivado por defecto
+    public static volatile int CARD_FLIP_ZOOM = Integer.parseInt(Helpers.PROPERTIES.getProperty("card_flip_zoom", String.valueOf(DEFAULT_CARD_FLIP_ZOOM)));
     public static final int HURRYUP_WARNING_SECONDS = 10; // aviso "date prisa" (bocina + parpadeo) cuando quedan estos segundos
 
     // Umbral efectivo del aviso hurryup en segundos restantes. El contador de accion arranca en

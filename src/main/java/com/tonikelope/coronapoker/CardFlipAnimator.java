@@ -75,11 +75,13 @@ public class CardFlipAnimator {
      * @param corner_logical radio de esquina lógico (Card.CARD_CORNER)
      * @param duration_ms duración total del giro
      * @param num_frames número de frames a generar
+     * @param zoom factor "acercar" sobre el tamaño de la carta estática (1.0 = alineado
+     * pixel-perfect; &gt;1.0 dibuja la carta más grande para el efecto de acercamiento)
      * @return PreRenderedGif con los frames del giro, o null si falla la carga
      */
     public static PreRenderedGif generate(String baraja, String valor_palo,
             int card_w_logical, int card_h_logical, int corner_logical,
-            int duration_ms, int num_frames) {
+            int duration_ms, int num_frames, float zoom) {
 
         try {
             BufferedImage front = cachedFace(baraja, valor_palo, card_w_logical, corner_logical);
@@ -89,12 +91,16 @@ public class CardFlipAnimator {
             }
 
             double dens = screenDensity();
-            // Carta y lienzo a resolución FÍSICA con el TAMAÑO EXACTO de CARD (mismo aspecto
-            // que la carta estática), para que la animación quede alineada y centrada con ella.
-            int draw_w = Math.round(card_w_logical * (float) dens);
-            int draw_h = Math.round(card_h_logical * (float) dens);
-            int canvas_w = Math.round(canvasWidth(card_w_logical) * (float) dens);
-            int canvas_h = Math.round(canvasHeight(card_h_logical) * (float) dens);
+            // Carta y lienzo a resolución FÍSICA. La carta se dibuja a CARD * zoom: con zoom=1
+            // queda al TAMAÑO EXACTO de la estática (alineada y centrada, relevo pixel-perfect);
+            // con zoom>1 se dibuja mayor (efecto acercar) y el lienzo crece en la misma proporción
+            // para que el giro siga centrado sobre la carta estática.
+            int drawn_w_logical = Math.round(card_w_logical * zoom);
+            int drawn_h_logical = Math.round(card_h_logical * zoom);
+            int draw_w = Math.round(drawn_w_logical * (float) dens);
+            int draw_h = Math.round(drawn_h_logical * (float) dens);
+            int canvas_w = Math.round(canvasWidth(card_w_logical, zoom) * (float) dens);
+            int canvas_h = Math.round(canvasHeight(card_h_logical, zoom) * (float) dens);
 
             BufferedImage[] frames = new BufferedImage[num_frames];
             for (int i = 0; i < num_frames; i++) {
@@ -108,17 +114,20 @@ public class CardFlipAnimator {
         }
     }
 
-    // Ancho/alto LÓGICO del lienzo de la animación (para setSize del label). Margen SIMÉTRICO
-    // y PAR alrededor de la carta (display = CARD + 2*margen) para que el centrado del overlay
-    // sobre la carta estática sea entero al píxel (sin desalineación de medio píxel).
-    public static int canvasWidth(int card_w_logical) {
-        int margin = Math.round(card_w_logical * (float) (MARGIN - 1) / 2f);
-        return card_w_logical + 2 * margin;
+    // Ancho/alto LÓGICO del lienzo de la animación (para setSize del label). La carta dibujada
+    // mide CARD * zoom; el margen es SIMÉTRICO y PAR alrededor de ella (display = dibujada +
+    // 2*margen) para que el centrado del overlay sobre la carta estática sea entero al píxel.
+    // Con zoom=1 coincide exactamente con el lienzo pixel-perfect original.
+    public static int canvasWidth(int card_w_logical, float zoom) {
+        int drawn = Math.round(card_w_logical * zoom);
+        int margin = Math.round(drawn * (float) (MARGIN - 1) / 2f);
+        return drawn + 2 * margin;
     }
 
-    public static int canvasHeight(int card_h_logical) {
-        int margin = Math.round(card_h_logical * (float) (MARGIN - 1) / 2f);
-        return card_h_logical + 2 * margin;
+    public static int canvasHeight(int card_h_logical, float zoom) {
+        int drawn = Math.round(card_h_logical * zoom);
+        int margin = Math.round(drawn * (float) (MARGIN - 1) / 2f);
+        return drawn + 2 * margin;
     }
 
     /** Invalida la caché de fuentes si cambió la baraja o la trasera seleccionada. */

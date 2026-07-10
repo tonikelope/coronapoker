@@ -448,7 +448,12 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     }
 
                     if (audio != null) {
-                        Audio.playWavResource(audio);
+                        // Clip pre-abierto y reutilizado (uncover.wav se precarga
+                        // al arranque): el sonido del giro arranca instantáneo y
+                        // sincronizado con el primer frame del overlay, sin un open
+                        // de línea por destape que llegue tarde. Off-EDT porque
+                        // playPreloadedWav puede resolver una precarga perezosa.
+                        Helpers.threadRun(() -> Audio.playPreloadedWav(audio));
                     }
 
                     final long t0 = System.nanoTime();

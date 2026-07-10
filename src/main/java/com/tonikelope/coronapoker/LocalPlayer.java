@@ -211,10 +211,25 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         dot.setLatency(best, reconnectionCount);
     }
 
+    // El asiento tiene esquinas REDONDEADAS: si fuese realmente opaco, Swing no
+    // repintaría el fondo (tapete) detrás y las esquinas —fuera del arco— mostrarían
+    // basura ("el fondo sale mal en las esquinas"). Por eso el asiento NUNCA es opaco
+    // de verdad: interceptamos setOpaque y recordamos la INTENCIÓN de relleno, que
+    // pintamos nosotros (rounded) en paintComponent; Swing repinta la madera detrás y
+    // las esquinas quedan limpias. Solo afecta al estado resaltado (eliminado, rojo),
+    // que es estático → sin coste de rendimiento.
+    private volatile boolean rounded_fill = false;
+
+    @Override
+    public void setOpaque(boolean isOpaque) {
+        this.rounded_fill = isOpaque;
+        super.setOpaque(false);
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
 
-        if (isOpaque()) {
+        if (rounded_fill) {
             Graphics2D g2d = (Graphics2D) g.create();
             try {
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -223,8 +238,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             } finally {
                 g2d.dispose();
             }
-            // Bypass super.paintComponent on the opaque branch: the rounded fill above
-            // replaces the default rectangular background.
+            // super.paintComponent NO se llama: Swing ya ha repintado la madera detrás
+            // (el asiento es no-opaco) y el relleno redondeado va encima; llamar a
+            // super pintaría un fondo rectangular por debajo.
         } else {
             super.paintComponent(g);
         }

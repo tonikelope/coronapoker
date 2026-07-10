@@ -467,10 +467,6 @@ public class AudioSettingsPanel extends JPanel {
         left_col.add(Box.createVerticalStrut(8));
         left_col.add(output_panel);
         left_col.add(Box.createVerticalStrut(8));
-        // Glue: la columna derecha (notas/TTS) rellena el centro con sus propios glues, así que
-        // esta se quedaba más corta. Con el glue, mic_panel baja hasta que su borde inferior queda
-        // ALINEADO con el del último panel de la derecha.
-        left_col.add(Box.createVerticalGlue());
         left_col.add(mic_panel);
 
         JPanel right_col = new JPanel();
@@ -481,11 +477,6 @@ public class AudioSettingsPanel extends JPanel {
         right_col.add(tts_panel);
         right_col.add(Box.createVerticalStrut(8));
         right_col.add(global_note);
-
-        // Las dos columnas se estiran a la altura del centro (BoxLayout X sin tope) para que el
-        // hueco que empuja los últimos paneles sea el mismo y sus bordes inferiores coincidan.
-        left_col.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, Short.MAX_VALUE));
-        right_col.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, Short.MAX_VALUE));
 
         JPanel center_panel = new JPanel();
         center_panel.setLayout(new BoxLayout(center_panel, BoxLayout.X_AXIS));

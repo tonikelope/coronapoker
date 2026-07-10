@@ -35,14 +35,15 @@ import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 
 /**
- * Tablero ÚNICO que coloca a los N jugadores por geometría (elipse) en vez de
- * usar un .form fijo por cada número de jugadores (TablePanel2..TablePanel10).
+ * Tablero ÚNICO que coloca a los N jugadores por geometría, sustituyendo a los 9
+ * .form fijos (TablePanel2..TablePanel10).
  *
- * El jugador local va SIEMPRE abajo-centro y los remotos se reparten en orden
- * alrededor del óvalo con la misma fórmula angular que reproduce el orden de
- * asientos de los tableros fijos (contrasentido a las agujas del reloj: sube por
- * la izquierda, cruza por arriba y baja por la derecha), así la disposición se
- * siente igual que la de siempre.
+ * Las posiciones NO se inventan: están extraídas de los propios tableros
+ * originales (instanciándolos y leyendo dónde los colocaba su GroupLayout) y
+ * guardadas como FRACCIONES del ancho/alto del tapete (ver ANCHORS). Así se
+ * reproduce su disposición exacta —incluidos los huecos iguales de los laterales,
+ * las esquinas inferiores de 8 jugadores o el local descentrado de 10— y, al ser
+ * fracciones, escala a cualquier resolución/tamaño de ventana.
  *
  * Toda la lógica (animaciones de reparto/fichas, overlays, zoom, autoZoom,
  * pintado del tapete) vive en la clase base TablePanel y es geometría-agnóstica
@@ -53,37 +54,101 @@ import javax.swing.JPanel;
  */
 public class DynamicTablePanel extends TablePanel {
 
-    // Margen (px) entre el borde exterior de los asientos y el borde del tapete.
-    // Pequeño: los asientos van PEGADOS a los bordes (como los tableros fijos).
-    private static final int EDGE_MARGIN = 8;
+    // Anclas por número de jugadores (índice = nº de jugadores, 2..10). Cada fila es
+    // un asiento en el ORDEN del array de jugadores: índice 0 = jugador local, 1..N-1
+    // = remotos (remotePlayer1, remotePlayer2, ...). Los valores son {fx, fy}, el
+    // CENTRO del asiento como fracción del ancho y alto del tapete. La última fila
+    // (índice N) es el centro de las cartas COMUNITARIAS.
+    //
+    // Extraído de TablePanel2..TablePanel10 a 2560×1440 (16:9) con SeatLayoutExtractor.
+    private static final double[][][] ANCHORS = new double[11][][];
 
-    // Hueco (px) entre la columna lateral y el primer asiento de la fila superior,
-    // para que no se solapen en las esquinas.
-    private static final int SEAT_GAP = 14;
-
-    // Reparto de los asientos REMOTOS por número de jugadores (índice = nº de
-    // jugadores 2..10): {columna_izquierda, fila_superior, columna_derecha}. Extraído
-    // de los 9 tableros fijos originales (TablePanel2..TablePanel10) para reproducir
-    // su disposición exacta. Es simétrico (izquierda = derecha). La suma es siempre
-    // nº de jugadores − 1 (todos los remotos).
-    private static final int[][] SEAT_DISTRIBUTION = {
-        null, null, // 0 y 1 no se usan
-        {0, 1, 0}, // 2:  1 arriba
-        {1, 0, 1}, // 3:  1 izq, 1 dcha
-        {1, 1, 1}, // 4:  1 izq, 1 arriba, 1 dcha
-        {1, 2, 1}, // 5:  1 izq, 2 arriba, 1 dcha
-        {2, 1, 2}, // 6:  2 izq, 1 arriba, 2 dcha
-        {2, 2, 2}, // 7:  2 izq, 2 arriba, 2 dcha
-        {2, 3, 2}, // 8:  2 izq, 3 arriba, 2 dcha
-        {3, 2, 3}, // 9:  3 izq, 2 arriba, 3 dcha
-        {3, 3, 3}, // 10: 3 izq, 3 arriba, 3 dcha
-    };
+    static {
+        ANCHORS[2] = new double[][]{
+            {0.5000, 0.8368}, // local
+            {0.5000, 0.1590}, // r1
+            {0.4242, 0.5000}, // comunitarias
+        };
+        ANCHORS[3] = new double[][]{
+            {0.5000, 0.8368}, // local
+            {0.0805, 0.1674}, // r1
+            {0.9195, 0.1674}, // r2
+            {0.5000, 0.5021}, // comunitarias
+        };
+        ANCHORS[4] = new double[][]{
+            {0.5000, 0.8451}, // local
+            {0.0758, 0.5000}, // r1
+            {0.5000, 0.1590}, // r2
+            {0.9242, 0.5000}, // r3
+            {0.3668, 0.5063}, // comunitarias
+        };
+        ANCHORS[5] = new double[][]{
+            {0.5000, 0.8451}, // local
+            {0.0758, 0.5000}, // r1
+            {0.3570, 0.1674}, // r2
+            {0.6430, 0.1674}, // r3
+            {0.9242, 0.5000}, // r4
+            {0.3668, 0.5167}, // comunitarias
+        };
+        ANCHORS[6] = new double[][]{
+            {0.5000, 0.8451}, // local
+            {0.0758, 0.7132}, // r1
+            {0.0758, 0.2868}, // r2
+            {0.5000, 0.1590}, // r3
+            {0.9242, 0.2868}, // r4
+            {0.9242, 0.7132}, // r5
+            {0.3668, 0.5063}, // comunitarias
+        };
+        ANCHORS[7] = new double[][]{
+            {0.5000, 0.8451}, // local
+            {0.0758, 0.7132}, // r1
+            {0.0758, 0.2868}, // r2
+            {0.3570, 0.1674}, // r3
+            {0.6430, 0.1674}, // r4
+            {0.9242, 0.2854}, // r5
+            {0.9242, 0.7139}, // r6
+            {0.3668, 0.5146}, // comunitarias
+        };
+        ANCHORS[8] = new double[][]{
+            {0.4996, 0.8451}, // local
+            {0.1879, 0.8410}, // r1
+            {0.0805, 0.5000}, // r2
+            {0.2172, 0.1590}, // r3
+            {0.5008, 0.1590}, // r4
+            {0.7832, 0.1590}, // r5
+            {0.9195, 0.5000}, // r6
+            {0.8113, 0.8410}, // r7
+            {0.5012, 0.3410}, // comunitarias
+        };
+        ANCHORS[9] = new double[][]{
+            {0.5000, 0.8368}, // local
+            {0.0805, 0.8326}, // r1
+            {0.0805, 0.5000}, // r2
+            {0.0805, 0.1674}, // r3
+            {0.3602, 0.1674}, // r4
+            {0.6398, 0.1674}, // r5
+            {0.9195, 0.1674}, // r6
+            {0.9195, 0.5000}, // r7
+            {0.9195, 0.8326}, // r8
+            {0.5012, 0.5063}, // comunitarias
+        };
+        ANCHORS[10] = new double[][]{
+            {0.3793, 0.8368}, // local
+            {0.0805, 0.8326}, // r1
+            {0.0805, 0.5000}, // r2
+            {0.0805, 0.1674}, // r3
+            {0.3602, 0.1674}, // r4
+            {0.6398, 0.1674}, // r5
+            {0.9195, 0.1674}, // r6
+            {0.9195, 0.5000}, // r7
+            {0.9195, 0.8326}, // r8
+            {0.6781, 0.8326}, // r9
+            {0.5012, 0.5063}, // comunitarias
+        };
+    }
 
     private volatile CommunityCardsPanel communityCards;
     private volatile LocalPlayer localPlayer;
-
-    // Asientos en orden de colocación: [0] = local, [1..n-1] = remotos. doLayout
-    // los reparte sobre la elipse en este orden.
     private volatile Player[] seats;
 
     public DynamicTablePanel(int num_players) {
@@ -149,12 +214,11 @@ public class DynamicTablePanel extends TablePanel {
         return localPlayer;
     }
 
-    // Colocado geométrico: comunitarias al centro, el jugador local pegado al borde
-    // inferior y los N-1 remotos repartidos sobre el perímetro en "U" (borde
-    // izquierdo → superior → derecho, dejando la franja de abajo para el local),
-    // cada uno PEGADO a su borde. Se llama en cada validación (resize del tapete,
-    // revalidate tras zoom). NO toca los overlays de las capas superiores
-    // (fastbuttons, central_label, etc.): esos los posiciona la clase base.
+    // Colocado por anclas: cada asiento (y las comunitarias) se centra en su
+    // posición {fx, fy} del tablero original de N jugadores, escalada al tamaño
+    // ACTUAL del tapete. Se llama en cada validación (resize del tapete, revalidate
+    // tras zoom). NO toca los overlays de las capas superiores (fastbuttons,
+    // central_label, etc.): esos los posiciona la clase base.
     @Override
     public void doLayout() {
 
@@ -168,100 +232,30 @@ public class DynamicTablePanel extends TablePanel {
             return;
         }
 
-        final double cx = W / 2.0;
-        final double cy = H / 2.0;
-
-        // Comunitarias centradas en la mesa.
-        Dimension cd = community.getPreferredSize();
-        community.setBounds((int) Math.round(cx - cd.width / 2.0),
-                (int) Math.round(cy - cd.height / 2.0), cd.width, cd.height);
-
-        // Jugador local: pegado al borde inferior, centrado horizontalmente.
-        JPanel local = (JPanel) s[0];
-        Dimension ld = local.getPreferredSize();
-        local.setBounds((int) Math.round(cx - ld.width / 2.0),
-                H - EDGE_MARGIN - ld.height, ld.width, ld.height);
-
         final int n = s.length;
-        final int remotes = n - 1;
-        if (remotes <= 0) {
+        final double[][] anchors = (n < ANCHORS.length) ? ANCHORS[n] : null;
+        if (anchors == null) {
             return;
         }
 
-        // Reparto de los remotos por bordes según el tablero original de N jugadores.
-        int[] dist = (n < SEAT_DISTRIBUTION.length) ? SEAT_DISTRIBUTION[n] : null;
-        if (dist == null) {
-            return;
-        }
-        final int left = dist[0];
-        final int top = dist[1];
-        final int right = dist[2];
-
-        // Tamaño nominal de un asiento remoto (son todos iguales); se lee en cada
-        // layout, así que respeta el zoom automáticamente.
-        Dimension rd = ((JPanel) s[1]).getPreferredSize();
-        final double half_w = rd.width / 2.0;
-        final double half_h = rd.height / 2.0;
-
-        // Banda vertical de las columnas laterales (de arriba a abajo, pegadas) y
-        // banda horizontal de la fila superior (pegada arriba, retranqueada tras las
-        // columnas para no chocar en las esquinas).
-        final double y1 = EDGE_MARGIN + half_h;
-        final double y2 = H - EDGE_MARGIN - half_h;
-        final double span_y = Math.max(1.0, y2 - y1);
-
-        final double x_col_left = EDGE_MARGIN + half_w;
-        final double x_col_right = W - EDGE_MARGIN - half_w;
-        final double tx1 = (left > 0) ? x_col_left + 2 * half_w + SEAT_GAP : x_col_left;
-        final double tx2 = (right > 0) ? x_col_right - 2 * half_w - SEAT_GAP : x_col_right;
-        final double span_x = Math.max(1.0, tx2 - tx1);
-
-        // Los remotos van en ORDEN del array (r1, r2, ...) recorriendo el anillo en
-        // sentido antihorario desde el local: primero la columna IZQUIERDA de abajo
-        // hacia arriba, luego la fila SUPERIOR de izquierda a derecha, y por último
-        // la columna DERECHA de arriba hacia abajo. Reproduce el orden de los
-        // tableros fijos.
-        int idx = 1;
-
-        // Columna IZQUIERDA (de abajo hacia arriba).
-        for (int j = 0; j < left; j++) {
-            double frac = (j + 0.5) / left; // 0 = abajo del todo
-            double seat_cy = y2 - frac * span_y;
-            placeSeat((JPanel) s[idx++], EDGE_MARGIN, seat_cy, true);
+        // Asientos (0 = local, 1..n-1 = remotos).
+        for (int i = 0; i < n; i++) {
+            centerAt((JPanel) s[i], anchors[i][0] * W, anchors[i][1] * H);
         }
 
-        // Fila SUPERIOR (de izquierda a derecha).
-        for (int j = 0; j < top; j++) {
-            double frac = (top == 1) ? 0.5 : (j + 0.5) / top;
-            double seat_cx = tx1 + frac * span_x;
-            placeSeatTop((JPanel) s[idx++], seat_cx, EDGE_MARGIN);
-        }
-
-        // Columna DERECHA (de arriba hacia abajo).
-        for (int j = 0; j < right; j++) {
-            double frac = (j + 0.5) / right; // 0 = arriba del todo
-            double seat_cy = y1 + frac * span_y;
-            placeSeat((JPanel) s[idx++], EDGE_MARGIN, seat_cy, false);
-        }
+        // Comunitarias (última fila de las anclas).
+        centerAt(community, anchors[n][0] * W, anchors[n][1] * H);
     }
 
-    // Coloca un asiento de columna lateral pegado al borde izquierdo (left=true) o
-    // derecho (left=false), centrado verticalmente en seat_cy.
-    private void placeSeat(JPanel panel, int margin, double seat_cy, boolean left) {
+    // Coloca un componente con su tamaño preferido, centrado en (cx, cy).
+    private static void centerAt(JPanel panel, double cx, double cy) {
         Dimension d = panel.getPreferredSize();
-        int x = left ? margin : (getWidth() - margin - d.width);
-        panel.setBounds(x, (int) Math.round(seat_cy - d.height / 2.0), d.width, d.height);
-    }
-
-    // Coloca un asiento de la fila superior pegado al borde de arriba, centrado
-    // horizontalmente en seat_cx.
-    private void placeSeatTop(JPanel panel, double seat_cx, int margin) {
-        Dimension d = panel.getPreferredSize();
-        panel.setBounds((int) Math.round(seat_cx - d.width / 2.0), margin, d.width, d.height);
+        panel.setBounds((int) Math.round(cx - d.width / 2.0),
+                (int) Math.round(cy - d.height / 2.0), d.width, d.height);
     }
 
     // Tras el zoom, los asientos cambian de tamaño preferido: forzamos una
-    // revalidación para recolocarlos sobre la elipse con el nuevo tamaño.
+    // revalidación para recolocarlos con el nuevo tamaño.
     @Override
     public void zoom(float factor, ConcurrentLinkedQueue<Long> notifier) {
         super.zoom(factor, notifier);

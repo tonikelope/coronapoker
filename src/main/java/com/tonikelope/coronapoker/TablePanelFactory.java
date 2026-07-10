@@ -37,9 +37,8 @@ public class TablePanelFactory {
     public static TablePanel getPanel(int players) {
 
         // Tablero ÚNICO por geometría (DynamicTablePanel): coloca a los N jugadores
-        // sobre una elipse en vez de usar un .form fijo por cada número de jugadores.
-        // Los antiguos TablePanel2..TablePanel10 se conservan de momento por si hay
-        // que revertir; una vez validada la disposición visual se pueden eliminar.
+        // por anclas en vez de usar un .form fijo por cada número de jugadores (los
+        // antiguos TablePanel2..TablePanel10 ya se eliminaron).
         if (players >= 2 && players <= 10) {
             return new DynamicTablePanel(players);
         }

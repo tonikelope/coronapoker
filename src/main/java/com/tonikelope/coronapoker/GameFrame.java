@@ -244,6 +244,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // la elección previa del usuario al actualizar).
     public static volatile boolean ANIMACION_BARAJADO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_barajado", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
     public static volatile boolean ANIMACION_DESTAPE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_destape", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
+    // Recolocación animada de la mesa cuando abandonan jugadores (DynamicTablePanel): los que
+    // se van se desvanecen y los supervivientes se deslizan a su hueco en la mesa de M. On por
+    // defecto. Si off, corte seco (reconstrucción directa del tablero, como siempre).
+    public static volatile boolean ANIMACION_DOWNGRADE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_downgrade", "true"));
+    // Duración (ms) de la animación de recolocación. 500 = normal (por defecto).
+    public static final int DEFAULT_DOWNGRADE_VELOCIDAD = 500;
+    public static volatile int DOWNGRADE_VELOCIDAD = Integer.parseInt(Helpers.PROPERTIES.getProperty("downgrade_velocidad", String.valueOf(DEFAULT_DOWNGRADE_VELOCIDAD)));
     // Velocidad del reparto como % de la pausa base (Crupier.REPARTIR_PAUSA): 100 = normal (por
     // defecto, la velocidad histórica), >100 más lento, <100 más rápido.
     public static final int DEFAULT_REPARTO_VELOCIDAD = 100;
@@ -290,6 +297,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean destapeAnimOn() {
         return ANIMACIONES && ANIMACION_DESTAPE_PREF;
+    }
+
+    public static boolean downgradeAnimOn() {
+        return ANIMACIONES && ANIMACION_DOWNGRADE_PREF;
     }
 
     // Migración one-shot del antiguo checkbox "Cartas" (animacion_reparto), que se separó en
@@ -2456,13 +2467,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             return;
         }
 
-        // PoC animación de downgrade: ANTES del swap, en el tablero actual, se
-        // desvanecen los que abandonan y se deslizan los supervivientes a su hueco en
-        // la mesa de M jugadores. Bloquea este hilo (crupier) hasta terminar. El swap
-        // posterior monta el tablero nuevo con las copias en esas mismas posiciones,
-        // así que la transición es continua. Puramente visual: no toca la lógica.
-        if (tapete instanceof DynamicTablePanel) {
-            ((DynamicTablePanel) tapete).animateDowngrade(500);
+        // Animación de downgrade: ANTES del swap, en el tablero actual, se desvanecen
+        // los que abandonan y se deslizan los supervivientes a su hueco en la mesa de M
+        // jugadores. Bloquea este hilo (crupier) hasta terminar. El swap posterior monta
+        // el tablero nuevo con las copias en esas mismas posiciones, así que la
+        // transición es continua. Puramente visual: no toca la lógica. Configurable
+        // (checkbox + velocidad en Ajustes → Apariencia); si off, corte seco de siempre.
+        if (tapete instanceof DynamicTablePanel && GameFrame.downgradeAnimOn()) {
+            ((DynamicTablePanel) tapete).animateDowngrade(GameFrame.DOWNGRADE_VELOCIDAD);
         }
 
         TablePanel nuevo_tapete = TablePanelFactory.downgradePanel(tapete);

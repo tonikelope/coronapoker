@@ -15383,7 +15383,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // Destape ANIMADO de las dos hole cards de un rival, con el mismo gate y
-    // el mismo motor que las comunitarias (repartoAnimOn + GIF de giro por
+    // el mismo motor que las comunitarias (destapeAnimOn + GIF de giro por
     // carta, pre-decodificado catch-up, relevos sin hueco). Las dos cartas
     // giran A LA VEZ (overlays en paralelo, un solo uncover.wav) sobre
     // overlays efímeros, y el método BLOQUEA hasta que el giro termina (nunca

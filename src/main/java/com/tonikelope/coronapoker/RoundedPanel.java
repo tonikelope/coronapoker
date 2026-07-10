@@ -52,24 +52,10 @@ public class RoundedPanel extends JPanel {
         this.arc = arc;
     }
 
-    // Esquinas REDONDEADAS: si el panel fuese realmente opaco, Swing no repintaría el
-    // fondo detrás y las esquinas —fuera del arco— mostrarían basura del buffer (visible
-    // sobre la textura del tapete; sobre fondos sólidos de diálogos apenas). Por eso el
-    // panel NUNCA es opaco de verdad: interceptamos setOpaque y recordamos la intención
-    // de relleno (rounded_fill), que pintamos nosotros; Swing repinta el fondo detrás y
-    // las esquinas quedan limpias. Mismo arreglo que en los asientos (RemotePlayer/LocalPlayer).
-    private volatile boolean rounded_fill = false;
-
-    @Override
-    public void setOpaque(boolean isOpaque) {
-        this.rounded_fill = isOpaque;
-        super.setOpaque(false);
-    }
-
     @Override
     protected void paintComponent(Graphics g) {
 
-        if (rounded_fill) {
+        if (isOpaque()) {
             Graphics2D g2d = (Graphics2D) g.create();
             try {
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -79,8 +65,8 @@ public class RoundedPanel extends JPanel {
             } finally {
                 g2d.dispose();
             }
-            // super.paintComponent NO se llama: Swing ya repintó el fondo detrás (no-opaco)
-            // y el relleno redondeado va encima; super pintaría un fondo rectangular debajo.
+            // Skip super.paintComponent: the rounded fill above replaces the default
+            // rectangular background; calling super would draw a square fill behind it.
         } else {
             super.paintComponent(g);
         }

@@ -172,6 +172,12 @@ public class NewGameDialog extends JDialog {
 
         initComponents();
 
+        // Recuadros finos de agrupación (escalada/tope de ciegas y recompra) con esquinas
+        // REDONDEADAS en vez de cuadradas. Se aplica aquí (tras initComponents) para no depender
+        // del .form generado. Mismo gris y grosor que el LineBorder original, solo cambia el arco.
+        aumento_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
+        recompra_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
+
         setupTooltips();
 
         blind_cap_spinner.addChangeListener((javax.swing.event.ChangeEvent e) -> updateBlindCapLabel());

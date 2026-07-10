@@ -502,7 +502,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         doblar_ciegas_spinner_minutos.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
         doblar_ciegas_spinner_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        blind_cap_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+        blind_cap_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
 
         blind_cap_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
         blind_cap_checkbox.setText("Tope ciega grande");

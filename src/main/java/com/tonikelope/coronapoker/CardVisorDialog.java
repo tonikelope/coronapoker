@@ -180,32 +180,14 @@ public class CardVisorDialog extends javax.swing.JDialog {
         ImageIcon icon;
         String c;
 
-        switch (carta) {
-            case 54:
-                c = "joker.jpg";
-                break;
-            case 53:
-                c = "trasera.jpg";
-                break;
-            default:
-                c = Card.VALORES[((carta - 1) % 13)] + "_" + Card.PALOS[(int) ((float) (carta - 1) / 13)] + ".jpg";
-                break;
-        }
+        if (carta == 53) {
 
-        boolean baraja_mod = (boolean) ((Object[]) Card.BARAJAS.get(GameFrame.BARAJA))[1];
-
-        if (baraja_mod && !Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c))) {
-            Logger.getLogger(CardVisorDialog.class.getName()).log(Level.INFO, "No existe {0}", Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c);
-            this.setVisible(false);
-        } else {
-            icon = baraja_mod ? new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c) : new ImageIcon(getClass().getResource("/images/decks/" + GameFrame.BARAJA + "/hq/" + c));
-            im = Helpers.makeImageRoundedCorner(icon.getImage(), CORNER);
+            // La trasera es un ajuste GLOBAL (back/ del juego o carpeta del mod): no
+            // depende de la baraja ni tiene versión hq; se usa su jpg a resolución nativa.
+            im = Helpers.makeImageRoundedCorner(Card.traseraSourceIcon().getImage(), CORNER);
 
             int w = im.getWidth();
             int h = im.getHeight();
-
-            // Solo reducimos (nunca ampliamos por encima del tamaño natural) para no
-            // degradar la calidad; si la carta ya cabe se muestra a tamaño real.
             double scale = Math.min(Math.min((double) max_w / w, (double) max_h / h), 1.0);
 
             if (scale < 1.0) {
@@ -214,6 +196,39 @@ public class CardVisorDialog extends javax.swing.JDialog {
                 this.card.setIcon(new ImageIcon(im));
             }
 
+        } else {
+
+            switch (carta) {
+                case 54:
+                    c = "joker.jpg";
+                    break;
+                default:
+                    c = Card.VALORES[((carta - 1) % 13)] + "_" + Card.PALOS[(int) ((float) (carta - 1) / 13)] + ".jpg";
+                    break;
+            }
+
+            boolean baraja_mod = (boolean) ((Object[]) Card.BARAJAS.get(GameFrame.BARAJA))[1];
+
+            if (baraja_mod && !Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c))) {
+                Logger.getLogger(CardVisorDialog.class.getName()).log(Level.INFO, "No existe {0}", Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c);
+                this.setVisible(false);
+            } else {
+                icon = baraja_mod ? new ImageIcon(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/hq/" + c) : new ImageIcon(getClass().getResource("/images/decks/" + GameFrame.BARAJA + "/hq/" + c));
+                im = Helpers.makeImageRoundedCorner(icon.getImage(), CORNER);
+
+                int w = im.getWidth();
+                int h = im.getHeight();
+
+                // Solo reducimos (nunca ampliamos por encima del tamaño natural) para no
+                // degradar la calidad; si la carta ya cabe se muestra a tamaño real.
+                double scale = Math.min(Math.min((double) max_w / w, (double) max_h / h), 1.0);
+
+                if (scale < 1.0) {
+                    this.card.setIcon(new ImageIcon(im.getScaledInstance((int) Math.round(w * scale), (int) Math.round(h * scale), java.awt.Image.SCALE_SMOOTH)));
+                } else {
+                    this.card.setIcon(new ImageIcon(im));
+                }
+            }
         }
     }
 

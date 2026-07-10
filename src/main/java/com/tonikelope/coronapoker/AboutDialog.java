@@ -56,9 +56,7 @@ import javax.swing.Timer;
 
     https://stackoverflow.com/
 
-    https://www.3dgifmaker.com/ 
-
-    http://www.lcdf.org/gifsicle/
+    https://www.3dgifmaker.com/
 
     https://www.picturetopeople.org/
 

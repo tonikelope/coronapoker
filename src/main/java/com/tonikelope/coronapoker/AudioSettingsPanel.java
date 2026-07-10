@@ -475,7 +475,9 @@ public class AudioSettingsPanel extends JPanel {
         right_col.add(notes_panel);
         right_col.add(Box.createVerticalStrut(8));
         right_col.add(tts_panel);
-        right_col.add(Box.createVerticalStrut(8));
+        // Sin separador entre tts_panel y la nota global: así tts_panel es el último elemento
+        // efectivo de la columna (la nota es invisible fuera de partida) y su borde inferior llega
+        // al fondo de la celda, alineado con "Dispositivo de entrada" de la columna izquierda.
         right_col.add(global_note);
 
         // GridLayout (no BoxLayout X): fuerza a las DOS columnas a la MISMA altura (cada una

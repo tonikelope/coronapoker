@@ -411,7 +411,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // reactivadas) para que la primera mano no pague el decode de ~0,5 s
     public static void warmShuffleAnimCache() {
 
-        if (!GameFrame.repartoAnimOn()) {
+        if (!GameFrame.barajadoAnimOn()) {
             return;
         }
 
@@ -7950,7 +7950,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 URL url_icon = shuffleGifUrl();
-                if (url_icon != null && GameFrame.repartoAnimOn()) {
+                if (url_icon != null && GameFrame.barajadoAnimOn()) {
 
                     // Motor pre-decodificado con catch-up también para el barajado:
                     // un único decode por baraja (normalmente ya caliente por el
@@ -8700,7 +8700,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean animacion = GameFrame.repartoAnimOn();
 
-        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
+        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (GameFrame.REPARTO_VELOCIDAD / 100f) * (2f / this.getJugadoresActivos())));
 
         // Duración del vuelo de cada carta tapada (centro→asiento). Escala con
         // el nº de jugadores como la pausa pero con un suelo más alto para que
@@ -11201,7 +11201,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Re-reparto animado: un beat con el hueco vacío para que el rewind se
         // lea, y cada corrida vuelve boca abajo VOLANDO desde el dealer (mismo
         // sistema/velocidad que repartir()).
-        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
+        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (GameFrame.REPARTO_VELOCIDAD / 100f) * (2f / this.getJugadoresActivos())));
         int flight_dur = Math.max(150, pausa);
         final Card deal_origin = getDealerSeatAnchor();
 
@@ -15327,7 +15327,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // flip y flip y la cadencia del flop variaba de mano en mano.
     private void prefetchAnimacionDestaparCarta(Card carta) {
 
-        if (GameFrame.repartoAnimOn()) {
+        if (GameFrame.destapeAnimOn()) {
             flip_anim_prefetch.put(carta, Helpers.futureRun(() -> decodeCardFlipAnim(carta)));
         }
     }
@@ -15416,7 +15416,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         RemotePlayer rp = (RemotePlayer) jugador;
 
-        if (!GameFrame.repartoAnimOn()) {
+        if (!GameFrame.destapeAnimOn()) {
             destaparCartasJugadorSeco(rp);
             return;
         }
@@ -15512,7 +15512,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        if (GameFrame.repartoAnimOn()) {
+        if (GameFrame.destapeAnimOn()) {
 
             long start = System.currentTimeMillis();
 

@@ -237,6 +237,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // lo que tarda ese cliente: sirve para localizar de un vistazo al PC más lento de la mesa.
     // Puramente visual: no toca la cascada ni el consenso. Por defecto desactivado.
     public static volatile boolean ANIMACION_CASCADA_OVERLAY_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_cascada_overlay", "false"));
+    // El antiguo checkbox "Cartas" (animacion_reparto) gobernaba a la vez el BARAJADO, el
+    // REPARTO y el DESTAPE. Se ha separado en tres preferencias independientes: "animacion_reparto"
+    // conserva su clave y ahora solo gobierna el reparto; "animacion_barajado" y "animacion_destape"
+    // son nuevas y MIGRAN del valor histórico de "animacion_reparto" la primera vez (para respetar
+    // la elección previa del usuario al actualizar).
+    public static volatile boolean ANIMACION_BARAJADO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_barajado", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
+    public static volatile boolean ANIMACION_DESTAPE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_destape", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
+    // Velocidad del reparto como % de la pausa base (Crupier.REPARTIR_PAUSA): 100 = normal (por
+    // defecto, la velocidad histórica), >100 más lento, <100 más rápido.
+    public static final int DEFAULT_REPARTO_VELOCIDAD = 100;
+    public static volatile int REPARTO_VELOCIDAD = Integer.parseInt(Helpers.PROPERTIES.getProperty("reparto_velocidad", String.valueOf(DEFAULT_REPARTO_VELOCIDAD)));
 
     // Sincronización P2P de estadísticas: dos preferencias globales independientes,
     // ambas ON por defecto. RECIBIR = importar las partidas que me faltan al conectar
@@ -273,6 +284,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return ANIMACIONES && ANIMACION_REPARTO_PREF;
     }
 
+    public static boolean barajadoAnimOn() {
+        return ANIMACIONES && ANIMACION_BARAJADO_PREF;
+    }
+
+    public static boolean destapeAnimOn() {
+        return ANIMACIONES && ANIMACION_DESTAPE_PREF;
+    }
+
     public static boolean ciegasDealerAnimOn() {
         return ANIMACIONES && ANIMACION_CIEGAS_DEALER_PREF;
     }
@@ -285,8 +304,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return ANIMACIONES && ANIMACION_CONTADORES_PREF;
     }
 
+    // La cascada SRA es un subajuste del BARAJADO: solo aplica si el barajado está activo.
     public static boolean cascadaOverlayAnimOn() {
-        return ANIMACIONES && ANIMACION_CASCADA_OVERLAY_PREF;
+        return ANIMACIONES && ANIMACION_BARAJADO_PREF && ANIMACION_CASCADA_OVERLAY_PREF;
     }
 
     // ---- Controlador del overlay de barajado por jugador (sincronizado vía el comando SHUFFLE_TURN)
@@ -5534,9 +5554,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int ANIM_CONTADORES = 3;
 
     // Aplica el cambio de un efecto de animación (flag + persistencia) y refleja
-    // el estado en AMBOS menús (menú-bar y popup del tapete). Al activar el
-    // reparto re-calienta la caché del shuffle.gif (el warm-up de arranque pudo
-    // saltárselo si estaba desactivado).
+    // el estado en AMBOS menús (menú-bar y popup del tapete). El warm-up de la
+    // caché del shuffle.gif ya no cuelga de aquí: depende del BARAJADO (lo dispara
+    // su checkbox en Ajustes y el maestro), no del reparto.
     public void setAnimEffect(int which, boolean value) {
         switch (which) {
             case ANIM_REPARTO:
@@ -5558,9 +5578,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         Helpers.savePropertiesFile();
         syncAnimationMenus();
-        if (which == ANIM_REPARTO && value) {
-            Crupier.warmShuffleAnimCache();
-        }
     }
 
     // Refleja las cuatro PREFERENCIAS en los ocho checkboxes (menú-bar + popup del tapete).
@@ -5628,7 +5645,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.PROPERTIES.setProperty("animaciones", String.valueOf(value));
         Helpers.savePropertiesFile();
         applyAnimationMaster();
-        if (value && GameFrame.ANIMACION_REPARTO_PREF) {
+        if (value && GameFrame.ANIMACION_BARAJADO_PREF) {
             Crupier.warmShuffleAnimCache();
         }
     }

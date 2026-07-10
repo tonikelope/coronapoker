@@ -96,7 +96,9 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_show_clock;
     private final boolean snap_coste_igualar;
     private final boolean snap_cinematicas;
+    private final boolean snap_anim_barajado;
     private final boolean snap_anim_reparto;
+    private final boolean snap_anim_destape;
     private final boolean snap_anim_ciegas_dealer;
     private final boolean snap_anim_apuestas;
     private final boolean snap_anim_contadores;
@@ -106,6 +108,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_fullscreen;
     private final int snap_card_flip_duration;
     private final int snap_card_flip_zoom;
+    private final int snap_reparto_velocidad;
 
     public AppearanceSettingsPanel() {
 
@@ -127,7 +130,12 @@ public class AppearanceSettingsPanel extends JPanel {
         // off es false para todos y no permitiría distinguir un cambio de preferencia al
         // revertir.
         snap_cinematicas = prefBool("cinematicas");
+        // Barajado y destape no tienen item de menú: su preferencia es el flag de GameFrame
+        // (ya migrado del histórico "animacion_reparto" si aún no se habían guardado), no PROPERTIES
+        // en crudo, que podría no tener aún la clave.
+        snap_anim_barajado = GameFrame.ANIMACION_BARAJADO_PREF;
         snap_anim_reparto = prefBool("animacion_reparto");
+        snap_anim_destape = GameFrame.ANIMACION_DESTAPE_PREF;
         snap_anim_ciegas_dealer = prefBool("animacion_ciegas_dealer");
         snap_anim_apuestas = prefBool("animacion_apuestas");
         snap_anim_contadores = prefBool("animacion_contadores");
@@ -137,6 +145,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
         snap_card_flip_duration = GameFrame.CARD_FLIP_DURATION;
         snap_card_flip_zoom = GameFrame.CARD_FLIP_ZOOM;
+        snap_reparto_velocidad = GameFrame.REPARTO_VELOCIDAD;
 
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
@@ -384,14 +393,97 @@ public class AppearanceSettingsPanel extends JPanel {
 
         addLeft(anim, animCheckbox("/images/menu/video.png", "menu.cinematicas",
                 gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
-        addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_reparto",
+        // --- Barajado (solo Ajustes, sin item de menú) + su subajuste Cascada SRA ---
+        // Al activarlo re-calienta la caché del shuffle.gif (el warm-up de arranque pudo saltárselo).
+        addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_barajado",
+                null, "animacion_barajado",
+                v -> { GameFrame.ANIMACION_BARAJADO_PREF = v; if (v) { Crupier.warmShuffleAnimCache(); } },
+                GameFrame.ANIMACION_BARAJADO_PREF));
+        final JCheckBox barajado_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Cascada SRA: overlay de barajado por jugador. Cuelga (más sangrado) de "Barajado": se
+        // deshabilita si se desmarca "Barajado" o el maestro. Persist-only (sin item de menú); se
+        // construye a mano (no vía animCheckbox) para gatear su habilitación por "Barajado", no solo
+        // por el maestro.
+        {
+            final JCheckBox cascada_cb = new JCheckBox(Translator.translate("menu.efectos_animacion_cascada_overlay"),
+                    prefBool("animacion_cascada_overlay", false));
+            cascada_cb.addActionListener(e -> {
+                boolean now = cascada_cb.isSelected();
+                persist("animacion_cascada_overlay", String.valueOf(now));
+                GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = now;
+            });
+            Runnable updateCascadaEnabled = () -> cascada_cb.setEnabled(anim_master.isSelected() && barajado_cb.isSelected());
+            anim_master.addActionListener(e -> updateCascadaEnabled.run());
+            barajado_cb.addActionListener(e -> updateCascadaEnabled.run());
+            updateCascadaEnabled.run();
+            JPanel cascada_row = naturalRow();
+            cascada_row.add(Box.createHorizontalStrut(36)); // sub de "Barajado"
+            cascada_row.add(new JLabel(icon("/images/menu/baraja.png")));
+            cascada_row.add(cascada_cb);
+            addLeft(anim, cascada_row);
+        }
+
+        // --- Reparto (era "Cartas", conserva su item de menú y la clave "animacion_reparto") ---
+        addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_reparto",
                 gf != null ? gf.getAnim_reparto_menu() : null, "animacion_reparto", v -> GameFrame.ANIMACION_REPARTO_PREF = v));
-        // Referencia al checkbox "Cartas" recién registrado (el último de anim_sub_cb) para
-        // gobernar la habilitación del slider de duración que cuelga de él.
-        final JCheckBox cartas_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        final JCheckBox reparto_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Velocidad del reparto: 3 opciones (lento/normal/rápido). "Normal" = velocidad histórica
+        // EXACTA (REPARTO_VELOCIDAD 100 -> factor 1.0). Cuelga de "Reparto": se deshabilita si se
+        // desmarca "Reparto" o el maestro. Guarda el % de la pausa base (GameFrame.REPARTO_VELOCIDAD).
+        {
+            final int[] speed_pct = {150, GameFrame.DEFAULT_REPARTO_VELOCIDAD, 60}; // lento, normal, rápido
+            final String[] speed_keys = {"settings.reparto_lento", "settings.reparto_normal", "settings.reparto_rapido"};
+            final String[] speed_labels = new String[speed_keys.length];
+            for (int i = 0; i < speed_keys.length; i++) {
+                speed_labels[i] = Translator.translate(speed_keys[i]);
+            }
+
+            final JLabel deal_text = new JLabel(Translator.translate("settings.velocidad") + ":");
+            final javax.swing.JComboBox<String> deal_combo = new javax.swing.JComboBox<>(speed_labels);
+
+            // Selecciona la opción cuyo % guardado sea el más cercano (por defecto Normal).
+            int sel = 1, best = Integer.MAX_VALUE;
+            for (int i = 0; i < speed_pct.length; i++) {
+                int d = Math.abs(speed_pct[i] - GameFrame.REPARTO_VELOCIDAD);
+                if (d < best) {
+                    best = d;
+                    sel = i;
+                }
+            }
+            deal_combo.setSelectedIndex(sel);
+            deal_combo.setMaximumSize(deal_combo.getPreferredSize());
+            deal_combo.addActionListener(e -> {
+                int pct = speed_pct[deal_combo.getSelectedIndex()];
+                GameFrame.REPARTO_VELOCIDAD = pct;
+                persist("reparto_velocidad", String.valueOf(pct));
+            });
+            Helpers.setTranslatedToolTip(deal_combo, "tooltip.cfg.reparto_velocidad");
+
+            Runnable updateDealEnabled = () -> {
+                boolean on = anim_master.isSelected() && reparto_cb.isSelected();
+                deal_combo.setEnabled(on);
+                deal_text.setEnabled(on);
+            };
+            anim_master.addActionListener(e -> updateDealEnabled.run());
+            reparto_cb.addActionListener(e -> updateDealEnabled.run());
+            updateDealEnabled.run();
+
+            JPanel deal_row = naturalRow();
+            deal_row.add(Box.createHorizontalStrut(36)); // sub de "Reparto"
+            deal_row.add(new JLabel(icon("/images/menu/clock.png")));
+            deal_row.add(deal_text);
+            deal_row.add(deal_combo);
+            addLeft(anim, deal_row);
+        }
+
+        // --- Destapar (era la parte de giro del antiguo "Cartas", ahora propio, solo Ajustes) ---
+        // De él cuelgan la velocidad del destape y el efecto acercar.
+        addLeft(anim, animCheckbox("/images/menu/pica_roja.png", "menu.efectos_animacion_destape",
+                null, "animacion_destape", v -> GameFrame.ANIMACION_DESTAPE_PREF = v, GameFrame.ANIMACION_DESTAPE_PREF));
+        final JCheckBox destapar_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
         // Velocidad del destape: 5 opciones (muy lenta ... muy rápida). "Normal" es el valor
-        // por defecto exacto. Cuelga (más sangrado) del ajuste "Cartas": se deshabilita si se
-        // desmarca "Cartas" o el maestro. Guarda la duración en ms (GameFrame.CARD_FLIP_DURATION).
+        // por defecto exacto. Cuelga (más sangrado) del ajuste "Destapar": se deshabilita si se
+        // desmarca "Destapar" o el maestro. Guarda la duración en ms (GameFrame.CARD_FLIP_DURATION).
         {
             final int[] speed_ms = {1100, 850, GameFrame.DEFAULT_CARD_FLIP_DURATION, 480, 350}; // muy lenta -> muy rápida
             final String[] speed_keys = {"settings.destape_muy_lenta", "settings.destape_lenta",
@@ -401,7 +493,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 speed_labels[i] = Translator.translate(speed_keys[i]);
             }
 
-            final JLabel flip_text = new JLabel(Translator.translate("settings.velocidad_destape") + ":");
+            final JLabel flip_text = new JLabel(Translator.translate("settings.velocidad") + ":");
             final javax.swing.JComboBox<String> speed_combo = new javax.swing.JComboBox<>(speed_labels);
 
             // Selecciona la opción cuyo ms guardado sea el más cercano (por defecto Normal).
@@ -422,24 +514,24 @@ public class AppearanceSettingsPanel extends JPanel {
             });
             Helpers.setTranslatedToolTip(speed_combo, "tooltip.cfg.card_flip_duration");
 
-            // Habilitado solo si el maestro de animaciones Y el checkbox "Cartas" están activos.
+            // Habilitado solo si el maestro de animaciones Y el checkbox "Destapar" están activos.
             Runnable updateFlipEnabled = () -> {
-                boolean on = anim_master.isSelected() && cartas_cb.isSelected();
+                boolean on = anim_master.isSelected() && destapar_cb.isSelected();
                 speed_combo.setEnabled(on);
                 flip_text.setEnabled(on);
             };
             anim_master.addActionListener(e -> updateFlipEnabled.run());
-            cartas_cb.addActionListener(e -> updateFlipEnabled.run());
+            destapar_cb.addActionListener(e -> updateFlipEnabled.run());
             updateFlipEnabled.run();
 
             JPanel flip_row = naturalRow();
-            flip_row.add(Box.createHorizontalStrut(36)); // más sangrado: cuelga de "Cartas"
+            flip_row.add(Box.createHorizontalStrut(36)); // más sangrado: cuelga de "Destapar"
             flip_row.add(new JLabel(icon("/images/menu/clock.png")));
             flip_row.add(flip_text);
             flip_row.add(speed_combo);
             addLeft(anim, flip_row);
         }
-        // Efecto "acercar": 4 opciones (desactivado ... fuerte). Cuelga de "Cartas" igual que la
+        // Efecto "acercar": 4 opciones (desactivado ... fuerte). Cuelga de "Destapar" igual que la
         // velocidad. Guarda el porcentaje de agrandado (GameFrame.CARD_FLIP_ZOOM): 100 = desactivado.
         {
             final int[] acercar_pct = {100, 115, 130, 145}; // desactivado, suave, normal, fuerte
@@ -471,14 +563,14 @@ public class AppearanceSettingsPanel extends JPanel {
             });
             Helpers.setTranslatedToolTip(zoom_combo, "tooltip.cfg.card_flip_zoom");
 
-            // Habilitado solo si el maestro de animaciones Y el checkbox "Cartas" están activos.
+            // Habilitado solo si el maestro de animaciones Y el checkbox "Destapar" están activos.
             Runnable updateZoomEnabled = () -> {
-                boolean on = anim_master.isSelected() && cartas_cb.isSelected();
+                boolean on = anim_master.isSelected() && destapar_cb.isSelected();
                 zoom_combo.setEnabled(on);
                 zoom_text.setEnabled(on);
             };
             anim_master.addActionListener(e -> updateZoomEnabled.run());
-            cartas_cb.addActionListener(e -> updateZoomEnabled.run());
+            destapar_cb.addActionListener(e -> updateZoomEnabled.run());
             updateZoomEnabled.run();
 
             JPanel zoom_row = naturalRow();
@@ -494,11 +586,6 @@ public class AppearanceSettingsPanel extends JPanel {
                 gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
                 gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v));
-        // Overlay de barajado sobre cada jugador durante su paso de cascada. Sin item de menú
-        // (solo vive aquí): animCheckbox con menu=null persiste la preferencia y fija el flag en
-        // vivo; el maestro lo habilita/deshabilita como a los demás.
-        addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_cascada_overlay",
-                null, "animacion_cascada_overlay", v -> GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = v, false));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
         // alineadas arriba a la izquierda; el hueco sobrante cae limpio a la derecha y
@@ -558,7 +645,9 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.SHOW_CLOCK != snap_show_clock
                 || GameFrame.MOSTRAR_COSTE_IGUALAR != snap_coste_igualar
                 || prefBool("cinematicas") != snap_cinematicas
+                || GameFrame.ANIMACION_BARAJADO_PREF != snap_anim_barajado
                 || prefBool("animacion_reparto") != snap_anim_reparto
+                || GameFrame.ANIMACION_DESTAPE_PREF != snap_anim_destape
                 || prefBool("animacion_ciegas_dealer") != snap_anim_ciegas_dealer
                 || prefBool("animacion_apuestas") != snap_anim_apuestas
                 || prefBool("animacion_contadores") != snap_anim_contadores
@@ -567,7 +656,8 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen
                 || GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration
-                || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom;
+                || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom
+                || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad;
     }
 
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al
@@ -658,6 +748,22 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
             Helpers.savePropertiesFile();
         }
+        // Barajado y destape tampoco tienen item de menú: se revierten fijando el flag +
+        // persistiendo, como el overlay de cascada. Al restaurar el barajado a ON se recalienta
+        // la caché del shuffle.gif por si el warm-up se saltó mientras estuvo desactivado.
+        if (GameFrame.ANIMACION_BARAJADO_PREF != snap_anim_barajado) {
+            GameFrame.ANIMACION_BARAJADO_PREF = snap_anim_barajado;
+            Helpers.PROPERTIES.setProperty("animacion_barajado", String.valueOf(snap_anim_barajado));
+            Helpers.savePropertiesFile();
+            if (snap_anim_barajado) {
+                Crupier.warmShuffleAnimCache();
+            }
+        }
+        if (GameFrame.ANIMACION_DESTAPE_PREF != snap_anim_destape) {
+            GameFrame.ANIMACION_DESTAPE_PREF = snap_anim_destape;
+            Helpers.PROPERTIES.setProperty("animacion_destape", String.valueOf(snap_anim_destape));
+            Helpers.savePropertiesFile();
+        }
         if (GameFrame.CHAT_IMAGES_INGAME != snap_chat_images) {
             gf.getChat_image_menu().doClick();
         }
@@ -672,6 +778,12 @@ public class AppearanceSettingsPanel extends JPanel {
         if (GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom) {
             GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
             Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
+            Helpers.savePropertiesFile();
+        }
+        // Velocidad del reparto: mismo camino (persist-only).
+        if (GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad) {
+            GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
+            Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
             Helpers.savePropertiesFile();
         }
     }
@@ -694,13 +806,16 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.CHAT_IMAGES_INGAME = snap_chat_images;
         GameFrame.ANIMACIONES = snap_animaciones;
         GameFrame.CINEMATICAS_PREF = snap_cinematicas;
+        GameFrame.ANIMACION_BARAJADO_PREF = snap_anim_barajado;
         GameFrame.ANIMACION_REPARTO_PREF = snap_anim_reparto;
+        GameFrame.ANIMACION_DESTAPE_PREF = snap_anim_destape;
         GameFrame.ANIMACION_CIEGAS_DEALER_PREF = snap_anim_ciegas_dealer;
         GameFrame.ANIMACION_APUESTAS_PREF = snap_anim_apuestas;
         GameFrame.ANIMACION_CONTADORES_PREF = snap_anim_contadores;
         GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = snap_anim_cascada_overlay;
         GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
+        GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
 
         Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(snap_zoom_level));
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(snap_vista_compacta));
@@ -713,13 +828,16 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("chat_images_ingame", String.valueOf(snap_chat_images));
         Helpers.PROPERTIES.setProperty("animaciones", String.valueOf(snap_animaciones));
         Helpers.PROPERTIES.setProperty("cinematicas", String.valueOf(snap_cinematicas));
+        Helpers.PROPERTIES.setProperty("animacion_barajado", String.valueOf(snap_anim_barajado));
         Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(snap_anim_reparto));
+        Helpers.PROPERTIES.setProperty("animacion_destape", String.valueOf(snap_anim_destape));
         Helpers.PROPERTIES.setProperty("animacion_ciegas_dealer", String.valueOf(snap_anim_ciegas_dealer));
         Helpers.PROPERTIES.setProperty("animacion_apuestas", String.valueOf(snap_anim_apuestas));
         Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(snap_anim_contadores));
         Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
         Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
+        Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
         Helpers.savePropertiesFile();
 
         if (tapete_changed) {

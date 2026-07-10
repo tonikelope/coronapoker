@@ -243,8 +243,26 @@ public class DynamicTablePanel extends TablePanel {
             centerAt((JPanel) s[i], anchors[i][0] * W, anchors[i][1] * H);
         }
 
-        // Comunitarias (última fila de las anclas).
-        centerAt(community, anchors[n][0] * W, anchors[n][1] * H);
+        // Comunitarias: SIEMPRE centradas en la mesa, pero por su FILA DE CARTAS, no
+        // por los bounds del panel. El CommunityCardsPanel es más ancho que las
+        // cartas (lleva el bote y los controles) y las cartas van alineadas a la
+        // izquierda dentro de él, así que centrar los bounds del panel dejaba las
+        // cartas desplazadas. Colocamos el panel de forma que el CENTRO de su
+        // cards_panel caiga en (W/2, H/2).
+        Dimension cd = community.getPreferredSize();
+        community.setBounds(0, 0, cd.width, cd.height); // provisional, para que se coloquen los hijos
+        community.doLayout();
+        double off_x = cd.width / 2.0;
+        double off_y = cd.height / 2.0;
+        JPanel cards = community.getCards_panel();
+        if (cards != null) {
+            java.awt.Point p = javax.swing.SwingUtilities.convertPoint(
+                    cards, cards.getWidth() / 2, cards.getHeight() / 2, community);
+            off_x = p.x;
+            off_y = p.y;
+        }
+        community.setBounds((int) Math.round(W / 2.0 - off_x),
+                (int) Math.round(H / 2.0 - off_y), cd.width, cd.height);
     }
 
     // Coloca un componente con su tamaño preferido, centrado en (cx, cy).

@@ -57,7 +57,9 @@ public class DynamicTablePanel extends TablePanel {
     // Margen (px) entre el borde exterior del asiento y el borde del tapete. Los
     // asientos se PEGAN a su borde con este margen (no se anclan por el centro), así
     // aprovechan el espacio y siguen pegados aunque cambien de tamaño (vista compacta).
-    private static final int EDGE_MARGIN = 14;
+    // Pequeño a propósito: el propio asiento ya tiene un borde redondeado con padding,
+    // que es el aire mínimo visible aunque el panel esté pegado al borde del tapete.
+    private static final int EDGE_MARGIN = 5;
 
     // Anclas por número de jugadores (índice = nº de jugadores, 2..10). Cada fila es
     // un asiento en el ORDEN del array de jugadores: índice 0 = jugador local, 1..N-1

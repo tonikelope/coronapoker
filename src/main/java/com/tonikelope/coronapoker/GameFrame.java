@@ -2456,6 +2456,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             return;
         }
 
+        // PoC animación de downgrade: ANTES del swap, en el tablero actual, se
+        // desvanecen los que abandonan y se deslizan los supervivientes a su hueco en
+        // la mesa de M jugadores. Bloquea este hilo (crupier) hasta terminar. El swap
+        // posterior monta el tablero nuevo con las copias en esas mismas posiciones,
+        // así que la transición es continua. Puramente visual: no toca la lógica.
+        if (tapete instanceof DynamicTablePanel) {
+            ((DynamicTablePanel) tapete).animateDowngrade(500);
+        }
+
         TablePanel nuevo_tapete = TablePanelFactory.downgradePanel(tapete);
 
         if (nuevo_tapete != null) {

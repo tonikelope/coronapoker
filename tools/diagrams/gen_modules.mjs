@@ -35,7 +35,7 @@ const boxes = [
   { id:'gameframe', c:C.core, x:490, y:292, w:320, h:80, name:'GameFrame', sub:'In-game hub / service locator: jugadores · comunitarias · log · owns Crupier' },
   { id:'crupier',   c:C.core, x:930, y:292, w:380, h:80, name:'Crupier', sub:'Authoritative hand engine (16k LOC): deal · betting · showdown · payout · run-it-twice · recovery' },
   // Z3 engine subsystems (left = under GameFrame, right = under Crupier)
-  { id:'table',  c:C.eng, x:265,  y:482, w:230, h:84, name:'Table rendering', sub:'TablePanel2..10 · CommunityCardsPanel · Card' },
+  { id:'table',  c:C.eng, x:265,  y:482, w:230, h:84, name:'Table rendering', sub:'DynamicTablePanel · CommunityCardsPanel · Card' },
   { id:'player', c:C.eng, x:525,  y:482, w:230, h:84, name:'Player model &amp; seats', sub:'Player · LocalPlayer · RemotePlayer · Participant' },
   { id:'bots',   c:C.eng, x:785,  y:482, w:230, h:84, name:'Bots / AI', sub:'Bot · bot/eval (Alberta) · DealerView / BotPlayerView' },
   { id:'money',  c:C.eng, x:1045, y:482, w:230, h:84, name:'Money / Settlement', sub:'HandPot · PotMath · BlindStructure · BetRules / BuyinRules' },

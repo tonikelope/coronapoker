@@ -182,8 +182,9 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         if (carta == 53) {
 
-            // La trasera es un ajuste GLOBAL (back/ del juego o carpeta del mod): no
-            // depende de la baraja ni tiene versión hq; se usa su jpg a resolución nativa.
+            // La trasera es un ajuste GLOBAL (back/ del juego o carpeta del mod): se usa
+            // su versión hq/ (con caída a la normal si el mod no la trae), igual que las
+            // cartas destapadas, para que el visor la muestre a máxima calidad.
             im = Helpers.makeImageRoundedCorner(Card.traseraSourceIcon().getImage(), CORNER);
 
             int w = im.getWidth();

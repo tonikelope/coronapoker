@@ -592,7 +592,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         // Caja de aumento (line-border) que ENGLOBA todo el grupo "Aumentar ciegas" (checkbox +
         // radios manos/minutos + spinners + tope ciega grande), IGUAL que el diálogo de nueva
         // timba (antes solo el tope iba enmarcado y "Aumentar ciegas" + radios quedaban sueltos).
-        aumento_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+        aumento_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
 
         blind_cap_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
         blind_cap_checkbox.setText("Tope ciega grande");
@@ -734,7 +734,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         buyin_max_bb_spinner.addChangeListener((javax.swing.event.ChangeEvent e) -> onBuyinRangeChanged(false));
 
         // recompra (subpanel line-border)
-        recompra_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+        recompra_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
 
         // Checkbox DESNUDO (sin texto) + label "Recomprar" con icono al lado, IGUAL que el diálogo
         // de nueva timba: setIcon sobre el checkbox rompe la casilla, así que el icono+texto van en

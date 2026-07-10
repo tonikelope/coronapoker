@@ -355,6 +355,14 @@ public class DynamicTablePanel extends TablePanel {
     // de juego (arrays de jugadores): es puramente visual.
     public void animateDowngrade(int duration_ms) {
 
+        // Seguro: NUNCA desde el EDT. El método bloquea el hilo llamante con un latch
+        // mientras el Timer corre en el EDT; llamado desde el EDT, GUIRunAndWait correría
+        // inline y el latch.await colgaría el EDT para siempre (el Timer nunca dispara).
+        // Hoy solo lo llama el hilo del crupier; esto es defensa barata ante cambios.
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+            return;
+        }
+
         final Player[] all = players;
         if (all == null) {
             return;

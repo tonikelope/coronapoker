@@ -287,20 +287,34 @@ public class DynamicTablePanel extends TablePanel {
         // izquierda dentro de él, así que centrar los bounds del panel dejaba las
         // cartas desplazadas. Colocamos el panel de forma que el CENTRO de su
         // cards_panel caiga en (W/2, H/2).
+        //
+        // IDEMPOTENTE a propósito: durante las cinemáticas de acción (vuelos de
+        // fichas que añaden/quitan componentes) se dispara doLayout() del tapete
+        // repetidamente. Por eso NO se mueve el panel a un provisional (0,0) —eso
+        // provocaba parpadeos sobre el bote— sino que solo se ajusta el TAMAÑO (sin
+        // cambiar la ubicación), solo se relayoutea cuando el tamaño cambia, y solo
+        // se hace setBounds si la posición final difiere de la actual (si no, no-op
+        // y no hay repintado).
         Dimension cd = community.getPreferredSize();
-        community.setBounds(0, 0, cd.width, cd.height); // provisional, para que se coloquen los hijos
-        community.doLayout();
+        if (community.getWidth() != cd.width || community.getHeight() != cd.height) {
+            community.setSize(cd.width, cd.height);
+            community.doLayout();
+        }
         double off_x = cd.width / 2.0;
         double off_y = cd.height / 2.0;
         JPanel cards = community.getCards_panel();
-        if (cards != null) {
+        if (cards != null && cards.getWidth() > 0) {
             java.awt.Point p = javax.swing.SwingUtilities.convertPoint(
                     cards, cards.getWidth() / 2, cards.getHeight() / 2, community);
             off_x = p.x;
             off_y = p.y;
         }
-        community.setBounds((int) Math.round(W / 2.0 - off_x),
-                (int) Math.round(H / 2.0 - off_y), cd.width, cd.height);
+        int comm_x = (int) Math.round(W / 2.0 - off_x);
+        int comm_y = (int) Math.round(H / 2.0 - off_y);
+        if (community.getX() != comm_x || community.getY() != comm_y
+                || community.getWidth() != cd.width || community.getHeight() != cd.height) {
+            community.setBounds(comm_x, comm_y, cd.width, cd.height);
+        }
     }
 
     // Tras el zoom, los asientos cambian de tamaño preferido: forzamos una

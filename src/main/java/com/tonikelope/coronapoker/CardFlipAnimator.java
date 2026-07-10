@@ -89,12 +89,17 @@ public class CardFlipAnimator {
             }
 
             double dens = screenDensity();
-            int draw_h = Math.round(card_h_logical * (float) dens); // alto físico de la carta
+            // Carta y lienzo a resolución FÍSICA con el TAMAÑO EXACTO de CARD (mismo aspecto
+            // que la carta estática), para que la animación quede alineada y centrada con ella.
+            int draw_w = Math.round(card_w_logical * (float) dens);
+            int draw_h = Math.round(card_h_logical * (float) dens);
+            int canvas_w = Math.round(canvasWidth(card_w_logical) * (float) dens);
+            int canvas_h = Math.round(canvasHeight(card_h_logical) * (float) dens);
 
             BufferedImage[] frames = new BufferedImage[num_frames];
             for (int i = 0; i < num_frames; i++) {
                 double ang = i * 180.0 / (num_frames - 1);
-                frames[i] = renderFlipImage(front, back, ang, PERSPECTIVE, draw_h, SS);
+                frames[i] = renderFlipImage(front, back, ang, PERSPECTIVE, draw_w, draw_h, canvas_w, canvas_h, SS);
             }
             return PreRenderedGif.fromFrames(frames, duration_ms);
 
@@ -103,13 +108,17 @@ public class CardFlipAnimator {
         }
     }
 
-    /** Ancho/alto LÓGICO del lienzo de la animación (para setSize del label). */
+    // Ancho/alto LÓGICO del lienzo de la animación (para setSize del label). Margen SIMÉTRICO
+    // y PAR alrededor de la carta (display = CARD + 2*margen) para que el centrado del overlay
+    // sobre la carta estática sea entero al píxel (sin desalineación de medio píxel).
     public static int canvasWidth(int card_w_logical) {
-        return (int) Math.ceil(card_w_logical * MARGIN);
+        int margin = Math.round(card_w_logical * (float) (MARGIN - 1) / 2f);
+        return card_w_logical + 2 * margin;
     }
 
     public static int canvasHeight(int card_h_logical) {
-        return (int) Math.ceil(card_h_logical * MARGIN);
+        int margin = Math.round(card_h_logical * (float) (MARGIN - 1) / 2f);
+        return card_h_logical + 2 * margin;
     }
 
     /** Invalida la caché de fuentes si cambió la baraja o la trasera seleccionada. */
@@ -221,16 +230,17 @@ public class CardFlipAnimator {
      * grados (0 = 'back' de frente, 180 = 'front' de frente) a un BufferedImage.
      */
     private static BufferedImage renderFlipImage(BufferedImage front, BufferedImage back,
-            double angleDeg, double persp, int drawH, int ss) {
+            double angleDeg, double persp, int drawW, int drawH, int canvasW, int canvasH, int ss) {
 
         BufferedImage src = (angleDeg > 90) ? front : back;
         boolean mirror = (angleDeg > 90);
         int srcW = src.getWidth(), srcH = src.getHeight();
         int[] srcPix = ((DataBufferInt) src.getRaster().getDataBuffer()).getData();
 
-        double drawW = drawH * (double) srcW / srcH;
-        double finalW = drawW * MARGIN, finalH = drawH * MARGIN;
-        int fw = (int) Math.ceil(finalW), fh = (int) Math.ceil(finalH);
+        // La carta plana mide drawW x drawH (tamaño y aspecto de CARD = la carta estática),
+        // centrada en el lienzo canvasW x canvasH. Así TODA la animación queda alineada en
+        // tamaño y centrada con la carta estática (el último frame coincide sin inventar nada).
+        int fw = canvasW, fh = canvasH;
         int bw = fw * ss, bh = fh * ss;
 
         double ang = Math.toRadians(angleDeg);
@@ -238,7 +248,7 @@ public class CardFlipAnimator {
         double D = drawW * (persp / 45.0) * 2.0;
         double a = halfW * Math.cos(ang);
         double b = halfW * Math.sin(ang);
-        double fcx = finalW / 2.0, fcy = finalH / 2.0;
+        double fcx = canvasW / 2.0, fcy = canvasH / 2.0;
 
         BufferedImage big = new BufferedImage(bw, bh, BufferedImage.TYPE_INT_ARGB);
         int[] dst = ((DataBufferInt) big.getRaster().getDataBuffer()).getData();

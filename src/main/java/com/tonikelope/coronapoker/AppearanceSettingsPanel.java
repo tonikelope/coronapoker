@@ -109,6 +109,8 @@ public class AppearanceSettingsPanel extends JPanel {
     private final int snap_card_flip_duration;
     private final int snap_card_flip_zoom;
     private final int snap_reparto_velocidad;
+    private final boolean snap_anim_downgrade;
+    private final int snap_downgrade_velocidad;
 
     public AppearanceSettingsPanel() {
 
@@ -146,6 +148,8 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_card_flip_duration = GameFrame.CARD_FLIP_DURATION;
         snap_card_flip_zoom = GameFrame.CARD_FLIP_ZOOM;
         snap_reparto_velocidad = GameFrame.REPARTO_VELOCIDAD;
+        snap_anim_downgrade = GameFrame.ANIMACION_DOWNGRADE_PREF;
+        snap_downgrade_velocidad = GameFrame.DOWNGRADE_VELOCIDAD;
 
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
@@ -587,6 +591,63 @@ public class AppearanceSettingsPanel extends JPanel {
             addToGroup(destapar_group, zoom_row);
         }
         addLeft(anim, destapar_group);
+
+        // --- Recolocación de la mesa al salir jugadores (DynamicTablePanel, solo Ajustes) ---
+        // De él cuelga la velocidad de la animación de deslizamiento.
+        JPanel downgrade_group = groupBox();
+        addToGroup(downgrade_group, animCheckbox("/images/menu/tiny.png", "menu.efectos_animacion_downgrade",
+                null, "animacion_downgrade", v -> GameFrame.ANIMACION_DOWNGRADE_PREF = v, GameFrame.ANIMACION_DOWNGRADE_PREF));
+        final JCheckBox downgrade_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Velocidad de la recolocación: 3 opciones (lenta/normal/rápida). "Normal" = valor por
+        // defecto (500 ms). Cuelga del ajuste: se deshabilita si se desmarca o el maestro está off.
+        // Guarda la duración en ms (GameFrame.DOWNGRADE_VELOCIDAD).
+        {
+            final int[] speed_ms = {800, GameFrame.DEFAULT_DOWNGRADE_VELOCIDAD, 300}; // lenta, normal, rápida
+            final String[] speed_keys = {"settings.downgrade_lento", "settings.downgrade_normal", "settings.downgrade_rapido"};
+            final String[] speed_labels = new String[speed_keys.length];
+            for (int i = 0; i < speed_keys.length; i++) {
+                speed_labels[i] = Translator.translate(speed_keys[i]);
+            }
+
+            final JLabel dg_text = new JLabel(Translator.translate("settings.velocidad") + ":");
+            final javax.swing.JComboBox<String> dg_combo = new javax.swing.JComboBox<>(speed_labels);
+
+            // Selecciona la opción cuyo ms guardado sea el más cercano (por defecto Normal).
+            int sel = 1, best = Integer.MAX_VALUE;
+            for (int i = 0; i < speed_ms.length; i++) {
+                int d = Math.abs(speed_ms[i] - GameFrame.DOWNGRADE_VELOCIDAD);
+                if (d < best) {
+                    best = d;
+                    sel = i;
+                }
+            }
+            dg_combo.setSelectedIndex(sel);
+            dg_combo.setMaximumSize(dg_combo.getPreferredSize());
+            dg_combo.addActionListener(e -> {
+                int ms = speed_ms[dg_combo.getSelectedIndex()];
+                GameFrame.DOWNGRADE_VELOCIDAD = ms;
+                persist("downgrade_velocidad", String.valueOf(ms));
+            });
+            Helpers.setTranslatedToolTip(dg_combo, "tooltip.cfg.downgrade_velocidad");
+
+            Runnable updateDgEnabled = () -> {
+                boolean on = anim_master.isSelected() && downgrade_cb.isSelected();
+                dg_combo.setEnabled(on);
+                dg_text.setEnabled(on);
+            };
+            anim_master.addActionListener(e -> updateDgEnabled.run());
+            downgrade_cb.addActionListener(e -> updateDgEnabled.run());
+            updateDgEnabled.run();
+
+            JPanel dg_row = naturalRow();
+            dg_row.add(Box.createHorizontalStrut(36)); // sub del ajuste
+            dg_row.add(new JLabel(icon("/images/menu/clock.png")));
+            dg_row.add(dg_text);
+            dg_row.add(dg_combo);
+            addToGroup(downgrade_group, dg_row);
+        }
+        addLeft(anim, downgrade_group);
+
         addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
                 gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas",
@@ -677,7 +738,9 @@ public class AppearanceSettingsPanel extends JPanel {
                 || pending_fullscreen != snap_fullscreen
                 || GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration
                 || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom
-                || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad;
+                || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad
+                || GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade
+                || GameFrame.DOWNGRADE_VELOCIDAD != snap_downgrade_velocidad;
     }
 
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al
@@ -806,6 +869,17 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
             Helpers.savePropertiesFile();
         }
+        // Recolocación de la mesa (checkbox + velocidad): persist-only, sin item de menú.
+        if (GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade) {
+            GameFrame.ANIMACION_DOWNGRADE_PREF = snap_anim_downgrade;
+            Helpers.PROPERTIES.setProperty("animacion_downgrade", String.valueOf(snap_anim_downgrade));
+            Helpers.savePropertiesFile();
+        }
+        if (GameFrame.DOWNGRADE_VELOCIDAD != snap_downgrade_velocidad) {
+            GameFrame.DOWNGRADE_VELOCIDAD = snap_downgrade_velocidad;
+            Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
+            Helpers.savePropertiesFile();
+        }
     }
 
     // Revert FUERA DE PARTIDA: re-persiste cada preferencia a su snapshot (sin efecto en
@@ -836,6 +910,8 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
         GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
+        GameFrame.ANIMACION_DOWNGRADE_PREF = snap_anim_downgrade;
+        GameFrame.DOWNGRADE_VELOCIDAD = snap_downgrade_velocidad;
 
         Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(snap_zoom_level));
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(snap_vista_compacta));
@@ -858,6 +934,8 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
         Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
+        Helpers.PROPERTIES.setProperty("animacion_downgrade", String.valueOf(snap_anim_downgrade));
+        Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
         Helpers.savePropertiesFile();
 
         if (tapete_changed) {

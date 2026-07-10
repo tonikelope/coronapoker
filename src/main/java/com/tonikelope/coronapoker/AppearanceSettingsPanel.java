@@ -602,13 +602,25 @@ public class AppearanceSettingsPanel extends JPanel {
         anim.setAlignmentY(JComponent.TOP_ALIGNMENT);
         mesa.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         pantalla.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        // Glue al fondo de Animaciones: si esta columna resultara la MÁS CORTA, al estirarla para
+        // igualar alturas el hueco se recoge limpio abajo (dentro de su recuadro).
+        closeColumn(anim);
 
         JPanel right_inner = new JPanel();
         right_inner.setLayout(new BoxLayout(right_inner, BoxLayout.Y_AXIS));
         right_inner.setAlignmentY(JComponent.TOP_ALIGNMENT);
         right_inner.add(mesa);
         right_inner.add(Box.createVerticalStrut(10));
+        // Glue entre Mesa y Pantalla: al estirar la columna derecha para igualar la altura de
+        // Animaciones, el hueco se mete AQUÍ y Pantalla baja hasta que su borde inferior queda
+        // ALINEADO con el de Animaciones (Mesa se queda arriba).
+        right_inner.add(Box.createVerticalGlue());
         right_inner.add(pantalla);
+
+        // Ambas columnas se estiran en vertical hasta la altura de la más alta (BoxLayout X con
+        // el máximo sin tope) para que sus bordes inferiores queden alineados.
+        anim.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, Short.MAX_VALUE));
+        right_inner.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, Short.MAX_VALUE));
 
         JPanel row = new JPanel();
         row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));

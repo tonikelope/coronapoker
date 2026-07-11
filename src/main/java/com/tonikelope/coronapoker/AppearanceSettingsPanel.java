@@ -259,7 +259,11 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
         });
-        addLeft(mesa, labeledRow("/images/menu/baraja.png", "settings.baraja", baraja_combo));
+        // Baraja + Trasera van juntas en un recuadro con borde (groupBox), igual
+        // que las opciones agrupadas de la columna Animaciones: la baraja es la
+        // opción principal y la trasera su subajuste (cuelga con sangría).
+        JPanel baraja_group = groupBox();
+        addToGroup(baraja_group, labeledRow("/images/menu/baraja.png", "settings.baraja", baraja_combo));
 
         // Trasera: "default" (sigue a la baraja actual) + una opción por cada baraja (juego o
         // mod) para usar su dorso con otras caras. Va con SANGRÍA bajo "Baraja". En partida
@@ -301,7 +305,8 @@ public class AppearanceSettingsPanel extends JPanel {
         trasera_label.setIcon(icon("/images/menu/baraja.png"));
         trasera_row.add(trasera_label);
         trasera_row.add(trasera_combo);
-        addLeft(mesa, trasera_row);
+        addToGroup(baraja_group, trasera_row);
+        addLeft(mesa, baraja_group);
 
         // Tapete: combo con los 5 colores; en partida delega en el radio correspondiente
         // (refresca la mesa); fuera de partida persiste el color base y refresca al vuelo el

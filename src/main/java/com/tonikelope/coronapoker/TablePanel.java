@@ -734,6 +734,147 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
+    // Anima el "swap" de las dos hole cards del jugador local al ordenar la mano:
+    // cada carta se desliza a la posición de la otra (se cruzan, con un arco
+    // opuesto para que se vea el giro alrededor sin taparse). Al terminar aplica
+    // el intercambio lógico (onSwapApply) con las estáticas aún ocultas bajo los
+    // overlays y las retira sin hueco. BLOQUEA al llamante hasta terminar, así que
+    // se invoca desde un hilo de fondo (Helpers.threadRun), NUNCA desde el EDT ni
+    // desde el hilo del Crupier (el orden de la mano es solo visual, no hay que
+    // esperarlo). Geometría-agnóstica (lee las posiciones reales en pantalla,
+    // sirve para los 9 tableros con zoom/HiDPI). Si algo impide la animación (fin
+    // de transmisión, cartas fuera de pantalla, sin imagen) ejecuta onSwapApply en
+    // seco y vuelve.
+    public void playHoleCardSwap(final Card left, final Card right, final int duration_ms, final Runnable onSwapApply) {
+
+        final CountDownLatch finished = new CountDownLatch(1);
+        final javax.swing.Timer[] holder = new javax.swing.Timer[1];
+        final FlyingCard[] ovLeft = new FlyingCard[1];
+        final FlyingCard[] ovRight = new FlyingCard[1];
+        final boolean[] applied = new boolean[1];
+
+        Helpers.GUIRunAndWait(() -> {
+            try {
+                final java.awt.Image leftFace = left.getDisplayedImage();
+                final java.awt.Image rightFace = right.getDisplayedImage();
+
+                if (leftFace == null || rightFace == null || !left.isShowing() || !right.isShowing()
+                        || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                    onSwapApply.run();
+                    applied[0] = true;
+                    finished.countDown();
+                    return;
+                }
+
+                final int lw = left.getWidth(), lh = left.getHeight();
+                final int rw = right.getWidth(), rh = right.getHeight();
+
+                // Centros en coordenadas locales del tapete.
+                final double lx = left.getLocationOnScreen().getX() + lw / 2.0 - getLocationOnScreen().getX();
+                final double ly = left.getLocationOnScreen().getY() + lh / 2.0 - getLocationOnScreen().getY();
+                final double rx = right.getLocationOnScreen().getX() + rw / 2.0 - getLocationOnScreen().getX();
+                final double ry = right.getLocationOnScreen().getY() + rh / 2.0 - getLocationOnScreen().getY();
+
+                // Arco vertical (perpendicular a la fila de cartas): la izquierda arquea
+                // hacia arriba y la derecha hacia abajo, así se cruzan sin solaparse.
+                final double arc = Math.max(lh, rh) * 0.55;
+
+                final FlyingCard fl = new FlyingCard(leftFace, lw, lh);
+                fl.setSize(lw, lh);
+                fl.setCenter(lx, ly);
+                final FlyingCard fr = new FlyingCard(rightFace, rw, rh);
+                fr.setSize(rw, rh);
+                fr.setCenter(rx, ry);
+
+                // La izquierda (arco arriba) por delante; la derecha por detrás.
+                add(fr, JLayeredPane.DRAG_LAYER);
+                add(fl, JLayeredPane.POPUP_LAYER);
+                ovLeft[0] = fl;
+                ovRight[0] = fr;
+
+                // Oculta las estáticas en el mismo evento EDT que muestra los overlays.
+                left.setVisibleCard(false);
+                right.setVisibleCard(false);
+
+                final long t0 = System.nanoTime();
+                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                holder[0] = player;
+
+                player.addActionListener(e -> {
+                    long elapsed = (System.nanoTime() - t0) / 1_000_000L;
+                    double u = Math.min(1.0, (double) elapsed / Math.max(1, duration_ms));
+                    // easeInOut cúbico para un cruce con arranque y frenada suaves.
+                    double s = (u < 0.5) ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+                    double bump = Math.sin(Math.PI * s); // 0 en los extremos, 1 en el cruce
+
+                    fl.setCenter(lx + (rx - lx) * s, ly + (ry - ly) * s - arc * bump);
+                    fr.setCenter(rx + (lx - rx) * s, ry + (ly - ry) * s + arc * bump);
+                    fl.repaint();
+                    fr.repaint();
+
+                    if (u >= 1.0 || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                        player.stop();
+                        // Intercambio lógico con las estáticas aún ocultas: la izquierda pasa a
+                        // mostrar la carta alta y la derecha la baja, casando EXACTO con dónde
+                        // han aterrizado los overlays (relevo sin salto).
+                        if (!applied[0]) {
+                            onSwapApply.run();
+                            applied[0] = true;
+                        }
+                        finished.countDown();
+                    }
+                });
+                player.start();
+
+            } catch (Exception ex) {
+                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                if (ovLeft[0] != null) {
+                    remove(ovLeft[0]);
+                }
+                if (ovRight[0] != null) {
+                    remove(ovRight[0]);
+                }
+                if (!applied[0]) {
+                    onSwapApply.run();
+                    applied[0] = true;
+                }
+                repaint();
+                finished.countDown();
+            }
+        });
+
+        try {
+            finished.await(GifLabel.GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Helpers.logCooperativeCancellation(Logger.getLogger(TablePanel.class.getName()),
+                    "hole card swap", ex);
+        }
+
+        // Dwell de relevo: las estáticas (ya con los valores intercambiados) se pintan
+        // async bajo los overlays en su posición final; al retirarlas el relevo es limpio.
+        Helpers.parkThreadMillis(40);
+
+        Helpers.GUIRunAndWait(() -> {
+            left.setVisibleCard(true);
+            right.setVisibleCard(true);
+            if (ovLeft[0] != null) {
+                remove(ovLeft[0]);
+            }
+            if (ovRight[0] != null) {
+                remove(ovRight[0]);
+            }
+            revalidate();
+            repaint();
+        });
+
+        // Cinturón y tirantes: parar el timer pase lo que pase con la espera.
+        Helpers.GUIRun(() -> {
+            if (holder[0] != null) {
+                holder[0].stop();
+            }
+        });
+    }
+
     // Muestra/actualiza el overlay de coste de igualar centrado SOBRE las cartas
     // comunitarias (geometría-agnóstico: lee la posición real de cards_panel en
     // pantalla, así sirve para los 9 tableros con zoom y HiDPI). La fuente escala

@@ -244,6 +244,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // la elección previa del usuario al actualizar).
     public static volatile boolean ANIMACION_BARAJADO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_barajado", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
     public static volatile boolean ANIMACION_DESTAPE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_destape", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
+    // Intercambio animado de las dos hole cards del jugador local al ordenar la mano (la carta alta a
+    // la izquierda): cada carta se desliza a la posición de la otra (se cruzan). Off = swap seco, como
+    // siempre. Por defecto on.
+    public static volatile boolean ANIMACION_SWAP_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_swap", "true"));
+    // Duración (ms) del cruce del swap. 320 = normal (por defecto).
+    public static final int DEFAULT_SWAP_ANIM_DURATION = 320;
+    public static volatile int SWAP_ANIM_DURATION = Integer.parseInt(Helpers.PROPERTIES.getProperty("swap_velocidad", String.valueOf(DEFAULT_SWAP_ANIM_DURATION)));
     // Recolocación animada de la mesa cuando abandonan jugadores (DynamicTablePanel): los que
     // se van se desvanecen y los supervivientes se deslizan a su hueco en la mesa de M. On por
     // defecto. Si off, corte seco (reconstrucción directa del tablero, como siempre).
@@ -297,6 +304,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean destapeAnimOn() {
         return ANIMACIONES && ANIMACION_DESTAPE_PREF;
+    }
+
+    public static boolean swapAnimOn() {
+        return ANIMACIONES && ANIMACION_SWAP_PREF;
     }
 
     public static boolean downgradeAnimOn() {

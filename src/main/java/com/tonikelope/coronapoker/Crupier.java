@@ -8953,11 +8953,59 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        GameFrame.getInstance().getLocalPlayer().ordenarCartas();
+        ordenarCartasLocalAnimado();
 
         // Las 5 comunitarias tapadas (y las hole cards) ya están en la mesa: a
         // partir de aquí el overlay de coste de igualar puede mostrarse.
         this.community_cards_dealt = true;
+    }
+
+    // Ordena la mano del jugador local (carta alta a la izquierda) al terminar el
+    // reparto. Si el swap animado está activo (swapAnimOn) y de verdad hay que
+    // intercambiar (hc1 < hc2) con las dos cartas boca arriba y visibles, las cruza
+    // con una animación (cada una se desliza a la posición de la otra) y aplica el
+    // intercambio lógico al final. Si no, ordena en seco (ordenarCartas), el
+    // comportamiento de siempre.
+    //
+    // El cruce se lanza en OTRO hilo (Helpers.threadRun) y NO frena al crupier: el
+    // orden de la mano es SOLO visual (la evaluación lee las dos hole cards como
+    // conjunto, da igual hc1/hc2), así que nada aguas abajo necesita que el swap
+    // esté aplicado antes de continuar. El intercambio lógico se aplica al final
+    // del cruce, unos cientos de ms después, sin efecto en la partida.
+    private void ordenarCartasLocalAnimado() {
+
+        LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
+        Card c1 = local.getHoleCard1();
+        Card c2 = local.getHoleCard2();
+
+        // Mismo criterio que ordenarCartas: hc1 debe quedar con la carta más alta.
+        boolean needsSwap = c1.getValorNumerico() != -1 && c2.getValorNumerico() != -1
+                && c1.getValorNumerico() < c2.getValorNumerico();
+
+        // Solo animamos si hay swap real, el gate está on, ambas cartas están BOCA
+        // ARRIBA y visibles (si un destape aún corriera estarían tapadas → seco), y
+        // el jugador sigue en la timba.
+        boolean animable = needsSwap && GameFrame.swapAnimOn()
+                && !c1.isTapada() && !c2.isTapada()
+                && c1.isVisible_card() && c2.isVisible_card()
+                && !local.isExit() && !isFin_de_la_transmision();
+
+        if (!animable) {
+            local.ordenarCartas();
+            return;
+        }
+
+        // Cruce en background: el crupier sigue sin bloquearse.
+        Helpers.threadRun(() -> {
+            try {
+                GameFrame.getInstance().getTapete().playHoleCardSwap(c1, c2,
+                        GameFrame.SWAP_ANIM_DURATION, () -> local.ordenarCartas());
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+                // El intercambio lógico es obligatorio aunque la animación falle.
+                local.ordenarCartas();
+            }
+        });
     }
 
     /**

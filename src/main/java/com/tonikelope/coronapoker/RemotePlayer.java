@@ -2694,8 +2694,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             chip_label_icon = null;
         }
 
+        // Suprimida durante la rotación de fichas (hasta que la viajera aterriza): NO se
+        // pinta la grande aunque nos llamen (p.ej. desde un re-layout de la mesa).
+        final boolean suppressed = GameFrame.getInstance().getCrupier() != null
+                && GameFrame.getInstance().getCrupier().isBigChipSuppressed(this);
         Helpers.GUIRun(() -> {
-            if (isActivo() && !(holeCard1.isIniciada() && !holeCard1.isTapada()) && chip_label_icon != null) {
+            if (isActivo() && !(holeCard1.isIniciada() && !holeCard1.isTapada()) && chip_label_icon != null && !suppressed) {
                 chip_label.setIcon(chip_label_icon);
                 chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
                 chip_label.setLocation(0, 0);

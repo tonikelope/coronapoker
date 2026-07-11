@@ -2807,7 +2807,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // DEALER hay como mucho un portador visible por ficha (en heads-up el dealer
     // coincide con la ciega → no hay botón). Bloquea hasta el aterrizaje. Respeta
     // la opción de animación y se salta en RECOVER/fin de transmisión.
-    private void animateChipRotation(String prev_dealer_nick, String prev_sb_nick, String prev_bb_nick) {
+    // Vuelos de rotación de fichas ya calculados por prepareChipRotation (los consume
+    // animateChipRotation al volar). Se preparan JUSTO tras fijar posiciones para poder
+    // ocultar la ficha grande antes de que se llegue a pintar.
+    private java.util.List<TablePanel.ChipFlight> pending_chip_rotation_flights;
+    private java.util.List<Player> pending_chip_rotation_to_hide;
+    // Jugadores cuya ficha GRANDE queda SUPRIMIDA (refreshPositionChipIcons NO la pinta
+    // aunque la llamen) desde prepareChipRotation hasta que la viajera aterriza. Sin esto,
+    // ocultarla una vez no basta: un repintado intermedio (el layout/zoom inicial de la
+    // mesa vuelve a llamar a refreshPositionChipIcons) la volvía a pintar antes del vuelo.
+    private volatile java.util.List<Player> big_chip_suppressed;
+
+    // ¿La ficha GRANDE de este jugador está suprimida ahora mismo (rotación en curso)?
+    public boolean isBigChipSuppressed(Player p) {
+        java.util.List<Player> s = this.big_chip_suppressed;
+        return s != null && s.contains(p);
+    }
+
+    // Prepara la rotación de fichas de posición (dealer/ciegas): calcula los vuelos y,
+    // sobre todo, OCULTA ya las FICHAS GRANDES (chip_label) de los asientos DESTINO —en
+    // el MISMO lote de eventos EDT en que setPosition acaba de pintarlas, antes de
+    // cualquier repintado— para que NUNCA se vean pintadas en el asiento antes de que la
+    // viajera las traiga (el iconito de rol sobre el nick NO se toca). Se llama justo
+    // tras el bucle de nuevaMano. El vuelo real lo hace animateChipRotation() después.
+    private void prepareChipRotation(String prev_dealer_nick, String prev_sb_nick, String prev_bb_nick) {
+
+        this.pending_chip_rotation_flights = null;
+        this.pending_chip_rotation_to_hide = null;
+        this.big_chip_suppressed = null;
 
         if (!GameFrame.ciegasDealerAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision()) {
             return;
@@ -2815,9 +2842,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         final java.util.Map<String, Player> n2p = getNick2player();
         final java.util.List<TablePanel.ChipFlight> flights = new java.util.ArrayList<>();
-        // Asientos cuya ficha estática se oculta durante el vuelo: SOLO los
-        // destinos de vuelos reales, para que una ficha que NO se mueve no
-        // parpadee (caso dead dealer sin retroceso, etc.).
+        // Asientos cuya ficha grande se oculta antes del vuelo: SOLO los destinos de
+        // vuelos reales, para que una ficha que NO se mueve no parpadee.
         final java.util.List<Player> to_hide = new java.util.ArrayList<>();
 
         // Ciega grande: siempre se pinta.
@@ -2843,21 +2869,43 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // Misma duración (velocidad) que el vuelo de cada carta del reparto.
-        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
-        final int flight_dur = Math.max(150, pausa);
-
-        // Oculta las fichas estáticas de los asientos destino para que durante el
-        // deslizamiento solo se vean las viajeras.
+        // SUPRIME el pintado de las fichas grandes de los destinos hasta que aterricen
+        // (para que ningún repintado intermedio las reponga) y las oculta YA.
+        this.big_chip_suppressed = to_hide;
         Helpers.GUIRunAndWait(() -> {
             for (Player p : to_hide) {
                 p.getChip_label().setVisible(false);
             }
         });
 
-        // Al aterrizar repone cada ficha con su icono/visibilidad correctos (bajo
-        // la viajera → relevo sin hueco).
+        this.pending_chip_rotation_flights = flights;
+        this.pending_chip_rotation_to_hide = to_hide;
+    }
+
+    // Vuela las fichas de posición ya preparadas por prepareChipRotation. Bloquea hasta
+    // que aterrizan; al aterrizar repone cada ficha (bajo la viajera → relevo sin hueco).
+    // Si prepareChipRotation no dejó vuelos (animación off / RECOVER / fin / nada que
+    // mover), no hace nada.
+    private void animateChipRotation() {
+
+        final java.util.List<TablePanel.ChipFlight> flights = this.pending_chip_rotation_flights;
+        final java.util.List<Player> to_hide = this.pending_chip_rotation_to_hide;
+        this.pending_chip_rotation_flights = null;
+        this.pending_chip_rotation_to_hide = null;
+
+        if (flights == null || flights.isEmpty() || isFin_de_la_transmision()) {
+            this.big_chip_suppressed = null;
+            return;
+        }
+
+        // Misma duración (velocidad) que el vuelo de cada carta del reparto.
+        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
+        final int flight_dur = Math.max(150, pausa);
+
         GameFrame.getInstance().getTapete().flyChipsToSeats(flights, flight_dur, () -> {
+            // Deja de suprimir JUSTO antes de reponer: la ficha aparece bajo la viajera
+            // (relevo sin hueco) y ya puede volver a pintarse con normalidad.
+            this.big_chip_suppressed = null;
             for (Player p : to_hide) {
                 p.refreshPositionChipIcons();
             }
@@ -7714,6 +7762,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // aterriza luego en ese mismo valor sin repetir el sonido (gate compartido).
         animateRebuyStacks(rebuys_about_to_apply);
 
+        // ANTES de que el bucle nuevaMano pinte las fichas: arma la SUPRESIÓN de las fichas
+        // grandes que van a rotar (y oculta las que quedaran visibles de la mano anterior).
+        // Así el setPosition -> refreshPositionChipIcons de nuevaMano NO llega a pintarlas
+        // (ni tampoco un zoomIcons diferido del tablero dinámico, que es lo que se colaba en
+        // la primera mano): la ficha grande NO se pinta, no hay nada que ocultar después; la
+        // viajera la trae. El vuelo lo dispara animateChipRotation() más abajo, y al aterrizar
+        // se levanta la supresión y se repone.
+        prepareChipRotation(prev_dealer_nick, prev_sb_nick, prev_bb_nick);
+
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
             if (jugador.isActivo()) {
                 jugador.nuevaMano();
@@ -7920,11 +7977,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             actualizarContadoresTapete();
 
-            // Desliza las fichas de posición (dealer/ciegas) de su portador
-            // anterior al nuevo, justo antes del barajado central. Bloquea hasta
-            // que aterrizan. Respeta la opción de animación (camino sin animación
-            // intacto) y se salta en RECOVER/fin de transmisión.
-            animateChipRotation(prev_dealer_nick, prev_sb_nick, prev_bb_nick);
+            // Desliza las fichas de posición (dealer/ciegas) de su portador anterior al
+            // nuevo, justo antes del barajado central (ya preparadas + ocultadas por
+            // prepareChipRotation tras nuevaMano). Bloquea hasta que aterrizan.
+            animateChipRotation();
 
             // Tras rotar las fichas de posicion y ANTES del barajado: las forzadas
             // (ciegas/straddle, y si hay ante TODOS) vuelan al bote en una sola tanda,

@@ -8747,6 +8747,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
+        // Overlay de la ficha sobre la viajera de hc1: se crea justo antes del vuelo.
+        this.local_chip_flight_overlay = null;
+
         if (!animacion) {
 
             for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
@@ -8833,6 +8836,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     };
                 } else {
                     seat = () -> hc1.iniciarCarta();
+                }
+
+                // ANTES del vuelo (sin tocarlo ni un byte): si tu carta izquierda lleva la
+                // ficha grande, se clona en un overlay POR ENCIMA de la viajera, así la carta
+                // vuela y ATERRIZA POR DEBAJO de la ficha sin parpadeo. El overlay se retira
+                // JUSTO antes del giro (revelarHoleCardLocalAnimada), cuando la ficha debe
+                // desaparecer. La ficha real no se toca aquí (sigue visible bajo el overlay).
+                if (flip_local) {
+                    local_chip_flight_overlay = GameFrame.getInstance().getTapete()
+                            .addChipTopOverlay(GameFrame.getInstance().getLocalPlayer().getChip_label());
                 }
 
                 GameFrame.getInstance().getTapete().flyCardToSeat(hc1, deal_origin, flight_dur, "misc/deal.wav", seat);
@@ -8995,11 +9008,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // Cruce en background: el crupier sigue sin bloquearse.
+        // Cruce en background: el crupier sigue sin bloquearse. La ficha de posición
+        // grande se queda VISIBLE y las cartas cruzan POR DEBAJO de ella: playHoleCardSwap
+        // pone un overlay de la ficha en una capa por encima de las voladoras del swap,
+        // así que aquí NO se oculta (ya reapareció tras el destape de hc1).
         Helpers.threadRun(() -> {
             try {
                 GameFrame.getInstance().getTapete().playHoleCardSwap(c1, c2,
-                        GameFrame.SWAP_ANIM_DURATION, () -> local.ordenarCartas());
+                        GameFrame.SWAP_ANIM_DURATION, GameFrame.SWAP_ANIM_ARC,
+                        local.getChip_label(), () -> local.ordenarCartas());
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
                 // El intercambio lógico es obligatorio aunque la animación falle.
@@ -15648,6 +15665,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // de abrirse (para que se vea la carta tapada tras aterrizar y antes del giro).
     private static final int LOCAL_HOLE_CARD_REVEAL_DELAY = 50;
 
+    // Overlay de la ficha grande por ENCIMA de la viajera de hc1 (para que la carta
+    // aterrice POR DEBAJO de la ficha SIN tocar la animación de reparto). Lo pone
+    // repartir() antes del vuelo de hc1 y lo retira revelarHoleCardLocalAnimada justo
+    // antes del giro (cuando la ficha debe desaparecer).
+    private volatile javax.swing.JLabel local_chip_flight_overlay;
+
     // Destape ASÍNCRONO de UNA hole card local recién aterrizada, SIN frenar al
     // crupier: repartir() lo lanza en otro hilo (Helpers.threadRun) nada más
     // aterrizar la carta, así el reparto sigue de inmediato con el resto. La
@@ -15667,15 +15690,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // aunque el delay fuese 0. Si no hay prefetch válido, decode inline (fallback).
     private void revelarHoleCardLocalAnimada(Card carta, Future<?> prefetched) {
 
-        Helpers.parkThreadMillis(LOCAL_HOLE_CARD_REVEAL_DELAY);
-
-        if (!GameFrame.destapeAnimOn() || !carta.isIniciadaConValor() || !carta.isTapada()
-                || GameFrame.getInstance().getLocalPlayer().isExit() || isFin_de_la_transmision()) {
-            carta.destapar(false);
-            return;
-        }
+        // hc1 lleva la ficha de posición GRANDE encima. Durante el vuelo/aterrizaje la
+        // carta pasó POR DEBAJO de la ficha (overlay puesto por repartir); aquí, JUSTO
+        // antes de arrancar el giro, la ficha DESAPARECE (se oculta la real + se retira
+        // ese overlay, y su clic queda bloqueado) y REAPARECE justo al terminar el giro.
+        // hc2 no la lleva, no toca.
+        final LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
+        final boolean chip_on_card = (carta == local.getHoleCard1());
 
         try {
+            Helpers.parkThreadMillis(LOCAL_HOLE_CARD_REVEAL_DELAY);
+
+            if (!GameFrame.destapeAnimOn() || !carta.isIniciadaConValor() || !carta.isTapada()
+                    || local.isExit() || isFin_de_la_transmision()) {
+                return;
+            }
+
             FlipAnim decoded = takePrefetchedHoleCardFlip(prefetched, carta);
 
             if (decoded == null) {
@@ -15683,8 +15713,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (decoded == null || !decoded.card.equals(carta.toShortString())) {
-                carta.destapar(false);
                 return;
+            }
+
+            // JUSTO antes del giro: la ficha desaparece (oculta la real + retira el
+            // overlay del vuelo, en el mismo instante que arranca el giro).
+            if (chip_on_card) {
+                local.setChipForcedHidden(true);
+                GameFrame.getInstance().getTapete().removeTopOverlay(local_chip_flight_overlay);
+                local_chip_flight_overlay = null;
             }
 
             // La carta gira sobre un overlay efímero centrado en su asiento:
@@ -15705,6 +15742,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // El volteo lógico es obligatorio (no-op en el camino feliz:
             // destaparSync ya volteó la carta bajo el último frame).
             carta.destapar(false);
+            if (chip_on_card) {
+                // Belt-and-suspenders: si se salió antes del giro (gate/decode), retira
+                // igualmente el overlay del vuelo. La ficha REAPARECE justo al terminar
+                // (refreshPositionChipIcons respeta si el usuario la tiene desactivada).
+                GameFrame.getInstance().getTapete().removeTopOverlay(local_chip_flight_overlay);
+                local_chip_flight_overlay = null;
+                local.setChipForcedHidden(false);
+                local.refreshPositionChipIcons();
+            }
         }
     }
 

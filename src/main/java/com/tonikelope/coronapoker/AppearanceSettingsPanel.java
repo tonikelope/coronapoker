@@ -651,6 +651,42 @@ public class AppearanceSettingsPanel extends JPanel {
             swap_row.add(swap_combo);
             addToGroup(swap_group, swap_row);
         }
+        // Estilo del cruce: 2 opciones (Arco "saltito" / Horizontal). Cuelga del ajuste
+        // "Ordenar la mano" igual que la velocidad. Guarda un booleano (GameFrame.SWAP_ANIM_ARC).
+        {
+            final String[] style_keys = {"settings.swap_arco", "settings.swap_horizontal"};
+            final String[] style_labels = new String[style_keys.length];
+            for (int i = 0; i < style_keys.length; i++) {
+                style_labels[i] = Translator.translate(style_keys[i]);
+            }
+
+            final JLabel style_text = new JLabel(Translator.translate("settings.swap_estilo") + ":");
+            final javax.swing.JComboBox<String> style_combo = new javax.swing.JComboBox<>(style_labels);
+            style_combo.setSelectedIndex(GameFrame.SWAP_ANIM_ARC ? 0 : 1);
+            style_combo.setMaximumSize(style_combo.getPreferredSize());
+            style_combo.addActionListener(e -> {
+                boolean arc = style_combo.getSelectedIndex() == 0;
+                GameFrame.SWAP_ANIM_ARC = arc;
+                persist("swap_arco", String.valueOf(arc));
+            });
+            Helpers.setTranslatedToolTip(style_combo, "tooltip.cfg.swap_estilo");
+
+            Runnable updateStyleEnabled = () -> {
+                boolean on = anim_master.isSelected() && swap_cb.isSelected();
+                style_combo.setEnabled(on);
+                style_text.setEnabled(on);
+            };
+            anim_master.addActionListener(e -> updateStyleEnabled.run());
+            swap_cb.addActionListener(e -> updateStyleEnabled.run());
+            updateStyleEnabled.run();
+
+            JPanel style_row = naturalRow();
+            style_row.add(Box.createHorizontalStrut(36)); // mismo sangrado que la velocidad
+            style_row.add(new JLabel(icon("/images/menu/baraja.png")));
+            style_row.add(style_text);
+            style_row.add(style_combo);
+            addToGroup(swap_group, style_row);
+        }
         addLeft(anim, swap_group);
 
         // --- Recolocación de la mesa al salir jugadores (DynamicTablePanel, solo Ajustes) ---

@@ -614,6 +614,25 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return loser;
     }
 
+    // Mientras gira/cruza la carta que lleva la ficha de posición GRANDE encima
+    // (destape de hc1 y swap), el Crupier la fuerza OCULTA con esto. Además el clic
+    // en el nick —que cicla su dibujado (normal/70%/oculta)— queda BLOQUEADO
+    // mientras esté activo, para que no la reponga a media animación. Al desactivarlo
+    // el Crupier repone con refreshPositionChipIcons (que respeta si está desactivada).
+    // NO cambia cuándo/cómo se colocan las fichas.
+    private volatile boolean chip_forced_hidden = false;
+
+    public void setChipForcedHidden(boolean hidden) {
+        this.chip_forced_hidden = hidden;
+        if (hidden) {
+            Helpers.GUIRun(() -> chip_label.setVisible(false));
+        }
+    }
+
+    public boolean isChipForcedHidden() {
+        return chip_forced_hidden;
+    }
+
     public void refreshPositionChipIcons() {
 
         ImageIcon chip_label_icon;
@@ -3336,6 +3355,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // TODO add your handling code here:
 
         if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+
+        // Con la ficha grande forzada oculta (destape de hc1 / swap), ignorar el
+        // clic que la ciclaría: la repondría a media animación.
+        if (chip_forced_hidden) {
             return;
         }
 

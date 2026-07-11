@@ -667,8 +667,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
 
         final int chip_state = GameFrame.LOCAL_POSITION_CHIP;
+        // Suprimida durante la rotación de fichas (hasta que la viajera aterriza): NO se
+        // pinta la grande aunque nos llamen (p.ej. desde un re-layout de la mesa).
+        final boolean suppressed = GameFrame.getInstance().getCrupier() != null
+                && GameFrame.getInstance().getCrupier().isBigChipSuppressed(this);
         Helpers.GUIRun(() -> {
-            if (isActivo() && chip_label_icon != null && chip_state != GameFrame.LOCAL_POS_CHIP_HIDDEN) {
+            if (isActivo() && chip_label_icon != null && chip_state != GameFrame.LOCAL_POS_CHIP_HIDDEN && !suppressed) {
                 // Estado intermedio: la ficha se muestra al 70% de opacidad sobre las cartas.
                 ImageIcon shown = (chip_state == GameFrame.LOCAL_POS_CHIP_DIM)
                         ? Helpers.translucentIcon(chip_label_icon, 0.7f) : chip_label_icon;

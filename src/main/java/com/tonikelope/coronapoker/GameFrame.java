@@ -251,6 +251,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // Duración (ms) del cruce del swap. 320 = normal (por defecto).
     public static final int DEFAULT_SWAP_ANIM_DURATION = 320;
     public static volatile int SWAP_ANIM_DURATION = Integer.parseInt(Helpers.PROPERTIES.getProperty("swap_velocidad", String.valueOf(DEFAULT_SWAP_ANIM_DURATION)));
+    // Estilo del cruce: true = con arco ("saltito", una arquea arriba y la otra abajo, por
+    // defecto); false = desplazamiento horizontal recto (una pasa por delante de la otra).
+    public static volatile boolean SWAP_ANIM_ARC = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("swap_arco", "true"));
     // Recolocación animada de la mesa cuando abandonan jugadores (DynamicTablePanel): los que
     // se van se desvanecen y los supervivientes se deslizan a su hueco en la mesa de M. On por
     // defecto. Si off, corte seco (reconstrucción directa del tablero, como siempre).

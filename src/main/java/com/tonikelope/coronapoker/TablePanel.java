@@ -745,12 +745,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     // sirve para los 9 tableros con zoom/HiDPI). Si algo impide la animación (fin
     // de transmisión, cartas fuera de pantalla, sin imagen) ejecuta onSwapApply en
     // seco y vuelve.
-    public void playHoleCardSwap(final Card left, final Card right, final int duration_ms, final Runnable onSwapApply) {
+    // chip: la ficha de posición grande del local (o null). Si se pasa y está visible,
+    // se clona en un overlay ESTÁTICO en una capa POR ENCIMA de las voladoras del cruce,
+    // en su misma posición, para que las cartas crucen POR DEBAJO de la ficha sin
+    // parpadeos (la ficha real sigue en su sitio; este overlay solo la mantiene arriba).
+    public void playHoleCardSwap(final Card left, final Card right, final int duration_ms, final boolean arc, final javax.swing.JLabel chip, final Runnable onSwapApply) {
 
         final CountDownLatch finished = new CountDownLatch(1);
         final javax.swing.Timer[] holder = new javax.swing.Timer[1];
         final FlyingCard[] ovLeft = new FlyingCard[1];
         final FlyingCard[] ovRight = new FlyingCard[1];
+        final javax.swing.JLabel[] chipOv = new javax.swing.JLabel[1];
         final boolean[] applied = new boolean[1];
 
         Helpers.GUIRunAndWait(() -> {
@@ -775,9 +780,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final double rx = right.getLocationOnScreen().getX() + rw / 2.0 - getLocationOnScreen().getX();
                 final double ry = right.getLocationOnScreen().getY() + rh / 2.0 - getLocationOnScreen().getY();
 
-                // Arco vertical (perpendicular a la fila de cartas): la izquierda arquea
-                // hacia arriba y la derecha hacia abajo, así se cruzan sin solaparse.
-                final double arc = Math.max(lh, rh) * 0.55;
+                // Estilo del cruce. Con "saltito" (arc=true) un arco vertical opuesto: la
+                // izquierda arquea hacia arriba y la derecha hacia abajo, así se cruzan sin
+                // solaparse. En horizontal (arc=false) arc_amt=0: van rectas y la izquierda
+                // (capa POPUP) pasa por delante de la derecha (capa DRAG).
+                final double arc_amt = arc ? Math.max(lh, rh) * 0.55 : 0.0;
 
                 final FlyingCard fl = new FlyingCard(leftFace, lw, lh);
                 fl.setSize(lw, lh);
@@ -791,6 +798,22 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 add(fl, JLayeredPane.POPUP_LAYER);
                 ovLeft[0] = fl;
                 ovRight[0] = fr;
+
+                // Ficha de posición grande POR ENCIMA de las voladoras (capa DRAG+1): un
+                // overlay estático con su icono, en su misma posición, para que las cartas
+                // crucen por debajo sin parpadeo. La ficha real de LocalPlayer sigue en su
+                // sitio (queda tapada por las voladoras durante el cruce, pero este overlay
+                // la mantiene arriba). Si no se ve (desactivada o sin rol), no se pinta.
+                if (chip != null && chip.isShowing() && chip.getIcon() != null) {
+                    javax.swing.Icon ci = chip.getIcon();
+                    javax.swing.JLabel co = new javax.swing.JLabel(ci);
+                    co.setSize(ci.getIconWidth(), ci.getIconHeight());
+                    co.setLocation(
+                            (int) Math.round(chip.getLocationOnScreen().getX() - getLocationOnScreen().getX()),
+                            (int) Math.round(chip.getLocationOnScreen().getY() - getLocationOnScreen().getY()));
+                    add(co, Integer.valueOf(JLayeredPane.DRAG_LAYER + 1));
+                    chipOv[0] = co;
+                }
 
                 // Oculta las estáticas en el mismo evento EDT que muestra los overlays.
                 left.setVisibleCard(false);
@@ -807,8 +830,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     double s = (u < 0.5) ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
                     double bump = Math.sin(Math.PI * s); // 0 en los extremos, 1 en el cruce
 
-                    fl.setCenter(lx + (rx - lx) * s, ly + (ry - ly) * s - arc * bump);
-                    fr.setCenter(rx + (lx - rx) * s, ry + (ly - ry) * s + arc * bump);
+                    fl.setCenter(lx + (rx - lx) * s, ly + (ry - ly) * s - arc_amt * bump);
+                    fr.setCenter(rx + (lx - rx) * s, ry + (ly - ry) * s + arc_amt * bump);
                     fl.repaint();
                     fr.repaint();
 
@@ -833,6 +856,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 }
                 if (ovRight[0] != null) {
                     remove(ovRight[0]);
+                }
+                if (chipOv[0] != null) {
+                    remove(chipOv[0]);
                 }
                 if (!applied[0]) {
                     onSwapApply.run();
@@ -863,6 +889,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             if (ovRight[0] != null) {
                 remove(ovRight[0]);
             }
+            if (chipOv[0] != null) {
+                remove(chipOv[0]);
+            }
             revalidate();
             repaint();
         });
@@ -872,6 +901,42 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             if (holder[0] != null) {
                 holder[0].stop();
             }
+        });
+    }
+
+    // Clona la ficha de posición grande en un overlay ESTÁTICO en el tapete, en una
+    // capa POR ENCIMA de las voladoras del reparto (DRAG+1) y en su misma posición, para
+    // que la carta que vuela pase/aterrice POR DEBAJO de la ficha sin parpadeo. NO toca
+    // la animación de reparto (flyCardToSeat): solo pinta la ficha por encima. La ficha
+    // real sigue en su sitio (tapada por la viajera al aterrizar, pero el overlay la
+    // mantiene arriba). Llamar con la ficha AÚN visible; devuelve el overlay (o null si
+    // no se ve) para retirarlo con removeTopOverlay justo antes del giro.
+    public javax.swing.JLabel addChipTopOverlay(final javax.swing.JLabel chip) {
+        final javax.swing.JLabel[] out = new javax.swing.JLabel[1];
+        Helpers.GUIRunAndWait(() -> {
+            if (chip == null || !chip.isShowing() || chip.getIcon() == null) {
+                return;
+            }
+            javax.swing.Icon ci = chip.getIcon();
+            javax.swing.JLabel co = new javax.swing.JLabel(ci);
+            co.setSize(ci.getIconWidth(), ci.getIconHeight());
+            co.setLocation(
+                    (int) Math.round(chip.getLocationOnScreen().getX() - getLocationOnScreen().getX()),
+                    (int) Math.round(chip.getLocationOnScreen().getY() - getLocationOnScreen().getY()));
+            add(co, Integer.valueOf(JLayeredPane.DRAG_LAYER + 1));
+            out[0] = co;
+        });
+        return out[0];
+    }
+
+    public void removeTopOverlay(final javax.swing.JComponent overlay) {
+        if (overlay == null) {
+            return;
+        }
+        Helpers.GUIRunAndWait(() -> {
+            java.awt.Rectangle b = overlay.getBounds();
+            remove(overlay);
+            repaint(b);
         });
     }
 

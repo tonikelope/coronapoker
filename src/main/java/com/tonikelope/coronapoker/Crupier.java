@@ -11283,6 +11283,129 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ordenarCartasLocalAnimado();
     }
 
+    // Cascada de desbloqueo DIFERIDA de los 2 pocket slots del straddler ciego, corrida por el
+    // HOST tras verificar su decisión FIRMADA. Igual que la cascada inicial (enviarCartasJugadoresRemotos)
+    // pero SOLO para el slot del straddler: cada peer (host y bots en local con prueba DLEQ; humanos
+    // vivos vía REQ_SRA_UNLOCK_CHAIN phase UNLOCK_PHASE_POCKET_STRADDLE; exits vía testamento) quita su
+    // candado de esos 2 puntos DEJANDO el del propio straddler → residuo single-locked por él. Devuelve
+    // ese residuo (64 bytes) o null si algún peer se niega / no hay testamento (el caller decide MISDEAL).
+    // NO entrega ni resuelve: eso lo hace el caller (unicast al straddler remoto, o resolución local si
+    // el host es el straddler). Serie, como la cascada inicial: la latencia extra es la de una comunitaria.
+    private byte[] resolveDeferredStraddlerResidue(int straddlerSlot) {
+        String hostNick = GameFrame.getInstance().getNick_local();
+        String[] ring = this.active_crypto_ring;
+        if (ring == null || this.local_mega_packet == null || straddlerSlot < 0 || straddlerSlot >= ring.length) {
+            return null;
+        }
+
+        // Cadena de los 2 puntos del slot del straddler (arranca vacía = ancla al megapacket).
+        String[] chainS = {"", ""};
+
+        // Host quita su lock (salvo si el host ES el straddler: entonces conserva el suyo).
+        int hostSlot = -1;
+        for (int i = 0; i < ring.length; i++) {
+            if (ring[i].equals(hostNick)) {
+                hostSlot = i;
+                break;
+            }
+        }
+        if (hostSlot != straddlerSlot) {
+            if (!extendStraddlerChain(chainS, straddlerSlot, hostNick, this.local_sra_lock)) {
+                return null;
+            }
+        }
+
+        // Bots quitan su lock (nunca el straddler: un bot straddler no llega aquí).
+        for (int i = 0; i < ring.length; i++) {
+            if (i == straddlerSlot) {
+                continue;
+            }
+            Participant pb = GameFrame.getInstance().getParticipantes().get(ring[i]);
+            if (pb != null && pb.isCpu() && pb.getReceived_token() != null) {
+                byte[] botLock = RistrettoSRA.getUnlockScalar(pb.getReceived_token());
+                if (!extendStraddlerChain(chainS, straddlerSlot, ring[i], botLock)) {
+                    return null;
+                }
+            }
+        }
+
+        // Humanos remotos (nunca el straddler): vivos vía REQ (phase STRADDLE), exit vía testamento.
+        for (int h = 0; h < ring.length; h++) {
+            if (h == straddlerSlot) {
+                continue;
+            }
+            String hNick = ring[h];
+            if (hNick.equals(hostNick)) {
+                continue;
+            }
+            Participant ph = GameFrame.getInstance().getParticipantes().get(hNick);
+            if (ph == null || ph.isCpu()) {
+                continue;
+            }
+
+            boolean applied = false;
+            if (!ph.isExit()) {
+                java.util.List<UnlockChainWire.ReqItem> reqItems = new java.util.ArrayList<>();
+                reqItems.add(new UnlockChainWire.ReqItem(straddlerSlot, straddlerSlot * 2,
+                        java.util.Arrays.asList(chainS[0], chainS[1])));
+                java.util.List<UnlockChainWire.RespItem> resp =
+                        requestRemoteUnlockChain(hNick, ph, UNLOCK_PHASE_POCKET_STRADDLE, reqItems);
+                if (resp != null) {
+                    for (UnlockChainWire.RespItem ri : resp) {
+                        if (ri.peerIdx == straddlerSlot && ri.chains.size() == 2) {
+                            chainS[0] = ri.chains.get(0);
+                            chainS[1] = ri.chains.get(1);
+                            applied = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!applied) {
+                // Vivo que no respondió (o exit): si tenemos su unlock (testamento) extendemos
+                // local; si no, es una negativa → aborta (el caller hará MISDEAL).
+                if (ph.getSra_unlock() != null) {
+                    byte[] hLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock());
+                    if (!extendStraddlerChain(chainS, straddlerSlot, hNick, hLock)) {
+                        return null;
+                    }
+                } else {
+                    warnMaliciousPeer(hNick, "zero_trust.pocket_unlock_refused");
+                    return null;
+                }
+            }
+        }
+
+        // Verifica ambas cadenas contra el megapacket y toma el tail = residuo single-locked por el straddler.
+        byte[] residue = new byte[64];
+        for (int j = 0; j < 2; j++) {
+            int pointIdx = straddlerSlot * 2 + j;
+            byte[] point = Arrays.copyOfRange(this.local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+            java.util.List<DealChain.Entry> ch = DealChain.parse(chainS[j]);
+            if (ch == null || !DealChain.verify(point, ch, this.peer_k_pocket)) {
+                LOGGER.log(Level.SEVERE, "Deferred straddler pocket chain failed verification (point {0})", pointIdx);
+                return null;
+            }
+            byte[] tail = DealChain.tail(point, ch);
+            System.arraycopy(tail, 0, residue, j * 32, 32);
+        }
+        return residue;
+    }
+
+    // Extiende (con prueba DLEQ) los 2 puntos del slot del straddler quitando el lock de signerNick.
+    private boolean extendStraddlerChain(String[] chainS, int straddlerSlot, String signerNick, byte[] signerLock) {
+        for (int j = 0; j < 2; j++) {
+            int pointIdx = straddlerSlot * 2 + j;
+            byte[] point = Arrays.copyOfRange(this.local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+            DealChain.Extended ext = DealChain.extend(point, chainS[j], this.peer_k_pocket, signerNick, signerLock);
+            if (ext == null) {
+                return false;
+            }
+            chainS[j] = ext.wire;
+        }
+        return true;
+    }
+
     private void destaparCartaComunitaria(int street, ArrayList<Player> resisten) {
 
         GameFrame.getInstance().checkPause();

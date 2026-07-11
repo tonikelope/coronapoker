@@ -287,6 +287,18 @@ public class DynamicTablePanel extends TablePanel {
         // invalida (Component.reshape solo invalida al redimensionar), y el TAMAÑO solo
         // cambia cuando cambia el preferred (evento puntual: zoom, pausa), que se estabiliza
         // en una pasada. Por tanto no puede realimentarse a sí mismo → no hay bucle posible.
+        // HORIZONTAL: por la fila de cartas (offset ancho-independiente, estable). Es el
+        // arreglo del descentrado original y NO se mueve al pausar/última mano (el banner
+        // solo cambia el ALTO del panel, no la X de las cartas).
+        //
+        // VERTICAL: por los BOUNDS del panel (cd.height/2), NO por la fila de cartas. En
+        // juego normal las cartas YA están en el centro vertical del panel (medido: dif
+        // ~1px), así que no se mueven. Pero centrarlo por la fila de cartas hacía que, al
+        // aparecer/desaparecer el banner de "ÚLTIMA MANO" (que empuja las cartas hacia
+        // abajo), el panel ENTERO se reposicionara para volver a centrarlas → parpadeo de
+        // todo el community. Por bounds, el panel solo CRECE/ENCOGE simétrico en su sitio
+        // (sin salto) y en UNA pasada (off_y no depende de que las cartas ya estén
+        // colocadas, así que no hay lectura obsoleta ni doble reposicionamiento).
         Dimension cd = community.getPreferredSize();
         double off_x = cd.width / 2.0;
         double off_y = cd.height / 2.0;
@@ -295,7 +307,6 @@ public class DynamicTablePanel extends TablePanel {
             java.awt.Point p = javax.swing.SwingUtilities.convertPoint(
                     cards, cards.getWidth() / 2, cards.getHeight() / 2, community);
             off_x = p.x;
-            off_y = p.y;
         }
         int comm_x = (int) Math.round(W / 2.0 - off_x);
         int comm_y = (int) Math.round(H / 2.0 - off_y);

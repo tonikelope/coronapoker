@@ -597,6 +597,62 @@ public class AppearanceSettingsPanel extends JPanel {
         }
         addLeft(anim, destapar_group);
 
+        // --- Ordenar la mano (cruce animado de tus dos hole cards al ordenarlas, solo Ajustes) ---
+        // De él cuelga la velocidad del cruce.
+        JPanel swap_group = groupBox();
+        addToGroup(swap_group, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_swap",
+                null, "animacion_swap", v -> GameFrame.ANIMACION_SWAP_PREF = v, GameFrame.ANIMACION_SWAP_PREF));
+        final JCheckBox swap_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Velocidad del cruce: 3 opciones (lento/normal/rápido). "Normal" = valor por defecto
+        // (320 ms). Cuelga del ajuste: se deshabilita si se desmarca o el maestro está off.
+        // Guarda la duración en ms (GameFrame.SWAP_ANIM_DURATION).
+        {
+            final int[] speed_ms = {520, GameFrame.DEFAULT_SWAP_ANIM_DURATION, 200}; // lento, normal, rápido
+            final String[] speed_keys = {"settings.reparto_lento", "settings.reparto_normal", "settings.reparto_rapido"};
+            final String[] speed_labels = new String[speed_keys.length];
+            for (int i = 0; i < speed_keys.length; i++) {
+                speed_labels[i] = Translator.translate(speed_keys[i]);
+            }
+
+            final JLabel swap_text = new JLabel(Translator.translate("settings.velocidad") + ":");
+            final javax.swing.JComboBox<String> swap_combo = new javax.swing.JComboBox<>(speed_labels);
+
+            // Selecciona la opción cuyo ms guardado sea el más cercano (por defecto Normal).
+            int sel = 1, best = Integer.MAX_VALUE;
+            for (int i = 0; i < speed_ms.length; i++) {
+                int d = Math.abs(speed_ms[i] - GameFrame.SWAP_ANIM_DURATION);
+                if (d < best) {
+                    best = d;
+                    sel = i;
+                }
+            }
+            swap_combo.setSelectedIndex(sel);
+            swap_combo.setMaximumSize(swap_combo.getPreferredSize());
+            swap_combo.addActionListener(e -> {
+                int ms = speed_ms[swap_combo.getSelectedIndex()];
+                GameFrame.SWAP_ANIM_DURATION = ms;
+                persist("swap_velocidad", String.valueOf(ms));
+            });
+            Helpers.setTranslatedToolTip(swap_combo, "tooltip.cfg.swap_velocidad");
+
+            Runnable updateSwapEnabled = () -> {
+                boolean on = anim_master.isSelected() && swap_cb.isSelected();
+                swap_combo.setEnabled(on);
+                swap_text.setEnabled(on);
+            };
+            anim_master.addActionListener(e -> updateSwapEnabled.run());
+            swap_cb.addActionListener(e -> updateSwapEnabled.run());
+            updateSwapEnabled.run();
+
+            JPanel swap_row = naturalRow();
+            swap_row.add(Box.createHorizontalStrut(36)); // sub de "Ordenar la mano"
+            swap_row.add(new JLabel(icon("/images/menu/clock.png")));
+            swap_row.add(swap_text);
+            swap_row.add(swap_combo);
+            addToGroup(swap_group, swap_row);
+        }
+        addLeft(anim, swap_group);
+
         // --- Recolocación de la mesa al salir jugadores (DynamicTablePanel, solo Ajustes) ---
         // De él cuelga la velocidad de la animación de deslizamiento.
         JPanel downgrade_group = groupBox();

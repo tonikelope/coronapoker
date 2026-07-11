@@ -138,6 +138,15 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return visible_card;
     }
 
+    // Imagen que la carta muestra AHORA MISMO (la que pinta card_image): boca
+    // arriba es la cara, boca abajo el dorso. La usan los overlays de animación
+    // (p.ej. el cruce del swap al ordenar la mano) para que la carta voladora sea
+    // pixel-idéntica a la estática. null si aún no hay icono. Llamar en el EDT.
+    public java.awt.Image getDisplayedImage() {
+        javax.swing.Icon ic = card_image.getIcon();
+        return (ic instanceof ImageIcon) ? ((ImageIcon) ic).getImage() : null;
+    }
+
     public void setVisibleCard(boolean v_card) {
         this.visible_card = v_card;
 

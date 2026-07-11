@@ -137,6 +137,15 @@ public class BalanceDialog extends JDialog {
     // revela como +/- el neto. Solo si hay ganancia/pérdida (no en empate).
     private OutlinedLabel amount_label;
 
+    // Timers Swing de la animación del importe (recuento + parpadeo del revelado). Se
+    // guardan para poder CORTARLOS en seco al elegir salir (menú principal / continuar)
+    // mientras el contador rueda: sus repintados por frame son caros (OutlinedLabel
+    // recalcula el contorno del texto con TextLayout.getOutline en cada tick, a pantalla
+    // completa) y, si siguen vivos tras el dispose, acaparan el EDT y retrasan el teardown
+    // (RESET_GAME) hasta que la animación acaba sola. Detenerlos hace la salida instantánea.
+    private javax.swing.Timer amount_roll_timer;
+    private javax.swing.Timer amount_blink_timer;
+
     // Las tres piezas apiladas de la franja central, para fijar su mínimo/máximo
     // vertical una vez finalizadas las fuentes (finalizeCenterSizing): el bloque de
     // título es RÍGIDO (no se comprime nunca -> la fila de la fecha no se recorta en
@@ -211,6 +220,11 @@ public class BalanceDialog extends JDialog {
 
             @Override
             public void windowClosed(WindowEvent evt) {
+                // Red de seguridad: si el cierre no vino de un botón (Escape, cierre del
+                // sistema...), corta igualmente los timers de la animación para que no sigan
+                // repintando sobre un diálogo ya descartado ni acaparen el EDT en el teardown.
+                stopAmountAnimation();
+
                 // Suelta la linea del SFX del contador precargada en el constructor
                 // (RESET_GAME tambien llama a closeAllPreloadedWavs, pero cerrarla aqui
                 // no deja la linea colgada mientras tanto). Idempotente si no se abrio.
@@ -303,12 +317,16 @@ public class BalanceDialog extends JDialog {
 
         JButton recover_button = navButton(GameFrame.getInstance().isPartida_local() ? Translator.translate("game.continuar_esta_timba") : Translator.translate("conn.reconectar_al_servidor"), scaledIcon("/images/continue.png", 28));
         recover_button.addActionListener((e) -> {
+            stopAmountAnimation();
             recover = true;
             dispose();
         });
 
         JButton menu_button = navButton(Translator.translate("ui.menu_principal"), whiteScaledIcon("/images/exit2.png", 28));
-        menu_button.addActionListener((e) -> dispose());
+        menu_button.addActionListener((e) -> {
+            stopAmountAnimation();
+            dispose();
+        });
 
         JPanel row = new JPanel(new GridLayout(1, 4, 24, 0));
         row.setOpaque(false);
@@ -660,7 +678,8 @@ public class BalanceDialog extends JDialog {
                 ? "+" + Helpers.money2String(anim_ganancia)
                 : "-" + Helpers.money2String(anim_ganancia * -1);
 
-        javax.swing.Timer roll = new javax.swing.Timer(16, null);
+        final javax.swing.Timer roll = new javax.swing.Timer(16, null);
+        amount_roll_timer = roll;
         roll.addActionListener((e) -> {
             double p = Math.min(1.0, (System.currentTimeMillis() - start_ms) / (double) duration_ms);
 
@@ -701,7 +720,8 @@ public class BalanceDialog extends JDialog {
         final int total = 6; // 3 ciclos apagar/encender
         final int[] count = {0};
 
-        javax.swing.Timer blink = new javax.swing.Timer(130, null);
+        final javax.swing.Timer blink = new javax.swing.Timer(130, null);
+        amount_blink_timer = blink;
         blink.addActionListener((e) -> {
             count[0]++;
             amount_label.setBlank(count[0] % 2 == 1);
@@ -711,6 +731,24 @@ public class BalanceDialog extends JDialog {
             }
         });
         blink.start();
+    }
+
+    // Corta en seco la animación del importe (recuento + parpadeo) y su SFX. La llaman los
+    // botones de salida (menú principal / continuar) ANTES de dispose(): mientras el contador
+    // rueda, sus repintados por frame (TextLayout.getOutline recalcula el contorno del texto
+    // a pantalla completa, ~16 ms) acaparan el EDT; si se dejan vivos, el teardown de la timba
+    // (RESET_GAME, que descarta el tablero y abre el menú principal vía invokeAndWait) queda
+    // famélico detrás de ellos y el menú no aparece hasta que la animación termina sola. Al
+    // pararlos, la salida es instantánea igual que si se pulsa con el recuento ya terminado.
+    // EDT-only (handlers de botón / windowClosed): stop() de un Timer no arrancado es no-op.
+    private void stopAmountAnimation() {
+        if (amount_roll_timer != null) {
+            amount_roll_timer.stop();
+        }
+        if (amount_blink_timer != null) {
+            amount_blink_timer.stop();
+        }
+        Audio.stopPreloadedWav("misc/balance_count.wav");
     }
 
     private double localGanancia() {

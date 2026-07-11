@@ -269,27 +269,30 @@ public class DynamicTablePanel extends TablePanel {
 
         // Comunitarias: SIEMPRE centradas en la mesa por su FILA DE CARTAS, no por los
         // bounds del panel. El CommunityCardsPanel es más ancho que las cartas (lleva el
-        // bote y los controles) y las cartas van alineadas a la IZQUIERDA dentro de él,
-        // así que centrar los bounds del panel dejaba las cartas desplazadas. Colocamos
+        // bote y los controles); las cartas van CENTRADAS dentro de su cards_panel (gaps
+        // elásticos a ambos lados) y el cards_panel ocupa todo el ancho del panel. Colocamos
         // el panel de forma que el CENTRO de su cards_panel caiga en (W/2, H/2).
         //
-        // CLAVE (por qué NO hay bucle NI transitorio): el offset de la fila de cartas
-        // dentro del panel es POSICIÓN- y ANCHO-INDEPENDIENTE (las cartas van pegadas a
-        // la izquierda: su offset = margen_izq + ancho_cartas/2, no depende del ancho
-        // TOTAL del panel, que es lo que crece/mengua cuando el botón PAUSAR cambia). Por
-        // eso se puede LEER del layout que Swing ya calculó, aunque el panel acabe de
-        // cambiar de tamaño, y sigue siendo correcto. NUNCA se fuerza community.doLayout()
-        // aquí: hacerlo re-colocaba los hijos a media pasada, el preferred size oscilaba
-        // y colgaba el EDT al pausar (bucle infinito → cuelgue total en pantalla completa).
+        // CLAVE (por qué NO hay bucle NI transitorio, pese a que off_x = cards.width/2 SÍ
+        // depende del ancho del panel): el offset se LEE del layout que Swing ya calculó, y
+        // ese layout es un PUNTO FIJO. Razón: doLayout fija el community a su PROPIO preferred
+        // (cd), y el preferred del community NO depende del tamaño que se le asigna —ningún
+        // hijo reflowa por ancho (todo GroupLayout, labels de una línea, sin HTML ni wrap)—,
+        // así que su layout interno (y con él la X de la fila de cartas) es estable entre
+        // pasadas. Converge en 2 pasadas y la 2.ª solo cambia POSICIÓN, que no invalida.
+        // NUNCA se fuerza community.doLayout() aquí: hacerlo re-colocaba los hijos a media
+        // pasada, el preferred size oscilaba y colgaba el EDT al pausar (bucle infinito →
+        // cuelgue total en pantalla completa). Ese, y NO el que off_x dependa del ancho, era
+        // el mecanismo del cuelgue de 22.58.
         //
         // doLayout es IDEMPOTENTE por diseño: no toca el preferred de nadie, y el setBounds
         // de abajo solo dispara cuando algo cambió de verdad; un cambio de POSICIÓN no
         // invalida (Component.reshape solo invalida al redimensionar), y el TAMAÑO solo
         // cambia cuando cambia el preferred (evento puntual: zoom, pausa), que se estabiliza
         // en una pasada. Por tanto no puede realimentarse a sí mismo → no hay bucle posible.
-        // HORIZONTAL: por la fila de cartas (offset ancho-independiente, estable). Es el
-        // arreglo del descentrado original y NO se mueve al pausar/última mano (el banner
-        // solo cambia el ALTO del panel, no la X de las cartas).
+        // HORIZONTAL: por la fila de cartas (punto fijo, converge en 2 pasadas). Es el arreglo
+        // del descentrado original y NO se mueve al pausar/última mano (el banner solo cambia
+        // el ALTO del panel, no la X de la fila de cartas).
         //
         // VERTICAL: por los BOUNDS del panel (cd.height/2), NO por la fila de cartas. En
         // juego normal las cartas YA están en el centro vertical del panel (medido: dif
@@ -373,6 +376,22 @@ public class DynamicTablePanel extends TablePanel {
             return;
         }
 
+        // TOCTOU CONOCIDO (dejado a propósito; cosmético y AUTO-CORREGIDO): esta lectura de
+        // isExit() (T1) y la que hace TablePanelFactory.downgradePanel al reconstruir el
+        // tablero (T2, ~500ms después) son DOS lecturas distintas. isExit() puede pasar a
+        // true entre ambas: se fija con RemotePlayer.setExit() (flag volatile, NO bajo el
+        // monitor del crupier) vía Participant.markExitAndNotify(), que corre en hilos
+        // watchdog/escritor (timeout, socket cerrado, auto-expulsión). Como exit es monótono,
+        // leaving(T2) ⊇ leaving(T1). CONSECUENCIA ACOTADA A LO VISUAL: si un 2.º jugador cae
+        // durante la animación, su asiento se desliza como superviviente pero el tablero nuevo
+        // (T2) ya no lo incluye → un salto de UN fotograma al hacer el swap, tras el cual el
+        // tablero queda correcto (downgradePanel es internamente consistente: tamaño y copia
+        // usan la MISMA lectura T2). Si quedaran <2 jugadores no hay swap y el tablero no se
+        // re-ancla, pero eso es fin de partida y la pantalla de balance lo tapa en segundos.
+        // NUNCA afecta a dinero/nick/asiento (esta animación es puramente visual) y se
+        // auto-corrige. NO se blinda con snapshot único porque tocaría el camino sensible de
+        // expulsiones a cambio de un caso extremo (2 caídas en ~500ms) e inocuo. (Auditoría
+        // adversaria 8 lentes, jul-2026.)
         final java.util.List<JPanel> survivors = new java.util.ArrayList<>();
         final java.util.List<JPanel> leaving = new java.util.ArrayList<>();
         for (Player p : all) {

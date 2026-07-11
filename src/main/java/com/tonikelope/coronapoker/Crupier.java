@@ -1040,6 +1040,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // diálogo de straddle voluntario abierto en el peer del UTG (para cerrarlo desde fuera)
     private volatile boolean straddle_bar_active = false; // true mientras la barra del community cuenta los 5s de decisión del straddle (luego indeterminada hasta el resultado)
     private volatile boolean straddle_local_cards_deferred = false; // repartir dejó las hole cards del UTG local boca abajo a la espera de su decisión de straddle; resolveVoluntaryStraddle garantiza revelarlas (incluso si sale por early-return)
+    // ---- Straddle CIEGO CRIPTOGRÁFICO (commit-reveal) ----
+    // El straddler no puede RESOLVER sus hole cards hasta comprometer su decisión firmada: el
+    // reparto DIFIERE por completo el desbloqueo de sus 2 slots (ningún peer quita su candado),
+    // y solo tras verificar su decisión firmada se corre una cascada diferida que deja el residuo
+    // single-locked por él. Cierra la fuga que permitía a un cliente (o host) malicioso decidir
+    // el straddle con la mano ya vista. Uniforme: cuando el host straddlea, son los CLIENTES los
+    // que retienen su candado, así que el host tampoco puede mirar antes de comprometerse.
+    private volatile boolean straddle_cards_pending = false; // el proceso LOCAL es el straddler ciego y sus cartas aún no se han resuelto (salta VISUAL@ en el fósil; dispara la resolución diferida tras decidir)
+    private volatile String deferred_straddle_nick = null;   // host: nick del straddler cuyos 2 slots se retuvieron en el reparto (para la cascada diferida); null si no hay
+    private volatile int deferred_straddle_slot = -1;        // índice de anillo (active_crypto_ring) del slot del straddler diferido; -1 si no hay
+    private volatile String straddle_decision_verified_nick = null; // responder (cada peer): nick del straddler cuya decisión FIRMADA verificó esta mano; el gate de UNLOCK_PHASE_POCKET_STRADDLE exige que el slot pelado sea el suyo
     private volatile java.util.List<Player> forced_bet_chip_contributors = null; // jugadores cuyas fichas de forzadas (ciegas/straddle/ante) vuelan al bote al arrancar la mano
     private volatile double bote_sobrante = 0;
     private volatile String[] nicks_permutados;
@@ -5230,6 +5241,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int UNLOCK_PHASE_RIT2_FLOP = 7;
     public static final int UNLOCK_PHASE_RIT2_TURN = 8;
     public static final int UNLOCK_PHASE_RIT2_RIVER = 9;
+    // Straddle ciego: desbloqueo DIFERIDO de los 2 pocket slots del straddler, corrido tras
+    // verificar su decisión firmada. A diferencia de POCKET (siempre seguro, primer paso de la
+    // mano), esta fase el responder solo la sirve si ya verificó la decisión firmada del
+    // straddler Y el slot pelado es EXACTAMENTE el suyo (straddleUnlockSlot); si no, la rechaza.
+    public static final int UNLOCK_PHASE_POCKET_STRADDLE = 10;
 
     // ANTI "leer el board futuro": el host controla offsetBase en REQ_SRA_UNLOCK_CHAIN, así que un
     // cliente que va a ayudar a revelar community DEBE exigir que el slot REALMENTE pelado caiga en los
@@ -10816,6 +10832,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_a");
         }
         GameFrame.getInstance().getRegistro().print(Translator.translate(agreed ? "runittwice.log_accepted" : "runittwice.log_rejected"));
+    }
+
+    // ¿Hay un straddler HUMANO ciego esta mano? Devuelve su nick, o null. Es el straddle
+    // voluntario en mano fresca con >2 activos cuyo UTG es un humano (host o cliente) activo:
+    // ese jugador decide a ciegas y sus 2 hole cards se DIFIEREN criptográficamente hasta que
+    // firma su decisión. Los bots quedan fuera (deciden sin mirar sus cartas, no hace falta
+    // cegarlos). Es la fuente ÚNICA de verdad compartida por el reparto (retención de candados),
+    // recibirMisCartas (pasar a ciegas) y resolveVoluntaryStraddle (liberar tras decidir).
+    private String blindStraddlerNickThisHand() {
+        if (!GameFrame.STRADDLE || this.game_recovered != 0 || getJugadoresActivos() <= 2 || this.utg_nick == null) {
+            return null;
+        }
+        Player utg = null;
+        for (Player j : GameFrame.getInstance().getJugadores()) {
+            if (this.utg_nick.equals(j.getNickname())) {
+                utg = j;
+                break;
+            }
+        }
+        if (utg == null || !utg.isActivo()) {
+            return null;
+        }
+        // Bot = RemotePlayer con getBot() != null; el LocalPlayer siempre es humano.
+        if (utg instanceof RemotePlayer && ((RemotePlayer) utg).getBot() != null) {
+            return null;
+        }
+        return this.utg_nick;
     }
 
     // ====================== Straddle voluntario (post-reparto) ======================

@@ -8787,8 +8787,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // que rendimos los frames en background mientras vuelan las cartas. Al
         // aterrizar el giro está listo y el destape entra sin la pausa fantasma
         // del render (los frames no se cachean, cuestan decenas/cientos de ms).
-        // Solo con el destape activo y si vas a jugar la mano (el straddle a
-        // ciegas revela aparte, y sus valores ni se conocen aquí).
+        // Solo con el destape activo y si vas a jugar la mano de cara (el UTG local que
+        // decide el straddle a ciegas se destapa aparte, en resolveVoluntaryStraddle, con
+        // su propio prefetch justo abajo).
         Future<?> prefetch_flip_hc1 = null;
         Future<?> prefetch_flip_hc2 = null;
         if (!defer_straddle_reveal && GameFrame.destapeAnimOn()
@@ -8800,6 +8801,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (sp2 != null) {
                 prefetch_flip_hc2 = Helpers.futureRun(() -> decodeCardFlipAnim(sp2));
+            }
+        }
+
+        // Straddle local a ciegas: sus valores YA se conocen (local_original_cards, resueltos
+        // en el reparto antes de esta llamada), así que rendimos el giro en background durante
+        // el vuelo + la ventana de decisión (~5 s). Cuando resolveVoluntaryStraddle destape las
+        // cartas tras decidir, el giro entra sin la pausa del render. revealLocalStraddlerCards
+        // los consume.
+        this.straddle_prefetch_flip_hc1 = null;
+        this.straddle_prefetch_flip_hc2 = null;
+        if (defer_straddle_reveal && GameFrame.destapeAnimOn()) {
+            final String ssp1 = Card.shortStringFromIndex(this.local_original_cards[0] & 0xFF);
+            final String ssp2 = Card.shortStringFromIndex(this.local_original_cards[1] & 0xFF);
+            if (ssp1 != null) {
+                this.straddle_prefetch_flip_hc1 = Helpers.futureRun(() -> decodeCardFlipAnim(ssp1));
+            }
+            if (ssp2 != null) {
+                this.straddle_prefetch_flip_hc2 = Helpers.futureRun(() -> decodeCardFlipAnim(ssp2));
             }
         }
 
@@ -11171,16 +11190,54 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 0);
     }
 
-    // Revela las dos hole cards del UTG local que repartir dejó boca abajo a la espera
-    // de la decisión de straddle a ciegas.
+    // Revela las dos hole cards del UTG local que repartir dejó boca abajo a la espera de
+    // la decisión de straddle a ciegas. Con el destape activo las abre GIRANDO (mismo motor
+    // que el reparto, revelarHoleCardLocalAnimada, usando el prefetch lanzado en repartir y
+    // sin la pausa previa: llevan segundos boca abajo); sin él las destapa en seco como
+    // siempre. En AMBOS casos ordena la mano al final (cruce animado si swapAnimOn): repartir()
+    // no pudo, porque cuando corrió ordenarCartasLocalAnimado estas cartas seguían boca abajo
+    // sin valor. Corre en el hilo del crupier (resolveVoluntaryStraddle), nunca en el EDT, así
+    // que el giro (bloqueante) no cuelga la interfaz.
     private void revealLocalStraddlerCards() {
-        final Player local = GameFrame.getInstance().getLocalPlayer();
-        Helpers.GUIRun(() -> {
-            local.getHoleCard1().iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
-            local.getHoleCard1().destapar(false);
-            local.getHoleCard2().iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
-            local.getHoleCard2().destapar(false);
+        final LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
+        final Card c1 = local.getHoleCard1();
+        final Card c2 = local.getHoleCard2();
+        final int v1 = (this.local_original_cards[0] & 0xFF) + 1;
+        final int v2 = (this.local_original_cards[1] & 0xFF) + 1;
+
+        final Future<?> pf1 = this.straddle_prefetch_flip_hc1;
+        final Future<?> pf2 = this.straddle_prefetch_flip_hc2;
+        this.straddle_prefetch_flip_hc1 = null;
+        this.straddle_prefetch_flip_hc2 = null;
+
+        // Sin destape animado (o local ya fuera / transmisión terminada): revela EN SECO,
+        // exactamente como siempre.
+        if (!GameFrame.destapeAnimOn() || local.isExit() || isFin_de_la_transmision()) {
+            Helpers.GUIRunAndWait(() -> {
+                c1.iniciarConValorNumerico(v1);
+                c1.destapar(false);
+                c2.iniciarConValorNumerico(v2);
+                c2.destapar(false);
+            });
+            ordenarCartasLocalAnimado();
+            return;
+        }
+
+        // Con destape animado: siéntalas BOCA ABAJO con su valor y VISIBLES (como el reparto:
+        // iniciarConValorNumerico no toca visible_card, así que sin setVisibleCard(true) no se
+        // verían) y ábrelas girando una tras otra (cada llamada bloquea hasta acabar su giro).
+        Helpers.GUIRunAndWait(() -> {
+            c1.setVisibleCard(true);
+            c1.iniciarConValorNumerico(v1);
+            c2.setVisibleCard(true);
+            c2.iniciarConValorNumerico(v2);
         });
+
+        revelarHoleCardLocalAnimada(c1, pf1, 0);
+        revelarHoleCardLocalAnimada(c2, pf2, 0);
+
+        // Ya boca arriba: ordena la mano (cruce animado si procede), lo que repartir no pudo.
+        ordenarCartasLocalAnimado();
     }
 
     private void destaparCartaComunitaria(int street, ArrayList<Player> resisten) {
@@ -15727,6 +15784,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // antes del giro (cuando la ficha debe desaparecer).
     private volatile javax.swing.JLabel local_chip_flight_overlay;
 
+    // Pre-decode del giro de las dos hole cards del straddler LOCAL, lanzado en repartir
+    // (los valores ya están en local_original_cards) para que, cuando resolveVoluntaryStraddle
+    // las destape tras la decisión a ciegas, el giro entre sin la pausa del render. Se
+    // consumen en revealLocalStraddlerCards; null si el destape está off o no hay straddle.
+    private volatile Future<?> straddle_prefetch_flip_hc1;
+    private volatile Future<?> straddle_prefetch_flip_hc2;
+
     // Destape ASÍNCRONO de UNA hole card local recién aterrizada, SIN frenar al
     // crupier: repartir() lo lanza en otro hilo (Helpers.threadRun) nada más
     // aterrizar la carta, así el reparto sigue de inmediato con el resto. La
@@ -15745,6 +15809,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // cuesta decenas/cientos de ms, que inline se colaban como una pausa fantasma
     // aunque el delay fuese 0. Si no hay prefetch válido, decode inline (fallback).
     private void revelarHoleCardLocalAnimada(Card carta, Future<?> prefetched) {
+        revelarHoleCardLocalAnimada(carta, prefetched, LOCAL_HOLE_CARD_REVEAL_DELAY);
+    }
+
+    // pre_delay_ms: "un pelín" que la carta se queda boca abajo antes del giro. En el
+    // reparto vale LOCAL_HOLE_CARD_REVEAL_DELAY (acaba de aterrizar y conviene verla
+    // tapada un instante); en el destape del straddler es 0 (la carta lleva TODA la
+    // decisión boca abajo, así que el giro entra directo sin pausa extra).
+    private void revelarHoleCardLocalAnimada(Card carta, Future<?> prefetched, int pre_delay_ms) {
 
         // hc1 lleva la ficha de posición GRANDE encima. Durante el vuelo/aterrizaje la
         // carta pasó POR DEBAJO de la ficha (overlay puesto por repartir); aquí, JUSTO
@@ -15755,7 +15827,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final boolean chip_on_card = (carta == local.getHoleCard1());
 
         try {
-            Helpers.parkThreadMillis(LOCAL_HOLE_CARD_REVEAL_DELAY);
+            Helpers.parkThreadMillis(pre_delay_ms);
 
             if (!GameFrame.destapeAnimOn() || !carta.isIniciadaConValor() || !carta.isTapada()
                     || local.isExit() || isFin_de_la_transmision()) {

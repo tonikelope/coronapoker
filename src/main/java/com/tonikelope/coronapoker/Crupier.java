@@ -8726,6 +8726,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // early-return, p.ej. si un jugador se va y quedan <=2 antes de la decisión).
         this.straddle_local_cards_deferred = defer_straddle_reveal;
 
+        // Pre-decode del giro de TUS dos hole cards, lanzado YA: conocemos sus
+        // valores (bóveda C -> local_original_cards) desde antes de repartir, así
+        // que rendimos los frames en background mientras vuelan las cartas. Al
+        // aterrizar el giro está listo y el destape entra sin la pausa fantasma
+        // del render (los frames no se cachean, cuestan decenas/cientos de ms).
+        // Solo con el destape activo y si vas a jugar la mano (el straddle a
+        // ciegas revela aparte, y sus valores ni se conocen aquí).
+        Future<?> prefetch_flip_hc1 = null;
+        Future<?> prefetch_flip_hc2 = null;
+        if (!defer_straddle_reveal && GameFrame.destapeAnimOn()
+                && GameFrame.getInstance().getLocalPlayer().isActivo()) {
+            final String sp1 = Card.shortStringFromIndex(this.local_original_cards[0] & 0xFF);
+            final String sp2 = Card.shortStringFromIndex(this.local_original_cards[1] & 0xFF);
+            if (sp1 != null) {
+                prefetch_flip_hc1 = Helpers.futureRun(() -> decodeCardFlipAnim(sp1));
+            }
+            if (sp2 != null) {
+                prefetch_flip_hc2 = Helpers.futureRun(() -> decodeCardFlipAnim(sp2));
+            }
+        }
+
         if (!animacion) {
 
             for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
@@ -8783,20 +8804,46 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 final Card hc1 = jugador.getHoleCard1();
                 final boolean es_local = (jugador == GameFrame.getInstance().getLocalPlayer());
+                // Solo TU carta y solo con el destape activo se abre con animación.
+                final boolean flip_local = es_local && !defer_straddle_reveal && GameFrame.destapeAnimOn();
 
                 // La carta tapada vuela del dealer al asiento; al aterrizar la
-                // sienta (deal.wav lo dispara el propio vuelo al lanzar). Para
-                // el jugador local, además, revela su valor real (que ya se
-                // extrajo de la bóveda C) — salvo que sea el UTG decidiendo el
-                // straddle a ciegas (defer_straddle_reveal): se sienta boca abajo.
-                Runnable seat = (es_local && !defer_straddle_reveal)
-                        ? () -> {
-                            hc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
-                            hc1.destapar(false);
-                        }
-                        : () -> hc1.iniciarCarta();
+                // sienta (deal.wav lo dispara el propio vuelo al lanzar). Para el
+                // jugador local revela su valor real (que ya se extrajo de la bóveda
+                // C): con el destape activo la deja BOCA ABAJO y la abre girando
+                // después en otro hilo (sin frenar el reparto); sin él la destapa
+                // de golpe al aterrizar, EXACTAMENTE como siempre. El UTG a ciegas
+                // (defer_straddle_reveal) se sienta boca abajo y lo revela
+                // resolveVoluntaryStraddle.
+                Runnable seat;
+                if (flip_local) {
+                    // Se sienta BOCA ABAJO y VISIBLE: setVisibleCard(true) es
+                    // imprescindible porque iniciarConValorNumerico NO toca
+                    // visible_card (arranca en false), así que sin él la carta
+                    // quedaría INVISIBLE durante la pausa y solo aparecería al
+                    // arrancar el giro (el "flash" sin pausa). El destape async la abre.
+                    seat = () -> {
+                        hc1.setVisibleCard(true);
+                        hc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
+                    };
+                } else if (es_local && !defer_straddle_reveal) {
+                    seat = () -> {
+                        hc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
+                        hc1.destapar(false);
+                    };
+                } else {
+                    seat = () -> hc1.iniciarCarta();
+                }
 
                 GameFrame.getInstance().getTapete().flyCardToSeat(hc1, deal_origin, flight_dur, "misc/deal.wav", seat);
+
+                // Destape animado en OTRO hilo nada más aterrizar: el crupier sigue
+                // repartiendo sin esperar a que tu carta se abra. Usa el giro
+                // pre-decodificado, ya listo, así el destape entra sin pausa fantasma.
+                if (flip_local) {
+                    final Future<?> pf = prefetch_flip_hc1;
+                    Helpers.threadRun(() -> revelarHoleCardLocalAnimada(hc1, pf));
+                }
 
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -8804,6 +8851,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (defer_straddle_reveal) {
                     jugador.getHoleCard1().iniciarCarta();
+                } else if (GameFrame.destapeAnimOn()) {
+                    // Boca abajo con su valor + destape animado async (no frena el reparto).
+                    final Card lhc1 = jugador.getHoleCard1();
+                    lhc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
+                    final Future<?> pf = prefetch_flip_hc1;
+                    Helpers.threadRun(() -> revelarHoleCardLocalAnimada(lhc1, pf));
                 } else {
                     jugador.getHoleCard1().iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
                     jugador.getHoleCard1().destapar(false);
@@ -8829,15 +8882,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 final Card hc2 = jugador.getHoleCard2();
                 final boolean es_local = (jugador == GameFrame.getInstance().getLocalPlayer());
+                final boolean flip_local = es_local && !defer_straddle_reveal && GameFrame.destapeAnimOn();
 
-                Runnable seat = (es_local && !defer_straddle_reveal)
-                        ? () -> {
-                            hc2.iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
-                            hc2.destapar(false);
-                        }
-                        : () -> hc2.iniciarCarta();
+                // Igual que la hole card 1: con el destape activo se sienta boca
+                // abajo y gira async al aterrizar; sin él se destapa de golpe.
+                Runnable seat;
+                if (flip_local) {
+                    // Boca abajo y VISIBLE (ver nota en la hole card 1: sin
+                    // setVisibleCard(true) la carta no se vería en la pausa).
+                    seat = () -> {
+                        hc2.setVisibleCard(true);
+                        hc2.iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
+                    };
+                } else if (es_local && !defer_straddle_reveal) {
+                    seat = () -> {
+                        hc2.iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
+                        hc2.destapar(false);
+                    };
+                } else {
+                    seat = () -> hc2.iniciarCarta();
+                }
 
                 GameFrame.getInstance().getTapete().flyCardToSeat(hc2, deal_origin, flight_dur, "misc/deal.wav", seat);
+
+                if (flip_local) {
+                    final Future<?> pf = prefetch_flip_hc2;
+                    Helpers.threadRun(() -> revelarHoleCardLocalAnimada(hc2, pf));
+                }
 
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -8845,6 +8916,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (defer_straddle_reveal) {
                     jugador.getHoleCard2().iniciarCarta();
+                } else if (GameFrame.destapeAnimOn()) {
+                    final Card lhc2 = jugador.getHoleCard2();
+                    lhc2.iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
+                    final Future<?> pf = prefetch_flip_hc2;
+                    Helpers.threadRun(() -> revelarHoleCardLocalAnimada(lhc2, pf));
                 } else {
                     jugador.getHoleCard2().iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
                     jugador.getHoleCard2().destapar(false);
@@ -15296,6 +15372,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // PreRenderedGif para el motor catch-up. Devuelve null si la carta no tiene
     // JPG de cara: el llamante cae al destape seco.
     private FlipAnim decodeCardFlipAnim(Card carta) {
+        // toShortString() == getValor() + "_" + getPalo().
+        return decodeCardFlipAnim(carta.toShortString());
+    }
+
+    // Igual pero a partir de la clave "valor_palo" directamente (sin necesitar la
+    // Card ya sentada con su valor): así el reparto puede PRE-decodificar el giro
+    // de tus hole cards en background nada más conocer sus valores (bóveda C),
+    // antes de que aterricen. Rendir los 20-45 frames (warp por píxel + SS) cuesta
+    // decenas/cientos de ms y CardFlipAnimator NO cachea los frames, así que
+    // hacerlo inline al aterrizar metía ese coste como pausa fantasma.
+    private FlipAnim decodeCardFlipAnim(String valor_palo) {
 
         float zoom_factor = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
@@ -15311,7 +15398,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             float flip_zoom = GameFrame.CARD_FLIP_ZOOM / 100f;
 
             PreRenderedGif anim = CardFlipAnimator.generate(GameFrame.BARAJA,
-                    carta.getValor() + "_" + carta.getPalo(),
+                    valor_palo,
                     card_w, card_h, corner, duration, num_frames, flip_zoom);
 
             if (anim == null) {
@@ -15321,7 +15408,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int display_w = CardFlipAnimator.canvasWidth(card_w, flip_zoom);
             int display_h = CardFlipAnimator.canvasHeight(card_h, flip_zoom);
 
-            return new FlipAnim(anim, display_w, display_h, zoom_factor, carta.toShortString());
+            return new FlipAnim(anim, display_w, display_h, zoom_factor, valor_palo);
 
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Card flip render failed (plain uncover fallback)", ex);
@@ -15507,6 +15594,94 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 jugador.destaparCartas(false);
             }
         }
+    }
+
+    // "Un pelín" que la hole card local se queda BOCA ABAJO en el asiento antes
+    // de abrirse (para que se vea la carta tapada tras aterrizar y antes del giro).
+    private static final int LOCAL_HOLE_CARD_REVEAL_DELAY = 50;
+
+    // Destape ASÍNCRONO de UNA hole card local recién aterrizada, SIN frenar al
+    // crupier: repartir() lo lanza en otro hilo (Helpers.threadRun) nada más
+    // aterrizar la carta, así el reparto sigue de inmediato con el resto. La
+    // carta se queda un instante BOCA ABAJO y luego se abre girando con el mismo
+    // motor que las comunitarias/rivales (playCardFlipOverlays, relevos sin
+    // hueco). Solo se llama con el destape activo (destapeAnimOn) y sobre la
+    // carta ya sentada boca abajo con su valor; aun así reverifica el estado y
+    // cae al destape seco si algo no cuadra (baraja sin GIF, decode fallido,
+    // valor cambiado, jugador fuera). El volteo lógico está garantizado por el
+    // finally aunque la animación falle. Es fire-and-forget: no toca el resto de
+    // la lógica del reparto (ordenarCartas incluido).
+    //
+    // prefetched: el render del giro lanzado al inicio del reparto (ya conocemos
+    // el valor). Al aterrizar suele estar listo, así el ÚNICO retardo es la pausa
+    // (LOCAL_HOLE_CARD_REVEAL_DELAY): el render de los 20-45 frames NO se cachea y
+    // cuesta decenas/cientos de ms, que inline se colaban como una pausa fantasma
+    // aunque el delay fuese 0. Si no hay prefetch válido, decode inline (fallback).
+    private void revelarHoleCardLocalAnimada(Card carta, Future<?> prefetched) {
+
+        Helpers.parkThreadMillis(LOCAL_HOLE_CARD_REVEAL_DELAY);
+
+        if (!GameFrame.destapeAnimOn() || !carta.isIniciadaConValor() || !carta.isTapada()
+                || GameFrame.getInstance().getLocalPlayer().isExit() || isFin_de_la_transmision()) {
+            carta.destapar(false);
+            return;
+        }
+
+        try {
+            FlipAnim decoded = takePrefetchedHoleCardFlip(prefetched, carta);
+
+            if (decoded == null) {
+                decoded = decodeCardFlipAnim(carta);
+            }
+
+            if (decoded == null || !decoded.card.equals(carta.toShortString())) {
+                carta.destapar(false);
+                return;
+            }
+
+            // La carta gira sobre un overlay efímero centrado en su asiento:
+            // playCardFlipOverlays oculta la tapada en el mismo evento EDT que
+            // muestra su primer frame y la destapa síncrona bajo el último, sin
+            // pintar ningún hueco. delay_end=0.
+            GameFrame.getInstance().getTapete().playCardFlipOverlays(
+                    new Card[]{carta},
+                    new PreRenderedGif[]{decoded.anim},
+                    new int[]{decoded.display_w},
+                    new int[]{decoded.display_h},
+                    0,
+                    "misc/uncover.wav");
+
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, null, ex);
+        } finally {
+            // El volteo lógico es obligatorio (no-op en el camino feliz:
+            // destaparSync ya volteó la carta bajo el último frame).
+            carta.destapar(false);
+        }
+    }
+
+    // Recoge el pre-decode del giro de una hole card local lanzado al inicio del
+    // reparto. Espera si aún no acabó (mucho menos que lo que tardó el vuelo) y lo
+    // descarta si no cuadra con la carta que aterrizó o si el zoom cambió entre
+    // medias (entonces el llamante decodifica inline).
+    private FlipAnim takePrefetchedHoleCardFlip(Future<?> prefetched, Card carta) {
+
+        if (prefetched == null) {
+            return null;
+        }
+
+        try {
+            FlipAnim decoded = (FlipAnim) prefetched.get();
+
+            if (decoded != null && decoded.card.equals(carta.toShortString())
+                    && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)) {
+                return decoded;
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Prefetched hole-card flip unavailable (decoding inline)", ex);
+        }
+
+        return null;
     }
 
     public void mostrarAnimacionDestaparCartaComunitaria(Card carta) {

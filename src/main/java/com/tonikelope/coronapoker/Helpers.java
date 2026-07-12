@@ -3284,24 +3284,23 @@ public class Helpers {
         return Math.abs(DIALOG_ZOOM - 1f) >= 0.01f;
     }
 
-    // Aplica el zoom GLOBAL de diálogos (DIALOG_ZOOM) a una ventana recién construida: deriva
-    // TODAS sus fuentes de GUI_FONT escalando el tamaño de DISEÑO por el factor y re-sincroniza la
-    // fuente de los TitledBorder (que updateFonts no alcanza). A factor 1.0 se comporta EXACTAMENTE
-    // como updateFonts(window, GUI_FONT, null) (cambia solo la familia, tamaño de diseño): es un
-    // DROP-IN de esa llamada. Pensado para diálogos EFÍMEROS (una pasada por instancia nueva); NO
-    // re-aplicar sobre la misma instancia viva (updateFonts multiplica el tamaño actual). El
-    // llamante hace su pack()/setSize DESPUÉS para que la ventana encoja/crezca. NO toca el zoom de
-    // la MESA (GameFrame.ZOOM_LEVEL).
-    public static void applyDialogZoom(java.awt.Window window) {
-        if (window == null) {
+    // Aplica el zoom GLOBAL de diálogos (DIALOG_ZOOM) a una ventana YA EMPAQUETADA a tamaño de
+    // DISEÑO (el diálogo debe haber hecho updateFonts(this,GUI_FONT,null) + pack() antes, como
+    // siempre). Escala las fuentes y AJUSTA LA VENTANA a (tamaño de diseño × factor): así el zoom es
+    // UNIFORME y sin borde sobrante. La clave es NO reempaquetar: pack() usa los anchos/huecos FIJOS
+    // del .form (p. ej. un JLabel con ancho preferido fijo de 804px), que el font-zoom no encoge, y
+    // deja márgenes; en cambio forzar el nuevo tamaño recoloca los componentes flexibles (los de
+    // ancho MAX) al ancho real. Los iconos decorativos ESTÁTICOS se escalan aparte con
+    // scaleDialogIcon. No-op a 1.0. NO toca el zoom de la MESA (GameFrame.ZOOM_LEVEL).
+    public static void zoomDialog(java.awt.Window window) {
+        if (window == null || !isDialogZoomActive()) {
             return;
         }
-        if (!isDialogZoomActive()) {
-            updateFonts(window, GUI_FONT, null);
-            return;
-        }
+        int design_w = window.getWidth();
+        int design_h = window.getHeight();
         updateFonts(window, GUI_FONT, DIALOG_ZOOM);
         syncTitledBorderFonts(window);
+        window.setSize(Math.round(design_w * DIALOG_ZOOM), Math.round(design_h * DIALOG_ZOOM));
     }
 
     // Re-sincroniza la fuente del título de cada TitledBorder al font (ya escalado) de su
@@ -3321,12 +3320,17 @@ public class Helpers {
         }
     }
 
-    // Reescala el icono DECORATIVO de un JLabel a (tamaño natural del recurso × DIALOG_ZOOM),
-    // partiendo SIEMPRE del recurso original para no acumular. Conserva la animación de los GIF
-    // (setScaledIconLabel usa SCALE_DEFAULT para GIF). No-op a 1.0 o si el recurso no existe. Solo
-    // para adornos (logo, iconos de diálogo); el contenido gráfico (cartas, imágenes) se escala aparte.
+    // Reescala el icono DECORATIVO ESTÁTICO de un JLabel a (tamaño natural del recurso × DIALOG_ZOOM),
+    // partiendo SIEMPRE del recurso original para no acumular. No-op a 1.0 o si el recurso no existe.
+    // Solo para adornos estáticos (PNG); el contenido gráfico (cartas, imágenes) se escala aparte.
+    // Los GIF ANIMADOS NO se reescalan: getScaledInstance CONGELA la animación en un fotograma
+    // cualquiera (p. ej. el logo giratorio del About quedaba fijo boca abajo), así que se dejan a su
+    // tamaño natural (un adorno de marca sin escalar es preferible a uno roto).
     public static void scaleDialogIcon(JLabel label, String resource) {
         if (label == null || resource == null || !isDialogZoomActive()) {
+            return;
+        }
+        if (resource.toLowerCase().endsWith(".gif")) {
             return;
         }
         java.net.URL url = Helpers.class.getResource(resource);

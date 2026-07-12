@@ -381,7 +381,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 () -> {
                     GameFrame.RESALTAR_JUGADA_PERDEDOR = !GameFrame.RESALTAR_JUGADA_PERDEDOR;
                     persist("resaltar_jugada_perdedor", String.valueOf(GameFrame.RESALTAR_JUGADA_PERDEDOR));
-                }));
+                }, "tooltip.cfg.resaltar_jugada_perdedor"));
 
         // ---------------- Animaciones ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
@@ -1216,6 +1216,10 @@ public class AppearanceSettingsPanel extends JPanel {
     // de partida (menu == null) ejecuta el persist-only suministrado. Ambos conmutan un
     // paso, así que quedan sincronizados con el estado.
     private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone) {
+        return delegatingCheckbox(iconPath, i18nKey, selected, menu, standalone, null);
+    }
+
+    private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone, String tooltipKey) {
         JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), selected);
         cb.setEnabled(menu == null || menu.isEnabled());
         cb.addActionListener(e -> {
@@ -1228,8 +1232,16 @@ public class AppearanceSettingsPanel extends JPanel {
         // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con
         // la pestaña Partida y con los menús que este diálogo sustituye.
         JPanel row = naturalRow();
-        row.add(new JLabel(icon(iconPath)));
+        JLabel iconLabel = new JLabel(icon(iconPath));
+        row.add(iconLabel);
         row.add(cb);
+        // Tooltip opcional: se pone en la fila y en sus dos hijos para que aparezca en toda
+        // la zona clicable (icono + checkbox + texto).
+        if (tooltipKey != null) {
+            Helpers.setTranslatedToolTip(row, tooltipKey);
+            Helpers.setTranslatedToolTip(iconLabel, tooltipKey);
+            Helpers.setTranslatedToolTip(cb, tooltipKey);
+        }
         return row;
     }
 

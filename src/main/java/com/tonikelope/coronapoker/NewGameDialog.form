@@ -408,6 +408,8 @@
                                           <Component id="ante_checkbox" min="-2" max="-2" attributes="0"/>
                                           <EmptySpace pref="18" max="-2" attributes="0"/>
                                           <Component id="straddle_checkbox" min="-2" max="-2" attributes="0"/>
+                                          <EmptySpace max="-2" attributes="0"/>
+                                          <Component id="straddle_icon" min="-2" max="-2" attributes="0"/>
                                       </Group>
                                   </Group>
                                   <EmptySpace max="-2" attributes="0"/>
@@ -433,6 +435,7 @@
                                   <Group type="103" groupAlignment="3" attributes="0">
                                       <Component id="ante_checkbox" min="-2" max="-2" attributes="0"/>
                                       <Component id="straddle_checkbox" min="-2" max="-2" attributes="0"/>
+                                      <Component id="straddle_icon" min="-2" max="-2" attributes="0"/>
                                   </Group>
                                   <EmptySpace max="-2" attributes="0"/>
                               </Group>
@@ -707,10 +710,21 @@
                             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                               <Font name="Dialog" size="16" style="1"/>
                             </Property>
-                            <Property name="text" type="java.lang.String" value="Straddle"/>
                             <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
                               <Color id="Cursor de Mano"/>
                             </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                        </Component>
+                        <Component class="javax.swing.JLabel" name="straddle_icon">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="16" style="1"/>
+                            </Property>
+                            <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                              <Image iconType="3" name="/images/straddle_24.png"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Straddle"/>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
                         </Component>

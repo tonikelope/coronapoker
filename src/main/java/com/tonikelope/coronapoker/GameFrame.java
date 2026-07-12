@@ -2588,6 +2588,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Helpers.updateFonts(GameFrame.getInstance(), Helpers.GUI_FONT, null);
 
+                // El zoom de DIÁLOGOS también escala la barra de menú del juego (la "chrome" textual del
+                // GameFrame crece/encoge con el mismo ajuste; el popup del tapete lo hace en Helpers). No
+                // toca el zoom de la MESA. A 100 % no cambia nada.
+                if (Helpers.isDialogZoomActive()) {
+                    Helpers.updateFonts(menu_bar, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
+                }
+
                 tapete.getCommunityCards().getTiempo_partida().setFont(new Font("Monospaced", Font.BOLD, 28));
 
                 Helpers.translateComponents(GameFrame.getInstance(), false);

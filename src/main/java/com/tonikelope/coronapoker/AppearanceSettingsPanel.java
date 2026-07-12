@@ -197,25 +197,17 @@ public class AppearanceSettingsPanel extends JPanel {
                 persist("zoom_level", String.valueOf(level));
             }
         });
-        addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.zoom_pct", zoom_spinner));
-
-        // Zoom de los DIÁLOGOS (letra + tamaño de la ventana), INDEPENDIENTE del zoom de la mesa de
-        // arriba y del zoom del juego: NO toca ZOOM_LEVEL. Persist-only en ambos contextos (no hay
-        // diálogo vivo que previsualizar); surte efecto en el próximo diálogo que se abra, que lee
-        // Helpers.DIALOG_ZOOM al construirse. Rango 70-200 %, paso 10, 100 % = tamaño de diseño.
-        int dialog_zoom_pct = Math.round(Helpers.DIALOG_ZOOM * 100f);
-        JSpinner dialog_zoom_spinner = new JSpinner(new SpinnerNumberModel(dialog_zoom_pct,
-                Math.min(Math.round(Helpers.DIALOG_ZOOM_MIN * 100f), dialog_zoom_pct),
-                Math.max(Math.round(Helpers.DIALOG_ZOOM_MAX * 100f), dialog_zoom_pct), 10));
-        dialog_zoom_spinner.addChangeListener(e -> {
-            if (building) {
-                return;
-            }
-            int pct = (Integer) dialog_zoom_spinner.getValue();
-            Helpers.DIALOG_ZOOM = pct / 100f;
-            persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
-        });
-        addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.dialog_zoom_pct", dialog_zoom_spinner));
+        // Zoom de la mesa + Auto ajustar juntos en un recuadro negro fino (el auto-ajuste es un
+        // modificador del zoom de la mesa, se leen como un grupo).
+        JPanel zoom_group = groupBox();
+        addToGroup(zoom_group, labeledRow("/images/menu/zoom.png", "settings.zoom_pct", zoom_spinner));
+        addToGroup(zoom_group, delegatingCheckbox("/images/menu/zoom_auto.png", "menu.auto_ajustar", GameFrame.AUTO_ZOOM,
+                gf != null ? gf.getAuto_fit_zoom_menu() : null,
+                () -> {
+                    GameFrame.AUTO_ZOOM = !GameFrame.AUTO_ZOOM;
+                    persist("auto_zoom", String.valueOf(GameFrame.AUTO_ZOOM));
+                }));
+        addLeft(pantalla, zoom_group);
 
         // Vista compacta: desplegable tri-estado (0=off, 1=compacta, 2=compacta+cartas),
         // aplica al vuelo en partida / solo persiste fuera de partida.
@@ -239,12 +231,23 @@ public class AppearanceSettingsPanel extends JPanel {
         });
         addLeft(pantalla, labeledRow("/images/menu/tiny.png", "view.vista_compacta", compact_combo));
 
-        addLeft(pantalla, delegatingCheckbox("/images/menu/zoom_auto.png", "menu.auto_ajustar", GameFrame.AUTO_ZOOM,
-                gf != null ? gf.getAuto_fit_zoom_menu() : null,
-                () -> {
-                    GameFrame.AUTO_ZOOM = !GameFrame.AUTO_ZOOM;
-                    persist("auto_zoom", String.valueOf(GameFrame.AUTO_ZOOM));
-                }));
+        // Zoom de los DIÁLOGOS (letra + tamaño de la ventana), INDEPENDIENTE del zoom de la mesa y del
+        // zoom del juego: NO toca ZOOM_LEVEL. Persist-only en ambos contextos (no hay diálogo vivo que
+        // previsualizar); surte efecto en el próximo diálogo que se abra, que lee Helpers.DIALOG_ZOOM al
+        // construirse. Rango 50-200 %, paso 10, 100 % = tamaño de diseño. ÚLTIMA opción de la sección.
+        int dialog_zoom_pct = Math.round(Helpers.DIALOG_ZOOM * 100f);
+        JSpinner dialog_zoom_spinner = new JSpinner(new SpinnerNumberModel(dialog_zoom_pct,
+                Math.min(Math.round(Helpers.DIALOG_ZOOM_MIN * 100f), dialog_zoom_pct),
+                Math.max(Math.round(Helpers.DIALOG_ZOOM_MAX * 100f), dialog_zoom_pct), 10));
+        dialog_zoom_spinner.addChangeListener(e -> {
+            if (building) {
+                return;
+            }
+            int pct = (Integer) dialog_zoom_spinner.getValue();
+            Helpers.DIALOG_ZOOM = pct / 100f;
+            persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
+        });
+        addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.dialog_zoom_pct", dialog_zoom_spinner));
 
         // "Pantalla y zoom" es más corta que la columna derecha y se estira para igualarla;
         // el glue empuja sus filas arriba y deja el hueco abajo (como "Varios" en Partida).

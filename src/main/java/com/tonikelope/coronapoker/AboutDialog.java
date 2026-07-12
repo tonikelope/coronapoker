@@ -124,10 +124,11 @@ public class AboutDialog extends JDialog {
 
         pack();
 
-        // Zoom GLOBAL de diálogos: primero escala los adornos ESTÁTICOS (PNG) desde su tamaño natural
-        // para que el reempaquetado de zoomDialog los tenga en cuenta; el logo (corona_logo.gif) es un
-        // GIF animado y NO se reescala (getScaledInstance congela la animación y quedaba boca abajo).
-        // Luego zoomDialog escala las fuentes y ajusta la ventana. No-op a 100 % (idéntico a como estaba).
+        // Zoom GLOBAL de diálogos: escala los adornos ANTES de que zoomDialog reempaquete (para que su
+        // tamaño escalado cuente). El logo (corona_logo.gif) es un GIF animado y se escala con un
+        // ScaledIcon que conserva la animación; el resto son PNG estáticos. Luego zoomDialog escala las
+        // fuentes y ajusta la ventana. No-op a 100 % (idéntico a como estaba).
+        Helpers.scaleDialogIcon(corona_icon_label, "/images/corona_logo.gif");
         Helpers.scaleDialogIcon(dedicado, "/images/luto.png");
         Helpers.scaleDialogIcon(jLabel12, "/images/open-book.png");
         Helpers.scaleDialogIcon(jLabel9, "/images/cruz.png");

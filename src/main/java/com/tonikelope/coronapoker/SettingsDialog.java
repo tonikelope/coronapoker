@@ -197,7 +197,7 @@ public class SettingsDialog extends JDialog {
         // estilo bold/plain de cada control). Las pestañas Apariencia y Audio usaban
         // la fuente por defecto (más pequeña) y quedaban descompensadas respecto a
         // Partida; con esto todo el diálogo va al mismo tamaño.
-        Helpers.setUniformFont(content, Helpers.GUI_FONT, 16);
+        Helpers.setUniformFont(content, Helpers.GUI_FONT, Math.round(16 * Helpers.DIALOG_ZOOM));
 
         // setUniformFont no alcanza los títulos de los TitledBorder.
         fixTitledBorderFonts(content, save_button.getFont());
@@ -207,7 +207,7 @@ public class SettingsDialog extends JDialog {
         audio_panel.applyFontsAndSizing();
 
         // Botones de acción un pelín más grandes que el resto del diálogo.
-        java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f);
+        java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f * Helpers.DIALOG_ZOOM);
         save_button.setFont(buttons_font);
         cancel_button.setFont(buttons_font);
 

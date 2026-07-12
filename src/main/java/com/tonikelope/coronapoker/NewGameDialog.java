@@ -381,7 +381,7 @@ public class NewGameDialog extends JDialog {
 
             Helpers.setTranslatedTitle(this, "ui.crear_timba");
 
-            Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+            Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
 
             Helpers.translateComponents(this, false);
 
@@ -389,7 +389,7 @@ public class NewGameDialog extends JDialog {
             server_port_textfield.setText(Helpers.PROPERTIES.getProperty("server_port", String.valueOf(DEFAULT_PORT)));
             server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("server_ip", "localhost"));
             Helpers.setTranslatedTitle(this, "ui.unirme_a_timba");
-            Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+            Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
             Helpers.translateComponents(this, false);
             config_partida_panel.setVisible(false);
         }

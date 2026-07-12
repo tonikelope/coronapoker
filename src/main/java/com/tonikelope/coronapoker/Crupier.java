@@ -10964,11 +10964,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (utg == null || !utg.isActivo()) {
             return null;
         }
-        // Bot = RemotePlayer con getBot() != null; el LocalPlayer siempre es humano.
-        if (utg instanceof RemotePlayer && ((RemotePlayer) utg).getBot() != null) {
+        // Bot: no necesita cegado (decide sin mirar sus cartas). Se detecta por Participant.isCpu(),
+        // que es fiable TANTO en el host COMO en los clientes (lo usa la verificación de acciones),
+        // a diferencia de RemotePlayer.getBot() que solo lo puebla el host. Esto es imprescindible
+        // para que el responder (cliente) calcule EXACTAMENTE el mismo straddler que el host y no
+        // proteja de más (bot-UTG) ni de menos (humano-UTG). El LocalPlayer siempre es humano
+        // (participante ausente o isCpu()==false).
+        Participant utgPar = GameFrame.getInstance().getParticipantes().get(this.utg_nick);
+        if (utgPar != null && utgPar.isCpu()) {
             return null;
         }
         return this.utg_nick;
+    }
+
+    // Índice de anillo (active_crypto_ring) del slot del straddler ciego de esta mano, o -1 si no
+    // hay. Lo usa el RESPONDER (WaitingRoomFrame) para RECHAZAR pelar ese slot bajo la fase POCKET
+    // normal: el slot del straddler SOLO se desbloquea bajo UNLOCK_PHASE_POCKET_STRADDLE con su
+    // decisión firmada verificada. Sin esto, un host hostil pediría el unlock bajo POCKET (que no
+    // tiene gate de firma) y vería/entregaría las cartas antes de que el straddler se comprometa.
+    public int blindStraddlerSlot() {
+        String nick = blindStraddlerNickThisHand();
+        String[] ring = this.active_crypto_ring;
+        if (nick == null || ring == null) {
+            return -1;
+        }
+        for (int i = 0; i < ring.length; i++) {
+            if (ring[i].equals(nick)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // Verifica la decisión FIRMADA de un straddler contra su identity pubkey (payload

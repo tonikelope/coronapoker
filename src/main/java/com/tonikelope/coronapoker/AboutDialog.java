@@ -117,18 +117,21 @@ public class AboutDialog extends JDialog {
             mod_label.setVisible(false);
         }
 
-        // Zoom GLOBAL de diálogos: escala fuentes (drop-in de updateFonts a 100 %) y, cuando el
-        // factor no es 1.0, los iconos decorativos (logo animado + adornos) desde su tamaño
-        // natural. El pack() de abajo reajusta la ventana al nuevo contenido (encoge/crece).
-        Helpers.applyDialogZoom(this);
-        Helpers.scaleDialogIcon(corona_icon_label, "/images/corona_logo.gif");
-        Helpers.scaleDialogIcon(dedicado, "/images/luto.png");
-        Helpers.scaleDialogIcon(jLabel12, "/images/open-book.png");
-        Helpers.scaleDialogIcon(jLabel9, "/images/cruz.png");
+        // Familia GUI_FONT a tamaño de DISEÑO (como siempre) + pack para MEDIR el tamaño de diseño.
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
 
         pack();
+
+        // Zoom GLOBAL de diálogos: escala fuentes y AJUSTA LA VENTANA a (diseño × factor), para que
+        // encoja/crezca de verdad sin borde sobrante. El logo (corona_logo.gif) es un GIF animado y
+        // NO se reescala (getScaledInstance congela la animación y quedaba boca abajo); los adornos
+        // estáticos (PNG) sí. No-op a 100 % (idéntico a como estaba).
+        Helpers.zoomDialog(this);
+        Helpers.scaleDialogIcon(dedicado, "/images/luto.png");
+        Helpers.scaleDialogIcon(jLabel12, "/images/open-book.png");
+        Helpers.scaleDialogIcon(jLabel9, "/images/cruz.png");
 
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 

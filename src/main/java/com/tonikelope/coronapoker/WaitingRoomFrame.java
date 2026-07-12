@@ -2709,7 +2709,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK_CHAIN: hand advanced — dropping");
                                                                         return;
                                                                     }
-                                                                    byte[] myUnlock = (phase == Crupier.UNLOCK_PHASE_POCKET)
+                                                                    // POCKET_STRADDLE (desbloqueo diferido del straddler) usa la mitad
+                                                                    // POCKET, igual que POCKET: se pela mi pocket-lock del slot del straddler.
+                                                                    boolean pocketPhase = (phase == Crupier.UNLOCK_PHASE_POCKET
+                                                                            || phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE);
+                                                                    byte[] myUnlock = pocketPhase
                                                                             ? this.participantes.get(local_nick).getSra_unlock()
                                                                             : this.participantes.get(local_nick).getSra_unlock_community();
                                                                     if (myUnlock == null) {
@@ -2717,7 +2721,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         return;
                                                                     }
                                                                     byte[] myLock = RistrettoSRA.getUnlockScalar(myUnlock); // k = (k^-1)^-1
-                                                                    java.util.Map<String, byte[]> commitments = (phase == Crupier.UNLOCK_PHASE_POCKET)
+                                                                    java.util.Map<String, byte[]> commitments = pocketPhase
                                                                             ? crupier.peer_k_pocket : crupier.peer_k_community;
                                                                     byte[] megapacket = crupier.local_mega_packet;
                                                                     String[] ring = crupier.active_crypto_ring;
@@ -2767,6 +2771,26 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // tiempo -> ataque contra mí -> lockdown. POCKET (commRange==null) ya lo cubren
                                                                     // el espacio de escalar disjunto + el self-strip de abajo.
                                                                     final int[] commRange = Crupier.communitySlotRange(phase, ring.length);
+                                                                    // Straddle ciego: en POCKET_STRADDLE el ÚNICO slot que puedo pelar es el del
+                                                                    // straddler cuya decisión FIRMADA verifiqué. El state gate ya exigió que hubiera
+                                                                    // una decisión verificada; aquí ato el slot: si el host pide otro slot bajo esta
+                                                                    // phase está intentando extraer un pocket ajeno -> lockdown.
+                                                                    int straddlePocketSlot = -1;
+                                                                    if (phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE) {
+                                                                        String sNick = crupier.getStraddleDecisionVerifiedNick();
+                                                                        if (sNick != null) {
+                                                                            for (int s = 0; s < ring.length; s++) {
+                                                                                if (ring[s].equals(sNick)) {
+                                                                                    straddlePocketSlot = s;
+                                                                                    break;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        if (straddlePocketSlot < 0) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE without a verified straddler slot — refusing");
+                                                                            return;
+                                                                        }
+                                                                    }
                                                                     java.util.List<UnlockChainWire.RespItem> resp = new java.util.ArrayList<>();
                                                                     for (UnlockChainWire.ReqItem it : items) {
                                                                         if (it.peerIdx >= 0 && it.peerIdx < ring.length && ring[it.peerIdx].equals(local_nick)) {
@@ -2794,9 +2818,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                             }
                                                                             // Defensa real contra el oraculo por la puerta de atras: aunque el
                                                                             // anclaje al megapacket sea valido, NUNCA pelo un punto de MI pocket.
-                                                                            if (phase == Crupier.UNLOCK_PHASE_POCKET && mySlot >= 0
+                                                                            if ((phase == Crupier.UNLOCK_PHASE_POCKET || phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE)
+                                                                                    && mySlot >= 0
                                                                                     && (pointIdx == mySlot * 2 || pointIdx == mySlot * 2 + 1)) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to strip my OWN pocket (offset {0}) — extraction, refusing", pointIdx);
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                return;
+                                                                            }
+                                                                            // Straddle ciego: bajo POCKET_STRADDLE el punto pelado DEBE ser uno de los 2 del
+                                                                            // slot del straddler verificado; cualquier otro = extracción de un pocket ajeno.
+                                                                            if (phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE
+                                                                                    && pointIdx != straddlePocketSlot * 2 && pointIdx != straddlePocketSlot * 2 + 1) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE asked to strip non-straddler slot (offset {0}) — extraction, refusing", pointIdx);
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                                 return;
                                                                             }
@@ -3323,6 +3356,16 @@ public class WaitingRoomFrame extends JFrame {
                                                                 } else {
                                                                     GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                                                 }
+                                                            }
+                                                            break;
+                                                        case "STRADDLE_DECISION":
+                                                            // Straddle ciego: el host difunde la decisión FIRMADA del straddler.
+                                                            // La verifico y, si es válida, habilito el desbloqueo diferido de su
+                                                            // slot (recordVerifiedStraddleDecision). Se despacha INMEDIATO (no se
+                                                            // encola) para desbloquear a un handler REQ_SRA_UNLOCK_CHAIN que
+                                                            // pudiera estar ya esperando el flag en awaitStreetForUnlockPhase.
+                                                            if (GameFrame.getInstance().getCrupier() != null) {
+                                                                GameFrame.getInstance().getCrupier().onStraddleDecisionCommand(partes_comando);
                                                             }
                                                             break;
                                                         default:

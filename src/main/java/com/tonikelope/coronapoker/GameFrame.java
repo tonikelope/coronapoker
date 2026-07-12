@@ -243,7 +243,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // fondo naranja con texto blanco. Al salir el ratón se restaura el resaltado del ganador
     // tal cual estaba. Mismo mecanismo enfocar/desenfocar que ya usa el ganador. Puramente
     // visual y LOCAL por cliente (no se difunde). Por defecto desactivado.
-    public static volatile boolean RESALTAR_JUGADA_PERDEDOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_perdedor", "false"));
+    public static volatile boolean RESALTAR_JUGADA_PERDEDOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_perdedor", "true"));
     // El antiguo checkbox "Cartas" (animacion_reparto) gobernaba a la vez el BARAJADO, el
     // REPARTO y el DESTAPE. Se ha separado en tres preferencias independientes: "animacion_reparto"
     // conserva su clave y ahora solo gobierna el reparto; "animacion_barajado" y "animacion_destape"

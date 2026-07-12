@@ -2438,6 +2438,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 showdown_action_fg_snapshot = player_action.getForeground();
                 setActionBackground(Color.YELLOW);
                 player_action.setForeground(Color.BLACK);
+                repaintActionPanelCorners();
             });
         } else {
             Helpers.GUIRun(this::restoreLoserHandHighlight);
@@ -2469,6 +2470,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             player_action.setForeground(showdown_action_fg_snapshot);
             showdown_action_bg_snapshot = null;
             showdown_action_fg_snapshot = null;
+            repaintActionPanelCorners();
+        }
+    }
+
+    // player_action_panel es un RoundedPanel OPACO cuyas 4 esquinas quedan transparentes (el
+    // fillRoundRect no las cubre y no se llama a super.paintComponent). Un setBackground aislado
+    // solo repinta el panel y deja basura (negra) del doble búfer en esas esquinas; hay que
+    // repintar la región en el contenedor padre para que el fondo se re-pinte bajo el redondeo.
+    private void repaintActionPanelCorners() {
+        java.awt.Container parent = player_action_panel.getParent();
+
+        if (parent != null) {
+            java.awt.Rectangle b = player_action_panel.getBounds();
+            parent.repaint(b.x, b.y, b.width, b.height);
         }
     }
 

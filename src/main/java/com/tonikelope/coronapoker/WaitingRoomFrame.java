@@ -2791,6 +2791,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                             return;
                                                                         }
                                                                     }
+                                                                    // Straddle ciego (defensa en el RESPONDER, cierra el bypass por fase POCKET): calculo
+                                                                    // YO MISMO el slot del straddler ciego de esta mano (tengo utg_nick vía POSITIONS,
+                                                                    // STRADDLE y el conjunto de activos). Bajo la fase POCKET normal ese slot es INTOCABLE
+                                                                    // (solo se pela bajo POCKET_STRADDLE con decisión firmada). Sin esto, un host hostil
+                                                                    // —sobre todo cuando ÉL es el UTG— pediría el unlock bajo POCKET (sin gate de firma) y
+                                                                    // resolvería sus cartas antes de comprometerse, derrotando el ciego.
+                                                                    final int blindStraddlerSlot = crupier.blindStraddlerSlot();
                                                                     java.util.List<UnlockChainWire.RespItem> resp = new java.util.ArrayList<>();
                                                                     for (UnlockChainWire.ReqItem it : items) {
                                                                         if (it.peerIdx >= 0 && it.peerIdx < ring.length && ring[it.peerIdx].equals(local_nick)) {
@@ -2830,6 +2837,16 @@ public class WaitingRoomFrame extends JFrame {
                                                                             if (phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE
                                                                                     && pointIdx != straddlePocketSlot * 2 && pointIdx != straddlePocketSlot * 2 + 1) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE asked to strip non-straddler slot (offset {0}) — extraction, refusing", pointIdx);
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                return;
+                                                                            }
+                                                                            // Straddle ciego (cierre del bypass): bajo POCKET NORMAL el slot del straddler ciego
+                                                                            // es INTOCABLE — solo se pela bajo POCKET_STRADDLE con decisión firmada. Pedirlo por
+                                                                            // POCKET = intento de saltarse el gate de firma (ver las cartas antes de comprometerse,
+                                                                            // sobre todo el host-straddler sobre las suyas) -> extracción -> lockdown.
+                                                                            if (phase == Crupier.UNLOCK_PHASE_POCKET && blindStraddlerSlot >= 0
+                                                                                    && (pointIdx == blindStraddlerSlot * 2 || pointIdx == blindStraddlerSlot * 2 + 1)) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET asked to strip the blind-straddler slot (offset {0}) — requires POCKET_STRADDLE with a signed decision, refusing", pointIdx);
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                                 return;
                                                                             }

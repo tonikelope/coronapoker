@@ -237,6 +237,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // lo que tarda ese cliente: sirve para localizar de un vistazo al PC más lento de la mesa.
     // Puramente visual: no toca la cascada ni el consenso. Por defecto desactivado.
     public static volatile boolean ANIMACION_CASCADA_OVERLAY_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_cascada_overlay", "false"));
+    // En el showdown, al pasar el ratón por la etiqueta de jugada de un PERDEDOR que mostró,
+    // se resaltan (enfocan) SOLO las cartas que componen su jugada (sin kickers) y se atenúan
+    // (desenfocan) TODAS las demás de la mesa, incluidas las del ganador; su etiqueta pasa a
+    // fondo naranja con texto blanco. Al salir el ratón se restaura el resaltado del ganador
+    // tal cual estaba. Mismo mecanismo enfocar/desenfocar que ya usa el ganador. Puramente
+    // visual y LOCAL por cliente (no se difunde). Por defecto desactivado.
+    public static volatile boolean RESALTAR_JUGADA_PERDEDOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_perdedor", "false"));
     // El antiguo checkbox "Cartas" (animacion_reparto) gobernaba a la vez el BARAJADO, el
     // REPARTO y el DESTAPE. Se ha separado en tres preferencias independientes: "animacion_reparto"
     // conserva su clave y ahora solo gobierna el reparto; "animacion_barajado" y "animacion_destape"
@@ -2358,6 +2365,35 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public Card[] getCartas_comunes() {
         return tapete.getCommunityCards().getCartasComunes();
+    }
+
+    // Todas las cartas DESTAPADAS de la mesa (comunitarias + hole cards que han mostrado los
+    // jugadores), para el resaltado de la jugada del perdedor en el showdown
+    // (RESALTAR_JUGADA_PERDEDOR). Se excluyen las tapadas para no atenuar un dorso (filtraría
+    // que esa carta no cuenta antes de verla).
+    public java.util.List<Card> getShowdownVisibleCards() {
+        java.util.List<Card> cartas = new java.util.ArrayList<>();
+
+        for (Card c : getCartas_comunes()) {
+            if (c != null && !c.isTapada()) {
+                cartas.add(c);
+            }
+        }
+
+        for (Player p : getJugadores()) {
+            Card h1 = p.getHoleCard1();
+            Card h2 = p.getHoleCard2();
+
+            if (h1 != null && !h1.isTapada()) {
+                cartas.add(h1);
+            }
+
+            if (h2 != null && !h2.isTapada()) {
+                cartas.add(h2);
+            }
+        }
+
+        return cartas;
     }
 
     private void setHandBackground(Color color) {

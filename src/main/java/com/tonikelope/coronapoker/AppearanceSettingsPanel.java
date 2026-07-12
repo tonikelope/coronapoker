@@ -103,6 +103,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_anim_apuestas;
     private final boolean snap_anim_contadores;
     private final boolean snap_anim_cascada_overlay;
+    private final boolean snap_resaltar_jugada_perdedor;
     private final boolean snap_animaciones;
     private final boolean snap_chat_images;
     private final boolean snap_fullscreen;
@@ -142,6 +143,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_apuestas = prefBool("animacion_apuestas");
         snap_anim_contadores = prefBool("animacion_contadores");
         snap_anim_cascada_overlay = prefBool("animacion_cascada_overlay", false);
+        snap_resaltar_jugada_perdedor = prefBool("resaltar_jugada_perdedor", false);
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
@@ -371,6 +373,14 @@ public class AppearanceSettingsPanel extends JPanel {
                 () -> {
                     GameFrame.CHAT_IMAGES_INGAME = !GameFrame.CHAT_IMAGES_INGAME;
                     persist("chat_images_ingame", String.valueOf(GameFrame.CHAT_IMAGES_INGAME));
+                }));
+        // Resaltado del showdown: sin item de menú ni efecto en vivo (se lee al vuelo al pasar
+        // el ratón por la etiqueta de jugada). Persist-only, como la cascada.
+        addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "settings.resaltar_jugada_perdedor", GameFrame.RESALTAR_JUGADA_PERDEDOR,
+                null,
+                () -> {
+                    GameFrame.RESALTAR_JUGADA_PERDEDOR = !GameFrame.RESALTAR_JUGADA_PERDEDOR;
+                    persist("resaltar_jugada_perdedor", String.valueOf(GameFrame.RESALTAR_JUGADA_PERDEDOR));
                 }));
 
         // ---------------- Animaciones ----------------
@@ -830,6 +840,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("animacion_apuestas") != snap_anim_apuestas
                 || prefBool("animacion_contadores") != snap_anim_contadores
                 || prefBool("animacion_cascada_overlay", false) != snap_anim_cascada_overlay
+                || prefBool("resaltar_jugada_perdedor", false) != snap_resaltar_jugada_perdedor
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen
@@ -928,6 +939,13 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
             Helpers.savePropertiesFile();
         }
+        // Resaltado del showdown: persist-only, sin item de menú ni efecto en vivo (se lee al
+        // vuelo). Se revierte fijando el flag + re-persistiendo el snapshot, como la cascada.
+        if (GameFrame.RESALTAR_JUGADA_PERDEDOR != snap_resaltar_jugada_perdedor) {
+            GameFrame.RESALTAR_JUGADA_PERDEDOR = snap_resaltar_jugada_perdedor;
+            Helpers.PROPERTIES.setProperty("resaltar_jugada_perdedor", String.valueOf(snap_resaltar_jugada_perdedor));
+            Helpers.savePropertiesFile();
+        }
         // Barajado y destape tampoco tienen item de menú: se revierten fijando el flag +
         // persistiendo, como el overlay de cascada. Al restaurar el barajado a ON se recalienta
         // la caché del shuffle.gif por si el warm-up se saltó mientras estuvo desactivado.
@@ -1004,6 +1022,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.ANIMACION_APUESTAS_PREF = snap_anim_apuestas;
         GameFrame.ANIMACION_CONTADORES_PREF = snap_anim_contadores;
         GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = snap_anim_cascada_overlay;
+        GameFrame.RESALTAR_JUGADA_PERDEDOR = snap_resaltar_jugada_perdedor;
         GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
         GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
@@ -1028,6 +1047,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("animacion_apuestas", String.valueOf(snap_anim_apuestas));
         Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(snap_anim_contadores));
         Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
+        Helpers.PROPERTIES.setProperty("resaltar_jugada_perdedor", String.valueOf(snap_resaltar_jugada_perdedor));
         Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
         Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));

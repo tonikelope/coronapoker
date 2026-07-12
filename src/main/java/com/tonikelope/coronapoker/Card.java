@@ -86,6 +86,12 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     private volatile boolean iniciada = false;
     private volatile boolean tapada = true;
     private volatile boolean desenfocada = false;
+    // Tinte amarillento (overlay semitransparente) pintado ENCIMA de la carta en el showdown,
+    // al pasar el ratón por la etiqueta de un perdedor, para señalar qué cartas componen su
+    // jugada (RESALTAR_JUGADA_PERDEDOR). No toca la imagen ni el enfoque: el pintado real ocurre
+    // en paint(). Se limpia en resetearCarta().
+    private volatile boolean tinte_perdedor = false;
+    private final static java.awt.Color TINTE_PERDEDOR_COLOR = new java.awt.Color(255, 236, 0, 80);
     private volatile boolean visible_card = false;
     private volatile boolean compactable = true;
     private volatile boolean gui = true;
@@ -687,6 +693,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             this.tapada = false;
             this.rabbit = RABBIT_OFF;
             this.desenfocada = false;
+            this.tinte_perdedor = false;
             this.visible_card = visible;
             this.valor = "";
             this.palo = "";
@@ -973,6 +980,55 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             this.refreshCard();
         }
 
+    }
+
+    // Tinte amarillento del showdown: se pinta encima de la carta (sin tocar la imagen ni el
+    // enfoque) al pasar el ratón por la etiqueta de un perdedor. Basta un repaint del Card
+    // completo — no hay que reconstruir el icono.
+    public void marcarTintePerdedor() {
+        if (!this.tinte_perdedor) {
+            this.tinte_perdedor = true;
+            Helpers.GUIRun(this::repaint);
+        }
+    }
+
+    public void desmarcarTintePerdedor() {
+        if (this.tinte_perdedor) {
+            this.tinte_perdedor = false;
+            Helpers.GUIRun(this::repaint);
+        }
+    }
+
+    public boolean isTintePerdedor() {
+        return tinte_perdedor;
+    }
+
+    // El tinte amarillento se pinta DESPUÉS de super.paint() (imagen + rabbit incluidos), así que
+    // queda por encima de la carta sin alterarla. Relleno redondeado con el mismo radio que la
+    // esquina de la imagen (getCardCorner()) y alpha bajo (TINTE_PERDEDOR_COLOR). Persiste
+    // mientras el Card no reciba un repaint dirigido solo al hijo card_image; en show_time
+    // parado no ocurre (enfocar/desenfocar hacen this.repaint() del Card completo).
+    @Override
+    public void paint(java.awt.Graphics g) {
+        super.paint(g);
+
+        if (tinte_perdedor) {
+            int w = getWidth();
+            int h = getHeight();
+
+            if (w > 0 && h > 0) {
+                int arc = getCardCorner();
+
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                try {
+                    g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(TINTE_PERDEDOR_COLOR);
+                    g2.fillRoundRect(0, 0, w, h, arc, arc);
+                } finally {
+                    g2.dispose();
+                }
+            }
+        }
     }
 
     @Override

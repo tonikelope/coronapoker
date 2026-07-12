@@ -17325,6 +17325,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
 
+                    // Resaltado opcional del showdown (RESALTAR_JUGADA_PERDEDOR): registra las
+                    // cartas que forman la jugada de este perdedor (sin kickers, como un ganador
+                    // individual) para poder resaltarlas al pasar el ratón por su etiqueta. Solo
+                    // si están visibles: el local ve siempre las suyas; un remoto que no mostró
+                    // (muck/IWTSTH) conserva su jugada oculta y no se resalta nada.
+                    jugador_actual.setShowdownLoserHand((isLocal || mustShow) ? jugada.getWinners() : null);
+
                     this.sqlNewShowdown(jugador_actual, jugada, false, !mustShow);
 
                     if (GameFrame.SONIDOS_CHORRA && isLocal) {

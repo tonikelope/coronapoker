@@ -503,7 +503,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // --- Destapar (era la parte de giro del antiguo "Cartas", ahora propio, solo Ajustes) ---
         // De él cuelgan la velocidad del destape y el efecto acercar.
         JPanel destapar_group = groupBox();
-        addToGroup(destapar_group, animCheckbox("/images/menu/pica_roja.png", "menu.efectos_animacion_destape",
+        addToGroup(destapar_group, animCheckbox("/images/menu/flip.png", "menu.efectos_animacion_destape",
                 null, "animacion_destape", v -> GameFrame.ANIMACION_DESTAPE_PREF = v, GameFrame.ANIMACION_DESTAPE_PREF));
         final JCheckBox destapar_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
         // Velocidad del destape: 5 opciones (muy lenta ... muy rápida). "Normal" es el valor
@@ -702,7 +702,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // --- Recolocación de la mesa al salir jugadores (DynamicTablePanel, solo Ajustes) ---
         // De él cuelga la velocidad de la animación de deslizamiento.
         JPanel downgrade_group = groupBox();
-        addToGroup(downgrade_group, animCheckbox("/images/menu/tiny.png", "menu.efectos_animacion_downgrade",
+        addToGroup(downgrade_group, animCheckbox("/images/menu/reseat.png", "menu.efectos_animacion_downgrade",
                 null, "animacion_downgrade", v -> GameFrame.ANIMACION_DOWNGRADE_PREF = v, GameFrame.ANIMACION_DOWNGRADE_PREF));
         final JCheckBox downgrade_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
         // Velocidad de la recolocación: 3 opciones (lenta/normal/rápida). "Normal" = valor por
@@ -757,7 +757,7 @@ public class AppearanceSettingsPanel extends JPanel {
 
         addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
                 gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
-        addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas",
+        addLeft(anim, animCheckbox("/images/menu/chips.png", "menu.efectos_animacion_apuestas",
                 gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
                 gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v));

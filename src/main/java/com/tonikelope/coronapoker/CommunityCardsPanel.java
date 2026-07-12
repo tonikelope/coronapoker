@@ -818,10 +818,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         blinds_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         blinds_label.setForeground(new java.awt.Color(153, 204, 0));
         blinds_label.setText(" ");
-        blinds_label.setToolTipText(Translator.translate("tooltip.click_para_actualizar_las_ciegas"));
-        blinds_label.putClientProperty("i18n.tooltip_key", "tooltip.click_para_actualizar_las_ciegas");
         blinds_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
-        blinds_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         blinds_label.setFocusable(false);
         blinds_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseReleased(java.awt.event.MouseEvent evt) {

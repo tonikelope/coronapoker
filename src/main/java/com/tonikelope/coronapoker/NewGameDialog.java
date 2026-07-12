@@ -1469,7 +1469,7 @@ public class NewGameDialog extends JDialog {
         });
 
         recover_checkbox_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        recover_checkbox_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/dealer.png"))); // NOI18N
+        recover_checkbox_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/undo.png"))); // NOI18N
         recover_checkbox_label.setText("CONTINUAR TIMBA ANTERIOR:");
         recover_checkbox_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_checkbox_label.setDoubleBuffered(true);

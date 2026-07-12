@@ -5664,7 +5664,7 @@ public class Helpers {
 
                 // Submenú "Efectos de animación" con tres efectos combinables.
                 JMenu efectos_anim_menu = new JMenu(Translator.translate("menu.animacion_de_cartas"));
-                efectos_anim_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
+                efectos_anim_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/fx.png")));
 
                 ANIM_REPARTO_MENU = new LeftClickCheckBoxMenuItem(animRepartoAction);
                 ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO_PREF);

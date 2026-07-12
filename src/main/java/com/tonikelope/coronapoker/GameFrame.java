@@ -2642,7 +2642,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             }
 
-            tapete.getCommunityCards().getBlinds_label().setText((GameFrame.ANTE ? "(A) " : "") + Helpers.money2String(pequeña) + " / " + Helpers.money2String(grande) + (GameFrame.STRADDLE ? " / ST" : "") + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
+            tapete.getCommunityCards().getBlinds_label().setText((GameFrame.ANTE ? "(A) " : "") + Helpers.money2String(pequeña) + " / " + Helpers.money2String(grande) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
+            tapete.getCommunityCards().refreshStraddleIcon();
         });
 
     }

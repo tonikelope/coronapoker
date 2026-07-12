@@ -387,9 +387,40 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     /**
      * Creates new form CommunityCards
      */
+    // Ficha del straddle a la derecha del blinds_label (mismo panel), escalada a la MISMA
+    // altura que el icono de ciegas (0.8*pot_label). Visible solo con straddle activo.
+    private javax.swing.JLabel straddle_label;
+
+    public void refreshStraddleIcon() {
+        if (straddle_label == null) {
+            return;
+        }
+        if (GameFrame.STRADDLE && pot_label.getHeight() > 0) {
+            int h = Math.round(0.8f * pot_label.getHeight());
+            Helpers.setScaledIconLabel(straddle_label, getClass().getResource("/images/straddle_small.png"), h, h);
+        }
+        straddle_label.setVisible(GameFrame.STRADDLE);
+    }
+
     public CommunityCardsPanel() {
         Helpers.GUIRunAndWait(() -> {
             initComponents();
+
+            // straddle_label no esta en el .form: se crea aqui y se reconstruye el layout
+            // del blinds_panel para colocarlo a la derecha del blinds_label, centrado en
+            // vertical (misma linea que el icono de ciegas y el texto).
+            straddle_label = new javax.swing.JLabel();
+            straddle_label.setFocusable(false);
+            straddle_label.setVisible(false);
+            javax.swing.GroupLayout bl = new javax.swing.GroupLayout(blinds_panel);
+            blinds_panel.setLayout(bl);
+            bl.setHorizontalGroup(bl.createSequentialGroup()
+                    .addComponent(blinds_label)
+                    .addGap(6)
+                    .addComponent(straddle_label));
+            bl.setVerticalGroup(bl.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(blinds_label)
+                    .addComponent(straddle_label));
 
             // La altura del panel NO debe cambiar cuando hand_label se oculta en
             // el showdown / entre manos: comparte la fila inferior del GroupLayout
@@ -449,6 +480,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
             // bet_label sin icono (muestra solo la calle). Para reponerlo: setScaledIconLabel(bet_label, "/images/pot.png", ...).
             Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
+            refreshStraddleIcon();
             Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
 
             ready = true;
@@ -1186,6 +1218,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     // bet_label sin icono (muestra solo la calle). Para reponerlo: setScaledIconLabel(bet_label, "/images/pot.png", ...).
                     Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
                     Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
+                    refreshStraddleIcon();
                     // Re-ajusta la fuente del bote al nuevo zoom: el icono ya está
                     // puesto y el layout de las comunitarias rehecho, así que si el
                     // desglose largo de botes laterales no cabe a tamaño base, encoge.

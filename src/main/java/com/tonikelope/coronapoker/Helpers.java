@@ -3449,11 +3449,18 @@ public class Helpers {
         public void paintIcon(Component c, java.awt.Graphics g, int x, int y) {
             java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
             try {
-                g2.translate(x, y);
-                g2.scale(scale, scale);
                 g2.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
                         java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                delegate.paintIcon(c, g2, 0, 0);
+                if (delegate instanceof ImageIcon) {
+                    // drawImage con ANCHO/ALTO explícitos escala Y conserva la animación del GIF (el
+                    // observador c recibe los fotogramas). Escalar el transform + paintIcon no
+                    // renderizaba el GIF animado (quedaba invisible).
+                    g2.drawImage(((ImageIcon) delegate).getImage(), x, y, getIconWidth(), getIconHeight(), c);
+                } else {
+                    g2.translate(x, y);
+                    g2.scale(scale, scale);
+                    delegate.paintIcon(c, g2, 0, 0);
+                }
             } finally {
                 g2.dispose();
             }

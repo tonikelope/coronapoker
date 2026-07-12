@@ -117,7 +117,14 @@ public class AboutDialog extends JDialog {
             mod_label.setVisible(false);
         }
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        // Zoom GLOBAL de diálogos: escala fuentes (drop-in de updateFonts a 100 %) y, cuando el
+        // factor no es 1.0, los iconos decorativos (logo animado + adornos) desde su tamaño
+        // natural. El pack() de abajo reajusta la ventana al nuevo contenido (encoge/crece).
+        Helpers.applyDialogZoom(this);
+        Helpers.scaleDialogIcon(corona_icon_label, "/images/corona_logo.gif");
+        Helpers.scaleDialogIcon(dedicado, "/images/luto.png");
+        Helpers.scaleDialogIcon(jLabel12, "/images/open-book.png");
+        Helpers.scaleDialogIcon(jLabel9, "/images/cruz.png");
 
         Helpers.translateComponents(this, false);
 

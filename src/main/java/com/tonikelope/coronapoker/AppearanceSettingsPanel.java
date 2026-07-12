@@ -112,6 +112,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final int snap_reparto_velocidad;
     private final boolean snap_anim_downgrade;
     private final int snap_downgrade_velocidad;
+    private final float snap_dialog_zoom;
 
     public AppearanceSettingsPanel() {
 
@@ -152,6 +153,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_reparto_velocidad = GameFrame.REPARTO_VELOCIDAD;
         snap_anim_downgrade = GameFrame.ANIMACION_DOWNGRADE_PREF;
         snap_downgrade_velocidad = GameFrame.DOWNGRADE_VELOCIDAD;
+        snap_dialog_zoom = Helpers.DIALOG_ZOOM;
 
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
@@ -196,6 +198,24 @@ public class AppearanceSettingsPanel extends JPanel {
             }
         });
         addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.zoom_pct", zoom_spinner));
+
+        // Zoom de los DIÁLOGOS (letra + tamaño de la ventana), INDEPENDIENTE del zoom de la mesa de
+        // arriba y del zoom del juego: NO toca ZOOM_LEVEL. Persist-only en ambos contextos (no hay
+        // diálogo vivo que previsualizar); surte efecto en el próximo diálogo que se abra, que lee
+        // Helpers.DIALOG_ZOOM al construirse. Rango 70-200 %, paso 10, 100 % = tamaño de diseño.
+        int dialog_zoom_pct = Math.round(Helpers.DIALOG_ZOOM * 100f);
+        JSpinner dialog_zoom_spinner = new JSpinner(new SpinnerNumberModel(dialog_zoom_pct,
+                Math.min(Math.round(Helpers.DIALOG_ZOOM_MIN * 100f), dialog_zoom_pct),
+                Math.max(Math.round(Helpers.DIALOG_ZOOM_MAX * 100f), dialog_zoom_pct), 10));
+        dialog_zoom_spinner.addChangeListener(e -> {
+            if (building) {
+                return;
+            }
+            int pct = (Integer) dialog_zoom_spinner.getValue();
+            Helpers.DIALOG_ZOOM = pct / 100f;
+            persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
+        });
+        addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.dialog_zoom_pct", dialog_zoom_spinner));
 
         // Vista compacta: desplegable tri-estado (0=off, 1=compacta, 2=compacta+cartas),
         // aplica al vuelo en partida / solo persiste fuera de partida.
@@ -848,7 +868,8 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom
                 || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad
                 || GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade
-                || GameFrame.DOWNGRADE_VELOCIDAD != snap_downgrade_velocidad;
+                || GameFrame.DOWNGRADE_VELOCIDAD != snap_downgrade_velocidad
+                || Helpers.DIALOG_ZOOM != snap_dialog_zoom;
     }
 
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al
@@ -995,6 +1016,13 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
             Helpers.savePropertiesFile();
         }
+        // Zoom de diálogos: persist-only, sin efecto en vivo (lo lee cada diálogo al abrirse). Se
+        // revierte fijando el flag + re-persistiendo el snapshot, como los demás persist-only.
+        if (Helpers.DIALOG_ZOOM != snap_dialog_zoom) {
+            Helpers.DIALOG_ZOOM = snap_dialog_zoom;
+            Helpers.PROPERTIES.setProperty("dialog_zoom", String.valueOf(snap_dialog_zoom));
+            Helpers.savePropertiesFile();
+        }
     }
 
     // Revert FUERA DE PARTIDA: re-persiste cada preferencia a su snapshot (sin efecto en
@@ -1028,6 +1056,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
         GameFrame.ANIMACION_DOWNGRADE_PREF = snap_anim_downgrade;
         GameFrame.DOWNGRADE_VELOCIDAD = snap_downgrade_velocidad;
+        Helpers.DIALOG_ZOOM = snap_dialog_zoom;
 
         Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(snap_zoom_level));
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(snap_vista_compacta));
@@ -1053,6 +1082,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
         Helpers.PROPERTIES.setProperty("animacion_downgrade", String.valueOf(snap_anim_downgrade));
         Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
+        Helpers.PROPERTIES.setProperty("dialog_zoom", String.valueOf(snap_dialog_zoom));
         Helpers.savePropertiesFile();
 
         if (tapete_changed) {

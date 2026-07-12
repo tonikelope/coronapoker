@@ -8880,6 +8880,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void repartir() {
 
+        // Straddle CIEGO + recover fail-safe: por diseño las cartas del straddler no pueden estar en
+        // el fósil hasta que las resuelve (tras decidir), así que un crash del straddler en la ventana
+        // reparto->revelado deja su fósil SIN VISUAL@ y local_original_cards sin resolver. En recover
+        // eso se detecta como dos hole cards con el MISMO índice (imposible en una mano real; el
+        // default {0,0}). No se puede reconstruir su mano -> MISDEAL limpio en vez de repartir cartas
+        // fantasma que romperían el showdown. Solo aplica al jugador local ACTIVO y jugando (un
+        // espectador/calentando no tiene cartas). En mano fresca local_original_cards ya está resuelto.
+        if (this.game_recovered != 0) {
+            LocalPlayer lp = GameFrame.getInstance().getLocalPlayer();
+            if (lp != null && lp.isActivo() && !lp.isCalentando()
+                    && this.local_original_cards != null
+                    && this.local_original_cards[0] == this.local_original_cards[1]) {
+                LOGGER.log(Level.SEVERE, "Straddle ciego: recover con cartas del straddler local sin resolver (fósil sin VISUAL@) — MISDEAL");
+                cancelarManoYDevolverApuestas("straddle.deferred_release_failed");
+                return;
+            }
+        }
+
         boolean animacion = GameFrame.repartoAnimOn();
 
         // Base histórica (SIN velocidad de reparto) de la pausa entre cartas y de la duración del
@@ -8930,23 +8948,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Straddle local a ciegas: sus valores YA se conocen (local_original_cards, resueltos
-        // en el reparto antes de esta llamada), así que rendimos el giro en background durante
-        // el vuelo + la ventana de decisión (~5 s). Cuando resolveVoluntaryStraddle destape las
-        // cartas tras decidir, el giro entra sin la pausa del render. revealLocalStraddlerCards
-        // los consume.
+        // Straddle CIEGO: NO se prefetchea el giro del straddler aquí. Con el cegado criptográfico
+        // sus valores NO se conocen en el reparto (local_original_cards sigue en {0,0} hasta que
+        // resuelve tras firmar su decisión), así que un prefetch aquí decodificaría la carta
+        // equivocada (índice 0) y se descartaría. revealLocalStraddlerCards decodifica el giro inline
+        // con la carta real ya resuelta (sin prefetch, pf=null).
         this.straddle_prefetch_flip_hc1 = null;
         this.straddle_prefetch_flip_hc2 = null;
-        if (defer_straddle_reveal && GameFrame.destapeAnimOn()) {
-            final String ssp1 = Card.shortStringFromIndex(this.local_original_cards[0] & 0xFF);
-            final String ssp2 = Card.shortStringFromIndex(this.local_original_cards[1] & 0xFF);
-            if (ssp1 != null) {
-                this.straddle_prefetch_flip_hc1 = Helpers.futureRun(() -> decodeCardFlipAnim(ssp1));
-            }
-            if (ssp2 != null) {
-                this.straddle_prefetch_flip_hc2 = Helpers.futureRun(() -> decodeCardFlipAnim(ssp2));
-            }
-        }
 
         // Overlay de la ficha sobre la viajera de hc1: se crea justo antes del vuelo.
         this.local_chip_flight_overlay = null;
@@ -11683,6 +11691,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     + Base64.getEncoder().encodeToString(straddlerNick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
                     + "#" + Base64.getEncoder().encodeToString(residue));
         }
+        // Persiste el fósil AHORA que el residuo del straddler está en single_locked_pocket_cards
+        // (POCKETS@) y, si el host es el straddler, sus cartas ya resueltas (VISUAL@). Imprescindible
+        // para el recover del HOST cuando el straddler es REMOTO y decide NO_STRADDLE: sin esto el
+        // último fósil era el del reparto (que saltó este slot) y en recover verifyAndStoreShowdownKey
+        // rechazaría la clave del straddler y calcularJugadas lo muckearía por "disconnection".
+        guardarFosilSRA();
         this.deferred_straddle_slot = -1;
         this.deferred_straddle_nick = null;
         return true;

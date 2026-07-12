@@ -188,7 +188,7 @@ public class AboutDialog extends JDialog {
         jPanel1 = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
         mod_label = new javax.swing.JLabel();
-        corona_icon_label = new javax.swing.JLabel();
+        corona_icon_label = new com.tonikelope.coronapoker.GifLabel();
         mod_bar = new javax.swing.JProgressBar();
         jPanel4 = new javax.swing.JPanel();
         jLabel12 = new javax.swing.JLabel();
@@ -601,7 +601,7 @@ public class AboutDialog extends JDialog {
     }//GEN-LAST:event_mod_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel corona_icon_label;
+    private com.tonikelope.coronapoker.GifLabel corona_icon_label;
     private javax.swing.JLabel dedicado;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;

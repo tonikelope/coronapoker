@@ -3397,18 +3397,21 @@ public class Helpers {
     }
 
     // Reescala el icono DECORATIVO de un JLabel por DIALOG_ZOOM. Los estáticos (PNG) se reescalan con
-    // getScaledInstance desde el recurso natural (calidad SMOOTH). Los GIF ANIMADOS se envuelven en un
-    // ScaledIcon que pinta el icono ACTUAL escalado, conservando la animación (getScaledInstance la
-    // congelaría en un fotograma). No-op a 1.0 o si no hay recurso/icono. Solo para adornos; el
-    // contenido gráfico (cartas, imágenes) se escala aparte.
+    // getScaledInstance desde el recurso natural (calidad SMOOTH). Un GIF ANIMADO solo se escala
+    // conservando la animación si el label es un GifLabel (estira el GIF a sus bounds en paintComponent,
+    // como las cinemáticas): basta fijar su tamaño preferido escalado. Un GIF en un JLabel normal se
+    // deja a su tamaño natural. No-op a 1.0 o si no hay recurso/icono. Solo para adornos; el contenido
+    // gráfico (cartas, imágenes) se escala aparte.
     public static void scaleDialogIcon(JLabel label, String resource) {
         if (label == null || resource == null || !isDialogZoomActive()) {
             return;
         }
         if (resource.toLowerCase().endsWith(".gif")) {
             javax.swing.Icon current = label.getIcon();
-            if (current != null) {
-                label.setIcon(new ScaledIcon(current, DIALOG_ZOOM));
+            if (current != null && label instanceof GifLabel) {
+                label.setPreferredSize(new java.awt.Dimension(
+                        Math.round(current.getIconWidth() * DIALOG_ZOOM),
+                        Math.round(current.getIconHeight() * DIALOG_ZOOM)));
             }
             return;
         }
@@ -3420,51 +3423,6 @@ public class Helpers {
         int w = Math.round(natural.getIconWidth() * DIALOG_ZOOM);
         int h = Math.round(natural.getIconHeight() * DIALOG_ZOOM);
         setScaledIconLabel(label, url, w, h);
-    }
-
-    // Icon que pinta un Icon delegado ESCALADO por un factor (Graphics2D.scale). Conserva la animación
-    // de un GIF: el delegado sigue siendo el ImageIcon animado y su animación (dirigida por el
-    // componente como ImageObserver) continúa al pintarse escalado, a diferencia de getScaledInstance.
-    private static final class ScaledIcon implements javax.swing.Icon {
-
-        private final javax.swing.Icon delegate;
-        private final float scale;
-
-        ScaledIcon(javax.swing.Icon delegate, float scale) {
-            this.delegate = delegate;
-            this.scale = scale;
-        }
-
-        @Override
-        public int getIconWidth() {
-            return Math.max(1, Math.round(delegate.getIconWidth() * scale));
-        }
-
-        @Override
-        public int getIconHeight() {
-            return Math.max(1, Math.round(delegate.getIconHeight() * scale));
-        }
-
-        @Override
-        public void paintIcon(Component c, java.awt.Graphics g, int x, int y) {
-            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
-            try {
-                g2.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
-                        java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                if (delegate instanceof ImageIcon) {
-                    // drawImage con ANCHO/ALTO explícitos escala Y conserva la animación del GIF (el
-                    // observador c recibe los fotogramas). Escalar el transform + paintIcon no
-                    // renderizaba el GIF animado (quedaba invisible).
-                    g2.drawImage(((ImageIcon) delegate).getImage(), x, y, getIconWidth(), getIconHeight(), c);
-                } else {
-                    g2.translate(x, y);
-                    g2.scale(scale, scale);
-                    delegate.paintIcon(c, g2, 0, 0);
-                }
-            } finally {
-                g2.dispose();
-            }
-        }
     }
 
     // Aplica la fuente base a TODOS los componentes descendientes al MISMO tamaño

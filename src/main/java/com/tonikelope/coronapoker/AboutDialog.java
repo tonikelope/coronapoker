@@ -125,9 +125,9 @@ public class AboutDialog extends JDialog {
         pack();
 
         // Zoom GLOBAL de diálogos: escala los adornos ANTES de que zoomDialog reempaquete (para que su
-        // tamaño escalado cuente). El logo (corona_logo.gif) es un GIF animado y se escala con un
-        // ScaledIcon que conserva la animación; el resto son PNG estáticos. Luego zoomDialog escala las
-        // fuentes y ajusta la ventana. No-op a 100 % (idéntico a como estaba).
+        // tamaño escalado cuente). El logo (corona_logo.gif) se escala con setScaledIconLabel, que usa
+        // Image.SCALE_DEFAULT para GIF y CONSERVA la animación (sigue girando); el resto son PNG. Luego
+        // zoomDialog escala las fuentes y ajusta la ventana. No-op a 100 % (idéntico a como estaba).
         Helpers.scaleDialogIcon(corona_icon_label, "/images/corona_logo.gif");
         Helpers.scaleDialogIcon(dedicado, "/images/luto.png");
         Helpers.scaleDialogIcon(jLabel12, "/images/open-book.png");
@@ -188,7 +188,7 @@ public class AboutDialog extends JDialog {
         jPanel1 = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
         mod_label = new javax.swing.JLabel();
-        corona_icon_label = new com.tonikelope.coronapoker.GifLabel();
+        corona_icon_label = new javax.swing.JLabel();
         mod_bar = new javax.swing.JProgressBar();
         jPanel4 = new javax.swing.JPanel();
         jLabel12 = new javax.swing.JLabel();
@@ -601,7 +601,7 @@ public class AboutDialog extends JDialog {
     }//GEN-LAST:event_mod_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private com.tonikelope.coronapoker.GifLabel corona_icon_label;
+    private javax.swing.JLabel corona_icon_label;
     private javax.swing.JLabel dedicado;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;

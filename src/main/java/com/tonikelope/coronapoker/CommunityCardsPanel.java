@@ -162,7 +162,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         this.color_contadores = color;
 
         Helpers.GUIRun(() -> {
-            if (!pot_panel.isOpaque()) {
+            if (!((RoundedPanel) pot_panel).isRoundedFill()) {
                 pot_label.setForeground(color);
 
                 // Carrera cambio-de-tapete vs parpadeo del bote: si una ficha acaba de
@@ -179,13 +179,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             bet_label.setForeground(color);
 
-            if (!blinds_panel.isOpaque()) {
+            if (!((RoundedPanel) blinds_panel).isRoundedFill()) {
                 blinds_label.setForeground(color);
             }
 
             tiempo_partida.setForeground(color);
 
-            if (!hand_panel.isOpaque()) {
+            if (!((RoundedPanel) hand_panel).isRoundedFill()) {
                 hand_label.setForeground(color);
             }
         });

@@ -41,21 +41,42 @@ public class RoundedPanel extends JPanel {
 
     public static final int DEFAULT_ARC = 20;
     private final int arc;
+    // Mismo patrón que el asiento (LocalPlayer/RemotePlayer.setOpaque): el panel NUNCA es opaco
+    // de verdad. Si lo fuese, Swing no repintaría el fondo detrás y las esquinas —fuera del
+    // arco— mostrarían basura: un setBackground AISLADO (fuera de un repaint grande) deja
+    // negro en ellas, porque el RepaintManager optimiza el repaint de la región cubierta por un
+    // componente opaco y no re-pinta el ancestro. Se intercepta setOpaque y se recuerda la
+    // INTENCIÓN de relleno en rounded_fill, que pintamos nosotros (redondeado) en paintComponent;
+    // Swing repinta el fondo detrás (el panel es no-opaco) y las esquinas quedan limpias.
+    private volatile boolean rounded_fill = false;
 
     public RoundedPanel() {
-        super();
-        this.arc = DEFAULT_ARC;
+        this(DEFAULT_ARC);
     }
 
     public RoundedPanel(int arc) {
         super();
         this.arc = arc;
+        setOpaque(true);
+    }
+
+    @Override
+    public void setOpaque(boolean isOpaque) {
+        this.rounded_fill = isOpaque;
+        super.setOpaque(false);
+    }
+
+    // Intención de relleno (lo que se pasó a setOpaque). No usar isOpaque() para esto: el panel
+    // es SIEMPRE no-opaco de cara a Swing (para que repinte el fondo detrás), así que isOpaque()
+    // devuelve false aunque el panel esté pintando su relleno.
+    public boolean isRoundedFill() {
+        return rounded_fill;
     }
 
     @Override
     protected void paintComponent(Graphics g) {
 
-        if (isOpaque()) {
+        if (rounded_fill) {
             Graphics2D g2d = (Graphics2D) g.create();
             try {
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -65,8 +86,8 @@ public class RoundedPanel extends JPanel {
             } finally {
                 g2d.dispose();
             }
-            // Skip super.paintComponent: the rounded fill above replaces the default
-            // rectangular background; calling super would draw a square fill behind it.
+            // No se llama a super.paintComponent: Swing ya ha repintado el fondo detrás (el panel
+            // es no-opaco) y el relleno redondeado va encima; super pintaría un fondo cuadrado.
         } else {
             super.paintComponent(g);
         }

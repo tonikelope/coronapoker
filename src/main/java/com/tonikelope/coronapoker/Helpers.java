@@ -3296,13 +3296,68 @@ public class Helpers {
         if (window == null || !isDialogZoomActive()) {
             return;
         }
+        int design_w = window.getWidth();
+        // Ancho que NO escala con la letra (decoración de la ventana + barra vertical del scroll):
+        // se mantiene fijo y solo se escala el CONTENIDO, para que el texto quepa sin recortarse.
+        java.awt.Insets ins = window.getInsets();
+        int chrome_w = ins.left + ins.right + scrollBarAllowance(window);
         updateFonts(window, GUI_FONT, DIALOG_ZOOM);
         syncTitledBorderFonts(window);
-        // Reempaqueta al contenido ya escalado: la ventana encoge/crece con la letra. Los diálogos
-        // "normales" (sin scroll) quedan ceñidos al contenido. En diálogos con JScrollPane cuyo
-        // contenido tiene anchos PREFERIDOS fijos en el .form, el ancho no baja de ese fijo (ver
-        // NOTA de diseño): esos casos se tratan aparte para que su contenido se recoloque.
+        // ALTO: reempaqueta con las fuentes ya escaladas para que encaje el contenido REAL (incluidas
+        // imágenes/huecos fijos que NO escalan con la letra) y no salga una barra vertical espuria.
         window.pack();
+        // ANCHO: escala solo el contenido (diseño − decoración) × factor y le vuelve a sumar la
+        // decoración fija; así encoge/crece sin borde sobrante y sin recortar la línea más larga.
+        // Nunca por debajo del mínimo real (respeta componentes RÍGIDOS de ancho fijo, p. ej.
+        // botones). En diálogos con JScrollPane, el diálogo debe haber llamado antes a
+        // trackViewportWidth(scroll) para que el contenido se recoloque a este ancho.
+        int content_w = Math.round((design_w - chrome_w) * DIALOG_ZOOM) + chrome_w;
+        int target_w = Math.max(content_w, window.getMinimumSize().width);
+        window.setSize(target_w, window.getHeight());
+    }
+
+    // Hace que el contenido de un JScrollPane SIGA el ancho del viewport: al estrechar la ventana, el
+    // contenido se recoloca a ese ancho (los componentes flexibles bajan hasta su mínimo, que sí
+    // depende de la fuente) en vez de mostrar barra horizontal por un ancho PREFERIDO fijo del .form.
+    // Los JLabel no envuelven, así que el alto no depende del ancho. Para diálogos con scroll y zoom.
+    public static void trackViewportWidth(javax.swing.JScrollPane scroll) {
+        if (scroll == null) {
+            return;
+        }
+        final javax.swing.JViewport vp = scroll.getViewport();
+        java.awt.Component view = (vp != null) ? vp.getView() : null;
+        if (!(view instanceof javax.swing.JComponent)) {
+            return;
+        }
+        final javax.swing.JComponent v = (javax.swing.JComponent) view;
+        vp.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                int vw = vp.getExtentSize().width;
+                if (vw > 0 && v.getPreferredSize().width != vw) {
+                    v.setPreferredSize(new java.awt.Dimension(vw, v.getPreferredSize().height));
+                    v.revalidate();
+                }
+            }
+        });
+    }
+
+    // Ancho de la barra vertical a reservar si la ventana contiene un JScrollPane (su barra tiene
+    // ancho fijo que NO escala con la letra). 0 si no hay scroll. Devuelve la primera que encuentra.
+    private static int scrollBarAllowance(Container container) {
+        for (Component ch : container.getComponents()) {
+            if (ch instanceof javax.swing.JScrollPane) {
+                int w = ((javax.swing.JScrollPane) ch).getVerticalScrollBar().getPreferredSize().width;
+                return w > 0 ? w : 17;
+            }
+            if (ch instanceof Container) {
+                int r = scrollBarAllowance((Container) ch);
+                if (r > 0) {
+                    return r;
+                }
+            }
+        }
+        return 0;
     }
 
     // Re-sincroniza la fuente del título de cada TitledBorder al font (ya escalado) de su

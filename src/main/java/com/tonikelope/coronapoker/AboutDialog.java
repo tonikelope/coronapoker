@@ -131,6 +131,10 @@ public class AboutDialog extends JDialog {
         Helpers.scaleDialogIcon(dedicado, "/images/luto.png");
         Helpers.scaleDialogIcon(jLabel12, "/images/open-book.png");
         Helpers.scaleDialogIcon(jLabel9, "/images/cruz.png");
+        // El contenido va en un JScrollPane con una línea de ancho PREFIJADO en el .form (jLabel5=804);
+        // sin esto no bajaría de ese ancho al encoger (barra horizontal). Hace que el contenido siga
+        // el ancho del viewport y se recoloque. Instalar ANTES de zoomDialog (que redimensiona la ventana).
+        Helpers.trackViewportWidth(main_scroll_panel);
         Helpers.zoomDialog(this);
 
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));

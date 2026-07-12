@@ -276,6 +276,9 @@ public class Helpers {
     public static final int MIN_GIF_FRAME_DELAY = 3;
     public static final int DIALOG_ICON_SIZE = 70;
     public static final float MESSAGE_DIALOG_ZOOM = 1.3f;
+    // Rango del zoom GLOBAL de diálogos (preferencia del usuario). 1.0 = tamaño de diseño.
+    public static final float DIALOG_ZOOM_MIN = 0.7f;
+    public static final float DIALOG_ZOOM_MAX = 2.0f;
     public static ArrayList<String> POKER_QUOTES_ES = new ArrayList<>();
     public static ArrayList<String> POKER_QUOTES_EN = new ArrayList<>();
     public static volatile ImageIcon IMAGEN_BB = null;
@@ -288,6 +291,10 @@ public class Helpers {
 
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = isDesignTime() ? new Properties() : loadPropertiesFile();
+    // Zoom GLOBAL de los diálogos (letra + tamaño de la ventana), preferencia del usuario en
+    // Ajustes -> Apariencia. 1.0 = tamaño de diseño (idéntico a como estaba). INDEPENDIENTE del
+    // zoom de la MESA (GameFrame.ZOOM_LEVEL), que este control NO toca.
+    public volatile static float DIALOG_ZOOM = readDialogZoom();
     public volatile static Font GUI_FONT = null;
     static {
         if (!isDesignTime()) {
@@ -3260,6 +3267,76 @@ public class Helpers {
             } while (error);
 
         }
+    }
+
+    // Lee la preferencia de zoom de diálogos (dialog_zoom) de PROPERTIES, acotada al rango
+    // válido. 1.0 = tamaño de diseño. Se llama al inicializar el campo estático DIALOG_ZOOM.
+    private static float readDialogZoom() {
+        try {
+            float z = Float.parseFloat(PROPERTIES.getProperty("dialog_zoom", "1.0"));
+            return Math.max(DIALOG_ZOOM_MIN, Math.min(DIALOG_ZOOM_MAX, z));
+        } catch (Exception ex) {
+            return 1f;
+        }
+    }
+
+    public static boolean isDialogZoomActive() {
+        return Math.abs(DIALOG_ZOOM - 1f) >= 0.01f;
+    }
+
+    // Aplica el zoom GLOBAL de diálogos (DIALOG_ZOOM) a una ventana recién construida: deriva
+    // TODAS sus fuentes de GUI_FONT escalando el tamaño de DISEÑO por el factor y re-sincroniza la
+    // fuente de los TitledBorder (que updateFonts no alcanza). A factor 1.0 se comporta EXACTAMENTE
+    // como updateFonts(window, GUI_FONT, null) (cambia solo la familia, tamaño de diseño): es un
+    // DROP-IN de esa llamada. Pensado para diálogos EFÍMEROS (una pasada por instancia nueva); NO
+    // re-aplicar sobre la misma instancia viva (updateFonts multiplica el tamaño actual). El
+    // llamante hace su pack()/setSize DESPUÉS para que la ventana encoja/crezca. NO toca el zoom de
+    // la MESA (GameFrame.ZOOM_LEVEL).
+    public static void applyDialogZoom(java.awt.Window window) {
+        if (window == null) {
+            return;
+        }
+        if (!isDialogZoomActive()) {
+            updateFonts(window, GUI_FONT, null);
+            return;
+        }
+        updateFonts(window, GUI_FONT, DIALOG_ZOOM);
+        syncTitledBorderFonts(window);
+    }
+
+    // Re-sincroniza la fuente del título de cada TitledBorder al font (ya escalado) de su
+    // contenedor. Ni updateFonts ni zoomFonts alcanzan la fuente del título del borde, así que sin
+    // esto el título quedaría al tamaño de diseño mientras el contenido escala.
+    private static void syncTitledBorderFonts(Container container) {
+        if (container instanceof javax.swing.JComponent) {
+            javax.swing.border.Border b = ((javax.swing.JComponent) container).getBorder();
+            if (b instanceof javax.swing.border.TitledBorder) {
+                ((javax.swing.border.TitledBorder) b).setTitleFont(container.getFont());
+            }
+        }
+        for (Component child : container.getComponents()) {
+            if (child instanceof Container) {
+                syncTitledBorderFonts((Container) child);
+            }
+        }
+    }
+
+    // Reescala el icono DECORATIVO de un JLabel a (tamaño natural del recurso × DIALOG_ZOOM),
+    // partiendo SIEMPRE del recurso original para no acumular. Conserva la animación de los GIF
+    // (setScaledIconLabel usa SCALE_DEFAULT para GIF). No-op a 1.0 o si el recurso no existe. Solo
+    // para adornos (logo, iconos de diálogo); el contenido gráfico (cartas, imágenes) se escala aparte.
+    public static void scaleDialogIcon(JLabel label, String resource) {
+        if (label == null || resource == null || !isDialogZoomActive()) {
+            return;
+        }
+        java.net.URL url = Helpers.class.getResource(resource);
+        if (url == null) {
+            return;
+        }
+        ImageIcon natural = new ImageIcon(url);
+        int w = Math.round(natural.getIconWidth() * DIALOG_ZOOM);
+        int h = Math.round(natural.getIconHeight() * DIALOG_ZOOM);
+        setScaledIconLabel(label, url, w, h);
     }
 
     // Aplica la fuente base a TODOS los componentes descendientes al MISMO tamaño

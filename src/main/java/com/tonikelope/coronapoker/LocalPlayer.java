@@ -305,6 +305,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(() -> {
             player_action_panel.setBackground(color);
+            // El player_action_panel es un RoundedPanel opaco cuyas 4 esquinas quedan
+            // transparentes; un setBackground aislado deja basura negra en ellas. Se repinta
+            // siempre aquí para cubrir TODOS los flujos (showdown, rewind de run-it-twice, etc.).
+            repaintActionPanelCorners();
         });
 
     }
@@ -3659,7 +3663,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 showdown_action_fg_snapshot = player_action.getForeground();
                 setActionBackground(Color.YELLOW);
                 player_action.setForeground(Color.BLACK);
-                repaintActionPanelCorners();
             });
         } else {
             Helpers.GUIRun(this::restoreLoserHandHighlight);
@@ -3667,9 +3670,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     // Devuelve las cartas de la mesa al enfoque que tenían antes del hover (el resaltado del
-    // ganador vuelve tal cual) y la etiqueta a su color de showdown. Idempotente (no-op si no
-    // hay snapshot). Debe llamarse en el EDT.
-    private void restoreLoserHandHighlight() {
+    // ganador vuelve tal cual) y quita el tinte. NO toca el color de la etiqueta. Idempotente
+    // (no-op si no hay snapshot). Debe llamarse en el EDT.
+    private void restoreLoserHandFocus() {
         java.util.Map<Card, Boolean> snapshot = showdown_focus_snapshot;
 
         if (snapshot != null) {
@@ -3685,14 +3688,28 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             showdown_focus_snapshot = null;
         }
+    }
+
+    // Restauración completa (enfoque + color de la etiqueta) para el mouseExited y el reset
+    // entre manos: la etiqueta vuelve al rojo del perdedor tal cual estaba.
+    private void restoreLoserHandHighlight() {
+        restoreLoserHandFocus();
 
         if (showdown_action_bg_snapshot != null) {
             setActionBackground(showdown_action_bg_snapshot);
             player_action.setForeground(showdown_action_fg_snapshot);
             showdown_action_bg_snapshot = null;
             showdown_action_fg_snapshot = null;
-            repaintActionPanelCorners();
         }
+    }
+
+    // Descarta el hover SIN restaurar el color de la etiqueta: para el rewind de run-it-twice,
+    // donde renderDecisionVisual re-pinta la etiqueta a la decisión (ALL IN) justo después;
+    // restaurar aquí el rojo del perdedor de SIDE-A lo dejaría colgado sobre CARA-B.
+    private void discardLoserHandHighlight() {
+        restoreLoserHandFocus();
+        showdown_action_bg_snapshot = null;
+        showdown_action_fg_snapshot = null;
     }
 
     // player_action_panel es un RoundedPanel OPACO cuyas 4 esquinas quedan transparentes (el
@@ -3846,6 +3863,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void repaintLastAction() {
         this.winner = false;
         this.loser = false;
+        // Run-it-twice: olvida el resaltado por hover de SIDE-A antes del rewind (idempotente
+        // si no había hover activo). Se DESCARTA sin restaurar el color: renderDecisionVisual
+        // (más abajo) re-pinta la etiqueta a la decisión (ALL IN); restaurar aquí el rojo del
+        // perdedor de SIDE-A lo dejaría colgado sobre CARA-B. El re-enfoque de hole cards y el
+        // settle de SIDE-B reconstruyen el resto.
+        Helpers.GUIRun(this::discardLoserHandHighlight);
+        this.showdown_hand_cards = null;
         // Limpia la franja de side pots de SIDE-A (se recalcula en SIDE-B).
         this.botes_secundarios.clear();
         // Línea base de CARA-B = lo acumulado en CARA-A: la franja de CARA-B

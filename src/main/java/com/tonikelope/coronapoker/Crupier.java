@@ -1635,10 +1635,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * salió (el host deriva el lock del unlock entregado). Devuelve false si algún
      * extend falla (no debería con datos honestos).
      */
+    // Unicast de un comando GAME a UN participante concreto (no broadcast, no espera ACK — como
+    // los REQ de cascada). Lo usa el straddle ciego para el POCKET_DEFERRED (avisar al straddler
+    // que pase a ciegas) y para la ENTREGA diferida de su POCKET_CARDS tras la cascada.
+    private void sendGAMECommandToParticipant(Participant p, String command) {
+        if (p == null) {
+            return;
+        }
+        try {
+            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            byte[] iv = new byte[16];
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#" + command, p.getAes_key(), iv, p.getHmac_key()));
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to unicast GAME command to a participant", e);
+        }
+    }
+
     private boolean extendPocketChainsForSigner(String[][] chains, String[] ring, int skipSlot,
             String signerNick, byte[] signerLock) {
+        return extendPocketChainsForSigner(chains, ring, skipSlot, -1, signerNick, signerLock);
+    }
+
+    // Overload con un SEGUNDO slot a saltar (skipSlot2): el straddle ciego lo usa para NO quitar
+    // el candado de los 2 puntos del slot del straddler durante el reparto inicial (se difieren
+    // hasta su decisión firmada). skipSlot2 = -1 cuando no hay straddler diferido.
+    private boolean extendPocketChainsForSigner(String[][] chains, String[] ring, int skipSlot, int skipSlot2,
+            String signerNick, byte[] signerLock) {
         for (int i = 0; i < ring.length; i++) {
-            if (i == skipSlot) {
+            if (i == skipSlot || i == skipSlot2) {
                 continue;
             }
             for (int j = 0; j < 2; j++) {
@@ -2026,7 +2051,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             pocketChains[i][1] = "";
         }
 
-        // Paso 1: el host quita su lock (con prueba) de cada slot salvo el suyo.
+        // Straddle CIEGO: si hay un straddler humano esta mano, sus 2 pocket slots NO se
+        // desbloquean ahora — ningún signer (host, bots ni humanos) quita su candado hasta que
+        // el straddler firme su decisión, y entonces el host corre resolveDeferredStraddlerResidue.
+        // Guarda nick/slot para esa cascada diferida. straddlerSlot=-1 => reparto normal.
+        String blindStraddlerNick = blindStraddlerNickThisHand();
+        int straddlerSlot = -1;
+        if (blindStraddlerNick != null) {
+            for (int i = 0; i < ringLen; i++) {
+                if (currentRing[i].equals(blindStraddlerNick)) {
+                    straddlerSlot = i;
+                    break;
+                }
+            }
+        }
+        this.deferred_straddle_nick = (straddlerSlot >= 0) ? blindStraddlerNick : null;
+        this.deferred_straddle_slot = straddlerSlot;
+
+        // Paso 1: el host quita su lock (con prueba) de cada slot salvo el suyo (y el del straddler).
         int hostSlot = -1;
         for (int i = 0; i < ringLen; i++) {
             if (currentRing[i].equals(hostNick)) {
@@ -2034,7 +2076,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 break;
             }
         }
-        if (!extendPocketChainsForSigner(pocketChains, currentRing, hostSlot, hostNick, this.local_sra_lock)) {
+        if (!extendPocketChainsForSigner(pocketChains, currentRing, hostSlot, straddlerSlot, hostNick, this.local_sra_lock)) {
             cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
             return false;
         }
@@ -2050,7 +2092,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 byte[] botLock = RistrettoSRA.getUnlockScalar(pb.getReceived_token());
-                if (!extendPocketChainsForSigner(pocketChains, currentRing, botSlot, bNick, botLock)) {
+                if (!extendPocketChainsForSigner(pocketChains, currentRing, botSlot, straddlerSlot, bNick, botLock)) {
                     cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
                     return false;
                 }
@@ -2072,7 +2114,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!ph.isExit()) {
                 java.util.List<UnlockChainWire.ReqItem> reqItems = new java.util.ArrayList<>();
                 for (int i = 0; i < ringLen; i++) {
-                    if (i != h) {
+                    if (i != h && i != straddlerSlot) {
                         reqItems.add(new UnlockChainWire.ReqItem(i, i * 2,
                                 java.util.Arrays.asList(pocketChains[i][0], pocketChains[i][1])));
                     }
@@ -2093,7 +2135,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // que validaba count). Tratarlo como rechazo.
                     boolean allCovered = true;
                     for (int i = 0; i < ringLen && allCovered; i++) {
-                        if (i != h && !covered.contains(i)) {
+                        if (i != h && i != straddlerSlot && !covered.contains(i)) {
                             allCovered = false;
                         }
                     }
@@ -2115,7 +2157,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } else if (ph.getSra_unlock() != null) {
                 byte[] hLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock());
-                if (!extendPocketChainsForSigner(pocketChains, currentRing, h, hNick, hLock)) {
+                if (!extendPocketChainsForSigner(pocketChains, currentRing, h, straddlerSlot, hNick, hLock)) {
                     cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
                     return false;
                 }
@@ -2129,6 +2171,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // por el target). Una cadena que no verifica = un peer devolvió algo no probado.
         byte[][] pockets = new byte[ringLen][];
         for (int i = 0; i < ringLen; i++) {
+            if (i == straddlerSlot) {
+                // Straddle ciego: su residuo NO se computa aquí (ningún signer peló su slot); se
+                // difiere a resolveDeferredStraddlerResidue tras la decisión firmada.
+                continue;
+            }
             byte[] pc = new byte[64];
             for (int j = 0; j < 2; j++) {
                 int pointIdx = i * 2 + j;
@@ -2148,6 +2195,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Broadcast y resolución local por target.
         for (int i = 0; i < currentRing.length; i++) {
             String targetNick = currentRing[i];
+            if (i == straddlerSlot) {
+                // Straddle ciego: ni se difunde ni se resuelve su residuo ahora (diferido hasta su
+                // decisión firmada). Si es un CLIENTE remoto, se le avisa (POCKET_DEFERRED) para que
+                // pase a ciegas por recibirMisCartas; si el straddler es el HOST no hace falta (no
+                // corre recibirMisCartas) y sus cartas se resuelven en local tras decidir.
+                if (!targetNick.equals(hostNick)) {
+                    Participant sp = GameFrame.getInstance().getParticipantes().get(targetNick);
+                    sendGAMECommandToParticipant(sp, "POCKET_DEFERRED#"
+                            + Base64.getEncoder().encodeToString(targetNick.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                }
+                continue;
+            }
             byte[] pocketCards = pockets[i];
             this.single_locked_pocket_cards.put(targetNick, pocketCards);
 
@@ -7772,6 +7831,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // abajo); en mano fresca queda false (la decisión la toma resolveVoluntaryStraddle).
         this.straddle_recovered_posted = false;
         this.straddle_local_cards_deferred = false;
+        // Straddle CIEGO criptográfico: estado por mano en TODOS los peers. Resetear el flag de
+        // decisión verificada es CRÍTICO — un flag rancio de una mano anterior habilitaría el
+        // desbloqueo diferido antes de que el straddler de esta mano se comprometa.
+        this.straddle_cards_pending = false;
+        this.deferred_straddle_nick = null;
+        this.deferred_straddle_slot = -1;
+        this.straddle_decision_verified_nick = null;
 
         synchronized (getLock_contabilidad()) {
             if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {

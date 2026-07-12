@@ -3303,8 +3303,7 @@ public class Helpers {
         int chrome_w = ins.left + ins.right + scrollBarAllowance(window);
         updateFonts(window, GUI_FONT, DIALOG_ZOOM);
         syncTitledBorderFonts(window);
-        // ALTO: reempaqueta con las fuentes ya escaladas para que encaje el contenido REAL (incluidas
-        // imágenes/huecos fijos que NO escalan con la letra) y no salga una barra vertical espuria.
+        // Reempaqueta con las fuentes ya escaladas y realiza el layout (base para medir el contenido).
         window.pack();
         // ANCHO: escala solo el contenido (diseño − decoración) × factor y le vuelve a sumar la
         // decoración fija; así encoge/crece sin borde sobrante y sin recortar la línea más larga.
@@ -3313,7 +3312,18 @@ public class Helpers {
         // trackViewportWidth(scroll) para que el contenido se recoloque a este ancho.
         int content_w = Math.round((design_w - chrome_w) * DIALOG_ZOOM) + chrome_w;
         int target_w = Math.max(content_w, window.getMinimumSize().width);
-        window.setSize(target_w, window.getHeight());
+        // ALTO: por defecto el del pack. Pero si el contenido va en un JScrollPane, su alto PREFERIDO
+        // de diseño está FIJO en el .form (no sigue al contenido escalado, deja hueco abajo), así que
+        // se usa el alto REAL de la vista del scroll + la decoración vertical (insets + borde/barra):
+        // ciñe la ventana al contenido, sin hueco ni barra vertical espuria.
+        int target_h = window.getHeight();
+        javax.swing.JScrollPane sp = findScrollPane(window);
+        if (sp != null && sp.getViewport() != null && sp.getViewport().getView() != null) {
+            int view_h = sp.getViewport().getView().getPreferredSize().height;
+            int chrome_h = ins.top + ins.bottom + (sp.getHeight() - sp.getViewport().getHeight());
+            target_h = Math.max(view_h + chrome_h, window.getMinimumSize().height);
+        }
+        window.setSize(target_w, target_h);
     }
 
     // Hace que el contenido de un JScrollPane SIGA el ancho del viewport: al estrechar la ventana, el
@@ -3342,22 +3352,31 @@ public class Helpers {
         });
     }
 
-    // Ancho de la barra vertical a reservar si la ventana contiene un JScrollPane (su barra tiene
-    // ancho fijo que NO escala con la letra). 0 si no hay scroll. Devuelve la primera que encuentra.
-    private static int scrollBarAllowance(Container container) {
+    // Primer JScrollPane dentro de la ventana (búsqueda en profundidad), o null si no hay.
+    private static javax.swing.JScrollPane findScrollPane(Container container) {
         for (Component ch : container.getComponents()) {
             if (ch instanceof javax.swing.JScrollPane) {
-                int w = ((javax.swing.JScrollPane) ch).getVerticalScrollBar().getPreferredSize().width;
-                return w > 0 ? w : 17;
+                return (javax.swing.JScrollPane) ch;
             }
             if (ch instanceof Container) {
-                int r = scrollBarAllowance((Container) ch);
-                if (r > 0) {
+                javax.swing.JScrollPane r = findScrollPane((Container) ch);
+                if (r != null) {
                     return r;
                 }
             }
         }
-        return 0;
+        return null;
+    }
+
+    // Ancho de la barra vertical a reservar si la ventana contiene un JScrollPane (su barra tiene
+    // ancho fijo que NO escala con la letra). 0 si no hay scroll.
+    private static int scrollBarAllowance(Container container) {
+        javax.swing.JScrollPane sp = findScrollPane(container);
+        if (sp == null) {
+            return 0;
+        }
+        int w = sp.getVerticalScrollBar().getPreferredSize().width;
+        return w > 0 ? w : 17;
     }
 
     // Re-sincroniza la fuente del título de cada TitledBorder al font (ya escalado) de su

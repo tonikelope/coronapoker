@@ -143,7 +143,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_apuestas = prefBool("animacion_apuestas");
         snap_anim_contadores = prefBool("animacion_contadores");
         snap_anim_cascada_overlay = prefBool("animacion_cascada_overlay", false);
-        snap_resaltar_jugada_perdedor = prefBool("resaltar_jugada_perdedor", false);
+        snap_resaltar_jugada_perdedor = prefBool("resaltar_jugada_perdedor", true);
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
@@ -840,7 +840,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("animacion_apuestas") != snap_anim_apuestas
                 || prefBool("animacion_contadores") != snap_anim_contadores
                 || prefBool("animacion_cascada_overlay", false) != snap_anim_cascada_overlay
-                || prefBool("resaltar_jugada_perdedor", false) != snap_resaltar_jugada_perdedor
+                || prefBool("resaltar_jugada_perdedor", true) != snap_resaltar_jugada_perdedor
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen

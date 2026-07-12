@@ -5296,7 +5296,7 @@ public class Helpers {
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
 
-            Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")));
+            Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(DIALOG_ZOOM));
             txtField.setComponentPopupMenu(popup);
         }
 
@@ -5364,7 +5364,7 @@ public class Helpers {
             JMenuItem selectAll = new LeftClickMenuItem(selectAllAction);
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
-            Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")));
+            Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(DIALOG_ZOOM));
             txtArea.setComponentPopupMenu(popup);
         }
 
@@ -5432,7 +5432,7 @@ public class Helpers {
             JMenuItem selectAll = new LeftClickMenuItem(selectAllAction);
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
-            Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")));
+            Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(DIALOG_ZOOM));
             txtArea.setComponentPopupMenu(popup);
         }
 
@@ -6009,7 +6009,7 @@ public class Helpers {
                 exit_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
                 popup.add(exit_menu);
 
-                Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")) * 1.10f);
+                Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(DIALOG_ZOOM) * 1.10f);
                 Helpers.translateComponents(popup, false);
 
             }

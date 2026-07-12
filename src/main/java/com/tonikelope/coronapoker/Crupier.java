@@ -5440,7 +5440,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // calle correspondiente; los RABBIT_* exigen show_time. Llamado bajo
     // protocol_state_lock.
     private boolean isUnlockPhaseStateSafe(int phase) {
+        if (phase == UNLOCK_PHASE_POCKET_STRADDLE) {
+            // Straddle ciego: solo seguro cuando ESTE peer ya verificó la decisión FIRMADA del
+            // straddler. Así el responder BLOQUEA en awaitStreetForUnlockPhase hasta ver la firma
+            // (un host que pida el desbloqueo diferido antes de que el straddler se comprometa se
+            // topa con el gate -> timeout -> refuse+warn). El binding de slot lo verifica el
+            // responder aparte (solo se pela el slot del straddler verificado, ninguno más).
+            return this.straddle_decision_verified_nick != null;
+        }
         return isUnlockPhaseAllowedForStreet(phase, this.street, this.show_time, this.run_it_twice_side_b);
+    }
+
+    // Cada peer, tras verificar la decisión FIRMADA del straddler, la registra bajo
+    // protocol_state_lock + notifyAll para despertar a awaitStreetForUnlockPhase (igual que
+    // setStreetLocal con la calle). A partir de aquí servirá el UNLOCK_PHASE_POCKET_STRADDLE
+    // de ESE straddler (y solo su slot). Idempotente.
+    public void recordVerifiedStraddleDecision(String straddlerNick) {
+        synchronized (protocol_state_lock) {
+            this.straddle_decision_verified_nick = straddlerNick;
+            protocol_state_lock.notifyAll();
+        }
+    }
+
+    public String getStraddleDecisionVerifiedNick() {
+        return this.straddle_decision_verified_nick;
     }
 
     public void setRunItTwiceSideB(boolean v) {
@@ -10859,6 +10882,53 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
         return this.utg_nick;
+    }
+
+    // Verifica la decisión FIRMADA de un straddler contra su identity pubkey (payload
+    // HAND_ID || nick || decision bajo dominio STRADDLE). true solo si la firma es auténtica
+    // y de ESTA mano. Es el gate: cada peer la exige antes de servir el desbloqueo diferido.
+    private boolean verifyStraddleDecisionWire(String straddlerNick, int decision, byte[] sig) {
+        if (straddlerNick == null || sig == null || this.current_hand_id == null) {
+            return false;
+        }
+        byte[] pubkey = resolveActionSignerPubkey(straddlerNick, true);
+        if (pubkey == null) {
+            LOGGER.log(Level.WARNING, "STRADDLE_DECISION: cannot resolve pubkey for {0}", straddlerNick);
+            return false;
+        }
+        return IdentityManager.verifyStraddleDecision(pubkey, this.current_hand_id, straddlerNick, decision, sig);
+    }
+
+    // Firma la decisión de straddle del jugador LOCAL (cuando el host es el straddler, o el
+    // cliente straddler antes de mandarla). null si no hay identity lista o hand_id.
+    private byte[] signLocalStraddleDecision(int decision) {
+        IdentityManager im = IdentityManager.getInstance();
+        if (this.current_hand_id == null || !im.isReady()) {
+            return null;
+        }
+        return im.signStraddleDecision(this.current_hand_id, GameFrame.getInstance().getNick_local(), decision);
+    }
+
+    // Cliente: procesa el STRADDLE_DECISION#nickB64#decision#sigB64 difundido por el host. Verifica
+    // la firma del straddler y, si es válida, registra el flag (habilita el desbloqueo diferido de SU
+    // slot). Firma inválida o malformada -> se ignora (el gate del responder seguirá rechazando el
+    // unlock, así un host que forje "el straddler decidió" no consigue extraer sus cartas).
+    public void onStraddleDecisionCommand(String[] partes) {
+        if (partes == null || partes.length < 6) {
+            return;
+        }
+        try {
+            String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+            int decision = Integer.parseInt(partes[4]);
+            byte[] sig = Base64.getDecoder().decode(partes[5]);
+            if (verifyStraddleDecisionWire(nick, decision, sig)) {
+                recordVerifiedStraddleDecision(nick);
+            } else {
+                LOGGER.log(Level.SEVERE, "ZERO-TRUST: invalid STRADDLE_DECISION signature for {0} — not enabling deferred unlock", nick);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Malformed STRADDLE_DECISION", e);
+        }
     }
 
     // ====================== Straddle voluntario (post-reparto) ======================

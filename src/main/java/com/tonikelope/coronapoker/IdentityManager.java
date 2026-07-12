@@ -449,6 +449,48 @@ public final class IdentityManager {
         }
     }
 
+    // ===== STRADDLE_DECISION helpers =====
+
+    private static final byte[] STRADDLE_DOMAIN = "STRADDLE\0".getBytes(StandardCharsets.UTF_8);
+
+    /**
+     * Payload canónico de una decisión de straddle a ciegas:
+     * {@code HAND_ID || nick_utf8 || decision(1)}. La sig demuestra que el straddler
+     * COMPROMETIÓ su decisión (POST/NO) para esta mano, y es el gate que cada peer
+     * exige antes de quitar su candado de los pocket slots del straddler: sin una
+     * firma válida no se sirve el desbloqueo diferido, así el straddler no puede ver
+     * sus cartas antes de comprometerse ni un host MitM puede forzar la revelación.
+     * El dominio "STRADDLE\0" se aplica en sign/verify, no se embebe aquí.
+     */
+    public static byte[] straddlePayload(byte[] handId, String nick, int decision) {
+        if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
+            throw new IllegalArgumentException("handId must be "
+                    + CanonicalActionRecord.HAND_ID_BYTES + " bytes");
+        }
+        if (nick == null || nick.isEmpty()) {
+            throw new IllegalArgumentException("nick must be non-empty");
+        }
+        byte[] nickBytes = nick.getBytes(StandardCharsets.UTF_8);
+        byte[] payload = new byte[handId.length + nickBytes.length + 1];
+        System.arraycopy(handId, 0, payload, 0, handId.length);
+        System.arraycopy(nickBytes, 0, payload, handId.length, nickBytes.length);
+        payload[handId.length + nickBytes.length] = (byte) decision;
+        return payload;
+    }
+
+    public byte[] signStraddleDecision(byte[] handId, String nick, int decision) {
+        return sign(STRADDLE_DOMAIN, straddlePayload(handId, nick, decision));
+    }
+
+    public static boolean verifyStraddleDecision(byte[] rawPubKey, byte[] handId, String nick, int decision, byte[] sig) {
+        try {
+            return verify(rawPubKey, STRADDLE_DOMAIN, straddlePayload(handId, nick, decision), sig);
+        } catch (IllegalArgumentException ex) {
+            LOGGER.log(Level.WARNING, "verifyStraddleDecision rejected by argument validation: {0}", ex.getMessage());
+            return false;
+        }
+    }
+
     // ===== JOIN_IDENTITY helpers =====
 
     private static final byte[] JOIN_DOMAIN = "JOIN\0".getBytes(StandardCharsets.UTF_8);

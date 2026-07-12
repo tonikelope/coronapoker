@@ -3296,11 +3296,13 @@ public class Helpers {
         if (window == null || !isDialogZoomActive()) {
             return;
         }
-        int design_w = window.getWidth();
-        int design_h = window.getHeight();
         updateFonts(window, GUI_FONT, DIALOG_ZOOM);
         syncTitledBorderFonts(window);
-        window.setSize(Math.round(design_w * DIALOG_ZOOM), Math.round(design_h * DIALOG_ZOOM));
+        // Reempaqueta al contenido ya escalado: la ventana encoge/crece con la letra. Los diálogos
+        // "normales" (sin scroll) quedan ceñidos al contenido. En diálogos con JScrollPane cuyo
+        // contenido tiene anchos PREFERIDOS fijos en el .form, el ancho no baja de ese fijo (ver
+        // NOTA de diseño): esos casos se tratan aparte para que su contenido se recoloque.
+        window.pack();
     }
 
     // Re-sincroniza la fuente del título de cada TitledBorder al font (ya escalado) de su

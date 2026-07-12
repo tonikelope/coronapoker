@@ -1051,6 +1051,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile String deferred_straddle_nick = null;   // host: nick del straddler cuyos 2 slots se retuvieron en el reparto (para la cascada diferida); null si no hay
     private volatile int deferred_straddle_slot = -1;        // índice de anillo (active_crypto_ring) del slot del straddler diferido; -1 si no hay
     private volatile String straddle_decision_verified_nick = null; // responder (cada peer): nick del straddler cuya decisión FIRMADA verificó esta mano; el gate de UNLOCK_PHASE_POCKET_STRADDLE exige que el slot pelado sea el suyo
+    private volatile byte[] pending_remote_straddle_sig = null; // host: firma de la decisión que el cliente straddler mandó en STRADDLE_RESP (para difundirla como STRADDLE_DECISION y correr la cascada diferida)
     private volatile java.util.List<Player> forced_bet_chip_contributors = null; // jugadores cuyas fichas de forzadas (ciegas/straddle/ante) vuelan al bote al arrancar la mano
     private volatile double bote_sobrante = 0;
     private volatile String[] nicks_permutados;
@@ -2204,6 +2205,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Participant sp = GameFrame.getInstance().getParticipantes().get(targetNick);
                     sendGAMECommandToParticipant(sp, "POCKET_DEFERRED#"
                             + Base64.getEncoder().encodeToString(targetNick.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                } else {
+                    // El HOST es el straddler: marca pending para que su fósil (más abajo) salte
+                    // VISUAL@; sus cartas se resuelven en resolveVoluntaryStraddle tras decidir.
+                    this.straddle_cards_pending = true;
                 }
                 continue;
             }
@@ -2517,6 +2522,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                             } catch (Exception e) {
                                 LOGGER.log(Level.WARNING, "Error processing POCKET_CARDS", e);
+                            }
+                        } else if (partes[2].equals("POCKET_DEFERRED") && partes.length >= 4) {
+                            // Straddle CIEGO: soy el UTG que decide a ciegas. El host RETUVO mis 2
+                            // pocket cards (no me manda POCKET_CARDS ahora), así que salgo del bucle
+                            // SIN cartas (ok=true) marcando straddle_cards_pending, y sigo a repartir
+                            // -> resolveVoluntaryStraddle. Tras firmar mi decisión el host corre la
+                            // cascada diferida y me entrega el POCKET_CARDS; entonces resuelvo. Solo
+                            // actúo si el nick soy yo (si no, lo dejo caer: no debería llegarme).
+                            try {
+                                String dnick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
+                                if (dnick.equals(GameFrame.getInstance().getNick_local())) {
+                                    this.straddle_cards_pending = true;
+                                    ok = true;
+                                }
+                            } catch (Exception e) {
+                                LOGGER.log(Level.WARNING, "Malformed POCKET_DEFERRED", e);
                             }
                         } else if (partes[2].equals("MISDEAL") && partes.length >= 4) {
                             // El host aborta la mano: salimos del consumer sin las cartas.
@@ -11011,6 +11032,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // off, heads-up o <=2 activos es un no-op total (camino por defecto byte-idéntico).
 
     private void resolveVoluntaryStraddle() {
+        boolean released_ok = true; // true si no había cartas diferidas que liberar, o se liberaron OK
         try {
             if (!GameFrame.STRADDLE || getJugadoresActivos() <= 2 || isFin_de_la_transmision()) {
                 return;
@@ -11029,6 +11051,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final Player straddler_f = straddler;
             final boolean fresh = (this.game_recovered == 0);
             final boolean local_is_straddler = straddler == GameFrame.getInstance().getLocalPlayer();
+            final boolean host = GameFrame.getInstance().isPartida_local();
 
             // Mano fresca: feedback visual mientras se decide (icono pensativo en el asiento
             // del UTG para los demás + barra del community contando los 5 s). En recover no
@@ -11040,18 +11063,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 startStraddleCountdownBar();
             }
 
-            int decision;
-            if (GameFrame.getInstance().isPartida_local()) {
-                // HOST: autoridad. En fresca decide (diálogo / bot / RESP remoto); en recover
-                // repone la decisión original del fósil. En ambos casos difunde el resultado.
-                decision = fresh ? hostDecideStraddle(straddler_f, local_is_straddler)
-                        : (this.straddle_recovered_posted ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE);
+            int decision = VoluntaryStraddleDialog.NO_STRADDLE;
+            byte[] straddler_sig = null; // firma de la decisión del straddler (para la liberación diferida)
+            if (host) {
+                // HOST: autoridad. En fresca decide (diálogo propio / bot / RESP remoto FIRMADO); en
+                // recover repone del fósil. En ambos casos difunde el resultado canónico.
+                if (fresh) {
+                    if (local_is_straddler) {
+                        decision = promptStraddleLocal(straddler_f);
+                        straddler_sig = signLocalStraddleDecision(decision); // el host firma su propia decisión
+                    } else if (straddler instanceof RemotePlayer && ((RemotePlayer) straddler).getBot() != null) {
+                        decision = botStraddleDecision(straddler_f); // bot: sin cegado (no hay slot diferido)
+                    } else {
+                        decision = waitStraddleRespFromRemote(straddler.getNickname());
+                        straddler_sig = this.pending_remote_straddle_sig; // firma del cliente straddler
+                    }
+                } else {
+                    decision = this.straddle_recovered_posted ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE;
+                }
                 broadcastStraddleResult(decision);
             } else {
-                // CLIENTE: en fresca, si soy el UTG muestro el diálogo y mando mi respuesta;
+                // CLIENTE: en fresca, si soy el UTG muestro el diálogo, FIRMO y mando mi respuesta;
                 // en todo caso (y siempre en recover) espero el resultado canónico del host.
                 if (fresh && local_is_straddler) {
-                    sendStraddleResp(promptStraddleLocal(straddler_f));
+                    int myDecision = promptStraddleLocal(straddler_f);
+                    sendStraddleResp(myDecision, signLocalStraddleDecision(myDecision));
                 }
                 decision = waitStraddleResult();
             }
@@ -11063,7 +11099,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            if (decision == VoluntaryStraddleDialog.POST_STRADDLE && !isFin_de_la_transmision()) {
+            // ===== Liberación CRIPTOGRÁFICA de las cartas del straddler diferido (solo mano fresca) =====
+            // El straddler decidió a ciegas; ahora que su decisión está firmada, cada peer sirve el
+            // desbloqueo de su slot. Se hace SIEMPRE que haya cartas diferidas, sea cual sea la decisión
+            // (POST o NO): el straddler sigue en la mano y necesita ver sus cartas. El host orquesta la
+            // cascada y entrega; el cliente straddler espera su POCKET_CARDS diferido y resuelve.
+            if (fresh && !isFin_de_la_transmision()) {
+                if (host && this.deferred_straddle_slot >= 0) {
+                    released_ok = releaseDeferredStraddlerCardsHost(this.deferred_straddle_nick,
+                            this.deferred_straddle_slot, decision, straddler_sig);
+                } else if (!host && this.straddle_cards_pending && local_is_straddler) {
+                    released_ok = awaitDeferredStraddlerCardsClient();
+                }
+            }
+
+            if (decision == VoluntaryStraddleDialog.POST_STRADDLE && !isFin_de_la_transmision() && released_ok) {
                 // applyStraddlePost vuela primero la ficha ROJA al asiento (bloquea hasta
                 // aterrizar); luego, solo en fresca, vuelan las fichas de dinero al bote
                 // (flaseo amarillo típico). El straddle viejo entraba en apuestas Y bote_total
@@ -11105,27 +11155,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.straddle_local_dialog = null;
             }
 
-            // Revela GARANTIZADO las cartas tapadas del UTG local que repartir dejó boca
-            // abajo. En finally para cubrir CUALQUIER salida (early-return si un jugador se
-            // va y quedan <=2 antes de decidir, excepción, etc.): el UTG local nunca se
-            // queda jugando a ciegas. En recover el flag es false (repartir reveló normal).
-            if (this.straddle_local_cards_deferred) {
+            // Si un straddler diferido NO pudo resolver sus cartas (cascada fallida, un jugador se
+            // fue en la ventana de decisión, firma ausente, timeout...), no puede jugar a ciegas ->
+            // MISDEAL limpio. Cubre al host (slot sin liberar) y al straddler local (cartas pendientes).
+            boolean straddlerStuck = !isFin_de_la_transmision()
+                    && ((GameFrame.getInstance().isPartida_local() && this.deferred_straddle_slot >= 0)
+                        || this.straddle_cards_pending);
+            if (straddlerStuck) {
+                LOGGER.log(Level.SEVERE, "Straddle ciego: no se pudieron liberar las cartas del straddler — MISDEAL");
+                this.deferred_straddle_slot = -1;
+                this.deferred_straddle_nick = null;
+                this.straddle_cards_pending = false;
+                cancelarManoYDevolverApuestas("straddle.deferred_release_failed");
+            } else if (this.straddle_local_cards_deferred) {
+                // Revela GARANTIZADO las cartas tapadas del UTG local que repartir dejó boca abajo
+                // (ya resueltas por la liberación diferida). En finally para cubrir cualquier salida.
+                // En recover el flag es false (repartir reveló normal). Tras revelar, persiste VISUAL@
+                // (que el fósil del reparto saltó por straddle_cards_pending) para el recover.
                 this.straddle_local_cards_deferred = false;
                 revealLocalStraddlerCards();
+                guardarFosilSRA();
             }
         }
-    }
-
-    // El host determina la decisión de straddle del UTG en la mano fresca: diálogo local
-    // si el host es el UTG, heurística si es un bot, o espera del STRADDLE_RESP remoto.
-    private int hostDecideStraddle(Player straddler, boolean local_is_straddler) {
-        if (local_is_straddler) {
-            return promptStraddleLocal(straddler);
-        }
-        if (straddler instanceof RemotePlayer && ((RemotePlayer) straddler).getBot() != null) {
-            return botStraddleDecision(straddler);
-        }
-        return waitStraddleRespFromRemote(straddler.getNickname());
     }
 
     // Heurística del bot UTG: pone el straddle con probabilidad baja (BOT_STRADDLE_PROBABILITY),
@@ -11178,6 +11229,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Host: espera el STRADDLE_RESP del cliente UTG drenando received_commands (re-encola
     // lo que no toca, como runRitVote). Deadline = 5 s + margen; timeout/caída -> NO.
     private int waitStraddleRespFromRemote(String nick) {
+        this.pending_remote_straddle_sig = null;
         long deadline = System.currentTimeMillis() + (STRADDLE_DECISION_TIMEOUT + 4) * 1000L;
         while (!isFin_de_la_transmision() && System.currentTimeMillis() < deadline) {
             synchronized (this.getReceived_commands()) {
@@ -11192,6 +11244,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             int v = Integer.parseInt(partes[4]);
                             if (voter.equals(nick) && (v == VoluntaryStraddleDialog.NO_STRADDLE || v == VoluntaryStraddleDialog.POST_STRADDLE)) {
                                 answer = v;
+                                // Straddle ciego: captura la firma (partes[5]) para difundirla como
+                                // STRADDLE_DECISION y correr la cascada diferida. Puede faltar si el
+                                // straddler no requería cegado (deferred_straddle_slot < 0).
+                                this.pending_remote_straddle_sig = (partes.length >= 6 && !partes[5].isEmpty())
+                                        ? Base64.getDecoder().decode(partes[5]) : null;
                             } else {
                                 rejected.add(cmd);
                             }
@@ -11268,10 +11325,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return VoluntaryStraddleDialog.NO_STRADDLE;
     }
 
-    private void sendStraddleResp(int v) {
+    // Cliente straddler -> host: su decisión + la FIRMA de esa decisión (dominio STRADDLE). El
+    // host la difunde como STRADDLE_DECISION y corre la cascada diferida. sig puede ser null si
+    // esta mano no requería cegado (heads-up/<=2), en cuyo caso viaja vacía.
+    private void sendStraddleResp(int v, byte[] sig) {
         try {
             String myNickB64 = Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
-            sendGAMECommandToServer("STRADDLE_RESP#" + myNickB64 + "#" + v, false);
+            String sigB64 = (sig != null) ? Base64.getEncoder().encodeToString(sig) : "";
+            sendGAMECommandToServer("STRADDLE_RESP#" + myNickB64 + "#" + v + "#" + sigB64, false);
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to send STRADDLE_RESP", e);
         }
@@ -11540,6 +11601,134 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             chainS[j] = ext.wire;
         }
         return true;
+    }
+
+    // HOST: libera las cartas del straddler ciego tras conocer su decisión FIRMADA. Difunde la
+    // decisión (habilita el gate de los clientes), corre la cascada diferida de su slot y ENTREGA
+    // el residuo: si el host es el straddler lo resuelve en local; si es remoto se lo manda por
+    // unicast (su cliente lo resuelve). Devuelve true si quedó resuelto/entregado; false => el
+    // caller hará MISDEAL (un peer se negó, firma inválida, o no se pudo resolver).
+    private boolean releaseDeferredStraddlerCardsHost(String straddlerNick, int straddlerSlot, int decision, byte[] straddlerSig) {
+        if (straddlerNick == null || straddlerSlot < 0) {
+            return false;
+        }
+        if (straddlerSig == null) {
+            LOGGER.log(Level.SEVERE, "Straddle ciego: sin firma de la decisión de {0} — MISDEAL", straddlerNick);
+            return false;
+        }
+        final boolean hostIsStraddler = straddlerNick.equals(GameFrame.getInstance().getNick_local());
+        // Straddler REMOTO: verifica su firma antes de difundirla (un STRADDLE_RESP forjado por un
+        // MitM no cuela). El host straddler firma en local, así que su firma es de fiar.
+        if (!hostIsStraddler && !verifyStraddleDecisionWire(straddlerNick, decision, straddlerSig)) {
+            LOGGER.log(Level.SEVERE, "Straddle ciego: firma inválida de {0} — MISDEAL", straddlerNick);
+            return false;
+        }
+        // Difunde la decisión firmada a los clientes (habilita su gate) + registra el flag local.
+        try {
+            broadcastGAMECommandFromServer("STRADDLE_DECISION#"
+                    + Base64.getEncoder().encodeToString(straddlerNick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                    + "#" + decision
+                    + "#" + Base64.getEncoder().encodeToString(straddlerSig), null, true);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to broadcast STRADDLE_DECISION", e);
+            return false;
+        }
+        recordVerifiedStraddleDecision(straddlerNick);
+        // Cascada diferida (bloquea; los clientes ya vieron STRADDLE_DECISION y sirven el unlock).
+        byte[] residue = resolveDeferredStraddlerResidue(straddlerSlot);
+        if (residue == null) {
+            LOGGER.log(Level.SEVERE, "Straddle ciego: cascada diferida falló para {0} — MISDEAL", straddlerNick);
+            return false;
+        }
+        this.single_locked_pocket_cards.put(straddlerNick, residue);
+        if (hostIsStraddler) {
+            byte[] myPocket = RistrettoSRA.applyCommutativeLock(residue, this.local_sra_unlock);
+            int id1 = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(myPocket, 0, 32));
+            int id2 = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(myPocket, 32, 64));
+            if (id1 < 0 || id2 < 0) {
+                LOGGER.log(Level.SEVERE, "Straddle ciego: el host no pudo resolver sus cartas diferidas — MISDEAL");
+                return false;
+            }
+            this.local_original_cards[0] = (byte) id1;
+            this.local_original_cards[1] = (byte) id2;
+            this.straddle_cards_pending = false;
+        } else {
+            Participant sp = GameFrame.getInstance().getParticipantes().get(straddlerNick);
+            sendGAMECommandToParticipant(sp, "POCKET_CARDS#"
+                    + Base64.getEncoder().encodeToString(straddlerNick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                    + "#" + Base64.getEncoder().encodeToString(residue));
+        }
+        this.deferred_straddle_slot = -1;
+        this.deferred_straddle_nick = null;
+        return true;
+    }
+
+    // CLIENTE straddler: tras firmar su decisión, espera el POCKET_CARDS diferido que el host manda
+    // tras la cascada, y resuelve sus cartas quitando su propio candado. Devuelve true si resolvió;
+    // false (timeout / fin) => el caller hará MISDEAL. Tope generoso, como los REQ de cascada.
+    private boolean awaitDeferredStraddlerCardsClient() {
+        String myNick = GameFrame.getInstance().getNick_local();
+        long deadline = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
+        while (!isFin_de_la_transmision() && System.currentTimeMillis() < deadline) {
+            synchronized (this.getReceived_commands()) {
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                byte[] residue = null;
+                while (!this.getReceived_commands().isEmpty()) {
+                    String comando = this.received_commands.poll();
+                    String[] partes = comando.split("#");
+                    if (partes.length >= 5 && partes[2].equals("POCKET_CARDS")) {
+                        try {
+                            String tnick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            if (tnick.equals(myNick)) {
+                                residue = Base64.getDecoder().decode(partes[4]);
+                            } else {
+                                rejected.add(comando);
+                            }
+                        } catch (Exception e) {
+                            rejected.add(comando);
+                        }
+                    } else {
+                        rejected.add(comando);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+                if (residue != null) {
+                    byte[] myUnlock = this.local_sra_unlock;
+                    if (myUnlock == null) {
+                        Participant p = GameFrame.getInstance().getParticipantes().get(myNick);
+                        if (p != null) {
+                            myUnlock = p.getSra_unlock();
+                        }
+                    }
+                    if (myUnlock == null) {
+                        LOGGER.log(Level.SEVERE, "Straddle ciego: cliente sin unlock para resolver sus cartas diferidas");
+                        return false;
+                    }
+                    this.local_sra_unlock = myUnlock;
+                    this.single_locked_pocket_cards.put(myNick, residue);
+                    byte[] myPocket = RistrettoSRA.applyCommutativeLock(residue, myUnlock);
+                    int id1 = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(myPocket, 0, 32));
+                    int id2 = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(myPocket, 32, 64));
+                    if (id1 < 0 || id2 < 0) {
+                        LOGGER.log(Level.SEVERE, "Straddle ciego: cliente no pudo resolver sus cartas diferidas");
+                        return false;
+                    }
+                    this.local_original_cards[0] = (byte) id1;
+                    this.local_original_cards[1] = (byte) id2;
+                    this.straddle_cards_pending = false;
+                    return true;
+                }
+                try {
+                    this.getReceived_commands().wait(Math.min(WAIT_QUEUES, Math.max(1, deadline - System.currentTimeMillis())));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        return false;
     }
 
     private void destaparCartaComunitaria(int street, ArrayList<Player> resisten) {
@@ -13530,7 +13719,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // recovery se lee como byte=-1 → (byte&0xFF)+1 = 256 →
             // PALOS[19] OOB → error fatal del Crupier. Sólo persistimos si
             // ambos índices son válidos.
-            if (this.local_original_cards != null
+            // Straddle CIEGO: mientras el straddler local no haya resuelto sus cartas
+            // (straddle_cards_pending) NO se persiste VISUAL@ — local_original_cards sigue en
+            // {0,0} (que pasaría el guard de rango y envenenaría el fósil con la carta índice 0).
+            // Tras la cascada diferida + revealLocalStraddlerCards se limpia el flag y un
+            // guardarFosilSRA posterior persiste ya las cartas reales para el recover.
+            if (!this.straddle_cards_pending
+                    && this.local_original_cards != null
                     && this.local_original_cards[0] >= 0 && this.local_original_cards[0] < 52
                     && this.local_original_cards[1] >= 0 && this.local_original_cards[1] < 52) {
                 fosil.append("#VISUAL@").append(this.local_original_cards[0]).append(",").append(this.local_original_cards[1]);

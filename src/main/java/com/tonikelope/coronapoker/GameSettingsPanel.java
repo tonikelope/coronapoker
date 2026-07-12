@@ -81,6 +81,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JLabel blind_cap_label;
     private javax.swing.JCheckBox ante_checkbox;
     private javax.swing.JCheckBox straddle_checkbox;
+    private javax.swing.JLabel straddle_label;
 
     // Tooltips i18n (setTranslatedToolTip => se re-traducen al cambiar idioma) de los controles de
     // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents().
@@ -335,6 +336,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         blind_cap_label = new javax.swing.JLabel();
         ante_checkbox = new javax.swing.JCheckBox();
         straddle_checkbox = new javax.swing.JCheckBox();
+        straddle_label = new javax.swing.JLabel();
 
         // ---------------- Reglas (izquierda, sin subpanel) ----------------
         manos_label.setFont(new java.awt.Font("Dialog", 1, 16));
@@ -550,9 +552,13 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         ante_checkbox.setText("Ante");
         ante_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        straddle_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
-        straddle_checkbox.setText("Straddle");
         straddle_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
+        // Ficha del straddle como los demas iconos de regla (checkbox sin texto + label
+        // con icono y texto). El icono es straddle.png reducido, al tamano de menu (24px).
+        straddle_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        straddle_label.setIcon(new javax.swing.ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_small.png")).getImage().getScaledInstance(24, 24, java.awt.Image.SCALE_SMOOTH)));
+        straddle_label.setText("Straddle");
 
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);
@@ -584,7 +590,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
                         .addComponent(ante_checkbox)
                         .addGap(18, 18, 18)
-                        .addComponent(straddle_checkbox)))
+                        .addComponent(straddle_checkbox)
+                        .addGap(0, 0, 0)
+                        .addComponent(straddle_label)))
                 .addContainerGap())
         );
         ciegas_panelLayout.setVerticalGroup(
@@ -613,7 +621,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(ante_checkbox)
-                    .addComponent(straddle_checkbox))
+                    .addComponent(straddle_checkbox)
+                    .addComponent(straddle_label))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
@@ -840,7 +849,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             double sb = Double.valueOf(v[0].trim());
             double bb = Double.valueOf(v[1].trim());
             ante_checkbox.setText("Ante (" + Helpers.money2String(sb) + ")");
-            straddle_checkbox.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
+            straddle_label.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
         } catch (NumberFormatException ignored) {
         }
     }

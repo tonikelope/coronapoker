@@ -3094,7 +3094,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         javax.swing.JMenu efectos_anim_menu = new javax.swing.JMenu(Translator.translate("menu.animacion_de_cartas"));
         efectos_anim_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         efectos_anim_menu.putClientProperty("i18n.key", "menu.animacion_de_cartas");
-        efectos_anim_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/dealer.png")));
+        efectos_anim_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/fx.png")));
         efectos_anim_menu.add(anim_reparto_menu);
         efectos_anim_menu.add(anim_ciegas_dealer_menu);
         efectos_anim_menu.add(anim_apuestas_menu);

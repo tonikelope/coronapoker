@@ -406,7 +406,7 @@ public class AppearanceSettingsPanel extends JPanel {
             }
         });
         JPanel master_row = naturalRow();
-        master_row.add(new JLabel(icon("/images/menu/camera.png")));
+        master_row.add(new JLabel(icon("/images/menu/fx.png")));
         master_row.add(anim_master);
         addLeft(anim, master_row);
 
@@ -610,7 +610,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // --- Ordenar la mano (cruce animado de tus dos hole cards al ordenarlas, solo Ajustes) ---
         // De él cuelga la velocidad del cruce.
         JPanel swap_group = groupBox();
-        addToGroup(swap_group, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_swap",
+        addToGroup(swap_group, animCheckbox("/images/menu/swap.png", "menu.efectos_animacion_swap",
                 null, "animacion_swap", v -> GameFrame.ANIMACION_SWAP_PREF = v, GameFrame.ANIMACION_SWAP_PREF));
         final JCheckBox swap_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
         // Velocidad del cruce: 3 opciones (lento/normal/rápido). "Normal" = valor por defecto
@@ -692,7 +692,7 @@ public class AppearanceSettingsPanel extends JPanel {
 
             JPanel style_row = naturalRow();
             style_row.add(Box.createHorizontalStrut(36)); // mismo sangrado que la velocidad
-            style_row.add(new JLabel(icon("/images/menu/baraja.png")));
+            style_row.add(new JLabel(icon("/images/menu/swap.png")));
             style_row.add(style_text);
             style_row.add(style_combo);
             addToGroup(swap_group, style_row);

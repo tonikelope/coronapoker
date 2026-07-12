@@ -277,7 +277,7 @@ public class Helpers {
     public static final int DIALOG_ICON_SIZE = 70;
     public static final float MESSAGE_DIALOG_ZOOM = 1.3f;
     // Rango del zoom GLOBAL de diálogos (preferencia del usuario). 1.0 = tamaño de diseño.
-    public static final float DIALOG_ZOOM_MIN = 0.7f;
+    public static final float DIALOG_ZOOM_MIN = 0.5f;
     public static final float DIALOG_ZOOM_MAX = 2.0f;
     public static ArrayList<String> POKER_QUOTES_ES = new ArrayList<>();
     public static ArrayList<String> POKER_QUOTES_EN = new ArrayList<>();

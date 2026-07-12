@@ -3396,23 +3396,13 @@ public class Helpers {
         }
     }
 
-    // Reescala el icono DECORATIVO de un JLabel por DIALOG_ZOOM. Los estáticos (PNG) se reescalan con
-    // getScaledInstance desde el recurso natural (calidad SMOOTH). Un GIF ANIMADO solo se escala
-    // conservando la animación si el label es un GifLabel (estira el GIF a sus bounds en paintComponent,
-    // como las cinemáticas): basta fijar su tamaño preferido escalado. Un GIF en un JLabel normal se
-    // deja a su tamaño natural. No-op a 1.0 o si no hay recurso/icono. Solo para adornos; el contenido
-    // gráfico (cartas, imágenes) se escala aparte.
+    // Reescala el icono DECORATIVO de un JLabel a (tamaño natural del recurso × DIALOG_ZOOM). Reusa
+    // setScaledIconLabel, que usa Image.SCALE_DEFAULT para GIF (CONSERVA la animación) y SCALE_SMOOTH
+    // para el resto: es el mecanismo estándar del proyecto para escalar iconos, incluidos GIF animados
+    // (p. ej. el logo giratorio del About). No-op a 1.0 o si no hay recurso. Solo para adornos; el
+    // contenido gráfico (cartas, imágenes) se escala aparte.
     public static void scaleDialogIcon(JLabel label, String resource) {
         if (label == null || resource == null || !isDialogZoomActive()) {
-            return;
-        }
-        if (resource.toLowerCase().endsWith(".gif")) {
-            javax.swing.Icon current = label.getIcon();
-            if (current != null && label instanceof GifLabel) {
-                label.setPreferredSize(new java.awt.Dimension(
-                        Math.round(current.getIconWidth() * DIALOG_ZOOM),
-                        Math.round(current.getIconHeight() * DIALOG_ZOOM)));
-            }
             return;
         }
         java.net.URL url = Helpers.class.getResource(resource);

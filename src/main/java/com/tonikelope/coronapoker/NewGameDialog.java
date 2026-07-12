@@ -565,6 +565,7 @@ public class NewGameDialog extends JDialog {
         blind_cap_label = new javax.swing.JLabel();
         ante_checkbox = new javax.swing.JCheckBox();
         straddle_checkbox = new javax.swing.JCheckBox();
+        straddle_icon = new javax.swing.JLabel();
         compra_panel = new javax.swing.JPanel();
         buyin_label = new javax.swing.JLabel();
         buyin_spinner = new javax.swing.JSpinner();
@@ -918,10 +919,13 @@ public class NewGameDialog extends JDialog {
         ante_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ante_checkbox.setDoubleBuffered(true);
 
-        straddle_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        straddle_checkbox.setText("Straddle");
         straddle_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         straddle_checkbox.setDoubleBuffered(true);
+
+        straddle_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        straddle_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_24.png"))); // NOI18N
+        straddle_icon.setText("Straddle");
+        straddle_icon.setDoubleBuffered(true);
 
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);
@@ -942,7 +946,9 @@ public class NewGameDialog extends JDialog {
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
                         .addComponent(ante_checkbox)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(straddle_checkbox)))
+                        .addComponent(straddle_checkbox)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(straddle_icon)))
                 .addContainerGap())
         );
         ciegas_panelLayout.setVerticalGroup(
@@ -961,7 +967,8 @@ public class NewGameDialog extends JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(ante_checkbox)
-                    .addComponent(straddle_checkbox))
+                    .addComponent(straddle_checkbox)
+                    .addComponent(straddle_icon))
                 .addContainerGap())
         );
 
@@ -2198,7 +2205,7 @@ public class NewGameDialog extends JDialog {
             double sb = Double.valueOf(v[0].trim());
             double bb = Double.valueOf(v[1].trim());
             ante_checkbox.setText("Ante (" + Helpers.money2String(sb) + ")");
-            straddle_checkbox.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
+            straddle_icon.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
         } catch (NumberFormatException ignored) {
         }
     }
@@ -3102,6 +3109,7 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JLabel server_port_puntos;
     private javax.swing.JTextField server_port_textfield;
     private javax.swing.JCheckBox straddle_checkbox;
+    private javax.swing.JLabel straddle_icon;
     private javax.swing.JLabel titulo_ventana;
     private javax.swing.JCheckBox upnp_checkbox;
     private javax.swing.JPanel url_panel;

@@ -398,6 +398,8 @@ public class NewGameDialog extends JDialog {
 
         updateAnteStraddleLabels();
 
+        Helpers.scaleIcons(this, Helpers.DIALOG_ZOOM);
+
         revalidate();
         repaint();
 

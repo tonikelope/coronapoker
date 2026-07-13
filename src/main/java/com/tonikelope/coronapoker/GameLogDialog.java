@@ -804,6 +804,7 @@ public final class GameLogDialog extends JDialog {
         Helpers.JTextFieldRegularPopupMenu.addTo(log_pane);
 
         Helpers.updateFonts(jMenuBar1, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
+        Helpers.scaleIcons(jMenuBar1, Helpers.DIALOG_ZOOM);
 
         Helpers.translateComponents(this, false);
 

@@ -182,7 +182,7 @@ public class RebuyDialog extends JDialog {
 
         ok_button.requestFocus();
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
+        Helpers.applyDialogZoom(this);
 
         Helpers.translateComponents(this, false);
 

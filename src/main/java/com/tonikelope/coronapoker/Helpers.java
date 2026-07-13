@@ -3415,6 +3415,77 @@ public class Helpers {
         setScaledIconLabel(label, url, w, h);
     }
 
+    // Reescala por el factor el icono (ImageIcon) de todos los JLabel y AbstractButton (botones,
+    // checkboxes, radios, items de menú) descendientes: fichas junto a checkboxes, iconos de menú,
+    // iconos de botón, avatares. Para el zoom de diálogos, de modo que los iconos encojan/crezcan con
+    // la fuente y la ventana se ajuste al hacer pack. Solo el icono PRINCIPAL (los estados
+    // seleccionado/pulsado/deshabilitado los deriva Nimbus). No idempotente (una pasada por instancia
+    // fresca, igual que updateFonts). No-op a 1.0. OJO: es genérico, así que NO usarlo en diálogos cuyo
+    // CONTENIDO sea una imagen en un JLabel (p. ej. ChatImageDialog): escalaría también la imagen.
+    public static void scaleIcons(Container container, float factor) {
+        if (container == null || Math.abs(factor - 1f) < 0.01f) {
+            return;
+        }
+        scaleIconsRec(container, factor);
+    }
+
+    private static void scaleIconsRec(Component c, float factor) {
+        if (c instanceof javax.swing.AbstractButton) {
+            javax.swing.Icon scaled = scaleImageIcon(((javax.swing.AbstractButton) c).getIcon(), factor);
+            if (scaled != null) {
+                ((javax.swing.AbstractButton) c).setIcon(scaled);
+            }
+        } else if (c instanceof JLabel) {
+            javax.swing.Icon scaled = scaleImageIcon(((JLabel) c).getIcon(), factor);
+            if (scaled != null) {
+                ((JLabel) c).setIcon(scaled);
+            }
+        }
+        if (c instanceof javax.swing.JMenu) {
+            for (Component ch : ((javax.swing.JMenu) c).getMenuComponents()) {
+                scaleIconsRec(ch, factor);
+            }
+        } else if (c instanceof Container) {
+            for (Component ch : ((Container) c).getComponents()) {
+                scaleIconsRec(ch, factor);
+            }
+        }
+    }
+
+    // Copia del ImageIcon reescalada (natural × factor), o null si no hay que tocar nada (no es
+    // ImageIcon o no tiene imagen). SCALE_SMOOTH; los GIF animados se escalan aparte con scaleDialogIcon.
+    private static javax.swing.Icon scaleImageIcon(javax.swing.Icon icon, float factor) {
+        if (!(icon instanceof ImageIcon)) {
+            return null;
+        }
+        ImageIcon ii = (ImageIcon) icon;
+        java.awt.Image img = ii.getImage();
+        if (img == null || ii.getIconWidth() <= 0 || ii.getIconHeight() <= 0) {
+            return null;
+        }
+        int w = Math.max(1, Math.round(ii.getIconWidth() * factor));
+        int h = Math.max(1, Math.round(ii.getIconHeight() * factor));
+        return new ImageIcon(img.getScaledInstance(w, h, java.awt.Image.SCALE_SMOOTH));
+    }
+
+    // Escala fuentes + iconos decorativos + títulos de TitledBorder de un diálogo por DIALOG_ZOOM, SIN
+    // redimensionar la ventana (cada diálogo hace su propio pack/clamp después: al escalar el contenido
+    // hacia abajo, su pack encoge la ventana y cabe en resoluciones menores). A 100% solo aplica la
+    // familia GUI_FONT (idéntico a updateFonts(w, GUI_FONT, null), que es lo que hacían los diálogos, así
+    // que 100% = diseño). NO toca el zoom de la MESA. NO usar en diálogos cuyo contenido sea una imagen
+    // (escalaría iconos de contenido); esos van con updateFonts a secas.
+    public static void applyDialogZoom(java.awt.Window window) {
+        if (window == null) {
+            return;
+        }
+        boolean active = isDialogZoomActive();
+        updateFonts(window, GUI_FONT, active ? DIALOG_ZOOM : null);
+        if (active) {
+            scaleIcons(window, DIALOG_ZOOM);
+            syncTitledBorderFonts(window);
+        }
+    }
+
     // Aplica la fuente base a TODOS los componentes descendientes al MISMO tamaño
     // (conservando el estilo bold/plain de cada uno). A diferencia de updateFonts
     // (que escala el tamaño existente de cada control), aquí todos quedan al MISMO
@@ -5252,6 +5323,7 @@ public class Helpers {
             popup.add(selectAll);
 
             Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(DIALOG_ZOOM));
+            Helpers.scaleIcons(popup, DIALOG_ZOOM);
             txtField.setComponentPopupMenu(popup);
         }
 
@@ -5320,6 +5392,7 @@ public class Helpers {
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
             Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(DIALOG_ZOOM));
+            Helpers.scaleIcons(popup, DIALOG_ZOOM);
             txtArea.setComponentPopupMenu(popup);
         }
 
@@ -5388,6 +5461,7 @@ public class Helpers {
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
             Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(DIALOG_ZOOM));
+            Helpers.scaleIcons(popup, DIALOG_ZOOM);
             txtArea.setComponentPopupMenu(popup);
         }
 

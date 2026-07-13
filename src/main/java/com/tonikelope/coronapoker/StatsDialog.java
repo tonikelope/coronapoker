@@ -477,7 +477,7 @@ public class StatsDialog extends JFrame {
         purge_button_group.add(unprivate_all_button);
 
         Font original_dialog_font = res_table.getFont();
-        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
+        Helpers.applyDialogZoom(this);
         Helpers.translateComponents(this, false);
 
         // Los dos checkboxes de sync, un pelín más grandes que el resto del diálogo.

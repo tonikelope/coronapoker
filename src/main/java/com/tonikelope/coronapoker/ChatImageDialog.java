@@ -121,7 +121,7 @@ public class ChatImageDialog extends JDialog {
             Helpers.barraIndeterminada(barra);
         }
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
         Helpers.translateComponents(this, false);
         pack();
         setSize(getWidth(), h);
@@ -355,9 +355,10 @@ public class ChatImageDialog extends JDialog {
 
                             isgif = GIF_CACHE.containsKey(url);
 
-                            if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
+                            int max_w = Math.round(ChatImageDialog.MAX_IMAGE_WIDTH * Helpers.DIALOG_ZOOM);
+                            if (image.getIconWidth() > max_w) {
                                 isgif = (isgif || Helpers.isImageGIF(new URL(url)));
-                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                image = new ImageIcon(image.getImage().getScaledInstance(max_w, (int) Math.round((image.getIconHeight() * max_w) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                             }
 
                             Helpers.GUIRun(() -> {

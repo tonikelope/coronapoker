@@ -135,6 +135,7 @@ public class SettingsDialog extends JDialog {
                 waiting_panel.applyToGame();
             }
             appearance_panel.applyPendingDisplayMode();
+            appearance_panel.applyPendingDialogZoom();
             dispose();
         });
 

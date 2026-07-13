@@ -323,7 +323,7 @@ public class WaitingRoomFrame extends JFrame {
 
         if (sala != null) {
             Helpers.GUIRun(() -> {
-                Helpers.setScaledIconLabel(sala.sound_icon, WaitingRoomFrame.class.getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+                Helpers.setScaledIconLabel(sala.sound_icon, WaitingRoomFrame.class.getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), Math.round(30 * Helpers.DIALOG_ZOOM), Math.round(30 * Helpers.DIALOG_ZOOM));
             });
         }
     }
@@ -1084,7 +1084,7 @@ public class WaitingRoomFrame extends JFrame {
         }
 
         Helpers.setScaledIconLabel(sound_icon,
-                getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+                getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), Math.round(30 * Helpers.DIALOG_ZOOM), Math.round(30 * Helpers.DIALOG_ZOOM));
 
         kick_user.setEnabled(false);
 
@@ -1097,7 +1097,7 @@ public class WaitingRoomFrame extends JFrame {
         image_button.setToolTipText(Translator.translate("tooltip.send_image"));
         sound_icon.setToolTipText(Translator.translate("sound.click_para_activardesactivar_el_sonido"));
 
-        Helpers.setScaledBlackIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), 30, 30);
+        Helpers.setScaledBlackIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), Math.round(30 * Helpers.DIALOG_ZOOM), Math.round(30 * Helpers.DIALOG_ZOOM));
         settings_icon.setToolTipText(Translator.translate("settings.ajustes"));
 
         if (avatar != null) {
@@ -1221,7 +1221,10 @@ public class WaitingRoomFrame extends JFrame {
         // cabe en la altura elegida, el main_scroll_panel cubre el resto.
         int packed_h = getHeight();
         int screen_h = (int) Toolkit.getDefaultToolkit().getScreenSize().getHeight();
-        int screen_70 = Math.round(screen_h * 0.7f);
+        // El alto "extra" (70% de pantalla) también sigue el zoom de diálogos: si no, al encoger el
+        // contenido la ventana seguiría a 70% de pantalla y el chat se estiraría para rellenar (área
+        // enorme y vacía). A 100% es 0.7 (idéntico al diseño).
+        int screen_70 = Math.round(screen_h * 0.7f * Helpers.DIALOG_ZOOM);
         int h = (screen_70 > packed_h) ? screen_70 : Math.min(packed_h, Math.round(screen_h * 0.9f));
 
         if (w != getWidth() || h != getHeight()) {
@@ -5727,7 +5730,7 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.savePropertiesFile();
 
         Helpers.setScaledIconLabel(sound_icon,
-                getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+                getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), Math.round(30 * Helpers.DIALOG_ZOOM), Math.round(30 * Helpers.DIALOG_ZOOM));
 
         if (!GameFrame.SONIDOS) {
 
@@ -6147,7 +6150,7 @@ public class WaitingRoomFrame extends JFrame {
         }
 
         Helpers.setScaledIconLabel(sound_icon,
-                getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+                getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), Math.round(30 * Helpers.DIALOG_ZOOM), Math.round(30 * Helpers.DIALOG_ZOOM));
 
         if (!chat_text.toString().isEmpty()) {
             refreshChatPanel();

@@ -1213,6 +1213,7 @@ public class Helpers {
             public void run() {
                 try {
                     label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+                    label.putClientProperty("cp_scaled_icon", Boolean.TRUE);
 
                 } catch (MalformedURLException ex) {
                     Logger.getLogger(Helpers.class
@@ -1260,6 +1261,7 @@ public class Helpers {
             @Override
             public void run() {
                 label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+                label.putClientProperty("cp_scaled_icon", Boolean.TRUE);
             }
         });
     }
@@ -1298,6 +1300,7 @@ public class Helpers {
                 g.fillRect(0, 0, width, height);
                 g.dispose();
                 label.setIcon(new ImageIcon(bi));
+                label.putClientProperty("cp_scaled_icon", Boolean.TRUE);
             }
         });
     }
@@ -1311,6 +1314,7 @@ public class Helpers {
             public void run() {
                 try {
                     label.setIcon(new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)).getImage(), 20)));
+                    label.putClientProperty("cp_scaled_icon", Boolean.TRUE);
 
                 } catch (MalformedURLException ex) {
                     Logger.getLogger(Helpers.class
@@ -1328,6 +1332,7 @@ public class Helpers {
             @Override
             public void run() {
                 label.setIcon(new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)).getImage(), 20)));
+                label.putClientProperty("cp_scaled_icon", Boolean.TRUE);
             }
         });
     }
@@ -1340,6 +1345,7 @@ public class Helpers {
             public void run() {
                 try {
                     button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+                    button.putClientProperty("cp_scaled_icon", Boolean.TRUE);
 
                 } catch (MalformedURLException ex) {
                     Logger.getLogger(Helpers.class
@@ -1356,6 +1362,7 @@ public class Helpers {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+                button.putClientProperty("cp_scaled_icon", Boolean.TRUE);
             }
         });
     }
@@ -3434,15 +3441,23 @@ public class Helpers {
     }
 
     private static void scaleIconsRec(Component c, float factor) {
-        if (c instanceof javax.swing.AbstractButton) {
-            javax.swing.Icon scaled = scaleImageIcon(((javax.swing.AbstractButton) c).getIcon(), factor);
-            if (scaled != null) {
-                ((javax.swing.AbstractButton) c).setIcon(scaled);
-            }
-        } else if (c instanceof JLabel) {
-            javax.swing.Icon scaled = scaleImageIcon(((JLabel) c).getIcon(), factor);
-            if (scaled != null) {
-                ((JLabel) c).setIcon(scaled);
+        // Los iconos puestos por los helpers setScaled* (avatares, altavoz, engranaje, iconos de botón,
+        // etc.) se marcan con "cp_scaled_icon" y se ESCALAN EN ORIGEN (su tamaño ya sale × zoom, o va
+        // ligado a la altura del componente). NO re-escalarlos aquí: evita doble escala y el recorte al
+        // re-ponerlos (p. ej. el toggle del altavoz). Aquí solo se escalan los iconos INLINE del .form.
+        boolean managed = (c instanceof javax.swing.JComponent)
+                && Boolean.TRUE.equals(((javax.swing.JComponent) c).getClientProperty("cp_scaled_icon"));
+        if (!managed) {
+            if (c instanceof javax.swing.AbstractButton) {
+                javax.swing.Icon scaled = scaleImageIcon(((javax.swing.AbstractButton) c).getIcon(), factor);
+                if (scaled != null) {
+                    ((javax.swing.AbstractButton) c).setIcon(scaled);
+                }
+            } else if (c instanceof JLabel) {
+                javax.swing.Icon scaled = scaleImageIcon(((JLabel) c).getIcon(), factor);
+                if (scaled != null) {
+                    ((JLabel) c).setIcon(scaled);
+                }
             }
         }
         if (c instanceof javax.swing.JMenu) {
@@ -4024,13 +4039,13 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
+            JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(Math.round(DIALOG_ICON_SIZE * DIALOG_ZOOM), Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) * DIALOG_ZOOM / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
 
         } else {
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-                    JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
+                    JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(Math.round(DIALOG_ICON_SIZE * DIALOG_ZOOM), Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) * DIALOG_ZOOM / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
 
                 }
             });
@@ -4058,7 +4073,7 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            return JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
+            return JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(Math.round(DIALOG_ICON_SIZE * DIALOG_ZOOM), Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) * DIALOG_ZOOM / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
 
         } else {
 
@@ -4068,7 +4083,7 @@ public class Helpers {
                 @Override
                 public void run() {
 
-                    res[0] = JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
+                    res[0] = JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(Math.round(DIALOG_ICON_SIZE * DIALOG_ZOOM), Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) * DIALOG_ZOOM / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
                 }
             });
 

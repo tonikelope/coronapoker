@@ -116,7 +116,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         JPanel structures_panel = new JPanel(new BorderLayout(0, 5));
         structures_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("blinds.estructuras")));
         JScrollPane list_scroll = new JScrollPane(structure_list);
-        list_scroll.setPreferredSize(new Dimension(220, 240));
+        list_scroll.setPreferredSize(new Dimension(Math.round(220 * Helpers.DIALOG_ZOOM), Math.round(240 * Helpers.DIALOG_ZOOM)));
         structures_panel.add(list_scroll, BorderLayout.CENTER);
         structures_panel.add(structure_buttons, BorderLayout.SOUTH);
 
@@ -142,7 +142,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         levels_border = BorderFactory.createTitledBorder(Translator.translate("blinds.niveles"));
         levels_panel.setBorder(levels_border);
         JScrollPane table_scroll = new JScrollPane(levels_table);
-        table_scroll.setPreferredSize(new Dimension(240, 240));
+        table_scroll.setPreferredSize(new Dimension(Math.round(240 * Helpers.DIALOG_ZOOM), Math.round(240 * Helpers.DIALOG_ZOOM)));
         levels_panel.add(table_scroll, BorderLayout.CENTER);
         levels_panel.add(level_buttons, BorderLayout.SOUTH);
 
@@ -161,7 +161,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         center.add(levels_panel, BorderLayout.CENTER);
 
         JPanel content = new JPanel(new BorderLayout(10, 10));
-        content.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        content.setBorder(BorderFactory.createEmptyBorder(Math.round(15 * Helpers.DIALOG_ZOOM), Math.round(15 * Helpers.DIALOG_ZOOM), Math.round(15 * Helpers.DIALOG_ZOOM), Math.round(15 * Helpers.DIALOG_ZOOM)));
         content.add(center, BorderLayout.CENTER);
         content.add(button_panel, BorderLayout.SOUTH);
         setContentPane(content);

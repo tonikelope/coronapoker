@@ -138,7 +138,7 @@ public class VoluntaryStraddleDialog extends JDialog {
         }
 
         gbc.gridy++;
-        barra.setPreferredSize(new Dimension(220, 22));
+        barra.setPreferredSize(new Dimension(Math.round(220 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM)));
         panel.add(barra, gbc);
 
         // Botones lado a lado: PONER (verde) a la izquierda, NO (rojo) a la derecha.

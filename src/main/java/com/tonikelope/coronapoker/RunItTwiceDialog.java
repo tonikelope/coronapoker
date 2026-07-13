@@ -165,8 +165,8 @@ public class RunItTwiceDialog extends JDialog {
         buttons.add(rit_button);
         buttons.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        barra.setPreferredSize(new Dimension(620, 38));
-        barra.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        barra.setPreferredSize(new Dimension(Math.round(620 * Helpers.DIALOG_ZOOM), Math.round(38 * Helpers.DIALOG_ZOOM)));
+        barra.setMaximumSize(new Dimension(Integer.MAX_VALUE, Math.round(38 * Helpers.DIALOG_ZOOM)));
         barra.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         panel.add(javax.swing.Box.createVerticalStrut(8));

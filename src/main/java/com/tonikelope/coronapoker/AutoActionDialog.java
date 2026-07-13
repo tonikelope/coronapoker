@@ -135,7 +135,7 @@ public class AutoActionDialog extends JDialog {
         }
 
         gbc.gridy++;
-        barra.setPreferredSize(new Dimension(275, 26));
+        barra.setPreferredSize(new Dimension(Math.round(275 * Helpers.DIALOG_ZOOM), Math.round(26 * Helpers.DIALOG_ZOOM)));
         panel.add(barra, gbc);
 
         gbc.gridy++;

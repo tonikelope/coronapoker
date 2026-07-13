@@ -248,6 +248,10 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.updateCoronaDialogsFont();
             persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
         });
+        // El zoom de diálogos SOLO se cambia desde el menú de INICIO (gf == null). En partida cambiarlo
+        // no refrescaría los diálogos ya abiertos ni la propia sala/mesa, así que se muestra pero
+        // deshabilitado.
+        dialog_zoom_spinner.setEnabled(gf == null);
         addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.dialog_zoom_pct", dialog_zoom_spinner));
 
         // "Pantalla y zoom" es más corta que la columna derecha y se estira para igualarla;

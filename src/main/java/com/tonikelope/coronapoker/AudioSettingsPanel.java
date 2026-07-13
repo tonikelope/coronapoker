@@ -143,7 +143,7 @@ public class AudioSettingsPanel extends JPanel {
     public AudioSettingsPanel() {
 
         super(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        setBorder(BorderFactory.createEmptyBorder(Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM)));
 
         snap_master_volume = Audio.MASTER_VOLUME;
         snap_sonidos = GameFrame.SONIDOS;
@@ -412,12 +412,12 @@ public class AudioSettingsPanel extends JPanel {
         // Ambos con el icono de micrófono (van vía iconRow, que ya los alinea a la izq).
         notes_panel.add(Box.createVerticalGlue());
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
-        notes_panel.add(Box.createVerticalStrut(6));
+        notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), notes_local_checkbox));
-        notes_panel.add(Box.createVerticalStrut(8));
+        notes_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(voice_key_panel);
         notes_panel.add(play_own_checkbox);
-        notes_panel.add(Box.createVerticalStrut(5));
+        notes_panel.add(Box.createVerticalStrut(Math.round(5 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(retention_panel);
         notes_panel.add(purge_panel);
         notes_panel.add(Box.createVerticalGlue());
@@ -437,7 +437,7 @@ public class AudioSettingsPanel extends JPanel {
         // ambas con el icono de voz (van vía iconRow, que ya las alinea a la izquierda).
         tts_panel.add(Box.createVerticalGlue());
         tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_checkbox));
-        tts_panel.add(Box.createVerticalStrut(6));
+        tts_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_local_checkbox));
         tts_panel.add(Box.createVerticalGlue());
 
@@ -464,16 +464,16 @@ public class AudioSettingsPanel extends JPanel {
         left_col.setLayout(new BoxLayout(left_col, BoxLayout.Y_AXIS));
         left_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
         left_col.add(sound_music_panel);
-        left_col.add(Box.createVerticalStrut(8));
+        left_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
         left_col.add(output_panel);
-        left_col.add(Box.createVerticalStrut(8));
+        left_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
         left_col.add(mic_panel);
 
         JPanel right_col = new JPanel();
         right_col.setLayout(new BoxLayout(right_col, BoxLayout.Y_AXIS));
         right_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
         right_col.add(notes_panel);
-        right_col.add(Box.createVerticalStrut(8));
+        right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
         right_col.add(tts_panel);
         // Sin separador entre tts_panel y la nota global: así tts_panel es el último elemento
         // efectivo de la columna (la nota es invisible fuera de partida) y su borde inferior llega
@@ -736,7 +736,7 @@ public class AudioSettingsPanel extends JPanel {
         control.setAlignmentY(JComponent.CENTER_ALIGNMENT);
 
         row.add(icon_label);
-        row.add(Box.createHorizontalStrut(6));
+        row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         row.add(control);
         row.add(Box.createHorizontalGlue());
 

@@ -69,7 +69,11 @@ public final class StatsCharts {
     // (títulos, etiquetas de ejes, números sobre las barras, nombres de jugador,
     // ejes del radar...). 1.0 = tamaños originales. Se controla en vivo desde el
     // spinner del StatsDialog (setFontScale + refresco de la gráfica).
-    private static volatile float FONT_SCALE = 1.3f;
+    // Escala base de diseño (1.3). El default efectivo al abrir Estadísticas = DEFAULT_FONT_SCALE ×
+    // Helpers.DIALOG_ZOOM (lo fija StatsDialog), para que el zoom por defecto de las gráficas siga el
+    // zoom de diálogos. El spinner "Global Chart Zoom" lo puede reajustar a mano.
+    public static final float DEFAULT_FONT_SCALE = 1.3f;
+    private static volatile float FONT_SCALE = DEFAULT_FONT_SCALE;
 
     public static float getFontScale() {
         return FONT_SCALE;

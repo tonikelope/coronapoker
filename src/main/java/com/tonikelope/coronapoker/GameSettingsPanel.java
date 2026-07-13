@@ -343,6 +343,16 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         manos_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
         manos_label.setText("Límite de manos:");
         manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
+        manos_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        manos_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                if (!Helpers.isRealClick(evt)) {
+                    return;
+                }
+                manos_checkbox.doClick();
+            }
+        });
 
         manos_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         manos_checkbox.addActionListener(new java.awt.event.ActionListener() {
@@ -370,6 +380,16 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         iwtsth_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png")));
         iwtsth_label.setText("Regla IWTSTH");
         iwtsth_label.putClientProperty("i18n.key", "menu.regla_iwtsth");
+        iwtsth_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        iwtsth_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                if (!Helpers.isRealClick(evt)) {
+                    return;
+                }
+                iwtsth_checkbox.doClick();
+            }
+        });
 
         iwtsth_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
@@ -377,6 +397,16 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         rit_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")));
         rit_label.setText("ALL-IN Run-it-twice");
         rit_label.putClientProperty("i18n.key", "menu.regla_run_it_twice");
+        rit_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rit_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                if (!Helpers.isRealClick(evt)) {
+                    return;
+                }
+                rit_checkbox.doClick();
+            }
+        });
 
         rit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
@@ -559,6 +589,16 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         straddle_label.setFont(new java.awt.Font("Dialog", 1, 16));
         straddle_label.setIcon(new javax.swing.ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_small.png")).getImage().getScaledInstance(24, 24, java.awt.Image.SCALE_SMOOTH)));
         straddle_label.setText("Straddle");
+        straddle_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        straddle_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                if (!Helpers.isRealClick(evt)) {
+                    return;
+                }
+                straddle_checkbox.doClick();
+            }
+        });
 
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);

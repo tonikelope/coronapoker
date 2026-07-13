@@ -97,8 +97,8 @@ public class SessionIdenticonMosaicDialog extends JDialog {
                 Math.min(content.height + 24, Math.round(screen.height * 0.9f))));
 
         JLabel explanation = new JLabel(
-                "<html><body style='width: 520px; text-align: center; "
-                + "font-family: sans-serif; font-size: 13pt; padding: 10px;'>"
+                "<html><body style='width: " + Math.round(520 * IdenticonDialog.FONT_BUMP * Helpers.DIALOG_ZOOM) + "px; text-align: center; "
+                + "font-family: sans-serif; font-size: " + Math.round(IdenticonDialog.idf(13f)) + "pt; padding: " + Math.round(10 * Helpers.DIALOG_ZOOM) + "px;'>"
                 + Translator.translate("ui.identicon.session_explicacion")
                 + "</body></html>", SwingConstants.CENTER);
         explanation.setOpaque(true);
@@ -122,19 +122,20 @@ public class SessionIdenticonMosaicDialog extends JDialog {
 
         String channelLabel = hostNick != null ? e.nick + " ↔ " + hostNick : e.nick;
         JLabel nickLabel = new JLabel(channelLabel, SwingConstants.CENTER);
-        nickLabel.setFont(nickLabel.getFont().deriveFont(java.awt.Font.BOLD, 22f));
+        nickLabel.setFont(nickLabel.getFont().deriveFont(java.awt.Font.BOLD, IdenticonDialog.idf(22f)));
         tile.add(nickLabel, BorderLayout.NORTH);
 
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(
                     e.aesKey != null ? e.aesKey.getEncoded() : new byte[0]);
-            ImageIcon icon = new ImageIcon(IdenticonDialog.generateIdenticon(hash, TILE_PX, TILE_PX));
+            int tile_px = Math.round(TILE_PX * Helpers.DIALOG_ZOOM);
+            ImageIcon icon = new ImageIcon(IdenticonDialog.generateIdenticon(hash, tile_px, tile_px));
             JLabel iconLabel = new JLabel(icon, SwingConstants.CENTER);
             tile.add(iconLabel, BorderLayout.CENTER);
 
             JLabel fp = new JLabel(IdenticonDialog.formatFullFingerprint(hash),
                     SwingConstants.CENTER);
-            fp.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 14));
+            fp.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, Math.round(IdenticonDialog.idf(14f))));
             tile.add(fp, BorderLayout.SOUTH);
         } catch (Exception ex) {
             tile.add(new JLabel("?", SwingConstants.CENTER), BorderLayout.CENTER);

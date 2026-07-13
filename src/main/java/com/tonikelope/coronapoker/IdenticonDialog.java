@@ -79,6 +79,15 @@ public class IdenticonDialog extends JDialog {
     private final byte[] pubkeyForVerify;
     private BufferedImage identiconImage;
 
+    // La fuente base de este diálogo se sube un nivel (× FONT_BUMP, se veía pequeña a 100 %) y sigue el
+    // zoom de diálogos. El identicon (imagen de seguridad) y los espacios escalan solo con el zoom.
+    static final float FONT_BUMP = 1.2f;
+
+    // base × bump × zoom. Package-static: lo reutiliza SessionIdenticonMosaicDialog.
+    static float idf(float base) {
+        return base * FONT_BUMP * Helpers.DIALOG_ZOOM;
+    }
+
     /**
      * Legacy constructor for session AES identicons (host vs client channel).
      * Mode: SESSION (no verify button).
@@ -113,7 +122,7 @@ public class IdenticonDialog extends JDialog {
             initComponents();
             setTitle(nick);
 
-            int SIZE = Math.round(parent.getHeight() * 0.3f);
+            int SIZE = Math.round(parent.getHeight() * 0.3f * Helpers.DIALOG_ZOOM);
             while (SIZE % GRID != 0) {
                 SIZE--;
             }
@@ -127,11 +136,11 @@ public class IdenticonDialog extends JDialog {
             icon_label.setHorizontalAlignment(SwingConstants.CENTER);
             icon_label.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
             icon_panel.setPreferredSize(new Dimension(icon.getIconWidth(), icon.getIconHeight()));
-            icon_panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(14, 18, 14, 18));
+            icon_panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(14 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(14 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM)));
 
             // ===== NORTH: big centered nick =====
             JLabel nickLabel = new JLabel(nick, SwingConstants.CENTER);
-            nickLabel.setFont(nickLabel.getFont().deriveFont(java.awt.Font.BOLD, 22f));
+            nickLabel.setFont(nickLabel.getFont().deriveFont(java.awt.Font.BOLD, idf(22f)));
             nickLabel.setBorder(javax.swing.BorderFactory.createEmptyBorder(14, 10, 6, 10));
             nickLabel.setOpaque(true);
             nickLabel.setBackground(Color.WHITE);
@@ -145,7 +154,7 @@ public class IdenticonDialog extends JDialog {
             //              button (always available regardless of mode).
             String fp = formatFullFingerprint(hash);
             JLabel fingerprintLabel = new JLabel(fp, SwingConstants.CENTER);
-            fingerprintLabel.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 14));
+            fingerprintLabel.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, Math.round(idf(14f))));
             fingerprintLabel.setOpaque(true);
             fingerprintLabel.setBackground(Color.WHITE);
             fingerprintLabel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -200,8 +209,8 @@ public class IdenticonDialog extends JDialog {
         panel.setBackground(Color.WHITE);
         panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 14, 6, 14));
 
-        String hintHtml = "<html><body style='width: 380px; text-align: justify; "
-                + "font-family: sans-serif; font-size: 13pt;'>"
+        String hintHtml = "<html><body style='width: " + Math.round(380 * FONT_BUMP * Helpers.DIALOG_ZOOM) + "px; text-align: justify; "
+                + "font-family: sans-serif; font-size: " + Math.round(idf(13f)) + "pt;'>"
                 + Translator.translate("ui.identicon.self_explicacion")
                 + "</body></html>";
         JLabel hintLabel = new JLabel(hintHtml, SwingConstants.CENTER);
@@ -221,8 +230,8 @@ public class IdenticonDialog extends JDialog {
         panel.setBackground(Color.WHITE);
         panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 14, 6, 14));
 
-        String hintHtml = "<html><body style='width: 380px; text-align: justify; "
-                + "font-family: sans-serif; font-size: 13pt;'>"
+        String hintHtml = "<html><body style='width: " + Math.round(380 * FONT_BUMP * Helpers.DIALOG_ZOOM) + "px; text-align: justify; "
+                + "font-family: sans-serif; font-size: " + Math.round(idf(13f)) + "pt;'>"
                 + Translator.translate("ui.identicon.session_explicacion")
                 + "</body></html>";
         JLabel hintLabel = new JLabel(hintHtml, SwingConstants.CENTER);
@@ -245,7 +254,7 @@ public class IdenticonDialog extends JDialog {
         row.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 10, 0));
 
         JButton copyBtn = new JButton(Translator.translate("ui.identicon.copiar_imagen_button"));
-        copyBtn.setFont(copyBtn.getFont().deriveFont(java.awt.Font.PLAIN, 13f));
+        copyBtn.setFont(copyBtn.getFont().deriveFont(java.awt.Font.PLAIN, idf(13f)));
         copyBtn.setMargin(new java.awt.Insets(6, 14, 6, 14));
         copyBtn.addActionListener(evt -> {
             if (copyImageToClipboard(identiconImage)) {
@@ -265,7 +274,7 @@ public class IdenticonDialog extends JDialog {
         row.add(copyBtn);
 
         JButton saveBtn = new JButton(Translator.translate("ui.identicon.guardar_png_button"));
-        saveBtn.setFont(saveBtn.getFont().deriveFont(java.awt.Font.PLAIN, 13f));
+        saveBtn.setFont(saveBtn.getFont().deriveFont(java.awt.Font.PLAIN, idf(13f)));
         saveBtn.setMargin(new java.awt.Insets(6, 14, 6, 14));
         saveBtn.addActionListener(evt -> savePngWithChooser());
         row.add(saveBtn);
@@ -403,13 +412,13 @@ public class IdenticonDialog extends JDialog {
                     "✓ " + Translator.translate("ui.identicon.ya_verificada"),
                     SwingConstants.CENTER);
             verifiedLabel.setForeground(new Color(0, 128, 0));
-            verifiedLabel.setFont(verifiedLabel.getFont().deriveFont(java.awt.Font.BOLD, 16f));
+            verifiedLabel.setFont(verifiedLabel.getFont().deriveFont(java.awt.Font.BOLD, idf(16f)));
             verifyPanel.add(verifiedLabel, BorderLayout.CENTER);
         } else {
             // Hint text: justified and centered, slightly larger so the user actually
             // reads what verifying means before pressing the button.
-            String hintHtml = "<html><body style='width: 380px; text-align: justify; "
-                    + "font-family: sans-serif; font-size: 13pt;'>"
+            String hintHtml = "<html><body style='width: " + Math.round(380 * FONT_BUMP * Helpers.DIALOG_ZOOM) + "px; text-align: justify; "
+                    + "font-family: sans-serif; font-size: " + Math.round(idf(13f)) + "pt;'>"
                     + Translator.translate("ui.identicon.no_verificada")
                     + "</body></html>";
             JLabel hintLabel = new JLabel(hintHtml, SwingConstants.CENTER);
@@ -419,7 +428,7 @@ public class IdenticonDialog extends JDialog {
             JButton verifyButton = new JButton(Translator.translate("ui.identicon.verificar_button"));
             verifyButton.setBackground(new Color(0, 130, 0));
             verifyButton.setForeground(Color.WHITE);
-            verifyButton.setFont(verifyButton.getFont().deriveFont(java.awt.Font.BOLD, 15f));
+            verifyButton.setFont(verifyButton.getFont().deriveFont(java.awt.Font.BOLD, idf(15f)));
             verifyButton.setMargin(new java.awt.Insets(8, 18, 8, 18));
             verifyButton.addActionListener(evt -> {
                 if (pubkeyForVerify != null && TOFUResolver.markVerified(nick, pubkeyForVerify)) {
@@ -429,7 +438,7 @@ public class IdenticonDialog extends JDialog {
                             "✓ " + Translator.translate("ui.identicon.ya_verificada"),
                             SwingConstants.CENTER);
                     done.setForeground(new Color(0, 128, 0));
-                    done.setFont(done.getFont().deriveFont(java.awt.Font.BOLD, 16f));
+                    done.setFont(done.getFont().deriveFont(java.awt.Font.BOLD, idf(16f)));
                     verifyPanel.add(done, BorderLayout.CENTER);
                     verifyPanel.revalidate();
                     verifyPanel.repaint();

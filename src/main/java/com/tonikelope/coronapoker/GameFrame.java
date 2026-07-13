@@ -1213,7 +1213,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
 
             if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
-                shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                shortcuts_dialog.zoom(Helpers.DIALOG_ZOOM, null);
             }
 
             if (GameFrame.AUTO_ZOOM) {
@@ -4534,7 +4534,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
             if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
 
-                shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                shortcuts_dialog.zoom(Helpers.DIALOG_ZOOM, null);
 
             }
             if (GameFrame.AUTO_ZOOM) {
@@ -4569,7 +4569,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
                 if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
 
-                    shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                    shortcuts_dialog.zoom(Helpers.DIALOG_ZOOM, null);
 
                 }
                 Helpers.savePropertiesFile();
@@ -4600,7 +4600,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
                 if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
 
-                    shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                    shortcuts_dialog.zoom(Helpers.DIALOG_ZOOM, null);
 
                 }
                 if (GameFrame.AUTO_ZOOM) {
@@ -4818,7 +4818,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.GUIRun(jugadas_dialog::pack);
             }
             if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
-                shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+                shortcuts_dialog.zoom(Helpers.DIALOG_ZOOM, null);
             }
             if (GameFrame.AUTO_ZOOM) {
                 Helpers.threadRun(() -> {
@@ -5315,7 +5315,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             shortcuts_menu.setEnabled(false);
 
             Helpers.threadRun(() -> {
-                Helpers.zoomFonts(shortcuts_dialog, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP, null);
+                Helpers.zoomFonts(shortcuts_dialog, Helpers.DIALOG_ZOOM, null);
                 Helpers.GUIRun(() -> {
                     shortcuts_dialog.setLocation(this.getX() + this.getWidth() - shortcuts_dialog.getWidth(), this.getY() + this.getHeight() - shortcuts_dialog.getHeight());
 

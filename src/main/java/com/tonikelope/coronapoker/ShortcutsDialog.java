@@ -132,7 +132,7 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         buildUI();
         Helpers.setTranslatedTitle(this, "ui.atajos");
         Helpers.preserveOriginalFontSizes(this);
-        Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
         Helpers.translateComponents(this, false);
         pack();
         capSize();

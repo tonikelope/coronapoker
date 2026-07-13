@@ -193,7 +193,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
             refreshButtonsEnabled();
         }
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, 1.1f);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, 1.1f * Helpers.DIALOG_ZOOM);
         ((TitledBorder) structures_panel.getBorder()).setTitleFont(structure_list.getFont());
         levels_border.setTitleFont(structure_list.getFont());
         levels_table.getTableHeader().setFont(structure_list.getFont());
@@ -467,7 +467,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         // los botones Aceptar/Cancelar quedan legibles y en la fuente de la app.
         JOptionPane pane = new JOptionPane(panel, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
         javax.swing.JDialog d = pane.createDialog(this, getTitle());
-        Helpers.updateFonts(pane, Helpers.GUI_FONT, 1.15f);
+        Helpers.updateFonts(pane, Helpers.GUI_FONT, 1.15f * Helpers.DIALOG_ZOOM);
         d.pack();
         d.setLocationRelativeTo(this);
         d.setVisible(true);

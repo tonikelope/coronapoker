@@ -803,7 +803,7 @@ public final class GameLogDialog extends JDialog {
 
         Helpers.JTextFieldRegularPopupMenu.addTo(log_pane);
 
-        Helpers.updateFonts(jMenuBar1, Helpers.GUI_FONT, null);
+        Helpers.updateFonts(jMenuBar1, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
 
         Helpers.translateComponents(this, false);
 
@@ -833,7 +833,7 @@ public final class GameLogDialog extends JDialog {
         pack();
 
         // Compact default size (resizable from any corner). Transparency ON (90%).
-        setSize(720, 430);
+        setSize(Math.round(720 * Helpers.DIALOG_ZOOM), Math.round(430 * Helpers.DIALOG_ZOOM));
         applyLogOpacity(transparent_menu.isSelected());
 
     }

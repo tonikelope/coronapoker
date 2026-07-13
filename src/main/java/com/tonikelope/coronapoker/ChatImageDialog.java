@@ -121,7 +121,7 @@ public class ChatImageDialog extends JDialog {
             Helpers.barraIndeterminada(barra);
         }
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
         Helpers.translateComponents(this, false);
         pack();
         setSize(getWidth(), h);

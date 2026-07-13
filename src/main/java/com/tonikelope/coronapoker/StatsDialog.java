@@ -211,7 +211,7 @@ public class StatsDialog extends JFrame {
         chart_panel = new javax.swing.JPanel(new java.awt.GridLayout(1, 0, 12, 0));
         chart_panel.setOpaque(true);
         chart_panel.setBackground(java.awt.Color.WHITE);
-        chart_panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 0, 0, 0));
+        chart_panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(8 * Helpers.DIALOG_ZOOM), 0, 0, 0));
         chart_panel.setVisible(false);
 
         chart_split = new javax.swing.JSplitPane(javax.swing.JSplitPane.VERTICAL_SPLIT);
@@ -349,7 +349,7 @@ public class StatsDialog extends JFrame {
         share_group.add(exclude_stats_button);
 
         javax.swing.JPanel sync_stats_bar = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 16, 4));
-        sync_stats_bar.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 8, 2, 8));
+        sync_stats_bar.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM)));
         sync_stats_bar.add(receive_stats_checkbox);
         sync_stats_bar.add(share_group);
 
@@ -370,7 +370,7 @@ public class StatsDialog extends JFrame {
         private_game_label.putClientProperty("i18n.key", "stats.partida_privada");
         private_game_label.setForeground(new java.awt.Color(204, 0, 0));
         private_game_label.setIconTextGap(8);
-        private_game_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 8, 4, 8));
+        private_game_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM)));
         private_game_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         Helpers.setTranslatedToolTip(private_game_label, "stats.quitar_privada");
         private_game_label.setVisible(false);
@@ -476,8 +476,10 @@ public class StatsDialog extends JFrame {
         purge_button_group.add(private_all_button);
         purge_button_group.add(unprivate_all_button);
 
-        Font original_dialog_font = res_table.getFont();
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        // Fuente de las tablas/textarea (contenido de datos): tambien sigue el zoom de dialogos, para que
+        // el contenido escale como el resto. A 100% es la de diseno.
+        Font original_dialog_font = res_table.getFont().deriveFont(res_table.getFont().getSize2D() * Helpers.DIALOG_ZOOM);
+        Helpers.applyDialogZoom(this);
         Helpers.translateComponents(this, false);
 
         // Los dos checkboxes de sync, un pelín más grandes que el resto del diálogo.
@@ -498,6 +500,13 @@ public class StatsDialog extends JFrame {
         showdown_table.setFont(original_dialog_font);
         hand_comcards_val.setFont(original_dialog_font);
         game_textarea.setFont(original_dialog_font);
+
+        // Alturas de fila proporcionales al zoom (si no, con la fuente escalada el texto se recorta a
+        // zoom>1 o sobra hueco a zoom<1). A 100% no cambia (Math.round(rh*1.0)=rh).
+        if (Helpers.isDialogZoomActive()) {
+            res_table.setRowHeight(Math.round(res_table.getRowHeight() * Helpers.DIALOG_ZOOM));
+            showdown_table.setRowHeight(Math.round(showdown_table.getRowHeight() * Helpers.DIALOG_ZOOM));
+        }
 
         setTitle("CoronaPoker " + AboutDialog.VERSION + " - " + Translator.translate("ui.lo_que_no_son_cuentas"));
         stats_combo.setSelectedIndex(-1);
@@ -2158,20 +2167,20 @@ public class StatsDialog extends JFrame {
 
         javax.swing.JPanel body = new javax.swing.JPanel();
         body.setLayout(new javax.swing.BoxLayout(body, javax.swing.BoxLayout.Y_AXIS));
-        body.setBorder(javax.swing.BorderFactory.createEmptyBorder(14, 18, 8, 18));
+        body.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(14 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM)));
         private_check.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         nicks_check.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
 
         // La caja de nicks sangrada bajo su casilla, para leerse como sub-opción.
         javax.swing.JPanel field_row = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
         field_row.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        field_row.add(javax.swing.Box.createHorizontalStrut(26));
+        field_row.add(javax.swing.Box.createHorizontalStrut(Math.round(26 * Helpers.DIALOG_ZOOM)));
         field_row.add(nicks_field);
 
         body.add(private_check);
-        body.add(javax.swing.Box.createVerticalStrut(12));
+        body.add(javax.swing.Box.createVerticalStrut(Math.round(12 * Helpers.DIALOG_ZOOM)));
         body.add(nicks_check);
-        body.add(javax.swing.Box.createVerticalStrut(4));
+        body.add(javax.swing.Box.createVerticalStrut(Math.round(4 * Helpers.DIALOG_ZOOM)));
         body.add(field_row);
 
         javax.swing.JPanel button_row = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 8));
@@ -2183,7 +2192,7 @@ public class StatsDialog extends JFrame {
         root.add(button_row, java.awt.BorderLayout.SOUTH);
         dlg.setContentPane(root);
 
-        Helpers.setUniformFont(root, Helpers.GUI_FONT, 14);
+        Helpers.setUniformFont(root, Helpers.GUI_FONT, Math.round(14 * Helpers.DIALOG_ZOOM));
         dlg.getRootPane().setDefaultButton(ok);
         // Se crea un diálogo nuevo en cada apertura: liberarlo al cerrar con la X (el
         // default HIDE_ON_CLOSE lo dejaría oculto en memoria, acumulándose).
@@ -2587,7 +2596,7 @@ public class StatsDialog extends JFrame {
         log_game_button.setText(Translator.translate("stats.registro_de_la_timba"));
         log_game_button.putClientProperty("i18n.key", "stats.registro_de_la_timba");
         log_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        log_game_button.setPreferredSize(new java.awt.Dimension(242, 34));
+        log_game_button.setPreferredSize(new java.awt.Dimension(Math.round(242 * Helpers.DIALOG_ZOOM), Math.round(34 * Helpers.DIALOG_ZOOM)));
         log_game_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 log_game_buttonActionPerformed(evt);
@@ -2636,14 +2645,14 @@ public class StatsDialog extends JFrame {
                             .addComponent(game_playtime_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(game_buyin_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(game_blinds_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_blinds_double_val, javax.swing.GroupLayout.DEFAULT_SIZE, 1056, Short.MAX_VALUE)
+                            .addComponent(game_blinds_double_val, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(1056 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
                             .addComponent(game_rebuy_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, game_data_panelLayout.createSequentialGroup()
                         .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(log_game_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
+                        .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
                         .addComponent(chat_game_button)
-                        .addGap(18, 18, 18)
+                        .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
                         .addComponent(delete_game_button)))
                 .addContainerGap())
         );
@@ -2656,7 +2665,7 @@ public class StatsDialog extends JFrame {
                     .addComponent(log_game_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(chat_game_button))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(game_textarea_scrollpane, javax.swing.GroupLayout.PREFERRED_SIZE, 480, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(game_textarea_scrollpane, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(480 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(game_playtime_label)
@@ -2664,7 +2673,7 @@ public class StatsDialog extends JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(game_hand_label)
-                    .addComponent(game_hand_val, javax.swing.GroupLayout.PREFERRED_SIZE, 19, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(game_hand_val, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(19 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(game_players_label)
@@ -2691,7 +2700,7 @@ public class StatsDialog extends JFrame {
         game_combo_filter.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         game_combo_filter.putClientProperty("i18n.tooltip_key", "tooltip.search_games_player");
         game_combo_filter.putClientProperty("i18n.tooltip_key", "stats.listar_solo_timbas_donde_participo");
-        game_combo_filter.setPreferredSize(new java.awt.Dimension(5, 3));
+        game_combo_filter.setPreferredSize(new java.awt.Dimension(Math.round(5 * Helpers.DIALOG_ZOOM), Math.round(3 * Helpers.DIALOG_ZOOM)));
         game_combo_filter.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 game_combo_filterActionPerformed(evt);
@@ -2726,7 +2735,7 @@ public class StatsDialog extends JFrame {
         hand_blinds_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_blinds_label.setText(Translator.translate("stats.ciegas"));
         hand_blinds_label.putClientProperty("i18n.key", "stats.ciegas");
-        hand_blinds_label.setPreferredSize(new java.awt.Dimension(45, 17));
+        hand_blinds_label.setPreferredSize(new java.awt.Dimension(Math.round(45 * Helpers.DIALOG_ZOOM), Math.round(17 * Helpers.DIALOG_ZOOM)));
 
         hand_blinds_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_blinds_val.setText(" ");
@@ -2816,10 +2825,10 @@ public class StatsDialog extends JFrame {
             .addGroup(hand_data_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(showdown_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 1191, Short.MAX_VALUE)
+                    .addComponent(showdown_panel, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(1191 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
                     .addGroup(hand_data_panelLayout.createSequentialGroup()
                         .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(hand_blinds_label, javax.swing.GroupLayout.PREFERRED_SIZE, 146, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(hand_blinds_label, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(146 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(hand_time_label)
                             .addComponent(hand_cp_label)
                             .addComponent(hand_cg_label)
@@ -2887,7 +2896,7 @@ public class StatsDialog extends JFrame {
                     .addComponent(hand_bote_label)
                     .addComponent(hand_bote_val))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(showdown_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 240, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(showdown_panel, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(240 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
@@ -2941,7 +2950,7 @@ public class StatsDialog extends JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(stats_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(table_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 475, Short.MAX_VALUE)
+                .addComponent(table_panel, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(475 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(res_table_warning)
                 .addContainerGap())
@@ -2955,7 +2964,7 @@ public class StatsDialog extends JFrame {
             .addGroup(stats_panelLayout.createSequentialGroup()
                 .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(game_combo_filter, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(game_combo_filter, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(200 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(purge_games_button)
                 .addContainerGap())
@@ -2993,9 +3002,9 @@ public class StatsDialog extends JFrame {
             .addGroup(layout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addComponent(title)
-                .addGap(2, 2, 2)
+                .addGap(Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(2 * Helpers.DIALOG_ZOOM))
                 .addComponent(cargando, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
+                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
                 .addComponent(scroll_stats_panel)
                 .addContainerGap())
         );

@@ -228,10 +228,13 @@ public class StatsDialog extends JFrame {
         // El zoom por defecto de las gráficas sigue el zoom de diálogos (base × DIALOG_ZOOM); el spinner
         // lo puede reajustar. El rango se estira si el default cae fuera (a 100% es 1.3, rango 0.8-3.0,
         // idéntico al diseño).
-        double chart_default = StatsCharts.DEFAULT_FONT_SCALE * Helpers.DIALOG_ZOOM;
+        // Redondeado a múltiplos de 0.05 para valores limpios (0.9, 0.95, 1.3...) en vez de 0.91 raros.
+        double chart_default = Math.round(StatsCharts.DEFAULT_FONT_SCALE * Helpers.DIALOG_ZOOM / 0.05d) * 0.05d;
         StatsCharts.setFontScale((float) chart_default);
-        chart_zoom_spinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(chart_default, Math.min(0.8d, chart_default), Math.max(3.0d, chart_default), 0.1d));
-        ((javax.swing.JSpinner.DefaultEditor) chart_zoom_spinner.getEditor()).getTextField().setEditable(false);
+        chart_zoom_spinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(chart_default, Math.min(0.8d, chart_default), Math.max(3.0d, chart_default), 0.05d));
+        javax.swing.JSpinner.NumberEditor chart_zoom_editor = new javax.swing.JSpinner.NumberEditor(chart_zoom_spinner, "0.##");
+        chart_zoom_spinner.setEditor(chart_zoom_editor);
+        chart_zoom_editor.getTextField().setEditable(false);
         chart_zoom_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chart_zoom_spinner.addChangeListener(e -> {
             if (init) {

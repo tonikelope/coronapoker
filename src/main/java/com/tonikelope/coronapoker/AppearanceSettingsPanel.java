@@ -249,10 +249,11 @@ public class AppearanceSettingsPanel extends JPanel {
             persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
         });
         // El zoom de diálogos SOLO se puede usar en la PANTALLA DE INICIO: ni en partida (gf != null) ni
-        // en la sala de espera (WaitingRoomFrame.getInstance() != null). Cambiarlo en cualquier otro
-        // sitio no refrescaría los diálogos ya abiertos ni la sala/mesa. Se muestra siempre, pero solo
-        // editable en el inicio.
-        dialog_zoom_spinner.setEnabled(gf == null && WaitingRoomFrame.getInstance() == null);
+        // en la sala de espera. Se comprueba si la sala está VISIBLE (no solo si existe): al volver de la
+        // sala al inicio su instancia puede quedar stale, así que isShowing() es el criterio fiable.
+        // Cambiarlo en cualquier otro sitio no refrescaría los diálogos ya abiertos ni la sala/mesa.
+        WaitingRoomFrame wr = WaitingRoomFrame.getInstance();
+        dialog_zoom_spinner.setEnabled(gf == null && (wr == null || !wr.isShowing()));
         addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.dialog_zoom_pct", dialog_zoom_spinner));
 
         // "Pantalla y zoom" es más corta que la columna derecha y se estira para igualarla;

@@ -725,8 +725,14 @@
                               <Image iconType="3" name="/images/straddle_24.png"/>
                             </Property>
                             <Property name="text" type="java.lang.String" value="Straddle"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
+                          <Events>
+                            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="straddle_iconMouseClicked"/>
+                          </Events>
                         </Component>
                       </SubComponents>
                     </Container>
@@ -1245,8 +1251,14 @@
                               <Image iconType="3" name="/images/menu/eyes.png"/>
                             </Property>
                             <Property name="text" type="java.lang.String" value="Regla IWTSTH"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
+                          <Events>
+                            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="iwtsth_iconMouseClicked"/>
+                          </Events>
                           <AuxValues>
                             <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="iwtsth_icon.putClientProperty(&quot;i18n.key&quot;, &quot;menu.regla_iwtsth&quot;);"/>
                           </AuxValues>
@@ -1268,8 +1280,14 @@
                               <Image iconType="3" name="/images/menu/baraja.png"/>
                             </Property>
                             <Property name="text" type="java.lang.String" value="ALL-IN Run-it-twice"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
+                          <Events>
+                            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="rit_iconMouseClicked"/>
+                          </Events>
                           <AuxValues>
                             <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="rit_icon.putClientProperty(&quot;i18n.key&quot;, &quot;menu.regla_run_it_twice&quot;);"/>
                           </AuxValues>

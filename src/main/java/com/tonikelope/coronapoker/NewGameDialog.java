@@ -925,7 +925,13 @@ public class NewGameDialog extends JDialog {
         straddle_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         straddle_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_24.png"))); // NOI18N
         straddle_icon.setText("Straddle");
+        straddle_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         straddle_icon.setDoubleBuffered(true);
+        straddle_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                straddle_iconMouseClicked(evt);
+            }
+        });
 
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);
@@ -1225,7 +1231,13 @@ public class NewGameDialog extends JDialog {
         iwtsth_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         iwtsth_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png"))); // NOI18N
         iwtsth_icon.setText("Regla IWTSTH");
+        iwtsth_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         iwtsth_icon.setDoubleBuffered(true);
+        iwtsth_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                iwtsth_iconMouseClicked(evt);
+            }
+        });
 
         iwtsth_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         iwtsth_checkbox.setDoubleBuffered(true);
@@ -1233,7 +1245,13 @@ public class NewGameDialog extends JDialog {
         rit_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         rit_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png"))); // NOI18N
         rit_icon.setText("ALL-IN Run-it-twice");
+        rit_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rit_icon.setDoubleBuffered(true);
+        rit_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                rit_iconMouseClicked(evt);
+            }
+        });
 
         rit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rit_checkbox.setDoubleBuffered(true);
@@ -2632,6 +2650,27 @@ public class NewGameDialog extends JDialog {
         }
         think_time_checkbox.doClick();
     }//GEN-LAST:event_think_time_labelMouseClicked
+
+    private void straddle_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_straddle_iconMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+        straddle_checkbox.doClick();
+    }//GEN-LAST:event_straddle_iconMouseClicked
+
+    private void iwtsth_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_iwtsth_iconMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+        iwtsth_checkbox.doClick();
+    }//GEN-LAST:event_iwtsth_iconMouseClicked
+
+    private void rit_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_rit_iconMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+        rit_checkbox.doClick();
+    }//GEN-LAST:event_rit_iconMouseClicked
 
     private void nickActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nickActionPerformed
         // TODO add your handling code here:

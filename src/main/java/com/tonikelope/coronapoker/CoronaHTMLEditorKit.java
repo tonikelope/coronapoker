@@ -149,16 +149,12 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                         tracker.addImage(image.getImage(), 0);
                                         tracker.waitForAll();
                                         if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
-                                            int max_w = Math.round(ChatImageDialog.MAX_IMAGE_WIDTH * Helpers.DIALOG_ZOOM);
-                                            if (image.getIconWidth() > max_w) {
-                                                image = new ImageIcon(image.getImage().getScaledInstance(max_w, (int) Math.round((image.getIconHeight() * max_w) / image.getIconWidth()), (isgif || (isgif = Helpers.isImageGIF(new URL(url)))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                            isgif = isgif || Helpers.isImageGIF(new URL(url));
+                                            // Cap a MAX (INDEPENDIENTE del zoom) para el CACHÉ.
+                                            if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
+                                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                             }
-                                            ImageIcon final_image = image;
-                                            Helpers.GUIRun(() -> {
-                                                label.setIcon(final_image);
-                                                forceChatRelayout(label);
-                                            });
-                                            if (!ChatImageDialog.GIF_CACHE.containsKey(url) && (isgif || Helpers.isImageGIF(new URL(url)))) {
+                                            if (!ChatImageDialog.GIF_CACHE.containsKey(url) && isgif) {
 
                                                 ChatImageDialog.GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
 
@@ -166,6 +162,17 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                                                 ChatImageDialog.STATIC_IMAGE_CACHE.putIfAbsent(url, image);
                                             }
+                                            // Copia PARA MOSTRAR escalada por el zoom (no se cachea; escala todas).
+                                            ImageIcon display_image = image;
+                                            int display_w = Math.round(image.getIconWidth() * Helpers.DIALOG_ZOOM);
+                                            if (display_w > 0 && display_w != image.getIconWidth()) {
+                                                display_image = new ImageIcon(image.getImage().getScaledInstance(display_w, (int) Math.round((image.getIconHeight() * display_w) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                            }
+                                            final ImageIcon final_image = display_image;
+                                            Helpers.GUIRun(() -> {
+                                                label.setIcon(final_image);
+                                                forceChatRelayout(label);
+                                            });
                                         } else {
                                             Helpers.GUIRun(() -> {
                                                 label.setText(Translator.translate("ui.imagen_no_insertable"));

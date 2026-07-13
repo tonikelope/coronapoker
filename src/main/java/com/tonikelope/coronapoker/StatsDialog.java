@@ -225,7 +225,12 @@ public class StatsDialog extends JFrame {
         // (StatsCharts.FONT_SCALE) y re-renderiza la gráfica actual al cambiar. Va en
         // una barra propia bajo el split (no se toca el GroupLayout del .form). El
         // listener no actúa durante la construcción (init) ni al fijar el valor inicial.
-        chart_zoom_spinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel((double) StatsCharts.getFontScale(), 0.8d, 3.0d, 0.1d));
+        // El zoom por defecto de las gráficas sigue el zoom de diálogos (base × DIALOG_ZOOM); el spinner
+        // lo puede reajustar. El rango se estira si el default cae fuera (a 100% es 1.3, rango 0.8-3.0,
+        // idéntico al diseño).
+        double chart_default = StatsCharts.DEFAULT_FONT_SCALE * Helpers.DIALOG_ZOOM;
+        StatsCharts.setFontScale((float) chart_default);
+        chart_zoom_spinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(chart_default, Math.min(0.8d, chart_default), Math.max(3.0d, chart_default), 0.1d));
         ((javax.swing.JSpinner.DefaultEditor) chart_zoom_spinner.getEditor()).getTextField().setEditable(false);
         chart_zoom_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chart_zoom_spinner.addChangeListener(e -> {

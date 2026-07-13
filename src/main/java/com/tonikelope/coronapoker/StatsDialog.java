@@ -477,7 +477,7 @@ public class StatsDialog extends JFrame {
         purge_button_group.add(unprivate_all_button);
 
         Font original_dialog_font = res_table.getFont();
-        Helpers.applyDialogZoom(this);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
 
         // Los dos checkboxes de sync, un pelín más grandes que el resto del diálogo.
@@ -2183,7 +2183,7 @@ public class StatsDialog extends JFrame {
         root.add(button_row, java.awt.BorderLayout.SOUTH);
         dlg.setContentPane(root);
 
-        Helpers.setUniformFont(root, Helpers.GUI_FONT, Math.round(14 * Helpers.DIALOG_ZOOM));
+        Helpers.setUniformFont(root, Helpers.GUI_FONT, 14);
         dlg.getRootPane().setDefaultButton(ok);
         // Se crea un diálogo nuevo en cada apertura: liberarlo al cerrar con la X (el
         // default HIDE_ON_CLOSE lo dejaría oculto en memoria, acumulándose).

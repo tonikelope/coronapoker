@@ -385,4 +385,9 @@ public final class FakePotPlayer implements Player {
     public int getHoleCard2Index() {
         throw nope();
     }
+
+    @Override
+    public void setShowdownLoserHand(java.util.List<Card> cartas) {
+        throw nope();
+    }
 }

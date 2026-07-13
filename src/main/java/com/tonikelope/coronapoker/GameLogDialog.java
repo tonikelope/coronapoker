@@ -402,7 +402,7 @@ public final class GameLogDialog extends JDialog {
         final java.awt.Color fg = red ? CARD_RED : java.awt.Color.BLACK;
         javax.swing.JLabel card = new javax.swing.JLabel(
                 "<html><span style=\"font-family:Consolas\">" + value
-                + "<span style=\"font-size:28pt\">" + suit + "</span></span></html>") {
+                + "<span style=\"font-size:" + Math.round(28 * Helpers.DIALOG_ZOOM) + "pt\">" + suit + "</span></span></html>") {
             @Override
             protected void paintComponent(java.awt.Graphics g) {
                 java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
@@ -415,8 +415,8 @@ public final class GameLogDialog extends JDialog {
         };
         card.setOpaque(false);
         card.setForeground(fg);
-        card.setFont(new java.awt.Font("Consolas", java.awt.Font.BOLD, 22));
-        card.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 7, 1, 7));
+        card.setFont(new java.awt.Font("Consolas", java.awt.Font.BOLD, Math.round(22 * Helpers.DIALOG_ZOOM)));
+        card.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(1 * Helpers.DIALOG_ZOOM), Math.round(7 * Helpers.DIALOG_ZOOM), Math.round(1 * Helpers.DIALOG_ZOOM), Math.round(7 * Helpers.DIALOG_ZOOM)));
         card.setAlignmentY(0.82f);
         // The HTML label reports a huge maximum width, so the text view stretches
         // it to fill the line. Pin max = preferred so each card stays card-sized.
@@ -570,7 +570,7 @@ public final class GameLogDialog extends JDialog {
         log_pane.setEditable(false);
         log_pane.setBackground(LOG_BG);
         log_pane.setForeground(new Color(230, 230, 230));
-        log_pane.setFont(LOG_FONT);
+        log_pane.setFont(LOG_FONT.deriveFont(LOG_FONT.getSize2D() * Helpers.DIALOG_ZOOM));
         jScrollPane1.setViewportView(log_pane);
 
         dispose();
@@ -845,7 +845,7 @@ public final class GameLogDialog extends JDialog {
         debug_textarea.setEditable(false);
         debug_textarea.setBackground(LOG_BG);
         debug_textarea.setForeground(new Color(220, 220, 220));
-        debug_textarea.setFont(LOG_FONT);
+        debug_textarea.setFont(LOG_FONT.deriveFont(LOG_FONT.getSize2D() * Helpers.DIALOG_ZOOM));
         debug_textarea.setLineWrap(true);
         debug_textarea.setWrapStyleWord(false);
         Helpers.JTextFieldRegularPopupMenu.addTo(debug_textarea);
@@ -855,7 +855,7 @@ public final class GameLogDialog extends JDialog {
         debug_follow = new BottomFollower(debug_scroll, debug_textarea);
 
         JTabbedPane tabs = new JTabbedPane();
-        tabs.setFont(new Font("Dialog", Font.BOLD, 16));
+        tabs.setFont(new Font("Dialog", Font.BOLD, Math.round(16 * Helpers.DIALOG_ZOOM)));
         tabs.addTab(Translator.translate("log.registro"), jScrollPane1);
         tabs.addTab(Translator.translate("log.debug"), debug_scroll);
 

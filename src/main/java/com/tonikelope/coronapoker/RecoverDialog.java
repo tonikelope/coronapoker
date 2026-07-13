@@ -47,9 +47,9 @@ public class RecoverDialog extends JDialog {
 
         ImageIcon icon = new ImageIcon(getClass().getResource("/cinematics/misc/recover_" + GameFrame.LANGUAGE.toLowerCase() + ".gif") != null ? getClass().getResource("/cinematics/misc/recover_" + GameFrame.LANGUAGE.toLowerCase() + ".gif") : getClass().getResource("/cinematics/misc/recover.gif"));
 
-        gif.setGifIcon(icon, icon.getIconWidth(), icon.getIconHeight());
+        gif.setGifIcon(icon, Math.round(icon.getIconWidth() * Helpers.DIALOG_ZOOM), Math.round(icon.getIconHeight() * Helpers.DIALOG_ZOOM));
 
-        setSize(icon.getIconWidth(), icon.getIconHeight());
+        setSize(Math.round(icon.getIconWidth() * Helpers.DIALOG_ZOOM), Math.round(icon.getIconHeight() * Helpers.DIALOG_ZOOM));
 
         setPreferredSize(getSize());
 

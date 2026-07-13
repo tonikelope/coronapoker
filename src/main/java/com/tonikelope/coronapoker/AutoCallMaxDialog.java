@@ -295,7 +295,7 @@ public class AutoCallMaxDialog extends JDialog {
             }
         });
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
+        Helpers.applyDialogZoom(this);
         Helpers.translateComponents(this, false);
 
         pack();

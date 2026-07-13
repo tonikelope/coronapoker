@@ -194,6 +194,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         }
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1.1f * Helpers.DIALOG_ZOOM);
+        Helpers.scaleIcons(this, Helpers.DIALOG_ZOOM);
         ((TitledBorder) structures_panel.getBorder()).setTitleFont(structure_list.getFont());
         levels_border.setTitleFont(structure_list.getFont());
         levels_table.getTableHeader().setFont(structure_list.getFont());

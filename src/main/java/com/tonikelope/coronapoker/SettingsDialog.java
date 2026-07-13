@@ -199,6 +199,8 @@ public class SettingsDialog extends JDialog {
         // Partida; con esto todo el diálogo va al mismo tamaño.
         Helpers.setUniformFont(content, Helpers.GUI_FONT, Math.round(16 * Helpers.DIALOG_ZOOM));
 
+        Helpers.scaleIcons(content, Helpers.DIALOG_ZOOM);
+
         // setUniformFont no alcanza los títulos de los TitledBorder.
         fixTitledBorderFonts(content, save_button.getFont());
 

@@ -93,7 +93,7 @@ public class Reconnect2ServerDialog extends JDialog {
         ip_port.setText(ip_p);
         barra.setVisible(false);
         Helpers.barraIndeterminada(barra);
-        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
+        Helpers.applyDialogZoom(this);
         Helpers.translateComponents(this, false);
 
         pack();

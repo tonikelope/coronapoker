@@ -2593,6 +2593,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // toca el zoom de la MESA. A 100 % no cambia nada.
                 if (Helpers.isDialogZoomActive()) {
                     Helpers.updateFonts(menu_bar, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
+                    Helpers.scaleIcons(menu_bar, Helpers.DIALOG_ZOOM);
                 }
 
                 tapete.getCommunityCards().getTiempo_partida().setFont(new Font("Monospaced", Font.BOLD, 28));

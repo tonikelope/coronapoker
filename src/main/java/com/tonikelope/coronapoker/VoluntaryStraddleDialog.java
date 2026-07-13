@@ -174,7 +174,7 @@ public class VoluntaryStraddleDialog extends JDialog {
         // respondiendo al ratón aunque la ventana no sea focusable.
         setFocusableWindowState(false);
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
+        Helpers.applyDialogZoom(this);
         Helpers.translateComponents(this, false);
 
         // Anclaje sobre las DOS hole cards tapadas: misma anchura que abarcan ambas

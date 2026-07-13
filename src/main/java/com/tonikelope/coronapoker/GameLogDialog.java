@@ -702,13 +702,13 @@ public final class GameLogDialog extends JDialog {
 
         javax.swing.JLabel title = new javax.swing.JLabel("CoronaPoker - " + Translator.translate("log.registro"));
         title.setForeground(new Color(70, 70, 70));
-        title.setFont(new Font("Dialog", Font.BOLD, 14));
-        title.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 12, 4, 12));
+        title.setFont(new Font("Dialog", Font.BOLD, Math.round(14 * Helpers.DIALOG_ZOOM)));
+        title.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM)));
 
         final javax.swing.JLabel close_btn = new javax.swing.JLabel("X");
-        close_btn.setFont(new Font("Dialog", Font.BOLD, 16));
+        close_btn.setFont(new Font("Dialog", Font.BOLD, Math.round(16 * Helpers.DIALOG_ZOOM)));
         close_btn.setForeground(new Color(70, 70, 70)); // barra clara -> X oscura
-        close_btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 12, 0, 14));
+        close_btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, Math.round(12 * Helpers.DIALOG_ZOOM), 0, Math.round(14 * Helpers.DIALOG_ZOOM)));
         close_btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         close_btn.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override

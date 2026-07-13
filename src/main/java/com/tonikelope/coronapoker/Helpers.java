@@ -1035,8 +1035,12 @@ public class Helpers {
     }
 
     public static void updateCoronaDialogsFont() {
-        UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
-        UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), 14));
+        // La fuente de los JOptionPane (mensaje y botones) sigue el zoom de diálogos: base 14 × factor.
+        // Se re-aplica al cambiar el zoom en Ajustes (AppearanceSettingsPanel) para que los mensajes
+        // simples (info/error/confirm) encojan/crezcan con el resto de diálogos.
+        int sz = Math.round(14 * DIALOG_ZOOM);
+        UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), sz));
+        UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), sz));
     }
 
     public static void setCoronaLocale() {
@@ -4016,7 +4020,7 @@ public class Helpers {
         Audio.playWavResource("misc/warning.wav");
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
-        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM);
+        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM * DIALOG_ZOOM);
 
         if (SwingUtilities.isEventDispatchThread()) {
 
@@ -4050,7 +4054,7 @@ public class Helpers {
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
 
-        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM);
+        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM * DIALOG_ZOOM);
 
         if (SwingUtilities.isEventDispatchThread()) {
 
@@ -4097,7 +4101,7 @@ public class Helpers {
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
 
-        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM);
+        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM * DIALOG_ZOOM);
 
         if (SwingUtilities.isEventDispatchThread()) {
 
@@ -4128,7 +4132,7 @@ public class Helpers {
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
 
-        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM);
+        Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM * DIALOG_ZOOM);
 
         if (SwingUtilities.isEventDispatchThread()) {
 
@@ -6039,6 +6043,7 @@ public class Helpers {
                 popup.add(exit_menu);
 
                 Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(DIALOG_ZOOM) * 1.10f);
+                Helpers.scaleIcons(popup, DIALOG_ZOOM);
                 Helpers.translateComponents(popup, false);
 
             }

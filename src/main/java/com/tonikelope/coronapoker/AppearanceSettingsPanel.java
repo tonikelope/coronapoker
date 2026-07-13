@@ -245,6 +245,7 @@ public class AppearanceSettingsPanel extends JPanel {
             }
             int pct = (Integer) dialog_zoom_spinner.getValue();
             Helpers.DIALOG_ZOOM = pct / 100f;
+            Helpers.updateCoronaDialogsFont();
             persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
         });
         addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.dialog_zoom_pct", dialog_zoom_spinner));
@@ -1023,6 +1024,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // revierte fijando el flag + re-persistiendo el snapshot, como los demás persist-only.
         if (Helpers.DIALOG_ZOOM != snap_dialog_zoom) {
             Helpers.DIALOG_ZOOM = snap_dialog_zoom;
+            Helpers.updateCoronaDialogsFont();
             Helpers.PROPERTIES.setProperty("dialog_zoom", String.valueOf(snap_dialog_zoom));
             Helpers.savePropertiesFile();
         }
@@ -1060,6 +1062,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.ANIMACION_DOWNGRADE_PREF = snap_anim_downgrade;
         GameFrame.DOWNGRADE_VELOCIDAD = snap_downgrade_velocidad;
         Helpers.DIALOG_ZOOM = snap_dialog_zoom;
+        Helpers.updateCoronaDialogsFont();
 
         Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(snap_zoom_level));
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(snap_vista_compacta));

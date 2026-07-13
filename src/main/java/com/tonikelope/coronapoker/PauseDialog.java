@@ -135,7 +135,9 @@ public class PauseDialog extends JDialog {
         }
         int cw = content.getWidth();
         int ch = content.getHeight();
-        int banner_h = Math.max(1, Math.round(ch * BANNER_HEIGHT_FRACTION));
+        // El alto del banner (y con él la fuente y el icono, que derivan de banner_h) sigue el zoom de
+        // diálogos: a 100 % es la fracción de diseño (idéntico). El ancho sigue siendo el de la ventana.
+        int banner_h = Math.max(1, Math.round(ch * BANNER_HEIGHT_FRACTION * Helpers.DIALOG_ZOOM));
 
         // Fuente proporcional a la altura del banner, encogida si el texto + icono no cabe de ancho.
         float font_size = banner_h * FONT_HEIGHT_FRACTION;

@@ -50,9 +50,11 @@ public class VolumeControlDialog extends JDialog {
         super(parent, modal);
         initComponents();
 
-        setPreferredSize(new Dimension(width, this.getHeight()));
+        Helpers.applyDialogZoom(this);
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        pack();
+
+        setPreferredSize(new Dimension(Math.round(width * Helpers.DIALOG_ZOOM), this.getHeight()));
 
         pack();
 
@@ -73,9 +75,11 @@ public class VolumeControlDialog extends JDialog {
         super(parent, modal);
         initComponents();
 
-        setPreferredSize(new Dimension(width, this.getHeight()));
+        Helpers.applyDialogZoom(this);
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        pack();
+
+        setPreferredSize(new Dimension(Math.round(width * Helpers.DIALOG_ZOOM), this.getHeight()));
 
         pack();
 

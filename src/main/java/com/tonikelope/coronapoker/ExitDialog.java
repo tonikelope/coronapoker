@@ -157,11 +157,11 @@ public class ExitDialog extends JDialog {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(exit_checkbox))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                        .addComponent(continue_button, javax.swing.GroupLayout.PREFERRED_SIZE, 500, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, Short.MAX_VALUE)
+                        .addComponent(continue_button, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(500 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(programar_parada_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 500, Short.MAX_VALUE))))
+                            .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(500 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE))))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -175,7 +175,7 @@ public class ExitDialog extends JDialog {
                 .addComponent(programar_parada_checkbox)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(continue_button, javax.swing.GroupLayout.DEFAULT_SIZE, 72, Short.MAX_VALUE)
+                    .addComponent(continue_button, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(72 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
                     .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );

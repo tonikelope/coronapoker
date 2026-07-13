@@ -92,6 +92,9 @@ public class AppearanceSettingsPanel extends JPanel {
     private final String snap_baraja;
     private final String snap_trasera;
     private final String snap_color_tapete;
+    // Zoom de diálogos PENDIENTE: NO se previsualiza en vivo (afectaría al propio diálogo de descarte al
+    // cancelar). Se aplica solo al pulsar GUARDAR (applyPendingDialogZoom).
+    private volatile float pending_dialog_zoom;
     private final boolean snap_auto_zoom;
     private final boolean snap_show_clock;
     private final boolean snap_coste_igualar;
@@ -154,6 +157,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_downgrade = GameFrame.ANIMACION_DOWNGRADE_PREF;
         snap_downgrade_velocidad = GameFrame.DOWNGRADE_VELOCIDAD;
         snap_dialog_zoom = Helpers.DIALOG_ZOOM;
+        pending_dialog_zoom = snap_dialog_zoom;
 
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
@@ -243,10 +247,10 @@ public class AppearanceSettingsPanel extends JPanel {
             if (building) {
                 return;
             }
-            int pct = (Integer) dialog_zoom_spinner.getValue();
-            Helpers.DIALOG_ZOOM = pct / 100f;
-            Helpers.updateCoronaDialogsFont();
-            persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
+            // Transaccional y SIN preview en vivo (a diferencia del resto de apariencia): aplicar el zoom
+            // en vivo haría que el propio diálogo de "¿descartar cambios?" al cancelar saliera con el zoom
+            // nuevo aún sin guardar. Solo se anota; se aplica al pulsar GUARDAR (applyPendingDialogZoom).
+            pending_dialog_zoom = ((Integer) dialog_zoom_spinner.getValue()) / 100f;
         });
         // El zoom de diálogos SOLO se puede usar en la PANTALLA DE INICIO: ni en partida (gf != null) ni
         // en la sala de espera. Se comprueba si la sala está VISIBLE (no solo si existe): al volver de la
@@ -849,6 +853,18 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
+    // El zoom de DIÁLOGOS no se previsualiza en vivo (afectaría al propio diálogo de descarte al
+    // cancelar). Se aplica y persiste SOLO al pulsar GUARDAR. Surte efecto en los diálogos que se abran
+    // a partir de ese momento (leen Helpers.DIALOG_ZOOM al construirse). Lo llama SettingsDialog al Guardar.
+    public void applyPendingDialogZoom() {
+        if (pending_dialog_zoom == snap_dialog_zoom) {
+            return;
+        }
+        Helpers.DIALOG_ZOOM = pending_dialog_zoom;
+        Helpers.updateCoronaDialogsFont();
+        persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
+    }
+
     // ¿Hay cambios de apariencia respecto al estado de apertura? (incluye el modo de
     // pantalla pendiente, que aún no se ha aplicado). Lo usa el diálogo para preguntar
     // antes de descartar al cancelar. Las preferencias de animación se leen de PROPERTIES
@@ -879,7 +895,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad
                 || GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade
                 || GameFrame.DOWNGRADE_VELOCIDAD != snap_downgrade_velocidad
-                || Helpers.DIALOG_ZOOM != snap_dialog_zoom;
+                || pending_dialog_zoom != snap_dialog_zoom;
     }
 
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al

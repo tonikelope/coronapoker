@@ -245,7 +245,7 @@ public class NewGameDialog extends JDialog {
 
             bots_label.setText(Translator.translate("ui.bots_dificultad"));
 
-            Helpers.setScaledIconLabel(bots_avatar_label, getClass().getResource("/images/avatar_bot.png"), 56, 56);
+            Helpers.setScaledIconLabel(bots_avatar_label, getClass().getResource("/images/avatar_bot.png"), Math.round(56 * Helpers.DIALOG_ZOOM), Math.round(56 * Helpers.DIALOG_ZOOM));
 
         } else {
             bots_panel.setVisible(false);

@@ -706,9 +706,12 @@ public final class GameLogDialog extends JDialog {
         title.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM)));
 
         final javax.swing.JLabel close_btn = new javax.swing.JLabel("X");
-        close_btn.setFont(new Font("Dialog", Font.BOLD, Math.round(16 * Helpers.DIALOG_ZOOM)));
+        // La X es un control CLICABLE: se escala con el zoom pero con SUELO (fuente y padding) para que a
+        // zoom bajo (50 %) no quede diminuta y el ratón la pille bien. A 100 % el max() da el valor de
+        // diseño (16 / 12 / 14), idéntico.
+        close_btn.setFont(new Font("Dialog", Font.BOLD, Math.max(Math.round(16 * Helpers.DIALOG_ZOOM), 14)));
         close_btn.setForeground(new Color(70, 70, 70)); // barra clara -> X oscura
-        close_btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, Math.round(12 * Helpers.DIALOG_ZOOM), 0, Math.round(14 * Helpers.DIALOG_ZOOM)));
+        close_btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, Math.max(Math.round(12 * Helpers.DIALOG_ZOOM), 10), 0, Math.max(Math.round(14 * Helpers.DIALOG_ZOOM), 12)));
         close_btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         close_btn.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override

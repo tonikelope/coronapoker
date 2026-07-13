@@ -355,27 +355,36 @@ public class ChatImageDialog extends JDialog {
 
                             isgif = GIF_CACHE.containsKey(url);
 
-                            int max_w = Math.round(ChatImageDialog.MAX_IMAGE_WIDTH * Helpers.DIALOG_ZOOM);
-                            if (image.getIconWidth() > max_w) {
+                            // Cap a MAX (INDEPENDIENTE del zoom) para lo que se CACHEA: el caché es canónico
+                            // y no queda atado al zoom de la primera carga.
+                            if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
                                 isgif = (isgif || Helpers.isImageGIF(new URL(url)));
-                                image = new ImageIcon(image.getImage().getScaledInstance(max_w, (int) Math.round((image.getIconHeight() * max_w) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                             }
 
-                            Helpers.GUIRun(() -> {
-                                label.setIcon(image);
-                                label.revalidate();
-                                label.repaint();
-
-                                // Replaced THIS with ChatImageDialog.this
-                                ChatImageDialog.this.historial_panel.revalidate();
-                                ChatImageDialog.this.historial_panel.repaint();
-                            });
-
-                            if (isgif || Helpers.isImageGIF(new URL(url))) {
+                            if (isgif = isgif || Helpers.isImageGIF(new URL(url))) {
                                 GIF_CACHE.putIfAbsent(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
                             } else if (!GIF_CACHE.containsKey(url)) {
                                 STATIC_IMAGE_CACHE.putIfAbsent(url, image);
                             }
+
+                            // Copia PARA MOSTRAR escalada por el zoom de diálogos (NO se cachea). Escala
+                            // TODAS (no solo las que superan el cap), así las pequeñas también encogen/crecen.
+                            ImageIcon display_image = image;
+                            int display_w = Math.round(image.getIconWidth() * Helpers.DIALOG_ZOOM);
+                            if (display_w > 0 && display_w != image.getIconWidth()) {
+                                display_image = new ImageIcon(image.getImage().getScaledInstance(display_w, (int) Math.round((image.getIconHeight() * display_w) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                            }
+                            final ImageIcon final_display = display_image;
+
+                            Helpers.GUIRun(() -> {
+                                label.setIcon(final_display);
+                                label.revalidate();
+                                label.repaint();
+
+                                ChatImageDialog.this.historial_panel.revalidate();
+                                ChatImageDialog.this.historial_panel.repaint();
+                            });
 
                         } else {
                             Helpers.threadRun(() -> {

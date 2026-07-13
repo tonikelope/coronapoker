@@ -1198,7 +1198,7 @@ public class WaitingRoomFrame extends JFrame {
             game_info_hands.setToolTipText(null);
         }
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
 
         Helpers.translateComponents(this, false);
 

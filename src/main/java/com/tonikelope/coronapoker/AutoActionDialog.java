@@ -163,7 +163,7 @@ public class AutoActionDialog extends JDialog {
         // de forma consistente, sin depender del orden.
         setAlwaysOnTop(true);
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
         Helpers.translateComponents(this, false);
 
         // A la altura del jugador local: misma columna izquierda y anchura que su

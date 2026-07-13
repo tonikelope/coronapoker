@@ -59,7 +59,7 @@ public class ExitDialog extends JDialog {
             programar_parada_checkbox.setSelected(true);
         }
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
 
         Helpers.translateComponents(this, false);
 

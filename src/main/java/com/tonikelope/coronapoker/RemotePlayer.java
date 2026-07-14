@@ -2603,7 +2603,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + String.valueOf(applied) + ")");
 
-        if (!silent) {
+        if (!silent && GameFrame.cajaSonidoOn()) {
             Audio.playWavResource("misc/cash_register.wav");
         }
 

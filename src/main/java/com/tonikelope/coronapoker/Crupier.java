@@ -3464,7 +3464,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         this.rebuy_fill_animated = true;
-        animateStackFill(players, from, to, "misc/cash_register.wav");
+        animateStackFill(players, from, to, GameFrame.cashRegisterSound());
     }
 
     public String getBb_nick() {
@@ -7869,7 +7869,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (GameFrame.SONIDOS_CHORRA && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                     Audio.playWavResource("misc/indivisible.wav");
                 }
-                Audio.playWavResource("misc/cash_register.wav");
+                if (GameFrame.cajaSonidoOn()) {
+                    Audio.playWavResource("misc/cash_register.wav");
+                }
                 GameFrame.getInstance().getRegistro()
                         .print(Translator.translate("game.bote_sobrante") + " -> " + Helpers.money2String(bote_sobrante));
             }

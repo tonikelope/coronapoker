@@ -208,6 +208,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
+    // Pista de fondo de la SALA DE ESPERA, con toggle propio (independiente de la del
+    // juego, que gobierna MUSICA_AMBIENTAL). Activada por defecto.
+    public static volatile boolean MUSICA_SALA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica_sala_espera", "true"));
     // Efectos de sonido de mesa configurables (locales, gateados aparte por el master
     // SONIDOS en la capa de Audio). SONIDO_EFECTOS es el interruptor maestro de este grupo:
     // los apaga todos de un plumazo. Individualmente: barajar (shuffle.wav), repartir
@@ -2799,10 +2802,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.PROPERTIES.setProperty("sonido_ascensor", String.valueOf(on));
         Helpers.savePropertiesFile();
 
-        // Un único toggle para la música de juego y la de la sala de espera:
-        // el flag lo gobierna effectiveLoopVolume; aquí solo refrescamos el
-        // volumen del loop que esté sonando para que se oiga al instante.
+        // Solo gobierna la música del JUEGO (la de la sala tiene su propio toggle,
+        // MUSICA_SALA). El flag lo lee effectiveLoopVolume; aquí solo refrescamos el
+        // volumen del loop del juego que esté sonando para que se oiga al instante.
         Audio.refreshLoopVolume(Audio.ASCENSOR_VOLUME.getKey());
+    }
+
+    public static void setMusicaSala(boolean on) {
+
+        GameFrame.MUSICA_SALA = on;
+
+        Helpers.PROPERTIES.setProperty("musica_sala_espera", String.valueOf(on));
+        Helpers.savePropertiesFile();
+
+        // Solo la pista de la sala de espera; refrescamos su loop si está sonando.
         Audio.refreshLoopVolume(Audio.WAITING_ROOM_VOLUME.getKey());
     }
 

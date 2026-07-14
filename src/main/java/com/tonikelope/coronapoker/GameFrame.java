@@ -230,6 +230,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // (toilet.wav: baja/expulsión de la sala de espera). Mismo grupo "Efectos de sonido".
     public static volatile boolean SONIDO_ENTRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_entra", "true"));
     public static volatile boolean SONIDO_SALE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_sale", "true"));
+    // Interruptor (button_on/off.wav): "clic" de conmutador usado en varios toggles de la UI
+    // (luces de la mesa, pausa programada, pre-pulsar acción, ficha de posición, armar recompra).
+    // Caja registradora (cash_register.wav): recompra (top-up de stack, animada o no) y el volcado
+    // del bote sobrante indivisible. Ambos en el grupo "Efectos de sonido".
+    public static volatile boolean SONIDO_INTERRUPTOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_interruptor", "true"));
+    public static volatile boolean SONIDO_CAJA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_caja", "true"));
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
@@ -424,6 +430,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return SONIDO_EFECTOS && SONIDO_SALE;
     }
 
+    public static boolean interruptorSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_INTERRUPTOR;
+    }
+
+    public static boolean cajaSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_CAJA;
+    }
+
     // Rutas de los wav de mesa gateadas por su preferencia (null = sin sonido, que
     // flyCardToSeat/playCardFlipOverlays/showCentralFrames/showCentralFramesLoop ya tratan
     // como "no suena").
@@ -441,6 +455,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static String shuffleSound() {
         return barajadoSonidoOn() ? "misc/shuffle.wav" : null;
+    }
+
+    // Ruta de la caja registradora gateada (null = sin sonido, que animateStackFill trata como
+    // "no suena"): la usa el llenado animado de stacks al recomprar.
+    public static String cashRegisterSound() {
+        return cajaSonidoOn() ? "misc/cash_register.wav" : null;
     }
 
     // ---- Controlador del overlay de barajado por jugador (sincronizado vía el comando SHUFFLE_TURN)
@@ -2923,6 +2943,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.SONIDO_SALE = on;
 
         Helpers.PROPERTIES.setProperty("sonido_sale", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoInterruptor(boolean on) {
+
+        GameFrame.SONIDO_INTERRUPTOR = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_interruptor", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoCaja(boolean on) {
+
+        GameFrame.SONIDO_CAJA = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_caja", String.valueOf(on));
         Helpers.savePropertiesFile();
     }
 
@@ -5570,7 +5606,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
                     // Removed forceRepaintComponentNow
                 });
-                Audio.playWavResource("misc/button_off.wav");
+                if (interruptorSonidoOn()) {
+                    Audio.playWavResource("misc/button_off.wav");
+                }
             });
 
         } else if (crupier.atRebuyLimit(player.getNickname())) {
@@ -5627,7 +5665,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         rebuy_dialog = null;
                         // Removed forceRepaintComponentNow
                     });
-                    Audio.playWavResource("misc/button_on.wav");
+                    if (interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_on.wav");
+                    }
                 });
             } else {
                 rebuy_now_menu.setEnabled(true);

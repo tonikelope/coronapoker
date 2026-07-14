@@ -1397,7 +1397,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.stack += applied;
         this.buyin += applied;
         GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + String.valueOf(applied) + ")");
-        if (!silent) {
+        if (!silent && GameFrame.cajaSonidoOn()) {
             Audio.playWavResource("misc/cash_register.wav");
         }
 
@@ -3032,12 +3032,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (pre_pulsado == Player.FOLD) {
 
-                    Audio.playWavResource("misc/button_off.wav");
+                    if (GameFrame.interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_off.wav");
+                    }
 
                     desPrePulsarBotonAuto(player_fold_button);
 
                 } else {
-                    Audio.playWavResource("misc/button_on.wav");
+                    if (GameFrame.interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_on.wav");
+                    }
 
                     desPrePulsarAutoTodo();
 
@@ -3245,13 +3249,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (pre_pulsado == Player.CHECK) {
 
-                    Audio.playWavResource("misc/button_off.wav");
+                    if (GameFrame.interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_off.wav");
+                    }
 
                     desPrePulsarBotonAuto(player_check_button);
 
                 } else {
 
-                    Audio.playWavResource("misc/button_on.wav");
+                    if (GameFrame.interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_on.wav");
+                    }
 
                     desPrePulsarAutoTodo();
 
@@ -3401,7 +3409,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.savePropertiesFile();
 
-            Audio.playWavResource(GameFrame.LOCAL_POSITION_CHIP == GameFrame.LOCAL_POS_CHIP_HIDDEN ? "misc/button_off.wav" : "misc/button_on.wav");
+            if (GameFrame.interruptorSonidoOn()) {
+                Audio.playWavResource(GameFrame.LOCAL_POSITION_CHIP == GameFrame.LOCAL_POS_CHIP_HIDDEN ? "misc/button_off.wav" : "misc/button_on.wav");
+            }
         }
     }//GEN-LAST:event_player_nameMouseClicked
 

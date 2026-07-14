@@ -86,6 +86,8 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_conteo_checkbox;
     private final JCheckBox sonido_entra_checkbox;
     private final JCheckBox sonido_sale_checkbox;
+    private final JCheckBox sonido_interruptor_checkbox;
+    private final JCheckBox sonido_caja_checkbox;
     private final JCheckBox tts_checkbox;
     private final JCheckBox voice_messages_checkbox;
     private final boolean global_rules_locked;
@@ -133,6 +135,8 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_sonido_conteo;
     private final boolean snap_sonido_entra;
     private final boolean snap_sonido_sale;
+    private final boolean snap_sonido_interruptor;
+    private final boolean snap_sonido_caja;
     private final boolean snap_tts_server;
     private final boolean snap_voice_messages;
     private final String snap_output_device;
@@ -184,6 +188,8 @@ public class AudioSettingsPanel extends JPanel {
         snap_sonido_conteo = GameFrame.SONIDO_CONTEO;
         snap_sonido_entra = GameFrame.SONIDO_ENTRA;
         snap_sonido_sale = GameFrame.SONIDO_SALE;
+        snap_sonido_interruptor = GameFrame.SONIDO_INTERRUPTOR;
+        snap_sonido_caja = GameFrame.SONIDO_CAJA;
         snap_tts_server = GameFrame.TTS_SERVER;
         snap_voice_messages = GameFrame.VOICE_MESSAGES;
         snap_output_device = AudioDeviceManager.getOutputDevice();
@@ -297,6 +303,12 @@ public class AudioSettingsPanel extends JPanel {
         sonido_sale_checkbox = new JCheckBox(Translator.translate("audio.sonido_sale"), GameFrame.SONIDO_SALE);
         sonido_sale_checkbox.addActionListener(e -> GameFrame.setSonidoSale(sonido_sale_checkbox.isSelected()));
 
+        sonido_interruptor_checkbox = new JCheckBox(Translator.translate("audio.sonido_interruptor"), GameFrame.SONIDO_INTERRUPTOR);
+        sonido_interruptor_checkbox.addActionListener(e -> GameFrame.setSonidoInterruptor(sonido_interruptor_checkbox.isSelected()));
+
+        sonido_caja_checkbox = new JCheckBox(Translator.translate("audio.sonido_caja"), GameFrame.SONIDO_CAJA);
+        sonido_caja_checkbox.addActionListener(e -> GameFrame.setSonidoCaja(sonido_caja_checkbox.isSelected()));
+
         tts_checkbox = new JCheckBox(Translator.translate("menu.tts"), GameFrame.TTS_SERVER);
         tts_checkbox.addActionListener(e -> GameFrame.setTTSGlobal(tts_checkbox.isSelected()));
 
@@ -333,6 +345,8 @@ public class AudioSettingsPanel extends JPanel {
         efectos_group.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false));
         efectos_group.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false));
         efectos_group.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false));
+        efectos_group.add(effectRow(scaledIcon("/images/lights_on.png", 24), sonido_interruptor_checkbox, false));
+        efectos_group.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false));
         sound_music_panel.add(indent(efectos_group));
 
         // --- Output device ---
@@ -669,6 +683,8 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDO_CONTEO != snap_sonido_conteo
                 || GameFrame.SONIDO_ENTRA != snap_sonido_entra
                 || GameFrame.SONIDO_SALE != snap_sonido_sale
+                || GameFrame.SONIDO_INTERRUPTOR != snap_sonido_interruptor
+                || GameFrame.SONIDO_CAJA != snap_sonido_caja
                 // Reglas globales (TTS/notas): si eres CLIENTE las manda el servidor (no
                 // las posees); ignorarlas para no dar "¿descartar?" espurio ni revertir
                 // sobre un broadcast del host.
@@ -737,6 +753,12 @@ public class AudioSettingsPanel extends JPanel {
         if (GameFrame.SONIDO_SALE != snap_sonido_sale) {
             GameFrame.setSonidoSale(snap_sonido_sale);
         }
+        if (GameFrame.SONIDO_INTERRUPTOR != snap_sonido_interruptor) {
+            GameFrame.setSonidoInterruptor(snap_sonido_interruptor);
+        }
+        if (GameFrame.SONIDO_CAJA != snap_sonido_caja) {
+            GameFrame.setSonidoCaja(snap_sonido_caja);
+        }
         // Reglas globales (TTS/notas): solo las revierte el HOST (que las posee). Para un
         // cliente las gobierna el servidor por broadcast; revertirlas lo desincronizaría.
         if (!global_rules_locked && GameFrame.TTS_SERVER != snap_tts_server) {
@@ -796,6 +818,8 @@ public class AudioSettingsPanel extends JPanel {
         sonido_conteo_checkbox.setEnabled(fx_on);
         sonido_entra_checkbox.setEnabled(fx_on);
         sonido_sale_checkbox.setEnabled(fx_on);
+        sonido_interruptor_checkbox.setEnabled(fx_on);
+        sonido_caja_checkbox.setEnabled(fx_on);
 
         tts_checkbox.setEnabled(!global_rules_locked);
         voice_messages_checkbox.setEnabled(!global_rules_locked);

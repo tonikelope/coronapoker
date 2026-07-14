@@ -306,10 +306,11 @@ public class AudioSettingsPanel extends JPanel {
         sound_music_panel = new JPanel();
         sound_music_panel.setLayout(new BoxLayout(sound_music_panel, BoxLayout.Y_AXIS));
         sound_music_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.sonido_musica")));
+        // Maestro "SONIDO" al borde; el resto sangrado para que se lea que dependen de él.
         sound_music_panel.add(iconRow(menuIcon("/images/menu/sound.png"), sonidos_checkbox));
-        sound_music_panel.add(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox));
-        sound_music_panel.add(iconRow(menuIcon("/images/menu/music.png"), musica_checkbox));
-        sound_music_panel.add(iconRow(menuIcon("/images/menu/music.png"), musica_sala_checkbox));
+        sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox)));
+        sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/music.png"), musica_checkbox)));
+        sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/music.png"), musica_sala_checkbox)));
 
         // Subpanel "Efectos de sonido" (recuadro fino): maestro arriba + efectos individuales
         // sangrados; "mis cartas" cuelga (más sangría) de "Destapar".
@@ -324,7 +325,7 @@ public class AudioSettingsPanel extends JPanel {
         efectos_group.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false));
         efectos_group.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false));
         efectos_group.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false));
-        sound_music_panel.add(efectos_group);
+        sound_music_panel.add(indent(efectos_group));
 
         // --- Output device ---
         DefaultListModel<String> output_model = new DefaultListModel<>();
@@ -929,9 +930,12 @@ public class AudioSettingsPanel extends JPanel {
                 g2.dispose();
             }
 
+            // Ciñe el recuadro a su contenido (no ocupa todo el ancho de la columna): así,
+            // sangrado bajo el maestro, se lee como un subgrupo y no como una franja. En vivo
+            // (getPreferredSize), no un valor cacheado con la fuente vieja.
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+                return getPreferredSize();
             }
         };
         p.setOpaque(false);
@@ -962,6 +966,27 @@ public class AudioSettingsPanel extends JPanel {
         row.add(cb);
         row.add(Box.createHorizontalGlue());
         return row;
+    }
+
+    // Sangra un componente para colgarlo visualmente del checkbox maestro "SONIDO": lo
+    // desplaza a la derecha con un hueco fijo. Alto máximo = preferido (no se estira en el
+    // BoxLayout Y del panel); el glue final absorbe el ancho sobrante a la derecha cuando el
+    // componente ciñe su contenido (el recuadro de efectos).
+    private static JComponent indent(JComponent comp) {
+        JPanel wrap = new JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        wrap.setOpaque(false);
+        wrap.setLayout(new BoxLayout(wrap, BoxLayout.X_AXIS));
+        wrap.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        wrap.add(Box.createHorizontalStrut(Math.round(22 * Helpers.DIALOG_ZOOM)));
+        comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        wrap.add(comp);
+        wrap.add(Box.createHorizontalGlue());
+        return wrap;
     }
 
 }

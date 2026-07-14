@@ -397,14 +397,14 @@ public class GameOverDialog extends JDialog {
                 last_mp3_loop = null;
             }
             if (!direct_gameover && !continua) {
-                Audio.playWavResourceAndWait("misc/game_over.wav");
+                Audio.playWavResourceAndWait("misc/game_over.wav", true, false, !GameFrame.finPartidaSonidoOn());
                 if (!continua && !exit) {
                     Helpers.GUIRun(() -> {
                         spectator_button.setEnabled(false);
                         continue_button.setEnabled(false);
                         showGameOverFinal();
                     });
-                    Audio.playWavResourceAndWait("misc/nocontinue.wav");
+                    Audio.playWavResourceAndWait("misc/nocontinue.wav", true, false, !GameFrame.finPartidaSonidoOn());
                     if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
                         Audio.playWavResourceAndWait("misc/norebuy.wav");
                     }
@@ -441,7 +441,7 @@ public class GameOverDialog extends JDialog {
         Audio.stopWavResource("misc/game_over.wav");
 
         // Game over alternativo (sin cinemáticas): mudo, sin el wav de recompra.
-        if (!cinematics_off) {
+        if (!cinematics_off && GameFrame.finPartidaSonidoOn()) {
             Audio.playWavResource("misc/rebuy.wav");
         }
 
@@ -478,7 +478,7 @@ public class GameOverDialog extends JDialog {
 
         Helpers.threadRun(() -> {
             Audio.stopWavResource("misc/game_over.wav");
-            Audio.playWavResourceAndWait("misc/nocontinue.wav");
+            Audio.playWavResourceAndWait("misc/nocontinue.wav", true, false, !GameFrame.finPartidaSonidoOn());
             if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
                 Audio.playWavResourceAndWait("misc/norebuy.wav");
             }

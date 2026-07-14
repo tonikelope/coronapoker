@@ -73,6 +73,16 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonidos_checkbox;
     private final JCheckBox sonidos_chorra_checkbox;
     private final JCheckBox musica_checkbox;
+    // Grupo "Efectos de sonido": un maestro (sonido_efectos) que los apaga todos + los
+    // efectos individuales. "mis cartas" cuelga de "destapar".
+    private final JCheckBox sonido_efectos_checkbox;
+    private final JCheckBox sonido_barajado_checkbox;
+    private final JCheckBox sonido_reparto_checkbox;
+    private final JCheckBox sonido_destape_checkbox;
+    private final JCheckBox sonido_destape_mis_checkbox;
+    private final JCheckBox sonido_apostar_checkbox;
+    private final JCheckBox sonido_fold_checkbox;
+    private final JCheckBox sonido_conteo_checkbox;
     private final JCheckBox tts_checkbox;
     private final JCheckBox voice_messages_checkbox;
     private final boolean global_rules_locked;
@@ -109,6 +119,14 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_sonidos;
     private final boolean snap_sonidos_chorra;
     private final boolean snap_musica;
+    private final boolean snap_sonido_efectos;
+    private final boolean snap_sonido_barajado;
+    private final boolean snap_sonido_reparto;
+    private final boolean snap_sonido_destape;
+    private final boolean snap_sonido_destape_mis;
+    private final boolean snap_sonido_apostar;
+    private final boolean snap_sonido_fold;
+    private final boolean snap_sonido_conteo;
     private final boolean snap_tts_server;
     private final boolean snap_voice_messages;
     private final String snap_output_device;
@@ -149,6 +167,14 @@ public class AudioSettingsPanel extends JPanel {
         snap_sonidos = GameFrame.SONIDOS;
         snap_sonidos_chorra = GameFrame.SONIDOS_CHORRA;
         snap_musica = GameFrame.MUSICA_AMBIENTAL;
+        snap_sonido_efectos = GameFrame.SONIDO_EFECTOS;
+        snap_sonido_barajado = GameFrame.SONIDO_BARAJADO;
+        snap_sonido_reparto = GameFrame.SONIDO_REPARTO;
+        snap_sonido_destape = GameFrame.SONIDO_DESTAPE;
+        snap_sonido_destape_mis = GameFrame.SONIDO_DESTAPE_MIS_CARTAS;
+        snap_sonido_apostar = GameFrame.SONIDO_APOSTAR;
+        snap_sonido_fold = GameFrame.SONIDO_FOLD;
+        snap_sonido_conteo = GameFrame.SONIDO_CONTEO;
         snap_tts_server = GameFrame.TTS_SERVER;
         snap_voice_messages = GameFrame.VOICE_MESSAGES;
         snap_output_device = AudioDeviceManager.getOutputDevice();
@@ -219,6 +245,40 @@ public class AudioSettingsPanel extends JPanel {
         musica_checkbox = new JCheckBox(Translator.translate("audio.musica_ambiente"), GameFrame.MUSICA_AMBIENTAL);
         musica_checkbox.addActionListener(e -> GameFrame.setMusicaAmbiental(musica_checkbox.isSelected()));
 
+        // --- Efectos de sonido (subpanel bajo "Música ambiente") ---
+        // Maestro que apaga TODOS los efectos + toggles individuales (todos ON por defecto).
+        // El maestro y "destapar" refrescan el habilitado de sus dependientes. El grupo entero
+        // cuelga del master "Sonidos" (se deshabilita si está off, como coña/música).
+        sonido_efectos_checkbox = new JCheckBox(Translator.translate("audio.efectos_sonido"), GameFrame.SONIDO_EFECTOS);
+        sonido_efectos_checkbox.addActionListener(e -> {
+            GameFrame.setSonidoEfectos(sonido_efectos_checkbox.isSelected());
+            refreshSoundControlsEnabled();
+        });
+
+        sonido_barajado_checkbox = new JCheckBox(Translator.translate("audio.sonido_barajar"), GameFrame.SONIDO_BARAJADO);
+        sonido_barajado_checkbox.addActionListener(e -> GameFrame.setSonidoBarajado(sonido_barajado_checkbox.isSelected()));
+
+        sonido_reparto_checkbox = new JCheckBox(Translator.translate("audio.sonido_repartir"), GameFrame.SONIDO_REPARTO);
+        sonido_reparto_checkbox.addActionListener(e -> GameFrame.setSonidoReparto(sonido_reparto_checkbox.isSelected()));
+
+        sonido_destape_checkbox = new JCheckBox(Translator.translate("audio.sonido_destapar"), GameFrame.SONIDO_DESTAPE);
+        sonido_destape_checkbox.addActionListener(e -> {
+            GameFrame.setSonidoDestape(sonido_destape_checkbox.isSelected());
+            refreshSoundControlsEnabled();
+        });
+
+        sonido_destape_mis_checkbox = new JCheckBox(Translator.translate("audio.sonido_destapar_mis_cartas"), GameFrame.SONIDO_DESTAPE_MIS_CARTAS);
+        sonido_destape_mis_checkbox.addActionListener(e -> GameFrame.setSonidoDestapeMisCartas(sonido_destape_mis_checkbox.isSelected()));
+
+        sonido_apostar_checkbox = new JCheckBox(Translator.translate("audio.sonido_apostar"), GameFrame.SONIDO_APOSTAR);
+        sonido_apostar_checkbox.addActionListener(e -> GameFrame.setSonidoApostar(sonido_apostar_checkbox.isSelected()));
+
+        sonido_fold_checkbox = new JCheckBox(Translator.translate("audio.sonido_foldear"), GameFrame.SONIDO_FOLD);
+        sonido_fold_checkbox.addActionListener(e -> GameFrame.setSonidoFold(sonido_fold_checkbox.isSelected()));
+
+        sonido_conteo_checkbox = new JCheckBox(Translator.translate("audio.sonido_conteo"), GameFrame.SONIDO_CONTEO);
+        sonido_conteo_checkbox.addActionListener(e -> GameFrame.setSonidoConteo(sonido_conteo_checkbox.isSelected()));
+
         tts_checkbox = new JCheckBox(Translator.translate("menu.tts"), GameFrame.TTS_SERVER);
         tts_checkbox.addActionListener(e -> GameFrame.setTTSGlobal(tts_checkbox.isSelected()));
 
@@ -231,6 +291,19 @@ public class AudioSettingsPanel extends JPanel {
         sound_music_panel.add(iconRow(menuIcon("/images/menu/sound.png"), sonidos_checkbox));
         sound_music_panel.add(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox));
         sound_music_panel.add(iconRow(menuIcon("/images/menu/music.png"), musica_checkbox));
+
+        // Subpanel "Efectos de sonido" (recuadro fino): maestro arriba + efectos individuales
+        // sangrados; "mis cartas" cuelga (más sangría) de "Destapar".
+        JPanel efectos_group = groupBox();
+        efectos_group.add(iconRow(menuIcon("/images/menu/fx.png"), sonido_efectos_checkbox));
+        efectos_group.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_barajado_checkbox, false));
+        efectos_group.add(effectRow(menuIcon("/images/menu/dealer.png"), sonido_reparto_checkbox, false));
+        efectos_group.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false));
+        efectos_group.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true));
+        efectos_group.add(effectRow(menuIcon("/images/menu/chips.png"), sonido_apostar_checkbox, false));
+        efectos_group.add(effectRow(scaledIcon("/images/action/down.png", 24), sonido_fold_checkbox, false));
+        efectos_group.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false));
+        sound_music_panel.add(efectos_group);
 
         // --- Output device ---
         DefaultListModel<String> output_model = new DefaultListModel<>();
@@ -551,6 +624,14 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDOS != snap_sonidos
                 || GameFrame.SONIDOS_CHORRA != snap_sonidos_chorra
                 || GameFrame.MUSICA_AMBIENTAL != snap_musica
+                || GameFrame.SONIDO_EFECTOS != snap_sonido_efectos
+                || GameFrame.SONIDO_BARAJADO != snap_sonido_barajado
+                || GameFrame.SONIDO_REPARTO != snap_sonido_reparto
+                || GameFrame.SONIDO_DESTAPE != snap_sonido_destape
+                || GameFrame.SONIDO_DESTAPE_MIS_CARTAS != snap_sonido_destape_mis
+                || GameFrame.SONIDO_APOSTAR != snap_sonido_apostar
+                || GameFrame.SONIDO_FOLD != snap_sonido_fold
+                || GameFrame.SONIDO_CONTEO != snap_sonido_conteo
                 // Reglas globales (TTS/notas): si eres CLIENTE las manda el servidor (no
                 // las posees); ignorarlas para no dar "¿descartar?" espurio ni revertir
                 // sobre un broadcast del host.
@@ -585,6 +666,30 @@ public class AudioSettingsPanel extends JPanel {
         }
         if (GameFrame.MUSICA_AMBIENTAL != snap_musica) {
             GameFrame.setMusicaAmbiental(snap_musica);
+        }
+        if (GameFrame.SONIDO_EFECTOS != snap_sonido_efectos) {
+            GameFrame.setSonidoEfectos(snap_sonido_efectos);
+        }
+        if (GameFrame.SONIDO_BARAJADO != snap_sonido_barajado) {
+            GameFrame.setSonidoBarajado(snap_sonido_barajado);
+        }
+        if (GameFrame.SONIDO_REPARTO != snap_sonido_reparto) {
+            GameFrame.setSonidoReparto(snap_sonido_reparto);
+        }
+        if (GameFrame.SONIDO_DESTAPE != snap_sonido_destape) {
+            GameFrame.setSonidoDestape(snap_sonido_destape);
+        }
+        if (GameFrame.SONIDO_DESTAPE_MIS_CARTAS != snap_sonido_destape_mis) {
+            GameFrame.setSonidoDestapeMisCartas(snap_sonido_destape_mis);
+        }
+        if (GameFrame.SONIDO_APOSTAR != snap_sonido_apostar) {
+            GameFrame.setSonidoApostar(snap_sonido_apostar);
+        }
+        if (GameFrame.SONIDO_FOLD != snap_sonido_fold) {
+            GameFrame.setSonidoFold(snap_sonido_fold);
+        }
+        if (GameFrame.SONIDO_CONTEO != snap_sonido_conteo) {
+            GameFrame.setSonidoConteo(snap_sonido_conteo);
         }
         // Reglas globales (TTS/notas): solo las revierte el HOST (que las posee). Para un
         // cliente las gobierna el servidor por broadcast; revertirlas lo desincronizaría.
@@ -630,6 +735,18 @@ public class AudioSettingsPanel extends JPanel {
 
         sonidos_chorra_checkbox.setEnabled(on);
         musica_checkbox.setEnabled(on);
+
+        // Efectos de sonido: el maestro cuelga de "Sonidos"; los efectos individuales del
+        // maestro, y "mis cartas" además de "Destapar".
+        sonido_efectos_checkbox.setEnabled(on);
+        boolean fx_on = on && sonido_efectos_checkbox.isSelected();
+        sonido_barajado_checkbox.setEnabled(fx_on);
+        sonido_reparto_checkbox.setEnabled(fx_on);
+        sonido_destape_checkbox.setEnabled(fx_on);
+        sonido_destape_mis_checkbox.setEnabled(fx_on && sonido_destape_checkbox.isSelected());
+        sonido_apostar_checkbox.setEnabled(fx_on);
+        sonido_fold_checkbox.setEnabled(fx_on);
+        sonido_conteo_checkbox.setEnabled(fx_on);
 
         tts_checkbox.setEnabled(!global_rules_locked);
         voice_messages_checkbox.setEnabled(!global_rules_locked);
@@ -757,6 +874,58 @@ public class AudioSettingsPanel extends JPanel {
         } catch (java.net.MalformedURLException ex) {
             return null;
         }
+    }
+
+    // Recuadro fino redondeado (mismo estilo que los grupos de la pestaña "Apariencia"):
+    // agrupa el maestro "Efectos de sonido" con sus toggles individuales. Transparente para
+    // que el fondo del panel se vea a través; alto máximo = preferido (no se estira en el
+    // BoxLayout vertical de "Sonido y música").
+    private static JPanel groupBox() {
+        JPanel p = new JPanel() {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                super.paintComponent(g);
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new java.awt.Color(0, 0, 0, 150));
+                g2.setStroke(new java.awt.BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+                g2.dispose();
+            }
+
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        p.setOpaque(false);
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setBorder(BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM)));
+        p.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        return p;
+    }
+
+    // Fila de un efecto individual dentro del recuadro "Efectos de sonido", sangrada bajo el
+    // maestro (deep = sangría mayor, para la subopción "mis cartas" que cuelga de "Destapar").
+    private static JComponent effectRow(javax.swing.Icon icon, JCheckBox cb, boolean deep) {
+        JPanel row = new JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        row.setOpaque(false);
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+        row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        row.add(Box.createHorizontalStrut(Math.round((deep ? 34 : 18) * Helpers.DIALOG_ZOOM)));
+        JLabel icon_label = new JLabel(icon);
+        icon_label.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+        cb.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+        row.add(icon_label);
+        row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
+        row.add(cb);
+        row.add(Box.createHorizontalGlue());
+        return row;
     }
 
 }

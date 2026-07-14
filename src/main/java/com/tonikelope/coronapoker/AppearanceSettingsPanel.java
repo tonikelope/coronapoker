@@ -422,7 +422,7 @@ public class AppearanceSettingsPanel extends JPanel {
 
         // Maestro: activa/desactiva TODAS las animaciones de un plumazo. Al desmarcarlo,
         // DESHABILITA (no desmarca) los 5 checkboxes de abajo, que conservan su valor.
-        JCheckBox anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general"), GameFrame.ANIMACIONES);
+        JCheckBox anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general").toUpperCase(), GameFrame.ANIMACIONES);
         anim_master.addActionListener(e -> {
             boolean on = anim_master.isSelected();
             if (gf != null) {
@@ -477,7 +477,7 @@ public class AppearanceSettingsPanel extends JPanel {
             cascada_row.add(cascada_cb);
             addToGroup(barajado_group, cascada_row);
         }
-        addLeft(anim, barajado_group);
+        addLeft(anim, indent(barajado_group));
 
         // --- Reparto (era "Cartas", conserva su item de menú y la clave "animacion_reparto") ---
         JPanel reparto_group = groupBox();
@@ -532,7 +532,7 @@ public class AppearanceSettingsPanel extends JPanel {
             deal_row.add(deal_combo);
             addToGroup(reparto_group, deal_row);
         }
-        addLeft(anim, reparto_group);
+        addLeft(anim, indent(reparto_group));
 
         // --- Destapar (era la parte de giro del antiguo "Cartas", ahora propio, solo Ajustes) ---
         // De él cuelgan la velocidad del destape y el efecto acercar.
@@ -639,7 +639,7 @@ public class AppearanceSettingsPanel extends JPanel {
             zoom_row.add(zoom_combo);
             addToGroup(destapar_group, zoom_row);
         }
-        addLeft(anim, destapar_group);
+        addLeft(anim, indent(destapar_group));
 
         // --- Ordenar la mano (cruce animado de tus dos hole cards al ordenarlas, solo Ajustes) ---
         // De él cuelga la velocidad del cruce.
@@ -731,7 +731,7 @@ public class AppearanceSettingsPanel extends JPanel {
             style_row.add(style_combo);
             addToGroup(swap_group, style_row);
         }
-        addLeft(anim, swap_group);
+        addLeft(anim, indent(swap_group));
 
         // --- Recolocación de la mesa al salir jugadores (DynamicTablePanel, solo Ajustes) ---
         // De él cuelga la velocidad de la animación de deslizamiento.
@@ -787,7 +787,7 @@ public class AppearanceSettingsPanel extends JPanel {
             dg_row.add(dg_combo);
             addToGroup(downgrade_group, dg_row);
         }
-        addLeft(anim, downgrade_group);
+        addLeft(anim, indent(downgrade_group));
 
         addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
                 gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
@@ -1235,9 +1235,12 @@ public class AppearanceSettingsPanel extends JPanel {
                 g2.dispose();
             }
 
+            // Ciñe el recuadro a su contenido (no ocupa todo el ancho de la columna): así,
+            // sangrado bajo el maestro, se lee como un subgrupo y no como una franja a lo ancho.
+            // En vivo (getPreferredSize), no un valor cacheado con la fuente vieja.
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+                return getPreferredSize();
             }
         };
         p.setOpaque(false);
@@ -1245,6 +1248,27 @@ public class AppearanceSettingsPanel extends JPanel {
         p.setBorder(BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM)));
         p.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         return p;
+    }
+
+    // Sangra un componente para colgarlo visualmente del checkbox maestro de la columna: lo
+    // desplaza a la derecha con un hueco fijo. Alto máximo = preferido (no se estira en el
+    // BoxLayout Y de la columna); el glue final absorbe el ancho sobrante a la derecha cuando
+    // el componente ciñe su contenido (los recuadros de grupo).
+    private static JComponent indent(JComponent comp) {
+        JPanel wrap = new JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        wrap.setOpaque(false);
+        wrap.setLayout(new BoxLayout(wrap, BoxLayout.X_AXIS));
+        wrap.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        wrap.add(Box.createHorizontalStrut(Math.round(22 * Helpers.DIALOG_ZOOM)));
+        comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        wrap.add(comp);
+        wrap.add(Box.createHorizontalGlue());
+        return wrap;
     }
 
     // Añade una fila (checkbox padre o un subcontrol) al recuadro de grupo, con una separación

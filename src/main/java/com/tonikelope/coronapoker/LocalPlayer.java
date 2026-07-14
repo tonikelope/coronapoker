@@ -1745,7 +1745,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 if ((GameFrame.THINK_TIME_ENABLED && response_counter == 0) || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
                                     Helpers.threadRun(() -> {
                                         if (GameFrame.THINK_TIME_ENABLED && response_counter == 0) {
-                                            Audio.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
+                                            Audio.playWavResourceAndWait("misc/timeout.wav", true, false, !GameFrame.avisoTiempoSonidoOn()); //Mientras dura la bocina aún estaríamos a tiempo de elegir (espera intacta aunque esté en silencio)
                                         }
 
                                         GameFrame.getInstance().checkPause();

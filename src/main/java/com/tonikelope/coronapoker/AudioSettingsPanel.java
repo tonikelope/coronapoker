@@ -97,6 +97,7 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_entrar_sala_checkbox;
     private final JCheckBox sonido_tu_turno_checkbox;
     private final JCheckBox sonido_aviso_tiempo_checkbox;
+    private final JCheckBox sonido_fin_partida_checkbox;
     private final JCheckBox tts_checkbox;
     private final JCheckBox voice_messages_checkbox;
     private final boolean global_rules_locked;
@@ -155,6 +156,7 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_sonido_entrar_sala;
     private final boolean snap_sonido_tu_turno;
     private final boolean snap_sonido_aviso_tiempo;
+    private final boolean snap_sonido_fin_partida;
     private final boolean snap_tts_server;
     private final boolean snap_voice_messages;
     private final String snap_output_device;
@@ -217,6 +219,7 @@ public class AudioSettingsPanel extends JPanel {
         snap_sonido_entrar_sala = GameFrame.SONIDO_ENTRAR_SALA;
         snap_sonido_tu_turno = GameFrame.SONIDO_TU_TURNO;
         snap_sonido_aviso_tiempo = GameFrame.SONIDO_AVISO_TIEMPO;
+        snap_sonido_fin_partida = GameFrame.SONIDO_FIN_PARTIDA;
         snap_tts_server = GameFrame.TTS_SERVER;
         snap_voice_messages = GameFrame.VOICE_MESSAGES;
         snap_output_device = AudioDeviceManager.getOutputDevice();
@@ -363,6 +366,9 @@ public class AudioSettingsPanel extends JPanel {
         sonido_aviso_tiempo_checkbox = new JCheckBox(Translator.translate("audio.sonido_aviso_tiempo"), GameFrame.SONIDO_AVISO_TIEMPO);
         sonido_aviso_tiempo_checkbox.addActionListener(e -> GameFrame.setSonidoAvisoTiempo(sonido_aviso_tiempo_checkbox.isSelected()));
 
+        sonido_fin_partida_checkbox = new JCheckBox(Translator.translate("audio.sonido_fin_partida"), GameFrame.SONIDO_FIN_PARTIDA);
+        sonido_fin_partida_checkbox.addActionListener(e -> GameFrame.setSonidoFinPartida(sonido_fin_partida_checkbox.isSelected()));
+
         tts_checkbox = new JCheckBox(Translator.translate("menu.tts"), GameFrame.TTS_SERVER);
         tts_checkbox.addActionListener(e -> GameFrame.setTTSGlobal(tts_checkbox.isSelected()));
 
@@ -421,6 +427,7 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_b.add(effectRow(menuIcon("/images/menu/last_hand.png"), sonido_ultima_mano_checkbox, false));
         fx_col_b.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false));
         fx_col_b.add(effectRow(scaledIcon("/images/pause.png", 24), sonido_pausa_checkbox, false));
+        fx_col_b.add(effectRow(scaledIcon("/images/action/skull.png", 24), sonido_fin_partida_checkbox, false));
         fx_col_b.add(typeHeader("audio.grupo_turno_tiempo"));
         fx_col_b.add(effectRow(scaledIcon("/images/action/vamos.png", 24), sonido_tu_turno_checkbox, false));
         fx_col_b.add(effectRow(scaledIcon("/images/action/timeout.png", 24), sonido_aviso_tiempo_checkbox, false));
@@ -683,13 +690,23 @@ public class AudioSettingsPanel extends JPanel {
         right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
         right_col.add(notes_panel);
 
-        // GridLayout (no BoxLayout X): fuerza a las DOS columnas a la MISMA altura (cada una
-        // rellena su celda), así sus bordes inferiores quedan alineados en cualquier tamaño de
-        // diálogo. Las listas de dispositivos (sin tope de alto) estiran para llenar la columna
-        // derecha si le sobra alto respecto a su contenido.
-        JPanel center_panel = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
-        center_panel.add(left_col);
-        center_panel.add(right_col);
+        // GridBagLayout (no GridLayout): cada columna toma su ANCHO PREFERIDO —ya NO se fuerza a
+        // que ambas midan lo mismo, que ensanchaba el diálogo estirando la derecha (listas de
+        // dispositivos) en balde— pero AMBAS se estiran a la MISMA ALTURA (fill=BOTH, weighty=1),
+        // así sus bordes inferiores siguen alineados. Al empaquetar, el ancho es exactamente el
+        // necesario; weightx=1 reparte por igual cualquier sobre-ancho (no deja huecos centrados).
+        JPanel center_panel = new JPanel(new java.awt.GridBagLayout());
+        java.awt.GridBagConstraints center_gbc = new java.awt.GridBagConstraints();
+        center_gbc.gridy = 0;
+        center_gbc.fill = java.awt.GridBagConstraints.BOTH;
+        center_gbc.weighty = 1.0;
+        center_gbc.weightx = 1.0;
+        center_gbc.gridx = 0;
+        center_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(12 * Helpers.DIALOG_ZOOM));
+        center_panel.add(left_col, center_gbc);
+        center_gbc.gridx = 1;
+        center_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        center_panel.add(right_col, center_gbc);
 
         add(volume_panel, BorderLayout.NORTH);
         add(center_panel, BorderLayout.CENTER);
@@ -784,6 +801,7 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDO_ENTRAR_SALA != snap_sonido_entrar_sala
                 || GameFrame.SONIDO_TU_TURNO != snap_sonido_tu_turno
                 || GameFrame.SONIDO_AVISO_TIEMPO != snap_sonido_aviso_tiempo
+                || GameFrame.SONIDO_FIN_PARTIDA != snap_sonido_fin_partida
                 // Reglas globales (TTS/notas): si eres CLIENTE las manda el servidor (no
                 // las posees); ignorarlas para no dar "¿descartar?" espurio ni revertir
                 // sobre un broadcast del host.
@@ -885,6 +903,9 @@ public class AudioSettingsPanel extends JPanel {
         if (GameFrame.SONIDO_AVISO_TIEMPO != snap_sonido_aviso_tiempo) {
             GameFrame.setSonidoAvisoTiempo(snap_sonido_aviso_tiempo);
         }
+        if (GameFrame.SONIDO_FIN_PARTIDA != snap_sonido_fin_partida) {
+            GameFrame.setSonidoFinPartida(snap_sonido_fin_partida);
+        }
         // Reglas globales (TTS/notas): solo las revierte el HOST (que las posee). Para un
         // cliente las gobierna el servidor por broadcast; revertirlas lo desincronizaría.
         if (!global_rules_locked && GameFrame.TTS_SERVER != snap_tts_server) {
@@ -955,6 +976,7 @@ public class AudioSettingsPanel extends JPanel {
         sonido_entrar_sala_checkbox.setEnabled(fx_on);
         sonido_tu_turno_checkbox.setEnabled(fx_on);
         sonido_aviso_tiempo_checkbox.setEnabled(fx_on);
+        sonido_fin_partida_checkbox.setEnabled(fx_on);
 
         tts_checkbox.setEnabled(!global_rules_locked);
         voice_messages_checkbox.setEnabled(!global_rules_locked);

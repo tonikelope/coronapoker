@@ -1095,7 +1095,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                                 if (GameFrame.THINK_TIME_ENABLED && response_counter == 0) {
                                     Helpers.threadRun(() -> {
-                                        Audio.playWavResourceAndWait("misc/timeout.wav");
+                                        Audio.playWavResourceAndWait("misc/timeout.wav", true, false, !GameFrame.avisoTiempoSonidoOn());
                                         GameFrame.getInstance().checkPause();
                                         Helpers.GUIRun(() -> {
                                             if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
@@ -3472,7 +3472,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     // local es el dueño del game_over.wav (y lo corta al decidir)
                     // → estos GIF remotos van mudos para no doblar el audio.
                     if (REBUY_GIF_ACTIVOS == 0 && !LOCAL_GAMEOVER_OWNS_AUDIO) {
-                        rebuy_gif_label.addAudio("misc/game_over.wav", 1, -1);
+                        rebuy_gif_label.addAudio(GameFrame.finPartidaSonidoOn() ? "misc/game_over.wav" : null, 1, -1);
                     }
                     REBUY_GIF_ACTIVOS++;
                     rebuy_gif_label.setSize(width, height);

@@ -250,6 +250,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDO_ENTRAR_SALA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_entrar_sala", "true"));
     public static volatile boolean SONIDO_TU_TURNO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_tu_turno", "true"));
     public static volatile boolean SONIDO_AVISO_TIEMPO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_aviso_tiempo", "true"));
+    // Fin de partida (game_over/nocontinue/rebuy). Los dos primeros son BLOQUEANTES (marcan el
+    // ritmo de la pantalla final): al desactivarlos suenan en silencio pero se espera igual
+    // (Audio.playWavResourceAndWait force_silent), no se saltan. ON por defecto.
+    public static volatile boolean SONIDO_FIN_PARTIDA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_fin_partida", "true"));
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
@@ -486,6 +490,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean avisoTiempoSonidoOn() {
         return SONIDO_EFECTOS && SONIDO_AVISO_TIEMPO;
+    }
+
+    public static boolean finPartidaSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_FIN_PARTIDA;
     }
 
     // Rutas de los wav de mesa gateadas por su preferencia (null = sin sonido, que
@@ -3081,6 +3089,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.SONIDO_AVISO_TIEMPO = on;
 
         Helpers.PROPERTIES.setProperty("sonido_aviso_tiempo", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoFinPartida(boolean on) {
+
+        GameFrame.SONIDO_FIN_PARTIDA = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_fin_partida", String.valueOf(on));
         Helpers.savePropertiesFile();
     }
 

@@ -76,6 +76,29 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     }
 
+    // Aplica el estado visual de las luces: icono del botón según el brillo actual
+    // + refresco de los diálogos que dependen del brillo (fastchat/notify) +
+    // repintado global. NO cambia el brillo ni reproduce sonido; eso lo decide
+    // quien llama (clic del usuario, atajo Alt+L o pausa automática).
+    public void applyLightsVisuals() {
+
+        Helpers.GUIRun(() -> {
+
+            Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
+
+            if (GameFrame.getInstance().getFastchat_dialog() != null) {
+                GameFrame.getInstance().getFastchat_dialog().refreshColors();
+            }
+
+            if (GameFrame.getInstance().getNotify_dialog() != null) {
+                GameFrame.getInstance().getNotify_dialog().repaint();
+            }
+
+            GameFrame.getInstance().refresh();
+        });
+
+    }
+
     public JPanel getLast_hand_panel() {
         return last_hand_panel;
     }
@@ -1120,30 +1143,26 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void lights_labelMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lights_labelMouseReleased
         // TODO add your handling code here:
 
+        // Durante la pausa el botón de luces está deshabilitado: ignora tanto el
+        // clic (el JLabel deshabilitado no debería recibirlo, pero por si acaso)
+        // como el atajo Alt+L, que entra por lightsButtonClick con evt == null.
+        if (!lights_label.isEnabled()) {
+            return;
+        }
+
         if (evt == null || new Rectangle(new Dimension(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()))).contains(evt.getPoint())) {
             if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
                 Audio.playWavResource("misc/button_off.wav");
                 GameFrame.getInstance().getCapa_brillo().lightsOFF();
-                Helpers.setScaledIconLabel(lights_label, getClass().getResource("/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
 
             } else {
 
                 Audio.playWavResource("misc/button_on.wav");
                 GameFrame.getInstance().getCapa_brillo().lightsON();
-                Helpers.setScaledIconLabel(lights_label, getClass().getResource("/images/lights_on.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
-
             }
 
-            if (GameFrame.getInstance().getFastchat_dialog() != null) {
-                GameFrame.getInstance().getFastchat_dialog().refreshColors();
-            }
-
-            if (GameFrame.getInstance().getNotify_dialog() != null) {
-                GameFrame.getInstance().getNotify_dialog().repaint();
-            }
-
-            GameFrame.getInstance().refresh();
+            applyLightsVisuals();
         }
 
     }//GEN-LAST:event_lights_labelMouseReleased

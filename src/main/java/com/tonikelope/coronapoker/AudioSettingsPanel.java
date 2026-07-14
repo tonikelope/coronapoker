@@ -312,6 +312,9 @@ public class AudioSettingsPanel extends JPanel {
         sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/music.png"), musica_checkbox)));
         sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/music.png"), musica_sala_checkbox)));
 
+        // Un pelín de aire para que el recuadro de efectos no quede pegado a "Música sala".
+        sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
+
         // Subpanel "Efectos de sonido" (recuadro fino): maestro arriba + efectos individuales
         // sangrados; "mis cartas" cuelga (más sangría) de "Destapar".
         JPanel efectos_group = groupBox();

@@ -436,13 +436,31 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_b.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false));
         fx_col_b.add(Box.createVerticalGlue());
 
-        // GridLayout iguala el ancho de las dos columnas; cada una se estira a su celda y sus
-        // casillas quedan pegadas arriba (la más corta deja hueco abajo).
-        JPanel fx_cols = new JPanel(new java.awt.GridLayout(1, 2, Math.round(12 * Helpers.DIALOG_ZOOM), 0));
+        // GridBagLayout (no GridLayout): cada subcolumna toma su ANCHO PREFERIDO. GridLayout las
+        // forzaba al MISMO ancho, dejando un hueco muerto en la más estrecha y ensanchando el
+        // recuadro sin motivo. Ambas a la MISMA ALTURA (fill=BOTH, weighty=1) para alinear sus
+        // cabeceras; getMaximumSize=preferido evita que el BoxLayout del recuadro las estire y
+        // las centre. La izquierda (más corta) deja hueco abajo, absorbido por su glue.
+        JPanel fx_cols = new JPanel(new java.awt.GridBagLayout()) {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return getPreferredSize();
+            }
+        };
         fx_cols.setOpaque(false);
         fx_cols.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        fx_cols.add(fx_col_a);
-        fx_cols.add(fx_col_b);
+        java.awt.GridBagConstraints fx_gbc = new java.awt.GridBagConstraints();
+        fx_gbc.gridy = 0;
+        fx_gbc.fill = java.awt.GridBagConstraints.BOTH;
+        fx_gbc.weighty = 1.0;
+        fx_gbc.weightx = 0.0;
+        fx_gbc.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        fx_gbc.gridx = 0;
+        fx_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(16 * Helpers.DIALOG_ZOOM));
+        fx_cols.add(fx_col_a, fx_gbc);
+        fx_gbc.gridx = 1;
+        fx_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        fx_cols.add(fx_col_b, fx_gbc);
         efectos_group.add(fx_cols);
         sound_music_panel.add(indent(efectos_group));
 

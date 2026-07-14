@@ -307,13 +307,18 @@ public class AudioSettingsPanel extends JPanel {
         sound_music_panel.setLayout(new BoxLayout(sound_music_panel, BoxLayout.Y_AXIS));
         sound_music_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.sonido_musica")));
         // Maestro "SONIDO" al borde; el resto sangrado para que se lea que dependen de él.
+        // Aire entre las filas maestras para que no queden apelmazadas (hay margen de sobra en
+        // esta columna, la más corta, sin subir el alto del diálogo).
         sound_music_panel.add(iconRow(menuIcon("/images/menu/sound.png"), sonidos_checkbox));
+        sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox)));
+        sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/music.png"), musica_checkbox)));
+        sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/music.png"), musica_sala_checkbox)));
 
-        // Un pelín de aire para que el recuadro de efectos no quede pegado a "Música sala".
-        sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
+        // Un poco más de aire para que el recuadro de efectos se lea como subgrupo aparte.
+        sound_music_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
 
         // Subpanel "Efectos de sonido" (recuadro fino): maestro arriba + efectos individuales
         // sangrados; "mis cartas" cuelga (más sangría) de "Destapar".
@@ -501,14 +506,11 @@ public class AudioSettingsPanel extends JPanel {
         retention_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         purge_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
-        // Contenido centrado verticalmente: los glue de arriba y abajo mandan el hueco
-        // sobrante a los extremos, así el panel CRECE para absorber parte del alto de la
-        // columna (que sobra respecto a la izquierda) manteniendo sus filas juntas y
-        // centradas, en vez de dejárselo entero al panel de "Voz (TTS)".
-        // Arriba, la regla GLOBAL de la timba (server); debajo, el interruptor maestro
-        // LOCAL que gobierna el resto de controles de notas de voz (ambos en positivo).
-        // Ambos con el icono de micrófono (van vía iconRow, que ya los alinea a la izq).
-        notes_panel.add(Box.createVerticalGlue());
+        // Contenido compacto y pegado arriba (sin glue): va en la columna derecha, bajo el
+        // "Dispositivo de entrada" (micrófono), con el que forma el bloque de VOZ/entrada. Se
+        // topa a su alto preferido en applyFontsAndSizing para no estirarse. Arriba la regla
+        // GLOBAL de la timba (server); debajo el interruptor maestro LOCAL que gobierna el resto
+        // de controles de notas de voz (ambos en positivo, ambos con el icono de micrófono).
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
         notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), notes_local_checkbox));
@@ -518,7 +520,6 @@ public class AudioSettingsPanel extends JPanel {
         notes_panel.add(Box.createVerticalStrut(Math.round(5 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(retention_panel);
         notes_panel.add(purge_panel);
-        notes_panel.add(Box.createVerticalGlue());
 
         // --- Voz (TTS): arriba la regla GLOBAL de la timba (server); debajo el
         // interruptor LOCAL. Ambos en lógica POSITIVA: el local sigue viviendo bajo el
@@ -529,29 +530,29 @@ public class AudioSettingsPanel extends JPanel {
         tts_panel = new JPanel();
         tts_panel.setLayout(new BoxLayout(tts_panel, BoxLayout.Y_AXIS));
         tts_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.voz_tts")));
-        // Checkboxes centrados verticalmente (glue arriba y abajo): el panel crece para
-        // absorber parte del alto sobrante de la columna y sus controles quedan en el
-        // centro, en vez de quedar pegados arriba. Arriba la regla GLOBAL, debajo la LOCAL,
-        // ambas con el icono de voz (van vía iconRow, que ya las alinea a la izquierda).
-        tts_panel.add(Box.createVerticalGlue());
+        // Compacto y pegado arriba (sin glue): es el panel de menor tamaño, va bajo "Sonido y
+        // música" en la columna izquierda y se topa a su alto preferido en applyFontsAndSizing.
+        // Arriba la regla GLOBAL de la timba (server); debajo la LOCAL, ambas con icono de voz.
         tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_checkbox));
         tts_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_local_checkbox));
-        tts_panel.add(Box.createVerticalGlue());
 
-        // Nota (solo CLIENTE en partida): las reglas GLOBALES de arriba de cada panel las
-        // manda el servidor y quedan en gris (los ajustes locales no las tocan). Va al pie
-        // de la columna derecha; invisible si no eres cliente. Ancho fijo en el HTML para
-        // que ajuste a varias líneas dentro de la columna y no se corte.
+        // Nota (solo CLIENTE en partida): las reglas GLOBALES las manda el servidor y quedan en
+        // gris (los ajustes locales no las tocan). Ahora esos checkboxes GLOBALES viven en
+        // columnas distintas (TTS a la izquierda, Notas de voz a la derecha), así que la nota va
+        // al pie del diálogo (SOUTH), bajo ambas columnas. Invisible si no eres cliente. Ancho
+        // fijo en el HTML para que ajuste a varias líneas y no se corte.
         JLabel global_note = new JLabel("<html><div style='width:240px'>" + Translator.translate("audio.ajustes_locales_ignorados") + "</div></html>");
         global_note.setForeground(java.awt.Color.GRAY);
         global_note.setVisible(global_rules_locked);
-        global_note.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         refreshSoundControlsEnabled();
 
-        // --- Dos columnas para que el diálogo sea apaisado y entre en
-        // resoluciones bajas: izquierda sonido + dispositivos, derecha voz ---
+        // --- Dos columnas EQUILIBRADAS para minimizar la ALTURA del diálogo (cada panel mide
+        // distinto; se reparten para que ninguna columna sea mucho más alta que la otra):
+        // IZQUIERDA "Sonido y música" (el panel más alto) + "Voz (TTS)" (el más bajo);
+        // DERECHA "Dispositivo de salida" + "Dispositivo de entrada" + "Notas de voz" (que va
+        // pegado al micrófono, con el que forma el bloque de VOZ/entrada). ---
         sound_music_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         output_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         mic_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
@@ -563,31 +564,39 @@ public class AudioSettingsPanel extends JPanel {
         left_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
         left_col.add(sound_music_panel);
         left_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        left_col.add(output_panel);
-        left_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        left_col.add(mic_panel);
+        left_col.add(tts_panel);
+        // Ambos paneles de la izquierda son compactos (topados a su alto preferido); esta cola
+        // absorbe el alto sobrante si la columna derecha resulta la más alta, dejándolos pegados
+        // arriba en vez de estirarlos.
+        left_col.add(Box.createVerticalGlue());
 
         JPanel right_col = new JPanel();
         right_col.setLayout(new BoxLayout(right_col, BoxLayout.Y_AXIS));
         right_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
-        right_col.add(notes_panel);
+        right_col.add(output_panel);
         right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        right_col.add(tts_panel);
-        // Sin separador entre tts_panel y la nota global: así tts_panel es el último elemento
-        // efectivo de la columna (la nota es invisible fuera de partida) y su borde inferior llega
-        // al fondo de la celda, alineado con "Dispositivo de entrada" de la columna izquierda.
-        right_col.add(global_note);
+        right_col.add(mic_panel);
+        right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
+        right_col.add(notes_panel);
 
         // GridLayout (no BoxLayout X): fuerza a las DOS columnas a la MISMA altura (cada una
         // rellena su celda), así sus bordes inferiores quedan alineados en cualquier tamaño de
-        // diálogo. Con BoxLayout X cada columna se estiraba por su cuenta y en el diálogo pequeño
-        // (fuera de partida) la izquierda quedaba unos píxeles corta respecto a la derecha.
+        // diálogo. Las listas de dispositivos (sin tope de alto) estiran para llenar la columna
+        // derecha si le sobra alto respecto a su contenido.
         JPanel center_panel = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
         center_panel.add(left_col);
         center_panel.add(right_col);
 
         add(volume_panel, BorderLayout.NORTH);
         add(center_panel, BorderLayout.CENTER);
+        // Nota de reglas globales al pie, bajo ambas columnas: afecta a los checkboxes GLOBALES
+        // de las dos (Voz TTS a la izquierda, Notas de voz a la derecha). Solo se AÑADE si eres
+        // cliente en partida; a diferencia de BoxLayout, BorderLayout.SOUTH reserva el alto del
+        // componente aunque esté invisible, así que fuera de partida no lo colgamos (para no
+        // dejar una franja vacía que se comería el alto ganado).
+        if (global_rules_locked) {
+            add(global_note, BorderLayout.SOUTH);
+        }
 
         loading = false;
 
@@ -616,16 +625,16 @@ public class AudioSettingsPanel extends JPanel {
         retention_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, retention_panel.getPreferredSize().height));
         purge_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, purge_panel.getPreferredSize().height));
 
-        // "Sonido y música" solo lleva checkboxes y es más estrecho que el título de su
-        // borde: se estira al ancho de su columna PERO con el alto fijado al preferido para
-        // NO estirarse en vertical (es el panel superior de la columna izquierda, la más
-        // alta; debe quedar compacto arriba). DESPUÉS de updateFonts, para que el alto
-        // preferido ya refleje la fuente escalada y no se corte por abajo.
-        // "Notas de voz" y "Voz (TTS)" NO se topan aquí a propósito: SÍ estiran en vertical
-        // (glue interno que centra sus controles) para repartirse el alto sobrante de la
-        // columna derecha (más corta que la izquierda) sin quedar pegados arriba. La nota de
-        // reglas globales (solo cliente) va al pie de la columna, debajo de ambos.
+        // "Sonido y música", "Voz (TTS)" y "Notas de voz" solo llevan checkboxes y filas de
+        // alto natural: se estiran al ancho de su columna PERO con el alto topado al preferido
+        // para NO estirarse en vertical (quedan compactos y pegados arriba; el glue del pie de
+        // la columna izquierda y las listas de dispositivos —sin tope— absorben el alto sobrante).
+        // DESPUÉS de updateFonts, para que el alto preferido ya refleje la fuente escalada y no
+        // se corte por abajo. Las listas de "Dispositivo de salida/entrada" SÍ estiran en vertical
+        // para llenar su columna.
         sound_music_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, sound_music_panel.getPreferredSize().height));
+        tts_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, tts_panel.getPreferredSize().height));
+        notes_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, notes_panel.getPreferredSize().height));
     }
 
     // El host DEBE llamarlo al cerrarse: no filtrar el dispatcher de captura de
@@ -960,6 +969,9 @@ public class AudioSettingsPanel extends JPanel {
         row.setOpaque(false);
         row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
         row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        // Margen superior: da aire entre filas de efectos (iban pegadas) y bajo el maestro, sin
+        // subir el alto del diálogo (esta columna es la más corta y le sobra vertical).
+        row.setBorder(BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), 0, 0, 0));
         row.add(Box.createHorizontalStrut(Math.round((deep ? 34 : 18) * Helpers.DIALOG_ZOOM)));
         JLabel icon_label = new JLabel(icon);
         icon_label.setAlignmentY(JComponent.CENTER_ALIGNMENT);

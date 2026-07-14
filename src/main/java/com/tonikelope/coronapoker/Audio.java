@@ -365,14 +365,16 @@ public class Audio {
 
     public static float effectiveLoopVolume(String sound) {
 
-        // "Música ambiente" (MUSICA_AMBIENTAL) gobierna las dos pistas de fondo:
-        // la del juego y la de la sala de espera. Vivir aquí (y no en
-        // MP3_LOOP_MUTED) hace que el flag valga desde el arranque y que un
-        // único toggle controle ambas desde cualquier parte del juego.
-        boolean ambient = ASCENSOR_VOLUME.getKey().equals(sound) || WAITING_ROOM_VOLUME.getKey().equals(sound);
+        // Cada pista de fondo tiene su propio toggle: la del juego la gobierna
+        // "Música ambiente" (MUSICA_AMBIENTAL) y la de la sala de espera "Música
+        // sala de espera" (MUSICA_SALA). Vivir aquí (y no en MP3_LOOP_MUTED) hace
+        // que los flags valgan desde el arranque y controlen su pista desde
+        // cualquier parte del juego.
+        boolean game_music_off = ASCENSOR_VOLUME.getKey().equals(sound) && !GameFrame.MUSICA_AMBIENTAL;
+        boolean room_music_off = WAITING_ROOM_VOLUME.getKey().equals(sound) && !GameFrame.MUSICA_SALA;
 
         // Single source of truth for MP3 loop volume
-        if (!GameFrame.SONIDOS || (ambient && !GameFrame.MUSICA_AMBIENTAL) || MUTED_MP3_LOOP || VOICE_RECORDING || MP3_LOOP_MUTED.contains(sound)) {
+        if (!GameFrame.SONIDOS || game_music_off || room_music_off || MUTED_MP3_LOOP || VOICE_RECORDING || MP3_LOOP_MUTED.contains(sound)) {
             return 0f;
         }
 

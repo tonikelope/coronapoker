@@ -73,6 +73,7 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonidos_checkbox;
     private final JCheckBox sonidos_chorra_checkbox;
     private final JCheckBox musica_checkbox;
+    private final JCheckBox musica_sala_checkbox;
     // Grupo "Efectos de sonido": un maestro (sonido_efectos) que los apaga todos + los
     // efectos individuales. "mis cartas" cuelga de "destapar".
     private final JCheckBox sonido_efectos_checkbox;
@@ -121,6 +122,7 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_sonidos;
     private final boolean snap_sonidos_chorra;
     private final boolean snap_musica;
+    private final boolean snap_musica_sala;
     private final boolean snap_sonido_efectos;
     private final boolean snap_sonido_barajado;
     private final boolean snap_sonido_reparto;
@@ -171,6 +173,7 @@ public class AudioSettingsPanel extends JPanel {
         snap_sonidos = GameFrame.SONIDOS;
         snap_sonidos_chorra = GameFrame.SONIDOS_CHORRA;
         snap_musica = GameFrame.MUSICA_AMBIENTAL;
+        snap_musica_sala = GameFrame.MUSICA_SALA;
         snap_sonido_efectos = GameFrame.SONIDO_EFECTOS;
         snap_sonido_barajado = GameFrame.SONIDO_BARAJADO;
         snap_sonido_reparto = GameFrame.SONIDO_REPARTO;
@@ -251,6 +254,9 @@ public class AudioSettingsPanel extends JPanel {
         musica_checkbox = new JCheckBox(Translator.translate("audio.musica_ambiente"), GameFrame.MUSICA_AMBIENTAL);
         musica_checkbox.addActionListener(e -> GameFrame.setMusicaAmbiental(musica_checkbox.isSelected()));
 
+        musica_sala_checkbox = new JCheckBox(Translator.translate("audio.musica_sala"), GameFrame.MUSICA_SALA);
+        musica_sala_checkbox.addActionListener(e -> GameFrame.setMusicaSala(musica_sala_checkbox.isSelected()));
+
         // --- Efectos de sonido (subpanel bajo "Música ambiente") ---
         // Maestro que apaga TODOS los efectos + toggles individuales (todos ON por defecto).
         // El maestro y "destapar" refrescan el habilitado de sus dependientes. El grupo entero
@@ -303,6 +309,7 @@ public class AudioSettingsPanel extends JPanel {
         sound_music_panel.add(iconRow(menuIcon("/images/menu/sound.png"), sonidos_checkbox));
         sound_music_panel.add(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox));
         sound_music_panel.add(iconRow(menuIcon("/images/menu/music.png"), musica_checkbox));
+        sound_music_panel.add(iconRow(menuIcon("/images/menu/music.png"), musica_sala_checkbox));
 
         // Subpanel "Efectos de sonido" (recuadro fino): maestro arriba + efectos individuales
         // sangrados; "mis cartas" cuelga (más sangría) de "Destapar".
@@ -638,6 +645,7 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDOS != snap_sonidos
                 || GameFrame.SONIDOS_CHORRA != snap_sonidos_chorra
                 || GameFrame.MUSICA_AMBIENTAL != snap_musica
+                || GameFrame.MUSICA_SALA != snap_musica_sala
                 || GameFrame.SONIDO_EFECTOS != snap_sonido_efectos
                 || GameFrame.SONIDO_BARAJADO != snap_sonido_barajado
                 || GameFrame.SONIDO_REPARTO != snap_sonido_reparto
@@ -682,6 +690,9 @@ public class AudioSettingsPanel extends JPanel {
         }
         if (GameFrame.MUSICA_AMBIENTAL != snap_musica) {
             GameFrame.setMusicaAmbiental(snap_musica);
+        }
+        if (GameFrame.MUSICA_SALA != snap_musica_sala) {
+            GameFrame.setMusicaSala(snap_musica_sala);
         }
         if (GameFrame.SONIDO_EFECTOS != snap_sonido_efectos) {
             GameFrame.setSonidoEfectos(snap_sonido_efectos);
@@ -757,6 +768,7 @@ public class AudioSettingsPanel extends JPanel {
 
         sonidos_chorra_checkbox.setEnabled(on);
         musica_checkbox.setEnabled(on);
+        musica_sala_checkbox.setEnabled(on);
 
         // Efectos de sonido: el maestro cuelga de "Sonidos"; los efectos individuales del
         // maestro, y "mis cartas" además de "Destapar".

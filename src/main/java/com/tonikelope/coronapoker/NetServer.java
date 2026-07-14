@@ -282,7 +282,9 @@ public class NetServer {
             return;
         }
 
-        Audio.playWavResource("misc/toilet.wav");
+        if (GameFrame.saleSonidoOn()) {
+            Audio.playWavResource("misc/toilet.wav");
+        }
 
         // Guardamos la referencia ANTES de retirarlo
         Participant pToDel = participantes.get(nick);

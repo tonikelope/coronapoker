@@ -718,11 +718,16 @@ public class AudioSettingsPanel extends JPanel {
         center_gbc.gridy = 0;
         center_gbc.fill = java.awt.GridBagConstraints.BOTH;
         center_gbc.weighty = 1.0;
-        center_gbc.weightx = 1.0;
+        // Columna izquierda (sonido/música + efectos) a su ancho preferido: weightx=0, así NUNCA
+        // recibe sobre-ancho (era lo que dejaba hueco muerto a la derecha de los efectos). Todo
+        // el sobre-ancho residual (si alguna otra pestaña fuerza el diálogo más ancho) va a la
+        // derecha (weightx=1), donde las listas de dispositivos lo aprovechan sin verse mal.
+        center_gbc.weightx = 0.0;
         center_gbc.gridx = 0;
         center_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(12 * Helpers.DIALOG_ZOOM));
         center_panel.add(left_col, center_gbc);
         center_gbc.gridx = 1;
+        center_gbc.weightx = 1.0;
         center_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
         center_panel.add(right_col, center_gbc);
 

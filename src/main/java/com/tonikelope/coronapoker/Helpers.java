@@ -4032,7 +4032,9 @@ public class Helpers {
 
         final String mensaje = Translator.translate(msg);
 
-        Audio.playWavResource("misc/warning.wav");
+        if (GameFrame.avisoSonidoOn()) {
+            Audio.playWavResource("misc/warning.wav");
+        }
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
         Helpers.updateFonts(label, GUI_FONT, MESSAGE_DIALOG_ZOOM * DIALOG_ZOOM);
@@ -4065,7 +4067,9 @@ public class Helpers {
 
         final String mensaje = Translator.translate(msg);
 
-        Audio.playWavResource("misc/warning.wav");
+        if (GameFrame.avisoSonidoOn()) {
+            Audio.playWavResource("misc/warning.wav");
+        }
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
 
@@ -4112,7 +4116,9 @@ public class Helpers {
 
         final String mensaje = Translator.translate(msg);
 
-        Audio.playWavResource("misc/warning.wav");
+        if (GameFrame.avisoSonidoOn()) {
+            Audio.playWavResource("misc/warning.wav");
+        }
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
 
@@ -4143,7 +4149,9 @@ public class Helpers {
 
         final String mensaje = Translator.translate(msg);
 
-        Audio.playWavResource("misc/warning.wav");
+        if (GameFrame.avisoSonidoOn()) {
+            Audio.playWavResource("misc/warning.wav");
+        }
 
         JLabel label = new JLabel("<html><div align='" + align + "'" + (width != null ? " style='width:" + String.valueOf(width) + "px'" : "") + ">" + mensaje.replaceAll("\n", "<br>") + "</div></html>");
 

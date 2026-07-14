@@ -1708,7 +1708,7 @@ public class Init extends JFrame {
         // soltamos el init.wav, en un hilo aparte para no retrasar la ventana.
         Helpers.threadRun(() -> {
             Audio.warmAudioDevice();
-            Audio.playWavResourceAndWait("misc/init.wav");
+            Audio.playWavResourceAndWait("misc/init.wav", true, false, !GameFrame.arranqueSonidoOn());
             // El uncover.wav del destape es deck-independent (misc/) y suena en
             // cada giro de carta: se precarga UNA vez aquí, con el endpoint ya
             // caliente, para que cada destape arranque instantáneo (clip

@@ -292,7 +292,7 @@ public class Audio {
                     refreshALLMP3LoopVolume();
                     refreshTTSVolume();
 
-                    if (confirmation_sound) {
+                    if (confirmation_sound && GameFrame.volumenSonidoOn()) {
                         playWavResource("misc/volume_change.wav");
                     }
 

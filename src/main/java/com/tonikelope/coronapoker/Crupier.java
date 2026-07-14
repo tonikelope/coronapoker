@@ -6779,7 +6779,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.bote = new HandPot(0f);
         }
 
-        Audio.playWavResource("misc/error.wav");
+        if (GameFrame.errorSonidoOn()) {
+            Audio.playWavResource("misc/error.wav");
+        }
 
         // Coherent MISDEAL halt across host AND client.
         //

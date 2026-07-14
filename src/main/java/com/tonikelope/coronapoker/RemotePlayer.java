@@ -559,12 +559,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                             signalChipLaunched();
                                         });
                                     } else if (getDecision() == Player.CHECK && Helpers.doubleSecureCompare(0f, call_required) < 0) {
-                                        getChat_notify_label().addAudio("misc/call.wav", 32, 60, () -> {
+                                        // Sonido de igualar desactivable, pero el callback (ficha al bote +
+                                        // soltar el hilo) DEBE seguir atado al frame 32: audio null si off.
+                                        getChat_notify_label().addAudio(GameFrame.igualarSonidoOn() ? "misc/call.wav" : null, 32, 60, () -> {
                                             GameFrame.getInstance().getCrupier().launchChipToPot(this);
                                             signalChipLaunched();
                                         });
                                     } else if (getDecision() == Player.CHECK) {
-                                        getChat_notify_label().addAudio("misc/check.wav", 5, 14);
+                                        getChat_notify_label().addAudio(GameFrame.pasarSonidoOn() ? "misc/check.wav" : null, 5, 14);
                                     }
                                 }
 
@@ -1086,12 +1088,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 // Hacer setValue aqui en escala segundos generaba parpadeo.
 
                                 if (GameFrame.THINK_TIME_ENABLED && response_counter == GameFrame.getHurryupThreshold() && Helpers.doubleSecureCompare(0f, call_required) < 0) {
-                                    Audio.playWavResource("misc/hurryup.wav");
+                                    if (GameFrame.avisoTiempoSonidoOn()) {
+                                        Audio.playWavResource("misc/hurryup.wav");
+                                    }
                                 }
 
                                 if (GameFrame.THINK_TIME_ENABLED && response_counter == 0) {
                                     Helpers.threadRun(() -> {
-                                        Audio.playWavResourceAndWait("misc/timeout.wav");
+                                        Audio.playWavResourceAndWait("misc/timeout.wav", true, false, !GameFrame.avisoTiempoSonidoOn());
                                         GameFrame.getInstance().checkPause();
                                         Helpers.GUIRun(() -> {
                                             if (auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
@@ -1479,10 +1483,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
 
         } else if (is_call) {
-            Audio.playWavResource("misc/call.wav");
+            if (GameFrame.igualarSonidoOn()) {
+                Audio.playWavResource("misc/call.wav");
+            }
             GameFrame.getInstance().getCrupier().launchChipToPot(this);
         } else {
-            Audio.playWavResource("misc/check.wav");
+            if (GameFrame.pasarSonidoOn()) {
+                Audio.playWavResource("misc/check.wav");
+            }
         }
 
         finTurno();
@@ -1543,7 +1551,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // día cuando onLand lo lee. Los tres a la vez.
         setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
-        Audio.playWavResource("misc/allin.wav");
+        if (GameFrame.allinSonidoOn()) {
+            Audio.playWavResource("misc/allin.wav");
+        }
         GameFrame.getInstance().getCrupier().launchChipToPot(this);
 
         Init.PLAYING_CINEMATIC = true;
@@ -1590,7 +1600,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
             });
 
-            if (val && GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(this.nickname).isForce_reset_socket()) {
+            if (val && GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(this.nickname).isForce_reset_socket() && GameFrame.errorRedSonidoOn()) {
                 Audio.playWavResource("misc/network_error_" + GameFrame.LANGUAGE.toLowerCase() + ".wav");
             }
 
@@ -2603,7 +2613,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + String.valueOf(applied) + ")");
 
-        if (!silent) {
+        if (!silent && GameFrame.cajaSonidoOn()) {
             Audio.playWavResource("misc/cash_register.wav");
         }
 
@@ -3462,7 +3472,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     // local es el dueño del game_over.wav (y lo corta al decidir)
                     // → estos GIF remotos van mudos para no doblar el audio.
                     if (REBUY_GIF_ACTIVOS == 0 && !LOCAL_GAMEOVER_OWNS_AUDIO) {
-                        rebuy_gif_label.addAudio("misc/game_over.wav", 1, -1);
+                        rebuy_gif_label.addAudio(GameFrame.finPartidaSonidoOn() ? "misc/game_over.wav" : null, 1, -1);
                     }
                     REBUY_GIF_ACTIVOS++;
                     rebuy_gif_label.setSize(width, height);

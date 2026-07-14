@@ -292,7 +292,7 @@ public class Audio {
                     refreshALLMP3LoopVolume();
                     refreshTTSVolume();
 
-                    if (confirmation_sound) {
+                    if (confirmation_sound && GameFrame.volumenSonidoOn()) {
                         playWavResource("misc/volume_change.wav");
                     }
 
@@ -406,12 +406,20 @@ public class Audio {
     }
 
     public static void setClipVolume(String sound, Clip clip, boolean bypass_muted) {
+        setClipVolume(sound, clip, bypass_muted, false);
+    }
+
+    // force_silent: mutea ESTE clip concreto (como si el sonido estuviera muteado) pero SIN
+    // saltarse la reproducción, así playWavResourceAndWait sigue esperando su duración completa.
+    // Lo usan los efectos BLOQUEANTES desactivables (fin de partida, timeout) para quedar en
+    // silencio conservando el ritmo/gracia que marca la espera del wav.
+    public static void setClipVolume(String sound, Clip clip, boolean bypass_muted, boolean force_silent) {
 
         FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
 
         boolean mute_supported = clip.isControlSupported(BooleanControl.Type.MUTE);
 
-        if (!GameFrame.SONIDOS || VOICE_RECORDING || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
+        if (force_silent || !GameFrame.SONIDOS || VOICE_RECORDING || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
 
             if (mute_supported) {
                 ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(true);
@@ -439,6 +447,12 @@ public class Audio {
     }
 
     public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted) {
+        return playWavResourceAndWait(sound, force_close, bypass_muted, false);
+    }
+
+    // force_silent: reproduce el wav en SILENCIO (clip muteado) pero espera su duración igual.
+    // Para efectos bloqueantes desactivables cuyo tiempo de espera hay que conservar.
+    public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted, boolean force_silent) {
         if (!GameFrame.TEST_MODE) {
 
             // Abort early if the file is blacklisted
@@ -507,7 +521,7 @@ public class Audio {
 
                                 clip.open(audioInputStream);
 
-                                setClipVolume(sound, clip, bypass_muted);
+                                setClipVolume(sound, clip, bypass_muted, force_silent);
 
                                 // Registered before start() so an ultra-short clip
                                 // cannot finish before we are listening.

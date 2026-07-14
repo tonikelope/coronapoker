@@ -1062,7 +1062,7 @@ public class Participant implements Runnable {
                 this.input_stream_reader = nuevo_stream;
                 this.aes_key = aes_k;
                 this.hmac_key = hmac_k;
-                if (!isForce_reset_socket()) {
+                if (!isForce_reset_socket() && GameFrame.conexionSonidoOn()) {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
                 this.reset_socket = true;

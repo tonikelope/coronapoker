@@ -230,6 +230,49 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // (toilet.wav: baja/expulsión de la sala de espera). Mismo grupo "Efectos de sonido".
     public static volatile boolean SONIDO_ENTRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_entra", "true"));
     public static volatile boolean SONIDO_SALE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_sale", "true"));
+    // Interruptor (button_on/off.wav): "clic" de conmutador usado en varios toggles de la UI
+    // (luces de la mesa, pausa programada, pre-pulsar acción, ficha de posición, armar recompra).
+    // Caja registradora (cash_register.wav): recompra (top-up de stack, animada o no) y el volcado
+    // del bote sobrante indivisible. Ambos en el grupo "Efectos de sonido".
+    public static volatile boolean SONIDO_INTERRUPTOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_interruptor", "true"));
+    public static volatile boolean SONIDO_CAJA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_caja", "true"));
+    // Resto de efectos de mesa configurables (mismo grupo). Acciones no-coña que faltaban:
+    // igualar (call.wav), pasar (check.wav), all-in (allin.wav). Eventos de partida: suben las
+    // ciegas (double_blinds.wav), marcar/desmarcar última mano (last_hand_on/off.wav), pausa
+    // (pause.wav). Sala: alguien pide entrar en la timba (new_user.wav). Turno/tiempo: te toca
+    // (yourturn.wav) y aviso "date prisa" (hurryup.wav). Todos ON por defecto.
+    public static volatile boolean SONIDO_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_igualar", "true"));
+    public static volatile boolean SONIDO_PASAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_pasar", "true"));
+    public static volatile boolean SONIDO_ALLIN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_allin", "true"));
+    public static volatile boolean SONIDO_CIEGAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ciegas", "true"));
+    public static volatile boolean SONIDO_ULTIMA_MANO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ultima_mano", "true"));
+    public static volatile boolean SONIDO_PAUSA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_pausa", "true"));
+    public static volatile boolean SONIDO_ENTRAR_SALA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_entrar_sala", "true"));
+    public static volatile boolean SONIDO_TU_TURNO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_tu_turno", "true"));
+    public static volatile boolean SONIDO_AVISO_TIEMPO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_aviso_tiempo", "true"));
+    // Fin de partida (game_over/nocontinue/rebuy). Los dos primeros son BLOQUEANTES (marcan el
+    // ritmo de la pantalla final): al desactivarlos suenan en silencio pero se espera igual
+    // (Audio.playWavResourceAndWait force_silent), no se saltan. ON por defecto.
+    public static volatile boolean SONIDO_FIN_PARTIDA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_fin_partida", "true"));
+    // Inicio de partida (startplay.wav: fanfarria al empezar/recuperar mano, solo en español),
+    // conexión al servidor (yahoo.wav: al conectar/reconectar como cliente) y la regla IWTSTH
+    // (iwtsth.wav: cinemática BLOQUEANTE al pedir ver la mano de un rival; en silencio se espera
+    // igual con force_silent). ON por defecto.
+    public static volatile boolean SONIDO_INICIO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_inicio", "true"));
+    public static volatile boolean SONIDO_CONEXION = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_conexion", "true"));
+    public static volatile boolean SONIDO_IWTSTH = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_iwtsth", "true"));
+    // Efectos de interfaz y avisos: zoom (zoom_in/out/reset.wav), cambiar tapete (mat.wav), visor
+    // de carta (card_visor.wav), cambiar volumen/dispositivo (volume_change.wav), arranque de la
+    // app (init.wav, BLOQUEANTE → force_silent), advertencia de diálogo (warning.wav), error
+    // (error.wav) y error de red (network_error_XX.wav). ON por defecto.
+    public static volatile boolean SONIDO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_zoom", "true"));
+    public static volatile boolean SONIDO_TAPETE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_tapete", "true"));
+    public static volatile boolean SONIDO_VISOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_visor", "true"));
+    public static volatile boolean SONIDO_VOLUMEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_volumen", "true"));
+    public static volatile boolean SONIDO_ARRANQUE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_arranque", "true"));
+    public static volatile boolean SONIDO_AVISO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_aviso", "true"));
+    public static volatile boolean SONIDO_ERROR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_error", "true"));
+    public static volatile boolean SONIDO_ERROR_RED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_error_red", "true"));
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
@@ -424,6 +467,98 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return SONIDO_EFECTOS && SONIDO_SALE;
     }
 
+    public static boolean interruptorSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_INTERRUPTOR;
+    }
+
+    public static boolean cajaSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_CAJA;
+    }
+
+    public static boolean igualarSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_IGUALAR;
+    }
+
+    public static boolean pasarSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_PASAR;
+    }
+
+    public static boolean allinSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ALLIN;
+    }
+
+    public static boolean ciegasSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_CIEGAS;
+    }
+
+    public static boolean ultimaManoSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ULTIMA_MANO;
+    }
+
+    public static boolean pausaSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_PAUSA;
+    }
+
+    public static boolean entrarSalaSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ENTRAR_SALA;
+    }
+
+    public static boolean tuTurnoSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_TU_TURNO;
+    }
+
+    public static boolean avisoTiempoSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_AVISO_TIEMPO;
+    }
+
+    public static boolean finPartidaSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_FIN_PARTIDA;
+    }
+
+    public static boolean inicioSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_INICIO;
+    }
+
+    public static boolean conexionSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_CONEXION;
+    }
+
+    public static boolean iwtsthSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_IWTSTH;
+    }
+
+    public static boolean zoomSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ZOOM;
+    }
+
+    public static boolean tapeteSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_TAPETE;
+    }
+
+    public static boolean visorSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_VISOR;
+    }
+
+    public static boolean volumenSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_VOLUMEN;
+    }
+
+    public static boolean arranqueSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ARRANQUE;
+    }
+
+    public static boolean avisoSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_AVISO;
+    }
+
+    public static boolean errorSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ERROR;
+    }
+
+    public static boolean errorRedSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ERROR_RED;
+    }
+
     // Rutas de los wav de mesa gateadas por su preferencia (null = sin sonido, que
     // flyCardToSeat/playCardFlipOverlays/showCentralFrames/showCentralFramesLoop ya tratan
     // como "no suena").
@@ -441,6 +576,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static String shuffleSound() {
         return barajadoSonidoOn() ? "misc/shuffle.wav" : null;
+    }
+
+    // Ruta de la caja registradora gateada (null = sin sonido, que animateStackFill trata como
+    // "no suena"): la usa el llenado animado de stacks al recomprar.
+    public static String cashRegisterSound() {
+        return cajaSonidoOn() ? "misc/cash_register.wav" : null;
     }
 
     // ---- Controlador del overlay de barajado por jugador (sincronizado vía el comando SHUFFLE_TURN)
@@ -1270,7 +1411,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         // Play the sound just once based on the overall scroll direction
-        Audio.playWavResource(zoom_accumulator > 0 ? "misc/zoom_in.wav" : "misc/zoom_out.wav");
+        if (zoomSonidoOn()) {
+            Audio.playWavResource(zoom_accumulator > 0 ? "misc/zoom_in.wav" : "misc/zoom_out.wav");
+        }
 
         Helpers.threadRun(() -> {
             synchronized (ZOOM_LOCK) {
@@ -1888,7 +2031,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 this.nick_pause = user != null ? user : this.getNick_local();
 
-                if (!GameFrame.getInstance().getCrupier().isIwtsthing()) {
+                if (!GameFrame.getInstance().getCrupier().isIwtsthing() && pausaSonidoOn()) {
                     Audio.playWavResource("misc/pause.wav");
                 }
             } else {
@@ -2923,6 +3066,190 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.SONIDO_SALE = on;
 
         Helpers.PROPERTIES.setProperty("sonido_sale", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoInterruptor(boolean on) {
+
+        GameFrame.SONIDO_INTERRUPTOR = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_interruptor", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoCaja(boolean on) {
+
+        GameFrame.SONIDO_CAJA = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_caja", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoIgualar(boolean on) {
+
+        GameFrame.SONIDO_IGUALAR = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_igualar", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoPasar(boolean on) {
+
+        GameFrame.SONIDO_PASAR = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_pasar", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoAllin(boolean on) {
+
+        GameFrame.SONIDO_ALLIN = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_allin", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoCiegas(boolean on) {
+
+        GameFrame.SONIDO_CIEGAS = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_ciegas", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoUltimaMano(boolean on) {
+
+        GameFrame.SONIDO_ULTIMA_MANO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_ultima_mano", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoPausa(boolean on) {
+
+        GameFrame.SONIDO_PAUSA = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_pausa", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoEntrarSala(boolean on) {
+
+        GameFrame.SONIDO_ENTRAR_SALA = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_entrar_sala", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoTuTurno(boolean on) {
+
+        GameFrame.SONIDO_TU_TURNO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_tu_turno", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoAvisoTiempo(boolean on) {
+
+        GameFrame.SONIDO_AVISO_TIEMPO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_aviso_tiempo", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoFinPartida(boolean on) {
+
+        GameFrame.SONIDO_FIN_PARTIDA = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_fin_partida", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoInicio(boolean on) {
+
+        GameFrame.SONIDO_INICIO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_inicio", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoConexion(boolean on) {
+
+        GameFrame.SONIDO_CONEXION = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_conexion", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoIwtsth(boolean on) {
+
+        GameFrame.SONIDO_IWTSTH = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_iwtsth", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoZoom(boolean on) {
+
+        GameFrame.SONIDO_ZOOM = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_zoom", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoTapete(boolean on) {
+
+        GameFrame.SONIDO_TAPETE = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_tapete", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoVisor(boolean on) {
+
+        GameFrame.SONIDO_VISOR = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_visor", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoVolumen(boolean on) {
+
+        GameFrame.SONIDO_VOLUMEN = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_volumen", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoArranque(boolean on) {
+
+        GameFrame.SONIDO_ARRANQUE = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_arranque", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoAviso(boolean on) {
+
+        GameFrame.SONIDO_AVISO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_aviso", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoError(boolean on) {
+
+        GameFrame.SONIDO_ERROR = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_error", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoErrorRed(boolean on) {
+
+        GameFrame.SONIDO_ERROR_RED = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_error_red", String.valueOf(on));
         Helpers.savePropertiesFile();
     }
 
@@ -4716,7 +5043,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_inActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_inActionPerformed
         // TODO add your handling code here:
 
-        Audio.playWavResource("misc/zoom_in.wav");
+        if (zoomSonidoOn()) {
+            Audio.playWavResource("misc/zoom_in.wav");
+        }
 
         Helpers.threadRun(() -> {
             incrementZoom();
@@ -4749,7 +5078,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_outActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_outActionPerformed
         // TODO add your handling code here:
 
-        Audio.playWavResource("misc/zoom_out.wav");
+        if (zoomSonidoOn()) {
+            Audio.playWavResource("misc/zoom_out.wav");
+        }
 
         if (Helpers.doubleSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
 
@@ -4782,7 +5113,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (ZOOM_LEVEL != DEFAULT_ZOOM_LEVEL) {
 
-            Audio.playWavResource("misc/zoom_reset.wav");
+            if (zoomSonidoOn()) {
+                Audio.playWavResource("misc/zoom_reset.wav");
+            }
 
             Helpers.threadRun(() -> {
                 ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;
@@ -5570,7 +5903,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
                     // Removed forceRepaintComponentNow
                 });
-                Audio.playWavResource("misc/button_off.wav");
+                if (interruptorSonidoOn()) {
+                    Audio.playWavResource("misc/button_off.wav");
+                }
             });
 
         } else if (crupier.atRebuyLimit(player.getNickname())) {
@@ -5627,7 +5962,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         rebuy_dialog = null;
                         // Removed forceRepaintComponentNow
                     });
-                    Audio.playWavResource("misc/button_on.wav");
+                    if (interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_on.wav");
+                    }
                 });
             } else {
                 rebuy_now_menu.setEnabled(true);

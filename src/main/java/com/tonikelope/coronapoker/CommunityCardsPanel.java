@@ -542,7 +542,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             repaint();
         });
 
-        Audio.playWavResource("misc/last_hand_on.wav");
+        if (GameFrame.ultimaManoSonidoOn()) {
+            Audio.playWavResource("misc/last_hand_on.wav");
+        }
 
     }
 
@@ -567,7 +569,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             repaint();
         });
 
-        Audio.playWavResource("misc/last_hand_off.wav");
+        if (GameFrame.ultimaManoSonidoOn()) {
+            Audio.playWavResource("misc/last_hand_off.wav");
+        }
 
     }
 
@@ -1111,7 +1115,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 getPause_button().setBackground(Color.WHITE);
                 getPause_button().setForeground(new Color(255, 102, 0));
                 GameFrame.getInstance().getLocalPlayer().setAuto_pause(true);
-                Audio.playWavResource("misc/button_on.wav");
+                if (GameFrame.interruptorSonidoOn()) {
+                    Audio.playWavResource("misc/button_on.wav");
+                }
 
                 if (!GameFrame.getInstance().getLocalPlayer().isAuto_pause_warning()) {
                     GameFrame.getInstance().getLocalPlayer().setAuto_pause_warning(true);
@@ -1122,7 +1128,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 getPause_button().setBackground(null);
                 getPause_button().setForeground(null);
                 GameFrame.getInstance().getLocalPlayer().setAuto_pause(false);
-                Audio.playWavResource("misc/button_off.wav");
+                if (GameFrame.interruptorSonidoOn()) {
+                    Audio.playWavResource("misc/button_off.wav");
+                }
             }
         }
 
@@ -1153,12 +1161,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         if (evt == null || new Rectangle(new Dimension(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()))).contains(evt.getPoint())) {
             if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
-                Audio.playWavResource("misc/button_off.wav");
+                if (GameFrame.interruptorSonidoOn()) {
+                    Audio.playWavResource("misc/button_off.wav");
+                }
                 GameFrame.getInstance().getCapa_brillo().lightsOFF();
 
             } else {
 
-                Audio.playWavResource("misc/button_on.wav");
+                if (GameFrame.interruptorSonidoOn()) {
+                    Audio.playWavResource("misc/button_on.wav");
+                }
                 GameFrame.getInstance().getCapa_brillo().lightsON();
             }
 

@@ -271,7 +271,9 @@ public class Reconnect2ServerDialog extends JDialog {
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // TODO add your handling code here:
-        Audio.playWavResource("misc/warning.wav");
+        if (GameFrame.avisoSonidoOn()) {
+            Audio.playWavResource("misc/warning.wav");
+        }
     }//GEN-LAST:event_formComponentShown
 
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed

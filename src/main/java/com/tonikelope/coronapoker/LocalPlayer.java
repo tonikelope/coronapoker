@@ -834,7 +834,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
             });
 
-            if (val) {
+            if (val && GameFrame.errorRedSonidoOn()) {
 
                 Audio.playWavResource("misc/network_error_" + GameFrame.LANGUAGE.toLowerCase() + ".wav");
             }
@@ -1397,7 +1397,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.stack += applied;
         this.buyin += applied;
         GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + String.valueOf(applied) + ")");
-        if (!silent) {
+        if (!silent && GameFrame.cajaSonidoOn()) {
             Audio.playWavResource("misc/cash_register.wav");
         }
 
@@ -1438,7 +1438,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
 
         if (this.getDecision() == Player.NODEC) {
-            Audio.playWavResource("misc/yourturn.wav");
+            if (GameFrame.tuTurnoSonidoOn()) {
+                Audio.playWavResource("misc/yourturn.wav");
+            }
 
             call_required = Helpers.doubleClean(GameFrame.getInstance().getCrupier().getApuesta_actual() - bet);
 
@@ -1714,7 +1716,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 // su Timer interno actualizando la barra cada 50ms.
 
                                 if (GameFrame.THINK_TIME_ENABLED && response_counter == GameFrame.getHurryupThreshold()) {
-                                    Audio.playWavResource("misc/hurryup.wav");
+                                    if (GameFrame.avisoTiempoSonidoOn()) {
+                                        Audio.playWavResource("misc/hurryup.wav");
+                                    }
                                     if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                         if (hurryup_timer != null) {
                                             hurryup_timer.stop();
@@ -1741,7 +1745,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 if ((GameFrame.THINK_TIME_ENABLED && response_counter == 0) || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
                                     Helpers.threadRun(() -> {
                                         if (GameFrame.THINK_TIME_ENABLED && response_counter == 0) {
-                                            Audio.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
+                                            Audio.playWavResourceAndWait("misc/timeout.wav", true, false, !GameFrame.avisoTiempoSonidoOn()); //Mientras dura la bocina aún estaríamos a tiempo de elegir (espera intacta aunque esté en silencio)
                                         }
 
                                         GameFrame.getInstance().checkPause();
@@ -3032,12 +3036,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (pre_pulsado == Player.FOLD) {
 
-                    Audio.playWavResource("misc/button_off.wav");
+                    if (GameFrame.interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_off.wav");
+                    }
 
                     desPrePulsarBotonAuto(player_fold_button);
 
                 } else {
-                    Audio.playWavResource("misc/button_on.wav");
+                    if (GameFrame.interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_on.wav");
+                    }
 
                     desPrePulsarAutoTodo();
 
@@ -3173,7 +3181,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         // los rueda al aterrizar, junto al bote (los tres a la vez).
                         setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
-                        Audio.playWavResource("misc/allin.wav");
+                        if (GameFrame.allinSonidoOn()) {
+                            Audio.playWavResource("misc/allin.wav");
+                        }
                         GameFrame.getInstance().getCrupier().launchChipToPot(this);
 
                         desactivarControles();
@@ -3245,13 +3255,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (pre_pulsado == Player.CHECK) {
 
-                    Audio.playWavResource("misc/button_off.wav");
+                    if (GameFrame.interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_off.wav");
+                    }
 
                     desPrePulsarBotonAuto(player_check_button);
 
                 } else {
 
-                    Audio.playWavResource("misc/button_on.wav");
+                    if (GameFrame.interruptorSonidoOn()) {
+                        Audio.playWavResource("misc/button_on.wav");
+                    }
 
                     desPrePulsarAutoTodo();
 
@@ -3274,10 +3288,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             && GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
                     if (Helpers.doubleSecureCompare(0f, call_required) < 0) {
-                        Audio.playWavResource("misc/call.wav");
+                        if (GameFrame.igualarSonidoOn()) {
+                            Audio.playWavResource("misc/call.wav");
+                        }
                         GameFrame.getInstance().getCrupier().launchChipToPot(this);
                     } else {
-                        Audio.playWavResource("misc/check.wav");
+                        if (GameFrame.pasarSonidoOn()) {
+                            Audio.playWavResource("misc/check.wav");
+                        }
                     }
 
                     desactivarControles();
@@ -3401,7 +3419,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.savePropertiesFile();
 
-            Audio.playWavResource(GameFrame.LOCAL_POSITION_CHIP == GameFrame.LOCAL_POS_CHIP_HIDDEN ? "misc/button_off.wav" : "misc/button_on.wav");
+            if (GameFrame.interruptorSonidoOn()) {
+                Audio.playWavResource(GameFrame.LOCAL_POSITION_CHIP == GameFrame.LOCAL_POS_CHIP_HIDDEN ? "misc/button_off.wav" : "misc/button_on.wav");
+            }
         }
     }//GEN-LAST:event_player_nameMouseClicked
 

@@ -216,11 +216,10 @@ public class SettingsDialog extends JDialog {
 
         pack();
 
-        // Ensancha el diálogo ~15% sobre su tamaño empaquetado, a la anchura del diálogo
-        // de nueva timba: así la columna de Ciegas (combo a la derecha de su etiqueta) y el
-        // resto de paneles, que se estiran para rellenar, respiran igual que al crear timba.
-        // capToScreen lo recorta si no cabe en pantalla (solo encoge).
-        setSize(Math.round(getWidth() * 1.15f), getHeight());
+        // (Antes se ensanchaba ~15% para que la pestaña Partida respirase como el diálogo de
+        // nueva timba. Ahora la pestaña Audio, con los efectos en dos columnas, es la MÁS ancha
+        // y ya estira las demás de sobra, así que ese 15% solo dejaba hueco muerto a la derecha.
+        // Se deja el tamaño empaquetado = el mínimo que necesita el contenido.)
 
         // Tope al ÁREA ÚTIL de la pantalla (mismo patrón de baja resolución que
         // NewGameDialog: getMaximumWindowBounds excluye la barra de tareas). El diálogo

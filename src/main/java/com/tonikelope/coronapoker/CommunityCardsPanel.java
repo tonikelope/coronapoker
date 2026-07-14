@@ -542,7 +542,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             repaint();
         });
 
-        Audio.playWavResource("misc/last_hand_on.wav");
+        if (GameFrame.ultimaManoSonidoOn()) {
+            Audio.playWavResource("misc/last_hand_on.wav");
+        }
 
     }
 
@@ -567,7 +569,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             repaint();
         });
 
-        Audio.playWavResource("misc/last_hand_off.wav");
+        if (GameFrame.ultimaManoSonidoOn()) {
+            Audio.playWavResource("misc/last_hand_off.wav");
+        }
 
     }
 

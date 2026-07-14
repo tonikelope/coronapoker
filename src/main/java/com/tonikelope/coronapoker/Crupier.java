@@ -7129,7 +7129,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.ciega_grande = next[1];
 
-        Audio.playWavResource("misc/double_blinds.wav");
+        if (GameFrame.ciegasSonidoOn()) {
+            Audio.playWavResource("misc/double_blinds.wav");
+        }
 
         GameFrame.getInstance().getRegistro().print(Translator.translate("blinds.se_doblan_las_ciegas"));
 

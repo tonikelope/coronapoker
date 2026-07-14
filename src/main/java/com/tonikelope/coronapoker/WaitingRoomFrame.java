@@ -2971,7 +2971,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                 String client_nick2 = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 String ipCliente = partes_comando[4];
                                                                 if (!net_client.getLate_clients_warning().contains(ipCliente)) {
-                                                                    Audio.playWavResource("misc/new_user.wav");
+                                                                    if (GameFrame.entrarSalaSonidoOn()) {
+                                                                        Audio.playWavResource("misc/new_user.wav");
+                                                                    }
                                                                     net_client.getLate_clients_warning().add(ipCliente);
                                                                 }
                                                                 Helpers.GUIRun(() -> {
@@ -4050,7 +4052,9 @@ public class WaitingRoomFrame extends JFrame {
                                     .digest(client_socket.getInetAddress().getHostAddress().getBytes()));
 
                             if (!net_server.getLate_clients_warning().contains(ipCliente)) {
-                                Audio.playWavResource("misc/new_user.wav");
+                                if (GameFrame.entrarSalaSonidoOn()) {
+                                    Audio.playWavResource("misc/new_user.wav");
+                                }
                                 net_server.getLate_clients_warning().add(ipCliente);
                             }
 

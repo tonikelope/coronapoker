@@ -88,6 +88,15 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_sale_checkbox;
     private final JCheckBox sonido_interruptor_checkbox;
     private final JCheckBox sonido_caja_checkbox;
+    private final JCheckBox sonido_igualar_checkbox;
+    private final JCheckBox sonido_pasar_checkbox;
+    private final JCheckBox sonido_allin_checkbox;
+    private final JCheckBox sonido_ciegas_checkbox;
+    private final JCheckBox sonido_ultima_mano_checkbox;
+    private final JCheckBox sonido_pausa_checkbox;
+    private final JCheckBox sonido_entrar_sala_checkbox;
+    private final JCheckBox sonido_tu_turno_checkbox;
+    private final JCheckBox sonido_aviso_tiempo_checkbox;
     private final JCheckBox tts_checkbox;
     private final JCheckBox voice_messages_checkbox;
     private final boolean global_rules_locked;
@@ -137,6 +146,15 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_sonido_sale;
     private final boolean snap_sonido_interruptor;
     private final boolean snap_sonido_caja;
+    private final boolean snap_sonido_igualar;
+    private final boolean snap_sonido_pasar;
+    private final boolean snap_sonido_allin;
+    private final boolean snap_sonido_ciegas;
+    private final boolean snap_sonido_ultima_mano;
+    private final boolean snap_sonido_pausa;
+    private final boolean snap_sonido_entrar_sala;
+    private final boolean snap_sonido_tu_turno;
+    private final boolean snap_sonido_aviso_tiempo;
     private final boolean snap_tts_server;
     private final boolean snap_voice_messages;
     private final String snap_output_device;
@@ -190,6 +208,15 @@ public class AudioSettingsPanel extends JPanel {
         snap_sonido_sale = GameFrame.SONIDO_SALE;
         snap_sonido_interruptor = GameFrame.SONIDO_INTERRUPTOR;
         snap_sonido_caja = GameFrame.SONIDO_CAJA;
+        snap_sonido_igualar = GameFrame.SONIDO_IGUALAR;
+        snap_sonido_pasar = GameFrame.SONIDO_PASAR;
+        snap_sonido_allin = GameFrame.SONIDO_ALLIN;
+        snap_sonido_ciegas = GameFrame.SONIDO_CIEGAS;
+        snap_sonido_ultima_mano = GameFrame.SONIDO_ULTIMA_MANO;
+        snap_sonido_pausa = GameFrame.SONIDO_PAUSA;
+        snap_sonido_entrar_sala = GameFrame.SONIDO_ENTRAR_SALA;
+        snap_sonido_tu_turno = GameFrame.SONIDO_TU_TURNO;
+        snap_sonido_aviso_tiempo = GameFrame.SONIDO_AVISO_TIEMPO;
         snap_tts_server = GameFrame.TTS_SERVER;
         snap_voice_messages = GameFrame.VOICE_MESSAGES;
         snap_output_device = AudioDeviceManager.getOutputDevice();
@@ -309,6 +336,33 @@ public class AudioSettingsPanel extends JPanel {
         sonido_caja_checkbox = new JCheckBox(Translator.translate("audio.sonido_caja"), GameFrame.SONIDO_CAJA);
         sonido_caja_checkbox.addActionListener(e -> GameFrame.setSonidoCaja(sonido_caja_checkbox.isSelected()));
 
+        sonido_igualar_checkbox = new JCheckBox(Translator.translate("audio.sonido_igualar"), GameFrame.SONIDO_IGUALAR);
+        sonido_igualar_checkbox.addActionListener(e -> GameFrame.setSonidoIgualar(sonido_igualar_checkbox.isSelected()));
+
+        sonido_pasar_checkbox = new JCheckBox(Translator.translate("audio.sonido_pasar"), GameFrame.SONIDO_PASAR);
+        sonido_pasar_checkbox.addActionListener(e -> GameFrame.setSonidoPasar(sonido_pasar_checkbox.isSelected()));
+
+        sonido_allin_checkbox = new JCheckBox(Translator.translate("audio.sonido_allin"), GameFrame.SONIDO_ALLIN);
+        sonido_allin_checkbox.addActionListener(e -> GameFrame.setSonidoAllin(sonido_allin_checkbox.isSelected()));
+
+        sonido_ciegas_checkbox = new JCheckBox(Translator.translate("audio.sonido_ciegas"), GameFrame.SONIDO_CIEGAS);
+        sonido_ciegas_checkbox.addActionListener(e -> GameFrame.setSonidoCiegas(sonido_ciegas_checkbox.isSelected()));
+
+        sonido_ultima_mano_checkbox = new JCheckBox(Translator.translate("audio.sonido_ultima_mano"), GameFrame.SONIDO_ULTIMA_MANO);
+        sonido_ultima_mano_checkbox.addActionListener(e -> GameFrame.setSonidoUltimaMano(sonido_ultima_mano_checkbox.isSelected()));
+
+        sonido_pausa_checkbox = new JCheckBox(Translator.translate("audio.sonido_pausa"), GameFrame.SONIDO_PAUSA);
+        sonido_pausa_checkbox.addActionListener(e -> GameFrame.setSonidoPausa(sonido_pausa_checkbox.isSelected()));
+
+        sonido_entrar_sala_checkbox = new JCheckBox(Translator.translate("audio.sonido_entrar_sala"), GameFrame.SONIDO_ENTRAR_SALA);
+        sonido_entrar_sala_checkbox.addActionListener(e -> GameFrame.setSonidoEntrarSala(sonido_entrar_sala_checkbox.isSelected()));
+
+        sonido_tu_turno_checkbox = new JCheckBox(Translator.translate("audio.sonido_tu_turno"), GameFrame.SONIDO_TU_TURNO);
+        sonido_tu_turno_checkbox.addActionListener(e -> GameFrame.setSonidoTuTurno(sonido_tu_turno_checkbox.isSelected()));
+
+        sonido_aviso_tiempo_checkbox = new JCheckBox(Translator.translate("audio.sonido_aviso_tiempo"), GameFrame.SONIDO_AVISO_TIEMPO);
+        sonido_aviso_tiempo_checkbox.addActionListener(e -> GameFrame.setSonidoAvisoTiempo(sonido_aviso_tiempo_checkbox.isSelected()));
+
         tts_checkbox = new JCheckBox(Translator.translate("menu.tts"), GameFrame.TTS_SERVER);
         tts_checkbox.addActionListener(e -> GameFrame.setTTSGlobal(tts_checkbox.isSelected()));
 
@@ -332,21 +386,57 @@ public class AudioSettingsPanel extends JPanel {
         // Un poco más de aire para que el recuadro de efectos se lea como subgrupo aparte.
         sound_music_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
 
-        // Subpanel "Efectos de sonido" (recuadro fino): maestro arriba + efectos individuales
-        // sangrados; "mis cartas" cuelga (más sangría) de "Destapar".
+        // Subpanel "Efectos de sonido" (recuadro fino): maestro arriba y, debajo, los efectos
+        // individuales AGRUPADOS POR TIPO (cabecera en negrita + sus casillas sangradas), en DOS
+        // columnas para que la lista no dispare el alto. "Mis cartas" cuelga (más sangría) de
+        // "Destapar". Cada casilla se nombra por PARA QUÉ se usa (no por el sonido).
         JPanel efectos_group = groupBox();
         efectos_group.add(iconRow(menuIcon("/images/menu/fx.png"), sonido_efectos_checkbox));
-        efectos_group.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_barajado_checkbox, false));
-        efectos_group.add(effectRow(menuIcon("/images/menu/dealer.png"), sonido_reparto_checkbox, false));
-        efectos_group.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false));
-        efectos_group.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true));
-        efectos_group.add(effectRow(menuIcon("/images/menu/chips.png"), sonido_apostar_checkbox, false));
-        efectos_group.add(effectRow(scaledIcon("/images/action/down.png", 24), sonido_fold_checkbox, false));
-        efectos_group.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false));
-        efectos_group.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false));
-        efectos_group.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false));
-        efectos_group.add(effectRow(scaledIcon("/images/lights_on.png", 24), sonido_interruptor_checkbox, false));
-        efectos_group.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false));
+
+        // Columna izquierda de tipos: lo que ocurre DENTRO de la mano (acciones + cartas).
+        JPanel fx_col_a = effectsColumn();
+        fx_col_a.add(typeHeader("audio.grupo_acciones"));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/chips.png"), sonido_apostar_checkbox, false));
+        fx_col_a.add(effectRow(scaledIcon("/images/action/bet.png", 24), sonido_igualar_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/confirmation.png"), sonido_pasar_checkbox, false));
+        fx_col_a.add(effectRow(scaledIcon("/images/action/up.png", 24), sonido_allin_checkbox, false));
+        fx_col_a.add(effectRow(scaledIcon("/images/action/down.png", 24), sonido_fold_checkbox, false));
+        fx_col_a.add(typeHeader("audio.grupo_cartas"));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_barajado_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/dealer.png"), sonido_reparto_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true));
+        // Fija las filas arriba: si esta columna es la más corta, el glue absorbe el hueco abajo
+        // (si no, BoxLayout podría centrarlas y desalinear las cabeceras respecto a la otra).
+        fx_col_a.add(Box.createVerticalGlue());
+
+        // Columna derecha de tipos: sala, estado de la partida, turno/tiempo y otros.
+        JPanel fx_col_b = effectsColumn();
+        fx_col_b.add(typeHeader("audio.grupo_sala"));
+        fx_col_b.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/bell.png"), sonido_entrar_sala_checkbox, false));
+        fx_col_b.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false));
+        fx_col_b.add(typeHeader("audio.grupo_partida"));
+        fx_col_b.add(effectRow(scaledIcon("/images/ciegas.png", 24), sonido_ciegas_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/last_hand.png"), sonido_ultima_mano_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false));
+        fx_col_b.add(effectRow(scaledIcon("/images/pause.png", 24), sonido_pausa_checkbox, false));
+        fx_col_b.add(typeHeader("audio.grupo_turno_tiempo"));
+        fx_col_b.add(effectRow(scaledIcon("/images/action/vamos.png", 24), sonido_tu_turno_checkbox, false));
+        fx_col_b.add(effectRow(scaledIcon("/images/action/timeout.png", 24), sonido_aviso_tiempo_checkbox, false));
+        fx_col_b.add(typeHeader("audio.grupo_otros"));
+        fx_col_b.add(effectRow(scaledIcon("/images/lights_on.png", 24), sonido_interruptor_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false));
+        fx_col_b.add(Box.createVerticalGlue());
+
+        // GridLayout iguala el ancho de las dos columnas; cada una se estira a su celda y sus
+        // casillas quedan pegadas arriba (la más corta deja hueco abajo).
+        JPanel fx_cols = new JPanel(new java.awt.GridLayout(1, 2, Math.round(12 * Helpers.DIALOG_ZOOM), 0));
+        fx_cols.setOpaque(false);
+        fx_cols.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        fx_cols.add(fx_col_a);
+        fx_cols.add(fx_col_b);
+        efectos_group.add(fx_cols);
         sound_music_panel.add(indent(efectos_group));
 
         // --- Output device ---
@@ -685,6 +775,15 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDO_SALE != snap_sonido_sale
                 || GameFrame.SONIDO_INTERRUPTOR != snap_sonido_interruptor
                 || GameFrame.SONIDO_CAJA != snap_sonido_caja
+                || GameFrame.SONIDO_IGUALAR != snap_sonido_igualar
+                || GameFrame.SONIDO_PASAR != snap_sonido_pasar
+                || GameFrame.SONIDO_ALLIN != snap_sonido_allin
+                || GameFrame.SONIDO_CIEGAS != snap_sonido_ciegas
+                || GameFrame.SONIDO_ULTIMA_MANO != snap_sonido_ultima_mano
+                || GameFrame.SONIDO_PAUSA != snap_sonido_pausa
+                || GameFrame.SONIDO_ENTRAR_SALA != snap_sonido_entrar_sala
+                || GameFrame.SONIDO_TU_TURNO != snap_sonido_tu_turno
+                || GameFrame.SONIDO_AVISO_TIEMPO != snap_sonido_aviso_tiempo
                 // Reglas globales (TTS/notas): si eres CLIENTE las manda el servidor (no
                 // las posees); ignorarlas para no dar "¿descartar?" espurio ni revertir
                 // sobre un broadcast del host.
@@ -759,6 +858,33 @@ public class AudioSettingsPanel extends JPanel {
         if (GameFrame.SONIDO_CAJA != snap_sonido_caja) {
             GameFrame.setSonidoCaja(snap_sonido_caja);
         }
+        if (GameFrame.SONIDO_IGUALAR != snap_sonido_igualar) {
+            GameFrame.setSonidoIgualar(snap_sonido_igualar);
+        }
+        if (GameFrame.SONIDO_PASAR != snap_sonido_pasar) {
+            GameFrame.setSonidoPasar(snap_sonido_pasar);
+        }
+        if (GameFrame.SONIDO_ALLIN != snap_sonido_allin) {
+            GameFrame.setSonidoAllin(snap_sonido_allin);
+        }
+        if (GameFrame.SONIDO_CIEGAS != snap_sonido_ciegas) {
+            GameFrame.setSonidoCiegas(snap_sonido_ciegas);
+        }
+        if (GameFrame.SONIDO_ULTIMA_MANO != snap_sonido_ultima_mano) {
+            GameFrame.setSonidoUltimaMano(snap_sonido_ultima_mano);
+        }
+        if (GameFrame.SONIDO_PAUSA != snap_sonido_pausa) {
+            GameFrame.setSonidoPausa(snap_sonido_pausa);
+        }
+        if (GameFrame.SONIDO_ENTRAR_SALA != snap_sonido_entrar_sala) {
+            GameFrame.setSonidoEntrarSala(snap_sonido_entrar_sala);
+        }
+        if (GameFrame.SONIDO_TU_TURNO != snap_sonido_tu_turno) {
+            GameFrame.setSonidoTuTurno(snap_sonido_tu_turno);
+        }
+        if (GameFrame.SONIDO_AVISO_TIEMPO != snap_sonido_aviso_tiempo) {
+            GameFrame.setSonidoAvisoTiempo(snap_sonido_aviso_tiempo);
+        }
         // Reglas globales (TTS/notas): solo las revierte el HOST (que las posee). Para un
         // cliente las gobierna el servidor por broadcast; revertirlas lo desincronizaría.
         if (!global_rules_locked && GameFrame.TTS_SERVER != snap_tts_server) {
@@ -820,6 +946,15 @@ public class AudioSettingsPanel extends JPanel {
         sonido_sale_checkbox.setEnabled(fx_on);
         sonido_interruptor_checkbox.setEnabled(fx_on);
         sonido_caja_checkbox.setEnabled(fx_on);
+        sonido_igualar_checkbox.setEnabled(fx_on);
+        sonido_pasar_checkbox.setEnabled(fx_on);
+        sonido_allin_checkbox.setEnabled(fx_on);
+        sonido_ciegas_checkbox.setEnabled(fx_on);
+        sonido_ultima_mano_checkbox.setEnabled(fx_on);
+        sonido_pausa_checkbox.setEnabled(fx_on);
+        sonido_entrar_sala_checkbox.setEnabled(fx_on);
+        sonido_tu_turno_checkbox.setEnabled(fx_on);
+        sonido_aviso_tiempo_checkbox.setEnabled(fx_on);
 
         tts_checkbox.setEnabled(!global_rules_locked);
         voice_messages_checkbox.setEnabled(!global_rules_locked);
@@ -1003,6 +1138,39 @@ public class AudioSettingsPanel extends JPanel {
         row.add(icon_label);
         row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         row.add(cb);
+        row.add(Box.createHorizontalGlue());
+        return row;
+    }
+
+    // Columna vertical (transparente) para agrupar tipos de efectos dentro del recuadro; en un
+    // GridLayout se estira a su celda y sus filas quedan pegadas arriba (top-aligned).
+    private static JPanel effectsColumn() {
+        JPanel col = new JPanel();
+        col.setOpaque(false);
+        col.setLayout(new BoxLayout(col, BoxLayout.Y_AXIS));
+        col.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        col.setAlignmentY(JComponent.TOP_ALIGNMENT);
+        return col;
+    }
+
+    // Cabecera de un subgrupo de efectos (Acciones, Cartas...): etiqueta en NEGRITA al borde de
+    // la columna, con las casillas del grupo sangradas debajo (effectRow ya las sangra). El BOLD
+    // sobrevive al updateFonts del host (deriveFont conserva el estilo). Alto máximo = preferido.
+    private static JComponent typeHeader(String key) {
+        JPanel row = new JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        row.setOpaque(false);
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+        row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        // Aire arriba para separar el subgrupo del anterior.
+        row.setBorder(BorderFactory.createEmptyBorder(Math.round(7 * Helpers.DIALOG_ZOOM), 0, Math.round(1 * Helpers.DIALOG_ZOOM), 0));
+        JLabel lbl = new JLabel(Translator.translate(key));
+        lbl.setFont(lbl.getFont().deriveFont(java.awt.Font.BOLD));
+        row.add(lbl);
         row.add(Box.createHorizontalGlue());
         return row;
     }

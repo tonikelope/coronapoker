@@ -254,6 +254,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // ritmo de la pantalla final): al desactivarlos suenan en silencio pero se espera igual
     // (Audio.playWavResourceAndWait force_silent), no se saltan. ON por defecto.
     public static volatile boolean SONIDO_FIN_PARTIDA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_fin_partida", "true"));
+    // Inicio de partida (startplay.wav: fanfarria al empezar/recuperar mano, solo en español),
+    // conexión al servidor (yahoo.wav: al conectar/reconectar como cliente) y la regla IWTSTH
+    // (iwtsth.wav: cinemática BLOQUEANTE al pedir ver la mano de un rival; en silencio se espera
+    // igual con force_silent). ON por defecto.
+    public static volatile boolean SONIDO_INICIO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_inicio", "true"));
+    public static volatile boolean SONIDO_CONEXION = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_conexion", "true"));
+    public static volatile boolean SONIDO_IWTSTH = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_iwtsth", "true"));
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
@@ -494,6 +501,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean finPartidaSonidoOn() {
         return SONIDO_EFECTOS && SONIDO_FIN_PARTIDA;
+    }
+
+    public static boolean inicioSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_INICIO;
+    }
+
+    public static boolean conexionSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_CONEXION;
+    }
+
+    public static boolean iwtsthSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_IWTSTH;
     }
 
     // Rutas de los wav de mesa gateadas por su preferencia (null = sin sonido, que
@@ -3097,6 +3116,30 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.SONIDO_FIN_PARTIDA = on;
 
         Helpers.PROPERTIES.setProperty("sonido_fin_partida", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoInicio(boolean on) {
+
+        GameFrame.SONIDO_INICIO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_inicio", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoConexion(boolean on) {
+
+        GameFrame.SONIDO_CONEXION = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_conexion", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoIwtsth(boolean on) {
+
+        GameFrame.SONIDO_IWTSTH = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_iwtsth", String.valueOf(on));
         Helpers.savePropertiesFile();
     }
 

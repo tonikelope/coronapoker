@@ -98,6 +98,9 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_tu_turno_checkbox;
     private final JCheckBox sonido_aviso_tiempo_checkbox;
     private final JCheckBox sonido_fin_partida_checkbox;
+    private final JCheckBox sonido_inicio_checkbox;
+    private final JCheckBox sonido_conexion_checkbox;
+    private final JCheckBox sonido_iwtsth_checkbox;
     private final JCheckBox tts_checkbox;
     private final JCheckBox voice_messages_checkbox;
     private final boolean global_rules_locked;
@@ -157,6 +160,9 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_sonido_tu_turno;
     private final boolean snap_sonido_aviso_tiempo;
     private final boolean snap_sonido_fin_partida;
+    private final boolean snap_sonido_inicio;
+    private final boolean snap_sonido_conexion;
+    private final boolean snap_sonido_iwtsth;
     private final boolean snap_tts_server;
     private final boolean snap_voice_messages;
     private final String snap_output_device;
@@ -220,6 +226,9 @@ public class AudioSettingsPanel extends JPanel {
         snap_sonido_tu_turno = GameFrame.SONIDO_TU_TURNO;
         snap_sonido_aviso_tiempo = GameFrame.SONIDO_AVISO_TIEMPO;
         snap_sonido_fin_partida = GameFrame.SONIDO_FIN_PARTIDA;
+        snap_sonido_inicio = GameFrame.SONIDO_INICIO;
+        snap_sonido_conexion = GameFrame.SONIDO_CONEXION;
+        snap_sonido_iwtsth = GameFrame.SONIDO_IWTSTH;
         snap_tts_server = GameFrame.TTS_SERVER;
         snap_voice_messages = GameFrame.VOICE_MESSAGES;
         snap_output_device = AudioDeviceManager.getOutputDevice();
@@ -369,6 +378,15 @@ public class AudioSettingsPanel extends JPanel {
         sonido_fin_partida_checkbox = new JCheckBox(Translator.translate("audio.sonido_fin_partida"), GameFrame.SONIDO_FIN_PARTIDA);
         sonido_fin_partida_checkbox.addActionListener(e -> GameFrame.setSonidoFinPartida(sonido_fin_partida_checkbox.isSelected()));
 
+        sonido_inicio_checkbox = new JCheckBox(Translator.translate("audio.sonido_inicio"), GameFrame.SONIDO_INICIO);
+        sonido_inicio_checkbox.addActionListener(e -> GameFrame.setSonidoInicio(sonido_inicio_checkbox.isSelected()));
+
+        sonido_conexion_checkbox = new JCheckBox(Translator.translate("audio.sonido_conexion"), GameFrame.SONIDO_CONEXION);
+        sonido_conexion_checkbox.addActionListener(e -> GameFrame.setSonidoConexion(sonido_conexion_checkbox.isSelected()));
+
+        sonido_iwtsth_checkbox = new JCheckBox(Translator.translate("audio.sonido_iwtsth"), GameFrame.SONIDO_IWTSTH);
+        sonido_iwtsth_checkbox.addActionListener(e -> GameFrame.setSonidoIwtsth(sonido_iwtsth_checkbox.isSelected()));
+
         tts_checkbox = new JCheckBox(Translator.translate("menu.tts"), GameFrame.TTS_SERVER);
         tts_checkbox.addActionListener(e -> GameFrame.setTTSGlobal(tts_checkbox.isSelected()));
 
@@ -399,7 +417,8 @@ public class AudioSettingsPanel extends JPanel {
         JPanel efectos_group = groupBox();
         efectos_group.add(iconRow(menuIcon("/images/menu/fx.png"), sonido_efectos_checkbox));
 
-        // Columna izquierda de tipos: lo que ocurre DENTRO de la mano (acciones + cartas).
+        // Columna izquierda de tipos: acciones + cartas + sala. Repartida para quedar pareja en
+        // nº de filas con la derecha.
         JPanel fx_col_a = effectsColumn();
         fx_col_a.add(typeHeader("audio.grupo_acciones"));
         fx_col_a.add(effectRow(menuIcon("/images/menu/chips.png"), sonido_apostar_checkbox, false));
@@ -412,17 +431,19 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_a.add(effectRow(menuIcon("/images/menu/dealer.png"), sonido_reparto_checkbox, false));
         fx_col_a.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false));
         fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true));
+        fx_col_a.add(typeHeader("audio.grupo_sala"));
+        fx_col_a.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/bell.png"), sonido_entrar_sala_checkbox, false));
+        fx_col_a.add(effectRow(scaledIcon("/images/action/plug.png", 24), sonido_conexion_checkbox, false));
+        fx_col_a.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false));
         // Fija las filas arriba: si esta columna es la más corta, el glue absorbe el hueco abajo
         // (si no, BoxLayout podría centrarlas y desalinear las cabeceras respecto a la otra).
         fx_col_a.add(Box.createVerticalGlue());
 
-        // Columna derecha de tipos: sala, estado de la partida, turno/tiempo y otros.
+        // Columna derecha de tipos: estado de la partida, turno/tiempo y otros.
         JPanel fx_col_b = effectsColumn();
-        fx_col_b.add(typeHeader("audio.grupo_sala"));
-        fx_col_b.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/bell.png"), sonido_entrar_sala_checkbox, false));
-        fx_col_b.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false));
         fx_col_b.add(typeHeader("audio.grupo_partida"));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/games.png"), sonido_inicio_checkbox, false));
         fx_col_b.add(effectRow(scaledIcon("/images/ciegas.png", 24), sonido_ciegas_checkbox, false));
         fx_col_b.add(effectRow(menuIcon("/images/menu/last_hand.png"), sonido_ultima_mano_checkbox, false));
         fx_col_b.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false));
@@ -434,6 +455,7 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_b.add(typeHeader("audio.grupo_otros"));
         fx_col_b.add(effectRow(scaledIcon("/images/lights_on.png", 24), sonido_interruptor_checkbox, false));
         fx_col_b.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/video.png"), sonido_iwtsth_checkbox, false));
         fx_col_b.add(Box.createVerticalGlue());
 
         // GridBagLayout (no GridLayout): cada subcolumna toma su ANCHO PREFERIDO. GridLayout las
@@ -825,6 +847,9 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDO_TU_TURNO != snap_sonido_tu_turno
                 || GameFrame.SONIDO_AVISO_TIEMPO != snap_sonido_aviso_tiempo
                 || GameFrame.SONIDO_FIN_PARTIDA != snap_sonido_fin_partida
+                || GameFrame.SONIDO_INICIO != snap_sonido_inicio
+                || GameFrame.SONIDO_CONEXION != snap_sonido_conexion
+                || GameFrame.SONIDO_IWTSTH != snap_sonido_iwtsth
                 // Reglas globales (TTS/notas): si eres CLIENTE las manda el servidor (no
                 // las posees); ignorarlas para no dar "¿descartar?" espurio ni revertir
                 // sobre un broadcast del host.
@@ -929,6 +954,15 @@ public class AudioSettingsPanel extends JPanel {
         if (GameFrame.SONIDO_FIN_PARTIDA != snap_sonido_fin_partida) {
             GameFrame.setSonidoFinPartida(snap_sonido_fin_partida);
         }
+        if (GameFrame.SONIDO_INICIO != snap_sonido_inicio) {
+            GameFrame.setSonidoInicio(snap_sonido_inicio);
+        }
+        if (GameFrame.SONIDO_CONEXION != snap_sonido_conexion) {
+            GameFrame.setSonidoConexion(snap_sonido_conexion);
+        }
+        if (GameFrame.SONIDO_IWTSTH != snap_sonido_iwtsth) {
+            GameFrame.setSonidoIwtsth(snap_sonido_iwtsth);
+        }
         // Reglas globales (TTS/notas): solo las revierte el HOST (que las posee). Para un
         // cliente las gobierna el servidor por broadcast; revertirlas lo desincronizaría.
         if (!global_rules_locked && GameFrame.TTS_SERVER != snap_tts_server) {
@@ -1000,6 +1034,9 @@ public class AudioSettingsPanel extends JPanel {
         sonido_tu_turno_checkbox.setEnabled(fx_on);
         sonido_aviso_tiempo_checkbox.setEnabled(fx_on);
         sonido_fin_partida_checkbox.setEnabled(fx_on);
+        sonido_inicio_checkbox.setEnabled(fx_on);
+        sonido_conexion_checkbox.setEnabled(fx_on);
+        sonido_iwtsth_checkbox.setEnabled(fx_on);
 
         tts_checkbox.setEnabled(!global_rules_locked);
         voice_messages_checkbox.setEnabled(!global_rules_locked);

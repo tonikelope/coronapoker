@@ -223,6 +223,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDO_APOSTAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_apostar", "true"));
     public static volatile boolean SONIDO_FOLD = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_fold", "true"));
     public static volatile boolean SONIDO_CONTEO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_conteo", "true"));
+    // Entrar (laser.wav: crear/unirse partida, nuevo participante, añadir bot) y salir
+    // (toilet.wav: baja/expulsión de la sala de espera). Mismo grupo "Efectos de sonido".
+    public static volatile boolean SONIDO_ENTRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_entra", "true"));
+    public static volatile boolean SONIDO_SALE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_sale", "true"));
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
@@ -407,6 +411,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean conteoSonidoOn() {
         return SONIDO_EFECTOS && SONIDO_CONTEO;
+    }
+
+    public static boolean entraSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ENTRA;
+    }
+
+    public static boolean saleSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_SALE;
     }
 
     // Rutas de los wav de mesa gateadas por su preferencia (null = sin sonido, que
@@ -2855,6 +2867,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.SONIDO_CONTEO = on;
 
         Helpers.PROPERTIES.setProperty("sonido_conteo", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoEntra(boolean on) {
+
+        GameFrame.SONIDO_ENTRA = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_entra", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoSale(boolean on) {
+
+        GameFrame.SONIDO_SALE = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_sale", String.valueOf(on));
         Helpers.savePropertiesFile();
     }
 

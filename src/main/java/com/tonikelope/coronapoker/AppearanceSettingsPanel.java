@@ -336,7 +336,7 @@ public class AppearanceSettingsPanel extends JPanel {
             }
         });
         JPanel trasera_row = naturalRow();
-        trasera_row.add(Box.createHorizontalStrut(Math.round(24 * Helpers.DIALOG_ZOOM))); // sangría: cuelga de "Baraja"
+        trasera_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sangría: cuelga de "Baraja"
         JLabel trasera_label = new JLabel(Translator.translate("settings.trasera") + ":");
         trasera_label.setIcon(icon("/images/menu/baraja.png"));
         trasera_row.add(trasera_label);
@@ -472,7 +472,7 @@ public class AppearanceSettingsPanel extends JPanel {
             barajado_cb.addActionListener(e -> updateCascadaEnabled.run());
             updateCascadaEnabled.run();
             JPanel cascada_row = naturalRow();
-            cascada_row.add(Box.createHorizontalStrut(Math.round(24 * Helpers.DIALOG_ZOOM))); // sub de "Barajado"
+            cascada_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Barajado"
             cascada_row.add(new JLabel(icon("/images/menu/baraja.png")));
             cascada_row.add(cascada_cb);
             addToGroup(barajado_group, cascada_row);
@@ -526,7 +526,7 @@ public class AppearanceSettingsPanel extends JPanel {
             updateDealEnabled.run();
 
             JPanel deal_row = naturalRow();
-            deal_row.add(Box.createHorizontalStrut(Math.round(24 * Helpers.DIALOG_ZOOM))); // sub de "Reparto"
+            deal_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Reparto"
             deal_row.add(new JLabel(icon("/images/menu/clock.png")));
             deal_row.add(deal_text);
             deal_row.add(deal_combo);
@@ -584,7 +584,7 @@ public class AppearanceSettingsPanel extends JPanel {
             updateFlipEnabled.run();
 
             JPanel flip_row = naturalRow();
-            flip_row.add(Box.createHorizontalStrut(Math.round(24 * Helpers.DIALOG_ZOOM))); // más sangrado: cuelga de "Destapar"
+            flip_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // más sangrado: cuelga de "Destapar"
             flip_row.add(new JLabel(icon("/images/menu/clock.png")));
             flip_row.add(flip_text);
             flip_row.add(speed_combo);
@@ -633,7 +633,7 @@ public class AppearanceSettingsPanel extends JPanel {
             updateZoomEnabled.run();
 
             JPanel zoom_row = naturalRow();
-            zoom_row.add(Box.createHorizontalStrut(Math.round(24 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
+            zoom_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
             zoom_row.add(new JLabel(icon("/images/menu/zoom_in.png")));
             zoom_row.add(zoom_text);
             zoom_row.add(zoom_combo);
@@ -689,7 +689,7 @@ public class AppearanceSettingsPanel extends JPanel {
             updateSwapEnabled.run();
 
             JPanel swap_row = naturalRow();
-            swap_row.add(Box.createHorizontalStrut(Math.round(24 * Helpers.DIALOG_ZOOM))); // sub de "Ordenar la mano"
+            swap_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Ordenar la mano"
             swap_row.add(new JLabel(icon("/images/menu/clock.png")));
             swap_row.add(swap_text);
             swap_row.add(swap_combo);
@@ -725,7 +725,7 @@ public class AppearanceSettingsPanel extends JPanel {
             updateStyleEnabled.run();
 
             JPanel style_row = naturalRow();
-            style_row.add(Box.createHorizontalStrut(Math.round(24 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
+            style_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
             style_row.add(new JLabel(icon("/images/menu/swap.png")));
             style_row.add(style_text);
             style_row.add(style_combo);
@@ -781,7 +781,7 @@ public class AppearanceSettingsPanel extends JPanel {
             updateDgEnabled.run();
 
             JPanel dg_row = naturalRow();
-            dg_row.add(Box.createHorizontalStrut(Math.round(24 * Helpers.DIALOG_ZOOM))); // sub del ajuste
+            dg_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub del ajuste
             dg_row.add(new JLabel(icon("/images/menu/clock.png")));
             dg_row.add(dg_text);
             dg_row.add(dg_combo);
@@ -1358,11 +1358,10 @@ public class AppearanceSettingsPanel extends JPanel {
         });
         anim_sub_cb.add(cb);
         anim_sub_menu.add(menu);
-        // Sangría MÍNIMA (el resto lo pone indent() en los sueltos / el borde del recuadro en
-        // los que van agrupados): así el contenido de los recuadros se pega a su borde izquierdo
-        // y no deja una franja vacía. Los subcontroles (velocidad, etc.) cuelgan con más sangría.
+        // SIN sangría propia: el checkbox padre se pega al borde del recuadro (solo el hueco
+        // del FlowLayout), de modo que su margen izquierdo iguala al derecho (recuadro simétrico).
+        // La sangría de los sueltos la pone indent(); la de los subcontroles, su propio strut.
         JPanel row = naturalRow();
-        row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         row.add(new JLabel(icon(iconPath)));
         row.add(cb);
         return row;

@@ -101,6 +101,14 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_inicio_checkbox;
     private final JCheckBox sonido_conexion_checkbox;
     private final JCheckBox sonido_iwtsth_checkbox;
+    private final JCheckBox sonido_zoom_checkbox;
+    private final JCheckBox sonido_tapete_checkbox;
+    private final JCheckBox sonido_visor_checkbox;
+    private final JCheckBox sonido_volumen_checkbox;
+    private final JCheckBox sonido_arranque_checkbox;
+    private final JCheckBox sonido_aviso_checkbox;
+    private final JCheckBox sonido_error_checkbox;
+    private final JCheckBox sonido_error_red_checkbox;
     private final JCheckBox tts_checkbox;
     private final JCheckBox voice_messages_checkbox;
     private final boolean global_rules_locked;
@@ -163,6 +171,14 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_sonido_inicio;
     private final boolean snap_sonido_conexion;
     private final boolean snap_sonido_iwtsth;
+    private final boolean snap_sonido_zoom;
+    private final boolean snap_sonido_tapete;
+    private final boolean snap_sonido_visor;
+    private final boolean snap_sonido_volumen;
+    private final boolean snap_sonido_arranque;
+    private final boolean snap_sonido_aviso;
+    private final boolean snap_sonido_error;
+    private final boolean snap_sonido_error_red;
     private final boolean snap_tts_server;
     private final boolean snap_voice_messages;
     private final String snap_output_device;
@@ -229,6 +245,14 @@ public class AudioSettingsPanel extends JPanel {
         snap_sonido_inicio = GameFrame.SONIDO_INICIO;
         snap_sonido_conexion = GameFrame.SONIDO_CONEXION;
         snap_sonido_iwtsth = GameFrame.SONIDO_IWTSTH;
+        snap_sonido_zoom = GameFrame.SONIDO_ZOOM;
+        snap_sonido_tapete = GameFrame.SONIDO_TAPETE;
+        snap_sonido_visor = GameFrame.SONIDO_VISOR;
+        snap_sonido_volumen = GameFrame.SONIDO_VOLUMEN;
+        snap_sonido_arranque = GameFrame.SONIDO_ARRANQUE;
+        snap_sonido_aviso = GameFrame.SONIDO_AVISO;
+        snap_sonido_error = GameFrame.SONIDO_ERROR;
+        snap_sonido_error_red = GameFrame.SONIDO_ERROR_RED;
         snap_tts_server = GameFrame.TTS_SERVER;
         snap_voice_messages = GameFrame.VOICE_MESSAGES;
         snap_output_device = AudioDeviceManager.getOutputDevice();
@@ -387,6 +411,30 @@ public class AudioSettingsPanel extends JPanel {
         sonido_iwtsth_checkbox = new JCheckBox(Translator.translate("audio.sonido_iwtsth"), GameFrame.SONIDO_IWTSTH);
         sonido_iwtsth_checkbox.addActionListener(e -> GameFrame.setSonidoIwtsth(sonido_iwtsth_checkbox.isSelected()));
 
+        sonido_zoom_checkbox = new JCheckBox(Translator.translate("audio.sonido_zoom"), GameFrame.SONIDO_ZOOM);
+        sonido_zoom_checkbox.addActionListener(e -> GameFrame.setSonidoZoom(sonido_zoom_checkbox.isSelected()));
+
+        sonido_tapete_checkbox = new JCheckBox(Translator.translate("audio.sonido_tapete"), GameFrame.SONIDO_TAPETE);
+        sonido_tapete_checkbox.addActionListener(e -> GameFrame.setSonidoTapete(sonido_tapete_checkbox.isSelected()));
+
+        sonido_visor_checkbox = new JCheckBox(Translator.translate("audio.sonido_visor"), GameFrame.SONIDO_VISOR);
+        sonido_visor_checkbox.addActionListener(e -> GameFrame.setSonidoVisor(sonido_visor_checkbox.isSelected()));
+
+        sonido_volumen_checkbox = new JCheckBox(Translator.translate("audio.sonido_volumen"), GameFrame.SONIDO_VOLUMEN);
+        sonido_volumen_checkbox.addActionListener(e -> GameFrame.setSonidoVolumen(sonido_volumen_checkbox.isSelected()));
+
+        sonido_arranque_checkbox = new JCheckBox(Translator.translate("audio.sonido_arranque"), GameFrame.SONIDO_ARRANQUE);
+        sonido_arranque_checkbox.addActionListener(e -> GameFrame.setSonidoArranque(sonido_arranque_checkbox.isSelected()));
+
+        sonido_aviso_checkbox = new JCheckBox(Translator.translate("audio.sonido_aviso"), GameFrame.SONIDO_AVISO);
+        sonido_aviso_checkbox.addActionListener(e -> GameFrame.setSonidoAviso(sonido_aviso_checkbox.isSelected()));
+
+        sonido_error_checkbox = new JCheckBox(Translator.translate("audio.sonido_error"), GameFrame.SONIDO_ERROR);
+        sonido_error_checkbox.addActionListener(e -> GameFrame.setSonidoError(sonido_error_checkbox.isSelected()));
+
+        sonido_error_red_checkbox = new JCheckBox(Translator.translate("audio.sonido_error_red"), GameFrame.SONIDO_ERROR_RED);
+        sonido_error_red_checkbox.addActionListener(e -> GameFrame.setSonidoErrorRed(sonido_error_red_checkbox.isSelected()));
+
         tts_checkbox = new JCheckBox(Translator.translate("menu.tts"), GameFrame.TTS_SERVER);
         tts_checkbox.addActionListener(e -> GameFrame.setTTSGlobal(tts_checkbox.isSelected()));
 
@@ -436,6 +484,10 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_a.add(effectRow(menuIcon("/images/menu/bell.png"), sonido_entrar_sala_checkbox, false));
         fx_col_a.add(effectRow(scaledIcon("/images/action/plug.png", 24), sonido_conexion_checkbox, false));
         fx_col_a.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false));
+        fx_col_a.add(typeHeader("audio.grupo_avisos"));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/info.png"), sonido_aviso_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/stop.png"), sonido_error_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/close.png"), sonido_error_red_checkbox, false));
         // Fija las filas arriba: si esta columna es la más corta, el glue absorbe el hueco abajo
         // (si no, BoxLayout podría centrarlas y desalinear las cabeceras respecto a la otra).
         fx_col_a.add(Box.createVerticalGlue());
@@ -456,6 +508,12 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_b.add(effectRow(scaledIcon("/images/lights_on.png", 24), sonido_interruptor_checkbox, false));
         fx_col_b.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false));
         fx_col_b.add(effectRow(menuIcon("/images/menu/video.png"), sonido_iwtsth_checkbox, false));
+        fx_col_b.add(typeHeader("audio.grupo_interfaz"));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/zoom.png"), sonido_zoom_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/tapetes.png"), sonido_tapete_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/eyes.png"), sonido_visor_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/sound.png"), sonido_volumen_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/corona.png"), sonido_arranque_checkbox, false));
         fx_col_b.add(Box.createVerticalGlue());
 
         // GridBagLayout (no GridLayout): cada subcolumna toma su ANCHO PREFERIDO. GridLayout las
@@ -518,7 +576,9 @@ public class AudioSettingsPanel extends JPanel {
                             Audio.restartCurrentLoopMp3Resources();
 
                             // Audible feedback on the freshly selected device
-                            Audio.playWavResource("misc/volume_change.wav");
+                            if (GameFrame.volumenSonidoOn()) {
+                                Audio.playWavResource("misc/volume_change.wav");
+                            }
                         });
                     }
                 }
@@ -850,6 +910,14 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDO_INICIO != snap_sonido_inicio
                 || GameFrame.SONIDO_CONEXION != snap_sonido_conexion
                 || GameFrame.SONIDO_IWTSTH != snap_sonido_iwtsth
+                || GameFrame.SONIDO_ZOOM != snap_sonido_zoom
+                || GameFrame.SONIDO_TAPETE != snap_sonido_tapete
+                || GameFrame.SONIDO_VISOR != snap_sonido_visor
+                || GameFrame.SONIDO_VOLUMEN != snap_sonido_volumen
+                || GameFrame.SONIDO_ARRANQUE != snap_sonido_arranque
+                || GameFrame.SONIDO_AVISO != snap_sonido_aviso
+                || GameFrame.SONIDO_ERROR != snap_sonido_error
+                || GameFrame.SONIDO_ERROR_RED != snap_sonido_error_red
                 // Reglas globales (TTS/notas): si eres CLIENTE las manda el servidor (no
                 // las posees); ignorarlas para no dar "¿descartar?" espurio ni revertir
                 // sobre un broadcast del host.
@@ -963,6 +1031,30 @@ public class AudioSettingsPanel extends JPanel {
         if (GameFrame.SONIDO_IWTSTH != snap_sonido_iwtsth) {
             GameFrame.setSonidoIwtsth(snap_sonido_iwtsth);
         }
+        if (GameFrame.SONIDO_ZOOM != snap_sonido_zoom) {
+            GameFrame.setSonidoZoom(snap_sonido_zoom);
+        }
+        if (GameFrame.SONIDO_TAPETE != snap_sonido_tapete) {
+            GameFrame.setSonidoTapete(snap_sonido_tapete);
+        }
+        if (GameFrame.SONIDO_VISOR != snap_sonido_visor) {
+            GameFrame.setSonidoVisor(snap_sonido_visor);
+        }
+        if (GameFrame.SONIDO_VOLUMEN != snap_sonido_volumen) {
+            GameFrame.setSonidoVolumen(snap_sonido_volumen);
+        }
+        if (GameFrame.SONIDO_ARRANQUE != snap_sonido_arranque) {
+            GameFrame.setSonidoArranque(snap_sonido_arranque);
+        }
+        if (GameFrame.SONIDO_AVISO != snap_sonido_aviso) {
+            GameFrame.setSonidoAviso(snap_sonido_aviso);
+        }
+        if (GameFrame.SONIDO_ERROR != snap_sonido_error) {
+            GameFrame.setSonidoError(snap_sonido_error);
+        }
+        if (GameFrame.SONIDO_ERROR_RED != snap_sonido_error_red) {
+            GameFrame.setSonidoErrorRed(snap_sonido_error_red);
+        }
         // Reglas globales (TTS/notas): solo las revierte el HOST (que las posee). Para un
         // cliente las gobierna el servidor por broadcast; revertirlas lo desincronizaría.
         if (!global_rules_locked && GameFrame.TTS_SERVER != snap_tts_server) {
@@ -1037,6 +1129,14 @@ public class AudioSettingsPanel extends JPanel {
         sonido_inicio_checkbox.setEnabled(fx_on);
         sonido_conexion_checkbox.setEnabled(fx_on);
         sonido_iwtsth_checkbox.setEnabled(fx_on);
+        sonido_zoom_checkbox.setEnabled(fx_on);
+        sonido_tapete_checkbox.setEnabled(fx_on);
+        sonido_visor_checkbox.setEnabled(fx_on);
+        sonido_volumen_checkbox.setEnabled(fx_on);
+        sonido_arranque_checkbox.setEnabled(fx_on);
+        sonido_aviso_checkbox.setEnabled(fx_on);
+        sonido_error_checkbox.setEnabled(fx_on);
+        sonido_error_red_checkbox.setEnabled(fx_on);
 
         tts_checkbox.setEnabled(!global_rules_locked);
         voice_messages_checkbox.setEnabled(!global_rules_locked);

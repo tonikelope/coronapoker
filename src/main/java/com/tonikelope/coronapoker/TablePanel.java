@@ -2064,7 +2064,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     public void refresh() {
 
-        Audio.playWavResource("misc/mat.wav");
+        if (GameFrame.tapeteSonidoOn()) {
+            Audio.playWavResource("misc/mat.wav");
+        }
 
         this.invalidate = true;
 

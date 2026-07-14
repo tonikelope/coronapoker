@@ -85,7 +85,9 @@ public class CardVisorDialog extends javax.swing.JDialog {
      */
     public static void openOrFocus(java.awt.Frame parent, int carta) {
 
-        Audio.playWavResource("misc/card_visor.wav");
+        if (GameFrame.visorSonidoOn()) {
+            Audio.playWavResource("misc/card_visor.wav");
+        }
 
         // La baraja usada al mostrar la carta es la global vigente en este instante
         // (ver showCard). Forma parte de la clave para que la misma carta de barajas

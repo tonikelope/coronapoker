@@ -261,6 +261,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDO_INICIO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_inicio", "true"));
     public static volatile boolean SONIDO_CONEXION = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_conexion", "true"));
     public static volatile boolean SONIDO_IWTSTH = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_iwtsth", "true"));
+    // Efectos de interfaz y avisos: zoom (zoom_in/out/reset.wav), cambiar tapete (mat.wav), visor
+    // de carta (card_visor.wav), cambiar volumen/dispositivo (volume_change.wav), arranque de la
+    // app (init.wav, BLOQUEANTE → force_silent), advertencia de diálogo (warning.wav), error
+    // (error.wav) y error de red (network_error_XX.wav). ON por defecto.
+    public static volatile boolean SONIDO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_zoom", "true"));
+    public static volatile boolean SONIDO_TAPETE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_tapete", "true"));
+    public static volatile boolean SONIDO_VISOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_visor", "true"));
+    public static volatile boolean SONIDO_VOLUMEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_volumen", "true"));
+    public static volatile boolean SONIDO_ARRANQUE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_arranque", "true"));
+    public static volatile boolean SONIDO_AVISO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_aviso", "true"));
+    public static volatile boolean SONIDO_ERROR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_error", "true"));
+    public static volatile boolean SONIDO_ERROR_RED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_error_red", "true"));
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
@@ -513,6 +525,38 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean iwtsthSonidoOn() {
         return SONIDO_EFECTOS && SONIDO_IWTSTH;
+    }
+
+    public static boolean zoomSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ZOOM;
+    }
+
+    public static boolean tapeteSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_TAPETE;
+    }
+
+    public static boolean visorSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_VISOR;
+    }
+
+    public static boolean volumenSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_VOLUMEN;
+    }
+
+    public static boolean arranqueSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ARRANQUE;
+    }
+
+    public static boolean avisoSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_AVISO;
+    }
+
+    public static boolean errorSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ERROR;
+    }
+
+    public static boolean errorRedSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ERROR_RED;
     }
 
     // Rutas de los wav de mesa gateadas por su preferencia (null = sin sonido, que
@@ -1367,7 +1411,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         // Play the sound just once based on the overall scroll direction
-        Audio.playWavResource(zoom_accumulator > 0 ? "misc/zoom_in.wav" : "misc/zoom_out.wav");
+        if (zoomSonidoOn()) {
+            Audio.playWavResource(zoom_accumulator > 0 ? "misc/zoom_in.wav" : "misc/zoom_out.wav");
+        }
 
         Helpers.threadRun(() -> {
             synchronized (ZOOM_LOCK) {
@@ -3140,6 +3186,70 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.SONIDO_IWTSTH = on;
 
         Helpers.PROPERTIES.setProperty("sonido_iwtsth", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoZoom(boolean on) {
+
+        GameFrame.SONIDO_ZOOM = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_zoom", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoTapete(boolean on) {
+
+        GameFrame.SONIDO_TAPETE = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_tapete", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoVisor(boolean on) {
+
+        GameFrame.SONIDO_VISOR = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_visor", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoVolumen(boolean on) {
+
+        GameFrame.SONIDO_VOLUMEN = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_volumen", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoArranque(boolean on) {
+
+        GameFrame.SONIDO_ARRANQUE = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_arranque", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoAviso(boolean on) {
+
+        GameFrame.SONIDO_AVISO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_aviso", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoError(boolean on) {
+
+        GameFrame.SONIDO_ERROR = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_error", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoErrorRed(boolean on) {
+
+        GameFrame.SONIDO_ERROR_RED = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_error_red", String.valueOf(on));
         Helpers.savePropertiesFile();
     }
 
@@ -4933,7 +5043,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_inActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_inActionPerformed
         // TODO add your handling code here:
 
-        Audio.playWavResource("misc/zoom_in.wav");
+        if (zoomSonidoOn()) {
+            Audio.playWavResource("misc/zoom_in.wav");
+        }
 
         Helpers.threadRun(() -> {
             incrementZoom();
@@ -4966,7 +5078,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void zoom_menu_outActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_zoom_menu_outActionPerformed
         // TODO add your handling code here:
 
-        Audio.playWavResource("misc/zoom_out.wav");
+        if (zoomSonidoOn()) {
+            Audio.playWavResource("misc/zoom_out.wav");
+        }
 
         if (Helpers.doubleSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
 
@@ -4999,7 +5113,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (ZOOM_LEVEL != DEFAULT_ZOOM_LEVEL) {
 
-            Audio.playWavResource("misc/zoom_reset.wav");
+            if (zoomSonidoOn()) {
+                Audio.playWavResource("misc/zoom_reset.wav");
+            }
 
             Helpers.threadRun(() -> {
                 ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL;

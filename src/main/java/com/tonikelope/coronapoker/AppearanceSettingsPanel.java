@@ -1129,7 +1129,9 @@ public class AppearanceSettingsPanel extends JPanel {
     // tambien corre en el resize del tapete secreto "*", donde no debe sonar.
     private static void refreshLauncherTapete() {
         if (Init.VENTANA_INICIO != null) {
-            Audio.playWavResource("misc/mat.wav");
+            if (GameFrame.tapeteSonidoOn()) {
+                Audio.playWavResource("misc/mat.wav");
+            }
             Init.VENTANA_INICIO.getTapete().refresh();
         }
     }

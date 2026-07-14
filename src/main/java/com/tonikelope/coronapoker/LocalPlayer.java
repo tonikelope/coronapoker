@@ -3051,7 +3051,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 if (GameFrame.TEST_MODE || Helpers.doubleSecureCompare(0f, call_required) < 0 || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("ui.perder_mano_confirmacion"), new ImageIcon(getClass().getResource("/images/action/down.png"))) == 0) {
 
-                    Audio.playWavResource("misc/fold.wav");
+                    if (GameFrame.foldSonidoOn()) {
+                        Audio.playWavResource("misc/fold.wav");
+                    }
 
                     holeCard1.desenfocar();
                     holeCard2.desenfocar();
@@ -3324,7 +3326,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     // Va a volar ficha: NO rodamos el stack/bet en setBet (threadRun de
                     // abajo); launchChipToPot los rueda al aterrizar, junto al bote.
                     setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
-                    Audio.playWavResource("misc/bet.wav");
+                    if (GameFrame.apuestaSonidoOn()) {
+                        Audio.playWavResource("misc/bet.wav");
+                    }
                     GameFrame.getInstance().getCrupier().launchChipToPot(this);
 
                     desactivarControles();
@@ -4070,7 +4074,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (getHoleCard1().isIniciada() && getHoleCard1().isTapada()) {
 
-            if (sound) {
+            if (sound && GameFrame.destapeSonidoOn()) {
                 Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
             }
 

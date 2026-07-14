@@ -3145,7 +3145,9 @@ public class StatsDialog extends JFrame {
 
         if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("error.eliminar_esta_timba_nota_las"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
 
-            Audio.playWavResource("misc/toilet.wav");
+            if (GameFrame.saleSonidoOn()) {
+                Audio.playWavResource("misc/toilet.wav");
+            }
 
             stats_db_executor.submit(() -> {
                 if (!backup) {
@@ -3265,7 +3267,9 @@ public class StatsDialog extends JFrame {
         purge_games_button.setEnabled(false);
 
         if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("player.eliminar_todas_las_timbas_donde"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
-            Audio.playWavResource("misc/toilet.wav");
+            if (GameFrame.saleSonidoOn()) {
+                Audio.playWavResource("misc/toilet.wav");
+            }
 
             stats_db_executor.submit(() -> {
                 if (!backup) {

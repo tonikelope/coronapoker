@@ -208,6 +208,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
+    // Pista de fondo de la SALA DE ESPERA, con toggle propio (independiente de la del
+    // juego, que gobierna MUSICA_AMBIENTAL). Activada por defecto.
+    public static volatile boolean MUSICA_SALA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica_sala_espera", "true"));
+    // Efectos de sonido de mesa configurables (locales, gateados aparte por el master
+    // SONIDOS en la capa de Audio). SONIDO_EFECTOS es el interruptor maestro de este grupo:
+    // los apaga todos de un plumazo. Individualmente: barajar (shuffle.wav), repartir
+    // (deal.wav), destapar (uncover.wav) con subopción "mis cartas" (solo TUS hole cards al
+    // repartírtelas, cuelga del destape general), apostar (bet.wav), foldear (fold.wav, el
+    // efecto de retirada, NO los clips de coña de SONIDOS_CHORRA) y recuento (balance_count.wav
+    // de la pantalla final). Todos activados por defecto.
+    public static volatile boolean SONIDO_EFECTOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_efectos", "true"));
+    public static volatile boolean SONIDO_BARAJADO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_barajado", "true"));
+    public static volatile boolean SONIDO_REPARTO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_reparto", "true"));
+    public static volatile boolean SONIDO_DESTAPE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_destape", "true"));
+    public static volatile boolean SONIDO_DESTAPE_MIS_CARTAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_destape_mis_cartas", "true"));
+    public static volatile boolean SONIDO_APOSTAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_apostar", "true"));
+    public static volatile boolean SONIDO_FOLD = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_fold", "true"));
+    public static volatile boolean SONIDO_CONTEO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_conteo", "true"));
+    // Entrar (laser.wav: crear/unirse partida, nuevo participante, añadir bot) y salir
+    // (toilet.wav: baja/expulsión de la sala de espera). Mismo grupo "Efectos de sonido".
+    public static volatile boolean SONIDO_ENTRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_entra", "true"));
+    public static volatile boolean SONIDO_SALE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_sale", "true"));
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
@@ -361,6 +383,64 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // La cascada SRA es un subajuste del BARAJADO: solo aplica si el barajado está activo.
     public static boolean cascadaOverlayAnimOn() {
         return ANIMACIONES && ANIMACION_BARAJADO_PREF && ANIMACION_CASCADA_OVERLAY_PREF;
+    }
+
+    // Gates booleanos de los efectos de sonido de mesa: cada uno cuelga del maestro
+    // SONIDO_EFECTOS (aparte del master global SONIDOS, que los apaga todos en la capa de
+    // Audio). "Mis cartas" además cuelga del destape general.
+    public static boolean barajadoSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_BARAJADO;
+    }
+
+    public static boolean repartoSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_REPARTO;
+    }
+
+    public static boolean destapeSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_DESTAPE;
+    }
+
+    public static boolean destapeMisCartasSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_DESTAPE && SONIDO_DESTAPE_MIS_CARTAS;
+    }
+
+    public static boolean apuestaSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_APOSTAR;
+    }
+
+    public static boolean foldSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_FOLD;
+    }
+
+    public static boolean conteoSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_CONTEO;
+    }
+
+    public static boolean entraSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_ENTRA;
+    }
+
+    public static boolean saleSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_SALE;
+    }
+
+    // Rutas de los wav de mesa gateadas por su preferencia (null = sin sonido, que
+    // flyCardToSeat/playCardFlipOverlays/showCentralFrames/showCentralFramesLoop ya tratan
+    // como "no suena").
+    public static String dealSound() {
+        return repartoSonidoOn() ? "misc/deal.wav" : null;
+    }
+
+    public static String uncoverSound() {
+        return destapeSonidoOn() ? "misc/uncover.wav" : null;
+    }
+
+    public static String uncoverMyCardsSound() {
+        return destapeMisCartasSonidoOn() ? "misc/uncover.wav" : null;
+    }
+
+    public static String shuffleSound() {
+        return barajadoSonidoOn() ? "misc/shuffle.wav" : null;
     }
 
     // ---- Controlador del overlay de barajado por jugador (sincronizado vía el comando SHUFFLE_TURN)
@@ -2749,11 +2829,101 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.PROPERTIES.setProperty("sonido_ascensor", String.valueOf(on));
         Helpers.savePropertiesFile();
 
-        // Un único toggle para la música de juego y la de la sala de espera:
-        // el flag lo gobierna effectiveLoopVolume; aquí solo refrescamos el
-        // volumen del loop que esté sonando para que se oiga al instante.
+        // Solo gobierna la música del JUEGO (la de la sala tiene su propio toggle,
+        // MUSICA_SALA). El flag lo lee effectiveLoopVolume; aquí solo refrescamos el
+        // volumen del loop del juego que esté sonando para que se oiga al instante.
         Audio.refreshLoopVolume(Audio.ASCENSOR_VOLUME.getKey());
+    }
+
+    public static void setMusicaSala(boolean on) {
+
+        GameFrame.MUSICA_SALA = on;
+
+        Helpers.PROPERTIES.setProperty("musica_sala_espera", String.valueOf(on));
+        Helpers.savePropertiesFile();
+
+        // Solo la pista de la sala de espera; refrescamos su loop si está sonando.
         Audio.refreshLoopVolume(Audio.WAITING_ROOM_VOLUME.getKey());
+    }
+
+    public static void setSonidoEfectos(boolean on) {
+
+        GameFrame.SONIDO_EFECTOS = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_efectos", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoBarajado(boolean on) {
+
+        GameFrame.SONIDO_BARAJADO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_barajado", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoReparto(boolean on) {
+
+        GameFrame.SONIDO_REPARTO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_reparto", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoDestape(boolean on) {
+
+        GameFrame.SONIDO_DESTAPE = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_destape", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoDestapeMisCartas(boolean on) {
+
+        GameFrame.SONIDO_DESTAPE_MIS_CARTAS = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_destape_mis_cartas", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoApostar(boolean on) {
+
+        GameFrame.SONIDO_APOSTAR = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_apostar", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoFold(boolean on) {
+
+        GameFrame.SONIDO_FOLD = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_fold", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoConteo(boolean on) {
+
+        GameFrame.SONIDO_CONTEO = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_conteo", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoEntra(boolean on) {
+
+        GameFrame.SONIDO_ENTRA = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_entra", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoSale(boolean on) {
+
+        GameFrame.SONIDO_SALE = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_sale", String.valueOf(on));
+        Helpers.savePropertiesFile();
     }
 
     // Regla global del host: habilita/deshabilita el TTS para todos. El bloqueo

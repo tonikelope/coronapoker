@@ -3212,7 +3212,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getTapete().getCommunityCards().repaint();
         });
 
-        Audio.playWavResource("misc/bet.wav");
+        if (GameFrame.apuestaSonidoOn()) {
+            Audio.playWavResource("misc/bet.wav");
+        }
 
         final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(contributors.size());
 
@@ -7654,7 +7656,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (hay_rabbits_tapadas) {
-                Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
+                if (GameFrame.destapeSonidoOn()) {
+                    Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
+                }
                 for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                     carta.destaparRabbit();
                     // Hay que destapar la carta subyacente cuando el rabbit desaparece.
@@ -8153,7 +8157,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // audio re-disparado en cada ciclo, como el do-while legacy.
                         GameFrame.getInstance().getTapete().showCentralFramesLoop(shuffle_anim,
                                 shuffle_anim.getWidth(), shuffle_anim.getHeight(),
-                                "misc/shuffle.wav", SHUFFLE_AUDIO_STOP_FRAME, () -> barajando);
+                                GameFrame.shuffleSound(), SHUFFLE_AUDIO_STOP_FRAME, () -> barajando);
                     } else {
                         ImageIcon icon = new ImageIcon(url_icon);
                         // Loop the shuffle GIF until the SRA cascade finishes (min 1
@@ -8161,7 +8165,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // each GIF pass with the pre-opened clip: start at the pass
                         // start, stop when the pass (showCentralImage) returns.
                         do {
-                            Audio.playPreloadedWav("misc/shuffle.wav");
+                            if (GameFrame.barajadoSonidoOn()) {
+                                Audio.playPreloadedWav("misc/shuffle.wav");
+                            }
                             GameFrame.getInstance().getTapete().showCentralImage(icon, 0, 0, true, null, 0, 0);
                             Audio.stopPreloadedWav("misc/shuffle.wav");
                         } while (barajando && !isFin_de_la_transmision());
@@ -8185,7 +8191,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // the do-while replays it back-to-back with no silence in between, while
                     // the "BARAJANDO" label stays up. Minimum 1 play guaranteed.
                     do {
-                        Audio.playWavResourceAndWait("misc/shuffle.wav");
+                        if (GameFrame.barajadoSonidoOn()) {
+                            Audio.playWavResourceAndWait("misc/shuffle.wav");
+                        } else {
+                            // Sin sonido de barajado: la espera bloqueante del clip ya no marca el
+                            // ritmo del bucle, así que pausamos para no hacer busy-spin mientras el
+                            // rótulo "BARAJANDO" sigue arriba hasta que la cascada SRA termina.
+                            Helpers.pausar(300);
+                        }
                     } while (barajando && !isFin_de_la_transmision());
 
                     // Ocultar el rotulo SIEMPRE es seguro (el barajado terminó); restaurar
@@ -9057,7 +9070,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             .addChipTopOverlay(GameFrame.getInstance().getLocalPlayer().getChip_label());
                 }
 
-                GameFrame.getInstance().getTapete().flyCardToSeat(hc1, deal_origin, flight_dur, "misc/deal.wav", seat);
+                GameFrame.getInstance().getTapete().flyCardToSeat(hc1, deal_origin, flight_dur, GameFrame.dealSound(), seat);
 
                 // Destape animado en OTRO hilo nada más aterrizar: el crupier sigue
                 // repartiendo sin esperar a que tu carta se abra. Usa el giro
@@ -9069,7 +9082,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
-                Audio.playWavResource("misc/deal.wav", false);
+                if (GameFrame.repartoSonidoOn()) {
+                    Audio.playWavResource("misc/deal.wav", false);
+                }
 
                 if (defer_straddle_reveal) {
                     jugador.getHoleCard1().iniciarCarta();
@@ -9125,7 +9140,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     seat = () -> hc2.iniciarCarta();
                 }
 
-                GameFrame.getInstance().getTapete().flyCardToSeat(hc2, deal_origin, flight_dur, "misc/deal.wav", seat);
+                GameFrame.getInstance().getTapete().flyCardToSeat(hc2, deal_origin, flight_dur, GameFrame.dealSound(), seat);
 
                 if (flip_local) {
                     final Future<?> pf = prefetch_flip_hc2;
@@ -9134,7 +9149,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
-                Audio.playWavResource("misc/deal.wav", false);
+                if (GameFrame.repartoSonidoOn()) {
+                    Audio.playWavResource("misc/deal.wav", false);
+                }
 
                 if (defer_straddle_reveal) {
                     jugador.getHoleCard2().iniciarCarta();
@@ -9169,7 +9186,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // cards). El vuelo es bloqueante, así que consume el tiempo entre
                 // cartas y dispara deal.wav al lanzar.
                 final Card cc = carta;
-                GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, "misc/deal.wav", () -> cc.iniciarCarta());
+                GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, GameFrame.dealSound(), () -> cc.iniciarCarta());
             } else {
                 Helpers.pausar(pausa);
             }
@@ -11168,7 +11185,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // El straddle es una apuesta forzada (2x CG): suena como las ciegas
                     // (bet.wav) y, como ellas (flyForcedBetsToPot), SOLO si la animacion de
                     // fichas esta activa. Sincronizado con la ficha de dinero al bote.
-                    if (GameFrame.apuestasAnimOn()) {
+                    if (GameFrame.apuestasAnimOn() && GameFrame.apuestaSonidoOn()) {
                         Audio.playWavResource("misc/bet.wav");
                     }
                     launchChipToPot(straddler_f);
@@ -12003,7 +12020,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (Card carta : corridas) {
             GameFrame.getInstance().checkPause();
             final Card cc = carta;
-            GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, "misc/deal.wav", () -> cc.iniciarCarta());
+            GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, GameFrame.dealSound(), () -> cc.iniciarCarta());
         }
     }
 
@@ -16298,7 +16315,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         new int[]{anim1.display_w, anim2.display_w},
                         new int[]{anim1.display_h, anim2.display_h},
                         0,
-                        "misc/uncover.wav");
+                        GameFrame.uncoverSound());
 
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -16398,7 +16415,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     new int[]{decoded.display_w},
                     new int[]{decoded.display_h},
                     0,
-                    "misc/uncover.wav");
+                    GameFrame.uncoverMyCardsSound());
 
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, null, ex);
@@ -16514,7 +16531,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // destapa la estática DEBAJO del último frame antes de ocultar el
                     // overlay (relevo giro→carta sin pintar nunca el hueco vacío).
                     GameFrame.getInstance().getTapete().showCentralFrames(anim, fdw, fdh, CARD_ANIMATION_DELAY,
-                            "misc/uncover.wav",
+                            GameFrame.uncoverSound(),
                             () -> carta.setVisibleCard(false),
                             () -> carta.destaparSync());
                 }

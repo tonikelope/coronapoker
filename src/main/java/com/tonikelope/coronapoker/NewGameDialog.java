@@ -1646,7 +1646,9 @@ public class NewGameDialog extends JDialog {
 
             vamos.setEnabled(false);
 
-            Audio.playWavResource("misc/laser.wav");
+            if (GameFrame.entraSonidoOn()) {
+                Audio.playWavResource("misc/laser.wav");
+            }
 
             String elnick = this.nick.getText().trim().replaceAll("\\$", "");
 

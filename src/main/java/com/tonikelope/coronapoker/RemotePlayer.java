@@ -551,7 +551,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                         // INTACTO). signalChipLaunched suelta el hilo de la acción:
                                         // cierra la acción y commitea el bote mientras la ficha vuela,
                                         // así al aterrizar pot+stack+bet ruedan juntos (true).
-                                        getChat_notify_label().addAudio("misc/bet.wav", 32, 60, () -> {
+                                        // El sonido de apuesta se puede desactivar, pero el callback
+                                        // (lanzar la ficha al bote + soltar el hilo de la acción) DEBE
+                                        // seguir sincronizado al frame 32: por eso audio null si está off.
+                                        getChat_notify_label().addAudio(GameFrame.apuestaSonidoOn() ? "misc/bet.wav" : null, 32, 60, () -> {
                                             GameFrame.getInstance().getCrupier().launchChipToPot(this);
                                             signalChipLaunched();
                                         });
@@ -1353,7 +1356,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.FOLD);
 
-        Audio.playWavResource("misc/fold.wav");
+        if (GameFrame.foldSonidoOn()) {
+            Audio.playWavResource("misc/fold.wav");
+        }
 
         // Skip the GIF cinematic entirely when this is an autofold of a peer
         // that already left. The chat-notify label belongs to a player slot
@@ -1514,7 +1519,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             awaitChipLaunch();
 
         } else {
-            Audio.playWavResource("misc/bet.wav");
+            if (GameFrame.apuestaSonidoOn()) {
+                Audio.playWavResource("misc/bet.wav");
+            }
             GameFrame.getInstance().getCrupier().launchChipToPot(this);
         }
 
@@ -3224,7 +3231,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             if (getHoleCard1().isIniciada() && getHoleCard1().isTapada()) {
 
-                if (sound) {
+                if (sound && GameFrame.destapeSonidoOn()) {
                     Helpers.threadRun(() -> Audio.playPreloadedWav("misc/uncover.wav"));
                 }
 

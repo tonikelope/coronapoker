@@ -3424,7 +3424,9 @@ public class WaitingRoomFrame extends JFrame {
                                                             //   [5] avatarB64_or_*
                                                             //   [6] pubkeyB64_or_*
                                                             //   [7] selfSigB64_or_*
-                                                            Audio.playWavResource("misc/laser.wav");
+                                                            if (GameFrame.entraSonidoOn()) {
+                                                                Audio.playWavResource("misc/laser.wav");
+                                                            }
                                                             try {
                                                                 String nickNew = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 File avatarNew = null;
@@ -4214,7 +4216,9 @@ public class WaitingRoomFrame extends JFrame {
                                     // and run local TOFU resolution. partes[4] / partes[5] were
                                     // validated above by verifyJoinSelfSig.
                                     recordJoinIdentity(participantes.get(client_nick), partes[4], partes[5]);
-                                    Audio.playWavResource("misc/laser.wav");
+                                    if (GameFrame.entraSonidoOn()) {
+                                        Audio.playWavResource("misc/laser.wav");
+                                    }
 
                                     if (participantes.size() > 2) {
                                         // Sólo enviamos USERSLIST cuando hay al menos otro peer
@@ -4745,7 +4749,9 @@ public class WaitingRoomFrame extends JFrame {
             return;
         }
 
-        Audio.playWavResource("misc/toilet.wav");
+        if (GameFrame.saleSonidoOn()) {
+            Audio.playWavResource("misc/toilet.wav");
+        }
 
         String avatar_src = pToDel.getAvatar_chat_src();
 
@@ -5759,7 +5765,9 @@ public class WaitingRoomFrame extends JFrame {
     private void new_bot_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_new_bot_buttonActionPerformed
         if (participantes.size() < MAX_PARTICIPANTES) {
             new_bot_button.setEnabled(false);
-            Audio.playWavResource("misc/laser.wav");
+            if (GameFrame.entraSonidoOn()) {
+                Audio.playWavResource("misc/laser.wav");
+            }
 
             Helpers.threadRun(() -> {
                 try {

@@ -705,7 +705,9 @@ public class BalanceDialog extends JDialog {
         // sonido. Off-EDT: si la precarga aun no termino, playPreloadedWav la resuelve
         // en este hilo (nunca en el EDT). playPreloadedWav rebobina y reaplica el
         // volumen/mute (setClipVolume), asi que reanimar la pantalla lo reinicia limpio.
-        Helpers.threadRun(() -> Audio.playPreloadedWav("misc/balance_count.wav"));
+        if (GameFrame.conteoSonidoOn()) {
+            Helpers.threadRun(() -> Audio.playPreloadedWav("misc/balance_count.wav"));
+        }
 
         roll.start();
     }

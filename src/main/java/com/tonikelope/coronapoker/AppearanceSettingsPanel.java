@@ -336,7 +336,7 @@ public class AppearanceSettingsPanel extends JPanel {
             }
         });
         JPanel trasera_row = naturalRow();
-        trasera_row.add(Box.createHorizontalStrut(Math.round(24 * Helpers.DIALOG_ZOOM))); // sangría: cuelga de "Baraja"
+        trasera_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sangría: cuelga de "Baraja"
         JLabel trasera_label = new JLabel(Translator.translate("settings.trasera") + ":");
         trasera_label.setIcon(icon("/images/menu/baraja.png"));
         trasera_row.add(trasera_label);
@@ -422,7 +422,7 @@ public class AppearanceSettingsPanel extends JPanel {
 
         // Maestro: activa/desactiva TODAS las animaciones de un plumazo. Al desmarcarlo,
         // DESHABILITA (no desmarca) los 5 checkboxes de abajo, que conservan su valor.
-        JCheckBox anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general"), GameFrame.ANIMACIONES);
+        JCheckBox anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general").toUpperCase(), GameFrame.ANIMACIONES);
         anim_master.addActionListener(e -> {
             boolean on = anim_master.isSelected();
             if (gf != null) {
@@ -444,8 +444,8 @@ public class AppearanceSettingsPanel extends JPanel {
         master_row.add(anim_master);
         addLeft(anim, master_row);
 
-        addLeft(anim, animCheckbox("/images/menu/video.png", "menu.cinematicas",
-                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
+        addLeft(anim, indent(animCheckbox("/images/menu/video.png", "menu.cinematicas",
+                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v), 28));
         // --- Barajado (solo Ajustes, sin item de menú) + su subajuste Cascada SRA ---
         // Al activarlo re-calienta la caché del shuffle.gif (el warm-up de arranque pudo saltárselo).
         // Padre + subcontroles anidados dentro de un recuadro fino que los agrupa.
@@ -472,12 +472,12 @@ public class AppearanceSettingsPanel extends JPanel {
             barajado_cb.addActionListener(e -> updateCascadaEnabled.run());
             updateCascadaEnabled.run();
             JPanel cascada_row = naturalRow();
-            cascada_row.add(Box.createHorizontalStrut(Math.round(36 * Helpers.DIALOG_ZOOM))); // sub de "Barajado"
+            cascada_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Barajado"
             cascada_row.add(new JLabel(icon("/images/menu/baraja.png")));
             cascada_row.add(cascada_cb);
             addToGroup(barajado_group, cascada_row);
         }
-        addLeft(anim, barajado_group);
+        addLeft(anim, indent(barajado_group));
 
         // --- Reparto (era "Cartas", conserva su item de menú y la clave "animacion_reparto") ---
         JPanel reparto_group = groupBox();
@@ -526,13 +526,13 @@ public class AppearanceSettingsPanel extends JPanel {
             updateDealEnabled.run();
 
             JPanel deal_row = naturalRow();
-            deal_row.add(Box.createHorizontalStrut(Math.round(36 * Helpers.DIALOG_ZOOM))); // sub de "Reparto"
+            deal_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Reparto"
             deal_row.add(new JLabel(icon("/images/menu/clock.png")));
             deal_row.add(deal_text);
             deal_row.add(deal_combo);
             addToGroup(reparto_group, deal_row);
         }
-        addLeft(anim, reparto_group);
+        addLeft(anim, indent(reparto_group));
 
         // --- Destapar (era la parte de giro del antiguo "Cartas", ahora propio, solo Ajustes) ---
         // De él cuelgan la velocidad del destape y el efecto acercar.
@@ -584,7 +584,7 @@ public class AppearanceSettingsPanel extends JPanel {
             updateFlipEnabled.run();
 
             JPanel flip_row = naturalRow();
-            flip_row.add(Box.createHorizontalStrut(Math.round(36 * Helpers.DIALOG_ZOOM))); // más sangrado: cuelga de "Destapar"
+            flip_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // más sangrado: cuelga de "Destapar"
             flip_row.add(new JLabel(icon("/images/menu/clock.png")));
             flip_row.add(flip_text);
             flip_row.add(speed_combo);
@@ -633,13 +633,13 @@ public class AppearanceSettingsPanel extends JPanel {
             updateZoomEnabled.run();
 
             JPanel zoom_row = naturalRow();
-            zoom_row.add(Box.createHorizontalStrut(Math.round(36 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
+            zoom_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
             zoom_row.add(new JLabel(icon("/images/menu/zoom_in.png")));
             zoom_row.add(zoom_text);
             zoom_row.add(zoom_combo);
             addToGroup(destapar_group, zoom_row);
         }
-        addLeft(anim, destapar_group);
+        addLeft(anim, indent(destapar_group));
 
         // --- Ordenar la mano (cruce animado de tus dos hole cards al ordenarlas, solo Ajustes) ---
         // De él cuelga la velocidad del cruce.
@@ -689,7 +689,7 @@ public class AppearanceSettingsPanel extends JPanel {
             updateSwapEnabled.run();
 
             JPanel swap_row = naturalRow();
-            swap_row.add(Box.createHorizontalStrut(Math.round(36 * Helpers.DIALOG_ZOOM))); // sub de "Ordenar la mano"
+            swap_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Ordenar la mano"
             swap_row.add(new JLabel(icon("/images/menu/clock.png")));
             swap_row.add(swap_text);
             swap_row.add(swap_combo);
@@ -725,13 +725,13 @@ public class AppearanceSettingsPanel extends JPanel {
             updateStyleEnabled.run();
 
             JPanel style_row = naturalRow();
-            style_row.add(Box.createHorizontalStrut(Math.round(36 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
+            style_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
             style_row.add(new JLabel(icon("/images/menu/swap.png")));
             style_row.add(style_text);
             style_row.add(style_combo);
             addToGroup(swap_group, style_row);
         }
-        addLeft(anim, swap_group);
+        addLeft(anim, indent(swap_group));
 
         // --- Recolocación de la mesa al salir jugadores (DynamicTablePanel, solo Ajustes) ---
         // De él cuelga la velocidad de la animación de deslizamiento.
@@ -781,20 +781,20 @@ public class AppearanceSettingsPanel extends JPanel {
             updateDgEnabled.run();
 
             JPanel dg_row = naturalRow();
-            dg_row.add(Box.createHorizontalStrut(Math.round(36 * Helpers.DIALOG_ZOOM))); // sub del ajuste
+            dg_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub del ajuste
             dg_row.add(new JLabel(icon("/images/menu/clock.png")));
             dg_row.add(dg_text);
             dg_row.add(dg_combo);
             addToGroup(downgrade_group, dg_row);
         }
-        addLeft(anim, downgrade_group);
+        addLeft(anim, indent(downgrade_group));
 
-        addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
-                gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
-        addLeft(anim, animCheckbox("/images/menu/chips.png", "menu.efectos_animacion_apuestas",
-                gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v));
-        addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
-                gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v));
+        addLeft(anim, indent(animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
+                gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v), 28));
+        addLeft(anim, indent(animCheckbox("/images/menu/chips.png", "menu.efectos_animacion_apuestas",
+                gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v), 28));
+        addLeft(anim, indent(animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
+                gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v), 28));
 
         // Fila Animaciones | (Mesa sobre Pantalla) a su ALTO NATURAL en el NORTE, alineadas arriba
         // a la izquierda. Animaciones (la columna más alta desde que agrupa Barajado/Reparto/Destapar)
@@ -1235,9 +1235,12 @@ public class AppearanceSettingsPanel extends JPanel {
                 g2.dispose();
             }
 
+            // Ciñe el recuadro a su contenido (no ocupa todo el ancho de la columna): así,
+            // sangrado bajo el maestro, se lee como un subgrupo y no como una franja a lo ancho.
+            // En vivo (getPreferredSize), no un valor cacheado con la fuente vieja.
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+                return getPreferredSize();
             }
         };
         p.setOpaque(false);
@@ -1245,6 +1248,34 @@ public class AppearanceSettingsPanel extends JPanel {
         p.setBorder(BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM)));
         p.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         return p;
+    }
+
+    // Sangra un componente para colgarlo visualmente del checkbox maestro de la columna: lo
+    // desplaza a la derecha con un hueco fijo. Alto máximo = preferido (no se estira en el
+    // BoxLayout Y de la columna); el glue final absorbe el ancho sobrante a la derecha cuando
+    // el componente ciñe su contenido (los recuadros de grupo).
+    private static JComponent indent(JComponent comp) {
+        return indent(comp, 22);
+    }
+
+    // px = hueco izquierdo lógico (se escala con DIALOG_ZOOM). Los recuadros de grupo van a
+    // 22; los checkboxes SUELTOS a 28 (22 + los 6 del borde izquierdo del recuadro) para que
+    // su casilla quede alineada con la del checkbox padre DENTRO de los recuadros.
+    private static JComponent indent(JComponent comp, int px) {
+        JPanel wrap = new JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        wrap.setOpaque(false);
+        wrap.setLayout(new BoxLayout(wrap, BoxLayout.X_AXIS));
+        wrap.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        wrap.add(Box.createHorizontalStrut(Math.round(px * Helpers.DIALOG_ZOOM)));
+        comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        wrap.add(comp);
+        wrap.add(Box.createHorizontalGlue());
+        return wrap;
     }
 
     // Añade una fila (checkbox padre o un subcontrol) al recuadro de grupo, con una separación
@@ -1327,9 +1358,10 @@ public class AppearanceSettingsPanel extends JPanel {
         });
         anim_sub_cb.add(cb);
         anim_sub_menu.add(menu);
-        // Sangrado: los individuales cuelgan visualmente del maestro "Usar animaciones".
+        // SIN sangría propia: el checkbox padre se pega al borde del recuadro (solo el hueco
+        // del FlowLayout), de modo que su margen izquierdo iguala al derecho (recuadro simétrico).
+        // La sangría de los sueltos la pone indent(); la de los subcontroles, su propio strut.
         JPanel row = naturalRow();
-        row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM)));
         row.add(new JLabel(icon(iconPath)));
         row.add(cb);
         return row;

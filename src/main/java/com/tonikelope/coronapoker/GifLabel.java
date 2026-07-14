@@ -130,7 +130,10 @@ public class GifLabel extends JLabel {
     // (p.ej. lanzar la ficha voladora al bote cuando suena el chip de un GIF de
     // acción en modo cinemática). El callback se dispara una sola vez.
     public void addAudio(String aud, int start_frame, int end_frame, Runnable on_audio_start) {
-        if (!audio_playing && aud != null && (start_frame < end_frame || end_frame < 0) && start_frame > 0) {
+        // aud puede ser null cuando solo interesa el callback sincronizado al frame (efecto de
+        // sonido desactivado, pero el gesto asociado —p.ej. lanzar la ficha al bote y soltar el
+        // hilo de la acción— DEBE dispararse igual). En ese caso se agenda solo el callback.
+        if (!audio_playing && (aud != null || on_audio_start != null) && (start_frame < end_frame || end_frame < 0) && start_frame > 0) {
             this.audio = aud;
             this.audio_frame_start = start_frame;
             this.audio_frame_end = end_frame;
@@ -180,12 +183,16 @@ public class GifLabel extends JLabel {
 
             conta_frames++;
 
-            if (audio != null) {
+            if (audio != null || audio_on_start != null) {
                 if (!audio_playing && conta_frames == audio_frame_start) {
-                    if (audio_frame_end > 0) {
+                    // Solo hay estado que gestionar (parada en audio_frame_end) si de verdad
+                    // hay audio; con audio null se dispara únicamente el callback una vez.
+                    if (audio != null && audio_frame_end > 0) {
                         audio_playing = true;
                     }
-                    Audio.playWavResource(audio);
+                    if (audio != null) {
+                        Audio.playWavResource(audio);
+                    }
                     // Efecto visual sincronizado con el arranque del audio (una vez).
                     if (audio_on_start != null) {
                         Runnable r = audio_on_start;

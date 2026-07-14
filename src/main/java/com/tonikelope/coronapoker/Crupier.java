@@ -6666,7 +6666,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
                 GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
 
-                if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
                     Audio.playWavResource("misc/startplay.wav");
                 }
 
@@ -6688,7 +6688,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         } else {
             GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
-            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
                 Audio.playWavResource("misc/startplay.wav");
             }
             Helpers.GUIRun(() -> {
@@ -7491,9 +7491,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     });
                     Helpers.pausar(500);
-                    Audio.playWavResourceAndWait("misc/iwtsth.wav");
+                    Audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !GameFrame.iwtsthSonidoOn());
                 } else {
-                    Audio.playWavResourceAndWait("misc/iwtsth.wav");
+                    Audio.playWavResourceAndWait("misc/iwtsth.wav", true, false, !GameFrame.iwtsthSonidoOn());
                 }
 
                 if (GameFrame.getInstance().isPartida_local()) {
@@ -13201,7 +13201,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         GameFrame.getInstance().refresh();
                     });
                     GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_recuperada"));
-                    if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                    if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
                         Audio.playWavResource("misc/startplay.wav");
                     }
                     if (recovering_music_active) {
@@ -15843,7 +15843,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
 
-            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
 
                 Audio.playWavResource("misc/startplay.wav");
             }
@@ -17615,7 +17615,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         Audio.stopLoopMp3("misc/waiting_room.mp3");
 
-        if (!GameFrame.RECOVER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+        if (!GameFrame.RECOVER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
             Audio.playWavResource("misc/startplay.wav");
         }
 
@@ -17681,7 +17681,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.setSincronizando_mano(false);
                             GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
 
-                            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE) && GameFrame.inicioSonidoOn()) {
                                 Audio.playWavResource("misc/startplay.wav");
                             }
 

@@ -1686,7 +1686,9 @@ public class WaitingRoomFrame extends JFrame {
                         statsSyncOnConnectedToServer();
                     }
 
-                    Audio.playWavResource("misc/yahoo.wav");
+                    if (GameFrame.conexionSonidoOn()) {
+                        Audio.playWavResource("misc/yahoo.wav");
+                    }
 
                     if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
                         Helpers.GUIRun(() -> {

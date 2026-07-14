@@ -444,8 +444,8 @@ public class AppearanceSettingsPanel extends JPanel {
         master_row.add(anim_master);
         addLeft(anim, master_row);
 
-        addLeft(anim, animCheckbox("/images/menu/video.png", "menu.cinematicas",
-                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
+        addLeft(anim, indent(animCheckbox("/images/menu/video.png", "menu.cinematicas",
+                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v), 28));
         // --- Barajado (solo Ajustes, sin item de menú) + su subajuste Cascada SRA ---
         // Al activarlo re-calienta la caché del shuffle.gif (el warm-up de arranque pudo saltárselo).
         // Padre + subcontroles anidados dentro de un recuadro fino que los agrupa.
@@ -789,12 +789,12 @@ public class AppearanceSettingsPanel extends JPanel {
         }
         addLeft(anim, indent(downgrade_group));
 
-        addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
-                gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
-        addLeft(anim, animCheckbox("/images/menu/chips.png", "menu.efectos_animacion_apuestas",
-                gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v));
-        addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
-                gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v));
+        addLeft(anim, indent(animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
+                gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v), 28));
+        addLeft(anim, indent(animCheckbox("/images/menu/chips.png", "menu.efectos_animacion_apuestas",
+                gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v), 28));
+        addLeft(anim, indent(animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
+                gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v), 28));
 
         // Fila Animaciones | (Mesa sobre Pantalla) a su ALTO NATURAL en el NORTE, alineadas arriba
         // a la izquierda. Animaciones (la columna más alta desde que agrupa Barajado/Reparto/Destapar)
@@ -1255,6 +1255,13 @@ public class AppearanceSettingsPanel extends JPanel {
     // BoxLayout Y de la columna); el glue final absorbe el ancho sobrante a la derecha cuando
     // el componente ciñe su contenido (los recuadros de grupo).
     private static JComponent indent(JComponent comp) {
+        return indent(comp, 22);
+    }
+
+    // px = hueco izquierdo lógico (se escala con DIALOG_ZOOM). Los recuadros de grupo van a
+    // 22; los checkboxes SUELTOS a 28 (22 + los 6 del borde izquierdo del recuadro) para que
+    // su casilla quede alineada con la del checkbox padre DENTRO de los recuadros.
+    private static JComponent indent(JComponent comp, int px) {
         JPanel wrap = new JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -1264,7 +1271,7 @@ public class AppearanceSettingsPanel extends JPanel {
         wrap.setOpaque(false);
         wrap.setLayout(new BoxLayout(wrap, BoxLayout.X_AXIS));
         wrap.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        wrap.add(Box.createHorizontalStrut(Math.round(22 * Helpers.DIALOG_ZOOM)));
+        wrap.add(Box.createHorizontalStrut(Math.round(px * Helpers.DIALOG_ZOOM)));
         comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         wrap.add(comp);
         wrap.add(Box.createHorizontalGlue());

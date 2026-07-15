@@ -484,10 +484,10 @@ public class AudioSettingsPanel extends JPanel {
         // estadísticas). El maestro apaga todas; cada pista conserva su toggle.
         JPanel musica_group = groupBox();
         musica_group.add(iconRow(menuIcon("/images/menu/music.png"), musica_master_checkbox));
-        musica_group.add(effectRow(menuIcon("/images/menu/music.png"), musica_checkbox, false));
-        musica_group.add(effectRow(menuIcon("/images/menu/bell.png"), musica_sala_checkbox, false));
-        musica_group.add(effectRow(menuIcon("/images/menu/info.png"), musica_about_checkbox, false));
-        musica_group.add(effectRow(menuIcon("/images/menu/meter.png"), musica_stats_checkbox, false));
+        musica_group.add(effectRow(menuIcon("/images/menu/music.png"), musica_checkbox, false, previewButton(Audio.ASCENSOR_VOLUME.getKey())));
+        musica_group.add(effectRow(menuIcon("/images/menu/bell.png"), musica_sala_checkbox, false, previewButton(Audio.WAITING_ROOM_VOLUME.getKey())));
+        musica_group.add(effectRow(menuIcon("/images/menu/info.png"), musica_about_checkbox, false, previewButton(Audio.ABOUT_VOLUME.getKey())));
+        musica_group.add(effectRow(menuIcon("/images/menu/meter.png"), musica_stats_checkbox, false, previewButton(Audio.STATS_VOLUME.getKey())));
         sound_music_panel.add(indent(musica_group));
 
         // Un poco más de aire para que el recuadro de efectos se lea como subgrupo aparte.
@@ -504,30 +504,30 @@ public class AudioSettingsPanel extends JPanel {
         // nº de filas con la derecha.
         JPanel fx_col_a = effectsColumn();
         fx_col_a.add(typeHeader("audio.grupo_acciones"));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/chips.png"), sonido_apostar_checkbox, false));
-        fx_col_a.add(effectRow(scaledIcon("/images/action/bet.png", 24), sonido_igualar_checkbox, false));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/confirmation.png"), sonido_pasar_checkbox, false));
-        fx_col_a.add(effectRow(scaledIcon("/images/action/up.png", 24), sonido_allin_checkbox, false));
-        fx_col_a.add(effectRow(scaledIcon("/images/action/down.png", 24), sonido_fold_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/chips.png"), sonido_apostar_checkbox, false, previewButton("misc/bet.wav")));
+        fx_col_a.add(effectRow(scaledIcon("/images/action/bet.png", 24), sonido_igualar_checkbox, false, previewButton("misc/call.wav")));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/confirmation.png"), sonido_pasar_checkbox, false, previewButton("misc/check.wav")));
+        fx_col_a.add(effectRow(scaledIcon("/images/action/up.png", 24), sonido_allin_checkbox, false, previewButton("misc/allin.wav")));
+        fx_col_a.add(effectRow(scaledIcon("/images/action/down.png", 24), sonido_fold_checkbox, false, previewButton("misc/fold.wav")));
         fx_col_a.add(typeHeader("audio.grupo_cartas"));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_barajado_checkbox, false));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/dealer.png"), sonido_reparto_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_barajado_checkbox, false, previewButton("misc/shuffle.wav")));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/dealer.png"), sonido_reparto_checkbox, false, previewButton("misc/deal.wav")));
         // "Destapar" + su subopción "mis cartas" van juntas en un recuadro negro fino (groupBox):
         // "mis cartas" cuelga (más sangría) de "Destapar" y ambas comparten el mismo gif de destape,
         // así que se leen como un grupo aparte del resto de efectos de cartas.
         JPanel destape_box = groupBox();
-        destape_box.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false));
-        destape_box.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true));
+        destape_box.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false, previewButton("misc/uncover.wav")));
+        destape_box.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true, previewButton("misc/uncover.wav")));
         fx_col_a.add(destape_box);
         fx_col_a.add(typeHeader("audio.grupo_sala"));
-        fx_col_a.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/bell.png"), sonido_entrar_sala_checkbox, false));
-        fx_col_a.add(effectRow(scaledIcon("/images/action/plug.png", 24), sonido_conexion_checkbox, false));
-        fx_col_a.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false));
+        fx_col_a.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false, previewButton("misc/laser.wav")));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/bell.png"), sonido_entrar_sala_checkbox, false, previewButton("misc/new_user.wav")));
+        fx_col_a.add(effectRow(scaledIcon("/images/action/plug.png", 24), sonido_conexion_checkbox, false, previewButton("misc/yahoo.wav")));
+        fx_col_a.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false, previewButton("misc/toilet.wav")));
         fx_col_a.add(typeHeader("audio.grupo_avisos"));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/info.png"), sonido_aviso_checkbox, false));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/stop.png"), sonido_error_checkbox, false));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/close.png"), sonido_error_red_checkbox, false));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/info.png"), sonido_aviso_checkbox, false, previewButton("misc/warning.wav")));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/stop.png"), sonido_error_checkbox, false, previewButton("misc/error.wav")));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/close.png"), sonido_error_red_checkbox, false, previewButton("misc/network_error_" + GameFrame.LANGUAGE.toLowerCase() + ".wav")));
         // Fija las filas arriba: si esta columna es la más corta, el glue absorbe el hueco abajo
         // (si no, BoxLayout podría centrarlas y desalinear las cabeceras respecto a la otra).
         fx_col_a.add(Box.createVerticalGlue());
@@ -537,24 +537,24 @@ public class AudioSettingsPanel extends JPanel {
         // "Partida", que es a lo que pertenecen: son eventos del transcurso de la timba.
         JPanel fx_col_b = effectsColumn();
         fx_col_b.add(typeHeader("audio.grupo_partida"));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/games.png"), sonido_inicio_checkbox, false));
-        fx_col_b.add(effectRow(scaledIcon("/images/ciegas.png", 24), sonido_ciegas_checkbox, false));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/last_hand.png"), sonido_ultima_mano_checkbox, false));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/video.png"), sonido_iwtsth_checkbox, false));
-        fx_col_b.add(effectRow(scaledIcon("/images/lights_on.png", 24), sonido_interruptor_checkbox, false));
-        fx_col_b.add(effectRow(scaledIcon("/images/pause.png", 24), sonido_pausa_checkbox, false));
-        fx_col_b.add(effectRow(scaledIcon("/images/action/skull.png", 24), sonido_fin_partida_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/games.png"), sonido_inicio_checkbox, false, previewButton("misc/startplay.wav")));
+        fx_col_b.add(effectRow(scaledIcon("/images/ciegas.png", 24), sonido_ciegas_checkbox, false, previewButton("misc/double_blinds.wav")));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false, previewButton("misc/cash_register.wav")));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/last_hand.png"), sonido_ultima_mano_checkbox, false, previewButton("misc/last_hand_on.wav")));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false, previewButton("misc/balance_count.wav")));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/video.png"), sonido_iwtsth_checkbox, false, previewButton("misc/iwtsth.wav")));
+        fx_col_b.add(effectRow(scaledIcon("/images/lights_on.png", 24), sonido_interruptor_checkbox, false, previewButton("misc/button_on.wav")));
+        fx_col_b.add(effectRow(scaledIcon("/images/pause.png", 24), sonido_pausa_checkbox, false, previewButton("misc/pause.wav")));
+        fx_col_b.add(effectRow(scaledIcon("/images/action/skull.png", 24), sonido_fin_partida_checkbox, false, previewButton("misc/game_over.wav")));
         fx_col_b.add(typeHeader("audio.grupo_turno_tiempo"));
-        fx_col_b.add(effectRow(scaledIcon("/images/action/vamos.png", 24), sonido_tu_turno_checkbox, false));
-        fx_col_b.add(effectRow(scaledIcon("/images/action/timeout.png", 24), sonido_aviso_tiempo_checkbox, false));
+        fx_col_b.add(effectRow(scaledIcon("/images/action/vamos.png", 24), sonido_tu_turno_checkbox, false, previewButton("misc/yourturn.wav")));
+        fx_col_b.add(effectRow(scaledIcon("/images/action/timeout.png", 24), sonido_aviso_tiempo_checkbox, false, previewButton("misc/hurryup.wav")));
         fx_col_b.add(typeHeader("audio.grupo_interfaz"));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/zoom.png"), sonido_zoom_checkbox, false));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/tapetes.png"), sonido_tapete_checkbox, false));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/eyes.png"), sonido_visor_checkbox, false));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/sound.png"), sonido_volumen_checkbox, false));
-        fx_col_b.add(effectRow(menuIcon("/images/menu/corona.png"), sonido_arranque_checkbox, false));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/zoom.png"), sonido_zoom_checkbox, false, previewButton("misc/zoom_in.wav")));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/tapetes.png"), sonido_tapete_checkbox, false, previewButton("misc/mat.wav")));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/eyes.png"), sonido_visor_checkbox, false, previewButton("misc/card_visor.wav")));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/sound.png"), sonido_volumen_checkbox, false, previewButton("misc/volume_change.wav")));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/corona.png"), sonido_arranque_checkbox, false, previewButton("misc/init.wav")));
         fx_col_b.add(Box.createVerticalGlue());
 
         // GridBagLayout (no GridLayout): cada subcolumna toma su ANCHO PREFERIDO. GridLayout las
@@ -913,6 +913,9 @@ public class AudioSettingsPanel extends JPanel {
     public void cleanup() {
 
         stopVoiceKeyCapture();
+
+        // Corta cualquier audición en curso (el botón play de una pista o efecto) al cerrar.
+        Audio.stopPreview();
 
         Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
         Helpers.savePropertiesFile();
@@ -1460,9 +1463,10 @@ public class AudioSettingsPanel extends JPanel {
         return p;
     }
 
-    // Fila de un efecto individual dentro del recuadro "Efectos de sonido", sangrada bajo el
-    // maestro (deep = sangría mayor, para la subopción "mis cartas" que cuelga de "Destapar").
-    private static JComponent effectRow(javax.swing.Icon icon, JCheckBox cb, boolean deep) {
+    // Fila de un efecto/pista individual dentro de su recuadro, sangrada bajo el maestro (deep =
+    // sangría mayor, para la subopción "mis cartas" que cuelga de "Destapar"). trailing (o null):
+    // el botón de audición, que va A LA DERECHA del label.
+    private static JComponent effectRow(javax.swing.Icon icon, JCheckBox cb, boolean deep, JComponent trailing) {
         JPanel row = new JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -1482,8 +1486,93 @@ public class AudioSettingsPanel extends JPanel {
         row.add(icon_label);
         row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         row.add(cb);
+        // Botón de audición a la derecha del label (tras un pequeño hueco). El glue posterior
+        // empuja todo a la izquierda, así que el botón queda pegado al texto de la casilla.
+        if (trailing != null) {
+            row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
+            trailing.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+            row.add(trailing);
+        }
         row.add(Box.createHorizontalGlue());
         return row;
+    }
+
+    // Botón de audición (play/stop) junto a una casilla de sonido: un JButton pequeño y sin marco,
+    // con el triángulo de play (o el cuadrado de stop en la música mientras suena). SIEMPRE queda
+    // habilitado aunque la casilla esté en gris — el maestro de sonido apagado no impide escuchar.
+    private static JButton previewButtonBase() {
+        JButton b = new JButton(previewGlyph(false));
+        b.setMargin(new java.awt.Insets(0, 0, 0, 0));
+        b.setBorder(BorderFactory.createEmptyBorder());
+        b.setBorderPainted(false);
+        b.setContentAreaFilled(false);
+        b.setFocusPainted(false);
+        b.setFocusable(false);
+        b.setOpaque(false);
+        b.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        b.setToolTipText(Translator.translate("audio.preview_escuchar"));
+        b.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+        return b;
+    }
+
+    // Botón de audición unificado (música o efecto, según la extensión del recurso): al pulsar
+    // suena máx. 10 s y el botón pasa a "stop" para cortarlo antes; al terminar (fin natural, 10 s
+    // o stop) vuelve a "play". Una sola audición a la vez: empezar otra (aquí o en cualquier otro
+    // botón) corta la anterior, cuyo botón se devuelve solo a "play" por su propio on_stop.
+    private static JButton previewButton(String sound) {
+        JButton b = previewButtonBase();
+        final boolean[] playing = {false};
+        b.addActionListener(e -> {
+            if (playing[0]) {
+                Audio.stopPreview();
+            } else {
+                playing[0] = true;
+                b.setIcon(previewGlyph(true));
+                b.setToolTipText(Translator.translate("audio.preview_parar"));
+                Audio.previewResource(sound, 10000, () -> {
+                    playing[0] = false;
+                    b.setIcon(previewGlyph(false));
+                    b.setToolTipText(Translator.translate("audio.preview_escuchar"));
+                });
+            }
+        });
+        return b;
+    }
+
+    // Icono de audición dibujado (par coherente que escala con el zoom): triángulo de play (verde)
+    // o cuadrado de stop (rojo).
+    private static javax.swing.Icon previewGlyph(boolean stop) {
+        final int size = Math.round(15 * Helpers.DIALOG_ZOOM);
+        final java.awt.Color color = stop ? new java.awt.Color(0xC6, 0x28, 0x28) : new java.awt.Color(0x2E, 0x7D, 0x32);
+        return new javax.swing.Icon() {
+            @Override
+            public int getIconWidth() {
+                return size;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return size;
+            }
+
+            @Override
+            public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(color);
+                int m = Math.round(size * 0.12f);
+                if (stop) {
+                    int s = size - 2 * m;
+                    int arc = Math.max(2, s / 4);
+                    g2.fillRoundRect(x + m, y + m, s, s, arc, arc);
+                } else {
+                    int[] xs = {x + m, x + m, x + size - m};
+                    int[] ys = {y + m, y + size - m, y + size / 2};
+                    g2.fillPolygon(xs, ys, 3);
+                }
+                g2.dispose();
+            }
+        };
     }
 
     // Columna vertical (transparente) para agrupar tipos de efectos dentro del recuadro; en un

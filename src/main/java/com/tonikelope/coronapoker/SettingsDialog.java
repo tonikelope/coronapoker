@@ -142,9 +142,29 @@ public class SettingsDialog extends JDialog {
         JButton cancel_button = new JButton(Translator.translate("ui.cancelar_2"));
         cancel_button.addActionListener(e -> cancelWithConfirm());
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        buttons.add(save_button);
-        buttons.add(cancel_button);
+        // Restaura los ajustes de PREFERENCIA (Apariencia + Audio) a sus valores de fábrica. NO
+        // pregunta antes (el diálogo es transaccional: los cambios se aplican en vivo como una
+        // edición más, y solo persisten al GUARDAR; Cancelar los revierte). Tras restaurar avisa
+        // de que hay que Guardar para conservarlos. Va abajo a la IZQUIERDA, separado de
+        // Guardar/Cancelar (derecha). No toca la pestaña Partida (config de timba, no preferencias).
+        JButton restore_button = new JButton(Translator.translate("settings.restaurar_predeterminados"));
+        restore_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/undo.png")));
+        restore_button.addActionListener(e -> {
+            appearance_panel.restoreDefaults();
+            audio_panel.restoreDefaults();
+            Helpers.mostrarMensajeInformativo(this, Translator.translate("settings.predeterminados_restaurados"));
+        });
+
+        JPanel right_buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        right_buttons.add(save_button);
+        right_buttons.add(cancel_button);
+
+        JPanel left_buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        left_buttons.add(restore_button);
+
+        JPanel buttons = new JPanel(new BorderLayout());
+        buttons.add(left_buttons, BorderLayout.WEST);
+        buttons.add(right_buttons, BorderLayout.EAST);
 
         JPanel content = new JPanel(new BorderLayout());
         content.setBorder(BorderFactory.createEmptyBorder(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM)));
@@ -213,6 +233,9 @@ public class SettingsDialog extends JDialog {
         java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f * Helpers.DIALOG_ZOOM);
         save_button.setFont(buttons_font);
         cancel_button.setFont(buttons_font);
+        // El botón de restaurar (acción secundaria) va al mismo tamaño pero SIN negrita, para no
+        // competir visualmente con Guardar/Cancelar.
+        restore_button.setFont(Helpers.GUI_FONT.deriveFont(18f * Helpers.DIALOG_ZOOM));
 
         pack();
 

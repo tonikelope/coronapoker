@@ -370,11 +370,14 @@ public class Audio {
         // sala de espera" (MUSICA_SALA). Vivir aquí (y no en MP3_LOOP_MUTED) hace
         // que los flags valgan desde el arranque y controlen su pista desde
         // cualquier parte del juego.
-        boolean game_music_off = ASCENSOR_VOLUME.getKey().equals(sound) && !GameFrame.MUSICA_AMBIENTAL;
-        boolean room_music_off = WAITING_ROOM_VOLUME.getKey().equals(sound) && !GameFrame.MUSICA_SALA;
+        // Cada pista se apaga si su toggle individual está off O el MAESTRO de música (MUSICA) lo está.
+        boolean game_music_off = ASCENSOR_VOLUME.getKey().equals(sound) && (!GameFrame.MUSICA || !GameFrame.MUSICA_AMBIENTAL);
+        boolean room_music_off = WAITING_ROOM_VOLUME.getKey().equals(sound) && (!GameFrame.MUSICA || !GameFrame.MUSICA_SALA);
+        boolean about_music_off = ABOUT_VOLUME.getKey().equals(sound) && (!GameFrame.MUSICA || !GameFrame.MUSICA_ABOUT);
+        boolean stats_music_off = STATS_VOLUME.getKey().equals(sound) && (!GameFrame.MUSICA || !GameFrame.MUSICA_STATS);
 
         // Single source of truth for MP3 loop volume
-        if (!GameFrame.SONIDOS || game_music_off || room_music_off || MUTED_MP3_LOOP || VOICE_RECORDING || MP3_LOOP_MUTED.contains(sound)) {
+        if (!GameFrame.SONIDOS || game_music_off || room_music_off || about_music_off || stats_music_off || MUTED_MP3_LOOP || VOICE_RECORDING || MP3_LOOP_MUTED.contains(sound)) {
             return 0f;
         }
 

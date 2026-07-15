@@ -107,6 +107,7 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_conexion_checkbox;
     private final JCheckBox sonido_iwtsth_checkbox;
     private final JCheckBox sonido_zoom_checkbox;
+    private final JCheckBox sonido_screenshot_checkbox;
     private final JCheckBox sonido_tapete_checkbox;
     private final JCheckBox sonido_visor_checkbox;
     private final JCheckBox sonido_volumen_checkbox;
@@ -180,6 +181,7 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_sonido_conexion;
     private final boolean snap_sonido_iwtsth;
     private final boolean snap_sonido_zoom;
+    private final boolean snap_sonido_screenshot;
     private final boolean snap_sonido_tapete;
     private final boolean snap_sonido_visor;
     private final boolean snap_sonido_volumen;
@@ -257,6 +259,7 @@ public class AudioSettingsPanel extends JPanel {
         snap_sonido_conexion = GameFrame.SONIDO_CONEXION;
         snap_sonido_iwtsth = GameFrame.SONIDO_IWTSTH;
         snap_sonido_zoom = GameFrame.SONIDO_ZOOM;
+        snap_sonido_screenshot = GameFrame.SONIDO_SCREENSHOT;
         snap_sonido_tapete = GameFrame.SONIDO_TAPETE;
         snap_sonido_visor = GameFrame.SONIDO_VISOR;
         snap_sonido_volumen = GameFrame.SONIDO_VOLUMEN;
@@ -439,6 +442,9 @@ public class AudioSettingsPanel extends JPanel {
         sonido_zoom_checkbox = new JCheckBox(Translator.translate("audio.sonido_zoom"), GameFrame.SONIDO_ZOOM);
         sonido_zoom_checkbox.addActionListener(e -> GameFrame.setSonidoZoom(sonido_zoom_checkbox.isSelected()));
 
+        sonido_screenshot_checkbox = new JCheckBox(Translator.translate("audio.sonido_screenshot"), GameFrame.SONIDO_SCREENSHOT);
+        sonido_screenshot_checkbox.addActionListener(e -> GameFrame.setSonidoScreenshot(sonido_screenshot_checkbox.isSelected()));
+
         sonido_tapete_checkbox = new JCheckBox(Translator.translate("audio.sonido_tapete"), GameFrame.SONIDO_TAPETE);
         sonido_tapete_checkbox.addActionListener(e -> GameFrame.setSonidoTapete(sonido_tapete_checkbox.isSelected()));
 
@@ -551,6 +557,7 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_b.add(effectRow(scaledIcon("/images/action/timeout.png", 24), sonido_aviso_tiempo_checkbox, false, previewButton("misc/hurryup.wav")));
         fx_col_b.add(typeHeader("audio.grupo_interfaz"));
         fx_col_b.add(effectRow(menuIcon("/images/menu/zoom.png"), sonido_zoom_checkbox, false, previewButton("misc/zoom_in.wav")));
+        fx_col_b.add(effectRow(scaledIcon("/images/screenshot.png", 24), sonido_screenshot_checkbox, false, previewButton("misc/screenshot.wav")));
         fx_col_b.add(effectRow(menuIcon("/images/menu/tapetes.png"), sonido_tapete_checkbox, false, previewButton("misc/mat.wav")));
         fx_col_b.add(effectRow(menuIcon("/images/menu/eyes.png"), sonido_visor_checkbox, false, previewButton("misc/card_visor.wav")));
         fx_col_b.add(effectRow(menuIcon("/images/menu/sound.png"), sonido_volumen_checkbox, false, previewButton("misc/volume_change.wav")));
@@ -962,6 +969,7 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDO_CONEXION != snap_sonido_conexion
                 || GameFrame.SONIDO_IWTSTH != snap_sonido_iwtsth
                 || GameFrame.SONIDO_ZOOM != snap_sonido_zoom
+                || GameFrame.SONIDO_SCREENSHOT != snap_sonido_screenshot
                 || GameFrame.SONIDO_TAPETE != snap_sonido_tapete
                 || GameFrame.SONIDO_VISOR != snap_sonido_visor
                 || GameFrame.SONIDO_VOLUMEN != snap_sonido_volumen
@@ -1094,6 +1102,9 @@ public class AudioSettingsPanel extends JPanel {
         if (GameFrame.SONIDO_ZOOM != snap_sonido_zoom) {
             GameFrame.setSonidoZoom(snap_sonido_zoom);
         }
+        if (GameFrame.SONIDO_SCREENSHOT != snap_sonido_screenshot) {
+            GameFrame.setSonidoScreenshot(snap_sonido_screenshot);
+        }
         if (GameFrame.SONIDO_TAPETE != snap_sonido_tapete) {
             GameFrame.setSonidoTapete(snap_sonido_tapete);
         }
@@ -1197,6 +1208,7 @@ public class AudioSettingsPanel extends JPanel {
         applyDefault(GameFrame::setSonidoConexion, sonido_conexion_checkbox, true);
         applyDefault(GameFrame::setSonidoIwtsth, sonido_iwtsth_checkbox, true);
         applyDefault(GameFrame::setSonidoZoom, sonido_zoom_checkbox, true);
+        applyDefault(GameFrame::setSonidoScreenshot, sonido_screenshot_checkbox, true);
         applyDefault(GameFrame::setSonidoTapete, sonido_tapete_checkbox, true);
         applyDefault(GameFrame::setSonidoVisor, sonido_visor_checkbox, true);
         applyDefault(GameFrame::setSonidoVolumen, sonido_volumen_checkbox, true);
@@ -1295,6 +1307,7 @@ public class AudioSettingsPanel extends JPanel {
         sonido_conexion_checkbox.setEnabled(fx_on);
         sonido_iwtsth_checkbox.setEnabled(fx_on);
         sonido_zoom_checkbox.setEnabled(fx_on);
+        sonido_screenshot_checkbox.setEnabled(fx_on);
         sonido_tapete_checkbox.setEnabled(fx_on);
         sonido_visor_checkbox.setEnabled(fx_on);
         sonido_volumen_checkbox.setEnabled(fx_on);

@@ -490,7 +490,9 @@ public class Init extends JFrame {
 
                 if (GameFrame.getInstance() != null) {
 
-                    Audio.playWavResource("misc/screenshot.wav");
+                    if (GameFrame.screenshotSonidoOn()) {
+                        Audio.playWavResource("misc/screenshot.wav");
+                    }
 
                     // Estamos en el EDT (el dispatcher envuelve la acción en
                     // Helpers.GUIRun): renderizamos aquí la ventana completa a

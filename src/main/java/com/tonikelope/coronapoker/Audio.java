@@ -122,6 +122,13 @@ public class Audio {
     private volatile static String PREVIEW_WAV_SOUND = null;
     private volatile static Object PREVIEW_WAV_TOKEN = null;
 
+    // Alerta de peligro en bucle mientras está abierto un popup de error grave (mano anulada /
+    // violación de seguridad). El flag distingue "se pidió sonar" del clip ya abierto para no dejar
+    // un bucle huérfano si el popup se cierra antes de que la carga asíncrona del clip termine.
+    private static final Object DANGER_ALERT_LOCK = new Object();
+    private volatile static boolean DANGER_ALERT_ON = false;
+    private volatile static Clip DANGER_ALERT_CLIP = null;
+
     // Blacklist for missing or corrupted sound files to prevent console flooding
     public static final Set<String> BLACKLISTED_SOUNDS = ConcurrentHashMap.newKeySet();
 
@@ -1173,6 +1180,77 @@ public class Audio {
                 }
             }
         });
+    }
+
+    // --- Alerta de peligro en bucle (popup de mano anulada / error de seguridad) ---
+
+    // Arranca la alerta EN BUCLE (Clip.LOOP_CONTINUOUSLY) hasta stopDangerAlertLoop: suena mientras
+    // esté abierto el popup de error grave. Respeta volumen y mutes como cualquier efecto
+    // (setClipVolume). No-op en TEST_MODE / archivo muerto / sin dispositivo. Idempotente: corta
+    // una alerta previa antes de arrancar.
+    public static void startDangerAlertLoop(String sound) {
+
+        stopDangerAlertLoop();
+
+        if (GameFrame.TEST_MODE || BLACKLISTED_SOUNDS.contains(sound)) {
+            return;
+        }
+
+        DANGER_ALERT_ON = true;
+
+        Helpers.threadRun(() -> {
+
+            InputStream is = getSoundInputStream(sound);
+
+            if (is == null) {
+                return;
+            }
+
+            try (final BufferedInputStream bis = new BufferedInputStream(is); final javax.sound.sampled.AudioInputStream ais = AudioSystem.getAudioInputStream(bis)) {
+
+                Clip clip = AudioDeviceManager.getClip();
+
+                clip.open(ais);
+
+                setClipVolume(sound, clip, false);
+
+                synchronized (DANGER_ALERT_LOCK) {
+                    // stopDangerAlertLoop pudo pedir parar mientras cargábamos el clip: no arrancar
+                    // el bucle (quedaría huérfano) y cerrar.
+                    if (!DANGER_ALERT_ON) {
+                        clip.close();
+                        return;
+                    }
+                    DANGER_ALERT_CLIP = clip;
+                    clip.loop(Clip.LOOP_CONTINUOUSLY);
+                }
+
+            } catch (Exception ex) {
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Danger alert loop error {0}: {1}", new Object[]{sound, ex.getMessage()});
+            }
+        });
+    }
+
+    // Corta la alerta de peligro (si suena) y libera su línea. Lo llama el cierre del popup.
+    public static void stopDangerAlertLoop() {
+
+        synchronized (DANGER_ALERT_LOCK) {
+
+            DANGER_ALERT_ON = false;
+
+            Clip clip = DANGER_ALERT_CLIP;
+
+            DANGER_ALERT_CLIP = null;
+
+            if (clip != null) {
+                try {
+                    clip.stop();
+                    clip.close();
+                } catch (Exception ex) {
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error stopping danger alert loop: {0}", ex.getMessage());
+                }
+            }
+        }
     }
 
     // El SO tarda en "despertar" el endpoint de audio la PRIMERA vez que se abre

@@ -526,7 +526,7 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_a.add(effectRow(scaledIcon("/images/exit.png", 24), sonido_sale_checkbox, false, previewButton("misc/toilet.wav")));
         fx_col_a.add(typeHeader("audio.grupo_avisos"));
         fx_col_a.add(effectRow(menuIcon("/images/menu/info.png"), sonido_aviso_checkbox, false, previewButton("misc/warning.wav")));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/stop.png"), sonido_error_checkbox, false, previewButton("misc/error.wav")));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/stop.png"), sonido_error_checkbox, false, previewButton("misc/danger_alert.wav")));
         fx_col_a.add(effectRow(menuIcon("/images/menu/close.png"), sonido_error_red_checkbox, false, previewButton("misc/network_error_" + GameFrame.LANGUAGE.toLowerCase() + ".wav")));
         // Fija las filas arriba: si esta columna es la más corta, el glue absorbe el hueco abajo
         // (si no, BoxLayout podría centrarlas y desalinear las cabeceras respecto a la otra).

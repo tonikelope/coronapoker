@@ -32,6 +32,7 @@ import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Image;
+import java.awt.image.BufferedImage;
 import java.awt.KeyboardFocusManager;
 import java.awt.Robot;
 import java.awt.event.ActionEvent;
@@ -89,7 +90,6 @@ public class Init extends JFrame {
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
-    public static final String CACHE_DIR = CORONA_DIR + "/Cache";
     public static final String CHAT_IMAGE_CACHE = CORONA_DIR + "/ChatImagesCache";
     public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";
     public static final String VOICE_DIR = CORONA_DIR + "/voice";
@@ -480,6 +480,34 @@ public class Init extends JFrame {
                     }
 
                     FORCE_CLOSE_DIALOG = false;
+                }
+            }
+        });
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("SCREENSHOT") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                if (GameFrame.getInstance() != null) {
+
+                    Audio.playWavResource("misc/screenshot.wav");
+
+                    // Estamos en el EDT (el dispatcher envuelve la acción en
+                    // Helpers.GUIRun): renderizamos aquí la ventana completa a
+                    // imagen (printAll, sin Robot ni captura del SO) y volcamos
+                    // el PNG a disco en segundo plano.
+                    final BufferedImage image = Helpers.renderComponentImage(GameFrame.getInstance().getRootPane());
+
+                    Helpers.threadRun(() -> {
+
+                        Helpers.saveScreenshot(image);
+
+                        Helpers.GUIRun(() -> {
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("ui.captura_ok"), Color.WHITE, Color.BLACK, Init.class.getResource("/images/screenshot.png"), InGameNotifyDialog.NOTIFICATION_TIMEOUT);
+                            dialog.setLocation(dialog.getParent().getLocation());
+                            dialog.setVisible(true);
+                        });
+                    });
                 }
             }
         });
@@ -1771,7 +1799,6 @@ public class Init extends JFrame {
             String updater_jar = Helpers.downloadUpdater();
 
             if (updater_jar != null) {
-                Helpers.cleanCacheDIR();
                 if (GameFrame.LANGUAGE.equals("es")) {
                     String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, version, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
                     Runtime.getRuntime().exec(cmdArr);

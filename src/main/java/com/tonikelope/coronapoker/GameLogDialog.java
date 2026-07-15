@@ -95,6 +95,13 @@ public final class GameLogDialog extends JDialog {
         return s;
     }
 
+    // Variante con color de FONDO (banda): para los errores más graves (letras claras sobre rojo).
+    private static SimpleAttributeSet logStyle(Color fg, Color bg, boolean bold, boolean italic) {
+        SimpleAttributeSet s = logStyle(fg, bold, italic);
+        StyleConstants.setBackground(s, bg);
+        return s;
+    }
+
     private static final SimpleAttributeSet ST_DEFAULT = logStyle(new Color(255, 255, 255), false, false);
     private static final SimpleAttributeSet ST_HEADER = logStyle(new Color(120, 225, 235), true, false);
     private static final SimpleAttributeSet ST_BOARD = logStyle(new Color(150, 200, 255), true, false);
@@ -111,6 +118,9 @@ public final class GameLogDialog extends JDialog {
     private static final SimpleAttributeSet ST_ALERT = logStyle(new Color(255, 80, 80), true, false);
     private static final SimpleAttributeSet ST_BLIND = logStyle(new Color(235, 205, 80), true, false);
     private static final SimpleAttributeSet ST_RIT = logStyle(new Color(200, 150, 235), true, false);
+    // Errores MÁS GRAVES (mano anulada / violaciones de seguridad e integridad): letras BLANCAS
+    // sobre FONDO ROJO (banda), el resalte más fuerte del registro.
+    private static final SimpleAttributeSet ST_CRITICAL = logStyle(new Color(255, 255, 255), new Color(170, 20, 20), true, false);
 
     // [A♠], [10♥] — a bracketed card token (value + suit).
     private static final Pattern CARD_TOKEN = Pattern.compile("\\[[^\\[\\]]*[♠♥♦♣]\\]");
@@ -212,7 +222,7 @@ public final class GameLogDialog extends JDialog {
             cs[k] = base;
         }
         // hand-ranking ("... -> Pareja"): dim italic (not on header/board lines).
-        if (base != ST_HEADER && base != ST_BOARD) {
+        if (base != ST_HEADER && base != ST_BOARD && base != ST_CRITICAL) {
             int arrow = line.indexOf(" -> ");
             if (arrow >= 0) {
                 for (int k = arrow; k < len; k++) {
@@ -474,10 +484,18 @@ public final class GameLogDialog extends JDialog {
         java.util.List<Object[]> rules = CATEGORY_RULES;
         if (rules == null || !java.util.Objects.equals(CATEGORY_RULES_LANG, GameFrame.LANGUAGE)) {
             rules = new java.util.ArrayList<>();
-            for (String k : new String[]{"zero_trust.security_alert", "zero_trust.suspicious_alert", "zero_trust.peer_alert", "zero_trust.lockdown_activated",
+            // Errores MÁS GRAVES → banda de FONDO ROJO y letras blancas (ST_CRITICAL): la mano
+            // anulada (misdeal, el error de mano más grave; casa por su cabecera "MANO ANULADA") y
+            // las violaciones de seguridad / integridad — zero_trust (incluidos los motivos de
+            // misdeal por seguridad, los mismos que disparan la sirena y abortAndExit), la
+            // verificación criptográfica de la mano y la firma de acción inválida. El resto de
+            // aborts (peer/protocolo, straddle, rit) son rutinarios y NO se resaltan.
+            for (String k : new String[]{"game.mano_anulada",
+                "zero_trust.security_alert", "zero_trust.suspicious_alert", "zero_trust.peer_alert", "zero_trust.lockdown_activated",
+                "zero_trust.cascade_refused", "zero_trust.card_resolve_failed", "zero_trust.pocket_unlock_refused", "zero_trust.community_unlock_refused",
                 "game.mano_verificacion_divergente", "game.mano_verificacion_jugador_ausente", "game.mano_verificacion_firma_invalida",
                 "game.mano_verificacion_host_sin_prueba", "game.firma_accion_invalida"}) {
-                addCategoryRule(rules, k, ST_ALERT);
+                addCategoryRule(rules, k, ST_CRITICAL);
             }
             // Consenso + las dos líneas del barajado (verde "verificado", amarillo "sin verificar
             // todavía"). Llevan el ordinal {0}, pero addCategoryRule ya casa por el prefijo fijo.
@@ -513,6 +531,12 @@ public final class GameLogDialog extends JDialog {
     private static void addCategoryPhrase(java.util.List<Object[]> rules, String phrase, String key, SimpleAttributeSet style) {
         if (phrase == null || phrase.equals(key)) {
             return; // clave no encontrada (translate devuelve la propia clave)
+        }
+        // Marca solo la PRIMERA línea: las claves multilínea (p. ej. "MANO ANULADA\n\nMOTIVO:") se
+        // imprimen troceadas por \n, así que el marcador debe ser esa primera línea para casar.
+        int nl = phrase.indexOf('\n');
+        if (nl >= 0) {
+            phrase = phrase.substring(0, nl);
         }
         int brace = phrase.indexOf('{');
         if (brace >= 0) {

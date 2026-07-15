@@ -6779,8 +6779,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.bote = new HandPot(0f);
         }
 
-        if (GameFrame.errorSonidoOn()) {
-            Audio.playWavResource("misc/error.wav");
+        // Sonido del aviso de mano anulada. Solo las violaciones de seguridad reales (zero_trust.*,
+        // el MISMO criterio que decide abortAndExit vs recover más abajo) merecen la sirena de
+        // peligro EN BUCLE, que se corta al cerrar el popup (finally). El resto de aborts
+        // (peer/protocolo, straddle, rit) son incidencias rutinarias: basta el sonido de
+        // advertencia, una vez. Cada uno gateado por su casilla ("Alerta de peligro" / "Advertencia").
+        boolean peligro_grave = motivo != null && motivo.startsWith("zero_trust.");
+        if (peligro_grave) {
+            if (GameFrame.errorSonidoOn()) {
+                Audio.startDangerAlertLoop("misc/danger_alert.wav");
+            }
+        } else if (GameFrame.avisoSonidoOn()) {
+            Audio.playWavResource("misc/warning.wav");
         }
 
         // Coherent MISDEAL halt across host AND client.
@@ -6813,7 +6823,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // the reader thread blocking during the modal just delays delivery
         // by however long the user takes to click OK, which is harmless.
         //
-        Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
+        try {
+            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
+        } finally {
+            // La alerta de peligro suena en bucle hasta que el usuario cierra el popup.
+            Audio.stopDangerAlertLoop();
+        }
         rollbackAbortedHand();
         setFin_de_la_transmision(true);
 

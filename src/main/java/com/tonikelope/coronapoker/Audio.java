@@ -115,6 +115,20 @@ public class Audio {
     private final static AtomicInteger VOICE_RECORDING_COUNT = new AtomicInteger(0);
     public volatile static CoronaMP3FilePlayer TTS_PLAYER = null;
 
+    // Audición del diálogo de Ajustes (botón play junto a cada sonido): una sola a la vez, sea
+    // música (reproductor de streaming) o efecto (clip). null = sin audición de ese tipo en curso.
+    // El token del efecto distingue audiciones del MISMO wav (destape/mis cartas comparten uncover).
+    private volatile static CoronaMP3FilePlayer PREVIEW_MP3_PLAYER = null;
+    private volatile static String PREVIEW_WAV_SOUND = null;
+    private volatile static Object PREVIEW_WAV_TOKEN = null;
+
+    // Alerta de peligro en bucle mientras está abierto un popup de error grave (mano anulada /
+    // violación de seguridad). El flag distingue "se pidió sonar" del clip ya abierto para no dejar
+    // un bucle huérfano si el popup se cierra antes de que la carga asíncrona del clip termine.
+    private static final Object DANGER_ALERT_LOCK = new Object();
+    private volatile static boolean DANGER_ALERT_ON = false;
+    private volatile static Clip DANGER_ALERT_CLIP = null;
+
     // Blacklist for missing or corrupted sound files to prevent console flooding
     public static final Set<String> BLACKLISTED_SOUNDS = ConcurrentHashMap.newKeySet();
 
@@ -409,20 +423,31 @@ public class Audio {
     }
 
     public static void setClipVolume(String sound, Clip clip, boolean bypass_muted) {
-        setClipVolume(sound, clip, bypass_muted, false);
+        setClipVolume(sound, clip, bypass_muted, false, false);
+    }
+
+    public static void setClipVolume(String sound, Clip clip, boolean bypass_muted, boolean force_silent) {
+        setClipVolume(sound, clip, bypass_muted, force_silent, false);
     }
 
     // force_silent: mutea ESTE clip concreto (como si el sonido estuviera muteado) pero SIN
     // saltarse la reproducción, así playWavResourceAndWait sigue esperando su duración completa.
     // Lo usan los efectos BLOQUEANTES desactivables (fin de partida, timeout) para quedar en
     // silencio conservando el ritmo/gracia que marca la espera del wav.
-    public static void setClipVolume(String sound, Clip clip, boolean bypass_muted, boolean force_silent) {
+    // force_preview: AUDICIÓN (botón play de Ajustes). Fuerza que suene a su volumen normal
+    // saltándose TODOS los gates (SONIDOS maestro apagado, muteos, force_silent, grabación), para
+    // poder escuchar un efecto aunque su casilla esté deshabilitada. Solo enmudece si el volumen
+    // maestro es 0 (nada que oír).
+    public static void setClipVolume(String sound, Clip clip, boolean bypass_muted, boolean force_silent, boolean force_preview) {
 
         FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
 
         boolean mute_supported = clip.isControlSupported(BooleanControl.Type.MUTE);
 
-        if (force_silent || !GameFrame.SONIDOS || VOICE_RECORDING || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
+        boolean silent = force_preview ? findSoundVolume(sound) == 0f
+                : (force_silent || !GameFrame.SONIDOS || VOICE_RECORDING || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted));
+
+        if (silent) {
 
             if (mute_supported) {
                 ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(true);
@@ -456,6 +481,12 @@ public class Audio {
     // force_silent: reproduce el wav en SILENCIO (clip muteado) pero espera su duración igual.
     // Para efectos bloqueantes desactivables cuyo tiempo de espera hay que conservar.
     public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted, boolean force_silent) {
+        return playWavResourceAndWait(sound, force_close, bypass_muted, force_silent, false);
+    }
+
+    // force_preview: AUDICIÓN. Suena a su volumen normal saltándose los gates de sonido (ver
+    // setClipVolume). Lo usa previewWav (audición de efectos) para el botón play de Ajustes.
+    public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted, boolean force_silent, boolean force_preview) {
         if (!GameFrame.TEST_MODE) {
 
             // Abort early if the file is blacklisted
@@ -524,7 +555,7 @@ public class Audio {
 
                                 clip.open(audioInputStream);
 
-                                setClipVolume(sound, clip, bypass_muted, force_silent);
+                                setClipVolume(sound, clip, bypass_muted, force_silent, force_preview);
 
                                 // Registered before start() so an ultra-short clip
                                 // cannot finish before we are listening.
@@ -1020,6 +1051,206 @@ public class Audio {
             }
         });
 
+    }
+
+    // --- Audición (botón play del diálogo de Ajustes) ---
+    //
+    // Un recurso (música mp3 o efecto wav) suena a su volumen normal saltándose TODOS los gates de
+    // sonido (suena aunque su casilla o el maestro estén apagados; solo respeta el volumen maestro),
+    // con un tope de max_millis. Una sola audición a la vez: empezar otra corta la anterior. El botón
+    // pasa a "stop" mientras suena y vuelve a "play" al terminar (fin natural, tope o stop manual)
+    // vía on_stop. La música usa el reproductor de streaming; los efectos, un clip.
+
+    // Corta cualquier audición en curso (música o efecto). Su hilo corre el on_stop (que devuelve el
+    // botón a "play") y, en música, restaura la pista de fondo. Lo llaman el botón stop, cambiar de
+    // audición y el cierre del diálogo de Ajustes.
+    public static void stopPreview() {
+
+        CoronaMP3FilePlayer p = PREVIEW_MP3_PLAYER;
+        if (p != null) {
+            p.stop();
+        }
+
+        String w = PREVIEW_WAV_SOUND;
+        if (w != null) {
+            stopWavResource(w);
+        }
+    }
+
+    // Enruta por extensión: .mp3 = música (streaming), resto = efecto (clip). Corta antes cualquier
+    // otra audición para que solo suene una.
+    public static void previewResource(String sound, int max_millis, Runnable on_stop) {
+
+        if (GameFrame.TEST_MODE) {
+            if (on_stop != null) {
+                Helpers.GUIRun(on_stop);
+            }
+            return;
+        }
+
+        stopPreview();
+
+        if (sound.toLowerCase().endsWith(".mp3")) {
+            previewMp3(sound, max_millis, on_stop);
+        } else {
+            previewWav(sound, max_millis, on_stop);
+        }
+    }
+
+    // Música: reproductor de streaming propio. Silencia SOLO la pista de fondo que coincida (si
+    // sonaba) para no oírla doblada; NO toca el mute global de loops (lo usa Crupier).
+    private static void previewMp3(String sound, int max_millis, Runnable on_stop) {
+
+        final CoronaMP3FilePlayer player = new CoronaMP3FilePlayer();
+
+        PREVIEW_MP3_PLAYER = player;
+
+        final boolean mute_match = MP3_LOOP.containsKey(sound) && !MP3_LOOP_MUTED.contains(sound);
+
+        if (mute_match) {
+            muteLoopMp3(sound);
+        }
+
+        // Tope de duración: para la audición a los max_millis (play() bloquea hasta fin/stop).
+        // Single-shot; si otra audición ya la reemplazó, el disparo no hace nada.
+        Timer cap = new Timer(max_millis, null);
+        cap.setRepeats(false);
+        cap.addActionListener((java.awt.event.ActionEvent ev) -> {
+            cap.stop();
+            if (PREVIEW_MP3_PLAYER == player) {
+                Helpers.threadRun(player::stop);
+            }
+        });
+        cap.start();
+
+        Helpers.threadRun(() -> {
+            try {
+                InputStream is = getSoundInputStream(sound);
+                if (is != null) {
+                    player.play(javax.sound.sampled.AudioSystem.getAudioInputStream(is), findSoundVolume(sound));
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Preview MP3 error {0}: {1}", new Object[]{sound, ex.getMessage()});
+            } finally {
+                cap.stop();
+                if (mute_match) {
+                    unmuteLoopMp3(sound);
+                }
+                if (PREVIEW_MP3_PLAYER == player) {
+                    PREVIEW_MP3_PLAYER = null;
+                }
+                if (on_stop != null) {
+                    Helpers.GUIRun(on_stop);
+                }
+            }
+        });
+    }
+
+    // Efecto: clip vía playWavResourceAndWait (force_preview salta los gates). El token distingue
+    // esta audición de otra del MISMO sonido (destape/mis cartas comparten uncover.wav) para no
+    // limpiar el marcador de la que haya tomado el relevo.
+    private static void previewWav(String sound, int max_millis, Runnable on_stop) {
+
+        final Object token = new Object();
+
+        PREVIEW_WAV_TOKEN = token;
+        PREVIEW_WAV_SOUND = sound;
+
+        Helpers.threadRun(() -> {
+            // Tope de duración: corta el efecto a los max_millis si dura más (game_over, iwtsth...).
+            // Single-shot; si el efecto acaba antes, el finally cancela el timer.
+            Timer cap = new Timer(max_millis, null);
+            cap.setRepeats(false);
+            cap.addActionListener((java.awt.event.ActionEvent ev) -> {
+                cap.stop();
+                stopWavResource(sound);
+            });
+            cap.start();
+
+            try {
+                playWavResourceAndWait(sound, true, true, false, true);
+            } finally {
+                cap.stop();
+                if (PREVIEW_WAV_TOKEN == token) {
+                    PREVIEW_WAV_TOKEN = null;
+                    PREVIEW_WAV_SOUND = null;
+                }
+                if (on_stop != null) {
+                    Helpers.GUIRun(on_stop);
+                }
+            }
+        });
+    }
+
+    // --- Alerta de peligro en bucle (popup de mano anulada / error de seguridad) ---
+
+    // Arranca la alerta EN BUCLE (Clip.LOOP_CONTINUOUSLY) hasta stopDangerAlertLoop: suena mientras
+    // esté abierto el popup de error grave. Respeta volumen y mutes como cualquier efecto
+    // (setClipVolume). No-op en TEST_MODE / archivo muerto / sin dispositivo. Idempotente: corta
+    // una alerta previa antes de arrancar.
+    public static void startDangerAlertLoop(String sound) {
+
+        stopDangerAlertLoop();
+
+        if (GameFrame.TEST_MODE || BLACKLISTED_SOUNDS.contains(sound)) {
+            return;
+        }
+
+        DANGER_ALERT_ON = true;
+
+        Helpers.threadRun(() -> {
+
+            InputStream is = getSoundInputStream(sound);
+
+            if (is == null) {
+                return;
+            }
+
+            try (final BufferedInputStream bis = new BufferedInputStream(is); final javax.sound.sampled.AudioInputStream ais = AudioSystem.getAudioInputStream(bis)) {
+
+                Clip clip = AudioDeviceManager.getClip();
+
+                clip.open(ais);
+
+                setClipVolume(sound, clip, false);
+
+                synchronized (DANGER_ALERT_LOCK) {
+                    // stopDangerAlertLoop pudo pedir parar mientras cargábamos el clip: no arrancar
+                    // el bucle (quedaría huérfano) y cerrar.
+                    if (!DANGER_ALERT_ON) {
+                        clip.close();
+                        return;
+                    }
+                    DANGER_ALERT_CLIP = clip;
+                    clip.loop(Clip.LOOP_CONTINUOUSLY);
+                }
+
+            } catch (Exception ex) {
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Danger alert loop error {0}: {1}", new Object[]{sound, ex.getMessage()});
+            }
+        });
+    }
+
+    // Corta la alerta de peligro (si suena) y libera su línea. Lo llama el cierre del popup.
+    public static void stopDangerAlertLoop() {
+
+        synchronized (DANGER_ALERT_LOCK) {
+
+            DANGER_ALERT_ON = false;
+
+            Clip clip = DANGER_ALERT_CLIP;
+
+            DANGER_ALERT_CLIP = null;
+
+            if (clip != null) {
+                try {
+                    clip.stop();
+                    clip.close();
+                } catch (Exception ex) {
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error stopping danger alert loop: {0}", ex.getMessage());
+                }
+            }
+        }
     }
 
     // El SO tarda en "despertar" el endpoint de audio la PRIMERA vez que se abre

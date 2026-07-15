@@ -5264,6 +5264,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 Hand jugada = new Hand(evalList);
                 jugador.showCards(jugada.getName());
+                // Habilita el resaltado por hover de la jugada recién enseñada (IWTSTH forzado o
+                // botón MOSTRAR voluntario): sin kickers, igual que un ganador. El showdown solo lo
+                // fija para quien ya mostraba; aquí lo hacemos para el revelado tardío.
+                jugador.setShowdownLoserHand(jugada.getWinners());
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
             }
@@ -5753,6 +5757,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 try {
                                     jugada = new Hand(evaluationList);
                                     fjugador.showCards(jugada.getName());
+                                    // Habilita el resaltado por hover de la jugada recién enseñada (SHOWCARDS
+                                    // recibido: IWTSTH forzado o MOSTRAR voluntario de un peer): sin kickers,
+                                    // igual que un ganador. Lo fija en el revelado tardío, no solo el showdown.
+                                    fjugador.setShowdownLoserHand(jugada.getWinners());
                                 } catch (Exception e) {
                                 }
 

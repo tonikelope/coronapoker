@@ -2405,10 +2405,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     // Enter/exit sobre la etiqueta de jugada (instalado en el constructor): al entrar resalta la
-    // jugada de este perdedor con el MISMO mecanismo que el ganador (enfoca sus cartas, atenúa el
-    // resto de la mesa) y pinta su etiqueta de naranja/blanco; al salir lo restaura. Convive con
-    // el listener de click IWTSTH ya presente en player_action (un perdedor IWTSTH no mostró, así
-    // que showdown_hand_cards es null y el enter no hace nada).
+    // jugada de este jugador con el MISMO mecanismo que el ganador (enfoca sus cartas, atenúa el
+    // resto de la mesa) y pinta su etiqueta de amarillo/negro; al salir lo restaura. Aplica a
+    // cualquiera cuya jugada sea visible: perdedor que mostró en el showdown, o perdedor/foldeado
+    // que enseñó después (IWTSTH forzado o botón MOSTRAR voluntario) — en todos ellos el revelado
+    // fija showdown_hand_cards. Convive con el listener de click IWTSTH ya presente en player_action
+    // (mientras el candidato IWTSTH no muestra, showdown_hand_cards es null y el enter no hace nada).
     private void installLoserHandHighlight() {
         player_action.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -2423,16 +2425,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // on=true: solo si la opción está activa, este jugador ha perdido mostrando (loser + cartas)
-    // y seguimos en show_time. Enfoca SOLO las cartas de su jugada y desenfoca todas las demás
-    // de la mesa (guardando antes el enfoque de cada una), y pinta la etiqueta de naranja/blanco.
+    // on=true: solo si la opción está activa, este jugador NO es ganador (su etiqueta muestra una
+    // jugada perdedora/enseñada, no GANA), tiene jugada visible (showdown_hand_cards) y seguimos en
+    // show_time. Enfoca SOLO las cartas de su jugada y desenfoca todas las demás de la mesa
+    // (guardando antes el enfoque de cada una), y pinta la etiqueta de amarillo/negro. El gate es
+    // por !winner y no por loser: en run-it-twice un jugador puede ganar un board y perder el otro
+    // (queda winner=true Y loser=true con showdown_hand_cards del board perdido), y ahí su etiqueta
+    // final es GANA — no debe resaltarse la jugada del board que perdió.
     // on=false: restauración incondicional (defensiva).
     private void highlightLoserHand(boolean on) {
         if (on) {
             final java.util.List<Card> cartas = showdown_hand_cards;
             Crupier crupier = GameFrame.getInstance() != null ? GameFrame.getInstance().getCrupier() : null;
 
-            if (!GameFrame.RESALTAR_JUGADA_PERDEDOR || !loser || cartas == null || crupier == null || !crupier.isShow_time()) {
+            if (!GameFrame.RESALTAR_JUGADA_PERDEDOR || winner || cartas == null || crupier == null || !crupier.isShow_time()) {
                 return;
             }
 

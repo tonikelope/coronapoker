@@ -3142,6 +3142,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 }
                                 Hand jugada = new Hand(cartas_jugada);
 
+                                // Habilita el resaltado por hover de la jugada que el jugador local acaba de
+                                // enseñar voluntariamente (foldeado o perdedor tapado que pulsa MOSTRAR): sin
+                                // kickers, igual que un ganador. El gate del highlight es por !winner, así que
+                                // funciona aunque el local no sea un perdedor del showdown (p.ej. foldeó antes).
+                                setShowdownLoserHand(jugada.getWinners());
+
                                 // Las mutaciones de Swing deben ir en el EDT. GUIRun
                                 // (asíncrono) y NO GUIRunAndWait: estamos dentro de
                                 // lock_mostrar y bloquear el worker esperando al EDT
@@ -3644,16 +3650,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // on=true: solo si la opción está activa, el jugador local ha perdido (loser + cartas) y
-    // seguimos en show_time. Enfoca SOLO las cartas de su jugada y desenfoca todas las demás de la
-    // mesa (guardando antes el enfoque de cada una), y pinta la etiqueta de naranja/blanco.
+    // on=true: solo si la opción está activa, el jugador local NO es ganador (su etiqueta muestra una
+    // jugada perdedora/enseñada, no GANA), tiene jugada visible (showdown_hand_cards) y seguimos en
+    // show_time. Enfoca SOLO las cartas de su jugada y desenfoca todas las demás de la mesa (guardando
+    // antes el enfoque de cada una), y pinta la etiqueta de amarillo/negro. El gate es por !winner y no
+    // por loser: cubre también al foldeado que enseña voluntariamente (no es loser) y protege al ganador
+    // mixto de run-it-twice (winner=true con showdown_hand_cards del board perdido → su etiqueta es GANA).
     // on=false: restauración incondicional (defensiva).
     private void highlightLoserHand(boolean on) {
         if (on) {
             final java.util.List<Card> cartas = showdown_hand_cards;
             Crupier crupier = GameFrame.getInstance() != null ? GameFrame.getInstance().getCrupier() : null;
 
-            if (!GameFrame.RESALTAR_JUGADA_PERDEDOR || !loser || cartas == null || crupier == null || !crupier.isShow_time()) {
+            if (!GameFrame.RESALTAR_JUGADA_PERDEDOR || winner || cartas == null || crupier == null || !crupier.isShow_time()) {
                 return;
             }
 

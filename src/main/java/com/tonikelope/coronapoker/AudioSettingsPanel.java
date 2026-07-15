@@ -72,8 +72,13 @@ public class AudioSettingsPanel extends JPanel {
 
     private final JCheckBox sonidos_checkbox;
     private final JCheckBox sonidos_chorra_checkbox;
+    // Grupo "Música": un maestro (MUSICA) que apaga todas las pistas + las cuatro individuales,
+    // mismo patrón que "Efectos de sonido".
+    private final JCheckBox musica_master_checkbox;
     private final JCheckBox musica_checkbox;
     private final JCheckBox musica_sala_checkbox;
+    private final JCheckBox musica_about_checkbox;
+    private final JCheckBox musica_stats_checkbox;
     // Grupo "Efectos de sonido": un maestro (sonido_efectos) que los apaga todos + los
     // efectos individuales. "mis cartas" cuelga de "destapar".
     private final JCheckBox sonido_efectos_checkbox;
@@ -144,8 +149,11 @@ public class AudioSettingsPanel extends JPanel {
     private final float snap_master_volume;
     private final boolean snap_sonidos;
     private final boolean snap_sonidos_chorra;
+    private final boolean snap_musica_master;
     private final boolean snap_musica;
     private final boolean snap_musica_sala;
+    private final boolean snap_musica_about;
+    private final boolean snap_musica_stats;
     private final boolean snap_sonido_efectos;
     private final boolean snap_sonido_barajado;
     private final boolean snap_sonido_reparto;
@@ -218,8 +226,11 @@ public class AudioSettingsPanel extends JPanel {
         snap_master_volume = Audio.MASTER_VOLUME;
         snap_sonidos = GameFrame.SONIDOS;
         snap_sonidos_chorra = GameFrame.SONIDOS_CHORRA;
+        snap_musica_master = GameFrame.MUSICA;
         snap_musica = GameFrame.MUSICA_AMBIENTAL;
         snap_musica_sala = GameFrame.MUSICA_SALA;
+        snap_musica_about = GameFrame.MUSICA_ABOUT;
+        snap_musica_stats = GameFrame.MUSICA_STATS;
         snap_sonido_efectos = GameFrame.SONIDO_EFECTOS;
         snap_sonido_barajado = GameFrame.SONIDO_BARAJADO;
         snap_sonido_reparto = GameFrame.SONIDO_REPARTO;
@@ -320,11 +331,25 @@ public class AudioSettingsPanel extends JPanel {
         sonidos_chorra_checkbox = new JCheckBox(Translator.translate("menu.sonidos_de_cona"), GameFrame.SONIDOS_CHORRA);
         sonidos_chorra_checkbox.addActionListener(e -> GameFrame.setSonidosChorra(sonidos_chorra_checkbox.isSelected()));
 
+        // Maestro de música: apaga las cuatro pistas de un plumazo y refresca su habilitado
+        // (mismo patrón que el maestro de efectos). Cuelga de "Sonidos".
+        musica_master_checkbox = new JCheckBox(Translator.translate("audio.musica_maestro"), GameFrame.MUSICA);
+        musica_master_checkbox.addActionListener(e -> {
+            GameFrame.setMusica(musica_master_checkbox.isSelected());
+            refreshSoundControlsEnabled();
+        });
+
         musica_checkbox = new JCheckBox(Translator.translate("audio.musica_ambiente"), GameFrame.MUSICA_AMBIENTAL);
         musica_checkbox.addActionListener(e -> GameFrame.setMusicaAmbiental(musica_checkbox.isSelected()));
 
         musica_sala_checkbox = new JCheckBox(Translator.translate("audio.musica_sala"), GameFrame.MUSICA_SALA);
         musica_sala_checkbox.addActionListener(e -> GameFrame.setMusicaSala(musica_sala_checkbox.isSelected()));
+
+        musica_about_checkbox = new JCheckBox(Translator.translate("audio.musica_about"), GameFrame.MUSICA_ABOUT);
+        musica_about_checkbox.addActionListener(e -> GameFrame.setMusicaAbout(musica_about_checkbox.isSelected()));
+
+        musica_stats_checkbox = new JCheckBox(Translator.translate("audio.musica_stats"), GameFrame.MUSICA_STATS);
+        musica_stats_checkbox.addActionListener(e -> GameFrame.setMusicaStats(musica_stats_checkbox.isSelected()));
 
         // --- Efectos de sonido (subpanel bajo "Música ambiente") ---
         // Maestro que apaga TODOS los efectos + toggles individuales (todos ON por defecto).
@@ -450,10 +475,20 @@ public class AudioSettingsPanel extends JPanel {
         sound_music_panel.add(iconRow(menuIcon("/images/menu/sound.png"), sonidos_checkbox));
         sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox)));
-        sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
-        sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/music.png"), musica_checkbox)));
-        sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
-        sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/music.png"), musica_sala_checkbox)));
+
+        // Un poco de aire antes del recuadro de música.
+        sound_music_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
+
+        // Subpanel "Música" (recuadro fino), MISMO patrón que "Efectos de sonido": maestro arriba
+        // y, sangradas debajo, las cuatro pistas individuales (juego, sala de espera, Acerca de,
+        // estadísticas). El maestro apaga todas; cada pista conserva su toggle.
+        JPanel musica_group = groupBox();
+        musica_group.add(iconRow(menuIcon("/images/menu/music.png"), musica_master_checkbox));
+        musica_group.add(effectRow(menuIcon("/images/menu/music.png"), musica_checkbox, false));
+        musica_group.add(effectRow(menuIcon("/images/menu/bell.png"), musica_sala_checkbox, false));
+        musica_group.add(effectRow(menuIcon("/images/menu/info.png"), musica_about_checkbox, false));
+        musica_group.add(effectRow(menuIcon("/images/menu/meter.png"), musica_stats_checkbox, false));
+        sound_music_panel.add(indent(musica_group));
 
         // Un poco más de aire para que el recuadro de efectos se lea como subgrupo aparte.
         sound_music_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
@@ -477,8 +512,13 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_a.add(typeHeader("audio.grupo_cartas"));
         fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_barajado_checkbox, false));
         fx_col_a.add(effectRow(menuIcon("/images/menu/dealer.png"), sonido_reparto_checkbox, false));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false));
-        fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true));
+        // "Destapar" + su subopción "mis cartas" van juntas en un recuadro negro fino (groupBox):
+        // "mis cartas" cuelga (más sangría) de "Destapar" y ambas comparten el mismo gif de destape,
+        // así que se leen como un grupo aparte del resto de efectos de cartas.
+        JPanel destape_box = groupBox();
+        destape_box.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false));
+        destape_box.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true));
+        fx_col_a.add(destape_box);
         fx_col_a.add(typeHeader("audio.grupo_sala"));
         fx_col_a.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false));
         fx_col_a.add(effectRow(menuIcon("/images/menu/bell.png"), sonido_entrar_sala_checkbox, false));
@@ -883,8 +923,11 @@ public class AudioSettingsPanel extends JPanel {
         return Audio.MASTER_VOLUME != snap_master_volume
                 || GameFrame.SONIDOS != snap_sonidos
                 || GameFrame.SONIDOS_CHORRA != snap_sonidos_chorra
+                || GameFrame.MUSICA != snap_musica_master
                 || GameFrame.MUSICA_AMBIENTAL != snap_musica
                 || GameFrame.MUSICA_SALA != snap_musica_sala
+                || GameFrame.MUSICA_ABOUT != snap_musica_about
+                || GameFrame.MUSICA_STATS != snap_musica_stats
                 || GameFrame.SONIDO_EFECTOS != snap_sonido_efectos
                 || GameFrame.SONIDO_BARAJADO != snap_sonido_barajado
                 || GameFrame.SONIDO_REPARTO != snap_sonido_reparto
@@ -950,11 +993,20 @@ public class AudioSettingsPanel extends JPanel {
         if (GameFrame.SONIDOS_CHORRA != snap_sonidos_chorra) {
             GameFrame.setSonidosChorra(snap_sonidos_chorra);
         }
+        if (GameFrame.MUSICA != snap_musica_master) {
+            GameFrame.setMusica(snap_musica_master);
+        }
         if (GameFrame.MUSICA_AMBIENTAL != snap_musica) {
             GameFrame.setMusicaAmbiental(snap_musica);
         }
         if (GameFrame.MUSICA_SALA != snap_musica_sala) {
             GameFrame.setMusicaSala(snap_musica_sala);
+        }
+        if (GameFrame.MUSICA_ABOUT != snap_musica_about) {
+            GameFrame.setMusicaAbout(snap_musica_about);
+        }
+        if (GameFrame.MUSICA_STATS != snap_musica_stats) {
+            GameFrame.setMusicaStats(snap_musica_stats);
         }
         if (GameFrame.SONIDO_EFECTOS != snap_sonido_efectos) {
             GameFrame.setSonidoEfectos(snap_sonido_efectos);
@@ -1090,6 +1142,106 @@ public class AudioSettingsPanel extends JPanel {
         }
     }
 
+    // Restaura TODOS los ajustes de audio a sus valores de fábrica, aplicándolos EN VIVO como una
+    // edición más (diálogo transaccional: GUARDAR los conserva, Cancelar los revierte al estado de
+    // apertura). Incluye volumen maestro, todos los toggles de sonido/música/coña, dispositivos,
+    // micrófono, notas de voz, retención, voz TTS local y la tecla de grabación. Las reglas
+    // GLOBALES de la timba (TTS y notas de voz) solo se resetean si NO eres cliente (a un cliente
+    // se las manda el servidor). Lo invoca el botón "Restaurar predeterminados" del diálogo.
+    public void restoreDefaults() {
+
+        // Volumen maestro (0.8 = valor de fábrica). setValue dispara el listener, que aplica
+        // el volumen y lo persiste (loading es false en tiempo de ejecución).
+        volume_slider.setValue(80);
+
+        // Toggles: fijamos el flag por su setter (aplica en vivo + persiste) y sincronizamos la
+        // casilla (setSelected NO dispara el listener, así no hay doble aplicación).
+        applyDefault(GameFrame::setSonidos, sonidos_checkbox, true);
+        applyDefault(GameFrame::setSonidosChorra, sonidos_chorra_checkbox, false);
+        applyDefault(GameFrame::setMusica, musica_master_checkbox, true);
+        applyDefault(GameFrame::setMusicaAmbiental, musica_checkbox, true);
+        applyDefault(GameFrame::setMusicaSala, musica_sala_checkbox, true);
+        applyDefault(GameFrame::setMusicaAbout, musica_about_checkbox, true);
+        applyDefault(GameFrame::setMusicaStats, musica_stats_checkbox, true);
+        applyDefault(GameFrame::setSonidoEfectos, sonido_efectos_checkbox, true);
+        applyDefault(GameFrame::setSonidoBarajado, sonido_barajado_checkbox, true);
+        applyDefault(GameFrame::setSonidoReparto, sonido_reparto_checkbox, true);
+        applyDefault(GameFrame::setSonidoDestape, sonido_destape_checkbox, true);
+        applyDefault(GameFrame::setSonidoDestapeMisCartas, sonido_destape_mis_checkbox, true);
+        applyDefault(GameFrame::setSonidoApostar, sonido_apostar_checkbox, true);
+        applyDefault(GameFrame::setSonidoFold, sonido_fold_checkbox, true);
+        applyDefault(GameFrame::setSonidoConteo, sonido_conteo_checkbox, true);
+        applyDefault(GameFrame::setSonidoEntra, sonido_entra_checkbox, true);
+        applyDefault(GameFrame::setSonidoSale, sonido_sale_checkbox, true);
+        applyDefault(GameFrame::setSonidoInterruptor, sonido_interruptor_checkbox, true);
+        applyDefault(GameFrame::setSonidoCaja, sonido_caja_checkbox, true);
+        applyDefault(GameFrame::setSonidoIgualar, sonido_igualar_checkbox, true);
+        applyDefault(GameFrame::setSonidoPasar, sonido_pasar_checkbox, true);
+        applyDefault(GameFrame::setSonidoAllin, sonido_allin_checkbox, true);
+        applyDefault(GameFrame::setSonidoCiegas, sonido_ciegas_checkbox, true);
+        applyDefault(GameFrame::setSonidoUltimaMano, sonido_ultima_mano_checkbox, true);
+        applyDefault(GameFrame::setSonidoPausa, sonido_pausa_checkbox, true);
+        applyDefault(GameFrame::setSonidoEntrarSala, sonido_entrar_sala_checkbox, true);
+        applyDefault(GameFrame::setSonidoTuTurno, sonido_tu_turno_checkbox, true);
+        applyDefault(GameFrame::setSonidoAvisoTiempo, sonido_aviso_tiempo_checkbox, true);
+        applyDefault(GameFrame::setSonidoFinPartida, sonido_fin_partida_checkbox, true);
+        applyDefault(GameFrame::setSonidoInicio, sonido_inicio_checkbox, true);
+        applyDefault(GameFrame::setSonidoConexion, sonido_conexion_checkbox, true);
+        applyDefault(GameFrame::setSonidoIwtsth, sonido_iwtsth_checkbox, true);
+        applyDefault(GameFrame::setSonidoZoom, sonido_zoom_checkbox, true);
+        applyDefault(GameFrame::setSonidoTapete, sonido_tapete_checkbox, true);
+        applyDefault(GameFrame::setSonidoVisor, sonido_visor_checkbox, true);
+        applyDefault(GameFrame::setSonidoVolumen, sonido_volumen_checkbox, true);
+        applyDefault(GameFrame::setSonidoArranque, sonido_arranque_checkbox, true);
+        applyDefault(GameFrame::setSonidoAviso, sonido_aviso_checkbox, true);
+        applyDefault(GameFrame::setSonidoError, sonido_error_checkbox, true);
+        applyDefault(GameFrame::setSonidoErrorRed, sonido_error_red_checkbox, true);
+
+        // --- Dispositivos y voz: también vuelven a fábrica ("incluir todo") ---
+        // Dispositivo de salida/entrada → predeterminado del sistema (índice 0). setSelectedIndex
+        // dispara el listener (aplica + persiste; la salida además reinicia los loops de música).
+        output_list.setSelectedIndex(0);
+        capture_list.setSelectedIndex(0);
+        // Micrófono: por defecto activo si el sistema tiene algún dispositivo de captura.
+        boolean mic_def = !AudioDeviceManager.getCaptureDevices().isEmpty();
+        AudioDeviceManager.setMicEnabled(mic_def);
+        mic_checkbox.setSelected(mic_def);
+        // Notas de voz locales activas (bloqueo=false → casilla marcada) y reproducir mis notas (true).
+        AudioDeviceManager.setBlockVoiceMessages(false);
+        notes_local_checkbox.setSelected(true);
+        AudioDeviceManager.setPlayOwnVoiceMessages(true);
+        play_own_checkbox.setSelected(true);
+        // Retención de notas: 90 días (índice 3 de VOICE_NOTE_RETENTION_OPTIONS). setSelectedIndex
+        // dispara el listener, que la persiste.
+        retention_combo.setSelectedIndex(3);
+        // Voz TTS local activa (bloqueo=false → casilla marcada).
+        AudioDeviceManager.setBlockTtsLocal(false);
+        tts_local_checkbox.setSelected(true);
+        // Tecla de grabar nota de voz → F9 (por defecto).
+        VoiceMessageManager.setVoiceKey(VoiceMessageManager.DEFAULT_KEY);
+        voice_key_button.setText(KeyEvent.getKeyText(VoiceMessageManager.DEFAULT_KEY));
+        // Reglas GLOBALES de la timba (TTS y notas de voz): solo si NO eres cliente (a un cliente
+        // se las manda el servidor y resetearlas lo desincronizaría), igual que en revert/isDirty.
+        if (!global_rules_locked) {
+            GameFrame.setTTSGlobal(true);
+            tts_checkbox.setSelected(true);
+            GameFrame.setVoiceMessages(true);
+            voice_messages_checkbox.setSelected(true);
+        }
+
+        // Re-sincroniza los habilitados (los maestros quedan ON; el micrófono/notas rehabilitan
+        // sus controles dependientes).
+        refreshVoiceControlsEnabled();
+        refreshSoundControlsEnabled();
+    }
+
+    // Fija un flag booleano por su setter (aplica en vivo + persiste) y sincroniza su casilla
+    // SIN disparar de nuevo el listener (setSelected no lo hace), evitando doble aplicación.
+    private static void applyDefault(java.util.function.Consumer<Boolean> setter, JCheckBox cb, boolean def) {
+        setter.accept(def);
+        cb.setSelected(def);
+    }
+
     // El sonido maestro gobierna coña y música. Las reglas globales (TTS y notas de
     // voz) se pueden preseleccionar siempre, salvo cuando eres cliente en partida:
     // ahí mandan las del servidor y quedan en gris.
@@ -1098,8 +1250,13 @@ public class AudioSettingsPanel extends JPanel {
         boolean on = sonidos_checkbox.isSelected();
 
         sonidos_chorra_checkbox.setEnabled(on);
-        musica_checkbox.setEnabled(on);
-        musica_sala_checkbox.setEnabled(on);
+        // Música: el maestro cuelga de "Sonidos"; las cuatro pistas del maestro (como los efectos).
+        musica_master_checkbox.setEnabled(on);
+        boolean music_on = on && musica_master_checkbox.isSelected();
+        musica_checkbox.setEnabled(music_on);
+        musica_sala_checkbox.setEnabled(music_on);
+        musica_about_checkbox.setEnabled(music_on);
+        musica_stats_checkbox.setEnabled(music_on);
 
         // Efectos de sonido: el maestro cuelga de "Sonidos"; los efectos individuales del
         // maestro, y "mis cartas" además de "Destapar".

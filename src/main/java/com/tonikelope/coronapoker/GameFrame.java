@@ -276,6 +276,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // app (init.wav, BLOQUEANTE → force_silent), advertencia de diálogo (warning.wav), error
     // (error.wav) y error de red (network_error_XX.wav). ON por defecto.
     public static volatile boolean SONIDO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_zoom", "true"));
+    public static volatile boolean SONIDO_SCREENSHOT = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_screenshot", "true"));
     public static volatile boolean SONIDO_TAPETE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_tapete", "true"));
     public static volatile boolean SONIDO_VISOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_visor", "true"));
     public static volatile boolean SONIDO_VOLUMEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_volumen", "true"));
@@ -539,6 +540,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean zoomSonidoOn() {
         return SONIDO_EFECTOS && SONIDO_ZOOM;
+    }
+
+    public static boolean screenshotSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_SCREENSHOT;
     }
 
     public static boolean tapeteSonidoOn() {
@@ -3241,6 +3246,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.SONIDO_ZOOM = on;
 
         Helpers.PROPERTIES.setProperty("sonido_zoom", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoScreenshot(boolean on) {
+
+        GameFrame.SONIDO_SCREENSHOT = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_screenshot", String.valueOf(on));
         Helpers.savePropertiesFile();
     }
 

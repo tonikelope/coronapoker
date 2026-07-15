@@ -207,10 +207,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean RUN_IT_TWICE_LOCKED = false;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
+    // Interruptor MAESTRO de música: apaga TODAS las pistas de fondo de un plumazo (juego, sala,
+    // Acerca de, estadísticas), igual que SONIDO_EFECTOS con los efectos. Cada pista conserva
+    // además su toggle propio; una pista suena solo si MUSICA y su flag individual están on (lo
+    // gatea Audio.effectiveLoopVolume). Activado por defecto.
+    public static volatile boolean MUSICA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica", "true"));
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
     // Pista de fondo de la SALA DE ESPERA, con toggle propio (independiente de la del
     // juego, que gobierna MUSICA_AMBIENTAL). Activada por defecto.
     public static volatile boolean MUSICA_SALA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica_sala_espera", "true"));
+    // Pistas de fondo de los diálogos "Acerca de" (about_music.mp3) y "Estadísticas"
+    // (stats_music.mp3), cada una con su toggle propio (independiente del resto de música).
+    // Activadas por defecto; las gatea Audio.effectiveLoopVolume igual que MUSICA_AMBIENTAL/SALA.
+    public static volatile boolean MUSICA_ABOUT = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica_about", "true"));
+    public static volatile boolean MUSICA_STATS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica_stats", "true"));
     // Efectos de sonido de mesa configurables (locales, gateados aparte por el master
     // SONIDOS en la capa de Audio). SONIDO_EFECTOS es el interruptor maestro de este grupo:
     // los apaga todos de un plumazo. Individualmente: barajar (shuffle.wav), repartir
@@ -2965,6 +2975,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.savePropertiesFile();
     }
 
+    public static void setMusica(boolean on) {
+
+        GameFrame.MUSICA = on;
+
+        Helpers.PROPERTIES.setProperty("musica", String.valueOf(on));
+        Helpers.savePropertiesFile();
+
+        // Maestro: refrescamos las CUATRO pistas de fondo que estén sonando para que el cambio
+        // se oiga al instante (effectiveLoopVolume ya combina este flag con el individual).
+        Audio.refreshLoopVolume(Audio.ASCENSOR_VOLUME.getKey());
+        Audio.refreshLoopVolume(Audio.WAITING_ROOM_VOLUME.getKey());
+        Audio.refreshLoopVolume(Audio.ABOUT_VOLUME.getKey());
+        Audio.refreshLoopVolume(Audio.STATS_VOLUME.getKey());
+    }
+
     public static void setMusicaAmbiental(boolean on) {
 
         GameFrame.MUSICA_AMBIENTAL = on;
@@ -2987,6 +3012,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         // Solo la pista de la sala de espera; refrescamos su loop si está sonando.
         Audio.refreshLoopVolume(Audio.WAITING_ROOM_VOLUME.getKey());
+    }
+
+    public static void setMusicaAbout(boolean on) {
+
+        GameFrame.MUSICA_ABOUT = on;
+
+        Helpers.PROPERTIES.setProperty("musica_about", String.valueOf(on));
+        Helpers.savePropertiesFile();
+
+        // Solo la pista del diálogo "Acerca de"; refrescamos su loop si está sonando.
+        Audio.refreshLoopVolume(Audio.ABOUT_VOLUME.getKey());
+    }
+
+    public static void setMusicaStats(boolean on) {
+
+        GameFrame.MUSICA_STATS = on;
+
+        Helpers.PROPERTIES.setProperty("musica_stats", String.valueOf(on));
+        Helpers.savePropertiesFile();
+
+        // Solo la pista del diálogo de estadísticas; refrescamos su loop si está sonando.
+        Audio.refreshLoopVolume(Audio.STATS_VOLUME.getKey());
     }
 
     public static void setSonidoEfectos(boolean on) {

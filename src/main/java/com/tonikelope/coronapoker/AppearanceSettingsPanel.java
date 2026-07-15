@@ -84,6 +84,16 @@ public class AppearanceSettingsPanel extends JPanel {
     private final java.util.List<JCheckBox> anim_sub_cb = new ArrayList<>();
     private final java.util.List<JMenuItem> anim_sub_menu = new ArrayList<>();
 
+    // Maestro de animaciones (campo, no local): lo necesita restoreDefaults() para reactivarlo
+    // ANTES de resetear los hijos (con el maestro off sus items de menú están deshabilitados y
+    // un doClick sería NO-OP, igual que en revertLive).
+    private JCheckBox anim_master;
+
+    // Acciones de "restaurar predeterminados", una por control: cada Runnable fija su control al
+    // valor de fábrica por la API del widget, disparando el listener (aplica en vivo + persiste).
+    // Se registran junto a cada control y las ejecuta restoreDefaults() en orden de creación.
+    private final java.util.List<Runnable> reset_actions = new ArrayList<>();
+
     // Snapshot del estado de apariencia al ABRIR: el diálogo es transaccional, así que
     // los cambios (que se aplican en vivo como previsualización) se REVIERTEN a estos
     // valores si se cancela (revert()); GUARDAR los conserva.
@@ -113,6 +123,9 @@ public class AppearanceSettingsPanel extends JPanel {
     private final int snap_card_flip_duration;
     private final int snap_card_flip_zoom;
     private final int snap_reparto_velocidad;
+    private final boolean snap_anim_swap;
+    private final int snap_swap_duration;
+    private final boolean snap_swap_arc;
     private final boolean snap_anim_downgrade;
     private final int snap_downgrade_velocidad;
     private final float snap_dialog_zoom;
@@ -154,6 +167,9 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_card_flip_duration = GameFrame.CARD_FLIP_DURATION;
         snap_card_flip_zoom = GameFrame.CARD_FLIP_ZOOM;
         snap_reparto_velocidad = GameFrame.REPARTO_VELOCIDAD;
+        snap_anim_swap = GameFrame.ANIMACION_SWAP_PREF;
+        snap_swap_duration = GameFrame.SWAP_ANIM_DURATION;
+        snap_swap_arc = GameFrame.SWAP_ANIM_ARC;
         snap_anim_downgrade = GameFrame.ANIMACION_DOWNGRADE_PREF;
         snap_downgrade_velocidad = GameFrame.DOWNGRADE_VELOCIDAD;
         snap_dialog_zoom = Helpers.DIALOG_ZOOM;
@@ -181,6 +197,8 @@ public class AppearanceSettingsPanel extends JPanel {
             pending_fullscreen = display_combo.getSelectedIndex() == 1;
         });
         addLeft(pantalla, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
+        // Predeterminado: modo ventana (AUTO_FULLSCREEN=false → índice 0). Se aplica al GUARDAR.
+        reset_actions.add(() -> display_combo.setSelectedIndex(0));
 
         // Zoom: spinner en % (cada paso = 5% = un nivel de zoom interno). En partida aplica
         // al vuelo al nivel elegido; fuera de partida solo persiste la preferencia.
@@ -205,12 +223,16 @@ public class AppearanceSettingsPanel extends JPanel {
         // modificador del zoom de la mesa, se leen como un grupo).
         JPanel zoom_group = groupBox();
         addToGroup(zoom_group, labeledRow("/images/menu/zoom.png", "settings.zoom_pct", zoom_spinner));
+        // Predeterminado: DEFAULT_ZOOM_LEVEL (mismo % que al construir). setValue dispara el
+        // listener, que aplica el nivel (en partida) o lo persiste (fuera).
+        final int def_zoom_pct = Math.round((1f + GameFrame.DEFAULT_ZOOM_LEVEL * GameFrame.getZOOM_STEP()) * 100f);
+        reset_actions.add(() -> zoom_spinner.setValue(def_zoom_pct));
         addToGroup(zoom_group, delegatingCheckbox("/images/menu/zoom_auto.png", "menu.auto_ajustar", GameFrame.AUTO_ZOOM,
                 gf != null ? gf.getAuto_fit_zoom_menu() : null,
                 () -> {
                     GameFrame.AUTO_ZOOM = !GameFrame.AUTO_ZOOM;
                     persist("auto_zoom", String.valueOf(GameFrame.AUTO_ZOOM));
-                }));
+                }, false));
         addLeft(pantalla, zoom_group);
 
         // Vista compacta: desplegable tri-estado (0=off, 1=compacta, 2=compacta+cartas),
@@ -234,6 +256,8 @@ public class AppearanceSettingsPanel extends JPanel {
             }
         });
         addLeft(pantalla, labeledRow("/images/menu/tiny.png", "view.vista_compacta", compact_combo));
+        // Predeterminado: vista compacta desactivada (índice 0).
+        reset_actions.add(() -> compact_combo.setSelectedIndex(0));
 
         // Zoom de los DIÁLOGOS (letra + tamaño de la ventana), INDEPENDIENTE del zoom de la mesa y del
         // zoom del juego: NO toca ZOOM_LEVEL. Persist-only en ambos contextos (no hay diálogo vivo que
@@ -259,6 +283,13 @@ public class AppearanceSettingsPanel extends JPanel {
         WaitingRoomFrame wr = WaitingRoomFrame.getInstance();
         dialog_zoom_spinner.setEnabled(gf == null && (wr == null || !wr.isShowing()));
         addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.dialog_zoom_pct", dialog_zoom_spinner));
+        // Predeterminado: 100 %. SOLO si el spinner está habilitado (solo en la pantalla de
+        // inicio): en partida/sala está en gris y no debe reescribir la preferencia pendiente.
+        reset_actions.add(() -> {
+            if (dialog_zoom_spinner.isEnabled()) {
+                dialog_zoom_spinner.setValue(100);
+            }
+        });
 
         // "Pantalla y zoom" es más corta que la columna derecha y se estira para igualarla;
         // el glue empuja sus filas arriba y deja el hueco abajo (como "Varios" en Partida).
@@ -300,6 +331,8 @@ public class AppearanceSettingsPanel extends JPanel {
         // opción principal y la trasera su subajuste (cuelga con sangría).
         JPanel baraja_group = groupBox();
         addToGroup(baraja_group, labeledRow("/images/menu/baraja.png", "settings.baraja", baraja_combo));
+        // Predeterminado: baraja de fábrica.
+        reset_actions.add(() -> baraja_combo.setSelectedItem(GameFrame.BARAJA_DEFAULT));
 
         // Trasera: "default" (sigue a la baraja actual) + una opción por cada baraja (juego o
         // mod) para usar su dorso con otras caras. Va con SANGRÍA bajo "Baraja". En partida
@@ -342,6 +375,8 @@ public class AppearanceSettingsPanel extends JPanel {
         trasera_row.add(trasera_label);
         trasera_row.add(trasera_combo);
         addToGroup(baraja_group, trasera_row);
+        // Predeterminado: trasera "default" (sigue a la baraja). Se resetea DESPUÉS de la baraja.
+        reset_actions.add(() -> trasera_combo.setSelectedItem("default"));
         addLeft(mesa, baraja_group);
 
         // Tapete: combo con los 5 colores; en partida delega en el radio correspondiente
@@ -389,25 +424,27 @@ public class AppearanceSettingsPanel extends JPanel {
             }
         });
         addLeft(mesa, labeledRow("/images/menu/tapetes.png", "settings.tapete", tapete_combo));
+        // Predeterminado: tapete verde (índice 0).
+        reset_actions.add(() -> tapete_combo.setSelectedIndex(0));
 
         addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK,
                 gf != null ? gf.getTime_menu() : null,
                 () -> {
                     GameFrame.SHOW_CLOCK = !GameFrame.SHOW_CLOCK;
                     persist("show_time", String.valueOf(GameFrame.SHOW_CLOCK));
-                }));
+                }, false));
         addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "menu.coste_igualar", GameFrame.MOSTRAR_COSTE_IGUALAR,
                 gf != null ? gf.getCoste_igualar_menu() : null,
                 () -> {
                     GameFrame.MOSTRAR_COSTE_IGUALAR = !GameFrame.MOSTRAR_COSTE_IGUALAR;
                     persist("mostrar_coste_igualar", String.valueOf(GameFrame.MOSTRAR_COSTE_IGUALAR));
-                }));
+                }, true));
         addLeft(mesa, delegatingCheckbox("/images/menu/chat_image.png", "menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME,
                 gf != null ? gf.getChat_image_menu() : null,
                 () -> {
                     GameFrame.CHAT_IMAGES_INGAME = !GameFrame.CHAT_IMAGES_INGAME;
                     persist("chat_images_ingame", String.valueOf(GameFrame.CHAT_IMAGES_INGAME));
-                }));
+                }, true));
         // Resaltado del showdown: sin item de menú ni efecto en vivo (se lee al vuelo al pasar
         // el ratón por la etiqueta de jugada). Persist-only, como la cascada.
         addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "settings.resaltar_jugada_perdedor", GameFrame.RESALTAR_JUGADA_PERDEDOR,
@@ -415,14 +452,14 @@ public class AppearanceSettingsPanel extends JPanel {
                 () -> {
                     GameFrame.RESALTAR_JUGADA_PERDEDOR = !GameFrame.RESALTAR_JUGADA_PERDEDOR;
                     persist("resaltar_jugada_perdedor", String.valueOf(GameFrame.RESALTAR_JUGADA_PERDEDOR));
-                }, "tooltip.cfg.resaltar_jugada_perdedor"));
+                }, true, "tooltip.cfg.resaltar_jugada_perdedor"));
 
         // ---------------- Animaciones ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
 
         // Maestro: activa/desactiva TODAS las animaciones de un plumazo. Al desmarcarlo,
         // DESHABILITA (no desmarca) los 5 checkboxes de abajo, que conservan su valor.
-        JCheckBox anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general").toUpperCase(), GameFrame.ANIMACIONES);
+        anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general").toUpperCase(), GameFrame.ANIMACIONES);
         anim_master.addActionListener(e -> {
             boolean on = anim_master.isSelected();
             if (gf != null) {
@@ -471,6 +508,13 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateCascadaEnabled.run());
             barajado_cb.addActionListener(e -> updateCascadaEnabled.run());
             updateCascadaEnabled.run();
+            // Predeterminado: overlay de cascada DESACTIVADO (default false). Se resetea después
+            // del maestro y de "Barajado" (ya habilitados), así el doClick surte efecto.
+            reset_actions.add(() -> {
+                if (cascada_cb.isSelected()) {
+                    cascada_cb.doClick();
+                }
+            });
             JPanel cascada_row = naturalRow();
             cascada_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Barajado"
             cascada_row.add(new JLabel(icon("/images/menu/baraja.png")));
@@ -524,6 +568,8 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateDealEnabled.run());
             reparto_cb.addActionListener(e -> updateDealEnabled.run());
             updateDealEnabled.run();
+            // Predeterminado: velocidad "Normal" (índice 1 = DEFAULT_REPARTO_VELOCIDAD).
+            reset_actions.add(() -> deal_combo.setSelectedIndex(1));
 
             JPanel deal_row = naturalRow();
             deal_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Reparto"
@@ -582,6 +628,8 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateFlipEnabled.run());
             destapar_cb.addActionListener(e -> updateFlipEnabled.run());
             updateFlipEnabled.run();
+            // Predeterminado: velocidad "Normal" (índice 2 = DEFAULT_CARD_FLIP_DURATION).
+            reset_actions.add(() -> speed_combo.setSelectedIndex(2));
 
             JPanel flip_row = naturalRow();
             flip_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // más sangrado: cuelga de "Destapar"
@@ -631,6 +679,8 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateZoomEnabled.run());
             destapar_cb.addActionListener(e -> updateZoomEnabled.run());
             updateZoomEnabled.run();
+            // Predeterminado: efecto acercar DESACTIVADO (índice 0 = DEFAULT_CARD_FLIP_ZOOM 100).
+            reset_actions.add(() -> zoom_combo.setSelectedIndex(0));
 
             JPanel zoom_row = naturalRow();
             zoom_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
@@ -687,6 +737,8 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateSwapEnabled.run());
             swap_cb.addActionListener(e -> updateSwapEnabled.run());
             updateSwapEnabled.run();
+            // Predeterminado: velocidad "Normal" (índice 1 = DEFAULT_SWAP_ANIM_DURATION).
+            reset_actions.add(() -> swap_combo.setSelectedIndex(1));
 
             JPanel swap_row = naturalRow();
             swap_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Ordenar la mano"
@@ -723,6 +775,8 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateStyleEnabled.run());
             swap_cb.addActionListener(e -> updateStyleEnabled.run());
             updateStyleEnabled.run();
+            // Predeterminado: estilo "Arco" (índice 0 = SWAP_ANIM_ARC true).
+            reset_actions.add(() -> style_combo.setSelectedIndex(0));
 
             JPanel style_row = naturalRow();
             style_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
@@ -779,6 +833,8 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateDgEnabled.run());
             downgrade_cb.addActionListener(e -> updateDgEnabled.run());
             updateDgEnabled.run();
+            // Predeterminado: velocidad "Normal" (índice 1 = DEFAULT_DOWNGRADE_VELOCIDAD).
+            reset_actions.add(() -> dg_combo.setSelectedIndex(1));
 
             JPanel dg_row = naturalRow();
             dg_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub del ajuste
@@ -893,6 +949,9 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration
                 || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom
                 || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad
+                || GameFrame.ANIMACION_SWAP_PREF != snap_anim_swap
+                || GameFrame.SWAP_ANIM_DURATION != snap_swap_duration
+                || GameFrame.SWAP_ANIM_ARC != snap_swap_arc
                 || GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade
                 || GameFrame.DOWNGRADE_VELOCIDAD != snap_downgrade_velocidad
                 || pending_dialog_zoom != snap_dialog_zoom;
@@ -906,6 +965,30 @@ public class AppearanceSettingsPanel extends JPanel {
             revertLive();
         } else {
             revertStandalone();
+        }
+    }
+
+    // Restaura TODOS los ajustes de apariencia a sus valores de fábrica, aplicándolos EN VIVO
+    // como una edición más (diálogo transaccional: GUARDAR los conserva, Cancelar los revierte al
+    // estado de apertura). Recorre el mismo camino que un clic del usuario en cada control, así
+    // que en partida el efecto es en vivo y fuera de ella solo persiste. Lo invoca el botón
+    // "Restaurar predeterminados" del diálogo.
+    public void restoreDefaults() {
+        // 1) Reactiva el MAESTRO de animaciones (default ON) ANTES que los hijos: con el maestro
+        //    off sus items de menú están en gris y un doClick sería NO-OP (igual que revertLive).
+        if (!anim_master.isSelected()) {
+            anim_master.doClick();
+        }
+        // 2) Todos los toggles de animación individuales tienen default ON.
+        for (JCheckBox cb : anim_sub_cb) {
+            if (!cb.isSelected()) {
+                cb.doClick();
+            }
+        }
+        // 3) Reset por control (combos/spinners/checkboxes de mesa/pantalla + cascada + velocidades),
+        //    en orden de creación; ya con maestro e hijos activos, los subcontroles están habilitados.
+        for (Runnable action : reset_actions) {
+            action.run();
         }
     }
 
@@ -1031,6 +1114,22 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
             Helpers.savePropertiesFile();
         }
+        // Ordenar la mano (swap): checkbox + velocidad + estilo, todos persist-only (sin item de menú).
+        if (GameFrame.ANIMACION_SWAP_PREF != snap_anim_swap) {
+            GameFrame.ANIMACION_SWAP_PREF = snap_anim_swap;
+            Helpers.PROPERTIES.setProperty("animacion_swap", String.valueOf(snap_anim_swap));
+            Helpers.savePropertiesFile();
+        }
+        if (GameFrame.SWAP_ANIM_DURATION != snap_swap_duration) {
+            GameFrame.SWAP_ANIM_DURATION = snap_swap_duration;
+            Helpers.PROPERTIES.setProperty("swap_velocidad", String.valueOf(snap_swap_duration));
+            Helpers.savePropertiesFile();
+        }
+        if (GameFrame.SWAP_ANIM_ARC != snap_swap_arc) {
+            GameFrame.SWAP_ANIM_ARC = snap_swap_arc;
+            Helpers.PROPERTIES.setProperty("swap_arco", String.valueOf(snap_swap_arc));
+            Helpers.savePropertiesFile();
+        }
         // Recolocación de la mesa (checkbox + velocidad): persist-only, sin item de menú.
         if (GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade) {
             GameFrame.ANIMACION_DOWNGRADE_PREF = snap_anim_downgrade;
@@ -1081,6 +1180,9 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
         GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
+        GameFrame.ANIMACION_SWAP_PREF = snap_anim_swap;
+        GameFrame.SWAP_ANIM_DURATION = snap_swap_duration;
+        GameFrame.SWAP_ANIM_ARC = snap_swap_arc;
         GameFrame.ANIMACION_DOWNGRADE_PREF = snap_anim_downgrade;
         GameFrame.DOWNGRADE_VELOCIDAD = snap_downgrade_velocidad;
         Helpers.DIALOG_ZOOM = snap_dialog_zoom;
@@ -1108,6 +1210,9 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
         Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
+        Helpers.PROPERTIES.setProperty("animacion_swap", String.valueOf(snap_anim_swap));
+        Helpers.PROPERTIES.setProperty("swap_velocidad", String.valueOf(snap_swap_duration));
+        Helpers.PROPERTIES.setProperty("swap_arco", String.valueOf(snap_swap_arc));
         Helpers.PROPERTIES.setProperty("animacion_downgrade", String.valueOf(snap_anim_downgrade));
         Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
         Helpers.PROPERTIES.setProperty("dialog_zoom", String.valueOf(snap_dialog_zoom));
@@ -1306,11 +1411,11 @@ public class AppearanceSettingsPanel extends JPanel {
     // un clic en el item de menú (aplica en vivo + persiste + refleja en el popup). Fuera
     // de partida (menu == null) ejecuta el persist-only suministrado. Ambos conmutan un
     // paso, así que quedan sincronizados con el estado.
-    private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone) {
-        return delegatingCheckbox(iconPath, i18nKey, selected, menu, standalone, null);
+    private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone, boolean defaultValue) {
+        return delegatingCheckbox(iconPath, i18nKey, selected, menu, standalone, defaultValue, null);
     }
 
-    private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone, String tooltipKey) {
+    private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone, boolean defaultValue, String tooltipKey) {
         JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), selected);
         cb.setEnabled(menu == null || menu.isEnabled());
         cb.addActionListener(e -> {
@@ -1318,6 +1423,14 @@ public class AppearanceSettingsPanel extends JPanel {
                 menu.doClick();
             } else {
                 standalone.run();
+            }
+        });
+        // Restaurar predeterminados: un doClick condicional recorre el mismo camino que un clic del
+        // usuario (aplica en vivo + persiste). El estado marcado y el efecto conmutan un paso, así
+        // que basta con clicar si difiere del valor de fábrica.
+        reset_actions.add(() -> {
+            if (cb.isSelected() != defaultValue) {
+                cb.doClick();
             }
         });
         // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con

@@ -93,6 +93,7 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
             {"shortcuts.act_log", new String[][]{{"ALT", "R"}}},
             {"shortcuts.act_chat", new String[][]{{"ALT", "C"}}},
             {"shortcuts.act_buyin", new String[][]{{"S"}}},
+            {"shortcuts.act_screenshot", new String[][]{{"CTRL", "P"}}},
             {"shortcuts.act_quit", new String[][]{{"CTRL", "Q"}}},
             {"shortcuts.act_force", new String[][]{{"CTRL", "ALT", "ESC"}}}
         }},

@@ -34,7 +34,6 @@ import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
 import org.dosse.upnp.UPnP;
-import static com.tonikelope.coronapoker.Init.CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
@@ -58,7 +57,6 @@ import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.datatransfer.Clipboard;
@@ -94,7 +92,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -674,19 +671,6 @@ public class Helpers {
 
         return updater_path;
 
-    }
-
-    public static void cleanCacheDIR() {
-        try {
-            Files.walk(Paths.get(CACHE_DIR), FileVisitOption.FOLLOW_LINKS)
-                    .filter(Files::isRegularFile)
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-
-        } catch (Exception ex) {
-            Logger.getLogger(Helpers.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        }
     }
 
     // Voice notes are persisted to disk so they replay by clicking their chat
@@ -2712,31 +2696,83 @@ public class Helpers {
         return (int) Math.floor(bits);
     }
 
-    public static void screenshot(Rectangle rectangle, Integer delay) {
+    // Renderiza un componente (y toda su jerarquía de hijos) a una imagen a la
+    // resolución NATIVA del monitor (respeta el escalado HiDPI del SO). NO usa
+    // Robot ni la captura de pantalla del sistema: el propio componente se
+    // redibuja con Java2D sobre la imagen (mismo motor que pinta el tapete en
+    // cada frame), por lo que funciona en cualquier plataforma (Windows, Mac,
+    // Linux X11/Wayland) sin permisos y sin salir en negro. DEBE llamarse en el
+    // EDT (Swing no es thread-safe al pintar).
+    public static BufferedImage renderComponentImage(Component comp) {
+
+        if (comp == null) {
+            return null;
+        }
+
+        int w = comp.getWidth();
+        int h = comp.getHeight();
+
+        if (w <= 0 || h <= 0) {
+            return null;
+        }
+
+        double scale_x = 1.0;
+        double scale_y = 1.0;
+
+        java.awt.GraphicsConfiguration gc = comp.getGraphicsConfiguration();
+
+        if (gc != null) {
+            java.awt.geom.AffineTransform tx = gc.getDefaultTransform();
+            scale_x = tx.getScaleX();
+            scale_y = tx.getScaleY();
+        }
+
+        BufferedImage image = new BufferedImage((int) Math.round(w * scale_x), (int) Math.round(h * scale_y), BufferedImage.TYPE_INT_RGB);
+
+        Graphics2D g = image.createGraphics();
+
         try {
-            Robot robot = new Robot();
+            // Escalado HiDPI: el componente se pinta a tamaño lógico pero sobre
+            // un lienzo a resolución física => nitidez nativa (texto, fichas y
+            // bordes se re-rasterizan a alta resolución en vez de copiarse).
+            g.scale(scale_x, scale_y);
+            comp.printAll(g);
+        } finally {
+            g.dispose();
+        }
 
-            if (delay != null) {
-                Helpers.pausar(delay);
-            }
+        return image;
+    }
 
-            BufferedImage image = robot.createScreenCapture(rectangle);
-            try {
-                ImageIO.write(image, "png", new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + String.valueOf(System.currentTimeMillis()) + ".png"));
-            } finally {
-                // Captura 4K = ~33 MB de pixel data nativa. Sin flush, espera al GC.
-                image.flush();
-            }
+    // Guarda una imagen de captura en SCREENSHOTS_DIR como PNG. Hace I/O de
+    // disco: llamar FUERA del EDT. Libera la imagen al terminar. Devuelve true
+    // si se escribió correctamente.
+    public static boolean saveScreenshot(BufferedImage image) {
+
+        if (image == null) {
+            return false;
+        }
+
+        try {
+            ImageIO.write(image, "png", new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + String.valueOf(System.currentTimeMillis()) + ".png"));
+
+            return true;
 
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class
                     .getName()).log(Level.SEVERE, null, ex);
+
+            return false;
+
+        } finally {
+            // Captura 4K = ~33 MB de pixel data nativa. Sin flush, espera al GC.
+            image.flush();
         }
     }
 
     public static void createIfNoExistsCoronaDirs() {
 
-        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, CHAT_IMAGE_CACHE, Init.VOICE_DIR}; //OJO AL ORDEN POR EL CORONA_DIR!
+        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CHAT_IMAGE_CACHE, Init.VOICE_DIR}; //OJO AL ORDEN POR EL CORONA_DIR!
 
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {

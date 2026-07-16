@@ -1348,6 +1348,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // disparen bajo la pantalla final: replica que el antiguo diálogo modal dejaba el
     // frame INACTIVO. El glassPane visible ya intercepta el ratón hacia el tablero.
     private volatile boolean balance_overlay_active = false;
+    // Popup del tapete (menú contextual del clic derecho) guardado al mostrar la pantalla
+    // final para restaurarlo al desmontarla: durante el balance el tablero queda inerte y
+    // no debe abrir su menú contextual.
+    private volatile javax.swing.JPopupMenu balance_saved_tapete_popup = null;
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
     private volatile GraphicsDevice device = null;
@@ -4327,14 +4331,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // frame, ENCIMA del tapete real (que se ve a través: transparencia de COMPONENTE
     // Swing, sin depender del compositor del SO como el antiguo diálogo con
     // transparencia por píxel de ventana, que en algunos Linux salía con fondo gris).
-    // El glassPane visible intercepta el ratón hacia el tablero y balance_overlay_active
-    // bloquea los atajos del KeyEventDispatcher: juntos replican la modalidad del antiguo
-    // diálogo. Se rehabilita el frame porque la limpieza de fin de transmisión lo dejó
-    // deshabilitado y, sin ello, los botones del overlay (hijos del frame) no responderían.
+    // Deja el tablero INERTE bajo la pantalla final (como el antiguo diálogo modal): el
+    // glassPane visible intercepta el ratón hacia el tablero, balance_overlay_active
+    // bloquea los atajos del KeyEventDispatcher (los atajos del juego pasan todos por ahí,
+    // no por aceleradores de menú), y se quita el menú contextual del tapete (clic derecho).
+    // Se rehabilita el frame porque la limpieza de fin de transmisión lo dejó deshabilitado
+    // y, sin ello, los botones del overlay (hijos del frame) no responderían.
     private void showBalanceOverlay(BalanceScreen balance) {
         setEnabled(true);
 
         balance_overlay_active = true;
+
+        TablePanel t = getTapete();
+        if (t != null) {
+            balance_saved_tapete_popup = t.getComponentPopupMenu();
+            t.setComponentPopupMenu(null);
+        }
 
         java.awt.Component glass = getGlassPane();
 
@@ -4361,6 +4373,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         if (balance != null) {
             balance.cleanup();
         }
+
+        TablePanel t = getTapete();
+        if (t != null) {
+            t.setComponentPopupMenu(balance_saved_tapete_popup);
+        }
+        balance_saved_tapete_popup = null;
 
         java.awt.Component glass = getGlassPane();
 

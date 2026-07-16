@@ -1158,6 +1158,19 @@ public class AppearanceSettingsPanel extends JPanel {
         // del lanzador); si cambió durante la sesión hay que repintar el inicio al revertir.
         boolean tapete_changed = !snap_color_tapete.equals(GameFrame.COLOR_TAPETE);
 
+        // La caché de imágenes de cartas/fichas/dorsos (Card.updateCachedImages) es DERIVADA de
+        // zoom + baraja + trasera y NO es un flag más de los que se revierten abajo: los listeners
+        // de baraja/trasera (y "Restaurar predeterminados", que resetea la baraja con el zoom ya
+        // puesto en su default) la RECONSTRUYEN en vivo al vuelo. Si alguno de esos tres cambió
+        // durante la sesión del diálogo, la caché quedó a la escala/baraja NUEVA, y como el arranque
+        // de una timba solo llama a zoom() (no a updateCachedImages), la siguiente partida heredaría
+        // cartas/fichas al tamaño equivocado aunque ZOOM_LEVEL/BARAJA ya estén revertidos. Por eso,
+        // igual que revertLive en partida (vía setZoomLevel/selectBaraja), aquí hay que reconstruir la
+        // caché al estado de apertura. Se anota ANTES de revertir los estáticos y se rehace al final.
+        boolean rebuild_card_cache = GameFrame.ZOOM_LEVEL != snap_zoom_level
+                || !snap_baraja.equals(GameFrame.BARAJA)
+                || !snap_trasera.equals(GameFrame.TRASERA);
+
         GameFrame.ZOOM_LEVEL = snap_zoom_level;
         GameFrame.VISTA_COMPACTA = snap_vista_compacta;
         GameFrame.BARAJA = snap_baraja;
@@ -1217,6 +1230,13 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
         Helpers.PROPERTIES.setProperty("dialog_zoom", String.valueOf(snap_dialog_zoom));
         Helpers.savePropertiesFile();
+
+        // Reconstruye la caché derivada al estado de apertura (baraja/trasera ya revertidas arriba,
+        // así que updateCachedImages lee GameFrame.BARAJA/TRASERA correctas) para que la próxima
+        // timba no herede cartas/fichas a la escala/baraja que dejó una edición descartada.
+        if (rebuild_card_cache) {
+            Card.updateCachedImages(1f + snap_zoom_level * GameFrame.getZOOM_STEP(), true);
+        }
 
         if (tapete_changed) {
             refreshLauncherTapete();

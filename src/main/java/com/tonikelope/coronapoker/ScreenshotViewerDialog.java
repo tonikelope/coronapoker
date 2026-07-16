@@ -140,8 +140,8 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         // Tamaño inicial: cómodo pero sin pasarse (85% de la pantalla del owner),
         // con un mínimo razonable. Redimensionable: la imagen se reajusta sola.
         Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-        setMinimumSize(new Dimension(480, 360));
-        setSize(Math.min(1280, Math.round(screen.width * 0.85f)), Math.min(800, Math.round(screen.height * 0.85f)));
+        setMinimumSize(new Dimension(640, 480));
+        setSize(Math.round(screen.width * 0.9f), Math.round(screen.height * 0.9f));
 
         Helpers.zoomFonts(this, Helpers.DIALOG_ZOOM, null);
 
@@ -164,8 +164,10 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         content.setBackground(BACKDROP);
 
         title_label.setForeground(Color.WHITE);
-        title_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 16, 10, 16));
-        title_label.setFont(title_label.getFont().deriveFont(java.awt.Font.BOLD, 18f));
+        title_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 16, 12, 16));
+        // Fuente del juego (GUI_FONT) y grande; zoomFonts la reescala luego por DIALOG_ZOOM.
+        java.awt.Font base_font = (Helpers.GUI_FONT != null ? Helpers.GUI_FONT : title_label.getFont());
+        title_label.setFont(base_font.deriveFont(java.awt.Font.BOLD, 26f));
         content.add(title_label, BorderLayout.NORTH);
 
         image_view.setBackground(BACKDROP);
@@ -231,8 +233,10 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
             load_token++; // invalida cualquier carga en vuelo
             title_label.setText(Translator.translate("ui.no_capturas"));
             setCurrentImage(null);
-            prev_button.setEnabled(false);
-            next_button.setEnabled(false);
+            prev_button.setVisible(false);
+            next_button.setVisible(false);
+            getContentPane().revalidate();
+            getContentPane().repaint();
         } else {
             showIndex(0);
         }
@@ -268,8 +272,12 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         String when = DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.MEDIUM, locale).format(new Date(shot.created));
         title_label.setText(when + "     ( " + (index + 1) + " / " + shots.size() + " )");
 
-        prev_button.setEnabled(index > 0);
-        next_button.setEnabled(index < shots.size() - 1);
+        // Las flechas DESAPARECEN en los extremos (no solo se deshabilitan): BorderLayout no
+        // reserva espacio para un componente invisible, así la imagen ocupa ese lado.
+        prev_button.setVisible(index > 0);
+        next_button.setVisible(index < shots.size() - 1);
+        getContentPane().revalidate();
+        getContentPane().repaint();
 
         // Decodificación FUERA del EDT (una captura 4K son decenas de MB); el
         // testigo descarta el resultado si el usuario ya ha navegado a otra.

@@ -175,12 +175,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int THINK_TIME_MAX = 120; // segundos (tope superior del spinner + clamp)
     // Tiempo de PAUSA del showdown (segundos): cuanto se muestra el resultado de la mano con la
     // barra de cuenta atras antes de repartir la siguiente (la antigua Crupier.PAUSA_ENTRE_MANOS,
-    // que ademas escala x0.5/x1.5 segun side pots). Configurable por timba (10-30) desde la creacion
+    // que ademas escala x0.5/x1.5 segun side pots). Configurable por timba (5-30) desde la creacion
     // y la sala de espera; BLOQUEADO una vez empezada la partida. A diferencia del tiempo de pensar
-    // NO se puede desactivar: siempre hay pausa (el minimo es el valor por defecto).
+    // NO se puede desactivar: siempre hay pausa (minimo 5 s; el valor por defecto sigue siendo 10 s).
     public static final int DEFAULT_SHOWDOWN_TIME = 10; // segundos (valor inicial de SHOWDOWN_TIME)
     public static volatile int SHOWDOWN_TIME = DEFAULT_SHOWDOWN_TIME;
-    public static final int SHOWDOWN_TIME_MIN = 10;  // segundos (tope inferior del spinner + clamp)
+    public static final int SHOWDOWN_TIME_MIN = 5;  // segundos (tope inferior del spinner + clamp)
     public static final int SHOWDOWN_TIME_MAX = 30;  // segundos (tope superior del spinner + clamp)
     // Duración (ms) de la animación de destape de carta (render Swing, CardFlipAnimator).
     public static final int DEFAULT_CARD_FLIP_DURATION = 620; // ~ la del GIF antiguo (31 frames x 20 ms)

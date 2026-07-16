@@ -397,7 +397,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         showdown_time_label.putClientProperty("i18n.key", "newgame.tiempo_showdown");
 
         showdown_time_spinner.setFont(new java.awt.Font("Dialog", 0, 16));
-        showdown_time_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 10, 30, 5));
+        showdown_time_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, 30, 5));
         showdown_time_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         iwtsth_label.setFont(new java.awt.Font("Dialog", 1, 16));

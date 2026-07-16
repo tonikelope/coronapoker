@@ -88,6 +88,12 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
     private final JLabel title_label = new JLabel("", SwingConstants.CENTER);
     private final JButton prev_button = arrowButton("◀");
     private final JButton next_button = arrowButton("▶");
+    // Columnas laterales de ancho FIJO e IGUAL: reservan su sitio SIEMPRE, aunque su flecha se
+    // oculte en un extremo, de modo que el área central sea simétrica y la imagen quede SIEMPRE
+    // centrada en el diálogo (si la flecha estuviera directa en WEST/EAST, al ocultarse el CENTER
+    // ocuparía ese lado y la imagen se descentraría).
+    private final JPanel prev_slot = new JPanel(new java.awt.GridBagLayout());
+    private final JPanel next_slot = new JPanel(new java.awt.GridBagLayout());
 
     private java.util.List<Shot> shots = new ArrayList<>();
     private int index = 0;
@@ -145,6 +151,15 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
 
         Helpers.zoomFonts(this, Helpers.DIALOG_ZOOM, null);
 
+        // Fija AMBAS columnas laterales al mismo ancho (el de la flecha ya escalada por zoomFonts)
+        // para que el área central sea simétrica: la imagen queda centrada aparezca o no cada flecha.
+        int col_w = Math.max(prev_button.getPreferredSize().width, next_button.getPreferredSize().width);
+        Dimension col_dim = new Dimension(col_w, 1); // BorderLayout WEST/EAST usa el ancho; estira el alto
+        prev_slot.setPreferredSize(col_dim);
+        prev_slot.setMinimumSize(col_dim);
+        next_slot.setPreferredSize(col_dim);
+        next_slot.setMinimumSize(col_dim);
+
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosed(java.awt.event.WindowEvent e) {
@@ -175,8 +190,12 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
 
         prev_button.addActionListener(e -> showRelative(-1));
         next_button.addActionListener(e -> showRelative(1));
-        content.add(prev_button, BorderLayout.WEST);
-        content.add(next_button, BorderLayout.EAST);
+        prev_slot.setOpaque(false);
+        next_slot.setOpaque(false);
+        prev_slot.add(prev_button); // GridBagLayout sin constraints => centra la flecha en su columna
+        next_slot.add(next_button);
+        content.add(prev_slot, BorderLayout.WEST);
+        content.add(next_slot, BorderLayout.EAST);
 
         setContentPane(content);
 

@@ -33,7 +33,6 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -42,12 +41,12 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
-import javax.swing.WindowConstants;
+import javax.swing.SwingUtilities;
 
 /**
  * Veto del MODO AUTO: antes de ejecutar una acción automática (el pre-pulsado de
@@ -60,13 +59,19 @@ import javax.swing.WindowConstants;
  *
  * @author tonikelope
  */
-public class AutoActionDialog extends JDialog {
+public class AutoActionDialog extends JPanel {
 
     private volatile boolean resolved = false;
 
     private final JProgressBar barra = new JProgressBar();
 
     private final Consumer<Boolean> on_resolve;
+
+    // Anclas: el asiento local (center_over, para la altura) y su botonera de acción
+    // (width_ref, para la columna izquierda y la anchura). Guardadas para posicionar el
+    // overlay sobre el tapete en showOn (en coordenadas del tapete, no de pantalla).
+    private final Component center_over;
+    private final Component width_ref;
 
     // Resolución de un solo disparo. cancelled=true -> NO ejecutar (cancelar /
     // abortar); cancelled=false -> timeout -> ejecutar. Cierra el diálogo e
@@ -78,7 +83,7 @@ public class AutoActionDialog extends JDialog {
         resolved = true;
         Helpers.GUIRun(() -> {
             Helpers.resetBarra(barra, 0);
-            dispose();
+            removeFromParent();
             if (on_resolve != null) {
                 on_resolve.accept(cancelled);
             }
@@ -94,19 +99,19 @@ public class AutoActionDialog extends JDialog {
         resolve(true);
     }
 
-    public AutoActionDialog(Frame parent, Component center_over, Component width_ref, int seconds, String action_text, BooleanSupplier keep_waiting, Consumer<Boolean> on_resolve) {
+    public AutoActionDialog(Component center_over, Component width_ref, int seconds, String action_text, BooleanSupplier keep_waiting, Consumer<Boolean> on_resolve) {
 
-        super(parent, false);
+        super();
 
         this.on_resolve = on_resolve;
+        this.center_over = center_over;
+        this.width_ref = width_ref;
 
-        setUndecorated(true);
-        setResizable(false);
-        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(BorderFactory.createLineBorder(new Color(255, 102, 0), 10));
+        // El overlay ES el panel (blanco, borde naranja): se monta sobre el tapete.
+        setOpaque(true);
+        setLayout(new GridBagLayout());
+        setBackground(Color.WHITE);
+        setBorder(BorderFactory.createLineBorder(new Color(255, 102, 0), 10));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
@@ -120,7 +125,7 @@ public class AutoActionDialog extends JDialog {
         title.setForeground(new Color(255, 102, 0));
         title.setHorizontalAlignment(SwingConstants.CENTER);
         title.setFocusable(false);
-        panel.add(title, gbc);
+        add(title, gbc);
 
         JLabel action = null;
 
@@ -131,12 +136,12 @@ public class AutoActionDialog extends JDialog {
             action.setForeground(Color.BLACK);
             action.setHorizontalAlignment(SwingConstants.CENTER);
             action.setFocusable(false);
-            panel.add(action, gbc);
+            add(action, gbc);
         }
 
         gbc.gridy++;
         barra.setPreferredSize(new Dimension(Math.round(275 * Helpers.DIALOG_ZOOM), Math.round(26 * Helpers.DIALOG_ZOOM)));
-        panel.add(barra, gbc);
+        add(barra, gbc);
 
         gbc.gridy++;
         JButton cancel = new JButton(Translator.translate("ui.cancelar_2"));
@@ -147,52 +152,25 @@ public class AutoActionDialog extends JDialog {
         cancel.setCursor(new Cursor(Cursor.HAND_CURSOR));
         cancel.setFocusable(false);
         cancel.addActionListener((java.awt.event.ActionEvent e) -> resolve(true));
-        panel.add(cancel, gbc);
+        add(cancel, gbc);
 
-        setContentPane(panel);
-
-        // No-modal: que no robe el foco del teclado al tablero. El botón Cancelar
-        // sigue respondiendo al ratón aunque la ventana no sea focusable.
-        setFocusableWindowState(false);
-
-        // Siempre por encima: el veto de MODO AUTO es un diálogo ACCIONABLE (cuenta atrás +
-        // botón Cancelar) y debe quedar visible/clicable aunque el REGISTRO (u otra ventana
-        // hermana no-modal del mismo GameFrame) esté abierto. Sin esto el z-order dependía del
-        // ORDEN de apertura (gana la última mostrada): si el registro se abría después tapaba el
-        // modo auto, y al revés el modo auto tapaba el registro. alwaysOnTop lo fija por encima
-        // de forma consistente, sin depender del orden.
-        setAlwaysOnTop(true);
-
+        // Como componente ligero no roba el foco del teclado al tablero; el botón Cancelar
+        // sigue respondiendo al ratón. Escala por DIALOG_ZOOM igual que un diálogo.
         Helpers.applyDialogZoom(this);
         Helpers.translateComponents(this, false);
 
-        // A la altura del jugador local: misma columna izquierda y anchura que su
-        // botonera de acción (width_ref), centrado verticalmente respecto a su
-        // asiento (center_over). Los rótulos se reajustan al ancho de la botonera
-        // ANTES de empaquetar para que la altura salga correcta y no quede holgura
-        // vertical. Si la botonera no se está mostrando, cae al centro del owner
-        // con el tamaño natural.
-        boolean anchored = center_over != null && center_over.isShowing() && width_ref != null && width_ref.isShowing();
-
-        if (anchored) {
-            // Ancho útil = botonera − borde (10 px a cada lado) − insets (20 px a
-            // cada lado). fitFontToWidth solo encoge la fuente si el texto no cabe.
+        // A la altura del jugador local: los rótulos se reajustan al ancho de la botonera
+        // (width_ref) ANTES de que el layout calcule el alto, para que salga correcto y no
+        // quede holgura vertical. La POSICIÓN definitiva se calcula en showOn, en
+        // coordenadas del tapete.
+        if (center_over != null && center_over.isShowing() && width_ref != null && width_ref.isShowing()) {
+            // Ancho útil = botonera − borde (10 px a cada lado) − insets (20 px a cada
+            // lado). fitFontToWidth solo encoge la fuente si el texto no cabe.
             int avail = width_ref.getWidth() - 2 * 10 - 2 * 20;
             title.setFont(Helpers.fitFontToWidth(title, title.getText(), title.getFont(), avail, 14));
             if (action != null) {
                 action.setFont(Helpers.fitFontToWidth(action, action.getText(), action.getFont(), avail, 12));
             }
-        }
-
-        pack();
-
-        if (anchored) {
-            setSize(width_ref.getWidth(), getHeight());
-            Point player_anchor = center_over.getLocationOnScreen();
-            Point ref_anchor = width_ref.getLocationOnScreen();
-            setLocation(ref_anchor.x, player_anchor.y + (center_over.getHeight() - getHeight()) / 2);
-        } else {
-            setLocationRelativeTo(parent);
         }
 
         // Cuenta atrás en background. Resuelve por callback: timeout -> ejecutar;
@@ -226,5 +204,42 @@ public class AutoActionDialog extends JDialog {
                 resolve(false);
             }
         });
+    }
+
+    // Monta el veto como overlay sobre el tapete (JLayeredPane), anclado a la altura del
+    // asiento local y con la anchura/columna de su botonera, en coordenadas del tapete.
+    // Sustituye al setLocation en coordenadas de PANTALLA del antiguo JDialog, que algunos
+    // gestores de ventanas de Linux ignoraban (la ventana caía a 0,0).
+    public void showOn(TablePanel tapete) {
+        if (tapete == null) {
+            return;
+        }
+
+        if (center_over != null && center_over.isShowing() && width_ref != null && width_ref.isShowing()) {
+            int w = width_ref.getWidth();
+            int h = getPreferredSize().height;
+            Point ref = SwingUtilities.convertPoint(width_ref, 0, 0, tapete);
+            Point cen = SwingUtilities.convertPoint(center_over, 0, 0, tapete);
+            setBounds(ref.x, cen.y + (center_over.getHeight() - h) / 2, w, h);
+        } else {
+            Dimension pref = getPreferredSize();
+            setBounds((tapete.getWidth() - pref.width) / 2, (tapete.getHeight() - pref.height) / 2, pref.width, pref.height);
+        }
+
+        // Capa por encima de las cartas/fichas voladoras (DRAG_LAYER): el veto es
+        // accionable y debe quedar SIEMPRE visible sobre el tapete (antes: alwaysOnTop).
+        tapete.add(this, Integer.valueOf(JLayeredPane.DRAG_LAYER + 100));
+        tapete.revalidate();
+        tapete.repaint();
+    }
+
+    // Quita el overlay del tapete (sustituye al dispose() del antiguo JDialog). EDT-only.
+    private void removeFromParent() {
+        java.awt.Container p = getParent();
+        if (p != null) {
+            java.awt.Rectangle b = getBounds();
+            p.remove(this);
+            p.repaint(b.x, b.y, b.width, b.height);
+        }
     }
 }

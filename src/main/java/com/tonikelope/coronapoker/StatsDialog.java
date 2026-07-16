@@ -178,13 +178,13 @@ public class StatsDialog extends JFrame {
     public StatsDialog() {
         super();
 
-        // Standalone, ownerless JFrame. It can be opened from the end-of-game
-        // BalanceDialog, which is APPLICATION_MODAL: an application-modal dialog blocks
-        // every window outside its owner/child chain, so without this exclusion the
-        // stats frame would open blocked — no focus, pushed behind the modal (looking
-        // as if it minimized itself) — instead of usable. Excluding it from application
-        // modality keeps it independently focusable. (Opened from the launcher there is
-        // no modal dialog, so that path was unaffected.)
+        // Standalone, ownerless JFrame. Kept excluded from application modality so it
+        // stays independently focusable if it is ever opened while some application-modal
+        // dialog is up (such a dialog blocks every window outside its owner/child chain,
+        // which would open the stats frame blocked — no focus, pushed behind the modal,
+        // looking as if it minimized itself). The end-of-game balance screen that opens it
+        // (via its ESTADÍSTICAS button) is no longer a modal dialog but an in-frame overlay,
+        // so this is now purely defensive.
         setModalExclusionType(java.awt.Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
 
         init = true;

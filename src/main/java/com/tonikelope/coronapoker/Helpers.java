@@ -3528,16 +3528,18 @@ public class Helpers {
     // hacia abajo, su pack encoge la ventana y cabe en resoluciones menores). A 100% solo aplica la
     // familia GUI_FONT (idéntico a updateFonts(w, GUI_FONT, null), que es lo que hacían los diálogos, así
     // que 100% = diseño). NO toca el zoom de la MESA. NO usar en diálogos cuyo contenido sea una imagen
-    // (escalaría iconos de contenido); esos van con updateFonts a secas.
-    public static void applyDialogZoom(java.awt.Window window) {
-        if (window == null) {
+    // (escalaría iconos de contenido); esos van con updateFonts a secas. Acepta un Container cualquiera
+    // (Window es Container) para poder escalar también los overlays in-frame que hacen de "diálogo" ligero
+    // (MODO AUTO, straddle), que ya no son ventanas.
+    public static void applyDialogZoom(java.awt.Container container) {
+        if (container == null) {
             return;
         }
         boolean active = isDialogZoomActive();
-        updateFonts(window, GUI_FONT, active ? DIALOG_ZOOM : null);
+        updateFonts(container, GUI_FONT, active ? DIALOG_ZOOM : null);
         if (active) {
-            scaleIcons(window, DIALOG_ZOOM);
-            syncTitledBorderFonts(window);
+            scaleIcons(container, DIALOG_ZOOM);
+            syncTitledBorderFonts(container);
         }
     }
 

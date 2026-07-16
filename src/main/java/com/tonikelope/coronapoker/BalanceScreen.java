@@ -38,7 +38,6 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.GraphicsDevice;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
@@ -48,8 +47,6 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
@@ -65,7 +62,6 @@ import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -73,21 +69,24 @@ import javax.swing.JViewport;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
 
 /**
- * Pantalla final de timba: overlay a pantalla completa SOBRE el tapete (que se
- * sigue viendo a brillo normal detrás, vía transparencia por píxel). De arriba a
- * abajo (BorderLayout): barra de botones, "LA TIMBA HA TERMINADO" + fecha, el
- * resultado del jugador local en GIGANTE (relleno verde/rojo/gris con borde negro,
- * al estilo del overlay de coste de igualar) con el importe debajo, y un carrusel
- * horizontal de cajas de jugador (avatar + nick + resultado + stack + buyin) con
- * flechas de desplazamiento lateral cuando hay más cajas de las que caben. Todo se
- * auto-ajusta a la resolución (responsive).
+ * Pantalla final de timba: overlay a pantalla completa montado sobre el glassPane
+ * del GameFrame, ENCIMA del tapete real (que se ve a través por transparencia de
+ * COMPONENTE Swing, sin depender del compositor del sistema como el antiguo diálogo
+ * con transparencia por píxel de ventana). De arriba a abajo (BorderLayout): barra
+ * de botones, "LA TIMBA HA TERMINADO" + fecha, el resultado del jugador local en
+ * GIGANTE (relleno verde/rojo/gris con borde negro, al estilo del overlay de coste
+ * de igualar) con el importe debajo, y un carrusel horizontal de cajas de jugador
+ * (avatar + nick + resultado + stack + buyin) con flechas de desplazamiento lateral
+ * cuando hay más cajas de las que caben. Todo se auto-ajusta a la resolución
+ * (responsive). GameFrame lo monta/desmonta y espera la elección del usuario
+ * (continuar/menú) por un CountDownLatch, replicando la semántica del antiguo
+ * diálogo modal sin usar una ventana.
  *
  * @author tonikelope
  */
-public class BalanceDialog extends JDialog {
+public class BalanceScreen extends JPanel {
 
     // Relleno del texto/resultado según el balance (borde siempre negro).
     private static final Color WIN = new Color(0, 200, 60);
@@ -111,9 +110,10 @@ public class BalanceDialog extends JDialog {
     private JComponent sound_chip;
     private int sound_icon_sz = SOUND_ICON_SZ;
 
-    // Snapshot del tapete (solo si el sistema NO soporta transparencia por
-    // píxel): se pinta como fondo opaco para conservar el aspecto "tapete".
-    private BufferedImage table_snapshot = null;
+    // Callback que GameFrame instala para despertar del CountDownLatch cuando el
+    // jugador elige salir (continuar la timba / menú principal). Sustituye al cierre
+    // del antiguo diálogo modal.
+    private final Runnable on_close;
 
     // Dimensiones derivadas de la altura de la pantalla (escalan con resolución).
     private int screen_w;
@@ -163,8 +163,10 @@ public class BalanceDialog extends JDialog {
         return recover;
     }
 
-    public BalanceDialog(java.awt.Frame parent, boolean modal) {
-        super(parent, modal);
+    public BalanceScreen(java.awt.Frame parent, Runnable on_close) {
+        super();
+
+        this.on_close = on_close;
 
         // El SFX del contador (balance_count.wav) va en lockstep con la animacion
         // del importe (startAmountAnimation). Se precarga aqui, FUERA del camino
@@ -173,13 +175,13 @@ public class BalanceDialog extends JDialog {
         // ese open() se atasca cuando el dispositivo esta ocupado (p.ej. justo tras el
         // teardown de audio de la salida, mientras las lineas del tablero aun se
         // liberan), dejando la animacion muda y el sonido cayendo tarde. La
-        // construccion del dialogo (snapshot, avatares, layout) da tiempo de sobra a
-        // que la linea abra antes del windowOpened. Mismo patron que shuffle.wav.
+        // construccion del overlay (avatares, layout) da tiempo de sobra a que la
+        // linea abra antes de startAnimations. Mismo patron que shuffle.wav.
         Helpers.threadRun(() -> Audio.preloadWav("misc/balance_count.wav"));
 
-        setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-        setUndecorated(true);
-        setResizable(false);
+        // Transparente: el fondo es el tapete real que se ve a través del glassPane.
+        setOpaque(false);
+        setLayout(new BorderLayout());
 
         screen_w = (parent != null && parent.getWidth() > 0) ? parent.getWidth() : 1280;
         screen_h = (parent != null && parent.getHeight() > 0) ? parent.getHeight() : 800;
@@ -189,77 +191,19 @@ public class BalanceDialog extends JDialog {
         avatar_sz = Math.round(card_h * 0.42f);
         card_gap = 18;
 
-        setupBackground(parent);
-
-        JPanel content = new JPanel(new BorderLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                if (table_snapshot != null) {
-                    g.drawImage(table_snapshot, 0, 0, getWidth(), getHeight(), null);
-                } else {
-                    super.paintComponent(g);
-                }
-            }
-        };
-        content.setOpaque(table_snapshot != null);
-        setContentPane(content);
-
         // Arriba: barra de botones. Centro: "LA TIMBA HA TERMINADO" + fecha
         // centrados sobre el mensaje gigante (a su vez centrado en la franja).
         // Abajo: carrusel ENTERO (SOUTH siempre toma su alto preferido, nunca se
         // corta; el centro absorbe el espacio sobrante).
-        content.add(buildNavBar(), BorderLayout.NORTH);
-        content.add(buildCenter(), BorderLayout.CENTER);
-        content.add(buildCardsRegion(), BorderLayout.SOUTH);
-
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowOpened(WindowEvent evt) {
-                startAmountAnimation();
-            }
-
-            @Override
-            public void windowClosed(WindowEvent evt) {
-                // Red de seguridad: si el cierre no vino de un botón (Escape, cierre del
-                // sistema...), corta igualmente los timers de la animación para que no sigan
-                // repintando sobre un diálogo ya descartado ni acaparen el EDT en el teardown.
-                stopAmountAnimation();
-
-                // Suelta la linea del SFX del contador precargada en el constructor
-                // (RESET_GAME tambien llama a closeAllPreloadedWavs, pero cerrarla aqui
-                // no deja la linea colgada mientras tanto). Idempotente si no se abrio.
-                Audio.closePreloadedWav("misc/balance_count.wav");
-
-                // Stats can be opened from this dialog (it is ownerless, so it does
-                // not close with us). Close it on the way out so stats_music does
-                // not keep looping over the next screen. true = restore the loop
-                // stats muted, since control just returns to the running screen.
-                StatsDialog.disposeIfOpen(true);
-            }
-
-            @Override
-            public void windowActivated(WindowEvent evt) {
-                if (isModal()) {
-                    Init.CURRENT_MODAL_DIALOG.add(BalanceDialog.this);
-                }
-            }
-
-            @Override
-            public void windowDeactivated(WindowEvent evt) {
-                if (isModal()) {
-                    try {
-                        Init.CURRENT_MODAL_DIALOG.removeLast();
-                    } catch (Exception ex) {
-                    }
-                }
-            }
-        });
+        add(buildNavBar(), BorderLayout.NORTH);
+        add(buildCenter(), BorderLayout.CENTER);
+        add(buildCardsRegion(), BorderLayout.SOUTH);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
 
-        fitTaggedLabels(getContentPane());
+        fitTaggedLabels(this);
 
         // Tras finalizar las fuentes (updateFonts/fitTaggedLabels cambian los tamaños
         // preferidos): fija el reparto vertical de la franja central para que la fila de
@@ -270,39 +214,26 @@ public class BalanceDialog extends JDialog {
 
         normalizeCardHeights();
 
-        if (parent != null) {
-            setBounds(parent.getBounds());
-        }
-
         SwingUtilities.invokeLater(this::updateArrows);
     }
 
-    // Transparencia por píxel para ver el tapete a brillo completo detrás. Si el
-    // sistema no la soporta (o el frame está en fullscreen exclusivo), se captura
-    // un snapshot del tapete y se pinta como fondo opaco (mismo aspecto, sin
-    // translucidez real).
-    private void setupBackground(java.awt.Frame parent) {
-        try {
-            GraphicsDevice dev = (parent != null ? parent.getGraphicsConfiguration() : getGraphicsConfiguration()).getDevice();
-            if (dev.isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
-                setBackground(new Color(0, 0, 0, 0));
-                return;
-            }
-        } catch (Exception ex) {
-            Logger.getLogger(BalanceDialog.class.getName()).log(Level.WARNING, "Per-pixel translucency unavailable, falling back to a table snapshot", ex);
-        }
+    // Arranca la animación del importe (antes en windowOpened). La invoca GameFrame
+    // tras montar el overlay en el glassPane y hacerlo visible.
+    public void startAnimations() {
+        startAmountAnimation();
+    }
 
-        if (parent != null && parent.getWidth() > 0 && parent.getHeight() > 0) {
-            try {
-                BufferedImage img = new BufferedImage(parent.getWidth(), parent.getHeight(), BufferedImage.TYPE_INT_RGB);
-                Graphics2D g = img.createGraphics();
-                parent.printAll(g);
-                g.dispose();
-                table_snapshot = img;
-            } catch (Exception ex) {
-                Logger.getLogger(BalanceDialog.class.getName()).log(Level.WARNING, "Could not snapshot the table for the balance overlay background", ex);
-            }
-        }
+    // Suelta los recursos del overlay (antes en windowClosed). La invoca GameFrame
+    // una vez resuelta la elección del usuario, antes de desmontar el glassPane:
+    // corta los timers de la animación (sus repintados por frame acaparan el EDT y
+    // retrasarían el teardown), suelta la linea precargada del SFX del contador y
+    // cierra el diálogo de estadísticas si quedó abierto (es ownerless, no se cierra
+    // con nosotros; true = restaura el loop de música que silenció, ya que el control
+    // vuelve a la pantalla en curso).
+    public void cleanup() {
+        stopAmountAnimation();
+        Audio.closePreloadedWav("misc/balance_count.wav");
+        StatsDialog.disposeIfOpen(true);
     }
 
     // -------------------------------------------------------------------------
@@ -319,13 +250,18 @@ public class BalanceDialog extends JDialog {
         recover_button.addActionListener((e) -> {
             stopAmountAnimation();
             recover = true;
-            dispose();
+            if (on_close != null) {
+                on_close.run();
+            }
         });
 
         JButton menu_button = navButton(Translator.translate("ui.menu_principal"), whiteScaledIcon("/images/exit2.png", 28));
         menu_button.addActionListener((e) -> {
             stopAmountAnimation();
-            dispose();
+            recover = false;
+            if (on_close != null) {
+                on_close.run();
+            }
         });
 
         JPanel row = new JPanel(new GridLayout(1, 4, 24, 0));
@@ -354,13 +290,9 @@ public class BalanceDialog extends JDialog {
     }
 
     // Altavoz (mute rápido) en la esquina superior derecha, dentro de un CHIP con fondo
-    // redondeado translúcido (NO transparente). Razón: la pantalla final es un overlay con
-    // transparencia POR PÍXEL, y en esos overlays los píxeles TRANSPARENTES (el padding del
-    // icono) DEJAN PASAR el ratón a la ventana de detrás -> el hover/click fallaba a ratos
-    // (solo registraba sobre la forma sólida, pequeña, del altavoz). Un chip de píxeles
-    // OPACOS hace que TODA su área capture el ratón de forma fiable, da un hit-area amplio y
-    // una affordance de botón. El listener va en el icono Y en el chip (un clic en el icono
-    // lo recibe el label, no el chip). sound.png/mute.png son blancos y resaltan sobre él.
+    // redondeado translúcido (NO transparente): da un hit-area amplio y una affordance de
+    // botón, y el icono blanco (sound.png/mute.png) resalta sobre él. El listener va en el
+    // icono Y en el chip (un clic sobre el icono lo recibe el label, no el chip).
     private JComponent buildSoundCorner() {
         sound_icon = new JLabel();
         refreshBalanceSoundIcon();
@@ -439,7 +371,7 @@ public class BalanceDialog extends JDialog {
     // Icono escalado desde recursos (para los botones cristal de la barra superior).
     private static javax.swing.ImageIcon scaledIcon(String resource, int size) {
         try {
-            java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(BalanceDialog.class.getResource(resource));
+            java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(BalanceScreen.class.getResource(resource));
             return new javax.swing.ImageIcon(src.getScaledInstance(size, size, java.awt.Image.SCALE_SMOOTH));
         } catch (Exception ex) {
             return null;
@@ -450,7 +382,7 @@ public class BalanceDialog extends JDialog {
     // sobre el cristal oscuro quedarían invisibles (p. ej. la puerta de salida de MENÚ PRINCIPAL).
     private static javax.swing.ImageIcon whiteScaledIcon(String resource, int size) {
         try {
-            java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(BalanceDialog.class.getResource(resource));
+            java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(BalanceScreen.class.getResource(resource));
             java.awt.image.BufferedImage w = new java.awt.image.BufferedImage(src.getWidth(), src.getHeight(), java.awt.image.BufferedImage.TYPE_INT_ARGB);
             for (int y = 0; y < src.getHeight(); y++) {
                 for (int x = 0; x < src.getWidth(); x++) {

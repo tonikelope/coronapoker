@@ -313,7 +313,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean ANIMACION_REPARTO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
     public static volatile boolean ANIMACION_CIEGAS_DEALER_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_ciegas_dealer", "true"));
     public static volatile boolean ANIMACION_APUESTAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_apuestas", "true"));
-    // Rodaje animado de los contadores numéricos. La pantalla final (BalanceDialog)
+    // Rodaje animado de los contadores numéricos. La pantalla final (BalanceScreen)
     // NO depende de este flag: su contador se da SIEMPRE.
     public static volatile boolean ANIMACION_CONTADORES_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contadores", "true"));
     // Overlay del GIF de barajado (pequeño, MUDO, en bucle) sobre cada RemotePlayer humano
@@ -1342,6 +1342,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile int i60_c = 0;
     private volatile JLayer<JComponent> frame_layer = null;
     private volatile boolean recover = false;
+    // La pantalla final (BalanceScreen) es un overlay montado sobre el glassPane de
+    // ESTE frame (ya no un JDialog modal aparte). Mientras está activo, el
+    // KeyEventDispatcher ignora frame.isActive() para que los atajos del tablero no se
+    // disparen bajo la pantalla final: replica que el antiguo diálogo modal dejaba el
+    // frame INACTIVO. El glassPane visible ya intercepta el ratón hacia el tablero.
+    private volatile boolean balance_overlay_active = false;
+    // Popup del tapete (menú contextual del clic derecho) guardado al mostrar la pantalla
+    // final para restaurarlo al desmontarla: durante el balance el tablero queda inerte y
+    // no debe abrir su menú contextual.
+    private volatile javax.swing.JPopupMenu balance_saved_tapete_popup = null;
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
     private volatile GraphicsDevice device = null;
@@ -2560,7 +2570,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.key_event_dispatcher = (KeyEvent e) -> {
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
             JFrame frame = GameFrame.getInstance();
-            if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !apariencia_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {
+            if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !apariencia_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && ((frame.isActive() && !balance_overlay_active) || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {
                 final Action a = actionMap.get(keyStroke);
                 final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
                 Helpers.GUIRun(() -> {
@@ -4266,15 +4276,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     recover = getCrupier().isForce_recover();
 
                     if (!recover) {
-                        Helpers.GUIRunAndWait(() -> {
-                            BalanceDialog balance = new BalanceDialog(GameFrame.getInstance(), true);
+                        // Pantalla final como overlay sobre el glassPane (ver showBalanceOverlay).
+                        // Sustituye al antiguo diálogo modal de balance: este hilo (fin de transmisión,
+                        // fuera del EDT) espera en el latch a que el jugador elija continuar/menú,
+                        // igual que antes esperaba al cierre del diálogo modal, sin congelar el EDT.
+                        final java.util.concurrent.CountDownLatch balance_latch = new java.util.concurrent.CountDownLatch(1);
+                        final BalanceScreen[] balance_ref = new BalanceScreen[1];
 
-                            balance.setLocationRelativeTo(balance.getParent());
-
-                            balance.setVisible(true);
-
-                            recover = balance.isRecover();
+                        Helpers.GUIRun(() -> {
+                            BalanceScreen balance = new BalanceScreen(GameFrame.getInstance(), balance_latch::countDown);
+                            balance_ref[0] = balance;
+                            showBalanceOverlay(balance);
                         });
+
+                        try {
+                            balance_latch.await();
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                        }
+
+                        recover = balance_ref[0] != null && balance_ref[0].isRecover();
+
+                        Helpers.GUIRunAndWait(() -> hideBalanceOverlay(balance_ref[0]));
                     } else if (!isPartida_local()) {
                         Helpers.GUIRun(() -> {
                             InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("conn.el_servidor_ha_detenido_la"), Color.WHITE, Color.BLACK, getClass().getResource("/images/stop.png"), HALT_PAUSE, true);
@@ -4302,6 +4325,68 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         }
 
+    }
+
+    // Monta la pantalla final (BalanceScreen) como overlay sobre el glassPane de este
+    // frame, ENCIMA del tapete real (que se ve a través: transparencia de COMPONENTE
+    // Swing, sin depender del compositor del SO como el antiguo diálogo con
+    // transparencia por píxel de ventana, que en algunos Linux salía con fondo gris).
+    // Deja el tablero INERTE bajo la pantalla final (como el antiguo diálogo modal): el
+    // glassPane visible intercepta el ratón hacia el tablero, balance_overlay_active
+    // bloquea los atajos del KeyEventDispatcher (los atajos del juego pasan todos por ahí,
+    // no por aceleradores de menú), y se quita el menú contextual del tapete (clic derecho).
+    // Se rehabilita el frame porque la limpieza de fin de transmisión lo dejó deshabilitado
+    // y, sin ello, los botones del overlay (hijos del frame) no responderían.
+    private void showBalanceOverlay(BalanceScreen balance) {
+        setEnabled(true);
+
+        balance_overlay_active = true;
+
+        TablePanel t = getTapete();
+        if (t != null) {
+            balance_saved_tapete_popup = t.getComponentPopupMenu();
+            t.setComponentPopupMenu(null);
+        }
+
+        java.awt.Component glass = getGlassPane();
+
+        if (glass instanceof JComponent) {
+            JComponent gp = (JComponent) glass;
+            gp.removeAll();
+            gp.setOpaque(false);
+            gp.setLayout(new java.awt.BorderLayout());
+            gp.add(balance, java.awt.BorderLayout.CENTER);
+            gp.revalidate();
+        }
+
+        glass.setVisible(true);
+
+        balance.startAnimations();
+    }
+
+    // Desmonta el overlay de la pantalla final: suelta sus recursos (cleanup), oculta el
+    // glassPane y lo vacía. Tras esto el flujo continúa con RESET_GAME (que descarta este
+    // frame de todas formas).
+    private void hideBalanceOverlay(BalanceScreen balance) {
+        balance_overlay_active = false;
+
+        if (balance != null) {
+            balance.cleanup();
+        }
+
+        TablePanel t = getTapete();
+        if (t != null) {
+            t.setComponentPopupMenu(balance_saved_tapete_popup);
+        }
+        balance_saved_tapete_popup = null;
+
+        java.awt.Component glass = getGlassPane();
+
+        glass.setVisible(false);
+
+        if (glass instanceof JComponent) {
+            ((JComponent) glass).removeAll();
+        }
     }
 
     private void RESET_GAME(boolean recover) {

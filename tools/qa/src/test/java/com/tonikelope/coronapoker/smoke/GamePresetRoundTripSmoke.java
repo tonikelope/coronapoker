@@ -58,6 +58,7 @@ class GamePresetRoundTripSmoke {
         s.handLimit = 42;
         s.thinkTime = 90;
         s.thinkTimeEnabled = false;
+        s.showdownTime = 25;
         s.ante = true;
         s.straddle = true;
         s.difficulty = Bot.Difficulty.EASY;
@@ -81,6 +82,7 @@ class GamePresetRoundTripSmoke {
         assertEquals(42, r.handLimit, "hand limit");
         assertEquals(90, r.thinkTime, "think time");
         assertFalse(r.thinkTimeEnabled, "think time disabled");
+        assertEquals(25, r.showdownTime, "showdown time");
         assertTrue(r.ante, "ante on");
         assertTrue(r.straddle, "straddle on");
         assertEquals(Bot.Difficulty.EASY, r.difficulty, "bot difficulty");

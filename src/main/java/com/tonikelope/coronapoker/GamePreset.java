@@ -107,6 +107,7 @@ public final class GamePreset {
         public int rabbit = 0;                // 0=off 1=free 2=free+sb 3=free+sb+bb
         public int thinkTime = GameFrame.DEFAULT_THINK_TIME; // tiempo de pensar en segundos
         public boolean thinkTimeEnabled = true;       // false = sin limite de tiempo
+        public int showdownTime = GameFrame.DEFAULT_SHOWDOWN_TIME; // pausa del showdown en segundos
         public Bot.Difficulty difficulty = Bot.Difficulty.MEDIUM;
 
         /**
@@ -135,6 +136,7 @@ public final class GamePreset {
                     + "#RABBIT=" + rabbit
                     + "#THINKT=" + thinkTime
                     + "#THINKON=" + (thinkTimeEnabled ? "1" : "0")
+                    + "#SHOWDOWN=" + showdownTime
                     + "#DIFF=" + difficulty.name();
         }
 
@@ -223,6 +225,9 @@ public final class GamePreset {
                         case "THINKON":
                             s.thinkTimeEnabled = "1".equals(val);
                             break;
+                        case "SHOWDOWN":
+                            s.showdownTime = Integer.parseInt(val);
+                            break;
                         case "DIFF":
                             // "EXPERT" es un valor legacy del esquema de 4 niveles -> HARD.
                             s.difficulty = "EXPERT".equals(val)
@@ -267,6 +272,7 @@ public final class GamePreset {
             s.rabbit = GameFrame.RABBIT_HUNTING;
             s.thinkTime = GameFrame.THINK_TIME;
             s.thinkTimeEnabled = GameFrame.THINK_TIME_ENABLED;
+            s.showdownTime = GameFrame.SHOWDOWN_TIME;
             s.difficulty = Bot.DIFFICULTY;
             return s;
         }
@@ -290,6 +296,9 @@ public final class GamePreset {
             // meter un tiempo de pensar fuera de rango (el spinner ya acota 10-120).
             GameFrame.THINK_TIME = Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, thinkTime));
             GameFrame.THINK_TIME_ENABLED = thinkTimeEnabled;
+            // Clamp defensivo: un preset hand-editado o un blob antiguo/corrupto no debe meter una
+            // pausa de showdown fuera de rango (el spinner ya acota 10-30).
+            GameFrame.SHOWDOWN_TIME = Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, showdownTime));
             GameFrame.BOT_REBUY = botRebuy;
             GameFrame.REBUY_LIMIT = rebuyLimit;
             GameFrame.BLIND_CAP = blindCap;

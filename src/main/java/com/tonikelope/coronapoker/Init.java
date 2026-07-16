@@ -1233,6 +1233,10 @@ public class Init extends JFrame {
     // alterna idioma y bandera. Se dibujan por código (sin añadir ficheros de imagen).
     private javax.swing.JLabel language_flag;
 
+    // Acceso al visor de capturas: icono de cámara a la derecha del botón ESTADÍSTICAS, a su misma
+    // altura (cuadrado). Se crea y maqueta en rebuildActionButtonsLayout; se escala en applyInitScale.
+    private javax.swing.JLabel screenshot_icon;
+
     // Alto BASE = el de los iconos de ajustes/sonido (30); ancho rectangular 3:2. La banderita
     // se redibuja al tamaño ACTUAL (flag_w/flag_h) porque la botonera escala con la ventana.
     private static final int FLAG_H = 30;
@@ -1344,6 +1348,21 @@ public class Init extends JFrame {
     // literales) por uno que respeta el tamaño PREFERIDO (escalado) de CREAR/UNIRME, con
     // ESTADÍSTICAS ocupando ambos debajo. Se llama UNA vez tras montar la botonera.
     private void rebuildActionButtonsLayout() {
+        // Icono de cámara del visor de capturas: al lado de ESTADÍSTICAS y a su misma altura.
+        // Usa screenshot.png (256px) para escalar hacia la altura del botón sin verse borroso.
+        if (screenshot_icon == null) {
+            screenshot_icon = new javax.swing.JLabel();
+            screenshot_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+            Helpers.setTranslatedToolTip(screenshot_icon, "ui.tooltip_visor_capturas");
+            screenshot_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseReleased(java.awt.event.MouseEvent e) {
+                    if (Helpers.isRealClick(e)) {
+                        ScreenshotViewerDialog.open(Init.this);
+                    }
+                }
+            });
+        }
         javax.swing.GroupLayout gl = new javax.swing.GroupLayout(action_buttons_panel);
         action_buttons_panel.setLayout(gl);
         gl.setHorizontalGroup(
@@ -1352,7 +1371,10 @@ public class Init extends JFrame {
                                 .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addGap(TWIN_GAP)
                                 .addComponent(join_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addComponent(stats_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGroup(gl.createSequentialGroup()
+                                .addComponent(stats_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(TWIN_GAP)
+                                .addComponent(screenshot_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         gl.setVerticalGroup(
                 gl.createSequentialGroup()
@@ -1360,7 +1382,9 @@ public class Init extends JFrame {
                                 .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(join_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(stats_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGroup(gl.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                .addComponent(stats_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(screenshot_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
     }
 
@@ -1413,12 +1437,16 @@ public class Init extends JFrame {
             b.setIconTextGap(gap);
         }
 
-        // CREAR/UNIRME a su tamaño de DISEÑO escalado; ESTADÍSTICAS abarca EXACTAMENTE a los
-        // dos gemelos (ancho = CREAR + gap + UNIRME) para que no se quede corto al reducir.
+        // CREAR/UNIRME a su tamaño de DISEÑO escalado; ESTADÍSTICAS + gap + cámara abarcan EXACTAMENTE
+        // a los dos gemelos (CREAR + gap + UNIRME). La cámara es cuadrada, a la altura de ESTADÍSTICAS.
         int cw = Math.round(CREATE_W * s), jw = Math.round(JOIN_W * s);
+        int stats_h = Math.round(base_stats_h * s);
+        int cam = stats_h;
         create_button.setPreferredSize(new java.awt.Dimension(cw, Math.round(ACTION_H * s)));
         join_button.setPreferredSize(new java.awt.Dimension(jw, Math.round(ACTION_H * s)));
-        stats_button.setPreferredSize(new java.awt.Dimension(cw + TWIN_GAP + jw, Math.round(base_stats_h * s)));
+        stats_button.setPreferredSize(new java.awt.Dimension(cw + jw - cam, stats_h));
+        screenshot_icon.setPreferredSize(new java.awt.Dimension(cam, cam));
+        Helpers.setScaledIconLabel(screenshot_icon, getClass().getResource("/images/screenshot.png"), cam, cam);
 
         // Iconos de los botones: escalados desde su icono BASE (a s=1 quedan idénticos).
         setScaledIconFromBase(create_button, base_icon_create, s);

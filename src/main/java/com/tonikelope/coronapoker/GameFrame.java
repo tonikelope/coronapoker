@@ -1332,6 +1332,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
     private volatile ShortcutsDialog shortcuts_dialog = null;
+    // Acceso al visor de capturas. Se crea a mano tras initComponents (FUERA de los bloques
+    // //GEN-* de NetBeans, que se regeneran desde el .form) y se inserta en file_menu.
+    private javax.swing.JMenuItem screenshots_menu = null;
     private volatile FastChatDialog fastchat_dialog = null;
     private volatile RebuyDialog rebuy_dialog = null;
     private volatile GifAnimationDialog gif_dialog = null;
@@ -1785,6 +1788,34 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public JMenuItem getJugadas_menu() {
         return jugadas_menu;
+    }
+
+    public JMenuItem getScreenshots_menu() {
+        return screenshots_menu;
+    }
+
+    // Crea e inserta el acceso al visor de capturas en el menú, justo tras "Ver registro".
+    // Manual (no en el .form): así sobrevive a la regeneración del bloque //GEN-* por NetBeans.
+    private void setupScreenshotsMenu() {
+
+        screenshots_menu = new javax.swing.JMenuItem();
+        screenshots_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        screenshots_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/camera.png"))); // NOI18N
+        screenshots_menu.setText(Translator.translate("menu.visor_capturas"));
+        screenshots_menu.putClientProperty("i18n.key", "menu.visor_capturas");
+        screenshots_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                ScreenshotViewerDialog.open(GameFrame.this);
+            }
+        });
+
+        int idx = file_menu.getPopupMenu().getComponentIndex(registro_menu);
+
+        if (idx >= 0) {
+            file_menu.insert(screenshots_menu, idx + 1);
+        } else {
+            file_menu.add(screenshots_menu);
+        }
     }
 
     public JMenuItem getExit_menu() {
@@ -3595,6 +3626,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         getContentPane().add(frame_layer);
 
         force_reconnect_menu.setEnabled(isPartida_local());
+
+        setupScreenshotsMenu();
 
         compact_menu.setSelected(GameFrame.VISTA_COMPACTA > 0);
 

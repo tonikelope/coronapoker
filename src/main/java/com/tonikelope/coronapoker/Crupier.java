@@ -454,7 +454,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
     // La pausa del showdown (segundos que se muestra el resultado antes de la siguiente mano) es
-    // configurable por timba: vive en GameFrame.SHOWDOWN_TIME (default 10, rango 10-30). Escala
+    // configurable por timba: vive en GameFrame.SHOWDOWN_TIME (default 10, rango 5-30). Escala
     // x0.5/x1.5 segun side pots en los llamadores de pausaConBarra.
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; // Segundos

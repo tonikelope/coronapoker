@@ -297,7 +297,7 @@ public final class GamePreset {
             GameFrame.THINK_TIME = Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, thinkTime));
             GameFrame.THINK_TIME_ENABLED = thinkTimeEnabled;
             // Clamp defensivo: un preset hand-editado o un blob antiguo/corrupto no debe meter una
-            // pausa de showdown fuera de rango (el spinner ya acota 10-30).
+            // pausa de showdown fuera de rango (el spinner ya acota 5-30).
             GameFrame.SHOWDOWN_TIME = Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, showdownTime));
             GameFrame.BOT_REBUY = botRebuy;
             GameFrame.REBUY_LIMIT = rebuyLimit;

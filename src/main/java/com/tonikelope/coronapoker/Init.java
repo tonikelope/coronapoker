@@ -115,6 +115,12 @@ public class Init extends JFrame {
     public static volatile boolean PEGI18_MOD = false;
     public static volatile boolean PLAYING_CINEMATIC = false;
     public static volatile VolumeControlDialog VOLUME_DIALOG = null;
+    // El beep de confirmación del volumen suena al SOLTAR la tecla de cursor
+    // (no en un debounce, que se dispara en el hueco previo al autorepeat del
+    // teclado y provocaba un doble beep al empezar a mantener pulsado). Este
+    // flag marca que hubo al menos un cambio real de volumen pendiente de
+    // confirmar; lo consume el release de VK_UP/VK_DOWN en el dispatcher.
+    private static volatile boolean VOLUME_BEEP_PENDING = false;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private static volatile String NEW_VERSION = null;
     // Reintentos SILENCIOSOS del check de versión (arranque y botón
@@ -382,14 +388,11 @@ public class Init extends JFrame {
                 if (Audio.MASTER_VOLUME > 0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME - 0.01f, 2);
 
-                    // Immediate effect; the debounced timer only adds the beep
+                    // Efecto inmediato mientras se mantiene la tecla; el beep de
+                    // confirmación se pospone al release (VOLUME_BEEP_PENDING).
                     Audio.refreshALLVolumes(false);
 
-                    if (Audio.VOLUME_TIMER.isRunning()) {
-                        Audio.VOLUME_TIMER.restart();
-                    } else {
-                        Audio.VOLUME_TIMER.start();
-                    }
+                    VOLUME_BEEP_PENDING = true;
 
                     AudioSettingsPanel.refreshVolume();
 
@@ -437,14 +440,11 @@ public class Init extends JFrame {
                 if (Audio.MASTER_VOLUME < 1.0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME + 0.01f, 2);
 
-                    // Immediate effect; the debounced timer only adds the beep
+                    // Efecto inmediato mientras se mantiene la tecla; el beep de
+                    // confirmación se pospone al release (VOLUME_BEEP_PENDING).
                     Audio.refreshALLVolumes(false);
 
-                    if (Audio.VOLUME_TIMER.isRunning()) {
-                        Audio.VOLUME_TIMER.restart();
-                    } else {
-                        Audio.VOLUME_TIMER.start();
-                    }
+                    VOLUME_BEEP_PENDING = true;
 
                     AudioSettingsPanel.refreshVolume();
                 }
@@ -521,6 +521,16 @@ public class Init extends JFrame {
             // Configurable push-to-record key (voice messages, in game only)
             if (VoiceMessageManager.handleKeyEvent(e)) {
                 return true;
+            }
+
+            // Beep de confirmación del volumen al SOLTAR el cursor: un único
+            // sonido cuando se llega al volumen deseado, en vez del debounce que
+            // podía sonar dos veces (una en el hueco previo al autorepeat y otra
+            // al final). refreshALLVolumes(true) fuerza además el refresco final
+            // autoritativo. No consumimos el evento (otros usan las flechas).
+            if (e.getID() == KeyEvent.KEY_RELEASED && (e.getKeyCode() == KeyEvent.VK_UP || e.getKeyCode() == KeyEvent.VK_DOWN) && VOLUME_BEEP_PENDING) {
+                VOLUME_BEEP_PENDING = false;
+                Audio.refreshALLVolumes(true);
             }
 
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);

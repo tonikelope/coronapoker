@@ -5731,6 +5731,13 @@ public class Helpers {
                     }
                 };
 
+                Action screenshotsAction = new AbstractAction(Translator.translate("menu.visor_capturas")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getScreenshots_menu().doClick();
+                    }
+                };
+
                 Action rulesAction = new AbstractAction(Translator.translate("menu.reglas_robert")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -6024,6 +6031,10 @@ public class Helpers {
                 JMenuItem log = new LeftClickMenuItem(registroAction);
                 log.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/log.png")));
                 popup.add(log);
+
+                JMenuItem screenshots = new LeftClickMenuItem(screenshotsAction);
+                screenshots.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/camera.png")));
+                popup.add(screenshots);
 
                 // El submenú "Apariencia" (VISTA_MENU) ya NO se añade al popup: todos
                 // sus ajustes viven en la pestaña "Apariencia" del diálogo "Ajustes". Se

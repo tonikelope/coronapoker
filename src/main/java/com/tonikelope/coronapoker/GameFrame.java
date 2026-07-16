@@ -3578,6 +3578,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         partida_local = partidalocal;
 
+        // La caché de imágenes de cartas/fichas/dorsos (Card.updateCachedImages) es DERIVADA del
+        // zoom, pero el spinner de zoom del lanzador (Ajustes fuera de partida) solo fija ZOOM_LEVEL
+        // sin rebobinarla, porque el inicio no muestra cartas contra las que previsualizar. Sin esto,
+        // cambiar el zoom en el inicio y empezar timba en la MISMA sesión montaba la mesa con cartas a
+        // la escala de la caché anterior (hasta ahora solo la reconstruía Init al arrancar la app o un
+        // cambio de zoom en partida). Se sincroniza aquí, donde la caché se consume, ANTES de montar la
+        // mesa para que las cartas nazcan a su tamaño real con cualquier ZOOM_LEVEL (incluido 0, en el
+        // que el zoom() de arranque no se aplica). force=false la deja intacta si ya está correcta.
+        Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+
         tapete = TablePanelFactory.getPanel(getParticipantes().size());
 
         Player[] players = tapete.getPlayers();

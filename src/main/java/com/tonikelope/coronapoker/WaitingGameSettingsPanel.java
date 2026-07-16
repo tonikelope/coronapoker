@@ -88,6 +88,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox think_time_checkbox;
     private javax.swing.JLabel think_time_label;
     private javax.swing.JSpinner think_time_spinner;
+    // Tiempo de showdown: sin casilla (la pausa no se puede desactivar).
+    private javax.swing.JLabel showdown_time_label;
+    private javax.swing.JSpinner showdown_time_spinner;
     private javax.swing.JCheckBox iwtsth_checkbox;
     private javax.swing.JLabel iwtsth_label;
     private javax.swing.JCheckBox rit_checkbox;
@@ -154,6 +157,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         Helpers.setTranslatedToolTip(think_time_checkbox, "tooltip.cfg.think_time");
         Helpers.setTranslatedToolTip(think_time_label, "tooltip.cfg.think_time");
         Helpers.setTranslatedToolTip(think_time_spinner, "tooltip.cfg.think_time");
+        Helpers.setTranslatedToolTip(showdown_time_label, "tooltip.cfg.showdown_time");
+        Helpers.setTranslatedToolTip(showdown_time_spinner, "tooltip.cfg.showdown_time");
         Helpers.setTranslatedToolTip(iwtsth_checkbox, "tooltip.cfg.iwtsth");
         Helpers.setTranslatedToolTip(iwtsth_label, "tooltip.cfg.iwtsth");
         Helpers.setTranslatedToolTip(rit_checkbox, "tooltip.cfg.rit");
@@ -237,6 +242,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private String controlsSignature() {
         return manos_checkbox.isSelected() + "|" + manos_spinner.getValue() + "|"
                 + think_time_checkbox.isSelected() + "|" + think_time_spinner.getValue() + "|"
+                + showdown_time_spinner.getValue() + "|"
                 + iwtsth_checkbox.isSelected() + "|" + rit_checkbox.isSelected() + "|"
                 + rabbit_combo.getSelectedIndex() + "|" + ciegas_combobox.getSelectedIndex() + "|"
                 + doblar_checkbox.isSelected() + "|" + double_blinds_radio_minutos.isSelected() + "|"
@@ -292,6 +298,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         GameFrame.MANOS = manos_checkbox.isSelected() ? ((Number) manos_spinner.getValue()).intValue() : -1;
         GameFrame.THINK_TIME = Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, ((Number) think_time_spinner.getValue()).intValue()));
         GameFrame.THINK_TIME_ENABLED = think_time_checkbox.isSelected();
+        GameFrame.SHOWDOWN_TIME = Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, ((Number) showdown_time_spinner.getValue()).intValue()));
         GameFrame.IWTSTH_RULE = iwtsth_checkbox.isSelected();
         GameFrame.RUN_IT_TWICE = rit_checkbox.isSelected();
         GameFrame.RABBIT_HUNTING = rabbit_combo.getSelectedIndex();
@@ -317,6 +324,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         manos_spinner.setEnabled(e);
         think_time_checkbox.setEnabled(e);
         think_time_spinner.setEnabled(e);
+        showdown_time_spinner.setEnabled(e);
         iwtsth_checkbox.setEnabled(e);
         rit_checkbox.setEnabled(e);
         rabbit_combo.setEnabled(e);
@@ -389,6 +397,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         think_time_checkbox = new javax.swing.JCheckBox();
         think_time_label = new javax.swing.JLabel();
         think_time_spinner = new javax.swing.JSpinner();
+        showdown_time_label = new javax.swing.JLabel();
+        showdown_time_spinner = new javax.swing.JSpinner();
         iwtsth_checkbox = new javax.swing.JCheckBox();
         iwtsth_label = new javax.swing.JLabel();
         rit_checkbox = new javax.swing.JCheckBox();
@@ -487,6 +497,15 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         think_time_spinner.setModel(new javax.swing.SpinnerNumberModel(40, 10, 120, 5));
         think_time_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
+        showdown_time_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        showdown_time_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/clock.png")));
+        showdown_time_label.setText("Tiempo de showdown:");
+        showdown_time_label.putClientProperty("i18n.key", "newgame.tiempo_showdown");
+
+        showdown_time_spinner.setFont(new java.awt.Font("Dialog", 0, 16));
+        showdown_time_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 10, 30, 5));
+        showdown_time_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
         iwtsth_label.setFont(new java.awt.Font("Dialog", 1, 16));
         iwtsth_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png")));
         iwtsth_label.setText("Regla IWTSTH");
@@ -546,6 +565,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(rules_panelLayout.createSequentialGroup()
+                        .addComponent(showdown_time_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(rules_panelLayout.createSequentialGroup()
                         .addComponent(iwtsth_checkbox)
                         .addGap(0, 0, 0)
                         .addComponent(iwtsth_label))
@@ -572,6 +595,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                     .addComponent(think_time_checkbox)
                     .addComponent(think_time_label)
                     .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(showdown_time_label)
+                    .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(iwtsth_checkbox)
@@ -1547,6 +1574,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         s.handLimit = manos_checkbox.isSelected() ? ((Number) manos_spinner.getValue()).intValue() : -1;
         s.thinkTime = ((Number) think_time_spinner.getValue()).intValue();
         s.thinkTimeEnabled = think_time_checkbox.isSelected();
+        s.showdownTime = ((Number) showdown_time_spinner.getValue()).intValue();
         s.ante = ante_checkbox.isSelected();
         s.straddle = straddle_checkbox.isSelected();
         s.iwtsth = iwtsth_checkbox.isSelected();
@@ -1592,6 +1620,12 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             think_time_spinner.setEnabled(s.thinkTimeEnabled);
             think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, s.thinkTime)));
             Helpers.makeNumericSpinnerEditable(think_time_spinner, false);
+
+            // Sin casilla (la pausa siempre está activa); el estado read-only lo fija después
+            // applyReadOnlyState (cliente) / applyRecoverLockState lo deja editable (host recover).
+            showdown_time_spinner.setEnabled(true);
+            showdown_time_spinner.setValue(Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, s.showdownTime)));
+            Helpers.makeNumericSpinnerEditable(showdown_time_spinner, false);
 
             rebuy_checkbox.setSelected(s.rebuy);
             ante_checkbox.setSelected(s.ante);

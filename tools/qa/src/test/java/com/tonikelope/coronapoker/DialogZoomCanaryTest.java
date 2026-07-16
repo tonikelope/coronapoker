@@ -53,13 +53,13 @@ public class DialogZoomCanaryTest {
         EXPECTED.put("Reconnect2ServerDialog", 6);
         EXPECTED.put("BlindStructureManagerDialog", 11);
         EXPECTED.put("WaitingRoomFrame", 43);
-        EXPECTED.put("NewGameDialog", 52);
+        EXPECTED.put("NewGameDialog", 53);
         EXPECTED.put("StatsDialog", 48);
         EXPECTED.put("GameLogDialog", 21);
         EXPECTED.put("SettingsDialog", 7);
         EXPECTED.put("AppearanceSettingsPanel", 32);
         EXPECTED.put("AudioSettingsPanel", 12);
-        EXPECTED.put("GameSettingsPanel", 15);
+        EXPECTED.put("GameSettingsPanel", 16);
         EXPECTED.put("ChatImageDialog", 2);
         EXPECTED.put("CoronaHTMLEditorKit", 1);
         EXPECTED.put("IdenticonDialog", 9);

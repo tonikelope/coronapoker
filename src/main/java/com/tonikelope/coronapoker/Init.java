@@ -1146,6 +1146,7 @@ public class Init extends JFrame {
         GameFrame.RABBIT_HUNTING = 0;
         GameFrame.THINK_TIME = GameFrame.DEFAULT_THINK_TIME;
         GameFrame.THINK_TIME_ENABLED = true;
+        GameFrame.SHOWDOWN_TIME = GameFrame.DEFAULT_SHOWDOWN_TIME;
 
         NewGameDialog dialog = new NewGameDialog(this, true, true);
 

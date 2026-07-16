@@ -3583,13 +3583,17 @@ public class WaitingRoomFrame extends JFrame {
                                                             // longitud por si faltan (default = DEFAULT_THINK_TIME / activo).
                                                             GameFrame.THINK_TIME = partes_comando.length > 22 ? Integer.parseInt(partes_comando[22]) : GameFrame.DEFAULT_THINK_TIME;
                                                             GameFrame.THINK_TIME_ENABLED = partes_comando.length <= 23 || "1".equals(partes_comando[23]);
+                                                            // Tiempo de pausa del showdown (segundos, índice 24): campo FIJO antes
+                                                            // de la estructura; el cliente muestra el resultado el mismo tiempo que
+                                                            // el host. Guarda de longitud por si falta (default = DEFAULT_SHOWDOWN_TIME).
+                                                            GameFrame.SHOWDOWN_TIME = partes_comando.length > 24 ? Integer.parseInt(partes_comando[24]) : GameFrame.DEFAULT_SHOWDOWN_TIME;
                                                             // Estructura de ciegas personalizada (campo opcional al final, ahora
-                                                            // en el índice 24): el cliente recomputa la escalada con la MISMA
+                                                            // en el índice 25): el cliente recomputa la escalada con la MISMA
                                                             // lista que el host. Ausente = escalera por defecto (null). Nunca
                                                             // conservar una estructura stale de una partida anterior.
-                                                            if (partes_comando.length > 24 && !partes_comando[24].isEmpty()) {
+                                                            if (partes_comando.length > 25 && !partes_comando[25].isEmpty()) {
                                                                 try {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[24]);
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[25]);
                                                                 } catch (IllegalArgumentException blinds_ex) {
                                                                     LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed or invalid; falling back to default", blinds_ex);
                                                                     GameFrame.ACTIVE_BLIND_STRUCTURE = null;

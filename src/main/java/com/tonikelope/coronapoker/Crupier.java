@@ -453,7 +453,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
-    public static final int PAUSA_ENTRE_MANOS = 10; // Segundos
+    // La pausa del showdown (segundos que se muestra el resultado antes de la siguiente mano) es
+    // configurable por timba: vive en GameFrame.SHOWDOWN_TIME (default 10, rango 10-30). Escala
+    // x0.5/x1.5 segun side pots en los llamadores de pausaConBarra.
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; // Segundos
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 30000;
@@ -5272,9 +5274,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
             }
 
-            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
         } else if (isLocal) {
-            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
         }
     }
 
@@ -5629,7 +5631,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 // BLINDAJE V61: Si el server nos hace un echo de nuestro propio paquete en un cliente remoto, LO IGNORAMOS.
                 if (!GameFrame.getInstance().isPartida_local() && jugador.equals(GameFrame.getInstance().getLocalPlayer())) {
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
                     return false;
                 }
 
@@ -5777,9 +5779,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         });
                     }
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
                 } else {
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
                 }
                 return decrypted;
             }
@@ -12172,7 +12174,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // bucle principal) es crítico aquí: esta pausa corre BAJO
             // lock_contabilidad y finTransmision se queda esperando ese lock,
             // así que isFin_de_la_transmision() jamás puede izarse a tiempo.
-            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? PAUSA_ENTRE_MANOS : Math.round(1.5f * PAUSA_ENTRE_MANOS));
+            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? GameFrame.SHOWDOWN_TIME : Math.round(1.5f * GameFrame.SHOWDOWN_TIME));
         }
 
         // ---- SIDE-B: rewind + reparto ----
@@ -17589,6 +17591,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // campo opcional de estructura, para que el cliente arranque con el mismo
                     // tiempo de pensar (o sin limite) que fijo el host al crear/configurar.
                     + "#" + String.valueOf(GameFrame.THINK_TIME) + "#" + (GameFrame.THINK_TIME_ENABLED ? "1" : "0")
+                    // Tiempo de pausa del showdown (segundos): campo FIJO, ANTES del campo opcional de
+                    // estructura, para que el cliente muestre el resultado de la mano el mismo tiempo
+                    // que el host (los clientes tambien corren pausaConBarra/setTiempo_pausa).
+                    + "#" + String.valueOf(GameFrame.SHOWDOWN_TIME)
                     // Estructura de ciegas personalizada (campo opcional al final): los
                     // clientes recomputan la escalada por su cuenta, así que TODOS deben
                     // caminar la misma lista o desincronizan al subir las ciegas. Solo se
@@ -18064,7 +18070,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             if (!GameFrame.TEST_MODE) {
                                 if (getJugadoresActivos() > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
-                                    this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? ((resisten.size() > 1 || GameFrame.RABBIT_HUNTING != 0) ? PAUSA_ENTRE_MANOS : Math.round(0.5f * PAUSA_ENTRE_MANOS)) : Math.round(1.5f * PAUSA_ENTRE_MANOS));
+                                    this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? ((resisten.size() > 1 || GameFrame.RABBIT_HUNTING != 0) ? GameFrame.SHOWDOWN_TIME : Math.round(0.5f * GameFrame.SHOWDOWN_TIME)) : Math.round(1.5f * GameFrame.SHOWDOWN_TIME));
                                 }
 
                                 if (this.iwtsthing) {

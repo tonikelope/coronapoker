@@ -811,7 +811,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // fail -> abortAndExit broadcast SERVEREXIT al resto. Pero
                 // ESTE peer (con socket ya cerrado) no recibira SERVEREXIT,
                 // asi que dispara local su propio finTransmision sin
-                // force_recover -> BalanceDialog final. Sin esto, el peer
+                // force_recover -> BalanceScreen final. Sin esto, el peer
                 // que detecta el ataque quedaria con GameFrame abierto
                 // esperando algo que no llega.
                 try {
@@ -3256,7 +3256,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Conteo animado de stacks a TIEMPO CONSTANTE: duracion fija STACK_FILL_MS para
     // TODOS, asi acaban a la vez aunque tengan stacks distintos (buy-in variable) —
     // a velocidad constante se escalonarian. Interpolacion LINEAL, SIN frenadita: la
-    // frenadita (ease-out) y el parpadeo son sello del contador final (BalanceDialog),
+    // frenadita (ease-out) y el parpadeo son sello del contador final (BalanceScreen),
     // no de esta cortinilla. Palanca facil si el autor lo quiere mas rapido/lento.
     private static final long STACK_FILL_MS = 1000;
 
@@ -6844,7 +6844,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (broadcast && GameFrame.getInstance().isPartida_local()) {
             // Violacion zero-trust = ataque o protocolo roto: la timba acaba,
-            // BalanceDialog final, NO se vuelve a sala de espera. Cualquier otro
+            // BalanceScreen final, NO se vuelve a sala de espera. Cualquier otro
             // motivo (peer caido normal, etc.) sigue por el flujo de recover.
             if (motivo != null && motivo.startsWith("zero_trust.")) {
                 abortAndExit();
@@ -6968,12 +6968,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void abortAndExit() {
         // Violacion zero-trust detectada: la timba acaba. Broadcast SERVEREXIT
-        // (no RECOVER) y finTransmision sin force_recover -> BalanceDialog
+        // (no RECOVER) y finTransmision sin force_recover -> BalanceScreen
         // final con el balance al momento del ultimo refund. No reconexion,
         // no sala de espera. Fin punto.
-        LOGGER.log(Level.WARNING, "ZERO-TRUST: abortAndExit engaged — broadcasting SERVEREXIT and routing everyone to BalanceDialog (game over)");
+        LOGGER.log(Level.WARNING, "ZERO-TRUST: abortAndExit engaged — broadcasting SERVEREXIT and routing everyone to BalanceScreen (game over)");
         // NO setForce_recover(true) — queremos que finTransmision detecte
-        // force_recover=false y vaya a la rama BalanceDialog.
+        // force_recover=false y vaya a la rama BalanceScreen.
         Helpers.threadRun(() -> {
             try {
                 broadcastGAMECommandFromServer("SERVEREXIT", null, false);

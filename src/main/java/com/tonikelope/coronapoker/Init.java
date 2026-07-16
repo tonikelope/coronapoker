@@ -1233,6 +1233,10 @@ public class Init extends JFrame {
     // alterna idioma y bandera. Se dibujan por código (sin añadir ficheros de imagen).
     private javax.swing.JLabel language_flag;
 
+    // Acceso al visor de capturas (CTRL+P): icono de cámara a la derecha de la bandera, en la
+    // barra inferior. Escala con la ventana igual que ajustes/sonido (chip de 30 en applyInitScale).
+    private javax.swing.JLabel screenshot_icon;
+
     // Alto BASE = el de los iconos de ajustes/sonido (30); ancho rectangular 3:2. La banderita
     // se redibuja al tamaño ACTUAL (flag_w/flag_h) porque la botonera escala con la ventana.
     private static final int FLAG_H = 30;
@@ -1253,8 +1257,22 @@ public class Init extends JFrame {
             }
         });
 
+        // Icono de cámara (a la derecha de la bandera) que abre el visor de capturas.
+        screenshot_icon = new javax.swing.JLabel();
+        screenshot_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        Helpers.setScaledIconLabel(screenshot_icon, getClass().getResource("/images/menu/camera.png"), FLAG_H, FLAG_H);
+        Helpers.setTranslatedToolTip(screenshot_icon, "ui.tooltip_visor_capturas");
+        screenshot_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                if (Helpers.isRealClick(e)) {
+                    ScreenshotViewerDialog.open(Init.this);
+                }
+            }
+        });
+
         // Reconstruye la barra inferior (jPanel1) sustituyendo el combo por la bandera:
-        // [ SALIR (crece) ] [ bandera ] [ ajustes ] [ sonido ], centrado en vertical.
+        // [ SALIR (crece) ] [ bandera ] [ cámara ] [ ajustes ] [ sonido ], centrado en vertical.
         jPanel1.remove(language_combobox);
         javax.swing.GroupLayout gl = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(gl);
@@ -1267,6 +1285,8 @@ public class Init extends JFrame {
                         .addGap(16)
                         .addComponent(language_flag, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(14)
+                        .addComponent(screenshot_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(14)
                         .addComponent(settings_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(10)
                         .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1275,6 +1295,7 @@ public class Init extends JFrame {
                 gl.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                         .addComponent(exit_button)
                         .addComponent(language_flag)
+                        .addComponent(screenshot_icon)
                         .addComponent(settings_icon)
                         .addComponent(sound_icon)
         );
@@ -1433,6 +1454,9 @@ public class Init extends JFrame {
         updateLanguageFlag();
         settings_icon.setPreferredSize(new java.awt.Dimension(chip, chip));
         Helpers.setScaledBlackIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), chip, chip);
+        // Cámara del visor de capturas: a COLOR (icono nativo), mismo tamaño chip que ajustes/sonido.
+        screenshot_icon.setPreferredSize(new java.awt.Dimension(chip, chip));
+        Helpers.setScaledIconLabel(screenshot_icon, getClass().getResource("/images/menu/camera.png"), chip, chip);
         applySoundIconScaled();
 
         // Re-layout + REPINTADO COMPLETO del tapete (evita estelas de los botones no-opacos).

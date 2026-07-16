@@ -222,7 +222,7 @@ public class NewGameDialog extends JDialog {
         this.think_time_spinner.setEnabled(GameFrame.THINK_TIME_ENABLED);
 
         // Tiempo de showdown: arranca con el último valor de sesión; por defecto
-        // GameFrame.DEFAULT_SHOWDOWN_TIME (10 s). El spinner ya acota al rango 10-30.
+        // GameFrame.DEFAULT_SHOWDOWN_TIME (10 s). El spinner ya acota al rango 5-30.
         this.showdown_time_spinner.setValue(Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, GameFrame.SHOWDOWN_TIME)));
 
         titulo_ventana.setText(loc ? Translator.translate("game.crear_timba") : Translator.translate("game.unirme_a_timba"));
@@ -1235,7 +1235,7 @@ public class NewGameDialog extends JDialog {
         think_time_spinner.setModel(new javax.swing.SpinnerNumberModel(40, 10, 120, 5));
         think_time_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        // Tiempo de pausa del showdown: etiqueta con icono (reloj) + spinner de segundos (10-30,
+        // Tiempo de pausa del showdown: etiqueta con icono (reloj) + spinner de segundos (5-30,
         // def 10). Sin casilla: la pausa siempre está activa, solo se ajusta su duración.
         showdown_time_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         showdown_time_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/clock.png"))); // NOI18N
@@ -1243,7 +1243,7 @@ public class NewGameDialog extends JDialog {
         showdown_time_label.setDoubleBuffered(true);
 
         showdown_time_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        showdown_time_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 10, 30, 5));
+        showdown_time_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, 30, 5));
         showdown_time_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         // Cada regla: checkbox (sin texto) + etiqueta con icono y texto (primero el

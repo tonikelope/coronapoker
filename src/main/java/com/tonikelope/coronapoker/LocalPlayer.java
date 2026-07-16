@@ -1873,7 +1873,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             bet_spinner.setEnabled(false);
 
                             AutoActionDialog dlg = new AutoActionDialog(
-                                    GameFrame.getInstance(), LocalPlayer.this, botonera, GameFrame.AUTO_CONFIRM_SECONDS,
+                                    LocalPlayer.this, botonera, GameFrame.AUTO_CONFIRM_SECONDS,
                                     Translator.translate(action_key),
                                     () -> getDecision() == Player.NODEC,
                                     (cancelled) -> {
@@ -1912,7 +1912,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         }
                                     });
                             auto_action_dialog = dlg;
-                            dlg.setVisible(true);
+                            dlg.showOn(GameFrame.getInstance().getTapete());
 
                         } else {
 

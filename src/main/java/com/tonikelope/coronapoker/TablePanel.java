@@ -2049,10 +2049,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             call_cost_label.setVisible(false);
             hidePlayerCallCostOverlays();
 
-            // El diálogo del MODO AUTO vive en su propia ventana (no en la
-            // jerarquía del tapete): al ocultar la mesa —salir de la timba, fin
-            // de partida— quedaría flotando sobre el balance. Lo cerramos como
-            // cancelado (la mano ya terminó, no ejecuta ninguna acción).
+            // El MODO AUTO ahora es un overlay dentro del propio tapete (capa POPUP).
+            // Al ocultar la mesa —salir de la timba, fin de partida— lo cerramos como
+            // cancelado (la mano ya terminó, no ejecuta ninguna acción); cancel() lo
+            // quita del tapete y restaura la botonera.
             LocalPlayer local_player = GameFrame.getInstance().getLocalPlayer();
 
             if (local_player != null && local_player.getAuto_action_dialog() != null) {

@@ -11281,13 +11281,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final java.awt.Component c1 = straddler.getHoleCard1();
         final java.awt.Component c2 = straddler.getHoleCard2();
         Helpers.GUIRun(() -> {
-            VoluntaryStraddleDialog dlg = new VoluntaryStraddleDialog(GameFrame.getInstance(), c1, c2,
+            VoluntaryStraddleDialog dlg = new VoluntaryStraddleDialog(c1, c2,
                     STRADDLE_DECISION_TIMEOUT, amount_text, (ans) -> {
                         result[0] = ans;
                         latch.countDown();
                     });
             this.straddle_local_dialog = dlg;
-            dlg.setVisible(true);
+            dlg.showOn(GameFrame.getInstance().getTapete());
         });
         try {
             // El diálogo se auto-resuelve a los 5 s (o antes por botón); +3 s de margen.

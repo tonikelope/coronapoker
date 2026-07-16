@@ -33,7 +33,6 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -41,12 +40,12 @@ import java.awt.Point;
 import java.util.function.IntConsumer;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
-import javax.swing.WindowConstants;
+import javax.swing.SwingUtilities;
 
 /**
  * Straddle voluntario: tras repartir, el UTG decide a ciegas (cartas boca abajo)
@@ -61,7 +60,7 @@ import javax.swing.WindowConstants;
  *
  * @author tonikelope
  */
-public class VoluntaryStraddleDialog extends JDialog {
+public class VoluntaryStraddleDialog extends JPanel {
 
     public static final int NO_STRADDLE = 0;
     public static final int POST_STRADDLE = 1;
@@ -72,6 +71,11 @@ public class VoluntaryStraddleDialog extends JDialog {
 
     private final IntConsumer on_resolve;
 
+    // Anclas: las dos hole cards tapadas del UTG local. Guardadas para posicionar el
+    // overlay sobre el tapete en showOn (en coordenadas del tapete, no de pantalla).
+    private final Component card1;
+    private final Component card2;
+
     // Resolución de un solo disparo. Cierra el diálogo e invoca el callback en el
     // EDT con el resultado (1 = pone straddle, 0 = no).
     private synchronized void resolve(int result) {
@@ -81,7 +85,7 @@ public class VoluntaryStraddleDialog extends JDialog {
         resolved = true;
         Helpers.GUIRun(() -> {
             Helpers.resetBarra(barra, 0);
-            dispose();
+            removeFromParent();
             if (on_resolve != null) {
                 on_resolve.accept(result);
             }
@@ -96,19 +100,19 @@ public class VoluntaryStraddleDialog extends JDialog {
         resolve(NO_STRADDLE);
     }
 
-    public VoluntaryStraddleDialog(Frame parent, Component card1, Component card2, int seconds, String amount_text, IntConsumer on_resolve) {
+    public VoluntaryStraddleDialog(Component card1, Component card2, int seconds, String amount_text, IntConsumer on_resolve) {
 
-        super(parent, false);
+        super();
 
         this.on_resolve = on_resolve;
+        this.card1 = card1;
+        this.card2 = card2;
 
-        setUndecorated(true);
-        setResizable(false);
-        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(BorderFactory.createLineBorder(new Color(255, 102, 0), 10));
+        // El overlay ES el panel (blanco, borde naranja): se monta sobre el tapete.
+        setOpaque(true);
+        setLayout(new GridBagLayout());
+        setBackground(Color.WHITE);
+        setBorder(BorderFactory.createLineBorder(new Color(255, 102, 0), 10));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
@@ -123,7 +127,7 @@ public class VoluntaryStraddleDialog extends JDialog {
         title.setForeground(new Color(255, 102, 0));
         title.setHorizontalAlignment(SwingConstants.CENTER);
         title.setFocusable(false);
-        panel.add(title, gbc);
+        add(title, gbc);
 
         JLabel amount = null;
 
@@ -134,12 +138,12 @@ public class VoluntaryStraddleDialog extends JDialog {
             amount.setForeground(Color.BLACK);
             amount.setHorizontalAlignment(SwingConstants.CENTER);
             amount.setFocusable(false);
-            panel.add(amount, gbc);
+            add(amount, gbc);
         }
 
         gbc.gridy++;
         barra.setPreferredSize(new Dimension(Math.round(220 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM)));
-        panel.add(barra, gbc);
+        add(barra, gbc);
 
         // Botones lado a lado: PONER (verde) a la izquierda, NO (rojo) a la derecha.
         gbc.gridy++;
@@ -155,7 +159,7 @@ public class VoluntaryStraddleDialog extends JDialog {
         post.setFocusable(false);
         post.addActionListener((java.awt.event.ActionEvent e) -> resolve(POST_STRADDLE));
         gbc.gridx = 0;
-        panel.add(post, gbc);
+        add(post, gbc);
 
         JButton no = new JButton(Translator.translate("straddle.dialog_no"));
         no.putClientProperty("i18n.key", "straddle.dialog_no");
@@ -166,37 +170,23 @@ public class VoluntaryStraddleDialog extends JDialog {
         no.setFocusable(false);
         no.addActionListener((java.awt.event.ActionEvent e) -> resolve(NO_STRADDLE));
         gbc.gridx = 1;
-        panel.add(no, gbc);
+        add(no, gbc);
 
-        setContentPane(panel);
-
-        // No-modal: que no robe el foco del teclado al tablero. Los botones siguen
-        // respondiendo al ratón aunque la ventana no sea focusable.
-        setFocusableWindowState(false);
-
+        // Como componente ligero no roba el foco del teclado al tablero; los botones
+        // siguen respondiendo al ratón. Escala por DIALOG_ZOOM igual que un diálogo.
         Helpers.applyDialogZoom(this);
         Helpers.translateComponents(this, false);
 
-        // Anclaje sobre las DOS hole cards tapadas: misma anchura que abarcan ambas
-        // (borde izq. de la primera → borde dcho. de la segunda) y centrado vertical
-        // respecto a su altura. Los rótulos se reajustan a esa anchura ANTES de
-        // empaquetar para que la altura salga correcta. Si las cartas no se están
-        // mostrando, cae al centro del owner con el tamaño natural.
-        boolean anchored = card1 != null && card1.isShowing() && card2 != null && card2.isShowing();
-
-        int span = 0;
-        int left = 0;
-        int top = 0;
-        int cards_h = 0;
-
-        if (anchored) {
+        // Los rótulos se reajustan a la anchura que abarcan las dos hole cards ANTES de
+        // que el layout calcule el alto (para que salga correcto). El span (diferencia de
+        // coordenadas) es invariante a la traslación, así que aquí sirve getLocationOnScreen;
+        // la POSICIÓN definitiva se calcula en showOn, en coordenadas del tapete.
+        if (card1 != null && card1.isShowing() && card2 != null && card2.isShowing()) {
             Point a1 = card1.getLocationOnScreen();
             Point a2 = card2.getLocationOnScreen();
-            left = Math.min(a1.x, a2.x);
+            int left = Math.min(a1.x, a2.x);
             int right = Math.max(a1.x + card1.getWidth(), a2.x + card2.getWidth());
-            span = right - left;
-            top = Math.min(a1.y, a2.y);
-            cards_h = Math.max(card1.getHeight(), card2.getHeight());
+            int span = right - left;
 
             // Ancho útil = vano − borde (10 px a cada lado) − insets (14 px a cada lado).
             int avail = span - 2 * 10 - 2 * 14;
@@ -206,15 +196,6 @@ public class VoluntaryStraddleDialog extends JDialog {
                     amount.setFont(Helpers.fitFontToWidth(amount, amount.getText(), amount.getFont(), avail, 11));
                 }
             }
-        }
-
-        pack();
-
-        if (anchored) {
-            setSize(Math.max(span, getWidth()), getHeight());
-            setLocation(left, top + (cards_h - getHeight()) / 2);
-        } else {
-            setLocationRelativeTo(parent);
         }
 
         // Cuenta atrás en background. Resuelve por callback: timeout o fin de partida
@@ -248,5 +229,47 @@ public class VoluntaryStraddleDialog extends JDialog {
                 resolve(NO_STRADDLE);
             }
         });
+    }
+
+    // Monta el overlay sobre el tapete (JLayeredPane), anclado abarcando las dos hole
+    // cards tapadas del UTG y centrado verticalmente respecto a su altura, en coordenadas
+    // del tapete. Sustituye al setLocation en coordenadas de PANTALLA del antiguo JDialog,
+    // que algunos gestores de ventanas de Linux ignoraban (la ventana caía a 0,0).
+    public void showOn(TablePanel tapete) {
+        if (tapete == null) {
+            return;
+        }
+
+        if (card1 != null && card1.isShowing() && card2 != null && card2.isShowing()) {
+            Point a1 = SwingUtilities.convertPoint(card1, 0, 0, tapete);
+            Point a2 = SwingUtilities.convertPoint(card2, 0, 0, tapete);
+            int left = Math.min(a1.x, a2.x);
+            int right = Math.max(a1.x + card1.getWidth(), a2.x + card2.getWidth());
+            int span = right - left;
+            int top = Math.min(a1.y, a2.y);
+            int cards_h = Math.max(card1.getHeight(), card2.getHeight());
+            int h = getPreferredSize().height;
+            int w = Math.max(span, getPreferredSize().width);
+            setBounds(left, top + (cards_h - h) / 2, w, h);
+        } else {
+            Dimension pref = getPreferredSize();
+            setBounds((tapete.getWidth() - pref.width) / 2, (tapete.getHeight() - pref.height) / 2, pref.width, pref.height);
+        }
+
+        // Capa por encima de las cartas/fichas voladoras (DRAG_LAYER): el straddle aparece
+        // justo tras repartir y debe quedar SIEMPRE visible sobre el tapete.
+        tapete.add(this, Integer.valueOf(JLayeredPane.DRAG_LAYER + 100));
+        tapete.revalidate();
+        tapete.repaint();
+    }
+
+    // Quita el overlay del tapete (sustituye al dispose() del antiguo JDialog). EDT-only.
+    private void removeFromParent() {
+        java.awt.Container p = getParent();
+        if (p != null) {
+            java.awt.Rectangle b = getBounds();
+            p.remove(this);
+            p.repaint(b.x, b.y, b.width, b.height);
+        }
     }
 }

@@ -1294,7 +1294,7 @@ public class WaitingRoomFrame extends JFrame {
     // sin esta consulta el reader detecta el cierre del host ANTES de
     // exit=true (carrera host-termina-primero, p.ej. host arruinado que pasa
     // a espectador y deja la timba con un solo jugador) y dispara
-    // reconexiones espurias con sus banners encima del BalanceDialog.
+    // reconexiones espurias con sus banners encima del BalanceScreen.
     private boolean timbaTerminada() {
         return isPartida_empezada() && GameFrame.getInstance() != null
                 && GameFrame.getInstance().getCrupier() != null

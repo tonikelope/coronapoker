@@ -513,9 +513,10 @@ public class BalanceScreen extends JPanel {
         subtitle.setBorder(BorderFactory.createEmptyBorder(6, 24, 2, 24));
         subtitle.putClientProperty("fit.width", fit_w);
 
-        // Total de manos jugadas en la timba (acumulativo, se restaura al recuperar), junto a la
-        // duración: getMano() es el número de la mano en curso, que en el fin de timba equivale al
-        // total jugado. Singular/plural para no mostrar "1 manos".
+        // Total de manos jugadas en la timba (acumulativo, se restaura al recuperar), tras la
+        // duración y entre corchetes: getMano() es el número de la mano en curso, que en el fin de
+        // timba equivale al total jugado. Singular/plural para no mostrar "1 manos". Formato:
+        // "fecha   (duración)   [N manos]".
         int manos = 0;
         try {
             manos = GameFrame.getInstance().getCrupier().getMano();
@@ -523,7 +524,7 @@ public class BalanceScreen extends JPanel {
         }
         String manos_txt = manos + " " + Translator.translate(manos == 1 ? "balance.mano" : "balance.manos");
 
-        JLabel date = new JLabel(Helpers.getFechaHoraActual() + "   (" + Helpers.seconds2FullTime(GameFrame.getInstance().getConta_tiempo_juego()) + " · " + manos_txt + ")", SwingConstants.CENTER);
+        JLabel date = new JLabel(Helpers.getFechaHoraActual() + "   (" + Helpers.seconds2FullTime(GameFrame.getInstance().getConta_tiempo_juego()) + ")   [" + manos_txt + "]", SwingConstants.CENTER);
         date.setForeground(tapete_color);
         date.setFont(new Font("Dialog", Font.PLAIN, Math.round(date_size)));
         date.setBorder(BorderFactory.createEmptyBorder(2, 16, 6, 16));

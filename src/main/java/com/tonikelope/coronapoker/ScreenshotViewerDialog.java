@@ -206,6 +206,17 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         copy_menu_item.addActionListener(e -> copyCurrentImageToClipboard());
         image_popup.add(copy_menu_item);
 
+        // Borrar la captura visible (con confirmación).
+        JMenuItem delete_menu_item = new JMenuItem(Translator.translate("ui.borrar_captura"));
+        delete_menu_item.setFont(item_font.deriveFont(java.awt.Font.PLAIN, 16f * Helpers.DIALOG_ZOOM));
+        try {
+            delete_menu_item.setIcon(new ImageIcon(getClass().getResource("/images/menu/remove.png")));
+        } catch (Exception ex) {
+            // sin icono si el recurso no está disponible: el texto basta
+        }
+        delete_menu_item.addActionListener(e -> deleteCurrent());
+        image_popup.add(delete_menu_item);
+
         image_view.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
@@ -265,8 +276,13 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         });
     }
 
-    // Relee el directorio de capturas y ordena de la más nueva a la más antigua.
     private void reload() {
+        reload(0);
+    }
+
+    // Relee el directorio de capturas (más nueva primero) y muestra la de target_index, acotado al
+    // rango disponible; si no queda ninguna, pasa al estado "sin capturas".
+    private void reload(int target_index) {
 
         shots = new ArrayList<>();
 
@@ -284,9 +300,8 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
 
         shots.sort((Shot a, Shot b) -> Long.compare(b.created, a.created));
 
-        index = 0;
-
         if (shots.isEmpty()) {
+            index = 0;
             load_token++; // invalida cualquier carga en vuelo
             title_label.setText(Translator.translate("ui.no_capturas"));
             setCurrentImage(null);
@@ -295,7 +310,7 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
             getContentPane().revalidate();
             getContentPane().repaint();
         } else {
-            showIndex(0);
+            showIndex(Math.max(0, Math.min(target_index, shots.size() - 1)));
         }
     }
 
@@ -396,6 +411,24 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
                 }
             });
         });
+    }
+
+    // Borra del disco la captura visible (tras confirmar) y REFRESCA el visor manteniéndose en la
+    // misma posición: la siguiente captura ocupa el hueco (o la anterior si se borró la última). Si
+    // no queda ninguna, pasa al estado "sin capturas".
+    private void deleteCurrent() {
+        if (shots.isEmpty() || index < 0 || index >= shots.size()) {
+            return;
+        }
+        File file = shots.get(index).file;
+        if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("ui.borrar_captura_confirm")) != javax.swing.JOptionPane.YES_OPTION) {
+            return;
+        }
+        if (!file.delete() && file.exists()) {
+            Helpers.mostrarMensajeError(this, Translator.translate("ui.borrar_captura_error"));
+            return;
+        }
+        reload(index);
     }
 
     private static JButton arrowButton(String glyph) {

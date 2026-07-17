@@ -168,9 +168,15 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosed(java.awt.event.WindowEvent e) {
-                if (current_image != null) {
-                    current_image.flush();
-                    current_image = null;
+                // Suelta TODA la cadena que retendría la última captura tras cerrar:
+                // load_token++ descarta una decodificación en vuelo (que si no volvería a
+                // rellenar current_image); setCurrentImage(null) hace flush y deja a null
+                // tanto current_image como image_view.img (y para el timer del toast); y
+                // INSTANCE=null evita que el campo estático mantenga vivo el diálogo dispuesto.
+                load_token++;
+                setCurrentImage(null);
+                if (INSTANCE == ScreenshotViewerDialog.this) {
+                    INSTANCE = null;
                 }
             }
         });

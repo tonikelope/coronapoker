@@ -63,6 +63,7 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -2793,6 +2794,55 @@ public class Helpers {
         Clipboard clpbrd = Toolkit.getDefaultToolkit().getSystemClipboard();
         clpbrd.setContents(stringSelection, null);
 
+    }
+
+    /**
+     * Pushes the given BufferedImage to the system clipboard wrapped in a Transferable
+     * that exposes DataFlavor.imageFlavor (consumed by image-aware apps like Gimp,
+     * Photoshop, Telegram desktop, browsers, etc.). Returns false if the image is null
+     * or the clipboard is unreachable.
+     */
+    public static boolean copyImageToClipboard(BufferedImage img) {
+
+        if (img == null) {
+            return false;
+        }
+
+        try {
+            Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
+            cb.setContents(new ImageTransferable(img), null);
+            return true;
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Could not copy image to clipboard", ex);
+            return false;
+        }
+    }
+
+    private static final class ImageTransferable implements Transferable {
+
+        private final Image image;
+
+        ImageTransferable(Image image) {
+            this.image = image;
+        }
+
+        @Override
+        public DataFlavor[] getTransferDataFlavors() {
+            return new DataFlavor[]{DataFlavor.imageFlavor};
+        }
+
+        @Override
+        public boolean isDataFlavorSupported(DataFlavor flavor) {
+            return DataFlavor.imageFlavor.equals(flavor);
+        }
+
+        @Override
+        public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException, IOException {
+            if (!isDataFlavorSupported(flavor)) {
+                throw new UnsupportedFlavorException(flavor);
+            }
+            return image;
+        }
     }
 
     public static String genRandomString(int length) {

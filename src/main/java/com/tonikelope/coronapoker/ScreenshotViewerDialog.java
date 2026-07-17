@@ -51,7 +51,9 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 
@@ -88,6 +90,9 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
     private final JLabel title_label = new JLabel("", SwingConstants.CENTER);
     private final JButton prev_button = arrowButton("◀");
     private final JButton next_button = arrowButton("▶");
+    // Ítem del menú contextual para copiar: se deshabilita mientras el volcado al portapapeles está
+    // en curso (evita disparar copias concurrentes) y se rehabilita al terminar.
+    private final JMenuItem copy_menu_item = new JMenuItem();
     // Columnas laterales de ancho FIJO e IGUAL: reservan su sitio SIEMPRE, aunque su flecha se
     // oculte en un extremo, de modo que el área central sea simétrica y la imagen quede SIEMPRE
     // centrada en el diálogo (si la flecha estuviera directa en WEST/EAST, al ocultarse el CENTER
@@ -187,6 +192,39 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
 
         image_view.setBackground(BACKDROP);
         content.add(image_view, BorderLayout.CENTER);
+
+        // Menú contextual (clic derecho) sobre la imagen: copiar la captura al portapapeles.
+        final JPopupMenu image_popup = new JPopupMenu();
+        copy_menu_item.setText(Translator.translate("ui.copiar_imagen_portapapeles"));
+        java.awt.Font item_font = (Helpers.GUI_FONT != null ? Helpers.GUI_FONT : copy_menu_item.getFont());
+        copy_menu_item.setFont(item_font.deriveFont(java.awt.Font.PLAIN, 16f * Helpers.DIALOG_ZOOM));
+        try {
+            copy_menu_item.setIcon(new ImageIcon(getClass().getResource("/images/menu/copy.png")));
+        } catch (Exception ex) {
+            // sin icono si el recurso no está disponible: el texto basta
+        }
+        copy_menu_item.addActionListener(e -> copyCurrentImageToClipboard());
+        image_popup.add(copy_menu_item);
+
+        image_view.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                maybeShowPopup(e);
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                maybeShowPopup(e);
+            }
+
+            // isPopupTrigger es dependiente de plataforma (Windows=released, X11/macOS=pressed):
+            // se comprueba en ambos. Sin imagen visible no hay nada que copiar => no se muestra.
+            private void maybeShowPopup(java.awt.event.MouseEvent e) {
+                if (e.isPopupTrigger() && current_image != null) {
+                    image_popup.show(image_view, e.getX(), e.getY());
+                }
+            }
+        });
 
         prev_button.addActionListener(e -> showRelative(-1));
         next_button.addActionListener(e -> showRelative(1));
@@ -335,6 +373,31 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         image_view.setImage(img);
     }
 
+    // Copia la captura actualmente visible al portapapeles del sistema. Confirmación con un toast
+    // centrado sobre la imagen, o diálogo de error si el portapapeles no está disponible.
+    //
+    // El toast se pinta al instante (en el EDT) y la copia se hace FUERA del EDT: volcar una imagen
+    // grande al portapapeles del SO (conversión a DIB) es bloqueante y congelaría la ventana. Al
+    // hilo de fondo se le pasa una referencia estable a la imagen, inmune a que se navegue a otra.
+    private void copyCurrentImageToClipboard() {
+        if (current_image == null) {
+            return;
+        }
+        final BufferedImage img = current_image;
+        copy_menu_item.setEnabled(false); // congruencia + evita disparar copias concurrentes
+        image_view.showToast(Translator.translate("ui.imagen_copiada"));
+        Helpers.threadRun(() -> {
+            final boolean ok = Helpers.copyImageToClipboard(img);
+            Helpers.GUIRun(() -> {
+                copy_menu_item.setEnabled(true);
+                if (!ok) {
+                    image_view.hideToast();
+                    Helpers.mostrarMensajeError(this, Translator.translate("ui.copiar_imagen_error"));
+                }
+            });
+        });
+    }
+
     private static JButton arrowButton(String glyph) {
         JButton b = new JButton(glyph);
         b.setFont(b.getFont().deriveFont(java.awt.Font.BOLD, 28f));
@@ -355,10 +418,44 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
      */
     private static final class ScaledImageView extends JComponent {
 
+        // Duración visible del toast de confirmación (ms) antes de desvanecerse.
+        private static final int TOAST_MILLIS = 1500;
+
         private BufferedImage img = null;
+
+        // Toast de confirmación superpuesto (p. ej. "Imagen copiada"): texto actual (null = oculto)
+        // y timer de un disparo que lo borra. Todo se toca en el EDT (setImage/showToast/paint).
+        private String toast_text = null;
+        private javax.swing.Timer toast_timer = null;
 
         void setImage(BufferedImage image) {
             this.img = image;
+            hideToast(); // al cambiar de captura el toast de la anterior no debe arrastrarse
+            repaint();
+        }
+
+        // Muestra un mensaje centrado sobre la imagen (fondo negro, texto amarillo) que desaparece
+        // solo tras TOAST_MILLIS. Llamadas sucesivas reinician el reloj sin solaparse.
+        void showToast(String text) {
+            toast_text = text;
+            if (toast_timer != null) {
+                toast_timer.stop();
+            }
+            toast_timer = new javax.swing.Timer(TOAST_MILLIS, e -> {
+                toast_text = null;
+                repaint();
+            });
+            toast_timer.setRepeats(false);
+            toast_timer.start();
+            repaint();
+        }
+
+        void hideToast() {
+            if (toast_timer != null) {
+                toast_timer.stop();
+                toast_timer = null;
+            }
+            toast_text = null;
             repaint();
         }
 
@@ -372,30 +469,66 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
             g.setColor(getBackground());
             g.fillRect(0, 0, cw, ch);
 
-            if (img == null) {
-                return;
+            if (img != null) {
+                int iw = img.getWidth();
+                int ih = img.getHeight();
+
+                if (iw > 0 && ih > 0) {
+                    // Tope 100%: nunca se amplía por encima del tamaño nativo.
+                    double scale = Math.min(Math.min(cw / (double) iw, ch / (double) ih), 1.0);
+
+                    int dw = (int) Math.round(iw * scale);
+                    int dh = (int) Math.round(ih * scale);
+                    int x = (cw - dw) / 2;
+                    int y = (ch - dh) / 2;
+
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    try {
+                        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                        g2.drawImage(img, x, y, dw, dh, null);
+                    } finally {
+                        g2.dispose();
+                    }
+                }
             }
 
-            int iw = img.getWidth();
-            int ih = img.getHeight();
-
-            if (iw <= 0 || ih <= 0) {
-                return;
+            if (toast_text != null) {
+                paintToast((Graphics2D) g, cw, ch);
             }
+        }
 
-            // Tope 100%: nunca se amplía por encima del tamaño nativo.
-            double scale = Math.min(Math.min(cw / (double) iw, ch / (double) ih), 1.0);
+        // Rótulo redondeado centrado en el componente: caja negra + texto amarillo en GUI_FONT
+        // escalada por el zoom de diálogos.
+        private void paintToast(Graphics2D g, int cw, int ch) {
 
-            int dw = (int) Math.round(iw * scale);
-            int dh = (int) Math.round(ih * scale);
-            int x = (cw - dw) / 2;
-            int y = (ch - dh) / 2;
+            java.awt.Font base = (Helpers.GUI_FONT != null ? Helpers.GUI_FONT : getFont());
+            java.awt.Font font = base.deriveFont(java.awt.Font.BOLD, 30f * Helpers.DIALOG_ZOOM);
 
             Graphics2D g2 = (Graphics2D) g.create();
             try {
-                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                g2.drawImage(img, x, y, dw, dh, null);
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2.setFont(font);
+
+                java.awt.FontMetrics fm = g2.getFontMetrics();
+                int tw = fm.stringWidth(toast_text);
+                int th = fm.getAscent() + fm.getDescent();
+
+                int pad_x = Math.round(30f * Helpers.DIALOG_ZOOM);
+                int pad_y = Math.round(18f * Helpers.DIALOG_ZOOM);
+                int box_w = tw + pad_x * 2;
+                int box_h = th + pad_y * 2;
+                int bx = (cw - box_w) / 2;
+                int by = (ch - box_h) / 2;
+                int arc = Math.round(20f * Helpers.DIALOG_ZOOM);
+
+                // Caja negra semitransparente: deja entrever la captura por debajo.
+                g2.setColor(new Color(0, 0, 0, 185));
+                g2.fillRoundRect(bx, by, box_w, box_h, arc, arc);
+
+                g2.setColor(Color.YELLOW);
+                g2.drawString(toast_text, bx + pad_x, by + pad_y + fm.getAscent());
             } finally {
                 g2.dispose();
             }

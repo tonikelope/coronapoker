@@ -146,13 +146,10 @@ public class BalanceScreen extends JPanel {
     private javax.swing.Timer amount_roll_timer;
     private javax.swing.Timer amount_blink_timer;
 
-    // Captura automática de la pantalla final (ajuste GameFrame.SCREENSHOT_FIN_TIMBA, por defecto
-    // activo). One-shot que la dispara JUSTO al terminar el cálculo del resultado (fin del parpadeo
-    // del neto +/-, o de inmediato tras un breve margen en un empate), dejando asentado el pintado
-    // del estado definitivo. Se cancela si el jugador sale antes de que termine (stopAmountAnimation).
-    private javax.swing.Timer amount_screenshot_timer;
-    // Idempotencia + supresión de la captura: true una vez tomada, o si el jugador sale antes de que
-    // termine el cálculo (para no capturar una pantalla que se está desmontando). Solo se toca en el EDT.
+    // Idempotencia de la captura de la pantalla final (ajuste GameFrame.SCREENSHOT_FIN_TIMBA, por
+    // defecto activo): se toma al pulsar "Menú principal" para que la timba terminada SIEMPRE quede
+    // registrada al salir; este flag evita duplicarla si el botón se pulsara dos veces. Solo se toca
+    // en el EDT.
     private boolean screenshot_done = false;
 
     // Las tres piezas apiladas de la franja central, para fijar su mínimo/máximo
@@ -230,13 +227,6 @@ public class BalanceScreen extends JPanel {
     // tras montar el overlay en el glassPane y hacerlo visible.
     public void startAnimations() {
         startAmountAnimation();
-        // En un EMPATE no hay animación de importe (amount_label == null): la pantalla final ya
-        // está en su estado definitivo, así que la captura automática se programa con un breve
-        // margen para que el layout/pintado del overlay estén asentados. En ganancia/pérdida la
-        // dispara el final del parpadeo del neto (blinkAmount), justo al terminar el cálculo.
-        if (amount_label == null) {
-            scheduleAutoScreenshot(600);
-        }
     }
 
     // Suelta los recursos del overlay (antes en windowClosed). La invoca GameFrame
@@ -273,6 +263,13 @@ public class BalanceScreen extends JPanel {
 
         JButton menu_button = navButton(Translator.translate("ui.menu_principal"), whiteScaledIcon("/images/exit2.png", 28));
         menu_button.addActionListener((e) -> {
+            // Captura de la pantalla final al VOLVER AL MENÚ PRINCIPAL (no al continuar la timba):
+            // así la timba terminada SIEMPRE queda registrada al salir, con lo que esté en pantalla
+            // en ese momento (normalmente el resultado ya asentado). Se renderiza AQUÍ, en el EDT y
+            // con el overlay aún montado, antes de disparar el teardown vía on_close.
+            if (GameFrame.SCREENSHOT_FIN_TIMBA) {
+                takeBalanceScreenshot();
+            }
             stopAmountAnimation();
             recover = false;
             if (on_close != null) {
@@ -689,30 +686,9 @@ public class BalanceScreen extends JPanel {
             if (count[0] >= total) {
                 ((javax.swing.Timer) e.getSource()).stop();
                 amount_label.setBlank(false);
-                // Cálculo del resultado terminado (neto +/- revelado y estable): captura automática
-                // de la pantalla final, con un pequeño margen para que el último repintado asiente el
-                // número ya no parpadeante antes de rasterizar la ventana.
-                scheduleAutoScreenshot(150);
             }
         });
         blink.start();
-    }
-
-    // Programa la captura automática de la pantalla final (si GameFrame.SCREENSHOT_FIN_TIMBA está
-    // activo) tras delay_ms, dejando asentado el pintado del estado definitivo. One-shot; se cancela
-    // en stopAmountAnimation si el jugador sale antes de que termine el cálculo. EDT-only.
-    private void scheduleAutoScreenshot(int delay_ms) {
-        if (screenshot_done || !GameFrame.SCREENSHOT_FIN_TIMBA) {
-            return;
-        }
-        final javax.swing.Timer t = new javax.swing.Timer(delay_ms, null);
-        amount_screenshot_timer = t;
-        t.setRepeats(false);
-        t.addActionListener((e) -> {
-            t.stop();
-            takeBalanceScreenshot();
-        });
-        t.start();
     }
 
     // Captura la VENTANA COMPLETA (rootPane) con el overlay de la pantalla final montado sobre el
@@ -744,15 +720,6 @@ public class BalanceScreen extends JPanel {
     // pararlos, la salida es instantánea igual que si se pulsa con el recuento ya terminado.
     // EDT-only (handlers de botón / windowClosed): stop() de un Timer no arrancado es no-op.
     private void stopAmountAnimation() {
-        // Suprime una captura automática aún pendiente: si el jugador sale (menú principal /
-        // continuar) antes de que termine el cálculo, no debe dispararse sobre una pantalla que se
-        // está desmontando. En la salida natural (fin del parpadeo) la captura ya se tomó y esto es
-        // idempotente. No se llama en la finalización natural de la animación (los timers se paran
-        // solos), así que marcar screenshot_done aquí solo afecta a la salida anticipada.
-        if (amount_screenshot_timer != null) {
-            amount_screenshot_timer.stop();
-        }
-        screenshot_done = true;
         if (amount_roll_timer != null) {
             amount_roll_timer.stop();
         }

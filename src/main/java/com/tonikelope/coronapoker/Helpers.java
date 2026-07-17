@@ -2795,6 +2795,43 @@ public class Helpers {
 
     }
 
+    // Icono play/stop dibujado (par coherente que escala con DIALOG_ZOOM): triángulo verde de play
+    // o cuadrado rojo redondeado de stop. Compartido por la audición de la pestaña Audio (ajustes)
+    // y por el visor de notas de voz.
+    public static javax.swing.Icon playStopGlyph(boolean stop) {
+        final int size = Math.round(15 * Helpers.DIALOG_ZOOM);
+        final java.awt.Color color = stop ? new java.awt.Color(0xC6, 0x28, 0x28) : new java.awt.Color(0x2E, 0x7D, 0x32);
+        return new javax.swing.Icon() {
+            @Override
+            public int getIconWidth() {
+                return size;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return size;
+            }
+
+            @Override
+            public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(color);
+                int m = Math.round(size * 0.12f);
+                if (stop) {
+                    int s = size - 2 * m;
+                    int arc = Math.max(2, s / 4);
+                    g2.fillRoundRect(x + m, y + m, s, s, arc, arc);
+                } else {
+                    int[] xs = {x + m, x + m, x + size - m};
+                    int[] ys = {y + m, y + size - m, y + size / 2};
+                    g2.fillPolygon(xs, ys, 3);
+                }
+                g2.dispose();
+            }
+        };
+    }
+
     public static String genRandomString(int length) {
 
         int leftLimit = 97; // letter 'a'

@@ -505,6 +505,21 @@ public class Audio {
                     float frameRate = audioInputStream.getFormat().getFrameRate();
                     long durationMicros = (long) (1000000.0f * frames / frameRate);
 
+                    // El Clip solo abre audio PCM: si el WAV viene en un encoding comprimido
+                    // (mu-law / A-law, como las notas de voz), lo convertimos a PCM_SIGNED 16 bit al
+                    // vuelo. Los efectos del juego ya son PCM, así que este bloque ni se activa para
+                    // ellos (encoding PCM => clip_input == audioInputStream, sin coste).
+                    final javax.sound.sampled.AudioFormat src_format = audioInputStream.getFormat();
+                    final javax.sound.sampled.AudioFormat.Encoding enc = src_format.getEncoding();
+                    javax.sound.sampled.AudioInputStream clip_input = audioInputStream;
+                    if (enc != javax.sound.sampled.AudioFormat.Encoding.PCM_SIGNED && enc != javax.sound.sampled.AudioFormat.Encoding.PCM_UNSIGNED) {
+                        javax.sound.sampled.AudioFormat pcm_format = new javax.sound.sampled.AudioFormat(
+                                javax.sound.sampled.AudioFormat.Encoding.PCM_SIGNED,
+                                src_format.getSampleRate(), 16, src_format.getChannels(),
+                                src_format.getChannels() * 2, src_format.getSampleRate(), false);
+                        clip_input = AudioSystem.getAudioInputStream(pcm_format, audioInputStream);
+                    }
+
                     // 2. Request physical audio hardware in an inner try-with-resources
                     try (final Clip clip = AudioDeviceManager.getClip()) {
 
@@ -553,7 +568,7 @@ public class Audio {
 
                                 clip_queue.add(clip);
 
-                                clip.open(audioInputStream);
+                                clip.open(clip_input);
 
                                 setClipVolume(sound, clip, bypass_muted, force_silent, force_preview);
 

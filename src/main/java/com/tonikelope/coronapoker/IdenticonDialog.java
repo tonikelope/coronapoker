@@ -20,12 +20,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Image;
-import java.awt.Toolkit;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.Transferable;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
@@ -256,20 +250,28 @@ public class IdenticonDialog extends JDialog {
         JButton copyBtn = new JButton(Translator.translate("ui.identicon.copiar_imagen_button"));
         copyBtn.setFont(copyBtn.getFont().deriveFont(java.awt.Font.PLAIN, idf(13f)));
         copyBtn.setMargin(new java.awt.Insets(6, 14, 6, 14));
+        // El volcado al portapapeles se hace FUERA del EDT (bloqueante en el SO) y el botón queda
+        // deshabilitado mientras dura, para no congelar el diálogo ni disparar copias concurrentes.
         copyBtn.addActionListener(evt -> {
-            if (copyImageToClipboard(identiconImage)) {
-                copyBtn.setText("✓ " + Translator.translate("ui.identicon.copiado"));
-                copyBtn.setEnabled(false);
-                javax.swing.Timer t = new javax.swing.Timer(2000, e -> {
-                    copyBtn.setText(Translator.translate("ui.identicon.copiar_imagen_button"));
-                    copyBtn.setEnabled(true);
+            copyBtn.setEnabled(false);
+            Helpers.threadRun(() -> {
+                final boolean ok = Helpers.copyImageToClipboard(identiconImage);
+                Helpers.GUIRun(() -> {
+                    if (ok) {
+                        copyBtn.setText("✓ " + Translator.translate("ui.identicon.copiado"));
+                        javax.swing.Timer t = new javax.swing.Timer(2000, e -> {
+                            copyBtn.setText(Translator.translate("ui.identicon.copiar_imagen_button"));
+                            copyBtn.setEnabled(true);
+                        });
+                        t.setRepeats(false);
+                        t.start();
+                    } else {
+                        copyBtn.setEnabled(true);
+                        Helpers.mostrarMensajeError(this,
+                                Translator.translate("ui.identicon.copiar_error"));
+                    }
                 });
-                t.setRepeats(false);
-                t.start();
-            } else {
-                Helpers.mostrarMensajeError(this,
-                        Translator.translate("ui.identicon.copiar_error"));
-            }
+            });
         });
         row.add(copyBtn);
 
@@ -349,53 +351,6 @@ public class IdenticonDialog extends JDialog {
             }
         }
         return "identicon_" + safeNick + tail + ".png";
-    }
-
-    /**
-     * Pushes the given BufferedImage to the system clipboard wrapped in a Transferable
-     * that exposes DataFlavor.imageFlavor (consumed by image-aware apps like Gimp,
-     * Photoshop, Telegram desktop, browsers, etc.). Returns false if the clipboard is
-     * unreachable.
-     */
-    private static boolean copyImageToClipboard(BufferedImage img) {
-        if (img == null) {
-            return false;
-        }
-        try {
-            Clipboard cb = Toolkit.getDefaultToolkit().getSystemClipboard();
-            cb.setContents(new ImageTransferable(img), null);
-            return true;
-        } catch (Exception ex) {
-            LOGGER.log(Level.WARNING, "Could not copy identicon image to clipboard", ex);
-            return false;
-        }
-    }
-
-    private static final class ImageTransferable implements Transferable {
-
-        private final Image image;
-
-        ImageTransferable(Image image) {
-            this.image = image;
-        }
-
-        @Override
-        public DataFlavor[] getTransferDataFlavors() {
-            return new DataFlavor[]{DataFlavor.imageFlavor};
-        }
-
-        @Override
-        public boolean isDataFlavorSupported(DataFlavor flavor) {
-            return DataFlavor.imageFlavor.equals(flavor);
-        }
-
-        @Override
-        public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException, IOException {
-            if (!isDataFlavorSupported(flavor)) {
-                throw new UnsupportedFlavorException(flavor);
-            }
-            return image;
-        }
     }
 
     private JPanel buildVerifyPanel() {

@@ -117,6 +117,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_anim_contadores;
     private final boolean snap_anim_cascada_overlay;
     private final boolean snap_resaltar_jugada_perdedor;
+    private final boolean snap_screenshot_fin_timba;
     private final boolean snap_animaciones;
     private final boolean snap_chat_images;
     private final boolean snap_fullscreen;
@@ -161,6 +162,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_contadores = prefBool("animacion_contadores");
         snap_anim_cascada_overlay = prefBool("animacion_cascada_overlay", false);
         snap_resaltar_jugada_perdedor = prefBool("resaltar_jugada_perdedor", true);
+        snap_screenshot_fin_timba = prefBool("screenshot_fin_timba", true);
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
@@ -453,6 +455,15 @@ public class AppearanceSettingsPanel extends JPanel {
                     GameFrame.RESALTAR_JUGADA_PERDEDOR = !GameFrame.RESALTAR_JUGADA_PERDEDOR;
                     persist("resaltar_jugada_perdedor", String.valueOf(GameFrame.RESALTAR_JUGADA_PERDEDOR));
                 }, true, "tooltip.cfg.resaltar_jugada_perdedor"));
+        // Captura automática de la pantalla final al terminar la timba: persist-only, sin item de
+        // menú ni efecto en vivo (la lee BalanceScreen al construirse). Default ON. Misma mecánica
+        // que el resaltado del showdown de arriba.
+        addLeft(mesa, delegatingCheckbox("/images/menu/camera.png", "settings.screenshot_fin_timba", GameFrame.SCREENSHOT_FIN_TIMBA,
+                null,
+                () -> {
+                    GameFrame.SCREENSHOT_FIN_TIMBA = !GameFrame.SCREENSHOT_FIN_TIMBA;
+                    persist("screenshot_fin_timba", String.valueOf(GameFrame.SCREENSHOT_FIN_TIMBA));
+                }, true, "tooltip.cfg.screenshot_fin_timba"));
 
         // ---------------- Animaciones ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
@@ -943,6 +954,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("animacion_contadores") != snap_anim_contadores
                 || prefBool("animacion_cascada_overlay", false) != snap_anim_cascada_overlay
                 || prefBool("resaltar_jugada_perdedor", true) != snap_resaltar_jugada_perdedor
+                || prefBool("screenshot_fin_timba", true) != snap_screenshot_fin_timba
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen
@@ -1076,6 +1088,13 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("resaltar_jugada_perdedor", String.valueOf(snap_resaltar_jugada_perdedor));
             Helpers.savePropertiesFile();
         }
+        // Captura al terminar la timba: persist-only, sin item de menú ni efecto en vivo. Se revierte
+        // fijando el flag + re-persistiendo el snapshot, como el resaltado del showdown.
+        if (GameFrame.SCREENSHOT_FIN_TIMBA != snap_screenshot_fin_timba) {
+            GameFrame.SCREENSHOT_FIN_TIMBA = snap_screenshot_fin_timba;
+            Helpers.PROPERTIES.setProperty("screenshot_fin_timba", String.valueOf(snap_screenshot_fin_timba));
+            Helpers.savePropertiesFile();
+        }
         // Barajado y destape tampoco tienen item de menú: se revierten fijando el flag +
         // persistiendo, como el overlay de cascada. Al restaurar el barajado a ON se recalienta
         // la caché del shuffle.gif por si el warm-up se saltó mientras estuvo desactivado.
@@ -1190,6 +1209,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.ANIMACION_CONTADORES_PREF = snap_anim_contadores;
         GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = snap_anim_cascada_overlay;
         GameFrame.RESALTAR_JUGADA_PERDEDOR = snap_resaltar_jugada_perdedor;
+        GameFrame.SCREENSHOT_FIN_TIMBA = snap_screenshot_fin_timba;
         GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
         GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
@@ -1220,6 +1240,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(snap_anim_contadores));
         Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
         Helpers.PROPERTIES.setProperty("resaltar_jugada_perdedor", String.valueOf(snap_resaltar_jugada_perdedor));
+        Helpers.PROPERTIES.setProperty("screenshot_fin_timba", String.valueOf(snap_screenshot_fin_timba));
         Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
         Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));

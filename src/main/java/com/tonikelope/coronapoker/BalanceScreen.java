@@ -146,6 +146,15 @@ public class BalanceScreen extends JPanel {
     private javax.swing.Timer amount_roll_timer;
     private javax.swing.Timer amount_blink_timer;
 
+    // Captura de la pantalla final (ajuste GameFrame.SCREENSHOT_FIN_TIMBA, por defecto activo). Se
+    // toma JUSTO al terminar el contador de dinero (fin del parpadeo del neto +/-); y si el jugador
+    // SALE de la pantalla final ANTES de que termine —por cualquiera de los dos botones, menú o
+    // continuar— o el resultado es un EMPATE (sin contador), se toma al pulsar. UNA sola captura por
+    // timba: idempotencia con este flag, que arranca en false en CADA BalanceScreen (instancia nueva
+    // por timba) y solo se toca en el EDT; así no hay estado que se filtre a la timba siguiente ni
+    // carrera que sincronizar.
+    private boolean screenshot_done = false;
+
     // Las tres piezas apiladas de la franja central, para fijar su mínimo/máximo
     // vertical una vez finalizadas las fuentes (finalizeCenterSizing): el bloque de
     // título es RÍGIDO (no se comprime nunca -> la fila de la fecha no se recorta en
@@ -248,6 +257,11 @@ public class BalanceScreen extends JPanel {
 
         JButton recover_button = navButton(GameFrame.getInstance().isPartida_local() ? Translator.translate("game.continuar_esta_timba") : Translator.translate("conn.reconectar_al_servidor"), scaledIcon("/images/continue.png", 28));
         recover_button.addActionListener((e) -> {
+            // Respaldo de la captura, igual que el botón de menú: si el jugador SALE de la pantalla
+            // final ANTES de que termine el contador de dinero —o en un EMPATE, que no tiene contador—,
+            // se toma AQUÍ para que la timba quede registrada (idempotente: si el contador ya la tomó,
+            // es no-op). Así cualquier salida garantiza la captura.
+            takeBalanceScreenshot();
             stopAmountAnimation();
             recover = true;
             if (on_close != null) {
@@ -257,6 +271,11 @@ public class BalanceScreen extends JPanel {
 
         JButton menu_button = navButton(Translator.translate("ui.menu_principal"), whiteScaledIcon("/images/exit2.png", 28));
         menu_button.addActionListener((e) -> {
+            // Respaldo de la captura al SALIR (mismo criterio que el botón de continuar): si el jugador
+            // sale ANTES de que termine el contador de dinero —o en un EMPATE, sin contador—, se toma
+            // AQUÍ (idempotente: si el contador ya la tomó, es no-op). El render corre en el EDT con el
+            // overlay aún montado, antes de on_close; el volcado va en su hilo aparte.
+            takeBalanceScreenshot();
             stopAmountAnimation();
             recover = false;
             if (on_close != null) {
@@ -497,7 +516,18 @@ public class BalanceScreen extends JPanel {
         subtitle.setBorder(BorderFactory.createEmptyBorder(6, 24, 2, 24));
         subtitle.putClientProperty("fit.width", fit_w);
 
-        JLabel date = new JLabel(Helpers.getFechaHoraActual() + "   (" + Helpers.seconds2FullTime(GameFrame.getInstance().getConta_tiempo_juego()) + ")", SwingConstants.CENTER);
+        // Total de manos jugadas en la timba (acumulativo, se restaura al recuperar), tras la
+        // duración y entre corchetes: getMano() es el número de la mano en curso, que en el fin de
+        // timba equivale al total jugado. Singular/plural para no mostrar "1 manos". Formato:
+        // "fecha   (duración)   [N manos]".
+        int manos = 0;
+        try {
+            manos = GameFrame.getInstance().getCrupier().getMano();
+        } catch (Exception ex) {
+        }
+        String manos_txt = manos + " " + Translator.translate(manos == 1 ? "balance.mano" : "balance.manos");
+
+        JLabel date = new JLabel(Helpers.getFechaHoraActual() + "   (" + Helpers.seconds2FullTime(GameFrame.getInstance().getConta_tiempo_juego()) + ")   [" + manos_txt + "]", SwingConstants.CENTER);
         date.setForeground(tapete_color);
         date.setFont(new Font("Dialog", Font.PLAIN, Math.round(date_size)));
         date.setBorder(BorderFactory.createEmptyBorder(2, 16, 6, 16));
@@ -662,9 +692,57 @@ public class BalanceScreen extends JPanel {
             if (count[0] >= total) {
                 ((javax.swing.Timer) e.getSource()).stop();
                 amount_label.setBlank(false);
+                // El contador de dinero ha terminado (neto +/- revelado y estable): captura automática
+                // de la pantalla final. Idempotente: si el jugador ya volvió al menú, es no-op.
+                takeBalanceScreenshot();
             }
         });
         blink.start();
+    }
+
+    // Captura la ventana completa (rootPane) con el overlay de la pantalla final montado sobre el
+    // glassPane, con el MISMO mecanismo que CTRL+P (Helpers.renderComponentImage: printAll de Java2D,
+    // sin Robot ni captura del SO): el render va en el EDT (obligatorio en Swing) y el volcado del PNG
+    // en un hilo aparte para NO bloquear la interfaz. Idempotente (screenshot_done). DEBE llamarse en
+    // el EDT.
+    //
+    // El volcado NO va por Helpers.threadRun (THREAD_POOL): al volver al menú, el teardown de la timba
+    // (finTransmision -> RESET_GAME) llama a Helpers.SHUTDOWN_THREAD_POOL() (shutdownNow), que
+    // descartaría la tarea encolada o interrumpiría el ImageIO.write a medias -> captura perdida o PNG
+    // corrupto. Se usa un hilo PROPIO, ajeno al pool: sobrevive al teardown, escribe el fichero (I/O
+    // breve y acotada, con su try/catch/finally en saveScreenshot) y muere -> no se queda colgando.
+    // Trabaja sobre un snapshot ya rasterizado y SCREENSHOTS_DIR (estático): no comparte estado mutable
+    // con el juego, así que ni el desmontaje del frame ni la timba siguiente pueden afectarle.
+    //
+    // Best-effort: NUNCA propaga. Un fallo al rasterizar (p.ej. OOM) no debe impedir que el handler del
+    // botón de menú siga a stopAmountAnimation/on_close, o la salida se colgaría (finTransmision espera
+    // en el latch). Por eso se traga cualquier Throwable. screenshot_done se marca solo tras lanzar el
+    // volcado con éxito, así el respaldo del menú puede reintentar si el render automático hubiera fallado.
+    private void takeBalanceScreenshot() {
+        if (screenshot_done || !GameFrame.SCREENSHOT_FIN_TIMBA) {
+            return;
+        }
+        GameFrame gf = GameFrame.getInstance();
+        if (gf == null) {
+            return;
+        }
+        try {
+            // Garantiza que el importe salga VISIBLE en la captura: si se dispara desde el botón de
+            // menú mientras el neto aún PARPADEA (blinkAmount alterna blank cada 130 ms), el frame
+            // actual podría estar en blanco y la captura saldría sin el importe. printAll lee el flag
+            // blank en el acto, así que fijarlo a false aquí basta (en la ruta automática ya es false).
+            if (amount_label != null) {
+                amount_label.setBlank(false);
+            }
+            BufferedImage image = Helpers.renderComponentImage(gf.getRootPane());
+            if (image == null) {
+                return;
+            }
+            new Thread(() -> Helpers.saveScreenshot(image), "balance-screenshot-saver").start();
+            screenshot_done = true;
+        } catch (Throwable t) {
+            Logger.getLogger(BalanceScreen.class.getName()).log(Level.WARNING, "Balance screenshot failed", t);
+        }
     }
 
     // Corta en seco la animación del importe (recuento + parpadeo) y su SFX. La llaman los

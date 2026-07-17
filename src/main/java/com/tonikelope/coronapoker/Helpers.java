@@ -2882,6 +2882,36 @@ public class Helpers {
         };
     }
 
+    // Icono de borrado: una X roja dibujada (trazo redondeado) del tamaño dado, en el mismo rojo que
+    // el glyph de stop. Compartido por el visor de notas de voz y el menú del visor de capturas.
+    public static javax.swing.Icon deleteGlyph(int size) {
+        final int s = size;
+        final java.awt.Color color = new java.awt.Color(0xC6, 0x28, 0x28);
+        return new javax.swing.Icon() {
+            @Override
+            public int getIconWidth() {
+                return s;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return s;
+            }
+
+            @Override
+            public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(color);
+                g2.setStroke(new java.awt.BasicStroke(Math.max(2f, s * 0.16f), java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+                int m = Math.round(s * 0.2f);
+                g2.drawLine(x + m, y + m, x + s - m, y + s - m);
+                g2.drawLine(x + s - m, y + m, x + m, y + s - m);
+                g2.dispose();
+            }
+        };
+    }
+
     public static String genRandomString(int length) {
 
         int leftLimit = 97; // letter 'a'

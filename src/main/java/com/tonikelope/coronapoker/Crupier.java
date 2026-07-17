@@ -6855,12 +6855,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Undo the conta_mano increment and the sqlNewHand insert that NUEVA_MANO
-     * performed before the cascade/deal failed. After this method, the in-
-     * memory counter and the SQLite state reflect the last successfully
-     * completed hand, which is what recuperarDatosClavePartida should see on
-     * the recover path. balance/action/showdown/showcards rows for this hand
-     * are wiped automatically via ON DELETE CASCADE on the hand foreign key.
+     * Closes (does NOT delete) the hand that NUEVA_MANO had already opened but whose
+     * deal/cascade then failed: it is marked finished (end != 0, pot=0) with the
+     * post-refund balances written. conta_mano and sqlite_id_hand are PRESERVED (the
+     * hand counts as completed), so the recover path finds a cleanly-closed last hand
+     * -- just like after an exit that waited for hand end -- and the next NUEVA_MANO
+     * starts fresh. See the inline comment for the transactional detail.
      */
     private void rollbackAbortedHand() {
         // La mano abortada se MARCA como terminada (end != 0, pot=0) +

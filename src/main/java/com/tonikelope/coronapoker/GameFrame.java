@@ -329,6 +329,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // tal cual estaba. Mismo mecanismo enfocar/desenfocar que ya usa el ganador. Puramente
     // visual y LOCAL por cliente (no se difunde). Por defecto desactivado.
     public static volatile boolean RESALTAR_JUGADA_PERDEDOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_perdedor", "true"));
+    // La pantalla final (BalanceScreen) guarda automáticamente una captura (mismo mecanismo que
+    // CTRL+P: printAll del rootPane, sin Robot ni captura del SO) JUSTO al terminar el contador de
+    // dinero; y si el jugador SALE de la pantalla final ANTES de que termine (por cualquiera de los
+    // dos botones, menú o continuar), se toma en ese momento. Una sola captura por timba (la que
+    // ocurra primero). Preferencia LOCAL, por defecto activada; se configura en Apariencia > Mesa.
+    public static volatile boolean SCREENSHOT_FIN_TIMBA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("screenshot_fin_timba", "true"));
     // El antiguo checkbox "Cartas" (animacion_reparto) gobernaba a la vez el BARAJADO, el
     // REPARTO y el DESTAPE. Se ha separado en tres preferencias independientes: "animacion_reparto"
     // conserva su clave y ahora solo gobierna el reparto; "animacion_barajado" y "animacion_destape"

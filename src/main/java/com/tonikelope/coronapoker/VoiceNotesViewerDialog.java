@@ -288,7 +288,7 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
     // (o cualquier otra) y recarga la lista.
     private JButton buildDeleteButton(Note note) {
 
-        JButton b = new JButton(deleteGlyph());
+        JButton b = new JButton(Helpers.deleteGlyph(Math.round(15 * Helpers.DIALOG_ZOOM)));
         styleIconButton(b, "audio.borrar_nota");
 
         b.addActionListener(e -> {
@@ -303,36 +303,6 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         });
 
         return b;
-    }
-
-    // Icono de borrado: una X roja dibujada (trazo redondeado) que escala con DIALOG_ZOOM, en el
-    // mismo rojo que el glyph de stop para mantener la paleta coherente.
-    private static javax.swing.Icon deleteGlyph() {
-        final int size = Math.round(15 * Helpers.DIALOG_ZOOM);
-        final Color color = new Color(0xC6, 0x28, 0x28);
-        return new javax.swing.Icon() {
-            @Override
-            public int getIconWidth() {
-                return size;
-            }
-
-            @Override
-            public int getIconHeight() {
-                return size;
-            }
-
-            @Override
-            public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
-                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
-                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(color);
-                g2.setStroke(new java.awt.BasicStroke(Math.max(2f, size * 0.16f), java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
-                int m = Math.round(size * 0.2f);
-                g2.drawLine(x + m, y + m, x + size - m, y + size - m);
-                g2.drawLine(x + size - m, y + m, x + m, y + size - m);
-                g2.dispose();
-            }
-        };
     }
 
     private static void styleIconButton(JButton b, String tooltip_key) {

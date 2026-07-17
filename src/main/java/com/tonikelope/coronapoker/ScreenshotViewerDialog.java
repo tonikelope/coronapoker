@@ -206,14 +206,11 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         copy_menu_item.addActionListener(e -> copyCurrentImageToClipboard());
         image_popup.add(copy_menu_item);
 
-        // Borrar la captura visible (con confirmación).
+        // Borrar la captura visible (con confirmación). Icono = X roja dibujada a 24px, igual que
+        // copy.png del ítem de copiar, para que ambos iconos del menú tengan el mismo tamaño.
         JMenuItem delete_menu_item = new JMenuItem(Translator.translate("ui.borrar_captura"));
         delete_menu_item.setFont(item_font.deriveFont(java.awt.Font.PLAIN, 16f * Helpers.DIALOG_ZOOM));
-        try {
-            delete_menu_item.setIcon(new ImageIcon(getClass().getResource("/images/menu/remove.png")));
-        } catch (Exception ex) {
-            // sin icono si el recurso no está disponible: el texto basta
-        }
+        delete_menu_item.setIcon(Helpers.deleteGlyph(24));
         delete_menu_item.addActionListener(e -> deleteCurrent());
         image_popup.add(delete_menu_item);
 

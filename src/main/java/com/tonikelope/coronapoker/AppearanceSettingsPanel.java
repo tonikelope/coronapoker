@@ -162,7 +162,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_contadores = prefBool("animacion_contadores");
         snap_anim_cascada_overlay = prefBool("animacion_cascada_overlay", false);
         snap_resaltar_jugada_perdedor = prefBool("resaltar_jugada_perdedor", true);
-        snap_screenshot_fin_timba = prefBool("screenshot_fin_timba", true);
+        snap_screenshot_fin_timba = prefBool("screenshot_fin_timba", false);
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
@@ -456,14 +456,14 @@ public class AppearanceSettingsPanel extends JPanel {
                     persist("resaltar_jugada_perdedor", String.valueOf(GameFrame.RESALTAR_JUGADA_PERDEDOR));
                 }, true, "tooltip.cfg.resaltar_jugada_perdedor"));
         // Captura automática de la pantalla final al terminar la timba: persist-only, sin item de
-        // menú ni efecto en vivo (la lee BalanceScreen al construirse). Default ON. Misma mecánica
-        // que el resaltado del showdown de arriba.
+        // menú ni efecto en vivo (la lee BalanceScreen al construirse). Default OFF (puede acumular
+        // muchas capturas). Misma mecánica que el resaltado del showdown de arriba.
         addLeft(mesa, delegatingCheckbox("/images/menu/camera.png", "settings.screenshot_fin_timba", GameFrame.SCREENSHOT_FIN_TIMBA,
                 null,
                 () -> {
                     GameFrame.SCREENSHOT_FIN_TIMBA = !GameFrame.SCREENSHOT_FIN_TIMBA;
                     persist("screenshot_fin_timba", String.valueOf(GameFrame.SCREENSHOT_FIN_TIMBA));
-                }, true, "tooltip.cfg.screenshot_fin_timba"));
+                }, false, "tooltip.cfg.screenshot_fin_timba"));
 
         // ---------------- Animaciones ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
@@ -954,7 +954,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("animacion_contadores") != snap_anim_contadores
                 || prefBool("animacion_cascada_overlay", false) != snap_anim_cascada_overlay
                 || prefBool("resaltar_jugada_perdedor", true) != snap_resaltar_jugada_perdedor
-                || prefBool("screenshot_fin_timba", true) != snap_screenshot_fin_timba
+                || prefBool("screenshot_fin_timba", false) != snap_screenshot_fin_timba
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen

@@ -753,7 +753,14 @@ public class AudioSettingsPanel extends JPanel {
             }
         });
 
+        // Abre el visor de notas de voz (galería de los .wav guardados en VOICE_DIR). Siempre
+        // habilitado: se pueden revisar/escuchar/borrar notas aunque las notas estén desactivadas.
+        JButton view_notes_button = new JButton(Translator.translate("audio.ver_notas"));
+        view_notes_button.addActionListener(e -> VoiceNotesViewerDialog.open(javax.swing.SwingUtilities.getWindowAncestor(this)));
+
         purge_panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        purge_panel.add(view_notes_button);
+        purge_panel.add(javax.swing.Box.createHorizontalStrut(10));
         purge_panel.add(purge_button);
 
         refreshVoiceControlsEnabled();
@@ -1552,40 +1559,10 @@ public class AudioSettingsPanel extends JPanel {
         return b;
     }
 
-    // Icono de audición dibujado (par coherente que escala con el zoom): triángulo de play (verde)
-    // o cuadrado de stop (rojo).
+    // Icono de audición play/stop: delega en el glyph compartido de Helpers (lo reutiliza también
+    // el visor de notas de voz), para que ambos diálogos usen exactamente el mismo par.
     private static javax.swing.Icon previewGlyph(boolean stop) {
-        final int size = Math.round(15 * Helpers.DIALOG_ZOOM);
-        final java.awt.Color color = stop ? new java.awt.Color(0xC6, 0x28, 0x28) : new java.awt.Color(0x2E, 0x7D, 0x32);
-        return new javax.swing.Icon() {
-            @Override
-            public int getIconWidth() {
-                return size;
-            }
-
-            @Override
-            public int getIconHeight() {
-                return size;
-            }
-
-            @Override
-            public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
-                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
-                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(color);
-                int m = Math.round(size * 0.12f);
-                if (stop) {
-                    int s = size - 2 * m;
-                    int arc = Math.max(2, s / 4);
-                    g2.fillRoundRect(x + m, y + m, s, s, arc, arc);
-                } else {
-                    int[] xs = {x + m, x + m, x + size - m};
-                    int[] ys = {y + m, y + size - m, y + size / 2};
-                    g2.fillPolygon(xs, ys, 3);
-                }
-                g2.dispose();
-            }
-        };
+        return Helpers.playStopGlyph(stop);
     }
 
     // Columna vertical (transparente) para agrupar tipos de efectos dentro del recuadro; en un

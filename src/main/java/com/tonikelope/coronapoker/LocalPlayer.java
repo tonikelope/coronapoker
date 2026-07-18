@@ -2687,7 +2687,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             // Repone los iconos donde corresponda: en normal siempre; en compacto
             // SOLO los botones AUTO (rejilla de 2 filas). El resto quedan sin icono
             // (lo decide setActionButtonIcon según botonera_compacta_auto).
-            buttonIconZoom();
+            if (botonera_compacta) {
+                // Compacto: el tamaño del icono AUTO se deriva de la fuente base y el
+                // zoom (no de getHeight), así que puede reponerse ya.
+                buttonIconZoom();
+            } else {
+                // Normal: el icono se dimensiona a 0.6*getHeight() del botón. El
+                // revalidate anterior aún NO ha aplicado el layout vertical, y los
+                // botones conservan la altura (mayor) de las celdas de la rejilla 2x2,
+                // con lo que los iconos saldrían agrandados. Se reponen tras dejar que
+                // el EDT asiente el layout, igual que hace el zoom con GUI_RENDER_WAIT.
+                Helpers.threadRun(() -> {
+                    Helpers.pausar(GUI_RENDER_WAIT);
+                    buttonIconZoom();
+                });
+            }
         });
     }
 

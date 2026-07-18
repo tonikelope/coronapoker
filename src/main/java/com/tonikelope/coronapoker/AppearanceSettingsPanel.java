@@ -199,8 +199,8 @@ public class AppearanceSettingsPanel extends JPanel {
             pending_fullscreen = display_combo.getSelectedIndex() == 1;
         });
         addLeft(pantalla, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
-        // Predeterminado: modo ventana (AUTO_FULLSCREEN=false → índice 0). Se aplica al GUARDAR.
-        reset_actions.add(() -> display_combo.setSelectedIndex(0));
+        // Predeterminado: pantalla completa (AUTO_FULLSCREEN=true → índice 1). Se aplica al GUARDAR.
+        reset_actions.add(() -> display_combo.setSelectedIndex(1));
 
         // Zoom: spinner en % (cada paso = 5% = un nivel de zoom interno). En partida aplica
         // al vuelo al nivel elegido; fuera de partida solo persiste la preferencia.

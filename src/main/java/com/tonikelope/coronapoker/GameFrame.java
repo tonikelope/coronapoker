@@ -328,7 +328,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // fondo naranja con texto blanco. Al salir el ratón se restaura el resaltado del ganador
     // tal cual estaba. Mismo mecanismo enfocar/desenfocar que ya usa el ganador. Puramente
     // visual y LOCAL por cliente (no se difunde). Por defecto desactivado.
-    public static volatile boolean RESALTAR_JUGADA_PERDEDOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_perdedor", "true"));
+    // Migración de clave: antes se guardaba como "resaltar_jugada_perdedor" (solo perdedores);
+    // se lee esa clave vieja como fallback para no perder el ajuste de quien ya la tenía.
+    public static volatile boolean RESALTAR_JUGADA_SHOWDOWN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_showdown", Helpers.PROPERTIES.getProperty("resaltar_jugada_perdedor", "true")));
     // La pantalla final (BalanceScreen) guarda automáticamente una captura (mismo mecanismo que
     // CTRL+P: printAll del rootPane, sin Robot ni captura del SO) JUSTO al terminar el contador de
     // dinero; y si el jugador SALE de la pantalla final ANTES de que termine (por cualquiera de los
@@ -2699,7 +2701,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     // Todas las cartas DESTAPADAS de la mesa (comunitarias + hole cards que han mostrado los
     // jugadores), para el resaltado de la jugada del perdedor en el showdown
-    // (RESALTAR_JUGADA_PERDEDOR). Se excluyen las tapadas para no atenuar un dorso (filtraría
+    // (RESALTAR_JUGADA_SHOWDOWN). Se excluyen las tapadas para no atenuar un dorso (filtraría
     // que esa carta no cuenta antes de verla).
     public java.util.List<Card> getShowdownVisibleCards() {
         java.util.List<Card> cartas = new java.util.ArrayList<>();

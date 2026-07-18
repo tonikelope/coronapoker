@@ -387,7 +387,7 @@ public final class FakePotPlayer implements Player {
     }
 
     @Override
-    public void setShowdownLoserHand(java.util.List<Card> cartas) {
+    public void setShowdownHand(java.util.List<Card> cartas) {
         throw nope();
     }
 }

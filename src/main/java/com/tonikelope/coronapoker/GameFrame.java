@@ -293,7 +293,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDO_AVISO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_aviso", "true"));
     public static volatile boolean SONIDO_ERROR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_error", "true"));
     public static volatile boolean SONIDO_ERROR_RED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_error_red", "true"));
-    public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
+    public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "true"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));

@@ -368,6 +368,89 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_REPARTO_VELOCIDAD = 100;
     public static volatile int REPARTO_VELOCIDAD = Integer.parseInt(Helpers.PROPERTIES.getProperty("reparto_velocidad", String.valueOf(DEFAULT_REPARTO_VELOCIDAD)));
 
+    // Tope de FPS de las animaciones pre-renderizadas (barajado, reparto, fichas, destape). El
+    // ritmo real de cada animación lo marca su reloj (System.nanoTime); este valor solo fija cada
+    // cuánto se reevalúa qué frame toca, es decir el techo de repaints por segundo. NUNCA se late
+    // por encima del refresco del monitor (esos frames extra no se llegan a mostrar).
+    //   AUTO (-1, por defecto) = tope histórico ~100 FPS, o el refresco si es menor (un monitor de
+    //                            60 Hz baja a 60 sin pérdida visible).
+    //   UNLIMITED (0)          = iguala el refresco del monitor (alto refresco desbloqueado).
+    //   N>0                    = tope a N FPS, siempre acotado por el refresco.
+    public static final int MAX_FPS_AUTO = -1;
+    public static final int MAX_FPS_UNLIMITED = 0;
+    public static volatile int MAX_FPS = parseMaxFps(Helpers.PROPERTIES.getProperty("max_fps", "auto"));
+
+    public static int parseMaxFps(String s) {
+        if (s == null) {
+            return MAX_FPS_AUTO;
+        }
+        String v = s.trim().toLowerCase();
+        if (v.equals("auto")) {
+            return MAX_FPS_AUTO;
+        }
+        if (v.equals("unlimited") || v.equals("0")) {
+            return MAX_FPS_UNLIMITED;
+        }
+        try {
+            int n = Integer.parseInt(v);
+            return n > 0 ? n : MAX_FPS_AUTO;
+        } catch (NumberFormatException e) {
+            return MAX_FPS_AUTO;
+        }
+    }
+
+    public static String maxFpsToProp(int v) {
+        if (v < 0) {
+            return "auto";
+        }
+        if (v == 0) {
+            return "unlimited";
+        }
+        return String.valueOf(v);
+    }
+
+    // Refresco (Hz) del monitor donde está la mesa (o el monitor por defecto fuera de partida).
+    // Fallback a 60 si el driver/SO no lo reporta (Wayland, VMs y algunos drivers devuelven 0).
+    private static int gameMonitorRefreshHz() {
+        try {
+            java.awt.GraphicsConfiguration gc = null;
+            GameFrame gfi = getInstance();
+            if (gfi != null && gfi.isVisible() && gfi.getGraphicsConfiguration() != null) {
+                gc = gfi.getGraphicsConfiguration();
+            }
+            if (gc == null) {
+                gc = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+            }
+            int rr = gc.getDevice().getDisplayMode().getRefreshRate();
+            if (rr <= 0 || rr == java.awt.DisplayMode.REFRESH_RATE_UNKNOWN) {
+                return 60;
+            }
+            return rr;
+        } catch (Throwable t) {
+            return 60;
+        }
+    }
+
+    // Periodo (ms) del Timer de las animaciones pre-renderizadas, derivado de MAX_FPS y del refresco
+    // del monitor de la mesa. Se lee al CONSTRUIR cada Timer (una vez por secuencia de animación),
+    // no por frame, así que recoger el monitor actual aquí cubre además mover la ventana de pantalla.
+    public static int getTickMs() {
+        int base_cap = 1000 / TablePanel.PRE_RENDERED_TICK_MS; // 100 FPS = tope histórico del modo AUTO
+        int hz = gameMonitorRefreshHz();
+        int fps;
+        if (MAX_FPS == MAX_FPS_AUTO) {
+            fps = Math.min(base_cap, hz);
+        } else if (MAX_FPS == MAX_FPS_UNLIMITED) {
+            fps = hz;
+        } else {
+            fps = Math.min(MAX_FPS, hz);
+        }
+        if (fps < 24) {
+            fps = 24; // sanidad: nunca por debajo de 24 FPS aunque el refresco reportado sea absurdo
+        }
+        return Math.max(1, (int) Math.round(1000.0 / fps));
+    }
+
     // Sincronización P2P de estadísticas: dos preferencias globales independientes,
     // ambas ON por defecto. RECIBIR = importar las partidas que me faltan al conectar
     // a un servidor. COMPARTIR = enviar mis partidas que al otro le faltan.

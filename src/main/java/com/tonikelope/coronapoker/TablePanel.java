@@ -786,10 +786,33 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 // (capa POPUP) pasa por delante de la derecha (capa DRAG).
                 final double arc_amt = arc ? Math.max(lh, rh) * 0.55 : 0.0;
 
-                final FlyingCard fl = new FlyingCard(leftFace, lw, lh);
+                // Dimensiones NATURALES de la imagen. En vista compacta la carta está
+                // recortada a media altura: el componente mide lh (½) pero la imagen es de
+                // altura completa. Pasándole a FlyingCard el tamaño natural (y dejando el
+                // componente a lw×lh) la imagen se RECORTA dentro del componente — banda
+                // central, idéntico a la carta estática — en vez de APLASTARSE a lh. En
+                // modo normal natural == real, así que no cambia nada.
+                int lImgW = leftFace.getWidth(null);
+                int lImgH = leftFace.getHeight(null);
+                if (lImgW <= 0) {
+                    lImgW = lw;
+                }
+                if (lImgH <= 0) {
+                    lImgH = lh;
+                }
+                int rImgW = rightFace.getWidth(null);
+                int rImgH = rightFace.getHeight(null);
+                if (rImgW <= 0) {
+                    rImgW = rw;
+                }
+                if (rImgH <= 0) {
+                    rImgH = rh;
+                }
+
+                final FlyingCard fl = new FlyingCard(leftFace, lImgW, lImgH);
                 fl.setSize(lw, lh);
                 fl.setCenter(lx, ly);
-                final FlyingCard fr = new FlyingCard(rightFace, rw, rh);
+                final FlyingCard fr = new FlyingCard(rightFace, rImgW, rImgH);
                 fr.setSize(rw, rh);
                 fr.setCenter(rx, ry);
 

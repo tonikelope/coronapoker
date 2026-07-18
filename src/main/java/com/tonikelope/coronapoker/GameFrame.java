@@ -285,6 +285,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // app (init.wav, BLOQUEANTE → force_silent), advertencia de diálogo (warning.wav), error
     // (error.wav) y error de red (network_error_XX.wav). ON por defecto.
     public static volatile boolean SONIDO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_zoom", "true"));
+    public static volatile boolean SONIDO_VISTA_COMPACTA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_vista_compacta", "true"));
     public static volatile boolean SONIDO_SCREENSHOT = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_screenshot", "true"));
     public static volatile boolean SONIDO_TAPETE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_tapete", "true"));
     public static volatile boolean SONIDO_VISOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_visor", "true"));
@@ -558,6 +559,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean zoomSonidoOn() {
         return SONIDO_EFECTOS && SONIDO_ZOOM;
+    }
+
+    public static boolean vistaCompactaSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_VISTA_COMPACTA;
     }
 
     public static boolean screenshotSonidoOn() {
@@ -3371,6 +3376,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.savePropertiesFile();
     }
 
+    public static void setSonidoVistaCompacta(boolean on) {
+
+        GameFrame.SONIDO_VISTA_COMPACTA = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_vista_compacta", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
     public static void setSonidoScreenshot(boolean on) {
 
         GameFrame.SONIDO_SCREENSHOT = on;
@@ -5576,7 +5589,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         GameFrame.VISTA_COMPACTA = target;
         compact_menu.setSelected(target > 0);
-        Audio.playWavResource("misc/power_" + (target > 0 ? "down" : "up") + ".wav");
+        if (vistaCompactaSonidoOn()) {
+            Audio.playWavResource("misc/power_" + (target > 0 ? "down" : "up") + ".wav");
+        }
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(target));
         Helpers.savePropertiesFile();
         Helpers.threadRun(this::vistaCompacta);
@@ -5628,7 +5643,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         this.compact_menu.setSelected(GameFrame.VISTA_COMPACTA > 0);
 
-        Audio.playWavResource("misc/power_" + (GameFrame.VISTA_COMPACTA > 0 ? "down" : "up") + ".wav");
+        if (vistaCompactaSonidoOn()) {
+            Audio.playWavResource("misc/power_" + (GameFrame.VISTA_COMPACTA > 0 ? "down" : "up") + ".wav");
+        }
 
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(GameFrame.VISTA_COMPACTA));
 

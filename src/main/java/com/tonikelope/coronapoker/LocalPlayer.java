@@ -150,6 +150,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // pierden su icono y reducen la fuente, para que quepa el texto y baje la
     // altura del LocalPlayer.
     private volatile boolean botonera_compacta = false;
+    // Sub-layout de la botonera compacta: false = turno (rejilla 2x2), true = estado
+    // AUTO (AUTO-igualar arriba y AUTO-fold abajo, ambos a ancho completo y CON icono).
+    // Lo mantienen esTuTurno / activarPreBotones / desActivarPreBotones.
+    private volatile boolean botonera_compacta_auto = false;
     // Tamaño de fuente base (del .form, pre-zoom) de los botones de acción,
     // capturado en el constructor; en compacto se escala por COMPACT_ACTION_FONT_FACTOR.
     private int action_font_base = 22;
@@ -691,7 +695,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         final boolean suppressed = GameFrame.getInstance().getCrupier() != null
                 && GameFrame.getInstance().getCrupier().isBigChipSuppressed(this);
         Helpers.GUIRun(() -> {
-            if (isActivo() && chip_label_icon != null && chip_state != GameFrame.LOCAL_POS_CHIP_HIDDEN && !suppressed) {
+            // En vista compacta + local (nivel 3) la carta está a media altura y la
+            // ficha grande quedaría desproporcionada encima; se oculta (el icono
+            // pequeño junto al nick sí se mantiene). Al salir del nivel 3 un refresco
+            // la vuelve a pintar según la posición activa.
+            if (isActivo() && chip_label_icon != null && chip_state != GameFrame.LOCAL_POS_CHIP_HIDDEN && !suppressed && GameFrame.VISTA_COMPACTA != 3) {
                 // Estado intermedio: la ficha se muestra al 70% de opacidad sobre las cartas.
                 ImageIcon shown = (chip_state == GameFrame.LOCAL_POS_CHIP_DIM)
                         ? Helpers.translucentIcon(chip_label_icon, 0.7f) : chip_label_icon;
@@ -1447,6 +1455,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         turno = true;
 
+        // En tu turno la botonera compacta vuelve a la rejilla 2x2 (los 4 botones
+        // de acción + spinner). Sin efecto fuera del nivel 3.
+        updateCompactLayout(false);
+
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
 
         if (this.getDecision() == Player.NODEC) {
@@ -2159,6 +2171,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (!turno && decision != Player.ALLIN && !spectator && !exit && !GameFrame.getInstance().getCrupier().isShow_time()) {
 
             Helpers.GUIRunAndWait(() -> {
+
+                // Estado AUTO: en compacto la botonera pasa a 2 filas a ancho
+                // completo (AUTO-igualar arriba, AUTO-fold abajo). Se hace ANTES de
+                // fijar los iconos para que botonera_compacta_auto ya valga true y
+                // setActionButtonIcon SÍ pinte los iconos dedo-arriba/abajo.
+                updateCompactLayout(true);
+
                 player_check_button.setBackground(null);
                 player_check_button.setForeground(null);
                 Helpers.setTranslatedText(player_check_button, "action.auto_call");
@@ -2211,6 +2230,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_fold_button.setIcon(null);
                 player_fold_button.setEnabled(false);
                 player_fold_button.putClientProperty("i18n.key", null);
+
+                // Al salir del estado AUTO, la botonera compacta vuelve a la
+                // rejilla 2x2 por defecto (botones en blanco). Sin efecto fuera del nivel 3.
+                updateCompactLayout(false);
             });
         }
     }
@@ -2635,42 +2658,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             botonera.removeAll();
 
             if (compact) {
-
-                float zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
-                int gap = Math.max(1, Math.round(4 * zoom));
-
-                botonera.setLayout(new java.awt.GridBagLayout());
-
-                java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
-                c.fill = java.awt.GridBagConstraints.BOTH;
-                c.weightx = 1;
-                c.weighty = 1;
-                c.insets = new java.awt.Insets(gap, gap, gap, gap);
-
-                c.gridx = 0;
-                c.gridy = 0;
-                botonera.add(player_fold_button, c);
-
-                c.gridx = 1;
-                c.gridy = 0;
-                botonera.add(player_check_button, c);
-
-                c.gridx = 0;
-                c.gridy = 1;
-                botonera.add(player_bet_button, c);
-
-                c.gridx = 1;
-                c.gridy = 1;
-                botonera.add(player_allin_button, c);
-
-                c.gridx = 0;
-                c.gridy = 2;
-                c.gridwidth = 2;
-                c.weighty = 0;
-                botonera.add(bet_spinner, c);
-
+                // Sub-layout según el estado de juego actual (turno = 2x2,
+                // auto = 2 filas a ancho completo). El flag lo mantienen al día
+                // esTuTurno / activarPreBotones / desActivarPreBotones.
+                buildCompactLayout(botonera_compacta_auto);
             } else {
-
                 buildBotoneraNormalLayout();
             }
 
@@ -2681,11 +2673,94 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             revalidate();
             repaint();
 
-            // Al volver a normal, repone los iconos (a su tamaño) en los botones
-            // habilitados; en compacto no se llama (los iconos se quedan quitados).
-            if (!compact) {
-                buttonIconZoom();
+            // Repone los iconos donde corresponda: en normal siempre; en compacto
+            // SOLO los botones AUTO (rejilla de 2 filas). El resto quedan sin icono
+            // (lo decide setActionButtonIcon según botonera_compacta_auto).
+            buttonIconZoom();
+        });
+    }
+
+    // Construye (removeAll + GridBag) el sub-layout de la botonera compacta:
+    //   autoLayout == false -> turno: rejilla 2x2 (NO IR | PASAR // APOSTAR | ALL IN) + spinner.
+    //   autoLayout == true  -> auto: AUTO-igualar a ancho completo arriba y AUTO-fold
+    //                          abajo (los otros botones/spinner no se muestran en ese estado).
+    private void buildCompactLayout(boolean autoLayout) {
+
+        float zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
+        int gap = Math.max(1, Math.round(4 * zoom));
+
+        botonera.removeAll();
+        botonera.setLayout(new java.awt.GridBagLayout());
+
+        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
+        c.fill = java.awt.GridBagConstraints.BOTH;
+        c.weightx = 1;
+        c.weighty = 1;
+        c.insets = new java.awt.Insets(gap, gap, gap, gap);
+
+        if (autoLayout) {
+
+            c.gridwidth = 2;
+
+            c.gridx = 0;
+            c.gridy = 0;
+            botonera.add(player_check_button, c);
+
+            c.gridx = 0;
+            c.gridy = 1;
+            botonera.add(player_fold_button, c);
+
+        } else {
+
+            c.gridx = 0;
+            c.gridy = 0;
+            botonera.add(player_fold_button, c);
+
+            c.gridx = 1;
+            c.gridy = 0;
+            botonera.add(player_check_button, c);
+
+            c.gridx = 0;
+            c.gridy = 1;
+            botonera.add(player_bet_button, c);
+
+            c.gridx = 1;
+            c.gridy = 1;
+            botonera.add(player_allin_button, c);
+
+            c.gridx = 0;
+            c.gridy = 2;
+            c.gridwidth = 2;
+            c.weighty = 0;
+            botonera.add(bet_spinner, c);
+        }
+    }
+
+    // Cambia el sub-layout de la botonera compacta según el estado de juego
+    // (auto vs turno). Guarda la intención SIEMPRE (para que al entrar en compacto
+    // se pinte el sub-layout correcto); solo relayouta si ya estamos en compacto.
+    private void updateCompactLayout(boolean autoLayout) {
+
+        Helpers.GUIRunAndWait(() -> {
+
+            botonera_compacta_auto = autoLayout;
+
+            if (!botonera_compacta) {
+                return;
             }
+
+            // La rejilla auto tiene 2 componentes; la de turno, 5. Si ya está en el
+            // sub-layout pedido, no rehacemos nada.
+            if (botonera.getComponentCount() == (autoLayout ? 2 : 5)) {
+                return;
+            }
+
+            buildCompactLayout(autoLayout);
+
+            botonera.revalidate();
+            botonera.repaint();
+
+            buttonIconZoom();
         });
     }
 
@@ -2750,11 +2825,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Aplica el icono a un botón de acción SOLO en modo normal; en la vista
-    // compacta (rejilla 2x2) los iconos se omiten para que quepa el texto.
+    // Aplica el icono a un botón de acción. En modo normal SIEMPRE lleva icono.
+    // En compacto solo lo llevan los botones AUTO (rejilla de 2 filas, donde el
+    // icono dedo-arriba/abajo distingue igualar de fold); en la 2x2 del turno se
+    // omite para que quepa el texto.
     private void setActionButtonIcon(JButton boton, String resource) {
 
-        if (botonera_compacta) {
+        if (botonera_compacta && !botonera_compacta_auto) {
             boton.setIcon(null);
             return;
         }

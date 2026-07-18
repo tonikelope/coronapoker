@@ -2041,6 +2041,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         local.setBotoneraCompact(local_compact);
+
+        // La ficha grande de posición (dealer/ciega/straddle) se oculta sobre la
+        // carta en nivel 3 y se repinta al salir; refreshPositionChipIcons ya lee
+        // VISTA_COMPACTA. Solo con Crupier vivo (no en el arranque del constructor).
+        if (getCrupier() != null) {
+            local.refreshPositionChipIcons();
+        }
     }
 
     public void vistaCompacta() {

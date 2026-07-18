@@ -410,17 +410,32 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     /**
      * Creates new form CommunityCards
      */
-    // Ficha del straddle a la derecha del blinds_label (mismo panel), escalada a la MISMA
-    // altura que el icono de ciegas (0.8*pot_label). Visible solo con straddle activo.
+    // Ficha del straddle a la derecha del blinds_label (mismo panel), a la MISMA altura
+    // que el icono de ciegas. Visible solo con straddle activo.
     private javax.swing.JLabel straddle_label;
 
     public void refreshStraddleIcon() {
         if (straddle_label == null) {
             return;
         }
-        if (GameFrame.STRADDLE && pot_label.getHeight() > 0) {
-            int h = Math.round(0.8f * pot_label.getHeight());
-            Helpers.setScaledIconLabel(straddle_label, getClass().getResource("/images/straddle_small.png"), h, h);
+        if (GameFrame.STRADDLE) {
+            // Altura tomada del icono de ciegas YA colocado (blinds_label), no recalculada
+            // desde pot_label.getHeight(): esa altura deriva por la realimentación
+            // icono->layout del pot_label y puede crecer entre el setup inicial y una
+            // llamada posterior (p.ej. refreshStraddleIcon al fijar las ciegas tras
+            // repartir), haciendo que el straddle "creciera" respecto a las ciegas.
+            // Anclarlo al icono de ciegas los mantiene SIEMPRE iguales. Fallback a
+            // 0.8*pot_label solo si el icono de ciegas aún no está puesto.
+            int h = -1;
+            javax.swing.Icon ciegas = blinds_label.getIcon();
+            if (ciegas != null && ciegas.getIconHeight() > 0) {
+                h = ciegas.getIconHeight();
+            } else if (pot_label.getHeight() > 0) {
+                h = Math.round(0.8f * pot_label.getHeight());
+            }
+            if (h > 0) {
+                Helpers.setScaledIconLabel(straddle_label, getClass().getResource("/images/straddle_small.png"), h, h);
+            }
         }
         straddle_label.setVisible(GameFrame.STRADDLE);
     }

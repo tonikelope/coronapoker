@@ -119,7 +119,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean boton_mostrar = false;
     private volatile boolean winner = false;
     private volatile boolean loser = false;
-    // Showdown (RESALTAR_JUGADA_PERDEDOR): cartas de la jugada de ESTE perdedor (sin kickers) a
+    // Showdown (RESALTAR_JUGADA_SHOWDOWN): cartas de la jugada de ESTE perdedor (sin kickers) a
     // resaltar al pasar el ratón por su etiqueta. Los tres snapshot_ guardan el estado a restaurar
     // al salir el ratón: el enfoque de cada carta de la mesa antes del hover (el resaltado del
     // ganador vuelve tal cual) y el color de fondo/texto de la etiqueta. Se manipulan solo en el EDT.
@@ -1047,7 +1047,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             initComponents();
             setOpaque(false);
             setBackground(null);
-            installLoserHandHighlight();
+            installShowdownHandHighlight();
             // Wire opcional al latency_dot_widget del .form (si existe).
             try {
                 java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");
@@ -2328,7 +2328,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         // Showdown highlight: deshace cualquier resaltado que hubiera quedado colgado si la mano
         // anterior acabó con el ratón sobre la etiqueta, y olvida la jugada resaltable.
-        highlightLoserHand(false);
+        highlightShowdownHand(false);
         this.showdown_hand_cards = null;
 
         this.bote = 0f;
@@ -3146,7 +3146,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 // enseñar voluntariamente (foldeado o perdedor tapado que pulsa MOSTRAR): sin
                                 // kickers, igual que un ganador. El gate del highlight es por !winner, así que
                                 // funciona aunque el local no sea un perdedor del showdown (p.ej. foldeó antes).
-                                setShowdownLoserHand(jugada.getWinners());
+                                setShowdownHand(jugada.getWinners());
 
                                 // Las mutaciones de Swing deben ir en el EDT. GUIRun
                                 // (asíncrono) y NO GUIRunAndWait: estamos dentro de
@@ -3629,46 +3629,45 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void setShowdownLoserHand(java.util.List<Card> cartas) {
+    public void setShowdownHand(java.util.List<Card> cartas) {
         this.showdown_hand_cards = cartas;
     }
 
     // Enter/exit sobre la etiqueta de jugada (instalado en el constructor): al entrar resalta la
-    // jugada de este perdedor con el MISMO mecanismo que el ganador (enfoca sus cartas, atenúa el
-    // resto de la mesa) y pinta su etiqueta de naranja/blanco; al salir lo restaura.
-    private void installLoserHandHighlight() {
+    // jugada de este jugador —ganador o perdedor— (enfoca sus cartas, atenúa el resto de la mesa)
+    // y pinta su etiqueta de amarillo/negro; al salir lo restaura.
+    private void installShowdownHandHighlight() {
         player_action.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseEntered(java.awt.event.MouseEvent evt) {
-                highlightLoserHand(true);
+                highlightShowdownHand(true);
             }
 
             @Override
             public void mouseExited(java.awt.event.MouseEvent evt) {
-                highlightLoserHand(false);
+                highlightShowdownHand(false);
             }
         });
     }
 
-    // on=true: solo si la opción está activa, el jugador local NO es ganador (su etiqueta muestra una
-    // jugada perdedora/enseñada, no GANA), tiene jugada visible (showdown_hand_cards) y seguimos en
-    // show_time. Enfoca SOLO las cartas de su jugada y desenfoca todas las demás de la mesa (guardando
-    // antes el enfoque de cada una), y pinta la etiqueta de amarillo/negro. El gate es por !winner y no
-    // por loser: cubre también al foldeado que enseña voluntariamente (no es loser) y protege al ganador
-    // mixto de run-it-twice (winner=true con showdown_hand_cards del board perdido → su etiqueta es GANA).
+    // on=true: solo si la opción está activa, este jugador tiene jugada visible (showdown_hand_cards)
+    // y seguimos en show_time. Enfoca SOLO las cartas de su jugada y desenfoca todas las demás de la
+    // mesa (guardando antes el enfoque de cada una), y pinta la etiqueta de amarillo/negro. Funciona
+    // para CUALQUIER jugador con jugada enseñada: ganador(es), perdedores y el foldeado que enseña
+    // voluntariamente (el gate ya no excluye a los ganadores).
     // on=false: restauración incondicional (defensiva).
-    private void highlightLoserHand(boolean on) {
+    private void highlightShowdownHand(boolean on) {
         if (on) {
             final java.util.List<Card> cartas = showdown_hand_cards;
             Crupier crupier = GameFrame.getInstance() != null ? GameFrame.getInstance().getCrupier() : null;
 
-            if (!GameFrame.RESALTAR_JUGADA_PERDEDOR || winner || cartas == null || crupier == null || !crupier.isShow_time()) {
+            if (!GameFrame.RESALTAR_JUGADA_SHOWDOWN || cartas == null || crupier == null || !crupier.isShow_time()) {
                 return;
             }
 
             Helpers.GUIRun(() -> {
                 // Idempotencia: si quedó un resaltado colgado, deshazlo antes de re-snapshotear.
-                restoreLoserHandHighlight();
+                restoreShowdownHandHighlight();
 
                 java.util.List<Card> mesa = GameFrame.getInstance().getShowdownVisibleCards();
                 java.util.Map<Card, Boolean> snapshot = new java.util.HashMap<>();
@@ -3682,7 +3681,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 for (Card c : mesa) {
                     if (cartas.contains(c)) {
                         c.enfocar();
-                        c.marcarTintePerdedor();
+                        c.marcarTinteShowdown();
                     } else {
                         c.desenfocar();
                     }
@@ -3694,14 +3693,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setForeground(Color.BLACK);
             });
         } else {
-            Helpers.GUIRun(this::restoreLoserHandHighlight);
+            Helpers.GUIRun(this::restoreShowdownHandHighlight);
         }
     }
 
     // Devuelve las cartas de la mesa al enfoque que tenían antes del hover (el resaltado del
     // ganador vuelve tal cual) y quita el tinte. NO toca el color de la etiqueta. Idempotente
     // (no-op si no hay snapshot). Debe llamarse en el EDT.
-    private void restoreLoserHandFocus() {
+    private void restoreShowdownHandFocus() {
         java.util.Map<Card, Boolean> snapshot = showdown_focus_snapshot;
 
         if (snapshot != null) {
@@ -3712,7 +3711,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     e.getKey().enfocar();
                 }
 
-                e.getKey().desmarcarTintePerdedor();
+                e.getKey().desmarcarTinteShowdown();
             }
 
             showdown_focus_snapshot = null;
@@ -3721,8 +3720,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     // Restauración completa (enfoque + color de la etiqueta) para el mouseExited y el reset
     // entre manos: la etiqueta vuelve al rojo del perdedor tal cual estaba.
-    private void restoreLoserHandHighlight() {
-        restoreLoserHandFocus();
+    private void restoreShowdownHandHighlight() {
+        restoreShowdownHandFocus();
 
         if (showdown_action_bg_snapshot != null) {
             setActionBackground(showdown_action_bg_snapshot);
@@ -3735,8 +3734,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // Descarta el hover SIN restaurar el color de la etiqueta: para el rewind de run-it-twice,
     // donde renderDecisionVisual re-pinta la etiqueta a la decisión (ALL IN) justo después;
     // restaurar aquí el rojo del perdedor de SIDE-A lo dejaría colgado sobre CARA-B.
-    private void discardLoserHandHighlight() {
-        restoreLoserHandFocus();
+    private void discardShowdownHandHighlight() {
+        restoreShowdownHandFocus();
         showdown_action_bg_snapshot = null;
         showdown_action_fg_snapshot = null;
     }
@@ -3884,7 +3883,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // (más abajo) re-pinta la etiqueta a la decisión (ALL IN); restaurar aquí el rojo del
         // perdedor de SIDE-A lo dejaría colgado sobre CARA-B. El re-enfoque de hole cards y el
         // settle de SIDE-B reconstruyen el resto.
-        Helpers.GUIRun(this::discardLoserHandHighlight);
+        Helpers.GUIRun(this::discardShowdownHandHighlight);
         this.showdown_hand_cards = null;
         // Limpia la franja de side pots de SIDE-A (se recalcula en SIDE-B).
         this.botes_secundarios.clear();

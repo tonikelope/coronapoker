@@ -110,9 +110,9 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     // Showdown: registra las cartas que componen la jugada de este PERDEDOR (sin kickers, las
     // mismas que se resaltarían de un ganador individual: jugada.getWinners()), para poder
-    // resaltarlas al pasar el ratón por su etiqueta de jugada (opción RESALTAR_JUGADA_PERDEDOR).
+    // resaltarlas al pasar el ratón por su etiqueta de jugada (opción RESALTAR_JUGADA_SHOWDOWN).
     // null = sin resaltado (mano oculta o no aplica). Se limpia entre manos.
-    public void setShowdownLoserHand(java.util.List<Card> cartas);
+    public void setShowdownHand(java.util.List<Card> cartas);
 
     // Run-it-twice rewind: re-aplica el render de la última acción y limpia el
     // estado ganador/perdedor de SIDE-A antes de correr SIDE-B.

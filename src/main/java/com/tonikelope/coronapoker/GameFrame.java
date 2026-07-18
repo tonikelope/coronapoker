@@ -373,7 +373,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // (el techo de repaints/s). Default 100 FPS: sobre-muestrea 60/75/90 Hz (el Timer va MÁS RÁPIDO
     // que el refresco), que es justo lo que se ve fluido. Ver getTickMs para el matiz del batido.
     public static final int DEFAULT_TARGET_FPS = 100;
-    public static final int MIN_TARGET_FPS = 30;
+    public static final int MIN_TARGET_FPS = 10;
     public static final int MAX_TARGET_FPS = 250;
     public static volatile int TARGET_FPS = parseTargetFps(Helpers.PROPERTIES.getProperty("target_fps", String.valueOf(DEFAULT_TARGET_FPS)));
     // Perfil de calidad de las animaciones: Calidad (por defecto) vs Rendimiento. Calidad = el

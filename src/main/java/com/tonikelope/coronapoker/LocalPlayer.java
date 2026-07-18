@@ -154,6 +154,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // AUTO (AUTO-igualar arriba y AUTO-fold abajo, ambos a ancho completo y CON icono).
     // Lo mantienen esTuTurno / activarPreBotones / desActivarPreBotones.
     private volatile boolean botonera_compacta_auto = false;
+    // Anchura de referencia del botonera (la del layout normal del .form). En compacto
+    // se fija a este valor en AMBOS sub-layouts (2x2 y auto) para que el LocalPlayer no
+    // salte de anchura al alternar turno/auto ni al entrar/salir de compacto.
+    private int botonera_ref_width = -1;
     // Tamaño de fuente base (del .form, pre-zoom) de los botones de acción,
     // capturado en el constructor; en compacto se escala por COMPACT_ACTION_FONT_FACTOR.
     private int action_font_base = 22;
@@ -1073,6 +1077,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             setOpaque(false);
             setBackground(null);
             action_font_base = player_check_button.getFont().getSize();
+            botonera_ref_width = botonera.getPreferredSize().width;
             installLoserHandHighlight();
             // Wire opcional al latency_dot_widget del .form (si existe).
             try {
@@ -2740,6 +2745,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             c.weighty = 0;
             botonera.add(bet_spinner, c);
         }
+
+        // Anchura FIJA = la del layout normal, en ambos sub-layouts, para que el
+        // LocalPlayer no salte de anchura al alternar turno/auto (el 2x2 con texto
+        // dinámico es más ancho que el auto). La altura se deja natural (2 vs 3 filas).
+        botonera.setPreferredSize(null);
+        botonera.setMinimumSize(null);
+        int naturalH = botonera.getPreferredSize().height;
+        if (botonera_ref_width > 0) {
+            botonera.setPreferredSize(new java.awt.Dimension(botonera_ref_width, naturalH));
+            botonera.setMinimumSize(new java.awt.Dimension(botonera_ref_width, 0));
+        }
     }
 
     // Cambia el sub-layout de la botonera compacta según el estado de juego
@@ -2776,6 +2792,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // GroupLayout.addComponent re-añade los componentes al contenedor.
     private void buildBotoneraNormalLayout() {
 
+        // Suelta el tamaño fijado en compacto para que mande el GroupLayout del .form.
+        botonera.setPreferredSize(null);
+        botonera.setMinimumSize(null);
+
         javax.swing.GroupLayout botoneraLayout = new javax.swing.GroupLayout(botonera);
         botonera.setLayout(botoneraLayout);
         botoneraLayout.setHorizontalGroup(
@@ -2801,6 +2821,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 .addComponent(player_fold_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                 .addContainerGap())
         );
+
+        // Refresca la anchura de referencia con la del layout normal actual (recoge
+        // cambios de zoom), que es la que fijaremos en compacto.
+        botonera_ref_width = botonera.getPreferredSize().width;
     }
 
     // Fija la fuente de los 4 botones de acción según el modo (reducida en

@@ -1040,6 +1040,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile String straddle_utg_nick = null; // con straddle, el "under the gun" REAL (primero en hablar) = siguiente activo tras el straddler; null sin straddle
     private volatile boolean straddle_recovered_posted = false; // recovery (host): si la mano replayada tenía el straddle posteado (del fósil); el host rebroadcasta esta decisión, no vuelve a preguntar
     private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // diálogo de straddle voluntario abierto en el peer del UTG (para cerrarlo desde fuera)
+
+    public VoluntaryStraddleDialog getStraddle_local_dialog() {
+        return straddle_local_dialog;
+    }
+
     private volatile boolean straddle_bar_active = false; // true mientras la barra del community cuenta los 5s de decisión del straddle (luego indeterminada hasta el resultado)
     private volatile boolean straddle_local_cards_deferred = false; // repartir dejó las hole cards del UTG local boca abajo a la espera de su decisión de straddle; resolveVoluntaryStraddle garantiza revelarlas (incluso si sale por early-return)
     // ---- Straddle CIEGO CRIPTOGRÁFICO (commit-reveal) ----

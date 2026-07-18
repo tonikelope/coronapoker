@@ -302,7 +302,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // baraja cuyo dorso se usa. Al ser "default" el que sigue a la baraja, no hace falta
     // resetear nada al cambiar de baraja.
     public static volatile String TRASERA = Helpers.PROPERTIES.getProperty("trasera", "default");
-    public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 3;
+    public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 4;
     // Efectos de animación, con granularidad: reparto/destapes de cartas, fichas de
     // posición (ciegas+dealer), ficha al bote (apuestas) y el rodaje de los contadores
     // (stack/bote/apuesta + cortinilla de llenado y recompra). Estos 5 flags *_PREF
@@ -2018,7 +2018,34 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }
 
+    // Aplica el estado de compactación que se deriva de VISTA_COMPACTA:
+    //   - comunitarias: se parten a partir del nivel 2 (compacta+cartas).
+    //   - hole cards del local: se parten SOLO en el nivel 3 (compacta+local).
+    //   - botonera del local: rejilla 2x2 SOLO en el nivel 3.
+    // Es la fuente única de verdad; la usan el constructor, el ciclo del menú y el
+    // combo de Ajustes (vía vistaCompacta) y la replica TablePanelFactory al
+    // reconstruir el panel.
+    public void applyCompactableFlags() {
+
+        LocalPlayer local = tapete.getLocalPlayer();
+
+        boolean local_compact = (GameFrame.VISTA_COMPACTA == 3);
+
+        local.getHoleCard1().setCompactable(local_compact);
+        local.getHoleCard2().setCompactable(local_compact);
+
+        boolean community_compact = (GameFrame.VISTA_COMPACTA >= 2);
+
+        for (Card carta : tapete.getCommunityCards().getCartasComunes()) {
+            carta.setCompactable(community_compact);
+        }
+
+        local.setBotoneraCompact(local_compact);
+    }
+
     public void vistaCompacta() {
+
+        applyCompactableFlags();
 
         RemotePlayer[] players = tapete.getRemotePlayers();
 
@@ -2033,6 +2060,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
             carta.refreshCard();
         }
+
+        // Las hole cards del local también cambian de tamaño (nivel 3 <-> resto).
+        tapete.getLocalPlayer().getHoleCard1().refreshCard();
+        tapete.getLocalPlayer().getHoleCard2().refreshCard();
 
         // Comprobación DENTRO del synchronized: fuera, la última carta podía
         // add()+notifyAll entre el size() y el wait y se perdía la notificación
@@ -3929,14 +3960,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         time_menu.setSelected(GameFrame.SHOW_CLOCK);
 
-        tapete.getLocalPlayer().getHoleCard1().setCompactable(false);
-        tapete.getLocalPlayer().getHoleCard2().setCompactable(false);
-
-        if (GameFrame.VISTA_COMPACTA != 2) {
-            for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
-                carta.setCompactable(false);
-            }
-        }
+        applyCompactableFlags();
 
         //Metemos la pasta a todos (el BUY IN se podría parametrizar)
         // Issue#9: el campo buyin de RemotePlayer/LocalPlayer se inicializa con
@@ -5515,19 +5539,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Fija la vista compacta a un valor CONCRETO (0=off, 1=compacta, 2=compacta+cartas),
-    // para el desplegable de Ajustes > Apariencia. Misma lógica que el ciclo del menú
-    // (compact_menuActionPerformed) pero a un destino dado en vez de (n+1)%3.
+    // Fija la vista compacta a un valor CONCRETO (0=off, 1=compacta, 2=compacta+cartas,
+    // 3=compacta+cartas+local), para el desplegable de Ajustes > Apariencia. Misma
+    // lógica que el ciclo del menú (compact_menuActionPerformed) pero a un destino
+    // dado en vez de (n+1)%4.
     public void setCompactView(int target) {
-        target = ((target % 3) + 3) % 3;
+        target = ((target % 4) + 4) % 4;
         if (target == GameFrame.VISTA_COMPACTA) {
             return;
         }
         GameFrame.VISTA_COMPACTA = target;
         compact_menu.setSelected(target > 0);
-        for (Card carta : getTapete().getCommunityCards().getCartasComunes()) {
-            carta.setCompactable(target == 2);
-        }
         Audio.playWavResource("misc/power_" + (target > 0 ? "down" : "up") + ".wav");
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(target));
         Helpers.savePropertiesFile();
@@ -5576,26 +5598,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void compact_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compact_menuActionPerformed
         // TODO add your handling code here:
 
-        GameFrame.VISTA_COMPACTA = (GameFrame.VISTA_COMPACTA + 1) % 3;
+        GameFrame.VISTA_COMPACTA = (GameFrame.VISTA_COMPACTA + 1) % 4;
 
-        if (GameFrame.VISTA_COMPACTA > 0) {
-
-            this.compact_menu.setSelected(true);
-
-            if (GameFrame.VISTA_COMPACTA == 2) {
-                for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
-                    carta.setCompactable(true);
-                }
-            }
-
-        } else {
-
-            this.compact_menu.setSelected(false);
-
-            for (Card carta : this.getTapete().getCommunityCards().getCartasComunes()) {
-                carta.setCompactable(false);
-            }
-        }
+        this.compact_menu.setSelected(GameFrame.VISTA_COMPACTA > 0);
 
         Audio.playWavResource("misc/power_" + (GameFrame.VISTA_COMPACTA > 0 ? "down" : "up") + ".wav");
 

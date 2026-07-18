@@ -1487,7 +1487,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 }
                 int w = getWidth();
                 int h = getHeight();
-                g2.rotate(angle, w / 2.0, h / 2.0);
+                // Rendimiento: sin rotación (blit directo, sin resampleo del bitmap por frame). En
+                // Calidad (por defecto) se rota EXACTAMENTE igual que siempre.
+                if (GameFrame.ANIM_CALIDAD) {
+                    g2.rotate(angle, w / 2.0, h / 2.0);
+                }
                 if (scale != 1.0) {
                     g2.translate(w / 2.0, h / 2.0);
                     g2.scale(scale, scale);

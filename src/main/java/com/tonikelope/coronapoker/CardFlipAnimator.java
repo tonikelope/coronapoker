@@ -102,10 +102,14 @@ public class CardFlipAnimator {
             int canvas_w = Math.round(canvasWidth(card_w_logical, zoom) * (float) dens);
             int canvas_h = Math.round(canvasHeight(card_h_logical, zoom) * (float) dens);
 
+            // Calidad (por defecto): supersampling SS completo, idéntico a siempre. Rendimiento:
+            // warp sin supersampling (ss=1, ~1/4 del coste del bucle por píxel; además la reducción
+            // final pasa a ser 1:1, o sea gratis).
+            int ss = GameFrame.ANIM_CALIDAD ? SS : 1;
             BufferedImage[] frames = new BufferedImage[num_frames];
             for (int i = 0; i < num_frames; i++) {
                 double ang = i * 180.0 / (num_frames - 1);
-                frames[i] = renderFlipImage(front, back, ang, PERSPECTIVE, draw_w, draw_h, canvas_w, canvas_h, SS);
+                frames[i] = renderFlipImage(front, back, ang, PERSPECTIVE, draw_w, draw_h, canvas_w, canvas_h, ss);
             }
             return PreRenderedGif.fromFrames(frames, duration_ms);
 

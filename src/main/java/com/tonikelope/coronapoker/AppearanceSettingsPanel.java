@@ -125,6 +125,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final int snap_card_flip_zoom;
     private final int snap_reparto_velocidad;
     private final int snap_max_fps;
+    private final boolean snap_anim_calidad;
     private final boolean snap_anim_swap;
     private final int snap_swap_duration;
     private final boolean snap_swap_arc;
@@ -171,6 +172,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_card_flip_zoom = GameFrame.CARD_FLIP_ZOOM;
         snap_reparto_velocidad = GameFrame.REPARTO_VELOCIDAD;
         snap_max_fps = GameFrame.MAX_FPS;
+        snap_anim_calidad = GameFrame.ANIM_CALIDAD;
         snap_anim_swap = GameFrame.ANIMACION_SWAP_PREF;
         snap_swap_duration = GameFrame.SWAP_ANIM_DURATION;
         snap_swap_arc = GameFrame.SWAP_ANIM_ARC;
@@ -879,11 +881,11 @@ public class AppearanceSettingsPanel extends JPanel {
         // igualar alturas el hueco se recoge limpio abajo (dentro de su recuadro).
         closeColumn(anim);
 
-        // ---------------- Rendimiento ----------------
-        // Sección propia (no cuelga del maestro de animaciones): el tope de FPS afecta a CUALQUIER
-        // animación pre-renderizada existente y sigue siendo un ajuste válido aunque las animaciones
-        // estén apagadas. Aquí colgará también, en su momento, el perfil de calidad.
-        JPanel rendimiento = titledColumn("settings.apariencia_rendimiento");
+        // ---------------- Gráficos ----------------
+        // Sección propia (no cuelga del maestro de animaciones): sus ajustes afectan a CUALQUIER
+        // animación pre-renderizada existente y siguen siendo válidos aunque las animaciones estén
+        // apagadas. Contiene el tope de FPS y el perfil de calidad de render.
+        JPanel graficos = titledColumn("settings.apariencia_graficos");
         {
             // Tope de FPS, dos modos claros. "Automático" = comportamiento histórico (tope ~100 FPS,
             // o el refresco si es menor; no castiga equipos flojos). "Sin límite" = iguala el refresco
@@ -919,22 +921,50 @@ public class AppearanceSettingsPanel extends JPanel {
             fps_row.add(new JLabel(icon("/images/menu/meter.png")));
             fps_row.add(fps_text);
             fps_row.add(fps_combo);
-            addLeft(rendimiento, fps_row);
+            addLeft(graficos, fps_row);
+        }
+        {
+            // Perfil de calidad de las animaciones. "Calidad" (por defecto) = EXACTAMENTE lo de ahora.
+            // "Rendimiento" (para PCs poco potentes) recorta coste por frame: vuelos sin rotación +
+            // destape sin supersampling y con menos frames. Guarda el booleano anim_calidad
+            // (true=Calidad, false=Rendimiento). Índice 0 = Calidad (por defecto).
+            final String[] q_labels = {Translator.translate("settings.calidad"),
+                Translator.translate("settings.rendimiento")};
+
+            final JLabel q_text = new JLabel(Translator.translate("settings.perfil") + ":");
+            final javax.swing.JComboBox<String> q_combo = new javax.swing.JComboBox<>(q_labels);
+
+            q_combo.setSelectedIndex(GameFrame.ANIM_CALIDAD ? 0 : 1);
+            q_combo.setMaximumSize(q_combo.getPreferredSize());
+            q_combo.addActionListener(e -> {
+                boolean calidad = q_combo.getSelectedIndex() == 0;
+                GameFrame.ANIM_CALIDAD = calidad;
+                persist("anim_calidad", String.valueOf(calidad));
+            });
+            Helpers.setTranslatedToolTip(q_combo, "tooltip.cfg.anim_calidad");
+            // Predeterminado: Calidad (índice 0).
+            reset_actions.add(() -> q_combo.setSelectedIndex(0));
+
+            JPanel q_row = naturalRow();
+            q_row.add(new JLabel(icon("/images/menu/flip.png")));
+            q_row.add(q_text);
+            q_row.add(q_combo);
+            addLeft(graficos, q_row);
         }
 
-        rendimiento.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        graficos.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         JPanel right_inner = new JPanel();
         right_inner.setLayout(new BoxLayout(right_inner, BoxLayout.Y_AXIS));
         right_inner.setAlignmentY(JComponent.TOP_ALIGNMENT);
-        // Mesa, Pantalla y Rendimiento apiladas y alineadas ARRIBA; el hueco sobrante (cuando esta
+        // Mesa, Pantalla y Gráficos apiladas y alineadas ARRIBA; el hueco sobrante (cuando esta
         // columna es más corta que Animaciones) se recoge abajo con un glue final, igual que el
         // closeColumn(anim) de la izquierda. Ambas columnas se estiran a la altura de la más alta.
         right_inner.add(mesa);
         right_inner.add(Box.createVerticalStrut(Math.round(10 * Helpers.DIALOG_ZOOM)));
         right_inner.add(pantalla);
         right_inner.add(Box.createVerticalStrut(Math.round(10 * Helpers.DIALOG_ZOOM)));
-        right_inner.add(rendimiento);
+        right_inner.add(graficos);
         right_inner.add(Box.createVerticalGlue());
 
         // Ambas columnas se estiran en vertical hasta la altura de la más alta (BoxLayout X con
@@ -1013,6 +1043,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom
                 || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad
                 || GameFrame.MAX_FPS != snap_max_fps
+                || GameFrame.ANIM_CALIDAD != snap_anim_calidad
                 || GameFrame.ANIMACION_SWAP_PREF != snap_anim_swap
                 || GameFrame.SWAP_ANIM_DURATION != snap_swap_duration
                 || GameFrame.SWAP_ANIM_ARC != snap_swap_arc
@@ -1191,6 +1222,12 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("max_fps", GameFrame.maxFpsToProp(snap_max_fps));
             Helpers.savePropertiesFile();
         }
+        // Perfil de calidad: persist-only (lo leen las palancas al renderizar cada animación).
+        if (GameFrame.ANIM_CALIDAD != snap_anim_calidad) {
+            GameFrame.ANIM_CALIDAD = snap_anim_calidad;
+            Helpers.PROPERTIES.setProperty("anim_calidad", String.valueOf(snap_anim_calidad));
+            Helpers.savePropertiesFile();
+        }
         // Ordenar la mano (swap): checkbox + velocidad + estilo, todos persist-only (sin item de menú).
         if (GameFrame.ANIMACION_SWAP_PREF != snap_anim_swap) {
             GameFrame.ANIMACION_SWAP_PREF = snap_anim_swap;
@@ -1272,6 +1309,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
         GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
         GameFrame.MAX_FPS = snap_max_fps;
+        GameFrame.ANIM_CALIDAD = snap_anim_calidad;
         GameFrame.ANIMACION_SWAP_PREF = snap_anim_swap;
         GameFrame.SWAP_ANIM_DURATION = snap_swap_duration;
         GameFrame.SWAP_ANIM_ARC = snap_swap_arc;
@@ -1304,6 +1342,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
         Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
         Helpers.PROPERTIES.setProperty("max_fps", GameFrame.maxFpsToProp(snap_max_fps));
+        Helpers.PROPERTIES.setProperty("anim_calidad", String.valueOf(snap_anim_calidad));
         Helpers.PROPERTIES.setProperty("animacion_swap", String.valueOf(snap_anim_swap));
         Helpers.PROPERTIES.setProperty("swap_velocidad", String.valueOf(snap_swap_duration));
         Helpers.PROPERTIES.setProperty("swap_arco", String.valueOf(snap_swap_arc));

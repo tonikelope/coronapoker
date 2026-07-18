@@ -380,6 +380,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int MAX_FPS_UNLIMITED = 0;
     public static volatile int MAX_FPS = parseMaxFps(Helpers.PROPERTIES.getProperty("max_fps", "auto"));
 
+    // Perfil de calidad de las animaciones: Calidad (por defecto) vs Rendimiento. Calidad = el
+    // comportamiento ACTUAL sin cambio alguno (rotación de las cartas/fichas voladoras, supersampling
+    // SS=2 del destape y todos sus frames). Rendimiento (para PCs poco potentes) recorta coste por
+    // frame: vuelos SIN rotación, warp del destape SIN supersampling y con menos frames. Cada palanca
+    // está gateada de modo que con ANIM_CALIDAD=true el camino es EXACTAMENTE el de siempre: cero
+    // regresión para quien no lo toque.
+    public static final boolean DEFAULT_ANIM_CALIDAD = true;
+    public static volatile boolean ANIM_CALIDAD = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("anim_calidad", String.valueOf(DEFAULT_ANIM_CALIDAD)));
+
     public static int parseMaxFps(String s) {
         if (s == null) {
             return MAX_FPS_AUTO;

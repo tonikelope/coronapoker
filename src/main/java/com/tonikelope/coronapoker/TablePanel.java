@@ -54,8 +54,9 @@ import javax.swing.JPanel;
  */
 public abstract class TablePanel extends javax.swing.JLayeredPane implements ZoomableInterface {
 
-    // Tick del reproductor pre-decodificado (showCentralFrames). No marca el
-    // ritmo de la animación (eso lo hace el indexado por nanoTime), solo la
+    // Tope histórico del tick (10 ms = 100 FPS). Ya NO es el tick fijo de los Timers: es la BASE del
+    // modo AUTO de GameFrame.getTickMs(), que deriva el periodo real de MAX_FPS y del refresco del
+    // monitor. No marca el ritmo de la animación (eso lo hace el indexado por nanoTime), solo la
     // frecuencia con la que se reevalúa qué frame toca.
     public static final int PRE_RENDERED_TICK_MS = 10;
 
@@ -322,7 +323,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final int last_frame = anim.getFrameCount() - 1;
                 final int[] painted = {0};
 
-                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                final javax.swing.Timer player = new javax.swing.Timer(GameFrame.getTickMs(), null);
 
                 player_holder[0] = player;
 
@@ -459,7 +460,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     final long t0 = System.nanoTime();
                     final int[] painted = new int[cartas.length];
 
-                    final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                    final javax.swing.Timer player = new javax.swing.Timer(GameFrame.getTickMs(), null);
 
                     player_holder[0] = player;
 
@@ -657,7 +658,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 final long t0 = System.nanoTime();
 
-                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                final javax.swing.Timer player = new javax.swing.Timer(GameFrame.getTickMs(), null);
                 holder[0] = player;
 
                 player.addActionListener(e -> {
@@ -829,7 +830,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 right.setVisibleCard(false);
 
                 final long t0 = System.nanoTime();
-                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                final javax.swing.Timer player = new javax.swing.Timer(GameFrame.getTickMs(), null);
                 holder[0] = player;
 
                 player.addActionListener(e -> {
@@ -1613,7 +1614,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final long t0 = System.nanoTime();
                 final boolean[] landed = {false};
 
-                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                final javax.swing.Timer player = new javax.swing.Timer(GameFrame.getTickMs(), null);
                 holder[0] = player;
 
                 player.addActionListener(e -> {
@@ -1790,7 +1791,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final long t0 = System.nanoTime();
                 final boolean[] flashed = {false};
 
-                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                final javax.swing.Timer player = new javax.swing.Timer(GameFrame.getTickMs(), null);
 
                 player.addActionListener(e -> {
                     long elapsed = (System.nanoTime() - t0) / 1_000_000L;
@@ -1903,7 +1904,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final int[] painted = {0};
                 final boolean[] audio_on = {audio != null};
 
-                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                final javax.swing.Timer player = new javax.swing.Timer(GameFrame.getTickMs(), null);
 
                 player_holder[0] = player;
 

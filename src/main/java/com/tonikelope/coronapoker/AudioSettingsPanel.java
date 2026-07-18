@@ -1326,6 +1326,7 @@ public class AudioSettingsPanel extends JPanel {
         sonido_conexion_checkbox.setEnabled(fx_on);
         sonido_iwtsth_checkbox.setEnabled(fx_on);
         sonido_zoom_checkbox.setEnabled(fx_on);
+        sonido_vista_compacta_checkbox.setEnabled(fx_on);
         sonido_screenshot_checkbox.setEnabled(fx_on);
         sonido_tapete_checkbox.setEnabled(fx_on);
         sonido_visor_checkbox.setEnabled(fx_on);

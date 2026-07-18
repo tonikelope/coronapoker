@@ -273,7 +273,7 @@ public class NewGameDialog extends JDialog {
         doblar_ciegas_spinner_minutos.setEnabled(false);
 
         if (partida_local) {
-            upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "true")));
+            upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "false")));
         } else {
             upnp_checkbox.setVisible(false);
             recover_panel.setVisible(false);

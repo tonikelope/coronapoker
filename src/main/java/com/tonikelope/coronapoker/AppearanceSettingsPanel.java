@@ -125,7 +125,6 @@ public class AppearanceSettingsPanel extends JPanel {
     private final int snap_card_flip_zoom;
     private final int snap_reparto_velocidad;
     private final int snap_target_fps;
-    private final boolean snap_vsync;
     private final boolean snap_anim_calidad;
     private final boolean snap_anim_swap;
     private final int snap_swap_duration;
@@ -173,7 +172,6 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_card_flip_zoom = GameFrame.CARD_FLIP_ZOOM;
         snap_reparto_velocidad = GameFrame.REPARTO_VELOCIDAD;
         snap_target_fps = GameFrame.TARGET_FPS;
-        snap_vsync = GameFrame.VSYNC;
         snap_anim_calidad = GameFrame.ANIM_CALIDAD;
         snap_anim_swap = GameFrame.ANIMACION_SWAP_PREF;
         snap_swap_duration = GameFrame.SWAP_ANIM_DURATION;
@@ -889,10 +887,9 @@ public class AppearanceSettingsPanel extends JPanel {
         // apagadas. Contiene el tope de FPS y el perfil de calidad de render.
         JPanel graficos = titledColumn("settings.apariencia_graficos");
         {
-            // FPS máximo por SLIDER (default 100). El checkbox VSYNC iguala los FPS al refresco del
-            // monitor y desactiva el slider. VSYNC NO es vsync real (Swing no lo tiene): en monitores
-            // de 60/75 Hz iguala el tick al refresco y crea batido (tirones); el default 100 FPS
-            // sobre-muestrea esos monitores y va fluido. Guarda target_fps (int) + vsync (bool).
+            // FPS máximo de las animaciones por SLIDER (30..250, default 100). 100 va fluido en
+            // cualquier monitor; subirlo solo aprovecha monitores de alto refresco (144/240 Hz).
+            // Guarda target_fps (int).
             final JLabel fps_text = new JLabel(Translator.translate("settings.fps_maximo") + ":");
             final JLabel fps_value = new JLabel(String.valueOf(GameFrame.TARGET_FPS));
             final javax.swing.JSlider fps_slider = new javax.swing.JSlider(
@@ -909,31 +906,8 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             });
             Helpers.setTranslatedToolTip(fps_slider, "tooltip.cfg.max_fps");
-
-            final JCheckBox vsync_cb = new JCheckBox(Translator.translate("settings.vsync"), GameFrame.VSYNC);
-            vsync_cb.addActionListener(e -> {
-                boolean on = vsync_cb.isSelected();
-                GameFrame.VSYNC = on;
-                fps_slider.setEnabled(!on);
-                fps_value.setEnabled(!on);
-                fps_text.setEnabled(!on);
-                persist("vsync", String.valueOf(on));
-            });
-            Helpers.setTranslatedToolTip(vsync_cb, "tooltip.cfg.vsync");
-
-            // Estado inicial: con VSYNC activo el slider (y sus etiquetas) arrancan deshabilitados.
-            fps_slider.setEnabled(!GameFrame.VSYNC);
-            fps_value.setEnabled(!GameFrame.VSYNC);
-            fps_text.setEnabled(!GameFrame.VSYNC);
-
-            // Predeterminado: 100 FPS con VSYNC apagado (desmarca VSYNC solo si estaba puesto, para
-            // reactivar el slider vía su listener, y luego fija el valor por defecto).
-            reset_actions.add(() -> {
-                if (vsync_cb.isSelected()) {
-                    vsync_cb.doClick();
-                }
-                fps_slider.setValue(GameFrame.DEFAULT_TARGET_FPS);
-            });
+            // Predeterminado: 100 FPS.
+            reset_actions.add(() -> fps_slider.setValue(GameFrame.DEFAULT_TARGET_FPS));
 
             JPanel fps_row = naturalRow();
             fps_row.add(new JLabel(icon("/images/menu/meter.png")));
@@ -941,11 +915,6 @@ public class AppearanceSettingsPanel extends JPanel {
             fps_row.add(fps_value);
             fps_row.add(fps_slider);
             addLeft(graficos, fps_row);
-
-            JPanel vsync_row = naturalRow();
-            vsync_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM)));
-            vsync_row.add(vsync_cb);
-            addLeft(graficos, vsync_row);
         }
         {
             // Perfil de calidad de las animaciones. "Calidad" (por defecto) = EXACTAMENTE lo de ahora.
@@ -1067,7 +1036,6 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom
                 || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad
                 || GameFrame.TARGET_FPS != snap_target_fps
-                || GameFrame.VSYNC != snap_vsync
                 || GameFrame.ANIM_CALIDAD != snap_anim_calidad
                 || GameFrame.ANIMACION_SWAP_PREF != snap_anim_swap
                 || GameFrame.SWAP_ANIM_DURATION != snap_swap_duration
@@ -1241,15 +1209,10 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
             Helpers.savePropertiesFile();
         }
-        // FPS máximo + VSYNC: persist-only (los lee getTickMs() al construir el Timer de cada animación).
+        // FPS máximo: persist-only (lo lee getTickMs() al construir el Timer de cada animación).
         if (GameFrame.TARGET_FPS != snap_target_fps) {
             GameFrame.TARGET_FPS = snap_target_fps;
             Helpers.PROPERTIES.setProperty("target_fps", String.valueOf(snap_target_fps));
-            Helpers.savePropertiesFile();
-        }
-        if (GameFrame.VSYNC != snap_vsync) {
-            GameFrame.VSYNC = snap_vsync;
-            Helpers.PROPERTIES.setProperty("vsync", String.valueOf(snap_vsync));
             Helpers.savePropertiesFile();
         }
         // Perfil de calidad: persist-only (lo leen las palancas al renderizar cada animación).
@@ -1339,7 +1302,6 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
         GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
         GameFrame.TARGET_FPS = snap_target_fps;
-        GameFrame.VSYNC = snap_vsync;
         GameFrame.ANIM_CALIDAD = snap_anim_calidad;
         GameFrame.ANIMACION_SWAP_PREF = snap_anim_swap;
         GameFrame.SWAP_ANIM_DURATION = snap_swap_duration;
@@ -1373,7 +1335,6 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
         Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
         Helpers.PROPERTIES.setProperty("target_fps", String.valueOf(snap_target_fps));
-        Helpers.PROPERTIES.setProperty("vsync", String.valueOf(snap_vsync));
         Helpers.PROPERTIES.setProperty("anim_calidad", String.valueOf(snap_anim_calidad));
         Helpers.PROPERTIES.setProperty("animacion_swap", String.valueOf(snap_anim_swap));
         Helpers.PROPERTIES.setProperty("swap_velocidad", String.valueOf(snap_swap_duration));

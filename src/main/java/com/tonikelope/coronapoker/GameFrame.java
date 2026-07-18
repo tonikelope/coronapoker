@@ -376,11 +376,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int MIN_TARGET_FPS = 30;
     public static final int MAX_TARGET_FPS = 250;
     public static volatile int TARGET_FPS = parseTargetFps(Helpers.PROPERTIES.getProperty("target_fps", String.valueOf(DEFAULT_TARGET_FPS)));
-    // VSYNC = igualar los FPS al refresco del monitor y desactivar el slider. OJO: NO es vsync real
-    // (Swing no lo tiene); iguala el tick al periodo de refresco, lo que en monitores de bajo/medio
-    // refresco (60/75 Hz) crea BATIDO (tirones). Solo conviene en alto refresco. Off por defecto.
-    public static volatile boolean VSYNC = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("vsync", "false"));
-
     // Perfil de calidad de las animaciones: Calidad (por defecto) vs Rendimiento. Calidad = el
     // comportamiento ACTUAL sin cambio alguno (rotación de las cartas/fichas voladoras, supersampling
     // SS=2 del destape y todos sus frames). Rendimiento (para PCs poco potentes) recorta coste por
@@ -402,39 +397,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Refresco (Hz) del monitor donde está la mesa (o el monitor por defecto fuera de partida).
-    // Fallback a 60 si el driver/SO no lo reporta (Wayland, VMs y algunos drivers devuelven 0).
-    private static int gameMonitorRefreshHz() {
-        try {
-            java.awt.GraphicsConfiguration gc = null;
-            GameFrame gfi = getInstance();
-            if (gfi != null && gfi.isVisible() && gfi.getGraphicsConfiguration() != null) {
-                gc = gfi.getGraphicsConfiguration();
-            }
-            if (gc == null) {
-                gc = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
-            }
-            int rr = gc.getDevice().getDisplayMode().getRefreshRate();
-            if (rr <= 0 || rr == java.awt.DisplayMode.REFRESH_RATE_UNKNOWN) {
-                return 60;
-            }
-            return rr;
-        } catch (Throwable t) {
-            return 60;
-        }
-    }
-
-    // Periodo (ms) del Timer de las animaciones pre-renderizadas. Con VSYNC off corre al FPS máximo
-    // elegido (default 100); con VSYNC on iguala el refresco del monitor. CLAVE: el Timer de Swing NO
-    // está sincronizado con el barrido (no hay vsync real), así que igualar el tick al refresco (VSYNC,
-    // o un FPS ≈ al refresco) crea BATIDO (un frame se repite y otro se salta = tirones). Para fluidez
-    // el Timer debe ir MÁS RÁPIDO que el refresco (por eso 100 FPS va fino en 60/75/90 Hz). Se lee al
-    // CONSTRUIR cada Timer (una vez por animación), no por frame → cubre además mover la ventana.
+    // Periodo (ms) del Timer de las animaciones pre-renderizadas, derivado del FPS máximo elegido
+    // (default 100). CLAVE: el Timer de Swing NO está sincronizado con el barrido del monitor (no hay
+    // vsync real), así que un FPS ≈ al refresco iguala el tick al periodo de refresco y crea BATIDO
+    // (un frame se repite y otro se salta = tirones); para fluidez el Timer debe ir MÁS RÁPIDO que el
+    // refresco (por eso 100 FPS va fino en 60/75/90 Hz). Se lee al CONSTRUIR cada Timer, no por frame.
     public static int getTickMs() {
-        int fps = VSYNC ? gameMonitorRefreshHz() : TARGET_FPS;
-        if (fps < MIN_TARGET_FPS) {
-            fps = MIN_TARGET_FPS;
-        }
+        int fps = Math.max(MIN_TARGET_FPS, TARGET_FPS);
         return Math.max(1, Math.round(1000f / fps));
     }
 

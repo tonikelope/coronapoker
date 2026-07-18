@@ -5274,7 +5274,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Habilita el resaltado por hover de la jugada recién enseñada (IWTSTH forzado o
                 // botón MOSTRAR voluntario): sin kickers, igual que un ganador. El showdown solo lo
                 // fija para quien ya mostraba; aquí lo hacemos para el revelado tardío.
-                jugador.setShowdownLoserHand(jugada.getWinners());
+                jugador.setShowdownHand(jugada.getWinners());
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
             }
@@ -5767,7 +5767,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     // Habilita el resaltado por hover de la jugada recién enseñada (SHOWCARDS
                                     // recibido: IWTSTH forzado o MOSTRAR voluntario de un peer): sin kickers,
                                     // igual que un ganador. Lo fija en el revelado tardío, no solo el showdown.
-                                    fjugador.setShowdownLoserHand(jugada.getWinners());
+                                    fjugador.setShowdownHand(jugada.getWinners());
                                 } catch (Exception e) {
                                 }
 
@@ -17345,6 +17345,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (isWinner) {
                     jugador_actual.setWinner(jugada.getName());
+
+                    // Resaltado opcional del showdown (RESALTAR_JUGADA_SHOWDOWN): igual que
+                    // para los perdedores, registra las cartas que forman la jugada GANADORA
+                    // (sin kickers) para poder resaltarlas al pasar el ratón por su etiqueta.
+                    // Solo si están visibles (el local ve siempre las suyas; un remoto solo si
+                    // mostró). Sin esto, ningún ganador tenía showdown_hand_cards y el hover no
+                    // hacía nada sobre su etiqueta.
+                    jugador_actual.setShowdownHand((isLocal || mustShow) ? jugada.getWinners() : null);
+
                     this.sqlNewShowdown(jugador_actual, jugada, true, !mustShow);
 
                     if (GameFrame.SONIDOS_CHORRA && isLocal) {
@@ -17378,12 +17387,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
 
-                    // Resaltado opcional del showdown (RESALTAR_JUGADA_PERDEDOR): registra las
+                    // Resaltado opcional del showdown (RESALTAR_JUGADA_SHOWDOWN): registra las
                     // cartas que forman la jugada de este perdedor (sin kickers, como un ganador
                     // individual) para poder resaltarlas al pasar el ratón por su etiqueta. Solo
                     // si están visibles: el local ve siempre las suyas; un remoto que no mostró
                     // (muck/IWTSTH) conserva su jugada oculta y no se resalta nada.
-                    jugador_actual.setShowdownLoserHand((isLocal || mustShow) ? jugada.getWinners() : null);
+                    jugador_actual.setShowdownHand((isLocal || mustShow) ? jugada.getWinners() : null);
 
                     this.sqlNewShowdown(jugador_actual, jugada, false, !mustShow);
 

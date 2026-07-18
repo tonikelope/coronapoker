@@ -2842,7 +2842,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             return;
         }
 
-        Helpers.setScaledIconButton(boton, getClass().getResource(resource), Math.round(0.6f * boton.getHeight()), Math.round(0.6f * boton.getHeight()));
+        // Tamaño del icono: en compacto-auto se basa en la FUENTE (estable durante la
+        // mano; solo cambia con el zoom), NO en getHeight(): los botones AUTO son filas
+        // altas a ancho completo cuya altura se reasienta al reflowear la mesa, y usar
+        // getHeight() hacía "bailar" el icono. En modo normal se mantiene 0.6*altura.
+        int size = botonera_compacta
+                ? Math.round(2f * boton.getFont().getSize())
+                : Math.round(0.6f * boton.getHeight());
+
+        Helpers.setScaledIconButton(boton, getClass().getResource(resource), size, size);
     }
 
     public void setPosition(int pos) {

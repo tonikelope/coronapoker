@@ -124,7 +124,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final int snap_card_flip_duration;
     private final int snap_card_flip_zoom;
     private final int snap_reparto_velocidad;
-    private final int snap_max_fps;
+    private final int snap_target_fps;
     private final boolean snap_anim_calidad;
     private final boolean snap_anim_swap;
     private final int snap_swap_duration;
@@ -171,7 +171,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_card_flip_duration = GameFrame.CARD_FLIP_DURATION;
         snap_card_flip_zoom = GameFrame.CARD_FLIP_ZOOM;
         snap_reparto_velocidad = GameFrame.REPARTO_VELOCIDAD;
-        snap_max_fps = GameFrame.MAX_FPS;
+        snap_target_fps = GameFrame.TARGET_FPS;
         snap_anim_calidad = GameFrame.ANIM_CALIDAD;
         snap_anim_swap = GameFrame.ANIMACION_SWAP_PREF;
         snap_swap_duration = GameFrame.SWAP_ANIM_DURATION;
@@ -887,40 +887,26 @@ public class AppearanceSettingsPanel extends JPanel {
         // apagadas. Contiene el tope de FPS y el perfil de calidad de render.
         JPanel graficos = titledColumn("settings.apariencia_graficos");
         {
-            // Tope de FPS, dos modos claros. "Automático" = comportamiento histórico (tope ~100 FPS,
-            // o el refresco si es menor; no castiga equipos flojos). "Sin límite" = iguala el refresco
-            // del monitor (alto refresco desbloqueado). Guarda la clave legible (auto/unlimited) vía
-            // GameFrame.maxFpsToProp. El perfil Rendimiento/Calidad (calidad de render) irá aparte.
-            final int[] fps_values = {GameFrame.MAX_FPS_AUTO, GameFrame.MAX_FPS_UNLIMITED};
-            final String[] fps_labels = {Translator.translate("settings.fps_auto"),
-                Translator.translate("settings.fps_sin_limite")};
-
-            final JLabel fps_text = new JLabel(Translator.translate("settings.fps_maximo") + ":");
-            final javax.swing.JComboBox<String> fps_combo = new javax.swing.JComboBox<>(fps_labels);
-
-            // Selecciona la opción cuyo valor coincida (por defecto Automático, índice 0).
-            int sel = 0;
-            for (int i = 0; i < fps_values.length; i++) {
-                if (fps_values[i] == GameFrame.MAX_FPS) {
-                    sel = i;
-                    break;
-                }
-            }
-            fps_combo.setSelectedIndex(sel);
-            fps_combo.setMaximumSize(fps_combo.getPreferredSize());
-            fps_combo.addActionListener(e -> {
-                int v = fps_values[fps_combo.getSelectedIndex()];
-                GameFrame.MAX_FPS = v;
-                persist("max_fps", GameFrame.maxFpsToProp(v));
+            // FPS de las animaciones por SPINNER (10..250, de 10 en 10, default 100). 100 va fluido en
+            // cualquier monitor; subirlo solo aprovecha monitores de alto refresco (144/240 Hz).
+            // Guarda target_fps (int).
+            final JLabel fps_text = new JLabel(Translator.translate("settings.fps") + ":");
+            final javax.swing.JSpinner fps_spinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(
+                    GameFrame.TARGET_FPS, GameFrame.MIN_TARGET_FPS, GameFrame.MAX_TARGET_FPS, 10));
+            fps_spinner.setMaximumSize(fps_spinner.getPreferredSize());
+            fps_spinner.addChangeListener(e -> {
+                int v = (Integer) fps_spinner.getValue();
+                GameFrame.TARGET_FPS = v;
+                persist("target_fps", String.valueOf(v));
             });
-            Helpers.setTranslatedToolTip(fps_combo, "tooltip.cfg.max_fps");
-            // Predeterminado: Automático (índice 0).
-            reset_actions.add(() -> fps_combo.setSelectedIndex(0));
+            Helpers.setTranslatedToolTip(fps_spinner, "tooltip.cfg.max_fps");
+            // Predeterminado: 100 FPS.
+            reset_actions.add(() -> fps_spinner.setValue(GameFrame.DEFAULT_TARGET_FPS));
 
             JPanel fps_row = naturalRow();
             fps_row.add(new JLabel(icon("/images/menu/meter.png")));
             fps_row.add(fps_text);
-            fps_row.add(fps_combo);
+            fps_row.add(fps_spinner);
             addLeft(graficos, fps_row);
         }
         {
@@ -1042,7 +1028,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration
                 || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom
                 || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad
-                || GameFrame.MAX_FPS != snap_max_fps
+                || GameFrame.TARGET_FPS != snap_target_fps
                 || GameFrame.ANIM_CALIDAD != snap_anim_calidad
                 || GameFrame.ANIMACION_SWAP_PREF != snap_anim_swap
                 || GameFrame.SWAP_ANIM_DURATION != snap_swap_duration
@@ -1216,10 +1202,10 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
             Helpers.savePropertiesFile();
         }
-        // Tope de FPS: persist-only (lo lee getTickMs() al construir el Timer de cada animación).
-        if (GameFrame.MAX_FPS != snap_max_fps) {
-            GameFrame.MAX_FPS = snap_max_fps;
-            Helpers.PROPERTIES.setProperty("max_fps", GameFrame.maxFpsToProp(snap_max_fps));
+        // FPS máximo: persist-only (lo lee getTickMs() al construir el Timer de cada animación).
+        if (GameFrame.TARGET_FPS != snap_target_fps) {
+            GameFrame.TARGET_FPS = snap_target_fps;
+            Helpers.PROPERTIES.setProperty("target_fps", String.valueOf(snap_target_fps));
             Helpers.savePropertiesFile();
         }
         // Perfil de calidad: persist-only (lo leen las palancas al renderizar cada animación).
@@ -1308,7 +1294,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
         GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
-        GameFrame.MAX_FPS = snap_max_fps;
+        GameFrame.TARGET_FPS = snap_target_fps;
         GameFrame.ANIM_CALIDAD = snap_anim_calidad;
         GameFrame.ANIMACION_SWAP_PREF = snap_anim_swap;
         GameFrame.SWAP_ANIM_DURATION = snap_swap_duration;
@@ -1341,7 +1327,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
         Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
-        Helpers.PROPERTIES.setProperty("max_fps", GameFrame.maxFpsToProp(snap_max_fps));
+        Helpers.PROPERTIES.setProperty("target_fps", String.valueOf(snap_target_fps));
         Helpers.PROPERTIES.setProperty("anim_calidad", String.valueOf(snap_anim_calidad));
         Helpers.PROPERTIES.setProperty("animacion_swap", String.valueOf(snap_anim_swap));
         Helpers.PROPERTIES.setProperty("swap_velocidad", String.valueOf(snap_swap_duration));

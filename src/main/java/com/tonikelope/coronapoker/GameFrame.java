@@ -2103,6 +2103,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             // en partida), NUNCA desde el constructor: allí el nickname aún es null.
             tapete.getLocalPlayer().refreshPositionChipIcons();
         }
+
+        // Recolocar los overlays in-frame anclados a la geometría (que cambia con la
+        // vista compacta) si están ABIERTOS al cambiar de vista: MODO AUTO (anclado al
+        // asiento + botonera) y straddle voluntario (anclado a las hole cards). Solo si
+        // hay alguno vivo (campos volátiles), y tras un settle para que asiento/botonera/
+        // cartas ya tengan su tamaño nuevo; re-invocar showOn recalcula sus bounds.
+        final AutoActionDialog auto_dlg = tapete.getLocalPlayer().getAuto_action_dialog();
+        final VoluntaryStraddleDialog straddle_dlg = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
+        if (auto_dlg != null || straddle_dlg != null) {
+            Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
+            Helpers.GUIRun(() -> {
+                if (auto_dlg != null && auto_dlg.isShowing()) {
+                    auto_dlg.showOn(tapete);
+                }
+                if (straddle_dlg != null && straddle_dlg.isShowing()) {
+                    straddle_dlg.showOn(tapete);
+                }
+            });
+        }
     }
 
     public boolean isGame_over_dialog() {

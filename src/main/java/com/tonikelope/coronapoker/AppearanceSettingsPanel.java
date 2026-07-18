@@ -237,14 +237,16 @@ public class AppearanceSettingsPanel extends JPanel {
                 }, false));
         addLeft(pantalla, zoom_group);
 
-        // Vista compacta: desplegable tri-estado (0=off, 1=compacta, 2=compacta+cartas),
-        // aplica al vuelo en partida / solo persiste fuera de partida.
+        // Vista compacta: desplegable de cuatro estados (0=off, 1=compacta,
+        // 2=compacta+cartas, 3=compacta+cartas+local), aplica al vuelo en partida
+        // / solo persiste fuera de partida.
         JComboBox<String> compact_combo = new JComboBox<>(new String[]{
             Translator.translate("settings.compacta_off"),
             Translator.translate("settings.compacta_on"),
-            Translator.translate("settings.compacta_full")
+            Translator.translate("settings.compacta_full"),
+            Translator.translate("settings.compacta_local")
         });
-        compact_combo.setSelectedIndex(Math.min(Math.max(GameFrame.VISTA_COMPACTA, 0), 2));
+        compact_combo.setSelectedIndex(Math.min(Math.max(GameFrame.VISTA_COMPACTA, 0), 3));
         compact_combo.addActionListener(e -> {
             if (building) {
                 return;

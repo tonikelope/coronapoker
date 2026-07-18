@@ -17340,6 +17340,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (isWinner) {
                     jugador_actual.setWinner(jugada.getName());
+
+                    // Resaltado opcional del showdown (RESALTAR_JUGADA_SHOWDOWN): igual que
+                    // para los perdedores, registra las cartas que forman la jugada GANADORA
+                    // (sin kickers) para poder resaltarlas al pasar el ratón por su etiqueta.
+                    // Solo si están visibles (el local ve siempre las suyas; un remoto solo si
+                    // mostró). Sin esto, ningún ganador tenía showdown_hand_cards y el hover no
+                    // hacía nada sobre su etiqueta.
+                    jugador_actual.setShowdownHand((isLocal || mustShow) ? jugada.getWinners() : null);
+
                     this.sqlNewShowdown(jugador_actual, jugada, true, !mustShow);
 
                     if (GameFrame.SONIDOS_CHORRA && isLocal) {

@@ -887,35 +887,26 @@ public class AppearanceSettingsPanel extends JPanel {
         // apagadas. Contiene el tope de FPS y el perfil de calidad de render.
         JPanel graficos = titledColumn("settings.apariencia_graficos");
         {
-            // FPS de las animaciones por SLIDER (10..250, de 10 en 10, default 100). 100 va fluido en
+            // FPS de las animaciones por SPINNER (10..250, de 10 en 10, default 100). 100 va fluido en
             // cualquier monitor; subirlo solo aprovecha monitores de alto refresco (144/240 Hz).
             // Guarda target_fps (int).
             final JLabel fps_text = new JLabel(Translator.translate("settings.fps") + ":");
-            final JLabel fps_value = new JLabel(String.valueOf(GameFrame.TARGET_FPS));
-            final javax.swing.JSlider fps_slider = new javax.swing.JSlider(
-                    GameFrame.MIN_TARGET_FPS, GameFrame.MAX_TARGET_FPS, GameFrame.TARGET_FPS);
-            java.awt.Dimension sp = fps_slider.getPreferredSize();
-            fps_slider.setPreferredSize(new java.awt.Dimension(Math.round(150 * Helpers.DIALOG_ZOOM), sp.height));
-            fps_slider.setMaximumSize(fps_slider.getPreferredSize());
-            fps_slider.setMinorTickSpacing(10);
-            fps_slider.setSnapToTicks(true); // el slider se mueve de 10 en 10
-            fps_slider.addChangeListener(e -> {
-                int v = fps_slider.getValue();
-                fps_value.setText(String.valueOf(v));
+            final javax.swing.JSpinner fps_spinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(
+                    GameFrame.TARGET_FPS, GameFrame.MIN_TARGET_FPS, GameFrame.MAX_TARGET_FPS, 10));
+            fps_spinner.setMaximumSize(fps_spinner.getPreferredSize());
+            fps_spinner.addChangeListener(e -> {
+                int v = (Integer) fps_spinner.getValue();
                 GameFrame.TARGET_FPS = v;
-                if (!fps_slider.getValueIsAdjusting()) {
-                    persist("target_fps", String.valueOf(v));
-                }
+                persist("target_fps", String.valueOf(v));
             });
-            Helpers.setTranslatedToolTip(fps_slider, "tooltip.cfg.max_fps");
+            Helpers.setTranslatedToolTip(fps_spinner, "tooltip.cfg.max_fps");
             // Predeterminado: 100 FPS.
-            reset_actions.add(() -> fps_slider.setValue(GameFrame.DEFAULT_TARGET_FPS));
+            reset_actions.add(() -> fps_spinner.setValue(GameFrame.DEFAULT_TARGET_FPS));
 
             JPanel fps_row = naturalRow();
             fps_row.add(new JLabel(icon("/images/menu/meter.png")));
             fps_row.add(fps_text);
-            fps_row.add(fps_value);
-            fps_row.add(fps_slider);
+            fps_row.add(fps_spinner);
             addLeft(graficos, fps_row);
         }
         {

@@ -142,6 +142,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
     private volatile boolean player_stack_click = false;
+    // Vista compacta del local (VISTA_COMPACTA == 3): la botonera pasa de un
+    // apilado vertical (5 filas) a una rejilla 2x2 + spinner para reducir la
+    // altura. Guardamos el LayoutManager original del .form para restaurarlo
+    // idéntico al salir del modo compacto.
+    private java.awt.LayoutManager botonera_layout_normal = null;
+    private volatile boolean botonera_compacta = false;
     private volatile String player_action_icon = null;
     private volatile Timer icon_zoom_timer = null;
     private volatile URL chat_notify_image_url = null;
@@ -1047,6 +1053,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             initComponents();
             setOpaque(false);
             setBackground(null);
+            botonera_layout_normal = botonera.getLayout();
             installLoserHandHighlight();
             // Wire opcional al latency_dot_widget del .form (si existe).
             try {
@@ -2593,6 +2600,87 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             }
         }
+    }
+
+    public boolean isBotoneraCompacta() {
+        return botonera_compacta;
+    }
+
+    // Reorganiza la botonera de acción según el modo compacto del local:
+    //   compact == false -> restaura el layout vertical original del .form (idéntico).
+    //   compact == true  -> rejilla 2x2 (NO IR | PASAR // APOSTAR | ALL IN) + spinner
+    //                       a lo ancho, para que la botonera deje de ser el techo de
+    //                       altura del LocalPlayer.
+    // Solo cambia el CONTENEDOR y el LayoutManager: los botones son las mismas
+    // instancias (listeners, texto, iconos, colores y estado enable se conservan).
+    public void setBotoneraCompact(boolean compact) {
+
+        Helpers.GUIRunAndWait(() -> {
+
+            // El estado inicial (arranque en niveles 0/1/2 y paneles recién creados)
+            // conserva el layout vertical PRÍSTINO del .form sin tocarlo: solo se
+            // reorganiza al cruzar realmente hacia/desde el nivel 3.
+            if (botonera_compacta == compact) {
+                return;
+            }
+
+            botonera_compacta = compact;
+
+            botonera.removeAll();
+
+            if (compact) {
+
+                float zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
+                int gap = Math.max(1, Math.round(4 * zoom));
+
+                botonera.setLayout(new java.awt.GridBagLayout());
+
+                java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
+                c.fill = java.awt.GridBagConstraints.BOTH;
+                c.weightx = 1;
+                c.weighty = 1;
+                c.insets = new java.awt.Insets(gap, gap, gap, gap);
+
+                c.gridx = 0;
+                c.gridy = 0;
+                botonera.add(player_fold_button, c);
+
+                c.gridx = 1;
+                c.gridy = 0;
+                botonera.add(player_check_button, c);
+
+                c.gridx = 0;
+                c.gridy = 1;
+                botonera.add(player_bet_button, c);
+
+                c.gridx = 1;
+                c.gridy = 1;
+                botonera.add(player_allin_button, c);
+
+                c.gridx = 0;
+                c.gridy = 2;
+                c.gridwidth = 2;
+                c.weighty = 0;
+                botonera.add(bet_spinner, c);
+
+            } else {
+
+                botonera.setLayout(botonera_layout_normal);
+
+                // Se re-añaden todos los componentes referenciados por el GroupLayout
+                // original; su posición la fijan los grupos guardados, no el orden de add().
+                botonera.add(player_check_button);
+                botonera.add(bet_spinner);
+                botonera.add(player_bet_button);
+                botonera.add(player_allin_button);
+                botonera.add(player_fold_button);
+            }
+
+            botonera.revalidate();
+            botonera.repaint();
+            revalidate();
+            repaint();
+        });
     }
 
     public void setPosition(int pos) {

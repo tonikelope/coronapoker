@@ -87,17 +87,18 @@ public class TablePanelFactory {
                     }
                 }
 
-                nuevo_panel.getLocalPlayer().getHoleCard1().setCompactable(false);
-                nuevo_panel.getLocalPlayer().getHoleCard2().setCompactable(false);
+                boolean local_compact = (GameFrame.VISTA_COMPACTA == 3);
+                nuevo_panel.getLocalPlayer().getHoleCard1().setCompactable(local_compact);
+                nuevo_panel.getLocalPlayer().getHoleCard2().setCompactable(local_compact);
+                nuevo_panel.getLocalPlayer().setBotoneraCompact(local_compact);
                 nuevo_panel.getLocalPlayer().setPause_counter(panel.getLocalPlayer().getPause_counter());
                 nuevo_panel.getLocalPlayer().setAuto_pause(panel.getLocalPlayer().isAuto_pause());
                 nuevo_panel.getLocalPlayer().setAuto_pause_warning(panel.getLocalPlayer().isAuto_pause_warning());
                 nuevo_panel.getLocalPlayer().setConta_rabbit(panel.getLocalPlayer().getConta_rabbit());
 
-                if (GameFrame.VISTA_COMPACTA != 2) {
-                    for (Card carta : nuevo_panel.getCommunityCards().getCartasComunes()) {
-                        carta.setCompactable(false);
-                    }
+                boolean community_compact = (GameFrame.VISTA_COMPACTA >= 2);
+                for (Card carta : nuevo_panel.getCommunityCards().getCartasComunes()) {
+                    carta.setCompactable(community_compact);
                 }
 
                 Helpers.GUIRunAndWait(() -> {

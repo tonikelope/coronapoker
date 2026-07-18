@@ -2041,13 +2041,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         local.setBotoneraCompact(local_compact);
-
-        // La ficha grande de posición (dealer/ciega/straddle) se oculta sobre la
-        // carta en nivel 3 y se repinta al salir; refreshPositionChipIcons ya lee
-        // VISTA_COMPACTA. Solo con Crupier vivo (no en el arranque del constructor).
-        if (getCrupier() != null) {
-            local.refreshPositionChipIcons();
-        }
     }
 
     public void vistaCompacta() {
@@ -2104,6 +2097,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // community panel) hay que recolocarlo/reescalarlo con la geometría nueva.
         if (getCrupier() != null) {
             getCrupier().refreshCallCostOverlay();
+
+            // La ficha grande de posición (dealer/ciega/straddle) se oculta sobre la
+            // carta a media altura en nivel 3 y se repinta al salir. Solo aquí (toggle
+            // en partida), NUNCA desde el constructor: allí el nickname aún es null.
+            tapete.getLocalPlayer().refreshPositionChipIcons();
         }
     }
 

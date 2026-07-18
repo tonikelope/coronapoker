@@ -658,6 +658,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void refreshPositionChipIcons() {
 
+        // Defensa: puede llegar una llamada antes de sentar al jugador (nickname aún
+        // null); sin ficha que pintar, no hay nada que hacer.
+        if (this.nickname == null) {
+            return;
+        }
+
         ImageIcon chip_label_icon;
 
         if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {

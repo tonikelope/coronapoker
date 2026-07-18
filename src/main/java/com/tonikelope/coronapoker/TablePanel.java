@@ -786,33 +786,19 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 // (capa POPUP) pasa por delante de la derecha (capa DRAG).
                 final double arc_amt = arc ? Math.max(lh, rh) * 0.55 : 0.0;
 
-                // Dimensiones NATURALES de la imagen. En vista compacta la carta está
-                // recortada a media altura: el componente mide lh (½) pero la imagen es de
-                // altura completa. Pasándole a FlyingCard el tamaño natural (y dejando el
-                // componente a lw×lh) la imagen se RECORTA dentro del componente — banda
-                // central, idéntico a la carta estática — en vez de APLASTARSE a lh. En
-                // modo normal natural == real, así que no cambia nada.
-                int lImgW = leftFace.getWidth(null);
-                int lImgH = leftFace.getHeight(null);
-                if (lImgW <= 0) {
-                    lImgW = lw;
-                }
-                if (lImgH <= 0) {
-                    lImgH = lh;
-                }
-                int rImgW = rightFace.getWidth(null);
-                int rImgH = rightFace.getHeight(null);
-                if (rImgW <= 0) {
-                    rImgW = rw;
-                }
-                if (rImgH <= 0) {
-                    rImgH = rh;
-                }
+                // En vista compacta la carta estática muestra su MITAD SUPERIOR (la "mini
+                // carta", con el índice), recortada a native res (no escalada). Recortamos
+                // esa misma mitad superior y se la damos a la voladora a tamaño ½, para que
+                // el cruce se vea idéntico a la estática (ni aplastada ni banda central). En
+                // modo normal la imagen es de altura completa: topHalfIfShorter la devuelve
+                // tal cual y no cambia nada.
+                final java.awt.Image leftDraw = topHalfIfShorter(leftFace, lw, lh);
+                final java.awt.Image rightDraw = topHalfIfShorter(rightFace, rw, rh);
 
-                final FlyingCard fl = new FlyingCard(leftFace, lImgW, lImgH);
+                final FlyingCard fl = new FlyingCard(leftDraw, lw, lh);
                 fl.setSize(lw, lh);
                 fl.setCenter(lx, ly);
-                final FlyingCard fr = new FlyingCard(rightFace, rImgW, rImgH);
+                final FlyingCard fr = new FlyingCard(rightDraw, rw, rh);
                 fr.setSize(rw, rh);
                 fr.setCenter(rx, ry);
 
@@ -925,6 +911,31 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 holder[0].stop();
             }
         });
+    }
+
+    // Si la imagen es más alta que el hueco (vista compacta: hueco a ½, imagen a
+    // altura completa), devuelve un recorte de su MITAD SUPERIOR a native res (w×h),
+    // igual que muestra la carta estática compacta. Si no (altura completa), la
+    // devuelve tal cual. Evita que la voladora del swap aplaste la carta entera.
+    private java.awt.Image topHalfIfShorter(java.awt.Image img, int w, int h) {
+        if (img == null || w <= 0 || h <= 0) {
+            return img;
+        }
+        int imgH = img.getHeight(null);
+        if (imgH <= 0 || imgH <= h) {
+            return img;
+        }
+        int imgW = img.getWidth(null);
+        if (imgW <= 0) {
+            imgW = w;
+        }
+        java.awt.image.BufferedImage cut = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = cut.createGraphics();
+        // dest (0,0,w,h) <- src franja SUPERIOR (0,0,imgW,h): mitad superior, sin
+        // escalar en vertical (native res); en horizontal encaja imgW->w (idénticos).
+        g.drawImage(img, 0, 0, w, h, 0, 0, imgW, h, null);
+        g.dispose();
+        return cut;
     }
 
     // Clona la ficha de posición grande en un overlay ESTÁTICO en el tapete, en una

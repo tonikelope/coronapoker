@@ -54,12 +54,6 @@ import javax.swing.JPanel;
  */
 public abstract class TablePanel extends javax.swing.JLayeredPane implements ZoomableInterface {
 
-    // Tope histórico del tick (10 ms = 100 FPS). Ya NO es el tick fijo de los Timers: es la BASE del
-    // modo AUTO de GameFrame.getTickMs(), que deriva el periodo real de MAX_FPS y del refresco del
-    // monitor. No marca el ritmo de la animación (eso lo hace el indexado por nanoTime), solo la
-    // frecuencia con la que se reevalúa qué frame toca.
-    public static final int PRE_RENDERED_TICK_MS = 10;
-
     protected volatile TexturePaint tp = null;
 
     // Tapete de IMAGEN ÚNICA (sufijo "*"): un JPG grande que se estira a todo el

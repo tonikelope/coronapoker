@@ -368,17 +368,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_REPARTO_VELOCIDAD = 100;
     public static volatile int REPARTO_VELOCIDAD = Integer.parseInt(Helpers.PROPERTIES.getProperty("reparto_velocidad", String.valueOf(DEFAULT_REPARTO_VELOCIDAD)));
 
-    // Tope de FPS de las animaciones pre-renderizadas (barajado, reparto, fichas, destape). El
-    // ritmo real de cada animación lo marca su reloj (System.nanoTime); este valor solo fija cada
-    // cuánto se reevalúa qué frame toca, es decir el techo de repaints por segundo. NUNCA se late
-    // por encima del refresco del monitor (esos frames extra no se llegan a mostrar).
-    //   AUTO (-1, por defecto) = tope histórico ~100 FPS, o el refresco si es menor (un monitor de
-    //                            60 Hz baja a 60 sin pérdida visible).
-    //   UNLIMITED (0)          = iguala el refresco del monitor (alto refresco desbloqueado).
-    //   N>0                    = tope a N FPS, siempre acotado por el refresco.
-    public static final int MAX_FPS_AUTO = -1;
-    public static final int MAX_FPS_UNLIMITED = 0;
-    public static volatile int MAX_FPS = parseMaxFps(Helpers.PROPERTIES.getProperty("max_fps", "auto"));
+    // FPS máximo de las animaciones pre-renderizadas (barajado, reparto, fichas, destape). El ritmo
+    // real lo marca el reloj (System.nanoTime); esto solo fija cada cuánto se reevalúa qué frame toca
+    // (el techo de repaints/s). Default 100 FPS: sobre-muestrea 60/75/90 Hz (el Timer va MÁS RÁPIDO
+    // que el refresco), que es justo lo que se ve fluido. Ver getTickMs para el matiz del batido.
+    public static final int DEFAULT_TARGET_FPS = 100;
+    public static final int MIN_TARGET_FPS = 30;
+    public static final int MAX_TARGET_FPS = 250;
+    public static volatile int TARGET_FPS = parseTargetFps(Helpers.PROPERTIES.getProperty("target_fps", String.valueOf(DEFAULT_TARGET_FPS)));
+    // VSYNC = igualar los FPS al refresco del monitor y desactivar el slider. OJO: NO es vsync real
+    // (Swing no lo tiene); iguala el tick al periodo de refresco, lo que en monitores de bajo/medio
+    // refresco (60/75 Hz) crea BATIDO (tirones). Solo conviene en alto refresco. Off por defecto.
+    public static volatile boolean VSYNC = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("vsync", "false"));
 
     // Perfil de calidad de las animaciones: Calidad (por defecto) vs Rendimiento. Calidad = el
     // comportamiento ACTUAL sin cambio alguno (rotación de las cartas/fichas voladoras, supersampling
@@ -389,33 +390,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final boolean DEFAULT_ANIM_CALIDAD = true;
     public static volatile boolean ANIM_CALIDAD = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("anim_calidad", String.valueOf(DEFAULT_ANIM_CALIDAD)));
 
-    public static int parseMaxFps(String s) {
-        if (s == null) {
-            return MAX_FPS_AUTO;
-        }
-        String v = s.trim().toLowerCase();
-        if (v.equals("auto")) {
-            return MAX_FPS_AUTO;
-        }
-        if (v.equals("unlimited") || v.equals("0")) {
-            return MAX_FPS_UNLIMITED;
-        }
-        try {
-            int n = Integer.parseInt(v);
-            return n > 0 ? n : MAX_FPS_AUTO;
-        } catch (NumberFormatException e) {
-            return MAX_FPS_AUTO;
-        }
+    public static int clampTargetFps(int v) {
+        return Math.max(MIN_TARGET_FPS, Math.min(MAX_TARGET_FPS, v));
     }
 
-    public static String maxFpsToProp(int v) {
-        if (v < 0) {
-            return "auto";
+    private static int parseTargetFps(String s) {
+        try {
+            return clampTargetFps(Integer.parseInt(s.trim()));
+        } catch (Exception e) {
+            return DEFAULT_TARGET_FPS;
         }
-        if (v == 0) {
-            return "unlimited";
-        }
-        return String.valueOf(v);
     }
 
     // Refresco (Hz) del monitor donde está la mesa (o el monitor por defecto fuera de partida).
@@ -440,24 +424,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Periodo (ms) del Timer de las animaciones pre-renderizadas, derivado de MAX_FPS y del refresco
-    // del monitor de la mesa. Se lee al CONSTRUIR cada Timer (una vez por secuencia de animación),
-    // no por frame, así que recoger el monitor actual aquí cubre además mover la ventana de pantalla.
+    // Periodo (ms) del Timer de las animaciones pre-renderizadas. Con VSYNC off corre al FPS máximo
+    // elegido (default 100); con VSYNC on iguala el refresco del monitor. CLAVE: el Timer de Swing NO
+    // está sincronizado con el barrido (no hay vsync real), así que igualar el tick al refresco (VSYNC,
+    // o un FPS ≈ al refresco) crea BATIDO (un frame se repite y otro se salta = tirones). Para fluidez
+    // el Timer debe ir MÁS RÁPIDO que el refresco (por eso 100 FPS va fino en 60/75/90 Hz). Se lee al
+    // CONSTRUIR cada Timer (una vez por animación), no por frame → cubre además mover la ventana.
     public static int getTickMs() {
-        int base_cap = 1000 / TablePanel.PRE_RENDERED_TICK_MS; // 100 FPS = tope histórico del modo AUTO
-        int hz = gameMonitorRefreshHz();
-        int fps;
-        if (MAX_FPS == MAX_FPS_AUTO) {
-            fps = Math.min(base_cap, hz);
-        } else if (MAX_FPS == MAX_FPS_UNLIMITED) {
-            fps = hz;
-        } else {
-            fps = Math.min(MAX_FPS, hz);
+        int fps = VSYNC ? gameMonitorRefreshHz() : TARGET_FPS;
+        if (fps < MIN_TARGET_FPS) {
+            fps = MIN_TARGET_FPS;
         }
-        if (fps < 24) {
-            fps = 24; // sanidad: nunca por debajo de 24 FPS aunque el refresco reportado sea absurdo
-        }
-        return Math.max(1, (int) Math.round(1000.0 / fps));
+        return Math.max(1, Math.round(1000f / fps));
     }
 
     // Sincronización P2P de estadísticas: dos preferencias globales independientes,

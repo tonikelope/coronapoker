@@ -885,12 +885,12 @@ public class AppearanceSettingsPanel extends JPanel {
         // estén apagadas. Aquí colgará también, en su momento, el perfil de calidad.
         JPanel rendimiento = titledColumn("settings.apariencia_rendimiento");
         {
-            // Tope de FPS. "Automático" = comportamiento histórico (tope ~100 FPS, o el refresco si
-            // es menor). "Sin límite" = iguala el refresco del monitor (alto refresco desbloqueado).
-            // Los intermedios topan a ese valor, siempre acotados por el refresco. Guarda la clave
-            // legible (auto / unlimited / N) vía GameFrame.maxFpsToProp.
-            final int[] fps_values = {GameFrame.MAX_FPS_AUTO, 60, 100, 144, 240, GameFrame.MAX_FPS_UNLIMITED};
-            final String[] fps_labels = {Translator.translate("settings.fps_auto"), "60", "100", "144", "240",
+            // Tope de FPS, dos modos claros. "Automático" = comportamiento histórico (tope ~100 FPS,
+            // o el refresco si es menor; no castiga equipos flojos). "Sin límite" = iguala el refresco
+            // del monitor (alto refresco desbloqueado). Guarda la clave legible (auto/unlimited) vía
+            // GameFrame.maxFpsToProp. El perfil Rendimiento/Calidad (calidad de render) irá aparte.
+            final int[] fps_values = {GameFrame.MAX_FPS_AUTO, GameFrame.MAX_FPS_UNLIMITED};
+            final String[] fps_labels = {Translator.translate("settings.fps_auto"),
                 Translator.translate("settings.fps_sin_limite")};
 
             final JLabel fps_text = new JLabel(Translator.translate("settings.fps_maximo") + ":");

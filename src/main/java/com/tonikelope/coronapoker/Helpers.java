@@ -4156,8 +4156,20 @@ public class Helpers {
                 frame.setExtendedState(JFrame.NORMAL);
                 frame.setBounds(screen.x + (screen.width - rw) / 2, screen.y + (screen.height - rh) / 2, rw, rh);
                 frame.setMaximizedBounds(usable);
-                frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+                // En Windows (pipeline Direct3D por defecto) fijar MAXIMIZED_BOTH
+                // ANTES de setVisible mapea a veces la ventana maximizada con el
+                // back-buffer en blanco: el contenido no se pinta hasta el primer
+                // WM_SIZE real (de ahi que "se arregle" al minimizar y restaurar).
+                // Es dependiente de driver/resolucion, por lo que solo aflora en
+                // algunas maquinas. Mostrarla primero en estado normal y maximizar
+                // justo despues, dentro del mismo ciclo del EDT, genera ese resize
+                // real que valida el contenido, sin flash perceptible (el gestor de
+                // ventanas aplica la maximizacion antes del primer pintado). El
+                // tamano restaurado (80%) se conserva porque son las bounds normales
+                // ya fijadas antes de maximizar.
                 frame.setVisible(true);
+                frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
                 // Liberar el rectangulo fijo de maximizacion para no clavar
                 // las futuras maximizaciones manuales del usuario a este

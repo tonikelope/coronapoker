@@ -241,7 +241,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDO_BARAJADO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_barajado", "true"));
     public static volatile boolean SONIDO_REPARTO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_reparto", "true"));
     public static volatile boolean SONIDO_DESTAPE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_destape", "true"));
-    public static volatile boolean SONIDO_DESTAPE_MIS_CARTAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_destape_mis_cartas", "true"));
+    public static volatile boolean SONIDO_DESTAPE_MIS_CARTAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_destape_mis_cartas", "false"));
     public static volatile boolean SONIDO_APOSTAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_apostar", "true"));
     public static volatile boolean SONIDO_FOLD = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_fold", "true"));
     public static volatile boolean SONIDO_CONTEO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_conteo", "true"));

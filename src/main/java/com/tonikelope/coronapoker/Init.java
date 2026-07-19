@@ -1741,6 +1741,10 @@ public class Init extends JFrame {
         // el arranque, para que la primera mano no pague el decode
         Crupier.warmShuffleAnimCache();
 
+        // Igual para el logo animado del About (corona_logo.gif): pre-decodifica en
+        // background para que la primera apertura del About no pague el decode.
+        AboutDialog.warmupLogoAnim();
+
         // Calienta el JIT de la cripto pesada (cascada SRA + prueba/verificación de barajado)
         // en background, para que las primeras manos no corran interpretadas / en C1 en PCs
         // lentos (multi-segundo en frío vs ~0,1 s ya compilado). Ver CryptoWarmup.

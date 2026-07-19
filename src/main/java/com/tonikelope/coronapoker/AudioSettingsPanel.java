@@ -1204,7 +1204,7 @@ public class AudioSettingsPanel extends JPanel {
         applyDefault(GameFrame::setSonidoBarajado, sonido_barajado_checkbox, true);
         applyDefault(GameFrame::setSonidoReparto, sonido_reparto_checkbox, true);
         applyDefault(GameFrame::setSonidoDestape, sonido_destape_checkbox, true);
-        applyDefault(GameFrame::setSonidoDestapeMisCartas, sonido_destape_mis_checkbox, true);
+        applyDefault(GameFrame::setSonidoDestapeMisCartas, sonido_destape_mis_checkbox, false);
         applyDefault(GameFrame::setSonidoApostar, sonido_apostar_checkbox, true);
         applyDefault(GameFrame::setSonidoFold, sonido_fold_checkbox, true);
         applyDefault(GameFrame::setSonidoConteo, sonido_conteo_checkbox, true);

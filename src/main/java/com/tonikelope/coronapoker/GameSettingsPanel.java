@@ -319,7 +319,17 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         setLayout(new java.awt.BorderLayout());
         setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM)));
 
-        rules_panel = new javax.swing.JPanel();
+        // Ambos subpaneles (reglas | ciegas) van lado a lado en un BoxLayout X (ver 'row'): capamos su
+        // alto MÁXIMO al preferido para que el MÁS CORTO de los dos NO se estire hasta igualar al más
+        // alto (eso abría una franja vacía dentro de su borde titulado). Así cada panel se queda a su
+        // alto natural, pegado arriba, y el hueco sobrante cae LIMPIO por debajo del más corto (fuera de
+        // su borde), no dentro. El maxWidth se hereda intacto (no toca el reparto horizontal de la fila).
+        rules_panel = new javax.swing.JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(super.getMaximumSize().width, getPreferredSize().height);
+            }
+        };
         manos_checkbox = new javax.swing.JCheckBox();
         manos_label = new javax.swing.JLabel();
         manos_spinner = new javax.swing.JSpinner();
@@ -335,7 +345,14 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         rabbit_label = new javax.swing.JLabel();
         rabbit_combo = new javax.swing.JComboBox<>();
 
-        ciegas_panel = new javax.swing.JPanel();
+        // Mismo cape que rules_panel: alto máximo = preferido, para que no se estire y no abra franja
+        // vacía dentro de su borde cuando resulta el más corto de los dos de la fila.
+        ciegas_panel = new javax.swing.JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(super.getMaximumSize().width, getPreferredSize().height);
+            }
+        };
         estructura_label = new javax.swing.JLabel();
         estructura_combobox = new javax.swing.JComboBox<>();
         ciegas_label = new javax.swing.JLabel();

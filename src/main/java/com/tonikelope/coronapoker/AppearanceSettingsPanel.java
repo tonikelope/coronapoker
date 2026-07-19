@@ -297,9 +297,9 @@ public class AppearanceSettingsPanel extends JPanel {
             }
         });
 
-        // "Pantalla y zoom" es más corta que la columna derecha y se estira para igualarla;
-        // el glue empuja sus filas arriba y deja el hueco abajo (como "Varios" en Partida).
-        closeColumn(pantalla);
+        // "Pantalla y zoom" se queda a su ALTO NATURAL (sin glue interno): no debe abrir una franja
+        // vacía dentro de su borde titulado. El hueco sobrante de la columna derecha se recoge ENTRE
+        // Mesa y Pantalla (ver el ensamblado de right_inner), no dentro de este panel.
 
         // ---------------- Mesa ----------------
         JPanel mesa = titledColumn("settings.apariencia_mesa");
@@ -870,8 +870,9 @@ public class AppearanceSettingsPanel extends JPanel {
         // Fila Animaciones | (Mesa sobre Pantalla) a su ALTO NATURAL en el NORTE, alineadas arriba
         // a la izquierda. Animaciones (la columna más alta desde que agrupa Barajado/Reparto/Destapar)
         // va SOLA a la izquierda y las dos más bajas (Mesa y Pantalla) se apilan a la derecha, para
-        // equilibrar alturas y que el diálogo quede menos alto. El hueco sobrante cae a la derecha y
-        // abajo (mismo patrón que la pestaña Partida) sin estirar ni recortar los subpaneles.
+        // equilibrar alturas y que el diálogo quede menos alto. El hueco sobrante de la columna derecha
+        // se recoge ENTRE Mesa y Pantalla (glue intermedio, ver right_inner), sin estirar ni recortar
+        // los subpaneles, de modo que el borde inferior de Pantalla se alinea con el de Animaciones.
         anim.setAlignmentY(JComponent.TOP_ALIGNMENT);
         mesa.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         pantalla.setAlignmentX(JComponent.LEFT_ALIGNMENT);
@@ -926,13 +927,17 @@ public class AppearanceSettingsPanel extends JPanel {
         JPanel right_inner = new JPanel();
         right_inner.setLayout(new BoxLayout(right_inner, BoxLayout.Y_AXIS));
         right_inner.setAlignmentY(JComponent.TOP_ALIGNMENT);
-        // Mesa y Pantalla apiladas y alineadas ARRIBA; el hueco sobrante (cuando esta columna es más
-        // corta que Animaciones, que ahora incluye Gráficos) se recoge abajo con un glue final, igual
-        // que el closeColumn(anim) de la izquierda. Ambas columnas se estiran a la altura de la más alta.
+        // Mesa pegada ARRIBA, Pantalla pegada ABAJO: el glue va ENTRE ambas (no al pie de la columna).
+        // Así, cuando esta columna es más corta que Animaciones (la más alta, que agrupa Barajado/
+        // Reparto/Destapar + Gráficos), todo el hueco sobrante se recoge ENTRE los dos paneles y el
+        // borde inferior de "Pantalla y zoom" queda alineado con el de "Animaciones" (ambas columnas se
+        // estiran a la altura de la más alta). Ninguno de los dos paneles se estira: ambos se quedan a
+        // su alto natural (sin franja vacía dentro de su borde titulado); el glue absorbe todo el
+        // sobrante como separación ENTRE paneles, igual que el strut mínimo de 10px.
         right_inner.add(mesa);
         right_inner.add(Box.createVerticalStrut(Math.round(10 * Helpers.DIALOG_ZOOM)));
-        right_inner.add(pantalla);
         right_inner.add(Box.createVerticalGlue());
+        right_inner.add(pantalla);
 
         // Ambas columnas se estiran en vertical hasta la altura de la más alta (BoxLayout X con
         // el máximo sin tope) para que sus bordes inferiores queden alineados.

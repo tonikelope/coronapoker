@@ -368,43 +368,30 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_REPARTO_VELOCIDAD = 100;
     public static volatile int REPARTO_VELOCIDAD = Integer.parseInt(Helpers.PROPERTIES.getProperty("reparto_velocidad", String.valueOf(DEFAULT_REPARTO_VELOCIDAD)));
 
-    // FPS máximo de las animaciones pre-renderizadas (barajado, reparto, fichas, destape). El ritmo
-    // real lo marca el reloj (System.nanoTime); esto solo fija cada cuánto se reevalúa qué frame toca
-    // (el techo de repaints/s). Default 100 FPS: sobre-muestrea 60/75/90 Hz (el Timer va MÁS RÁPIDO
-    // que el refresco), que es justo lo que se ve fluido. Ver getTickMs para el matiz del batido.
-    public static final int DEFAULT_TARGET_FPS = 100;
-    public static final int MIN_TARGET_FPS = 10;
-    public static final int MAX_TARGET_FPS = 250;
-    public static volatile int TARGET_FPS = parseTargetFps(Helpers.PROPERTIES.getProperty("target_fps", String.valueOf(DEFAULT_TARGET_FPS)));
+    // Periodo (ms) del Timer de las animaciones pre-renderizadas (barajado, reparto, fichas, destape),
+    // FIJADO a 2 ms (≈500 repaints/s). El ritmo real lo marca el reloj (System.nanoTime); esto solo
+    // fija cada cuánto se reevalúa qué frame toca (el techo de repaints/s). 2 ms sobre-muestrea CON
+    // MARGEN (≥2×) cualquier refresco común (60/75/144/240 Hz): el Timer de Swing NO tiene vsync y un
+    // tick ≈ al refresco crea BATIDO (un frame se repite y otro se salta = tirones), así que va
+    // deliberadamente MÁS RÁPIDO que el refresco. Ya no es configurable: el coste en PCs lentos se
+    // recorta desactivando animaciones o con el perfil Rendimiento, no bajando esta frecuencia. Si el
+    // scheduler del SO no da 2 ms exactos, el Timer corre al tick más fino que pueda (degrada suave,
+    // nunca por debajo de ningún refresco).
+    public static final int ANIM_TICK_MS = 2;
     // Perfil de calidad de las animaciones: Calidad (por defecto) vs Rendimiento. Calidad = el
-    // comportamiento ACTUAL sin cambio alguno (rotación de las cartas/fichas voladoras, supersampling
-    // SS=2 del destape y todos sus frames). Rendimiento (para PCs poco potentes) recorta coste por
-    // frame: vuelos SIN rotación, warp del destape SIN supersampling y con menos frames. Cada palanca
-    // está gateada de modo que con ANIM_CALIDAD=true el camino es EXACTAMENTE el de siempre: cero
-    // regresión para quien no lo toque.
+    // comportamiento ACTUAL sin cambio alguno (rotación de las cartas/fichas voladoras y supersampling
+    // SS=2 del destape). Rendimiento (para PCs poco potentes) recorta coste por frame: vuelos SIN
+    // rotación y warp del destape SIN supersampling (SS=1). MISMOS frames que Calidad en el destape:
+    // reducirlos dejaba el giro entrecortado, así que Rendimiento solo baja la nitidez, no la fluidez.
+    // Cada palanca está gateada de modo que con ANIM_CALIDAD=true el camino es EXACTAMENTE el de
+    // siempre: cero regresión para quien no lo toque.
     public static final boolean DEFAULT_ANIM_CALIDAD = true;
     public static volatile boolean ANIM_CALIDAD = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("anim_calidad", String.valueOf(DEFAULT_ANIM_CALIDAD)));
 
-    public static int clampTargetFps(int v) {
-        return Math.max(MIN_TARGET_FPS, Math.min(MAX_TARGET_FPS, v));
-    }
-
-    private static int parseTargetFps(String s) {
-        try {
-            return clampTargetFps(Integer.parseInt(s.trim()));
-        } catch (Exception e) {
-            return DEFAULT_TARGET_FPS;
-        }
-    }
-
-    // Periodo (ms) del Timer de las animaciones pre-renderizadas, derivado del FPS máximo elegido
-    // (default 100). CLAVE: el Timer de Swing NO está sincronizado con el barrido del monitor (no hay
-    // vsync real), así que un FPS ≈ al refresco iguala el tick al periodo de refresco y crea BATIDO
-    // (un frame se repite y otro se salta = tirones); para fluidez el Timer debe ir MÁS RÁPIDO que el
-    // refresco (por eso 100 FPS va fino en 60/75/90 Hz). Se lee al CONSTRUIR cada Timer, no por frame.
+    // Periodo (ms) del Timer de las animaciones pre-renderizadas. Se lee al CONSTRUIR cada Timer, no
+    // por frame. Método (en vez de la constante directa) para no tocar los 7 callsites de TablePanel.
     public static int getTickMs() {
-        int fps = Math.max(MIN_TARGET_FPS, TARGET_FPS);
-        return Math.max(1, Math.round(1000f / fps));
+        return ANIM_TICK_MS;
     }
 
     // Sincronización P2P de estadísticas: dos preferencias globales independientes,

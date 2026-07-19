@@ -876,21 +876,19 @@ public class AppearanceSettingsPanel extends JPanel {
         mesa.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         pantalla.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
-        // ---------------- Gráficos (subpanel al fondo de Animaciones) ----------------
-        // Subpanel con título propio "Gráficos" ANIDADO al fondo de la columna Animaciones. NO cuelga
-        // del maestro de animaciones (no se deshabilita con él): el perfil de calidad afecta a CUALQUIER
-        // animación pre-renderizada existente y sigue siendo válido aunque las animaciones estén
-        // apagadas. Se añade con addLeft y el glue de cierre (closeColumn) va DESPUÉS, ya con Gráficos.
-        JPanel graficos = titledColumn("settings.apariencia_graficos");
+        // ---------------- Perfil gráfico (fila suelta al fondo de Animaciones) ----------------
+        // Selector Calidad/Rendimiento como una fila más al fondo de la columna Animaciones, SIN
+        // recuadro propio (indentada igual que los checkboxes sueltos). NO cuelga del maestro de
+        // animaciones (no se deshabilita con él): afecta a CUALQUIER animación pre-renderizada y sigue
+        // siendo válido aunque las animaciones estén apagadas. Guarda el booleano anim_calidad
+        // (true=Calidad, false=Rendimiento). "Calidad" (índice 0, por defecto) = EXACTAMENTE lo de
+        // siempre; "Rendimiento" recorta coste por frame (vuelos sin rotación + destape sin
+        // supersampling: imagen menos nítida, misma fluidez).
         {
-            // Perfil de calidad de las animaciones. "Calidad" (por defecto) = EXACTAMENTE lo de ahora.
-            // "Rendimiento" (para PCs poco potentes) recorta coste por frame: vuelos sin rotación +
-            // destape sin supersampling (imagen menos nítida, misma fluidez). Guarda el booleano
-            // anim_calidad (true=Calidad, false=Rendimiento). Índice 0 = Calidad (por defecto).
             final String[] q_labels = {Translator.translate("settings.calidad"),
                 Translator.translate("settings.rendimiento")};
 
-            final JLabel q_text = new JLabel(Translator.translate("settings.perfil") + ":");
+            final JLabel q_text = new JLabel(Translator.translate("settings.perfil_grafico") + ":");
             final javax.swing.JComboBox<String> q_combo = new javax.swing.JComboBox<>(q_labels);
 
             q_combo.setSelectedIndex(GameFrame.ANIM_CALIDAD ? 0 : 1);
@@ -908,13 +906,10 @@ public class AppearanceSettingsPanel extends JPanel {
             q_row.add(new JLabel(icon("/images/menu/flip.png")));
             q_row.add(q_text);
             q_row.add(q_combo);
-            addLeft(graficos, q_row);
+            addLeft(anim, indent(q_row, 28));
         }
-
-        graficos.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        addLeft(anim, graficos);
-        // Glue al fondo de Animaciones (ya con Gráficos dentro): si esta columna resultara la MÁS
-        // CORTA, al estirarla para igualar alturas el hueco se recoge limpio abajo.
+        // Glue al fondo de Animaciones (ya con el Perfil gráfico dentro): si esta columna resultara la
+        // MÁS CORTA, al estirarla para igualar alturas el hueco se recoge limpio abajo.
         closeColumn(anim);
 
         JPanel right_inner = new JPanel();

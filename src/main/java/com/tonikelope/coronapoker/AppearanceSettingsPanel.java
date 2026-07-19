@@ -878,12 +878,12 @@ public class AppearanceSettingsPanel extends JPanel {
 
         // ---------------- Perfil gráfico (fila suelta al fondo de Animaciones) ----------------
         // Selector Calidad/Rendimiento como una fila más al fondo de la columna Animaciones, SIN
-        // recuadro propio (indentada igual que los checkboxes sueltos). NO cuelga del maestro de
-        // animaciones (no se deshabilita con él): afecta a CUALQUIER animación pre-renderizada y sigue
-        // siendo válido aunque las animaciones estén apagadas. Guarda el booleano anim_calidad
-        // (true=Calidad, false=Rendimiento). "Calidad" (índice 0, por defecto) = EXACTAMENTE lo de
-        // siempre; "Rendimiento" recorta coste por frame (vuelos sin rotación + destape sin
-        // supersampling: imagen menos nítida, misma fluidez).
+        // recuadro propio y alineado a la IZQUIERDA con el maestro "USAR ANIMACIONES" (sin indentar).
+        // SE GATEA por el maestro: con "USAR ANIMACIONES" off no corre ninguna animación, así que el
+        // perfil no aplica y su combo se DESHABILITA (igual que los subcontroles de velocidad). Guarda
+        // el booleano anim_calidad (true=Calidad, false=Rendimiento). "Calidad" (índice 0, por defecto)
+        // = EXACTAMENTE lo de siempre; "Rendimiento" recorta coste por frame (vuelos sin rotación +
+        // destape sin supersampling: imagen menos nítida, misma fluidez).
         {
             final String[] q_labels = {Translator.translate("settings.calidad"),
                 Translator.translate("settings.rendimiento")};
@@ -902,11 +902,22 @@ public class AppearanceSettingsPanel extends JPanel {
             // Predeterminado: Calidad (índice 0).
             reset_actions.add(() -> q_combo.setSelectedIndex(0));
 
+            // Gateado por el maestro: combo + etiqueta se deshabilitan si "USAR ANIMACIONES" está off.
+            // Mismo patrón que los subcontroles de velocidad; restoreDefaults reactiva el maestro con
+            // anim_master.doClick(), que dispara este listener y rehabilita el combo.
+            Runnable updatePerfilEnabled = () -> {
+                boolean on = anim_master.isSelected();
+                q_combo.setEnabled(on);
+                q_text.setEnabled(on);
+            };
+            anim_master.addActionListener(e -> updatePerfilEnabled.run());
+            updatePerfilEnabled.run();
+
             JPanel q_row = naturalRow();
             q_row.add(new JLabel(icon("/images/menu/flip.png")));
             q_row.add(q_text);
             q_row.add(q_combo);
-            addLeft(anim, indent(q_row, 28));
+            addLeft(anim, q_row);
         }
         // Glue al fondo de Animaciones (ya con el Perfil gráfico dentro): si esta columna resultara la
         // MÁS CORTA, al estirarla para igualar alturas el hueco se recoge limpio abajo.

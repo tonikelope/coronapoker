@@ -16158,13 +16158,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int card_h = Card.getCardHeight();
             int corner = Card.getCardCorner();
             int duration = GameFrame.CARD_FLIP_DURATION;
-            // Frames proporcionales a la duración (~60 fps), acotados.
+            // Frames proporcionales a la duración (~60 fps), acotados. MISMO número en Calidad y en
+            // Rendimiento: reducirlos dejaba el destape entrecortado (misma duración total repartida
+            // entre la mitad de pasos = tirones). Rendimiento abarata el destape SIN supersampling
+            // (SS=1 en CardFlipAnimator), no con menos frames, así que el giro conserva su fluidez y
+            // solo pierde nitidez de imagen.
             int num_frames = Math.max(20, Math.min(45, Math.round(duration / 16f)));
-            // Rendimiento (PC lento): la mitad de frames (menos warps que renderizar por destape).
-            // Calidad (por defecto) mantiene el número de siempre.
-            if (!GameFrame.ANIM_CALIDAD) {
-                num_frames = Math.max(10, num_frames / 2);
-            }
             // Efecto "acercar": la carta girada se dibuja a este factor del tamaño de la estática
             // (1.0 = desactivado, relevo pixel-perfect; >1.0 la agranda para el efecto).
             float flip_zoom = GameFrame.CARD_FLIP_ZOOM / 100f;

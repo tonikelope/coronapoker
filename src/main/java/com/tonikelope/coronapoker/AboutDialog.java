@@ -79,6 +79,23 @@ public class AboutDialog extends JDialog {
     private volatile int c = 0;
     private volatile Timer memory_timer = null;
 
+    // Logo animado (corona_logo.gif) reproducido PRE-DECODIFICADO a fotogramas fijos
+    // en vez de con el reproductor GIF de AWT: ese GIF trae disposal
+    // "restoreToBackgroundColor" en todos sus frames y en algunos equipos Windows
+    // (segun el pipeline de render) eso destella el fondo entre frames = parpadeo.
+    // Pintar cada frame como icono estatico con el doble buffer de Swing lo elimina.
+    // Mismo motor (PreRenderedGif + frameAt por tiempo) que el GIF del barajado.
+    private static volatile PreRenderedGif LOGO_ANIM_CACHE = null;
+    private static volatile boolean LOGO_ANIM_TRIED = false;
+    // Muestreo de la animacion del logo: 15 ms (~66 Hz) sobra para un GIF de 20
+    // ms/frame y no carga el EDT como el tick de 2 ms de las animaciones de mesa
+    // (aqui es solo un adorno decorativo).
+    private static final int LOGO_TICK_MS = 15;
+    private PreRenderedGif logo_anim = null;
+    private javax.swing.Timer logo_timer = null;
+    private volatile int logo_frame_idx = 0;
+    private volatile long logo_t0 = 0L;
+
     /**
      * Creates new form About
      */
@@ -125,10 +142,11 @@ public class AboutDialog extends JDialog {
         pack();
 
         // Zoom GLOBAL de diálogos: escala los adornos ANTES de que zoomDialog reempaquete (para que su
-        // tamaño escalado cuente). El logo (corona_logo.gif) se escala con setScaledIconLabel, que usa
-        // Image.SCALE_DEFAULT para GIF y CONSERVA la animación (sigue girando); el resto son PNG. Luego
-        // zoomDialog escala las fuentes y ajusta la ventana. No-op a 100 % (idéntico a como estaba).
-        Helpers.scaleDialogIcon(corona_icon_label, "/images/corona_logo.gif");
+        // tamaño escalado cuente). El logo animado (corona_logo.gif) NO usa el reproductor GIF de AWT
+        // (parpadea en algunos equipos por el disposal restoreToBackgroundColor): se reproduce
+        // pre-decodificado a fotogramas fijos escalados al tamaño de diseño × zoom (setupLogoAnimation).
+        // El resto son PNG y se escalan con scaleDialogIcon. Luego zoomDialog escala fuentes y ventana.
+        setupLogoAnimation();
         Helpers.scaleDialogIcon(dedicado, "/images/luto.png");
         Helpers.scaleDialogIcon(jLabel12, "/images/open-book.png");
         Helpers.scaleDialogIcon(jLabel9, "/images/cruz.png");
@@ -160,6 +178,74 @@ public class AboutDialog extends JDialog {
         memory_timer.setRepeats(true);
         memory_timer.setCoalesce(false);
 
+    }
+
+    // GIF del logo decodificado UNA sola vez a frames completos (cacheado; los
+    // frames son inmutables y se comparten entre aperturas). null si el decode
+    // falla: en ese caso el llamante cae al reproductor GIF nativo.
+    private static PreRenderedGif logoAnim() {
+        if (!LOGO_ANIM_TRIED) {
+            synchronized (AboutDialog.class) {
+                if (!LOGO_ANIM_TRIED) {
+                    try {
+                        LOGO_ANIM_CACHE = PreRenderedGif.decode(AboutDialog.class.getResource("/images/corona_logo.gif"));
+                    } catch (Throwable ex) {
+                        LOGO_ANIM_CACHE = null;
+                        Logger.getLogger(AboutDialog.class.getName()).log(Level.WARNING, "corona_logo.gif pre-render failed, falling back to native GIF", ex);
+                    }
+                    LOGO_ANIM_TRIED = true;
+                }
+            }
+        }
+        return LOGO_ANIM_CACHE;
+    }
+
+    // Reproduce el logo animado SIN el reproductor GIF de AWT: un Icon que pinta el
+    // frame vigente (escalado a los bounds por GPU) y un Timer que avanza el frame
+    // por tiempo transcurrido, en bucle. Elimina el parpadeo del GIF (ver campos).
+    // El Timer se arranca en formWindowOpened y se para en formWindowClosed. Si el
+    // pre-render no esta disponible, cae al camino nativo (scaleDialogIcon).
+    private void setupLogoAnimation() {
+        PreRenderedGif anim = logoAnim();
+        if (anim == null) {
+            Helpers.scaleDialogIcon(corona_icon_label, "/images/corona_logo.gif");
+            return;
+        }
+        logo_anim = anim;
+        final int dw = Math.round(anim.getWidth() * Helpers.DIALOG_ZOOM);
+        final int dh = Math.round(anim.getHeight() * Helpers.DIALOG_ZOOM);
+        corona_icon_label.setIcon(new javax.swing.Icon() {
+            @Override
+            public int getIconWidth() {
+                return dw;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return dh;
+            }
+
+            @Override
+            public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
+                java.awt.image.BufferedImage f = logo_anim.getFrame(logo_frame_idx);
+                if (f == null) {
+                    return;
+                }
+                if (dw != logo_anim.getWidth() || dh != logo_anim.getHeight()) {
+                    ((java.awt.Graphics2D) g).setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                }
+                g.drawImage(f, x, y, dw, dh, c);
+            }
+        });
+        final long total_ms = Math.max(1L, anim.getTotalMs());
+        logo_timer = new javax.swing.Timer(LOGO_TICK_MS, (ActionEvent ae) -> {
+            int idx = logo_anim.frameAt(((System.nanoTime() - logo_t0) / 1_000_000L) % total_ms);
+            if (idx != logo_frame_idx) {
+                logo_frame_idx = idx;
+                corona_icon_label.repaint();
+            }
+        });
+        logo_timer.setCoalesce(true);
     }
 
     /**
@@ -541,6 +627,15 @@ public class AboutDialog extends JDialog {
 
         memory_timer.start();
 
+        // Arranca la reproducción del logo desde el frame 0 (el reloj se ancla aquí,
+        // así el logo empieza a girar al abrir el diálogo).
+        if (logo_timer != null) {
+            logo_frame_idx = 0;
+            logo_t0 = System.nanoTime();
+            corona_icon_label.repaint();
+            logo_timer.start();
+        }
+
         last_mp3_loop = Audio.getCurrentLoopMp3Playing();
 
         if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
@@ -562,6 +657,10 @@ public class AboutDialog extends JDialog {
         }
 
         memory_timer.stop();
+
+        if (logo_timer != null) {
+            logo_timer.stop();
+        }
     }//GEN-LAST:event_formWindowClosed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing

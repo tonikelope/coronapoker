@@ -82,6 +82,13 @@ public final class GameLogDialog extends JDialog {
     private JTextPane log_pane;
     private JCheckBoxMenuItem transparent_menu;
 
+    // Barra de titulo propia: control de maximizar/restaurar (la ventana es sin
+    // bordes, ver setupTitleBar). El icono se dibuja segun el estado y este se
+    // deriva de si los bounds cubren el area de trabajo del monitor. normal_bounds
+    // guarda el tamano/posicion previos para poder restaurar.
+    private javax.swing.JLabel max_btn;
+    private java.awt.Rectangle normal_bounds;
+
     // Console look (PowerShell-ish): near-black background + a monospaced font,
     // identical for the main log and the debug tab.
     private static final Color LOG_BG = new Color(12, 12, 12);
@@ -707,10 +714,26 @@ public final class GameLogDialog extends JDialog {
 
             @Override
             public void mouseDragged(java.awt.event.MouseEvent e) {
-                if (off[0] != null) {
-                    java.awt.Point sp = e.getLocationOnScreen();
-                    setLocation(sp.x - off[0].x, sp.y - off[0].y);
+                if (off[0] == null) {
+                    return;
                 }
+                java.awt.Point sp = e.getLocationOnScreen();
+                // Imitar a Windows: si la ventana esta maximizada, al empezar a
+                // arrastrarla se restaura al tamano normal bajo el cursor
+                // (conservando la posicion proporcional del agarre sobre la barra) y
+                // a partir de ahi se mueve como una ventana normal. Reajustamos el
+                // offset al nuevo tamano para que el raton siga clavado a la barra.
+                if (normal_bounds != null && isMaximizedToScreen()) {
+                    double frac_x = getWidth() > 0 ? (double) off[0].x / getWidth() : 0.5;
+                    int new_w = normal_bounds.width;
+                    int new_h = normal_bounds.height;
+                    int new_off_x = (int) Math.round(frac_x * new_w);
+                    int new_off_y = Math.min(off[0].y, Math.max(0, new_h - 1));
+                    off[0] = new java.awt.Point(new_off_x, new_off_y);
+                    setBounds(sp.x - new_off_x, sp.y - new_off_y, new_w, new_h);
+                    return;
+                }
+                setLocation(sp.x - off[0].x, sp.y - off[0].y);
             }
         };
     }
@@ -729,12 +752,73 @@ public final class GameLogDialog extends JDialog {
         title.setFont(new Font("Dialog", Font.BOLD, Math.round(14 * Helpers.DIALOG_ZOOM)));
         title.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM)));
 
+        final Color CTRL_FG = new Color(70, 70, 70);       // barra clara -> controles oscuros
+        final Color CLOSE_HOVER = new Color(215, 40, 40);  // cerrar = rojo
+        final Color MAX_HOVER = new Color(20, 20, 20);     // maximizar/restaurar = oscurecer
+        final Color bar_bg = jMenuBar1.getBackground();
+
+        // Boton MAXIMIZAR / RESTAURAR. La ventana es sin bordes (para poder ser
+        // semitransparente), asi que no hay boton nativo: dibujamos el icono con
+        // Java2D en vez de depender de un glyph de fuente (que no todas tienen).
+        // Un cuadrado hueco = maximizar; dos cuadrados solapados (estilo Windows) =
+        // restaurar. El estado se deriva de la geometria real en
+        // refreshMaxRestoreState, asi que redimensionar por las esquinas o arrastrar
+        // tambien deja el icono coherente.
+        final int ICON = Math.max(Math.round(15 * Helpers.DIALOG_ZOOM), 13);
+        final int STROKE = Math.max(Math.round(2 * Helpers.DIALOG_ZOOM), 2);
+        max_btn = new javax.swing.JLabel() {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                super.paintComponent(g);
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setStroke(new java.awt.BasicStroke(STROKE));
+                g2.setColor(getForeground());
+                int x = (getWidth() - ICON) / 2;
+                int y = (getHeight() - ICON) / 2;
+                if (Boolean.TRUE.equals(getClientProperty("maximized"))) {
+                    int off = Math.max(Math.round(ICON * 0.32f), 3);
+                    int sq = ICON - off;
+                    g2.drawRect(x + off, y, sq, sq);            // cuadrado trasero (arriba-derecha)
+                    g2.setColor(bar_bg);
+                    g2.fillRect(x, y + off, sq + 1, sq + 1);    // limpia el solape con el color de la barra
+                    g2.setColor(getForeground());
+                    g2.drawRect(x, y + off, sq, sq);            // cuadrado frontal (abajo-izquierda)
+                } else {
+                    g2.drawRect(x, y, ICON, ICON);              // un solo cuadrado = maximizar
+                }
+                g2.dispose();
+            }
+        };
+        max_btn.setOpaque(false);
+        max_btn.setForeground(CTRL_FG);
+        max_btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        final int max_hpad = Math.max(Math.round(11 * Helpers.DIALOG_ZOOM), 9);
+        final int max_vpad = Math.max(Math.round(6 * Helpers.DIALOG_ZOOM), 5);
+        max_btn.setPreferredSize(new java.awt.Dimension(ICON + max_hpad * 2, ICON + max_vpad * 2));
+        max_btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                toggleMaximize();
+            }
+
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                max_btn.setForeground(MAX_HOVER);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                max_btn.setForeground(CTRL_FG);
+            }
+        });
+
         final javax.swing.JLabel close_btn = new javax.swing.JLabel("X");
         // La X es un control CLICABLE: se escala con el zoom pero con SUELO (fuente y padding) para que a
         // zoom bajo (50 %) no quede diminuta y el ratón la pille bien. A 100 % el max() da el valor de
-        // diseño (16 / 12 / 14), idéntico.
-        close_btn.setFont(new Font("Dialog", Font.BOLD, Math.max(Math.round(16 * Helpers.DIALOG_ZOOM), 14)));
-        close_btn.setForeground(new Color(70, 70, 70)); // barra clara -> X oscura
+        // diseño (22 / 12 / 14), idéntico.
+        close_btn.setFont(new Font("Dialog", Font.BOLD, Math.max(Math.round(22 * Helpers.DIALOG_ZOOM), 18)));
+        close_btn.setForeground(CTRL_FG); // barra clara -> X oscura
         close_btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, Math.max(Math.round(12 * Helpers.DIALOG_ZOOM), 10), 0, Math.max(Math.round(14 * Helpers.DIALOG_ZOOM), 12)));
         close_btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         close_btn.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -745,19 +829,27 @@ public final class GameLogDialog extends JDialog {
 
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
-                close_btn.setForeground(new Color(215, 40, 40));
+                close_btn.setForeground(CLOSE_HOVER);
             }
 
             @Override
             public void mouseExited(java.awt.event.MouseEvent e) {
-                close_btn.setForeground(new Color(70, 70, 70));
+                close_btn.setForeground(CTRL_FG);
             }
         });
 
+        // Los dos controles pegados a la derecha, en orden [maximizar/restaurar][X].
+        // FlowLayout (hgap/vgap 0) los centra verticalmente aunque tengan alturas
+        // distintas; el padding lateral de la X ya deja aire con el borde derecho.
+        javax.swing.JPanel controls = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 0, 0));
+        controls.setOpaque(false);
+        controls.add(max_btn);
+        controls.add(close_btn);
+
         javax.swing.JPanel title_bar = new javax.swing.JPanel(new BorderLayout());
-        title_bar.setBackground(jMenuBar1.getBackground());
+        title_bar.setBackground(bar_bg);
         title_bar.add(title, BorderLayout.WEST);
-        title_bar.add(close_btn, BorderLayout.EAST);
+        title_bar.add(controls, BorderLayout.EAST);
 
         java.awt.event.MouseAdapter drag = windowDragAdapter();
         title_bar.addMouseListener(drag);
@@ -770,6 +862,87 @@ public final class GameLogDialog extends JDialog {
         north.add(jMenuBar1, BorderLayout.CENTER);
 
         getContentPane().add(north, BorderLayout.NORTH);
+
+        // Mantener el icono maximizar/restaurar coherente con la geometria real:
+        // cualquier cosa que cambie los bounds (el propio boton, los grips de
+        // esquina, el arrastre de la barra que solo MUEVE la ventana) refresca el
+        // estado. El area de trabajo puede cambiar de un monitor a otro, asi que se
+        // deriva en cada evento en vez de fiarse de un flag.
+        java.awt.event.ComponentAdapter geometry_watch = new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                refreshMaxRestoreState();
+            }
+
+            @Override
+            public void componentMoved(java.awt.event.ComponentEvent e) {
+                refreshMaxRestoreState();
+            }
+
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                refreshMaxRestoreState();
+            }
+        };
+        addComponentListener(geometry_watch);
+
+        refreshMaxRestoreState();
+    }
+
+    // Area de trabajo del monitor donde esta la ventana (pantalla del monitor menos
+    // barra de tareas). null si la ventana aun no tiene GraphicsConfiguration.
+    private java.awt.Rectangle currentScreenWorkArea() {
+        java.awt.GraphicsConfiguration gc = getGraphicsConfiguration();
+        if (gc == null) {
+            return null;
+        }
+        java.awt.Rectangle sb = gc.getBounds();
+        java.awt.Insets ins = java.awt.Toolkit.getDefaultToolkit().getScreenInsets(gc);
+        return new java.awt.Rectangle(sb.x + ins.left, sb.y + ins.top,
+                sb.width - ins.left - ins.right, sb.height - ins.top - ins.bottom);
+    }
+
+    // true si la ventana ocupa exactamente el area de trabajo del monitor (nuestro
+    // criterio de "maximizada", ya que al no ser decorada no hay estado nativo).
+    private boolean isMaximizedToScreen() {
+        java.awt.Rectangle work = currentScreenWorkArea();
+        return work != null && work.equals(getBounds());
+    }
+
+    // Maximiza (ocupa el area de trabajo del monitor actual) o restaura los bounds
+    // previos. La ventana es sin bordes, asi que hacemos el maximizar/restaurar a
+    // mano (setExtendedState solo aplica a Frames decorados). setBounds dispara
+    // componentResized -> refreshMaxRestoreState, que reubica los grips y actualiza
+    // el icono.
+    private void toggleMaximize() {
+        if (isMaximizedToScreen()) {
+            if (normal_bounds != null) {
+                setBounds(normal_bounds);
+            }
+        } else {
+            java.awt.Rectangle work = currentScreenWorkArea();
+            if (work == null) {
+                return;
+            }
+            normal_bounds = getBounds();
+            setBounds(work);
+        }
+    }
+
+    // Deriva el estado maximizado de la geometria real y actualiza el icono. Asi el
+    // icono queda correcto tambien tras un resize por esquina o un arrastre, no solo
+    // tras pulsar el boton.
+    private void refreshMaxRestoreState() {
+        if (max_btn == null) {
+            return;
+        }
+        boolean maxed = false;
+        try {
+            maxed = isMaximizedToScreen();
+        } catch (Exception ex) {
+        }
+        max_btn.putClientProperty("maximized", maxed);
+        max_btn.repaint();
     }
 
     private void applyLogOpacity(boolean transparent) {

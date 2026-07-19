@@ -200,6 +200,15 @@ public class AboutDialog extends JDialog {
         return LOGO_ANIM_CACHE;
     }
 
+    // Pre-decodifica corona_logo.gif en background desde el arranque (junto al resto
+    // de warmups en Init), para que la PRIMERA apertura del About no pague el decode
+    // (~120 ms) en el EDT del constructor. logoAnim() es idempotente y thread-safe,
+    // así que al abrir el About luego se reutiliza lo ya decodificado (y si el
+    // warmup aún no terminó, se decodifica en el acto sin romper nada).
+    public static void warmupLogoAnim() {
+        Helpers.threadRun(() -> logoAnim());
+    }
+
     // Reproduce el logo animado SIN el reproductor GIF de AWT: un Icon que pinta el
     // frame vigente (escalado a los bounds por GPU) y un Timer que avanza el frame
     // por tiempo transcurrido, en bucle. Elimina el parpadeo del GIF (ver campos).

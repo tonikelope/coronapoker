@@ -714,10 +714,26 @@ public final class GameLogDialog extends JDialog {
 
             @Override
             public void mouseDragged(java.awt.event.MouseEvent e) {
-                if (off[0] != null) {
-                    java.awt.Point sp = e.getLocationOnScreen();
-                    setLocation(sp.x - off[0].x, sp.y - off[0].y);
+                if (off[0] == null) {
+                    return;
                 }
+                java.awt.Point sp = e.getLocationOnScreen();
+                // Imitar a Windows: si la ventana esta maximizada, al empezar a
+                // arrastrarla se restaura al tamano normal bajo el cursor
+                // (conservando la posicion proporcional del agarre sobre la barra) y
+                // a partir de ahi se mueve como una ventana normal. Reajustamos el
+                // offset al nuevo tamano para que el raton siga clavado a la barra.
+                if (normal_bounds != null && isMaximizedToScreen()) {
+                    double frac_x = getWidth() > 0 ? (double) off[0].x / getWidth() : 0.5;
+                    int new_w = normal_bounds.width;
+                    int new_h = normal_bounds.height;
+                    int new_off_x = (int) Math.round(frac_x * new_w);
+                    int new_off_y = Math.min(off[0].y, Math.max(0, new_h - 1));
+                    off[0] = new java.awt.Point(new_off_x, new_off_y);
+                    setBounds(sp.x - new_off_x, sp.y - new_off_y, new_w, new_h);
+                    return;
+                }
+                setLocation(sp.x - off[0].x, sp.y - off[0].y);
             }
         };
     }
@@ -886,37 +902,43 @@ public final class GameLogDialog extends JDialog {
                 sb.width - ins.left - ins.right, sb.height - ins.top - ins.bottom);
     }
 
+    // true si la ventana ocupa exactamente el area de trabajo del monitor (nuestro
+    // criterio de "maximizada", ya que al no ser decorada no hay estado nativo).
+    private boolean isMaximizedToScreen() {
+        java.awt.Rectangle work = currentScreenWorkArea();
+        return work != null && work.equals(getBounds());
+    }
+
     // Maximiza (ocupa el area de trabajo del monitor actual) o restaura los bounds
     // previos. La ventana es sin bordes, asi que hacemos el maximizar/restaurar a
     // mano (setExtendedState solo aplica a Frames decorados). setBounds dispara
     // componentResized -> refreshMaxRestoreState, que reubica los grips y actualiza
     // el icono.
     private void toggleMaximize() {
-        java.awt.Rectangle work = currentScreenWorkArea();
-        if (work == null) {
-            return;
-        }
-        if (work.equals(getBounds())) {
+        if (isMaximizedToScreen()) {
             if (normal_bounds != null) {
                 setBounds(normal_bounds);
             }
         } else {
+            java.awt.Rectangle work = currentScreenWorkArea();
+            if (work == null) {
+                return;
+            }
             normal_bounds = getBounds();
             setBounds(work);
         }
     }
 
-    // Deriva el estado maximizado de la geometria real (bounds == area de trabajo) y
-    // actualiza el icono. Asi el icono queda correcto tambien tras un resize por
-    // esquina o un arrastre, no solo tras pulsar el boton.
+    // Deriva el estado maximizado de la geometria real y actualiza el icono. Asi el
+    // icono queda correcto tambien tras un resize por esquina o un arrastre, no solo
+    // tras pulsar el boton.
     private void refreshMaxRestoreState() {
         if (max_btn == null) {
             return;
         }
         boolean maxed = false;
         try {
-            java.awt.Rectangle work = currentScreenWorkArea();
-            maxed = work != null && work.equals(getBounds());
+            maxed = isMaximizedToScreen();
         } catch (Exception ex) {
         }
         max_btn.putClientProperty("maximized", maxed);

@@ -87,10 +87,6 @@ public class AboutDialog extends JDialog {
     // Mismo motor (PreRenderedGif + frameAt por tiempo) que el GIF del barajado.
     private static volatile PreRenderedGif LOGO_ANIM_CACHE = null;
     private static volatile boolean LOGO_ANIM_TRIED = false;
-    // Muestreo de la animacion del logo: 15 ms (~66 Hz) sobra para un GIF de 20
-    // ms/frame y no carga el EDT como el tick de 2 ms de las animaciones de mesa
-    // (aqui es solo un adorno decorativo).
-    private static final int LOGO_TICK_MS = 15;
     private PreRenderedGif logo_anim = null;
     private javax.swing.Timer logo_timer = null;
     private volatile int logo_frame_idx = 0;
@@ -247,7 +243,9 @@ public class AboutDialog extends JDialog {
             }
         });
         final long total_ms = Math.max(1L, anim.getTotalMs());
-        logo_timer = new javax.swing.Timer(LOGO_TICK_MS, (ActionEvent ae) -> {
+        // Mismo tick fino que las animaciones de mesa: muestrear el frame por tiempo
+        // cada ~2 ms lo deja liso; con ticks más gruesos daba tirones.
+        logo_timer = new javax.swing.Timer(GameFrame.getTickMs(), (ActionEvent ae) -> {
             int idx = logo_anim.frameAt(((System.nanoTime() - logo_t0) / 1_000_000L) % total_ms);
             if (idx != logo_frame_idx) {
                 logo_frame_idx = idx;

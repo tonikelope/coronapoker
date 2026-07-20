@@ -932,8 +932,15 @@ public class Audio {
         VOICE_RECORDING = active > 0;
 
         // Reapply every volume law: silence on raise, and on drop restore
-        // whatever the remaining flags dictate (e.g. a TTS window still open)
-        refreshALLVolumes(false);
+        // whatever the remaining flags dictate (e.g. a TTS window still open).
+        // A failure here (the thread pool shut down between hands) must never
+        // escape: the caller would leave the count raised and the game would
+        // stay muted for the rest of the session.
+        try {
+            refreshALLVolumes(false);
+        } catch (Exception ex) {
+            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Cannot refresh volumes on a voice recording change: {0}", ex.getMessage());
+        }
     }
 
     // Bounded recovery for the output line being momentarily busy right after a

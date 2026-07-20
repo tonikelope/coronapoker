@@ -247,14 +247,37 @@ public class AudioDeviceManager {
 
     public static TargetDataLine getTargetDataLine(AudioFormat format) throws LineUnavailableException {
 
+        return getTargetDataLine(format, true);
+    }
+
+    /**
+     * The capture line for the device selected in the audio settings. Without
+     * fallback it fails instead of silently capturing from another microphone,
+     * which is what resuming a note mid-recording needs: the device going away
+     * is precisely what makes the lookup fail, and finishing the note through
+     * the laptop array without telling anybody is worse than not finishing it.
+     */
+    public static TargetDataLine getTargetDataLine(AudioFormat format, boolean allow_fallback) throws LineUnavailableException {
+
         Mixer.Info info = findMixerInfo(CAPTURE_DEVICE, TargetDataLine.class);
 
         if (info != null) {
             try {
                 return AudioSystem.getTargetDataLine(format, info);
             } catch (Exception ex) {
+                if (!allow_fallback) {
+                    throw new LineUnavailableException("Selected capture device failed: " + ex.getMessage());
+                }
                 Logger.getLogger(AudioDeviceManager.class.getName()).log(Level.WARNING, "Selected capture device failed ({0}). Falling back to system default.", ex.getMessage());
             }
+        } else if (CAPTURE_DEVICE != null && !CAPTURE_DEVICE.isEmpty()) {
+            // Windows renames endpoints when a Bluetooth or USB mic reconnects,
+            // so the configured name stops matching and the note is recorded
+            // from whatever the system default is. Worth knowing about.
+            if (!allow_fallback) {
+                throw new LineUnavailableException("Selected capture device is gone: " + CAPTURE_DEVICE);
+            }
+            Logger.getLogger(AudioDeviceManager.class.getName()).log(Level.WARNING, "Selected capture device not found ({0}). Using the system default.", CAPTURE_DEVICE);
         }
 
         return AudioSystem.getTargetDataLine(format);

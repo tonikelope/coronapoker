@@ -59,10 +59,12 @@ public class VoiceMessageManager {
     // Key auto-repeat does not always mean a plain train of PRESSED: some
     // platforms and input drivers deliver RELEASED + PRESSED pairs while the
     // key is still physically down, which cut notes short (the first repeat
-    // ended the recording after a second or less). A stop is therefore held
-    // for this grace window and dropped if the key comes back down: an
-    // imperceptible delay next to the tail grace already paid by the recorder.
-    public static final int AUTOREPEAT_GRACE_MILLIS = 60;
+    // ended the recording after a second or less). The end of a hold is
+    // therefore held for this grace window and dropped if the key comes back
+    // down. Kept well under the gap a human leaves between two deliberate
+    // taps (or a double click on the mic button), so two notes never merge
+    // into one: a spurious repeat arrives in the same event burst.
+    public static final int AUTOREPEAT_GRACE_MILLIS = 30;
 
     private static volatile int VOICE_KEY;
     private static volatile boolean CAPTURING_KEY = false;
@@ -73,6 +75,7 @@ public class VoiceMessageManager {
     private static volatile javax.swing.Timer PENDING_STOP_TIMER = null;
     private static volatile boolean WAIT_KEY_RELEASE = false;
     private static volatile long RECORD_START_NANOS = 0L;
+    private static volatile long KEY_PRESS_NANOS = 0L;
     private static final AtomicBoolean WARNING_SHOWING = new AtomicBoolean(false);
 
     static {
@@ -205,65 +208,95 @@ public class VoiceMessageManager {
 
         RECORDER = recorder;
 
+        KEY_PRESS_NANOS = System.nanoTime();
+
         // Total local silence while recording: the mic must not pick up
         // music, effects or other voices.
         Audio.setVoiceRecording(true);
 
-        // Shared teardown for a recording that produced nothing usable: the
-        // line never opened, it opened but stayed silent (catatonic device), or
-        // it died mid-note. Everything runs on the EDT, where keyPressed and
-        // keyReleased also live, so RECORDER is only ever swapped from one
-        // thread and a fresh note on the held key cannot be torn down by the
-        // previous one (RECORDER == recorder guard).
-        java.util.function.Consumer<String> dead_mic_cleanup = (i18n_key) -> Helpers.GUIRun(() -> {
+        // Teardown for a capture that ended on its own, either because the mic
+        // was never alive or because it died mid-note. Everything runs on the
+        // EDT, where keyPressed and keyReleased also live, so RECORDER is only
+        // ever swapped from one thread and a fresh note on the held key cannot
+        // be torn down by the previous one (RECORDER == recorder guard).
+        Runnable capture_ended = () -> Helpers.GUIRun(() -> {
 
             if (RECORDER != recorder) {
                 return;
             }
 
-            // The note is over: whatever was captured before the mic died is
-            // dropped and the key is ignored until it is physically released.
-            WAIT_KEY_RELEASE = true;
+            // A stop already waiting out its grace means the user let go: the
+            // key must not be ignored afterwards, they never held it down.
+            WAIT_KEY_RELEASE = (PENDING_STOP_TIMER == null);
+
+            // Once the talk-now dialog is up the user is committed, so
+            // whatever was captured before the mic died still gets its chance;
+            // stopAndSend reports why if nothing usable comes back.
+            boolean committed = (RECORD_DIALOG != null);
+
+            stopAndSend(!committed);
+
+            // No dialog ever appeared and the capture is already over: the
+            // device took the line and never delivered a single sample, which
+            // is a mic to fix in the settings rather than a note that failed.
+            if (!committed) {
+                warning("audio.microfono_no_configurado");
+            }
+        });
+
+        // A mic that fails before any audio never gets a dialog, so the reason
+        // has to be shown from here
+        java.util.function.Consumer<String> start_failed = (i18n_key) -> Helpers.GUIRun(() -> {
+
+            if (RECORDER != recorder) {
+                return;
+            }
+
+            WAIT_KEY_RELEASE = (PENDING_STOP_TIMER == null);
 
             stopAndSend(true);
 
             warning(i18n_key);
         });
 
-        Helpers.threadRun(() -> {
+        try {
 
-            // Opening the mic takes 100-400ms and the past cannot be captured:
-            // the dialog only shows when the FIRST audio arrives from the
-            // device (line.start() returns before the driver really delivers),
-            // so it is an honest talk-now signal. The EDT never blocks on the
-            // driver.
-            VoiceRecorder.Outcome started = recorder.start(
-                    () -> showRecordDialogAndArmTimer(recorder),
-                    () -> dead_mic_cleanup.accept("audio.microfono_no_configurado"),
-                    () -> dead_mic_cleanup.accept("audio.microfono_perdido"));
+            Helpers.threadRun(() -> {
 
-            if (started == VoiceRecorder.Outcome.NO_LINE) {
+                // Opening the mic takes 100-400ms and the past cannot be
+                // captured: the dialog only shows when the FIRST audio arrives
+                // from the device (line.start() returns before the driver
+                // really delivers), so it is an honest talk-now signal. The EDT
+                // never blocks on the driver.
+                VoiceRecorder.Outcome started = recorder.start(() -> showRecordDialogAndArmTimer(recorder), capture_ended);
 
-                dead_mic_cleanup.accept("audio.microfono_no_configurado");
+                if (started == VoiceRecorder.Outcome.NO_LINE) {
 
-            } else if (started == VoiceRecorder.Outcome.BUSY) {
+                    start_failed.accept("audio.microfono_no_configurado");
 
-                dead_mic_cleanup.accept("audio.microfono_ocupado");
-            }
+                } else if (started == VoiceRecorder.Outcome.BUSY) {
 
-            // Otherwise the dialog and the timer are armed by the on_live
-            // callback, and the dead-mic callbacks cover a capture that dies
-            // after that.
-        });
+                    start_failed.accept("audio.microfono_ocupado");
+                }
+
+                // Otherwise the dialog and the timer are armed by the on_live
+                // callback, and capture_ended covers a capture that dies later.
+            });
+
+        } catch (Exception ex) {
+
+            // The pool is gone (a hand ending right on the keystroke): without
+            // this the note would stay half started forever, with the game
+            // muted and the recorder never cleared.
+            Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.SEVERE, "Voice note could not be started: {0}", ex.getMessage());
+
+            RECORDER = null;
+
+            Audio.setVoiceRecording(false);
+        }
     }
 
     private static void keyReleased() {
-
-        WAIT_KEY_RELEASE = false;
-
-        if (RECORDER == null) {
-            return;
-        }
 
         // Releasing before the talk-now dialog appears means the mic was
         // still opening (or it was just an accidental tap): cancel like
@@ -274,8 +307,13 @@ public class VoiceMessageManager {
 
         cancelPendingStop();
 
+        // The end of the hold goes through the grace as a whole, WAIT_KEY_RELEASE
+        // included: clearing it here would let the spurious PRESSED of an
+        // auto-repeat pair start a fresh note right after a cancel or an
+        // auto-send, which is exactly what that flag exists to prevent.
         javax.swing.Timer pending = new javax.swing.Timer(AUTOREPEAT_GRACE_MILLIS, e -> {
             PENDING_STOP_TIMER = null;
+            WAIT_KEY_RELEASE = false;
             stopAndSend(discard);
         });
 
@@ -338,6 +376,19 @@ public class VoiceMessageManager {
 
         RECORD_START_NANOS = 0L;
 
+        long press_nanos = KEY_PRESS_NANOS;
+
+        KEY_PRESS_NANOS = 0L;
+
+        // Dropping a note because the mic had not warmed up yet is the one
+        // failure the user cannot tell apart from a bug: it leaves no note, no
+        // warning and, until now, no trace either.
+        if (discard && start_nanos == 0L && press_nanos > 0L) {
+            Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING,
+                    "Voice note dropped before the mic was ready: key held {0} ms, {1} ms of audio",
+                    new Object[]{(System.nanoTime() - press_nanos) / 1000000L, recorder.getCapturedMillis()});
+        }
+
         javax.swing.Timer auto_send = AUTO_SEND_TIMER;
 
         AUTO_SEND_TIMER = null;
@@ -382,8 +433,16 @@ public class VoiceMessageManager {
 
                 if (outcome == VoiceRecorder.Outcome.SILENT) {
                     warning("audio.microfono_sin_audio");
+                } else if (outcome == VoiceRecorder.Outcome.NO_DATA) {
+                    warning("audio.microfono_no_configurado");
+                } else if (outcome == VoiceRecorder.Outcome.BROKEN) {
+                    warning("audio.microfono_perdido");
                 } else if (outcome == VoiceRecorder.Outcome.ENCODE_ERROR) {
                     warning("audio.nota_no_grabada");
+                } else {
+                    // EMPTY: released the instant the dialog appeared, nothing
+                    // worth interrupting the game for
+                    Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING, "Voice note produced nothing usable: {0}", outcome);
                 }
             }
 
@@ -482,10 +541,11 @@ public class VoiceMessageManager {
 
             GameFrame game_frame = GameFrame.getInstance();
 
-            // The key may have been released while the mic was opening: the
-            // EDT serializes this against keyReleased, so the check is race
-            // free and no orphan dialog can appear.
-            if (game_frame == null || RECORDER != recorder) {
+            // The key may have been released while the mic was opening: the EDT
+            // serializes this against keyReleased, so the check is race free.
+            // A stop waiting out its grace also counts as released, otherwise
+            // the dialog would flash on screen just to be torn down 30 ms later.
+            if (game_frame == null || RECORDER != recorder || PENDING_STOP_TIMER != null) {
                 return;
             }
 

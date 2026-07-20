@@ -54,7 +54,7 @@ public class VoiceRecorder {
      */
     public enum Outcome {
         // start()
-        RECORDING, ABORTED, NO_LINE,
+        RECORDING, ABORTED, NO_LINE, BUSY,
         // stop()
         OK, EMPTY, SILENT, NO_DATA, LOST, ENCODE_ERROR
     }
@@ -75,12 +75,19 @@ public class VoiceRecorder {
 
     // Digital-silence floor: any live mic sits well above its own noise floor,
     // so only a muted or dead device stays under this peak amplitude. It is
-    // measured on the PCM before the u-law encoding, whose smallest non zero
-    // step is exactly this, so nothing audible can ever be rejected here.
+    // -72 dBFS measured on the PCM before the u-law encoding, which is already
+    // inaudible on its own and lands on the first quantization steps of the
+    // codec, so a note rejected here had nothing to hear in it.
     private static final int SILENCE_PEAK = 8;
+
+    // Only used to tell apart the two reasons an open can fail: a note started
+    // right after the previous one finds the mic still held for the tail grace,
+    // and blaming the settings for that is a lie. It gates nothing.
+    private static final java.util.concurrent.atomic.AtomicInteger OPEN_LINES = new java.util.concurrent.atomic.AtomicInteger(0);
 
     private final ByteArrayOutputStream pcm = new ByteArrayOutputStream();
     private final CountDownLatch finished = new CountDownLatch(1);
+    private volatile boolean line_counted = false;
     private volatile TargetDataLine line = null;
     private volatile boolean recording = false;
     private volatile boolean stop_requested = false;
@@ -113,11 +120,20 @@ public class VoiceRecorder {
 
             line.start();
 
+            countLineOpen();
+
         } catch (Exception ex) {
-            Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Cannot open capture line: {0}", ex.getMessage());
+
+            // The previous note still holds the device for its tail grace: that
+            // is a mic to wait for, not a mic to configure.
+            boolean busy = OPEN_LINES.get() > 0;
+
+            Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Cannot open capture line ({0}): {1}",
+                    new Object[]{busy ? "still busy with the previous note" : "no usable device", ex.getMessage()});
+
             closeLine();
             finished.countDown();
-            return finish(Outcome.NO_LINE);
+            return finish(busy ? Outcome.BUSY : Outcome.NO_LINE);
         }
 
         if (stop_requested) {
@@ -157,7 +173,15 @@ public class VoiceRecorder {
 
                 while (recording && pcm.size() < MAX_PCM_BYTES) {
 
-                    int n = line.read(buffer, 0, alignFrames(Math.min(buffer.length, MAX_PCM_BYTES - pcm.size())));
+                    int len = alignFrames(Math.min(buffer.length, MAX_PCM_BYTES - pcm.size()));
+
+                    if (len == 0) {
+                        // Cap reached down to the last frame: a full note, not a
+                        // device that went away
+                        break;
+                    }
+
+                    int n = line.read(buffer, 0, len);
 
                     if (n <= 0) {
 
@@ -316,7 +340,7 @@ public class VoiceRecorder {
 
         // The mic was never captured with: keep the original outcome, there is
         // nothing to encode.
-        if (outcome == Outcome.NO_LINE) {
+        if (outcome == Outcome.NO_LINE || outcome == Outcome.BUSY) {
             return null;
         }
 
@@ -390,6 +414,22 @@ public class VoiceRecorder {
         return peak;
     }
 
+    private synchronized void countLineOpen() {
+
+        if (!line_counted) {
+            line_counted = true;
+            OPEN_LINES.incrementAndGet();
+        }
+    }
+
+    private synchronized void countLineClosed() {
+
+        if (line_counted) {
+            line_counted = false;
+            OPEN_LINES.decrementAndGet();
+        }
+    }
+
     private void closeLine() {
 
         TargetDataLine l = line;
@@ -404,6 +444,8 @@ public class VoiceRecorder {
             } catch (Exception ex) {
             }
         }
+
+        countLineClosed();
     }
 
 }

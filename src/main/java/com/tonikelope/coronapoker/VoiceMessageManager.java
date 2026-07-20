@@ -211,10 +211,13 @@ public class VoiceMessageManager {
             // asked it to stop), so it must be ignored until released.
             WAIT_KEY_RELEASE = true;
 
-            // Once the talk-now dialog is up the user is committed, so
-            // whatever was captured before the mic went away still gets its
-            // chance; stopAndSend reports why if nothing usable comes back.
-            boolean committed = (RECORD_DIALOG != null);
+            // Once there is audio the user is committed, so whatever was
+            // captured before the mic went away still gets its chance;
+            // stopAndSend reports why if nothing usable comes back. It is asked
+            // to the recorder and not to the dialog because the dialog can be
+            // missing for reasons of its own (a game window closing under it),
+            // and that must not throw away a good note.
+            boolean committed = (recorder.getCapturedMillis() > 0);
 
             stopAndSend(!committed);
 
@@ -255,6 +258,10 @@ public class VoiceMessageManager {
                 if (started == VoiceRecorder.Outcome.NO_LINE) {
 
                     start_failed.accept("audio.microfono_no_configurado");
+
+                } else if (started == VoiceRecorder.Outcome.BUSY) {
+
+                    start_failed.accept("audio.microfono_ocupado");
                 }
 
                 // Otherwise the dialog and the timer are armed by the on_live
@@ -320,13 +327,19 @@ public class VoiceMessageManager {
 
         KEY_PRESS_NANOS = 0L;
 
-        // Dropping a note because the mic had not warmed up yet is the one
-        // failure the user cannot tell apart from a bug: it leaves no note, no
-        // warning and, until now, no trace either.
+        // Both times are sampled here, on the EDT, at the instant the note
+        // actually ends: measuring them after the pool task has run would count
+        // the tail grace and the queue wait as if the user had been talking.
+        long held_millis = press_nanos > 0L ? (System.nanoTime() - press_nanos) / 1000000L : 0L;
+        long dialog_millis = start_nanos > 0L ? (System.nanoTime() - start_nanos) / 1000000L : 0L;
+
+        // Dropping a note without ever showing the talk-now dialog is the one
+        // failure the user cannot tell apart from a bug: no note, no warning
+        // and, until now, no trace either.
         if (discard && start_nanos == 0L && press_nanos > 0L) {
             Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING,
-                    "Voice note dropped before the mic was ready: key held {0} ms, {1} ms of audio",
-                    new Object[]{(System.nanoTime() - press_nanos) / 1000000L, recorder.getCapturedMillis()});
+                    "Voice note discarded with no talk-now dialog: key held {0} ms, {1} ms of audio",
+                    new Object[]{held_millis, recorder.getCapturedMillis()});
         }
 
         javax.swing.Timer auto_send = AUTO_SEND_TIMER;
@@ -341,7 +354,7 @@ public class VoiceMessageManager {
 
         try {
 
-            Helpers.threadRun(() -> stopAndSendTask(recorder, discard, start_nanos));
+            Helpers.threadRun(() -> stopAndSendTask(recorder, discard, dialog_millis));
 
         } catch (Exception ex) {
 
@@ -354,7 +367,7 @@ public class VoiceMessageManager {
         }
     }
 
-    private static void stopAndSendTask(VoiceRecorder recorder, boolean discard, long start_nanos) {
+    private static void stopAndSendTask(VoiceRecorder recorder, boolean discard, long dialog_millis) {
 
         byte[] wav;
 
@@ -367,19 +380,18 @@ public class VoiceMessageManager {
             Audio.setVoiceRecording(false);
         }
 
-        // A note is as long as the key was held: anything much shorter means
-        // the device stopped delivering behind our back. The recorder already
-        // detects and reports the ways it knows about, so this is the net for
-        // the ones it does not.
-        if (start_nanos > 0L) {
+        // A note is as long as the talk-now dialog was up: anything much
+        // shorter means the device stopped delivering behind our back. The
+        // recorder already detects and reports the ways it knows about, so this
+        // is the net for the ones it does not.
+        if (dialog_millis > 0L) {
 
-            long held = (System.nanoTime() - start_nanos) / 1000000L;
             long captured = recorder.getCapturedMillis();
 
-            if (captured * 2 < held) {
+            if (captured * 2 < dialog_millis) {
                 Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING,
-                        "Voice note much shorter than the key hold: {0} ms captured, {1} ms held, outcome {2}",
-                        new Object[]{captured, held, recorder.getOutcome()});
+                        "Voice note much shorter than the recording: {0} ms captured, {1} ms recording, outcome {2}",
+                        new Object[]{captured, dialog_millis, recorder.getOutcome()});
             }
         }
 
@@ -394,8 +406,6 @@ public class VoiceMessageManager {
 
             if (outcome == VoiceRecorder.Outcome.SILENT) {
                 warning("audio.microfono_sin_audio");
-            } else if (outcome == VoiceRecorder.Outcome.NO_DATA) {
-                warning("audio.microfono_no_configurado");
             } else if (outcome == VoiceRecorder.Outcome.LOST) {
                 warning("audio.microfono_perdido");
             } else if (outcome == VoiceRecorder.Outcome.ENCODE_ERROR) {

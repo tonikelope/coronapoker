@@ -292,6 +292,24 @@ public class Audio {
             return;
         }
 
+        try {
+
+            queueVolumeRefresh(confirmation_sound);
+
+        } catch (Exception ex) {
+            // The flag is cleared inside the task, so a rejected submit (the
+            // pool shut down between hands) would latch it and turn every later
+            // refresh into a no-op: the game audio would stop being muted while
+            // recording a voice note, for the rest of the session.
+            if (!confirmation_sound) {
+                VOLUME_REFRESH_QUEUED.set(false);
+            }
+            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Cannot queue a volume refresh: {0}", ex.getMessage());
+        }
+    }
+
+    private static void queueVolumeRefresh(boolean confirmation_sound) {
+
         Helpers.threadRun(() -> {
 
             if (!confirmation_sound) {
@@ -932,8 +950,15 @@ public class Audio {
         VOICE_RECORDING = active > 0;
 
         // Reapply every volume law: silence on raise, and on drop restore
-        // whatever the remaining flags dictate (e.g. a TTS window still open)
-        refreshALLVolumes(false);
+        // whatever the remaining flags dictate (e.g. a TTS window still open).
+        // A failure here (the thread pool shut down between hands) must never
+        // escape: the caller would leave the count raised and the game would
+        // stay muted for the rest of the session.
+        try {
+            refreshALLVolumes(false);
+        } catch (Exception ex) {
+            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Cannot refresh volumes on a voice recording change: {0}", ex.getMessage());
+        }
     }
 
     // Bounded recovery for the output line being momentarily busy right after a

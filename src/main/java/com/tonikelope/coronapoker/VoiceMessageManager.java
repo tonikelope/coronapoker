@@ -33,6 +33,8 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.event.KeyEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JDialog;
@@ -61,6 +63,8 @@ public class VoiceMessageManager {
     private static volatile JProgressBar RECORD_BAR = null;
     private static volatile javax.swing.Timer AUTO_SEND_TIMER = null;
     private static volatile boolean WAIT_KEY_RELEASE = false;
+    private static volatile long RECORD_START_NANOS = 0L;
+    private static volatile long KEY_PRESS_NANOS = 0L;
     private static final AtomicBoolean WARNING_SHOWING = new AtomicBoolean(false);
 
     static {
@@ -186,40 +190,95 @@ public class VoiceMessageManager {
 
         RECORDER = recorder;
 
+        KEY_PRESS_NANOS = System.nanoTime();
+
         // Total local silence while recording: the mic must not pick up
         // music, effects or other voices.
         Audio.setVoiceRecording(true);
 
-        // Shared teardown for a recording that produced nothing usable: the
-        // line never opened, or it opened but stayed silent (catatonic device).
-        // The RECORDER == recorder guard makes it safe against a fresh note
-        // already started on the held key.
-        Runnable dead_mic_cleanup = () -> {
-            if (RECORDER == recorder) {
-                RECORDER = null;
-                WAIT_KEY_RELEASE = true;
-                Audio.setVoiceRecording(false);
+        // Teardown for a capture that ended on its own, either because the mic
+        // was never alive or because it died mid-note. Everything runs on the
+        // EDT, where keyPressed and keyReleased also live, so RECORDER is only
+        // ever swapped from one thread and a fresh note on the held key cannot
+        // be torn down by the previous one (RECORDER == recorder guard).
+        Runnable capture_ended = () -> Helpers.GUIRun(() -> {
+
+            if (RECORDER != recorder) {
+                return;
+            }
+
+            // The key is still down (the recorder only calls this when nobody
+            // asked it to stop), so it must be ignored until released.
+            WAIT_KEY_RELEASE = true;
+
+            // Once there is audio the user is committed, so whatever was
+            // captured before the mic went away still gets its chance;
+            // stopAndSend reports why if nothing usable comes back. It is asked
+            // to the recorder and not to the dialog because the dialog can be
+            // missing for reasons of its own (a game window closing under it),
+            // and that must not throw away a good note.
+            boolean committed = (recorder.getCapturedMillis() > 0);
+
+            stopAndSend(!committed);
+
+            // No dialog ever appeared and the capture is already over: the
+            // device took the line and never delivered a single sample, which
+            // is a mic to fix in the settings rather than a note that failed.
+            if (!committed) {
                 warning("audio.microfono_no_configurado");
             }
-        };
-
-        Helpers.threadRun(() -> {
-
-            // Opening the mic takes 100-400ms and the past cannot be captured:
-            // the dialog only shows when the FIRST audio arrives from the
-            // device (line.start() returns before the driver really delivers),
-            // so it is an honest talk-now signal. The EDT never blocks on the
-            // driver. on_no_data fires the same teardown if the line opened but
-            // the device never delivered a sample.
-            if (recorder.start(() -> showRecordDialogAndArmTimer(recorder), dead_mic_cleanup)) {
-
-                // Dialog and timer are armed by the on_live callback
-
-            } else {
-
-                dead_mic_cleanup.run();
-            }
         });
+
+        // A mic that fails before any audio never gets a dialog, so the reason
+        // has to be shown from here
+        java.util.function.Consumer<String> start_failed = (i18n_key) -> Helpers.GUIRun(() -> {
+
+            if (RECORDER != recorder) {
+                return;
+            }
+
+            WAIT_KEY_RELEASE = true;
+
+            stopAndSend(true);
+
+            warning(i18n_key);
+        });
+
+        try {
+
+            Helpers.threadRun(() -> {
+
+                // Opening the mic takes 100-400ms and the past cannot be
+                // captured: the dialog only shows when the FIRST audio arrives
+                // from the device (line.start() returns before the driver
+                // really delivers), so it is an honest talk-now signal. The EDT
+                // never blocks on the driver.
+                VoiceRecorder.Outcome started = recorder.start(() -> showRecordDialogAndArmTimer(recorder), capture_ended);
+
+                if (started == VoiceRecorder.Outcome.NO_LINE) {
+
+                    start_failed.accept("audio.microfono_no_configurado");
+
+                } else if (started == VoiceRecorder.Outcome.BUSY) {
+
+                    start_failed.accept("audio.microfono_ocupado");
+                }
+
+                // Otherwise the dialog and the timer are armed by the on_live
+                // callback, and capture_ended covers a capture that dies later.
+            });
+
+        } catch (Exception ex) {
+
+            // The pool is gone (a hand ending right on the keystroke): without
+            // this the note would stay half started forever, with the game
+            // muted and the recorder never cleared.
+            Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.SEVERE, "Voice note could not be started: {0}", ex.getMessage());
+
+            RECORDER = null;
+
+            Audio.setVoiceRecording(false);
+        }
     }
 
     private static void keyReleased() {
@@ -258,6 +317,31 @@ public class VoiceMessageManager {
 
         RECORDER = null;
 
+        // How long the talk-now dialog was actually up, to be compared against
+        // the audio that comes back
+        long start_nanos = RECORD_START_NANOS;
+
+        RECORD_START_NANOS = 0L;
+
+        long press_nanos = KEY_PRESS_NANOS;
+
+        KEY_PRESS_NANOS = 0L;
+
+        // Both times are sampled here, on the EDT, at the instant the note
+        // actually ends: measuring them after the pool task has run would count
+        // the tail grace and the queue wait as if the user had been talking.
+        long held_millis = press_nanos > 0L ? (System.nanoTime() - press_nanos) / 1000000L : 0L;
+        long dialog_millis = start_nanos > 0L ? (System.nanoTime() - start_nanos) / 1000000L : 0L;
+
+        // Dropping a note without ever showing the talk-now dialog is the one
+        // failure the user cannot tell apart from a bug: no note, no warning
+        // and, until now, no trace either.
+        if (discard && start_nanos == 0L && press_nanos > 0L) {
+            Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING,
+                    "Voice note discarded with no talk-now dialog: key held {0} ms, {1} ms of audio",
+                    new Object[]{held_millis, recorder.getCapturedMillis()});
+        }
+
         javax.swing.Timer auto_send = AUTO_SEND_TIMER;
 
         AUTO_SEND_TIMER = null;
@@ -268,31 +352,86 @@ public class VoiceMessageManager {
 
         closeRecordDialog();
 
-        Helpers.threadRun(() -> {
+        try {
 
-            byte[] wav = recorder.stop();
+            Helpers.threadRun(() -> stopAndSendTask(recorder, discard, dialog_millis));
 
-            // The tail grace is over: lift the local recording silence
+        } catch (Exception ex) {
+
+            // The pool died between starting the note and ending it (a hand
+            // finishing right on the keystroke). Without lifting the recording
+            // silence here, the whole game stays muted until the app restarts.
+            Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.SEVERE, "Voice note could not be finished: {0}", ex.getMessage());
+
             Audio.setVoiceRecording(false);
+        }
+    }
 
-            WaitingRoomFrame sala = WaitingRoomFrame.getInstance();
+    private static void stopAndSendTask(VoiceRecorder recorder, boolean discard, long dialog_millis) {
 
-            // null = nothing meaningful captured
-            if (!discard && wav != null && sala != null) {
+        byte[] wav;
 
-                String nick = sala.getLocal_nick();
+        try {
+            wav = recorder.stop();
+        } finally {
+            // The tail grace is over: lift the local recording silence. In a
+            // finally because leaving it raised mutes every sound in the game
+            // for the rest of the session.
+            Audio.setVoiceRecording(false);
+        }
 
-                // Local processing first (chat line + own playback, like the
-                // local TTS when sending a text). On the host this also relays
-                // to every client, so enviarNotaVoz is client-only to avoid a
-                // double broadcast.
-                sala.recibirNotaVoz(nick, wav);
+        // A note is as long as the talk-now dialog was up: anything much
+        // shorter means the device stopped delivering behind our back. The
+        // recorder already detects and reports the ways it knows about, so this
+        // is the net for the ones it does not.
+        if (dialog_millis > 0L) {
 
-                if (!sala.isServer()) {
-                    sala.enviarNotaVoz(nick, wav);
-                }
+            long captured = recorder.getCapturedMillis();
+
+            if (captured * 2 < dialog_millis) {
+                Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING,
+                        "Voice note much shorter than the recording: {0} ms captured, {1} ms recording, outcome {2}",
+                        new Object[]{captured, dialog_millis, recorder.getOutcome()});
             }
-        });
+        }
+
+        WaitingRoomFrame sala = WaitingRoomFrame.getInstance();
+
+        // A note the user committed to (the talk-now dialog was up) that
+        // comes back with nothing is a failure worth showing: staying quiet
+        // is what made a dead mic look like a note nobody answered.
+        if (!discard && wav == null) {
+
+            VoiceRecorder.Outcome outcome = recorder.getOutcome();
+
+            if (outcome == VoiceRecorder.Outcome.SILENT) {
+                warning("audio.microfono_sin_audio");
+            } else if (outcome == VoiceRecorder.Outcome.LOST) {
+                warning("audio.microfono_perdido");
+            } else if (outcome == VoiceRecorder.Outcome.ENCODE_ERROR) {
+                warning("audio.nota_no_grabada");
+            } else {
+                // EMPTY: released the instant the dialog appeared, nothing
+                // worth interrupting the game for
+                Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING, "Voice note produced nothing usable: {0}", outcome);
+            }
+        }
+
+        // null = nothing meaningful captured
+        if (!discard && wav != null && sala != null) {
+
+            String nick = sala.getLocal_nick();
+
+            // Local processing first (chat line + own playback, like the
+            // local TTS when sending a text). On the host this also relays
+            // to every client, so enviarNotaVoz is client-only to avoid a
+            // double broadcast.
+            sala.recibirNotaVoz(nick, wav);
+
+            if (!sala.isServer()) {
+                sala.enviarNotaVoz(nick, wav);
+            }
+        }
     }
 
     /**
@@ -353,16 +492,25 @@ public class VoiceMessageManager {
         // Key auto-repeat must not stack popups
         if (WARNING_SHOWING.compareAndSet(false, true)) {
 
-            Helpers.threadRun(() -> {
-                try {
-                    java.awt.Container parent = GameFrame.getInstance() != null ? GameFrame.getInstance().getContentPane()
-                            : (WaitingRoomFrame.getInstance() != null ? WaitingRoomFrame.getInstance().getContentPane() : Init.VENTANA_INICIO);
+            try {
 
-                    Helpers.mostrarMensajeError(parent, Translator.translate(i18n_key));
-                } finally {
-                    WARNING_SHOWING.set(false);
-                }
-            });
+                Helpers.threadRun(() -> {
+                    try {
+                        java.awt.Container parent = GameFrame.getInstance() != null ? GameFrame.getInstance().getContentPane()
+                                : (WaitingRoomFrame.getInstance() != null ? WaitingRoomFrame.getInstance().getContentPane() : Init.VENTANA_INICIO);
+
+                        Helpers.mostrarMensajeError(parent, Translator.translate(i18n_key));
+                    } finally {
+                        WARNING_SHOWING.set(false);
+                    }
+                });
+
+            } catch (Exception ex) {
+                // The flag lives in the task: a rejected submit (pool shut down
+                // between hands) would latch it and silence every later warning
+                WARNING_SHOWING.set(false);
+                Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING, "Cannot show the voice note warning {0}: {1}", new Object[]{i18n_key, ex.getMessage()});
+            }
         }
     }
 
@@ -440,6 +588,10 @@ public class VoiceMessageManager {
             RECORD_BAR = bar;
 
             RECORD_DIALOG = dialog;
+
+            // The talk-now signal: from here on the note should be as long as
+            // the user keeps talking
+            RECORD_START_NANOS = System.nanoTime();
 
             dialog.setVisible(true);
 

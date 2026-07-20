@@ -255,6 +255,12 @@ public class AudioDeviceManager {
             } catch (Exception ex) {
                 Logger.getLogger(AudioDeviceManager.class.getName()).log(Level.WARNING, "Selected capture device failed ({0}). Falling back to system default.", ex.getMessage());
             }
+        } else if (CAPTURE_DEVICE != null && !CAPTURE_DEVICE.isEmpty()) {
+            // Windows renames endpoints when a Bluetooth or USB mic reconnects,
+            // so the configured name stops matching and the note is recorded
+            // from whatever the system default is, which is worth knowing when
+            // a note comes out wrong.
+            Logger.getLogger(AudioDeviceManager.class.getName()).log(Level.WARNING, "Selected capture device not found ({0}). Using the system default.", CAPTURE_DEVICE);
         }
 
         return AudioSystem.getTargetDataLine(format);

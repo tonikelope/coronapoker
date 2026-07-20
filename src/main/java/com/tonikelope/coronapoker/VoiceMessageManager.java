@@ -56,23 +56,12 @@ public class VoiceMessageManager {
     public static final int DEFAULT_KEY = KeyEvent.VK_F9;
     public static final float DIALOG_OPACITY = 0.95f;
 
-    // Key auto-repeat does not always mean a plain train of PRESSED: some
-    // platforms and input drivers deliver RELEASED + PRESSED pairs while the
-    // key is still physically down, which cut notes short (the first repeat
-    // ended the recording after a second or less). The end of a hold is
-    // therefore held for this grace window and dropped if the key comes back
-    // down. Kept well under the gap a human leaves between two deliberate
-    // taps (or a double click on the mic button), so two notes never merge
-    // into one: a spurious repeat arrives in the same event burst.
-    public static final int AUTOREPEAT_GRACE_MILLIS = 30;
-
     private static volatile int VOICE_KEY;
     private static volatile boolean CAPTURING_KEY = false;
     private static volatile VoiceRecorder RECORDER = null;
     private static volatile JDialog RECORD_DIALOG = null;
     private static volatile JProgressBar RECORD_BAR = null;
     private static volatile javax.swing.Timer AUTO_SEND_TIMER = null;
-    private static volatile javax.swing.Timer PENDING_STOP_TIMER = null;
     private static volatile boolean WAIT_KEY_RELEASE = false;
     private static volatile long RECORD_START_NANOS = 0L;
     private static volatile long KEY_PRESS_NANOS = 0L;
@@ -175,13 +164,6 @@ public class VoiceMessageManager {
 
     private static void keyPressed() {
 
-        // The key is back down while the previous stop was still inside its
-        // grace window: it never really came up (auto-repeat), so the note
-        // being recorded carries on untouched.
-        if (cancelPendingStop()) {
-            return;
-        }
-
         // Key auto-repeat fires PRESSED again while held, and after an
         // auto-send we ignore the key until it is physically released.
         if (RECORDER != null || WAIT_KEY_RELEASE) {
@@ -225,13 +207,13 @@ public class VoiceMessageManager {
                 return;
             }
 
-            // A stop already waiting out its grace means the user let go: the
-            // key must not be ignored afterwards, they never held it down.
-            WAIT_KEY_RELEASE = (PENDING_STOP_TIMER == null);
+            // The key is still down (the recorder only calls this when nobody
+            // asked it to stop), so it must be ignored until released.
+            WAIT_KEY_RELEASE = true;
 
             // Once the talk-now dialog is up the user is committed, so
-            // whatever was captured before the mic died still gets its chance;
-            // stopAndSend reports why if nothing usable comes back.
+            // whatever was captured before the mic went away still gets its
+            // chance; stopAndSend reports why if nothing usable comes back.
             boolean committed = (RECORD_DIALOG != null);
 
             stopAndSend(!committed);
@@ -252,7 +234,7 @@ public class VoiceMessageManager {
                 return;
             }
 
-            WAIT_KEY_RELEASE = (PENDING_STOP_TIMER == null);
+            WAIT_KEY_RELEASE = true;
 
             stopAndSend(true);
 
@@ -273,10 +255,6 @@ public class VoiceMessageManager {
                 if (started == VoiceRecorder.Outcome.NO_LINE) {
 
                     start_failed.accept("audio.microfono_no_configurado");
-
-                } else if (started == VoiceRecorder.Outcome.BUSY) {
-
-                    start_failed.accept("audio.microfono_ocupado");
                 }
 
                 // Otherwise the dialog and the timer are armed by the on_live
@@ -298,49 +276,15 @@ public class VoiceMessageManager {
 
     private static void keyReleased() {
 
-        // Releasing before the talk-now dialog appears means the mic was
-        // still opening (or it was just an accidental tap): cancel like
-        // WhatsApp instead of sending an empty or clipped note. Once the
-        // dialog is up it is the honest commitment point, so the note ships.
-        // The decision belongs to this instant, not to when the grace ends.
-        boolean discard = (RECORD_DIALOG == null);
+        WAIT_KEY_RELEASE = false;
 
-        cancelPendingStop();
-
-        // The end of the hold goes through the grace as a whole, WAIT_KEY_RELEASE
-        // included: clearing it here would let the spurious PRESSED of an
-        // auto-repeat pair start a fresh note right after a cancel or an
-        // auto-send, which is exactly what that flag exists to prevent.
-        javax.swing.Timer pending = new javax.swing.Timer(AUTOREPEAT_GRACE_MILLIS, e -> {
-            PENDING_STOP_TIMER = null;
-            WAIT_KEY_RELEASE = false;
-            stopAndSend(discard);
-        });
-
-        pending.setRepeats(false);
-
-        PENDING_STOP_TIMER = pending;
-
-        pending.start();
-    }
-
-    /**
-     * Drops a stop still waiting out its auto-repeat grace. Returns true when
-     * there was one, that is, when the key never physically came up. EDT only,
-     * like every other key path.
-     */
-    private static boolean cancelPendingStop() {
-
-        javax.swing.Timer pending = PENDING_STOP_TIMER;
-
-        PENDING_STOP_TIMER = null;
-
-        if (pending != null) {
-            pending.stop();
-            return true;
+        if (RECORDER != null) {
+            // Releasing before the talk-now dialog appears means the mic was
+            // still opening (or it was just an accidental tap): cancel like
+            // WhatsApp instead of sending an empty or clipped note. Once the
+            // dialog is up it is the honest commitment point, so the note ships.
+            stopAndSend(RECORD_DIALOG == null);
         }
-
-        return false;
     }
 
     private static void cancel() {
@@ -357,10 +301,6 @@ public class VoiceMessageManager {
     }
 
     private static void stopAndSend(boolean discard) {
-
-        // Every other way of ending a note (cancel, auto-send, dead mic) wins
-        // over a stop still waiting out its grace
-        cancelPendingStop();
 
         VoiceRecorder recorder = RECORDER;
 
@@ -399,69 +339,89 @@ public class VoiceMessageManager {
 
         closeRecordDialog();
 
-        Helpers.threadRun(() -> {
+        try {
 
-            byte[] wav = recorder.stop();
+            Helpers.threadRun(() -> stopAndSendTask(recorder, discard, start_nanos));
 
-            // The tail grace is over: lift the local recording silence
+        } catch (Exception ex) {
+
+            // The pool died between starting the note and ending it (a hand
+            // finishing right on the keystroke). Without lifting the recording
+            // silence here, the whole game stays muted until the app restarts.
+            Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.SEVERE, "Voice note could not be finished: {0}", ex.getMessage());
+
             Audio.setVoiceRecording(false);
+        }
+    }
 
-            // A note is as long as the key was held: anything much shorter means
-            // the device stopped delivering behind our back. The recorder already
-            // detects and reports the ways it knows about, so this is the net for
-            // the ones it does not.
-            if (start_nanos > 0L) {
+    private static void stopAndSendTask(VoiceRecorder recorder, boolean discard, long start_nanos) {
 
-                long held = (System.nanoTime() - start_nanos) / 1000000L;
-                long captured = recorder.getCapturedMillis();
+        byte[] wav;
 
-                if (captured * 2 < held) {
-                    Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING,
-                            "Voice note much shorter than the key hold: {0} ms captured, {1} ms held, outcome {2}",
-                            new Object[]{captured, held, recorder.getOutcome()});
-                }
+        try {
+            wav = recorder.stop();
+        } finally {
+            // The tail grace is over: lift the local recording silence. In a
+            // finally because leaving it raised mutes every sound in the game
+            // for the rest of the session.
+            Audio.setVoiceRecording(false);
+        }
+
+        // A note is as long as the key was held: anything much shorter means
+        // the device stopped delivering behind our back. The recorder already
+        // detects and reports the ways it knows about, so this is the net for
+        // the ones it does not.
+        if (start_nanos > 0L) {
+
+            long held = (System.nanoTime() - start_nanos) / 1000000L;
+            long captured = recorder.getCapturedMillis();
+
+            if (captured * 2 < held) {
+                Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING,
+                        "Voice note much shorter than the key hold: {0} ms captured, {1} ms held, outcome {2}",
+                        new Object[]{captured, held, recorder.getOutcome()});
             }
+        }
 
-            WaitingRoomFrame sala = WaitingRoomFrame.getInstance();
+        WaitingRoomFrame sala = WaitingRoomFrame.getInstance();
 
-            // A note the user committed to (the talk-now dialog was up) that
-            // comes back with nothing is a failure worth showing: staying quiet
-            // is what made a dead mic look like a note nobody answered.
-            if (!discard && wav == null) {
+        // A note the user committed to (the talk-now dialog was up) that
+        // comes back with nothing is a failure worth showing: staying quiet
+        // is what made a dead mic look like a note nobody answered.
+        if (!discard && wav == null) {
 
-                VoiceRecorder.Outcome outcome = recorder.getOutcome();
+            VoiceRecorder.Outcome outcome = recorder.getOutcome();
 
-                if (outcome == VoiceRecorder.Outcome.SILENT) {
-                    warning("audio.microfono_sin_audio");
-                } else if (outcome == VoiceRecorder.Outcome.NO_DATA) {
-                    warning("audio.microfono_no_configurado");
-                } else if (outcome == VoiceRecorder.Outcome.BROKEN) {
-                    warning("audio.microfono_perdido");
-                } else if (outcome == VoiceRecorder.Outcome.ENCODE_ERROR) {
-                    warning("audio.nota_no_grabada");
-                } else {
-                    // EMPTY: released the instant the dialog appeared, nothing
-                    // worth interrupting the game for
-                    Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING, "Voice note produced nothing usable: {0}", outcome);
-                }
+            if (outcome == VoiceRecorder.Outcome.SILENT) {
+                warning("audio.microfono_sin_audio");
+            } else if (outcome == VoiceRecorder.Outcome.NO_DATA) {
+                warning("audio.microfono_no_configurado");
+            } else if (outcome == VoiceRecorder.Outcome.LOST) {
+                warning("audio.microfono_perdido");
+            } else if (outcome == VoiceRecorder.Outcome.ENCODE_ERROR) {
+                warning("audio.nota_no_grabada");
+            } else {
+                // EMPTY: released the instant the dialog appeared, nothing
+                // worth interrupting the game for
+                Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING, "Voice note produced nothing usable: {0}", outcome);
             }
+        }
 
-            // null = nothing meaningful captured
-            if (!discard && wav != null && sala != null) {
+        // null = nothing meaningful captured
+        if (!discard && wav != null && sala != null) {
 
-                String nick = sala.getLocal_nick();
+            String nick = sala.getLocal_nick();
 
-                // Local processing first (chat line + own playback, like the
-                // local TTS when sending a text). On the host this also relays
-                // to every client, so enviarNotaVoz is client-only to avoid a
-                // double broadcast.
-                sala.recibirNotaVoz(nick, wav);
+            // Local processing first (chat line + own playback, like the
+            // local TTS when sending a text). On the host this also relays
+            // to every client, so enviarNotaVoz is client-only to avoid a
+            // double broadcast.
+            sala.recibirNotaVoz(nick, wav);
 
-                if (!sala.isServer()) {
-                    sala.enviarNotaVoz(nick, wav);
-                }
+            if (!sala.isServer()) {
+                sala.enviarNotaVoz(nick, wav);
             }
-        });
+        }
     }
 
     /**
@@ -522,16 +482,25 @@ public class VoiceMessageManager {
         // Key auto-repeat must not stack popups
         if (WARNING_SHOWING.compareAndSet(false, true)) {
 
-            Helpers.threadRun(() -> {
-                try {
-                    java.awt.Container parent = GameFrame.getInstance() != null ? GameFrame.getInstance().getContentPane()
-                            : (WaitingRoomFrame.getInstance() != null ? WaitingRoomFrame.getInstance().getContentPane() : Init.VENTANA_INICIO);
+            try {
 
-                    Helpers.mostrarMensajeError(parent, Translator.translate(i18n_key));
-                } finally {
-                    WARNING_SHOWING.set(false);
-                }
-            });
+                Helpers.threadRun(() -> {
+                    try {
+                        java.awt.Container parent = GameFrame.getInstance() != null ? GameFrame.getInstance().getContentPane()
+                                : (WaitingRoomFrame.getInstance() != null ? WaitingRoomFrame.getInstance().getContentPane() : Init.VENTANA_INICIO);
+
+                        Helpers.mostrarMensajeError(parent, Translator.translate(i18n_key));
+                    } finally {
+                        WARNING_SHOWING.set(false);
+                    }
+                });
+
+            } catch (Exception ex) {
+                // The flag lives in the task: a rejected submit (pool shut down
+                // between hands) would latch it and silence every later warning
+                WARNING_SHOWING.set(false);
+                Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING, "Cannot show the voice note warning {0}: {1}", new Object[]{i18n_key, ex.getMessage()});
+            }
         }
     }
 
@@ -541,11 +510,10 @@ public class VoiceMessageManager {
 
             GameFrame game_frame = GameFrame.getInstance();
 
-            // The key may have been released while the mic was opening: the EDT
-            // serializes this against keyReleased, so the check is race free.
-            // A stop waiting out its grace also counts as released, otherwise
-            // the dialog would flash on screen just to be torn down 30 ms later.
-            if (game_frame == null || RECORDER != recorder || PENDING_STOP_TIMER != null) {
+            // The key may have been released while the mic was opening: the
+            // EDT serializes this against keyReleased, so the check is race
+            // free and no orphan dialog can appear.
+            if (game_frame == null || RECORDER != recorder) {
                 return;
             }
 

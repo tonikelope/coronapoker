@@ -31,8 +31,6 @@ package com.tonikelope.coronapoker;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.sound.sampled.AudioFileFormat;
@@ -51,14 +49,14 @@ import javax.sound.sampled.TargetDataLine;
 public class VoiceRecorder {
 
     /**
-     * How the capture ended. The manager turns it into the on-screen warning
-     * when a note the user committed to comes back empty.
+     * How the recording ended. The manager turns it into the on-screen
+     * warning, so that a note that produces nothing never fails in silence.
      */
     public enum Outcome {
         // start()
-        RECORDING, ABORTED, NO_LINE, BUSY,
+        RECORDING, ABORTED, NO_LINE,
         // stop()
-        OK, EMPTY, SILENT, NO_DATA, BROKEN, ENCODE_ERROR
+        OK, EMPTY, SILENT, NO_DATA, LOST, ENCODE_ERROR
     }
 
     public static final int MAX_SECONDS = 15;
@@ -66,7 +64,7 @@ public class VoiceRecorder {
     // air (and in the capture buffer) at that instant.
     public static final int TAIL_MILLIS = 250;
     // Safety floor only (empty/dead captures): intentional-tap filtering is
-    // done by the manager on the key HOLD time, so short notes survive.
+    // done by the manager, so short notes survive.
     public static final int MIN_MILLIS = 100;
     public static final float SAMPLE_RATE = 16000f;
 
@@ -75,50 +73,25 @@ public class VoiceRecorder {
     private static final int MAX_PCM_BYTES = Math.round(SAMPLE_RATE) * 2 * MAX_SECONDS;
     private static final int MIN_PCM_BYTES = Math.round(SAMPLE_RATE * 2 * MIN_MILLIS / 1000f);
 
-    // A capture line that dies in the middle of a note (a Bluetooth headset
-    // switching profile, a USB mic re-enumerating, the device being grabbed in
-    // exclusive mode) makes read() return 0 forever. That is recoverable on
-    // most drivers: reopen and keep appending to the SAME note, so a hiccup
-    // costs a gap instead of the whole message. The endpoint stays down for a
-    // second or more on a Bluetooth profile switch, hence the growing waits:
-    // the budget is spent on FAILED opens, which is what actually happens
-    // while the device is away.
-    private static final int[] RESUME_BACKOFF_MILLIS = {100, 300, 700, 1500};
-    // Cap for the other shape of a sick device: the line reopens fine over and
-    // over but never delivers a sample again.
-    private static final int MAX_RESUMES = 3;
-
-    // Below this, a note salvaged from a capture that died is not worth
-    // sending: it is the burst of noise the device produced on its way out.
-    private static final int RESCUE_MIN_MILLIS = 1000;
-
     // Digital-silence floor: any live mic sits well above its own noise floor,
-    // so only a muted or dead device stays under this peak amplitude.
+    // so only a muted or dead device stays under this peak amplitude. It is
+    // measured on the PCM before the u-law encoding, whose smallest non zero
+    // step is exactly this, so nothing audible can ever be rejected here.
     private static final int SILENCE_PEAK = 8;
-
-    // There is a single microphone: a new note must not open the line while the
-    // previous one is still closing it (that close would kill the fresh
-    // capture). The slot is held from the open to the final close, and the
-    // wait covers the worst case teardown of the previous note (tail grace plus
-    // the safety timeouts in stop()) so back to back notes never see a false
-    // busy.
-    private static final Semaphore CAPTURE_SLOT = new Semaphore(1, true);
-    private static final int CAPTURE_SLOT_WAIT_MILLIS = 4000;
 
     private final ByteArrayOutputStream pcm = new ByteArrayOutputStream();
     private final CountDownLatch finished = new CountDownLatch(1);
     private volatile TargetDataLine line = null;
     private volatile boolean recording = false;
     private volatile boolean stop_requested = false;
-    private volatile boolean slot_held = false;
-    private volatile boolean capture_lost = false;
     private volatile boolean got_audio = false;
+    private volatile boolean device_ended = false;
     private volatile Outcome outcome = Outcome.ABORTED;
 
     /**
      * Opens the microphone and captures in a pool thread until stop() or the
-     * MAX_SECONDS cap. Blocking (the device open takes 100-400ms, plus the
-     * wait for the previous note to release the mic): call it off the EDT.
+     * MAX_SECONDS cap. Blocking (the device open takes 100-400ms): call it
+     * off the EDT.
      *
      * on_live runs ONCE (on the capture thread) when the first real audio
      * arrives from the device: line.start() returns before the driver is
@@ -126,27 +99,11 @@ public class VoiceRecorder {
      * signal. The line is fully closed after every note (an open mic is
      * audible as background noise on some setups).
      *
-     * on_ended runs when the capture stops on its own (the device never
-     * delivered a sample, or it died mid-note beyond recovery) while nobody
-     * asked it to: the manager has to tear the dialog down instead of letting
-     * the user talk into a dead mic. It never runs when stop() was called,
-     * because then the manager is already handling the end of the note.
+     * on_ended runs when the capture stops on its own while nobody asked it
+     * to: the manager has to tear the dialog down instead of leaving the user
+     * talking into a mic that is no longer recording.
      */
     public Outcome start(Runnable on_live, Runnable on_ended) {
-
-        try {
-            if (!CAPTURE_SLOT.tryAcquire(CAPTURE_SLOT_WAIT_MILLIS, TimeUnit.MILLISECONDS)) {
-                Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Capture line still busy with the previous voice note");
-                finished.countDown();
-                return finish(Outcome.BUSY);
-            }
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            finished.countDown();
-            return finish(Outcome.BUSY);
-        }
-
-        slot_held = true;
 
         try {
 
@@ -159,7 +116,6 @@ public class VoiceRecorder {
         } catch (Exception ex) {
             Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Cannot open capture line: {0}", ex.getMessage());
             closeLine();
-            releaseSlot();
             finished.countDown();
             return finish(Outcome.NO_LINE);
         }
@@ -167,7 +123,6 @@ public class VoiceRecorder {
         if (stop_requested) {
             // Released before the line was ready: nothing worth keeping
             closeLine();
-            releaseSlot();
             finished.countDown();
             return finish(Outcome.ABORTED);
         }
@@ -184,7 +139,6 @@ public class VoiceRecorder {
             Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Cannot start the capture thread: {0}", ex.getMessage());
             recording = false;
             closeLine();
-            releaseSlot();
             finished.countDown();
             return finish(Outcome.NO_LINE);
         }
@@ -197,47 +151,26 @@ public class VoiceRecorder {
         // 50ms chunks: quick first-data signal and a short stop latency
         byte[] buffer = new byte[1600];
 
-        int resumes = 0;
-
         try {
 
             try {
 
                 while (recording && pcm.size() < MAX_PCM_BYTES) {
 
-                    TargetDataLine l = line;
-
-                    int n = l != null ? l.read(buffer, 0, alignFrames(Math.min(buffer.length, MAX_PCM_BYTES - pcm.size()))) : 0;
+                    int n = line.read(buffer, 0, alignFrames(Math.min(buffer.length, MAX_PCM_BYTES - pcm.size())));
 
                     if (n <= 0) {
 
                         // read() only returns short when the line has been
                         // stopped, flushed or closed underneath us. If we did
-                        // not ask for it, the device died.
-                        if (stop_requested || !recording) {
-                            break;
+                        // not ask for it, the device took the capture away and
+                        // this note is over, whatever the dialog still says.
+                        if (!stop_requested && recording) {
+                            device_ended = true;
+                            Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Capture line stopped delivering after {0} ms of audio", capturedMillis());
                         }
 
-                        // A line that never delivered a single sample was not
-                        // lost, it was never alive: reopening it is pointless
-                        // churn and the honest answer is that the mic is not
-                        // working.
-                        if (!got_audio) {
-                            Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Capture line opened but delivered no audio at all");
-                            break;
-                        }
-
-                        if (resumes >= MAX_RESUMES || !reopenLine()) {
-                            capture_lost = true;
-                            break;
-                        }
-
-                        resumes++;
-
-                        Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Capture line died mid-note, resumed ({0}/{1}) after {2} ms of audio",
-                                new Object[]{resumes, MAX_RESUMES, capturedMillis()});
-
-                        continue;
+                        break;
                     }
 
                     if (!got_audio) {
@@ -256,12 +189,12 @@ public class VoiceRecorder {
 
             } catch (Exception ex) {
                 Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Capture error: {0}", ex.getMessage());
-                capture_lost = true;
+                device_ended = !stop_requested && recording;
             }
 
             // Tail flush in its own guard: it runs AFTER the audio is already
-            // in the buffer, so a driver that throws here (an odd available(),
-            // a line closed by the stop() safety net) must never cost the note.
+            // in the buffer, so a driver that throws here must never cost the
+            // note that was captured perfectly.
             try {
                 tailFlush(buffer);
             } catch (Exception ex) {
@@ -272,18 +205,14 @@ public class VoiceRecorder {
 
             recording = false;
             closeLine();
-            releaseSlot();
 
             finished.countDown();
 
             // Nobody is capturing any more and nobody asked to stop: the
             // manager still shows the talk-now dialog and the global recording
-            // silence is up, so it has to be told. It decides what to do with
-            // whatever was captured; stop() tells it why the note ended.
+            // silence is up, so it has to be told. Whatever was captured is
+            // still its to send; stop() reports why the note ended.
             if (on_ended != null && !stop_requested) {
-
-                Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Capture ended on its own after {0} ms of audio (lost: {1})",
-                        new Object[]{capturedMillis(), capture_lost});
 
                 try {
                     on_ended.run();
@@ -296,7 +225,9 @@ public class VoiceRecorder {
 
     /**
      * Stops the line and pulls whatever the hardware had already buffered.
-     * Closing right away discarded it and clipped the end of the recording.
+     * Most of the tail is actually delivered by the grace stop() waits before
+     * lowering the flag, but a provider that does keep buffered frames after
+     * stop() gets them picked up here instead of closed away.
      */
     private void tailFlush(byte[] buffer) {
 
@@ -331,77 +262,6 @@ public class VoiceRecorder {
      */
     private static int alignFrames(int bytes) {
         return bytes - (bytes % PCM_FORMAT.getFrameSize());
-    }
-
-    /**
-     * Reopens the capture line after a driver-side death, waiting longer on
-     * each failed attempt: a Bluetooth profile switch keeps the endpoint away
-     * for a second or more. Called only from the capture thread, which already
-     * owns the mic slot.
-     */
-    private boolean reopenLine() {
-
-        closeLine();
-
-        line = null;
-
-        long gap_start = System.nanoTime();
-
-        for (int attempt = 0; attempt < RESUME_BACKOFF_MILLIS.length; attempt++) {
-
-            Helpers.parkThreadMillis(RESUME_BACKOFF_MILLIS[attempt]);
-
-            if (stop_requested || !recording) {
-                return false;
-            }
-
-            TargetDataLine l = null;
-
-            try {
-
-                // No falling back to another device here: the note would carry
-                // on through a different microphone without the user knowing.
-                l = AudioDeviceManager.getTargetDataLine(PCM_FORMAT, false);
-
-                // Assigned before opening so a failure half way through is
-                // still closed by closeLine() instead of leaking the device
-                line = l;
-
-                l.open(PCM_FORMAT);
-
-                l.start();
-
-                padGap(gap_start);
-
-                return true;
-
-            } catch (Exception ex) {
-
-                Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Cannot reopen the capture line (attempt {0}/{1}): {2}",
-                        new Object[]{attempt + 1, RESUME_BACKOFF_MILLIS.length, ex.getMessage()});
-
-                closeLine();
-
-                line = null;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Fills the reopen gap with silence so the note keeps lasting what the
-     * user held the key: splicing the two halves sample to sample swallowed a
-     * syllable and left a click at the joint.
-     */
-    private void padGap(long gap_start_nanos) {
-
-        int bytes = alignFrames((int) Math.min((System.nanoTime() - gap_start_nanos) / 1000000L * (long) (SAMPLE_RATE * 2) / 1000L,
-                Math.max(0, MAX_PCM_BYTES - pcm.size())));
-
-        if (bytes > 0) {
-            pcm.write(new byte[bytes], 0, bytes);
-        }
     }
 
     /**
@@ -448,46 +308,28 @@ public class VoiceRecorder {
             // net against a capture line gone catatonic.
             if (!finished.await(2, java.util.concurrent.TimeUnit.SECONDS)) {
                 closeLine();
-                if (!finished.await(1, java.util.concurrent.TimeUnit.SECONDS)) {
-                    // The capture thread is wedged inside the driver and will
-                    // never release the mic on its own. Handing the slot back
-                    // is safer than locking voice notes out for the rest of the
-                    // session: releaseSlot() is idempotent, so the thread
-                    // waking up later is harmless.
-                    Logger.getLogger(VoiceRecorder.class.getName()).log(Level.SEVERE, "Capture thread wedged, releasing the microphone by force");
-                    releaseSlot();
-                }
+                finished.await(1, java.util.concurrent.TimeUnit.SECONDS);
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
 
-        // Nothing was ever captured with this mic: keep the original outcome,
-        // there is nothing to encode.
-        if (outcome == Outcome.BUSY || outcome == Outcome.NO_LINE) {
+        // The mic was never captured with: keep the original outcome, there is
+        // nothing to encode.
+        if (outcome == Outcome.NO_LINE) {
             return null;
         }
 
-        // A line that opened but never delivered a sample is a mic that is not
-        // working, not a note that failed
+        // A line that opened but never delivered a single sample is a mic that
+        // is not working, not a note that failed
         if (!got_audio) {
-            finish(Outcome.NO_DATA);
+            finish(device_ended ? Outcome.NO_DATA : Outcome.EMPTY);
             return null;
         }
 
         if (pcm.size() < MIN_PCM_BYTES) {
-            finish(Outcome.EMPTY);
-            return null;
-        }
-
-        // The device died mid-note. What survives is worth sending as long as
-        // it is a real chunk of speech: throwing away ten good seconds because
-        // the mic went away at the end is worse than a note that ends abruptly.
-        // Only the short burst of noise a device produces on its way out gets
-        // dropped, and then the user is told.
-        if (capture_lost && capturedMillis() < RESCUE_MIN_MILLIS) {
-            Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Capture lost with only {0} ms of audio, note discarded", capturedMillis());
-            finish(Outcome.BROKEN);
+            // The device went away before there was anything worth keeping
+            finish(device_ended ? Outcome.LOST : Outcome.EMPTY);
             return null;
         }
 
@@ -513,8 +355,10 @@ public class VoiceRecorder {
 
                 AudioSystem.write(ulaw_stream, AudioFileFormat.Type.WAVE, wav);
 
-                if (capture_lost) {
-                    Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Note rescued from a lost capture line: {0} ms of audio", capturedMillis());
+                if (device_ended) {
+                    // Sent, but cut short by the device: worth knowing when the
+                    // author reports a note shorter than what they said
+                    Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Note cut short by the capture device: {0} ms of audio", capturedMillis());
                 }
 
                 finish(Outcome.OK);
@@ -559,15 +403,6 @@ public class VoiceRecorder {
                 l.close();
             } catch (Exception ex) {
             }
-        }
-    }
-
-    // The mic slot is released exactly once, whichever path ends the capture
-    private synchronized void releaseSlot() {
-
-        if (slot_held) {
-            slot_held = false;
-            CAPTURE_SLOT.release();
         }
     }
 

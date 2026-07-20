@@ -33,6 +33,8 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.event.KeyEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JDialog;
@@ -54,13 +56,23 @@ public class VoiceMessageManager {
     public static final int DEFAULT_KEY = KeyEvent.VK_F9;
     public static final float DIALOG_OPACITY = 0.95f;
 
+    // Key auto-repeat does not always mean a plain train of PRESSED: some
+    // platforms and input drivers deliver RELEASED + PRESSED pairs while the
+    // key is still physically down, which cut notes short (the first repeat
+    // ended the recording after a second or less). A stop is therefore held
+    // for this grace window and dropped if the key comes back down: an
+    // imperceptible delay next to the tail grace already paid by the recorder.
+    public static final int AUTOREPEAT_GRACE_MILLIS = 60;
+
     private static volatile int VOICE_KEY;
     private static volatile boolean CAPTURING_KEY = false;
     private static volatile VoiceRecorder RECORDER = null;
     private static volatile JDialog RECORD_DIALOG = null;
     private static volatile JProgressBar RECORD_BAR = null;
     private static volatile javax.swing.Timer AUTO_SEND_TIMER = null;
+    private static volatile javax.swing.Timer PENDING_STOP_TIMER = null;
     private static volatile boolean WAIT_KEY_RELEASE = false;
+    private static volatile long RECORD_START_NANOS = 0L;
     private static final AtomicBoolean WARNING_SHOWING = new AtomicBoolean(false);
 
     static {
@@ -160,6 +172,13 @@ public class VoiceMessageManager {
 
     private static void keyPressed() {
 
+        // The key is back down while the previous stop was still inside its
+        // grace window: it never really came up (auto-repeat), so the note
+        // being recorded carries on untouched.
+        if (cancelPendingStop()) {
+            return;
+        }
+
         // Key auto-repeat fires PRESSED again while held, and after an
         // auto-send we ignore the key until it is physically released.
         if (RECORDER != null || WAIT_KEY_RELEASE) {
@@ -191,17 +210,25 @@ public class VoiceMessageManager {
         Audio.setVoiceRecording(true);
 
         // Shared teardown for a recording that produced nothing usable: the
-        // line never opened, or it opened but stayed silent (catatonic device).
-        // The RECORDER == recorder guard makes it safe against a fresh note
-        // already started on the held key.
-        Runnable dead_mic_cleanup = () -> {
-            if (RECORDER == recorder) {
-                RECORDER = null;
-                WAIT_KEY_RELEASE = true;
-                Audio.setVoiceRecording(false);
-                warning("audio.microfono_no_configurado");
+        // line never opened, it opened but stayed silent (catatonic device), or
+        // it died mid-note. Everything runs on the EDT, where keyPressed and
+        // keyReleased also live, so RECORDER is only ever swapped from one
+        // thread and a fresh note on the held key cannot be torn down by the
+        // previous one (RECORDER == recorder guard).
+        java.util.function.Consumer<String> dead_mic_cleanup = (i18n_key) -> Helpers.GUIRun(() -> {
+
+            if (RECORDER != recorder) {
+                return;
             }
-        };
+
+            // The note is over: whatever was captured before the mic died is
+            // dropped and the key is ignored until it is physically released.
+            WAIT_KEY_RELEASE = true;
+
+            stopAndSend(true);
+
+            warning(i18n_key);
+        });
 
         Helpers.threadRun(() -> {
 
@@ -209,16 +236,24 @@ public class VoiceMessageManager {
             // the dialog only shows when the FIRST audio arrives from the
             // device (line.start() returns before the driver really delivers),
             // so it is an honest talk-now signal. The EDT never blocks on the
-            // driver. on_no_data fires the same teardown if the line opened but
-            // the device never delivered a sample.
-            if (recorder.start(() -> showRecordDialogAndArmTimer(recorder), dead_mic_cleanup)) {
+            // driver.
+            VoiceRecorder.Outcome started = recorder.start(
+                    () -> showRecordDialogAndArmTimer(recorder),
+                    () -> dead_mic_cleanup.accept("audio.microfono_no_configurado"),
+                    () -> dead_mic_cleanup.accept("audio.microfono_perdido"));
 
-                // Dialog and timer are armed by the on_live callback
+            if (started == VoiceRecorder.Outcome.NO_LINE) {
 
-            } else {
+                dead_mic_cleanup.accept("audio.microfono_no_configurado");
 
-                dead_mic_cleanup.run();
+            } else if (started == VoiceRecorder.Outcome.BUSY) {
+
+                dead_mic_cleanup.accept("audio.microfono_ocupado");
             }
+
+            // Otherwise the dialog and the timer are armed by the on_live
+            // callback, and the dead-mic callbacks cover a capture that dies
+            // after that.
         });
     }
 
@@ -226,13 +261,48 @@ public class VoiceMessageManager {
 
         WAIT_KEY_RELEASE = false;
 
-        if (RECORDER != null) {
-            // Releasing before the talk-now dialog appears means the mic was
-            // still opening (or it was just an accidental tap): cancel like
-            // WhatsApp instead of sending an empty or clipped note. Once the
-            // dialog is up it is the honest commitment point, so the note ships.
-            stopAndSend(RECORD_DIALOG == null);
+        if (RECORDER == null) {
+            return;
         }
+
+        // Releasing before the talk-now dialog appears means the mic was
+        // still opening (or it was just an accidental tap): cancel like
+        // WhatsApp instead of sending an empty or clipped note. Once the
+        // dialog is up it is the honest commitment point, so the note ships.
+        // The decision belongs to this instant, not to when the grace ends.
+        boolean discard = (RECORD_DIALOG == null);
+
+        cancelPendingStop();
+
+        javax.swing.Timer pending = new javax.swing.Timer(AUTOREPEAT_GRACE_MILLIS, e -> {
+            PENDING_STOP_TIMER = null;
+            stopAndSend(discard);
+        });
+
+        pending.setRepeats(false);
+
+        PENDING_STOP_TIMER = pending;
+
+        pending.start();
+    }
+
+    /**
+     * Drops a stop still waiting out its auto-repeat grace. Returns true when
+     * there was one, that is, when the key never physically came up. EDT only,
+     * like every other key path.
+     */
+    private static boolean cancelPendingStop() {
+
+        javax.swing.Timer pending = PENDING_STOP_TIMER;
+
+        PENDING_STOP_TIMER = null;
+
+        if (pending != null) {
+            pending.stop();
+            return true;
+        }
+
+        return false;
     }
 
     private static void cancel() {
@@ -250,6 +320,10 @@ public class VoiceMessageManager {
 
     private static void stopAndSend(boolean discard) {
 
+        // Every other way of ending a note (cancel, auto-send, dead mic) wins
+        // over a stop still waiting out its grace
+        cancelPendingStop();
+
         VoiceRecorder recorder = RECORDER;
 
         if (recorder == null) {
@@ -257,6 +331,12 @@ public class VoiceMessageManager {
         }
 
         RECORDER = null;
+
+        // How long the talk-now dialog was actually up, to be compared against
+        // the audio that comes back
+        long start_nanos = RECORD_START_NANOS;
+
+        RECORD_START_NANOS = 0L;
 
         javax.swing.Timer auto_send = AUTO_SEND_TIMER;
 
@@ -275,7 +355,37 @@ public class VoiceMessageManager {
             // The tail grace is over: lift the local recording silence
             Audio.setVoiceRecording(false);
 
+            // A note is as long as the key was held: anything much shorter means
+            // the device stopped delivering behind our back. The recorder already
+            // detects and reports the ways it knows about, so this is the net for
+            // the ones it does not.
+            if (start_nanos > 0L) {
+
+                long held = (System.nanoTime() - start_nanos) / 1000000L;
+                long captured = recorder.getCapturedMillis();
+
+                if (captured * 2 < held) {
+                    Logger.getLogger(VoiceMessageManager.class.getName()).log(Level.WARNING,
+                            "Voice note much shorter than the key hold: {0} ms captured, {1} ms held, outcome {2}",
+                            new Object[]{captured, held, recorder.getOutcome()});
+                }
+            }
+
             WaitingRoomFrame sala = WaitingRoomFrame.getInstance();
+
+            // A note the user committed to (the talk-now dialog was up) that
+            // comes back with nothing is a failure worth showing: staying quiet
+            // is what made a dead mic look like a note nobody answered.
+            if (!discard && wav == null) {
+
+                VoiceRecorder.Outcome outcome = recorder.getOutcome();
+
+                if (outcome == VoiceRecorder.Outcome.SILENT) {
+                    warning("audio.microfono_sin_audio");
+                } else if (outcome == VoiceRecorder.Outcome.ENCODE_ERROR) {
+                    warning("audio.nota_no_grabada");
+                }
+            }
 
             // null = nothing meaningful captured
             if (!discard && wav != null && sala != null) {
@@ -440,6 +550,10 @@ public class VoiceMessageManager {
             RECORD_BAR = bar;
 
             RECORD_DIALOG = dialog;
+
+            // The talk-now signal: from here on the note should be as long as
+            // the user keeps talking
+            RECORD_START_NANOS = System.nanoTime();
 
             dialog.setVisible(true);
 

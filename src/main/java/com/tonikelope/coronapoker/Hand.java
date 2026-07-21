@@ -354,9 +354,13 @@ public class Hand {
 
     }
 
+    // Solo las cartas que FORMAN la jugada (sin kickers), igual que el resaltado
+    // del showdown, que enfoca getWinners(). El registro pinta los grupos de cartas
+    // entre parentesis como fichas y les quita el parentesis, asi que los kickers
+    // quedaban pegados a la jugada y se leian como parte de ella.
     @Override
     public String toString() {
-        return this.hand_name + " " + Card.collection2String(this.winners) + (this.kickers != null ? " (" + Card.collection2String(this.kickers) + ")" : "");
+        return this.hand_name + " " + Card.collection2String(this.winners);
     }
 
     public ArrayList<Card> getWinners() {

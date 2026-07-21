@@ -2425,18 +2425,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // on=true: solo si la opción está activa, este jugador tiene jugada visible (showdown_hand_cards)
-    // y seguimos en show_time. Enfoca SOLO las cartas de su jugada y desenfoca todas las demás de la
-    // mesa (guardando antes el enfoque de cada una), y pinta la etiqueta de amarillo/negro. Funciona
-    // para CUALQUIER jugador con jugada enseñada: ganador(es) y perdedores (el gate ya no excluye a
-    // los ganadores; en run-it-twice mixto resalta la jugada que tenga en showdown_hand_cards).
+    // on=true: solo si la opción está activa, este jugador NO es espectador, tiene jugada visible
+    // (showdown_hand_cards) y seguimos en show_time. Enfoca SOLO las cartas de su jugada y desenfoca
+    // todas las demás de la mesa (guardando antes el enfoque de cada una), y pinta la etiqueta de
+    // amarillo/negro. Funciona para CUALQUIER jugador con jugada enseñada: ganador(es) y perdedores
+    // (el gate ya no excluye a los ganadores; en run-it-twice mixto resalta la jugada que tenga en
+    // showdown_hand_cards). Un espectador no reparte cartas en esta mano, así que lo que tuviera
+    // guardado solo puede ser residuo de la última que jugó. Quien abandona SÍ pasa el gate: puede
+    // irse con la mano viva (all-in run-out) y su jugada se resuelve en este mismo showdown.
     // on=false: restauración incondicional (defensiva).
     private void highlightShowdownHand(boolean on) {
         if (on) {
             final java.util.List<Card> cartas = showdown_hand_cards;
             Crupier crupier = GameFrame.getInstance() != null ? GameFrame.getInstance().getCrupier() : null;
 
-            if (!GameFrame.RESALTAR_JUGADA_SHOWDOWN || cartas == null || crupier == null || !crupier.isShow_time()) {
+            if (!GameFrame.RESALTAR_JUGADA_SHOWDOWN || isSpectator() || cartas == null || crupier == null || !crupier.isShow_time()) {
                 return;
             }
 
@@ -2955,6 +2958,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (!this.exit) {
             this.spectator = true;
             this.bote = 0f;
+
+            // El reset de mano (nuevaMano) solo corre para jugadores activos, así que la jugada
+            // resaltable de la última mano que jugó se quedaría pegada al asiento mientras esté de
+            // espectador. Se descarta sin restaurar el color de la etiqueta: el repintado de
+            // espectador de aquí abajo la deja como toca.
+            Helpers.GUIRun(this::discardShowdownHandHighlight);
+            this.showdown_hand_cards = null;
 
             Helpers.GUIRunAndWait(() -> {
                 setOpaque(false);

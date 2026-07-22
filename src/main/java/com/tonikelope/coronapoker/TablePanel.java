@@ -180,6 +180,19 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             call_cost_label.setOpaque(false);
             call_cost_label.setVisible(false);
             add(call_cost_label, JLayeredPane.PALETTE_LAYER);
+
+            // Doble clic izquierdo sobre una zona libre del tapete: pasa al siguiente tapete
+            // (mismo ciclo que el menú de la barra). Se engancha en mouseReleased + isRealClick,
+            // el patrón fiable del resto de la app (mouseClicked se pierde si el ratón se mueve un
+            // pelín entre pulsar y soltar). El menú contextual usa el botón derecho, sin colisión.
+            addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseReleased(java.awt.event.MouseEvent evt) {
+                    if (evt.getClickCount() == 2 && Helpers.isRealClick(evt)) {
+                        cycleNextTapete();
+                    }
+                }
+            });
             addComponentListener(new ComponentResizeEndListener() {
                 @Override
                 public void resizeTimedOut() {
@@ -214,6 +227,60 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 }
             });
         });
+    }
+
+    // Cicla al siguiente tapete en el mismo orden que el menú (verde -> azul -> rojo -> negro
+    // -> madera -> verde). Delega en el item de menú correspondiente, que ya fija COLOR_TAPETE,
+    // persiste la preferencia, repinta el tapete, recolorea los contadores y sincroniza ambos
+    // menús. Si el tapete actual es una variante secreta (sufijo "*"), se ignora el sufijo para
+    // saltar al siguiente color normal.
+    private void cycleNextTapete() {
+        GameFrame gf = GameFrame.getInstance();
+
+        if (gf == null) {
+            return;
+        }
+
+        String current = GameFrame.COLOR_TAPETE;
+
+        if (current.endsWith("*")) {
+            current = current.substring(0, current.length() - 1);
+        }
+
+        String[] order = {"verde", "azul", "rojo", "negro", "madera"};
+        int idx = 0;
+
+        for (int i = 0; i < order.length; i++) {
+            if (order[i].equals(current)) {
+                idx = i;
+                break;
+            }
+        }
+
+        String next = order[(idx + 1) % order.length];
+        javax.swing.AbstractButton item;
+
+        switch (next) {
+            case "azul":
+                item = gf.getMenu_tapete_azul();
+                break;
+            case "rojo":
+                item = gf.getMenu_tapete_rojo();
+                break;
+            case "negro":
+                item = gf.getMenu_tapete_negro();
+                break;
+            case "madera":
+                item = gf.getMenu_tapete_madera();
+                break;
+            default:
+                item = gf.getMenu_tapete_verde();
+                break;
+        }
+
+        if (item != null) {
+            item.doClick();
+        }
     }
 
     public void showCentralImage(ImageIcon icon, int frames, int delay_end, boolean center, String audio, int audio_frame_start, int audio_frame_end) {

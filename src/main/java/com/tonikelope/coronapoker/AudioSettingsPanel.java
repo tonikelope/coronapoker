@@ -329,6 +329,7 @@ public class AudioSettingsPanel extends JPanel {
         global_rules_locked = GameFrame.getInstance() != null && !GameFrame.getInstance().isPartida_local();
 
         sonidos_checkbox = new JCheckBox(Translator.translate("audio.sonidos"), GameFrame.SONIDOS);
+        sonidos_checkbox.setFont(sonidos_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
         sonidos_checkbox.addActionListener(e -> {
             GameFrame.setSonidos(sonidos_checkbox.isSelected());
             refreshSoundControlsEnabled();
@@ -340,6 +341,7 @@ public class AudioSettingsPanel extends JPanel {
         // Maestro de música: apaga las cuatro pistas de un plumazo y refresca su habilitado
         // (mismo patrón que el maestro de efectos). Cuelga de "Sonidos".
         musica_master_checkbox = new JCheckBox(Translator.translate("audio.musica_maestro"), GameFrame.MUSICA);
+        musica_master_checkbox.setFont(musica_master_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
         musica_master_checkbox.addActionListener(e -> {
             GameFrame.setMusica(musica_master_checkbox.isSelected());
             refreshSoundControlsEnabled();
@@ -362,6 +364,7 @@ public class AudioSettingsPanel extends JPanel {
         // El maestro y "destapar" refrescan el habilitado de sus dependientes. El grupo entero
         // cuelga del master "Sonidos" (se deshabilita si está off, como coña/música).
         sonido_efectos_checkbox = new JCheckBox(Translator.translate("audio.efectos_sonido"), GameFrame.SONIDO_EFECTOS);
+        sonido_efectos_checkbox.setFont(sonido_efectos_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
         sonido_efectos_checkbox.addActionListener(e -> {
             GameFrame.setSonidoEfectos(sonido_efectos_checkbox.isSelected());
             refreshSoundControlsEnabled();
@@ -867,11 +870,9 @@ public class AudioSettingsPanel extends JPanel {
         center_gbc.gridy = 0;
         center_gbc.fill = java.awt.GridBagConstraints.BOTH;
         center_gbc.weighty = 1.0;
-        // Columna izquierda (sonido/música + efectos) a su ancho preferido: weightx=0, así NUNCA
-        // recibe sobre-ancho (era lo que dejaba hueco muerto a la derecha de los efectos). Todo
-        // el sobre-ancho residual (si alguna otra pestaña fuerza el diálogo más ancho) va a la
-        // derecha (weightx=1), donde las listas de dispositivos lo aprovechan sin verse mal.
-        center_gbc.weightx = 0.0;
+        // Ambas columnas con weightx=1: el sobre-ancho (al ensanchar el diálogo) se reparte por
+        // igual entre las dos, así crecen a la par en vez de estirarse solo la derecha.
+        center_gbc.weightx = 1.0;
         center_gbc.gridx = 0;
         center_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(12 * Helpers.DIALOG_ZOOM));
         center_panel.add(left_col, center_gbc);

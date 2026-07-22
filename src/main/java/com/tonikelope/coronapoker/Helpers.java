@@ -3283,10 +3283,27 @@ public class Helpers {
         }
     }
 
+    // Un tooltip demasiado largo se dibuja como una sola tira horizontal que se sale de la
+    // pantalla. Por encima de este umbral (en caracteres) se envuelve en HTML con un ancho fijo
+    // para que Swing lo reparta en varias líneas.
+    private static final int TOOLTIP_WRAP_THRESHOLD = 60;
+    private static final int TOOLTIP_WRAP_WIDTH_PX = 320;
+
+    // Envuelve un tooltip largo en HTML de ancho fijo (multilínea). Devuelve el texto tal cual si
+    // es null, corto, o si ya viene en HTML (algún tooltip trae su propio <html> a medida y no se
+    // debe re-envolver).
+    public static String wrapToolTip(String text) {
+        if (text == null || text.length() <= TOOLTIP_WRAP_THRESHOLD || text.stripLeading().regionMatches(true, 0, "<html", 0, 5)) {
+            return text;
+        }
+
+        return "<html><body style='width:" + TOOLTIP_WRAP_WIDTH_PX + "px'>" + text + "</body></html>";
+    }
+
     public static void setTranslatedToolTip(Component c, String key) {
         if (c instanceof JComponent && key != null) {
             JComponent jc = (JComponent) c;
-            jc.setToolTipText(Translator.translate(key));
+            jc.setToolTipText(wrapToolTip(Translator.translate(key)));
             jc.putClientProperty("i18n.tooltip_key", key);
         }
     }
@@ -3309,7 +3326,7 @@ public class Helpers {
                 }
 
                 if (tooltipKey != null) {
-                    jc.setToolTipText(Translator.translate(tooltipKey, force));
+                    jc.setToolTipText(wrapToolTip(Translator.translate(tooltipKey, force)));
                 }
 
                 // Handle TitledBorder separately

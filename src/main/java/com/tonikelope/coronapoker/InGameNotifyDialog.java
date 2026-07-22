@@ -45,6 +45,9 @@ import javax.swing.Timer;
 public class InGameNotifyDialog extends JDialog {
 
     public static final int NOTIFICATION_TIMEOUT = 5000;
+    // Aviso de captura de pantalla (CTRL+P): es solo una confirmación rápida, así que dura
+    // bastante menos que el aviso genérico para no tapar la mesa más de lo necesario.
+    public static final int SCREENSHOT_NOTIFICATION_TIMEOUT = 2000;
     private static final int COUNTDOWN_TICK_MS = 50;
     public static volatile InGameNotifyDialog LATEST_NOTIFICATION = null;
     public static final Object LATEST_LOCK = new Object();

@@ -109,6 +109,8 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_show_clock;
     private final boolean snap_coste_igualar;
     private final boolean snap_cinematicas;
+    private final boolean snap_cinematicas_accion;
+    private final boolean snap_cinematicas_allin;
     private final boolean snap_anim_barajado;
     private final boolean snap_anim_reparto;
     private final boolean snap_anim_destape;
@@ -152,6 +154,8 @@ public class AppearanceSettingsPanel extends JPanel {
         // off es false para todos y no permitiría distinguir un cambio de preferencia al
         // revertir.
         snap_cinematicas = prefBool("cinematicas");
+        snap_cinematicas_accion = prefBool("cinematicas_accion", true);
+        snap_cinematicas_allin = prefBool("cinematicas_allin", true);
         // Barajado y destape no tienen item de menú: su preferencia es el flag de GameFrame
         // (ya migrado del histórico "animacion_reparto" si aún no se habían guardado), no PROPERTIES
         // en crudo, que podría no tener aún la clave.
@@ -497,8 +501,65 @@ public class AppearanceSettingsPanel extends JPanel {
         master_row.add(anim_master);
         addLeft(anim, master_row);
 
-        addLeft(anim, indent(animCheckbox("/images/menu/video.png", "menu.cinematicas",
-                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v), 28));
+        // --- Cinemáticas (maestro, con item de menú) + sus dos subtipos: Acción y ALL-IN ---
+        // Recuadro fino como los demás grupos con subajustes. Cada subtipo es persist-only (sin
+        // item de menú) y cuelga del maestro "Cinemáticas": se deshabilita si se desmarca
+        // "Cinemáticas" o el maestro de animaciones.
+        JPanel cinematicas_group = groupBox();
+        addToGroup(cinematicas_group, animCheckbox("/images/menu/video.png", "menu.cinematicas",
+                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
+        final JCheckBox cinematicas_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Subtipo ACCIÓN: los GIFs de fold/call/check/bet/raise que muestran los rivales.
+        {
+            final JCheckBox accion_cb = new JCheckBox(Translator.translate("menu.cinematicas_accion"),
+                    prefBool("cinematicas_accion", true));
+            accion_cb.addActionListener(e -> {
+                boolean now = accion_cb.isSelected();
+                persist("cinematicas_accion", String.valueOf(now));
+                GameFrame.CINEMATICAS_ACCION_PREF = now;
+            });
+            Runnable updateAccionEnabled = () -> accion_cb.setEnabled(anim_master.isSelected() && cinematicas_cb.isSelected());
+            anim_master.addActionListener(e -> updateAccionEnabled.run());
+            cinematicas_cb.addActionListener(e -> updateAccionEnabled.run());
+            updateAccionEnabled.run();
+            // Predeterminado: ACTIVADO (default true). Se resetea tras el maestro y "Cinemáticas"
+            // (ya habilitados en restoreDefaults), así el doClick surte efecto.
+            reset_actions.add(() -> {
+                if (!accion_cb.isSelected()) {
+                    accion_cb.doClick();
+                }
+            });
+            JPanel accion_row = naturalRow();
+            accion_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Cinemáticas"
+            accion_row.add(new JLabel(icon("/images/menu/chips.png")));
+            accion_row.add(accion_cb);
+            addToGroup(cinematicas_group, accion_row);
+        }
+        // Subtipo ALL-IN: la secuencia a pantalla completa cuando alguien va all-in.
+        {
+            final JCheckBox allin_cb = new JCheckBox(Translator.translate("menu.cinematicas_allin"),
+                    prefBool("cinematicas_allin", true));
+            allin_cb.addActionListener(e -> {
+                boolean now = allin_cb.isSelected();
+                persist("cinematicas_allin", String.valueOf(now));
+                GameFrame.CINEMATICAS_ALLIN_PREF = now;
+            });
+            Runnable updateAllinEnabled = () -> allin_cb.setEnabled(anim_master.isSelected() && cinematicas_cb.isSelected());
+            anim_master.addActionListener(e -> updateAllinEnabled.run());
+            cinematicas_cb.addActionListener(e -> updateAllinEnabled.run());
+            updateAllinEnabled.run();
+            reset_actions.add(() -> {
+                if (!allin_cb.isSelected()) {
+                    allin_cb.doClick();
+                }
+            });
+            JPanel allin_row = naturalRow();
+            allin_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Cinemáticas"
+            allin_row.add(new JLabel(icon("/images/menu/video.png")));
+            allin_row.add(allin_cb);
+            addToGroup(cinematicas_group, allin_row);
+        }
+        addLeft(anim, indent(cinematicas_group));
         // --- Barajado (solo Ajustes, sin item de menú) + su subajuste Cascada SRA ---
         // Al activarlo re-calienta la caché del shuffle.gif (el warm-up de arranque pudo saltárselo).
         // Padre + subcontroles anidados dentro de un recuadro fino que los agrupa.
@@ -1000,6 +1061,8 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.SHOW_CLOCK != snap_show_clock
                 || GameFrame.MOSTRAR_COSTE_IGUALAR != snap_coste_igualar
                 || prefBool("cinematicas") != snap_cinematicas
+                || prefBool("cinematicas_accion", true) != snap_cinematicas_accion
+                || prefBool("cinematicas_allin", true) != snap_cinematicas_allin
                 || GameFrame.ANIMACION_BARAJADO_PREF != snap_anim_barajado
                 || prefBool("animacion_reparto") != snap_anim_reparto
                 || GameFrame.ANIMACION_DESTAPE_PREF != snap_anim_destape
@@ -1136,6 +1199,18 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
             Helpers.savePropertiesFile();
         }
+        // Subtipos de cinemática (acción / all-in): persist-only sin item de menú, se revierten
+        // fijando el flag + re-persistiendo el snapshot, como el overlay de cascada.
+        if (GameFrame.CINEMATICAS_ACCION_PREF != snap_cinematicas_accion) {
+            GameFrame.CINEMATICAS_ACCION_PREF = snap_cinematicas_accion;
+            Helpers.PROPERTIES.setProperty("cinematicas_accion", String.valueOf(snap_cinematicas_accion));
+            Helpers.savePropertiesFile();
+        }
+        if (GameFrame.CINEMATICAS_ALLIN_PREF != snap_cinematicas_allin) {
+            GameFrame.CINEMATICAS_ALLIN_PREF = snap_cinematicas_allin;
+            Helpers.PROPERTIES.setProperty("cinematicas_allin", String.valueOf(snap_cinematicas_allin));
+            Helpers.savePropertiesFile();
+        }
         // Resaltado del showdown: persist-only, sin item de menú ni efecto en vivo (se lee al
         // vuelo). Se revierte fijando el flag + re-persistiendo el snapshot, como la cascada.
         if (GameFrame.RESALTAR_JUGADA_SHOWDOWN != snap_resaltar_jugada_showdown) {
@@ -1262,6 +1337,8 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.CHAT_IMAGES_INGAME = snap_chat_images;
         GameFrame.ANIMACIONES = snap_animaciones;
         GameFrame.CINEMATICAS_PREF = snap_cinematicas;
+        GameFrame.CINEMATICAS_ACCION_PREF = snap_cinematicas_accion;
+        GameFrame.CINEMATICAS_ALLIN_PREF = snap_cinematicas_allin;
         GameFrame.ANIMACION_BARAJADO_PREF = snap_anim_barajado;
         GameFrame.ANIMACION_REPARTO_PREF = snap_anim_reparto;
         GameFrame.ANIMACION_DESTAPE_PREF = snap_anim_destape;
@@ -1294,6 +1371,8 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("chat_images_ingame", String.valueOf(snap_chat_images));
         Helpers.PROPERTIES.setProperty("animaciones", String.valueOf(snap_animaciones));
         Helpers.PROPERTIES.setProperty("cinematicas", String.valueOf(snap_cinematicas));
+        Helpers.PROPERTIES.setProperty("cinematicas_accion", String.valueOf(snap_cinematicas_accion));
+        Helpers.PROPERTIES.setProperty("cinematicas_allin", String.valueOf(snap_cinematicas_allin));
         Helpers.PROPERTIES.setProperty("animacion_barajado", String.valueOf(snap_anim_barajado));
         Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(snap_anim_reparto));
         Helpers.PROPERTIES.setProperty("animacion_destape", String.valueOf(snap_anim_destape));

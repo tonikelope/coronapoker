@@ -1370,7 +1370,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // its barrier never gets the "frames done" party, and the await below
         // blocks the game thread for GIF_BARRIER_TIMEOUT seconds before
         // throwing TimeoutException. Just play the sound and finish the turn.
-        if (GameFrame.cinematicasOn() && !this.isNotify_blocked() && !this.isExit()) {
+        if (GameFrame.cinematicasAccionOn() && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(3);
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/fold" + String.valueOf(r) + ".gif"));
@@ -1454,7 +1454,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         // See fold() comment: skip cinematic for exited players to avoid the
         // 10-second blocking await on a barrier the GIF callback never closes.
-        if (GameFrame.cinematicasOn() && !this.isNotify_blocked() && !this.isExit()) {
+        if (GameFrame.cinematicasAccionOn() && !this.isNotify_blocked() && !this.isExit()) {
 
             if (is_call) {
                 // La ficha vuela en el frame 32 del GIF (sincronizada, INTACTO). Esperamos
@@ -1516,7 +1516,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         // See fold() comment: skip cinematic for exited players to avoid the
         // 10-second blocking await on a barrier the GIF callback never closes.
-        if (GameFrame.cinematicasOn() && !this.isNotify_blocked() && !this.isExit()) {
+        if (GameFrame.cinematicasAccionOn() && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(4);
 
             // Esperamos SOLO a que la ficha despegue (frame 32), no a que el GIF entero

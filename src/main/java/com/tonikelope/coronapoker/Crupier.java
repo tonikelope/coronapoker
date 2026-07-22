@@ -3961,7 +3961,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
                 : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
 
-        if (!this.sincronizando_mano && GameFrame.cinematicasOn() && map.containsKey("allin/")
+        if (!this.sincronizando_mano && GameFrame.cinematicasAllinOn() && map.containsKey("allin/")
                 && map.get("allin/").length > 0) {
 
             Object[][] allin_cinematics = map.get("allin/");
@@ -4057,7 +4057,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         String chosen_filename = announced_filename;
         long chosen_pausa = announced_pausa;
 
-        if (!this.sincronizando_mano && GameFrame.cinematicasOn()
+        if (!this.sincronizando_mano && GameFrame.cinematicasAllinOn()
                 && resolveAllinCinematicURL(announced_filename) == null) {
 
             Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
@@ -4097,7 +4097,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
-            if (GameFrame.cinematicasOn()) {
+            if (GameFrame.cinematicasAllinOn()) {
 
                 final ImageIcon icon;
                 URL url_icon = resolveAllinCinematicURL(filename);

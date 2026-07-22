@@ -305,7 +305,7 @@ public class Init extends JFrame {
 
         quote.setForeground(Color.white);
 
-        Font font = new Font("Dialog", Font.ITALIC, 18);
+        Font font = new Font("Dialog", Font.ITALIC, 20);
 
         quote.setFont(font);
 
@@ -505,7 +505,7 @@ public class Init extends JFrame {
                         Helpers.saveScreenshot(image);
 
                         Helpers.GUIRun(() -> {
-                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("ui.captura_ok"), Color.WHITE, Color.BLACK, Init.class.getResource("/images/screenshot.png"), InGameNotifyDialog.NOTIFICATION_TIMEOUT);
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("ui.captura_ok"), Color.WHITE, Color.BLACK, Init.class.getResource("/images/screenshot.png"), InGameNotifyDialog.SCREENSHOT_NOTIFICATION_TIMEOUT);
                             dialog.setLocation(dialog.getParent().getLocation());
                             dialog.setVisible(true);
                         });
@@ -793,7 +793,7 @@ public class Init extends JFrame {
         });
 
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
-        sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
+        sound_icon.setToolTipText(Helpers.wrapToolTip("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)"));
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {

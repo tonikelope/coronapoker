@@ -189,7 +189,7 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 
 ## 🖥️ UX & display
 
-- **Three table layouts** (Normal, Compact and Super-Compact) to fit anything from a 13" laptop to a 4K monitor.
+- **Four table layouts** (Normal, Compact, Super-Compact and Ultra-Compact) to fit anything from a 13" laptop to a 4K monitor.
 - **Global zoom** with keyboard shortcuts and an optional auto-zoom that fits the table to the window.
 - **Low-brightness overlay** for late-night sessions.
 - **Cool animations** (optional).

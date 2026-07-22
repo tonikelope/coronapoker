@@ -1423,6 +1423,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // usar el mismo camino aunque la preferencia FULLSCREEN_EXCLUSIVE haya cambiado entretanto,
     // así que se recuerda aquí al entrar y se consulta al salir en toggleFullScreen.
     private volatile boolean full_screen_exclusive_active = false;
+    // Activo SOLO mientras reapplyFullScreenMechanismIfNeeded ejecuta su salir+entrar en vivo.
+    // Mientras dura, toggleFullScreen NO re-habilita el menú de pantalla completa al terminar cada
+    // paso, para que el gate de triggerFullScreenToggle (full_screen_menu.isEnabled()) siga CERRADO
+    // durante todo el reapply y ningún toggle de usuario (ALT+F, barra rápida, menú) se cuele entre
+    // la salida y la entrada rompiendo su paridad.
+    private volatile boolean full_screen_reapplying = false;
     private volatile boolean latency_stats = false;
 
     // Accumulates mouse wheel clicks to process them all at once
@@ -2010,8 +2016,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             // del estado real de la ventana.
             full_screen = entering_full_screen;
 
-            full_screen_menu.setEnabled(true);
-            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+            // Durante un reapply en vivo el gate se mantiene cerrado hasta el final del segundo
+            // toggle (ver reapplyFullScreenMechanismIfNeeded); no re-habilitar aquí en cada paso.
+            if (!full_screen_reapplying) {
+                full_screen_menu.setEnabled(true);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+            }
 
             synchronized (full_screen_lock) {
                 full_screen_lock.notifyAll();
@@ -5663,11 +5673,45 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // segundo. En modo ventana no hace nada: el cambio se aplicará al entrar la próxima vez.
     public void reapplyFullScreenMechanismIfNeeded() {
         if (full_screen && full_screen_exclusive_active != GameFrame.FULLSCREEN_EXCLUSIVE) {
+            // Cerrar el gate durante TODO el reapply: los caminos de usuario (ALT+F, barra rápida,
+            // menú) actúan solo si full_screen_menu está habilitado. Como toggleFullScreen lo
+            // re-habilitaría al final de cada paso, se suprime esa re-habilitación con
+            // full_screen_reapplying hasta cerrar el segundo toggle, evitando que un toggle de
+            // usuario se cuele entre la salida y la entrada (y deje la ventana o auto_fullscreen
+            // en un estado incoherente). El re-habilitado (endFullScreenReapply) va en finally en
+            // cada camino por si un toggle lanza, para no dejar el gate cerrado de forma permanente.
+            full_screen_reapplying = true;
+            full_screen_menu.setEnabled(false);
+            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
+            // Dos invokeLater ANIDADOS (no dos toggles inline en el mismo evento): así el EDT
+            // procesa la realización del peer nativo de la ventana entre la salida y la entrada
+            // antes de volver a disponerlo.
             SwingUtilities.invokeLater(() -> {
-                toggleFullScreen();
-                SwingUtilities.invokeLater(this::toggleFullScreen);
+                boolean entry_scheduled = false;
+                try {
+                    toggleFullScreen();
+                    SwingUtilities.invokeLater(() -> {
+                        try {
+                            toggleFullScreen();
+                        } finally {
+                            endFullScreenReapply();
+                        }
+                    });
+                    entry_scheduled = true;
+                } finally {
+                    // Si la SALIDA lanzó, la ENTRADA no llegó a encolarse: reabrir el gate aquí.
+                    if (!entry_scheduled) {
+                        endFullScreenReapply();
+                    }
+                }
             });
         }
+    }
+
+    private void endFullScreenReapply() {
+        full_screen_reapplying = false;
+        full_screen_menu.setEnabled(true);
+        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
     }
 
     // Fija la vista compacta a un valor CONCRETO (0=off, 1=compacta, 2=compacta+cartas,

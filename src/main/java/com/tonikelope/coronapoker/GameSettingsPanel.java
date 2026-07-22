@@ -319,15 +319,15 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         setLayout(new java.awt.BorderLayout());
         setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM)));
 
-        // Ambos subpaneles (reglas | ciegas) van lado a lado en un BoxLayout X (ver 'row'): capamos su
-        // alto MÁXIMO al preferido para que el MÁS CORTO de los dos NO se estire hasta igualar al más
-        // alto (eso abría una franja vacía dentro de su borde titulado). Así cada panel se queda a su
-        // alto natural, pegado arriba, y el hueco sobrante cae LIMPIO por debajo del más corto (fuera de
-        // su borde), no dentro. El maxWidth se hereda intacto (no toca el reparto horizontal de la fila).
+        // Ambos subpaneles (reglas | ciegas) van lado a lado en un BoxLayout X (ver 'row'): dejamos su
+        // alto MÁXIMO libre (solo capamos el ancho) para que el MÁS CORTO de los dos se estire hasta
+        // igualar el alto del más alto, de modo que sus bordes titulados queden alineados también por
+        // abajo. El hueco sobrante cae DENTRO del borde del más corto (su contenido queda pegado arriba).
+        // El maxWidth se hereda intacto (no toca el reparto horizontal de la fila).
         rules_panel = new javax.swing.JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return new java.awt.Dimension(super.getMaximumSize().width, getPreferredSize().height);
+                return new java.awt.Dimension(super.getMaximumSize().width, Short.MAX_VALUE);
             }
         };
         manos_checkbox = new javax.swing.JCheckBox();
@@ -345,12 +345,12 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         rabbit_label = new javax.swing.JLabel();
         rabbit_combo = new javax.swing.JComboBox<>();
 
-        // Mismo cape que rules_panel: alto máximo = preferido, para que no se estire y no abra franja
-        // vacía dentro de su borde cuando resulta el más corto de los dos de la fila.
+        // Mismo criterio que rules_panel: alto máximo libre para que, si resulta el más corto de la
+        // fila, se estire hasta igualar al más alto y ambos bordes titulados queden alineados por abajo.
         ciegas_panel = new javax.swing.JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return new java.awt.Dimension(super.getMaximumSize().width, getPreferredSize().height);
+                return new java.awt.Dimension(super.getMaximumSize().width, Short.MAX_VALUE);
             }
         };
         estructura_label = new javax.swing.JLabel();
@@ -715,9 +715,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        // Fila reglas | ciegas a su ALTO NATURAL en el NORTE; el hueco vertical
-        // sobrante cae limpio debajo (no se mete dentro del subpanel de ciegas, que
-        // antes se estiraba abriendo una franja vacía dentro de su borde titulado).
+        // Fila reglas | ciegas en el NORTE: ambos con TOP_ALIGNMENT y alto máximo libre, así el más
+        // corto se estira hasta el alto del más alto y los dos bordes titulados quedan alineados arriba
+        // y abajo. El row toma el alto del más alto; el resto del diálogo cae limpio debajo (CENTER).
         rules_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
         ciegas_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
 

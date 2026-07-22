@@ -181,12 +181,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             call_cost_label.setVisible(false);
             add(call_cost_label, JLayeredPane.PALETTE_LAYER);
 
-            // Doble clic con el botón izquierdo sobre una zona libre del tapete: pasa al
-            // siguiente tapete (mismo ciclo que el menú de la barra). El menú contextual usa
-            // el botón derecho, así que no colisiona con este atajo.
+            // Doble clic izquierdo sobre una zona libre del tapete: pasa al siguiente tapete
+            // (mismo ciclo que el menú de la barra). Se engancha en mouseReleased + isRealClick,
+            // el patrón fiable del resto de la app (mouseClicked se pierde si el ratón se mueve un
+            // pelín entre pulsar y soltar). El menú contextual usa el botón derecho, sin colisión.
             addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
-                public void mouseClicked(java.awt.event.MouseEvent evt) {
+                public void mouseReleased(java.awt.event.MouseEvent evt) {
                     if (evt.getClickCount() == 2 && Helpers.isRealClick(evt)) {
                         cycleNextTapete();
                     }

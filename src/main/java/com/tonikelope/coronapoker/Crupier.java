@@ -5114,6 +5114,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     .getPot_label().setHorizontalAlignment(JLabel.CENTER));
         } else {
             GameFrame.getInstance().setTapeteApuestas(this.apuestas);
+            // Fase de apuestas: el bote va a la IZQUIERDA (LEADING) con la bet_label
+            // de calle a su derecha. Se reafirma aquí (no solo en NUEVA_MANO) porque
+            // el CENTER del showdown/run-out anterior es un estado de un solo tiro: si
+            // una reordenación en el EDT (o el solape del hilo de liquidación de la
+            // mano previa con el arranque de la siguiente) lo aplica DESPUÉS del
+            // LEADING de NUEVA_MANO, el bote se quedaba centrado TODA la mano y solo
+            // se corregía al llegar el siguiente showdown. Atar la alineación a la
+            // fase en cada refresco de contadores lo corrige al instante (simétrico al
+            // CENTER de la rama de arriba). setHorizontalAlignment es no-op si el valor
+            // ya coincide, así que no fuerza repintados de más.
+            Helpers.GUIRun(() -> GameFrame.getInstance().getTapete().getCommunityCards()
+                    .getPot_label().setHorizontalAlignment(JLabel.LEADING));
         }
 
         GameFrame.getInstance().setTapeteCiegas(this.ciega_pequeña, this.ciega_grande);

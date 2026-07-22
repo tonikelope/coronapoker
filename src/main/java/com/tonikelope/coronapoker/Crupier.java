@@ -13387,6 +13387,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (decision == Player.ALLIN) {
                     if ((action[1] instanceof String) && !"".equals((String) action[1])) {
                         this.current_remote_cinematic_b64 = (String) action[1];
+                    } else {
+                        // All-in SIN cinemática nueva (bot, o jugador con las cinemáticas de
+                        // all-in desactivadas: el wire trae el centinela "*"): limpia el blob del
+                        // all-in ANTERIOR para no reproducir su GIF por error si dos all-in caen
+                        // casi seguidos y el reset asíncrono del anterior aún no ha corrido. Mismo
+                        // criterio que la rama de una acción que no es all-in (ambas dejan el campo
+                        // a null cuando no hay cinemática que reproducir).
+                        this.current_remote_cinematic_b64 = null;
                     }
                     action[1] = 0d;
                 } else {

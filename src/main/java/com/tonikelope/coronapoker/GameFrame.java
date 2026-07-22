@@ -295,6 +295,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDO_ERROR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_error", "true"));
     public static volatile boolean SONIDO_ERROR_RED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_error_red", "true"));
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "true"));
+    // Mecanismo de pantalla completa: false = borderless (ventana sin bordes maximizada), true =
+    // exclusiva (GraphicsDevice.setFullScreenWindow). SOLO se consulta en Windows: en X11/otros el
+    // toggle usa siempre el camino exclusivo por device y en Mac manda el fullscreen nativo. Por
+    // defecto borderless (el modo actual de Windows).
+    public static volatile boolean FULLSCREEN_EXCLUSIVE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("fullscreen_exclusive", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
@@ -1414,6 +1419,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
     private volatile GraphicsDevice device = null;
+    // Mecanismo con el que se ENTRÓ en pantalla completa (borderless/exclusiva). La SALIDA debe
+    // usar el mismo camino aunque la preferencia FULLSCREEN_EXCLUSIVE haya cambiado entretanto,
+    // así que se recuerda aquí al entrar y se consulta al salir en toggleFullScreen.
+    private volatile boolean full_screen_exclusive_active = false;
+    // Activo SOLO mientras reapplyFullScreenMechanismIfNeeded ejecuta su salir+entrar en vivo.
+    // Mientras dura, toggleFullScreen NO re-habilita el menú de pantalla completa al terminar cada
+    // paso, para que el gate de triggerFullScreenToggle (full_screen_menu.isEnabled()) siga CERRADO
+    // durante todo el reapply y ningún toggle de usuario (ALT+F, barra rápida, menú) se cuele entre
+    // la salida y la entrada rompiendo su paridad.
+    private volatile boolean full_screen_reapplying = false;
     private volatile boolean latency_stats = false;
 
     // Accumulates mouse wheel clicks to process them all at once
@@ -1922,9 +1937,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             // estado real de la ventana.
             boolean entering_full_screen = !full_screen;
 
+            // Mecanismo de pantalla completa: borderless (setUndecorated + MAXIMIZED_BOTH) o
+            // exclusiva (GraphicsDevice.setFullScreenWindow). En Windows lo elige el usuario en
+            // Ajustes (FULLSCREEN_EXCLUSIVE); en X11/otros se usa SIEMPRE el camino exclusivo por
+            // device (comportamiento historico) y en Mac manda el fullscreen nativo. Se decide al
+            // ENTRAR y se recuerda en full_screen_exclusive_active para que la SALIDA use el mismo
+            // camino aunque la preferencia haya cambiado entretanto.
+            boolean exclusive = entering_full_screen
+                    ? (!Helpers.OSValidator.isWindows() || GameFrame.FULLSCREEN_EXCLUSIVE)
+                    : full_screen_exclusive_active;
+
             if (entering_full_screen) {
 
-                if (Helpers.OSValidator.isWindows()) {
+                if (!exclusive) {
                     setVisible(false);
                     dispose();
                     menu_bar.setVisible(false);
@@ -1942,6 +1967,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     device.setFullScreenWindow(GameFrame.getInstance());
                 }
 
+                // Recordar el mecanismo aplicado para que la salida use la rama correcta.
+                full_screen_exclusive_active = exclusive;
+
                 if (timba_pausada && pausa_dialog != null) {
 
                     pausa_dialog.setVisible(false);
@@ -1953,7 +1981,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             } else {
 
-                if (Helpers.OSValidator.isWindows()) {
+                if (!exclusive) {
 
                     setVisible(false);
                     dispose();
@@ -1988,8 +2016,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             // del estado real de la ventana.
             full_screen = entering_full_screen;
 
-            full_screen_menu.setEnabled(true);
-            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+            // Durante un reapply en vivo el gate se mantiene cerrado hasta el final del segundo
+            // toggle (ver reapplyFullScreenMechanismIfNeeded); no re-habilitar aquí en cada paso.
+            if (!full_screen_reapplying) {
+                full_screen_menu.setEnabled(true);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+            }
 
             synchronized (full_screen_lock) {
                 full_screen_lock.notifyAll();
@@ -5618,6 +5650,68 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             // justo antes de cerrarse. Se difiere al EDT para correr tras drenar el cierre.
             SwingUtilities.invokeLater(this::triggerFullScreenToggle);
         }
+    }
+
+    public boolean isFullScreenExclusiveActive() {
+        return full_screen_exclusive_active;
+    }
+
+    // Persiste el mecanismo de pantalla completa (fullscreen_exclusive). NO cambia la
+    // ventana por sí solo: el toggle correspondiente lo lee al ENTRAR. Solo tiene efecto
+    // real en Windows (ver FULLSCREEN_EXCLUSIVE).
+    public void persistFullScreenExclusive(boolean exclusive) {
+        GameFrame.FULLSCREEN_EXCLUSIVE = exclusive;
+        Helpers.PROPERTIES.setProperty("fullscreen_exclusive", String.valueOf(exclusive));
+        Helpers.savePropertiesFile();
+    }
+
+    // Si ya estamos en pantalla completa y el mecanismo ACTIVO difiere del preferido
+    // (FULLSCREEN_EXCLUSIVE), re-aplica en vivo cambiando de borderless a exclusiva (o
+    // viceversa) = salir + volver a entrar. Es la única forma de cambiar el mecanismo,
+    // que se fija al crear el peer nativo. Cada paso se difiere al EDT (uno tras otro)
+    // para que el primer toggle realice por completo su dispose/recreación antes del
+    // segundo. En modo ventana no hace nada: el cambio se aplicará al entrar la próxima vez.
+    public void reapplyFullScreenMechanismIfNeeded() {
+        if (full_screen && full_screen_exclusive_active != GameFrame.FULLSCREEN_EXCLUSIVE) {
+            // Cerrar el gate durante TODO el reapply: los caminos de usuario (ALT+F, barra rápida,
+            // menú) actúan solo si full_screen_menu está habilitado. Como toggleFullScreen lo
+            // re-habilitaría al final de cada paso, se suprime esa re-habilitación con
+            // full_screen_reapplying hasta cerrar el segundo toggle, evitando que un toggle de
+            // usuario se cuele entre la salida y la entrada (y deje la ventana o auto_fullscreen
+            // en un estado incoherente). El re-habilitado (endFullScreenReapply) va en finally en
+            // cada camino por si un toggle lanza, para no dejar el gate cerrado de forma permanente.
+            full_screen_reapplying = true;
+            full_screen_menu.setEnabled(false);
+            Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
+            // Dos invokeLater ANIDADOS (no dos toggles inline en el mismo evento): así el EDT
+            // procesa la realización del peer nativo de la ventana entre la salida y la entrada
+            // antes de volver a disponerlo.
+            SwingUtilities.invokeLater(() -> {
+                boolean entry_scheduled = false;
+                try {
+                    toggleFullScreen();
+                    SwingUtilities.invokeLater(() -> {
+                        try {
+                            toggleFullScreen();
+                        } finally {
+                            endFullScreenReapply();
+                        }
+                    });
+                    entry_scheduled = true;
+                } finally {
+                    // Si la SALIDA lanzó, la ENTRADA no llegó a encolarse: reabrir el gate aquí.
+                    if (!entry_scheduled) {
+                        endFullScreenReapply();
+                    }
+                }
+            });
+        }
+    }
+
+    private void endFullScreenReapply() {
+        full_screen_reapplying = false;
+        full_screen_menu.setEnabled(true);
+        Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
     }
 
     // Fija la vista compacta a un valor CONCRETO (0=off, 1=compacta, 2=compacta+cartas,

@@ -209,18 +209,20 @@ public class AppearanceSettingsPanel extends JPanel {
             Translator.translate("settings.modo_pantalla_completa")
         });
         display_combo.setSelectedIndex(pending_fullscreen ? 1 : 0);
+        JPanel display_row = labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo);
 
         if (Helpers.OSValidator.isWindows()) {
-            // Subcombo SOLO Windows: mecanismo de pantalla completa (borderless / exclusiva). Se
-            // habilita solo cuando el modo elegido es pantalla completa. Borderless por defecto.
-            // NO se aplica en vivo: lo aplica el diálogo al GUARDAR (applyPendingDisplayMode); el
-            // botón de pantalla completa de la barra rápida ya usará el mecanismo persistido.
+            // Subcombo SOLO Windows: mecanismo de pantalla completa (ventana sin bordes / exclusiva).
+            // Va A LA DERECHA del combo de modo, en la misma fila, y SOLO se muestra cuando el modo
+            // es pantalla completa (al elegir Ventana se OCULTA). Ventana sin bordes por defecto. NO
+            // se aplica en vivo: lo aplica el diálogo al GUARDAR (applyPendingDisplayMode); el botón
+            // de pantalla completa de la barra rápida ya usará el mecanismo persistido.
             JComboBox<String> fs_mode_combo = new JComboBox<>(new String[]{
                 Translator.translate("settings.fullscreen_borderless"),
                 Translator.translate("settings.fullscreen_exclusiva")
             });
             fs_mode_combo.setSelectedIndex(pending_exclusive ? 1 : 0);
-            fs_mode_combo.setEnabled(pending_fullscreen);
+            fs_mode_combo.setVisible(pending_fullscreen);
             Helpers.setTranslatedToolTip(fs_mode_combo, "settings.fullscreen_mecanismo_tooltip");
             fs_mode_combo.addActionListener(e -> {
                 if (building) {
@@ -233,14 +235,14 @@ public class AppearanceSettingsPanel extends JPanel {
                     return;
                 }
                 pending_fullscreen = display_combo.getSelectedIndex() == 1;
-                fs_mode_combo.setEnabled(pending_fullscreen);
+                // Mostrar el selector de mecanismo solo en pantalla completa; ocultarlo en Ventana.
+                fs_mode_combo.setVisible(pending_fullscreen);
+                display_row.revalidate();
+                display_row.repaint();
             });
-            // Combo + subcombo en un recuadro de grupo para que se lean como una unidad.
-            JPanel display_group = groupBox();
-            addToGroup(display_group, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
-            addToGroup(display_group, labeledRow("/images/menu/full_screen.png", "settings.fullscreen_mecanismo", fs_mode_combo));
-            addLeft(pantalla, display_group);
-            // Predeterminado: pantalla completa (índice 1) + borderless (índice 0). Se aplica al GUARDAR.
+            display_row.add(fs_mode_combo);
+            addLeft(pantalla, display_row);
+            // Predeterminado: pantalla completa (índice 1) + ventana sin bordes (índice 0). Se aplica al GUARDAR.
             reset_actions.add(() -> {
                 display_combo.setSelectedIndex(1);
                 fs_mode_combo.setSelectedIndex(0);
@@ -252,7 +254,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
                 pending_fullscreen = display_combo.getSelectedIndex() == 1;
             });
-            addLeft(pantalla, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
+            addLeft(pantalla, display_row);
             // Predeterminado: pantalla completa (AUTO_FULLSCREEN=true → índice 1). Se aplica al GUARDAR.
             reset_actions.add(() -> display_combo.setSelectedIndex(1));
         }

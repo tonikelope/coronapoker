@@ -425,6 +425,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return ANIMACIONES && CINEMATICAS_PREF;
     }
 
+    // Subtipos de cinemática que cuelgan del maestro "Cinemáticas" (igual que la cascada cuelga
+    // de "Barajado"): las de ACCIÓN (GIFs de fold/call/check/bet/raise de los rivales) y las de
+    // ALL-IN (secuencia a pantalla completa). Cada una solo aplica si el maestro de animaciones,
+    // el de cinemáticas Y su propia preferencia están on.
+    public static boolean cinematicasAccionOn() {
+        return cinematicasOn() && CINEMATICAS_ACCION_PREF;
+    }
+
+    public static boolean cinematicasAllinOn() {
+        return cinematicasOn() && CINEMATICAS_ALLIN_PREF;
+    }
+
     public static boolean repartoAnimOn() {
         return ANIMACIONES && ANIMACION_REPARTO_PREF;
     }
@@ -821,6 +833,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
+    // Subajustes de "Cinemáticas": preferencia cruda de cada subtipo (gateados por CINEMATICAS_PREF
+    // vía cinematicasAccionOn()/cinematicasAllinOn()). Por defecto on (no cambia el comportamiento).
+    public static volatile boolean CINEMATICAS_ACCION_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas_accion", "true"));
+    public static volatile boolean CINEMATICAS_ALLIN_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas_allin", "true"));
     public static volatile boolean CHAT_IMAGES_INGAME = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_images_ingame", "true"));
     public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
     // Ficha de posición del jugador local sobre sus cartas: 3 estados cíclicos por click

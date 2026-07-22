@@ -109,6 +109,8 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_show_clock;
     private final boolean snap_coste_igualar;
     private final boolean snap_cinematicas;
+    private final boolean snap_cinematicas_accion;
+    private final boolean snap_cinematicas_allin;
     private final boolean snap_anim_barajado;
     private final boolean snap_anim_reparto;
     private final boolean snap_anim_destape;
@@ -152,6 +154,8 @@ public class AppearanceSettingsPanel extends JPanel {
         // off es false para todos y no permitiría distinguir un cambio de preferencia al
         // revertir.
         snap_cinematicas = prefBool("cinematicas");
+        snap_cinematicas_accion = prefBool("cinematicas_accion", true);
+        snap_cinematicas_allin = prefBool("cinematicas_allin", true);
         // Barajado y destape no tienen item de menú: su preferencia es el flag de GameFrame
         // (ya migrado del histórico "animacion_reparto" si aún no se habían guardado), no PROPERTIES
         // en crudo, que podría no tener aún la clave.
@@ -475,6 +479,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // Maestro: activa/desactiva TODAS las animaciones de un plumazo. Al desmarcarlo,
         // DESHABILITA (no desmarca) los 5 checkboxes de abajo, que conservan su valor.
         anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general").toUpperCase(), GameFrame.ANIMACIONES);
+        anim_master.setFont(anim_master.getFont().deriveFont(java.awt.Font.BOLD));
         anim_master.addActionListener(e -> {
             boolean on = anim_master.isSelected();
             if (gf != null) {
@@ -496,8 +501,65 @@ public class AppearanceSettingsPanel extends JPanel {
         master_row.add(anim_master);
         addLeft(anim, master_row);
 
-        addLeft(anim, indent(animCheckbox("/images/menu/video.png", "menu.cinematicas",
-                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v), 28));
+        // --- Cinemáticas (maestro, con item de menú) + sus dos subtipos: Acción y ALL-IN ---
+        // Recuadro fino como los demás grupos con subajustes. Cada subtipo es persist-only (sin
+        // item de menú) y cuelga del maestro "Cinemáticas": se deshabilita si se desmarca
+        // "Cinemáticas" o el maestro de animaciones.
+        JPanel cinematicas_group = groupBox();
+        addToGroup(cinematicas_group, animCheckbox("/images/menu/video.png", "menu.cinematicas",
+                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
+        final JCheckBox cinematicas_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Subtipo ACCIÓN: los GIFs de fold/call/check/bet/raise que muestran los rivales.
+        {
+            final JCheckBox accion_cb = new JCheckBox(Translator.translate("menu.cinematicas_accion"),
+                    prefBool("cinematicas_accion", true));
+            accion_cb.addActionListener(e -> {
+                boolean now = accion_cb.isSelected();
+                persist("cinematicas_accion", String.valueOf(now));
+                GameFrame.CINEMATICAS_ACCION_PREF = now;
+            });
+            Runnable updateAccionEnabled = () -> accion_cb.setEnabled(anim_master.isSelected() && cinematicas_cb.isSelected());
+            anim_master.addActionListener(e -> updateAccionEnabled.run());
+            cinematicas_cb.addActionListener(e -> updateAccionEnabled.run());
+            updateAccionEnabled.run();
+            // Predeterminado: ACTIVADO (default true). Se resetea tras el maestro y "Cinemáticas"
+            // (ya habilitados en restoreDefaults), así el doClick surte efecto.
+            reset_actions.add(() -> {
+                if (!accion_cb.isSelected()) {
+                    accion_cb.doClick();
+                }
+            });
+            JPanel accion_row = naturalRow();
+            accion_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Cinemáticas"
+            accion_row.add(new JLabel(icon("/images/menu/chips.png")));
+            accion_row.add(accion_cb);
+            addToGroup(cinematicas_group, accion_row);
+        }
+        // Subtipo ALL-IN: la secuencia a pantalla completa cuando alguien va all-in.
+        {
+            final JCheckBox allin_cb = new JCheckBox(Translator.translate("menu.cinematicas_allin"),
+                    prefBool("cinematicas_allin", true));
+            allin_cb.addActionListener(e -> {
+                boolean now = allin_cb.isSelected();
+                persist("cinematicas_allin", String.valueOf(now));
+                GameFrame.CINEMATICAS_ALLIN_PREF = now;
+            });
+            Runnable updateAllinEnabled = () -> allin_cb.setEnabled(anim_master.isSelected() && cinematicas_cb.isSelected());
+            anim_master.addActionListener(e -> updateAllinEnabled.run());
+            cinematicas_cb.addActionListener(e -> updateAllinEnabled.run());
+            updateAllinEnabled.run();
+            reset_actions.add(() -> {
+                if (!allin_cb.isSelected()) {
+                    allin_cb.doClick();
+                }
+            });
+            JPanel allin_row = naturalRow();
+            allin_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Cinemáticas"
+            allin_row.add(new JLabel(icon("/images/menu/video.png")));
+            allin_row.add(allin_cb);
+            addToGroup(cinematicas_group, allin_row);
+        }
+        addLeft(anim, indent(cinematicas_group));
         // --- Barajado (solo Ajustes, sin item de menú) + su subajuste Cascada SRA ---
         // Al activarlo re-calienta la caché del shuffle.gif (el warm-up de arranque pudo saltárselo).
         // Padre + subcontroles anidados dentro de un recuadro fino que los agrupa.
@@ -712,12 +774,12 @@ public class AppearanceSettingsPanel extends JPanel {
         addToGroup(swap_group, animCheckbox("/images/menu/swap.png", "menu.efectos_animacion_swap",
                 null, "animacion_swap", v -> GameFrame.ANIMACION_SWAP_PREF = v, GameFrame.ANIMACION_SWAP_PREF));
         final JCheckBox swap_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
-        // Velocidad del cruce: 3 opciones (lento/normal/rápido). "Normal" = valor por defecto
+        // Velocidad del cruce: 3 opciones (lenta/normal/rápida). "Normal" = valor por defecto
         // (320 ms). Cuelga del ajuste: se deshabilita si se desmarca o el maestro está off.
         // Guarda la duración en ms (GameFrame.SWAP_ANIM_DURATION).
         {
-            final int[] speed_ms = {520, GameFrame.DEFAULT_SWAP_ANIM_DURATION, 200}; // lento, normal, rápido
-            final String[] speed_keys = {"settings.reparto_lento", "settings.reparto_normal", "settings.reparto_rapido"};
+            final int[] speed_ms = {520, GameFrame.DEFAULT_SWAP_ANIM_DURATION, 200}; // lenta, normal, rápida
+            final String[] speed_keys = {"settings.swap_lenta", "settings.swap_normal", "settings.swap_rapida"};
             final String[] speed_labels = new String[speed_keys.length];
             for (int i = 0; i < speed_keys.length; i++) {
                 speed_labels[i] = Translator.translate(speed_keys[i]);
@@ -790,8 +852,8 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateStyleEnabled.run());
             swap_cb.addActionListener(e -> updateStyleEnabled.run());
             updateStyleEnabled.run();
-            // Predeterminado: estilo "Arco" (índice 0 = SWAP_ANIM_ARC true).
-            reset_actions.add(() -> style_combo.setSelectedIndex(0));
+            // Predeterminado: estilo "Horizontal" (índice 1 = SWAP_ANIM_ARC false).
+            reset_actions.add(() -> style_combo.setSelectedIndex(1));
 
             JPanel style_row = naturalRow();
             style_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
@@ -999,6 +1061,8 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.SHOW_CLOCK != snap_show_clock
                 || GameFrame.MOSTRAR_COSTE_IGUALAR != snap_coste_igualar
                 || prefBool("cinematicas") != snap_cinematicas
+                || prefBool("cinematicas_accion", true) != snap_cinematicas_accion
+                || prefBool("cinematicas_allin", true) != snap_cinematicas_allin
                 || GameFrame.ANIMACION_BARAJADO_PREF != snap_anim_barajado
                 || prefBool("animacion_reparto") != snap_anim_reparto
                 || GameFrame.ANIMACION_DESTAPE_PREF != snap_anim_destape
@@ -1135,6 +1199,18 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
             Helpers.savePropertiesFile();
         }
+        // Subtipos de cinemática (acción / all-in): persist-only sin item de menú, se revierten
+        // fijando el flag + re-persistiendo el snapshot, como el overlay de cascada.
+        if (GameFrame.CINEMATICAS_ACCION_PREF != snap_cinematicas_accion) {
+            GameFrame.CINEMATICAS_ACCION_PREF = snap_cinematicas_accion;
+            Helpers.PROPERTIES.setProperty("cinematicas_accion", String.valueOf(snap_cinematicas_accion));
+            Helpers.savePropertiesFile();
+        }
+        if (GameFrame.CINEMATICAS_ALLIN_PREF != snap_cinematicas_allin) {
+            GameFrame.CINEMATICAS_ALLIN_PREF = snap_cinematicas_allin;
+            Helpers.PROPERTIES.setProperty("cinematicas_allin", String.valueOf(snap_cinematicas_allin));
+            Helpers.savePropertiesFile();
+        }
         // Resaltado del showdown: persist-only, sin item de menú ni efecto en vivo (se lee al
         // vuelo). Se revierte fijando el flag + re-persistiendo el snapshot, como la cascada.
         if (GameFrame.RESALTAR_JUGADA_SHOWDOWN != snap_resaltar_jugada_showdown) {
@@ -1261,6 +1337,8 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.CHAT_IMAGES_INGAME = snap_chat_images;
         GameFrame.ANIMACIONES = snap_animaciones;
         GameFrame.CINEMATICAS_PREF = snap_cinematicas;
+        GameFrame.CINEMATICAS_ACCION_PREF = snap_cinematicas_accion;
+        GameFrame.CINEMATICAS_ALLIN_PREF = snap_cinematicas_allin;
         GameFrame.ANIMACION_BARAJADO_PREF = snap_anim_barajado;
         GameFrame.ANIMACION_REPARTO_PREF = snap_anim_reparto;
         GameFrame.ANIMACION_DESTAPE_PREF = snap_anim_destape;
@@ -1293,6 +1371,8 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("chat_images_ingame", String.valueOf(snap_chat_images));
         Helpers.PROPERTIES.setProperty("animaciones", String.valueOf(snap_animaciones));
         Helpers.PROPERTIES.setProperty("cinematicas", String.valueOf(snap_cinematicas));
+        Helpers.PROPERTIES.setProperty("cinematicas_accion", String.valueOf(snap_cinematicas_accion));
+        Helpers.PROPERTIES.setProperty("cinematicas_allin", String.valueOf(snap_cinematicas_allin));
         Helpers.PROPERTIES.setProperty("animacion_barajado", String.valueOf(snap_anim_barajado));
         Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(snap_anim_reparto));
         Helpers.PROPERTIES.setProperty("animacion_destape", String.valueOf(snap_anim_destape));
@@ -1564,6 +1644,9 @@ public class AppearanceSettingsPanel extends JPanel {
     private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu, String prefKey, Consumer<Boolean> effSetter, boolean defaultPref) {
         boolean pref = (menu != null) ? menu.isSelected() : prefBool(prefKey, defaultPref);
         JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), pref);
+        // Cabecera de grupo animado (Barajado, Reparto, Destapar, Ordenar la mano...): en negrita
+        // para distinguirla de sus subajustes (velocidad, estilo, etc.), que van en peso normal.
+        cb.setFont(cb.getFont().deriveFont(java.awt.Font.BOLD));
         cb.setEnabled((menu == null || menu.isEnabled()) && GameFrame.ANIMACIONES);
         cb.addActionListener(e -> {
             if (menu != null) {

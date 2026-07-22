@@ -79,6 +79,12 @@ public class AppearanceSettingsPanel extends JPanel {
     // diálogo al cerrarse (applyPendingDisplayMode).
     private volatile boolean pending_fullscreen;
 
+    // Mecanismo de pantalla completa elegido en el subcombo (SOLO Windows): false = borderless,
+    // true = exclusiva. Como pending_fullscreen, NO se aplica en vivo; lo aplica el diálogo al
+    // GUARDAR (applyPendingDisplayMode). En plataformas != Windows el subcombo no se crea y este
+    // valor queda igual al snapshot (nunca marca cambios).
+    private volatile boolean pending_exclusive;
+
     // Los 5 checkboxes individuales de animacion y sus items de menu (null fuera de
     // partida), para que el maestro los DESHABILITE (sin desmarcar) al desmarcarse.
     private final java.util.List<JCheckBox> anim_sub_cb = new ArrayList<>();
@@ -123,6 +129,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_animaciones;
     private final boolean snap_chat_images;
     private final boolean snap_fullscreen;
+    private final boolean snap_exclusive;
     private final int snap_card_flip_duration;
     private final int snap_card_flip_zoom;
     private final int snap_reparto_velocidad;
@@ -171,6 +178,9 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
+        // Mecanismo de pantalla completa actual: si hay partida Y estamos en pantalla completa, el
+        // mecanismo ACTIVO del frame; si no (modo ventana o standalone), la preferencia guardada.
+        snap_exclusive = (gf != null && gf.isFull_screen()) ? gf.isFullScreenExclusiveActive() : GameFrame.FULLSCREEN_EXCLUSIVE;
         snap_card_flip_duration = GameFrame.CARD_FLIP_DURATION;
         snap_card_flip_zoom = GameFrame.CARD_FLIP_ZOOM;
         snap_reparto_velocidad = GameFrame.REPARTO_VELOCIDAD;
@@ -193,20 +203,59 @@ public class AppearanceSettingsPanel extends JPanel {
         // elección y el diálogo la aplica al CERRARSE (en partida cambia el modo; fuera
         // de partida solo persiste la preferencia de arranque).
         pending_fullscreen = snap_fullscreen;
+        pending_exclusive = snap_exclusive;
         JComboBox<String> display_combo = new JComboBox<>(new String[]{
             Translator.translate("settings.modo_ventana"),
             Translator.translate("settings.modo_pantalla_completa")
         });
         display_combo.setSelectedIndex(pending_fullscreen ? 1 : 0);
-        display_combo.addActionListener(e -> {
-            if (building) {
-                return;
-            }
-            pending_fullscreen = display_combo.getSelectedIndex() == 1;
-        });
-        addLeft(pantalla, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
-        // Predeterminado: pantalla completa (AUTO_FULLSCREEN=true → índice 1). Se aplica al GUARDAR.
-        reset_actions.add(() -> display_combo.setSelectedIndex(1));
+
+        if (Helpers.OSValidator.isWindows()) {
+            // Subcombo SOLO Windows: mecanismo de pantalla completa (borderless / exclusiva). Se
+            // habilita solo cuando el modo elegido es pantalla completa. Borderless por defecto.
+            // NO se aplica en vivo: lo aplica el diálogo al GUARDAR (applyPendingDisplayMode); el
+            // botón de pantalla completa de la barra rápida ya usará el mecanismo persistido.
+            JComboBox<String> fs_mode_combo = new JComboBox<>(new String[]{
+                Translator.translate("settings.fullscreen_borderless"),
+                Translator.translate("settings.fullscreen_exclusiva")
+            });
+            fs_mode_combo.setSelectedIndex(pending_exclusive ? 1 : 0);
+            fs_mode_combo.setEnabled(pending_fullscreen);
+            Helpers.setTranslatedToolTip(fs_mode_combo, "settings.fullscreen_mecanismo_tooltip");
+            fs_mode_combo.addActionListener(e -> {
+                if (building) {
+                    return;
+                }
+                pending_exclusive = fs_mode_combo.getSelectedIndex() == 1;
+            });
+            display_combo.addActionListener(e -> {
+                if (building) {
+                    return;
+                }
+                pending_fullscreen = display_combo.getSelectedIndex() == 1;
+                fs_mode_combo.setEnabled(pending_fullscreen);
+            });
+            // Combo + subcombo en un recuadro de grupo para que se lean como una unidad.
+            JPanel display_group = groupBox();
+            addToGroup(display_group, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
+            addToGroup(display_group, labeledRow("/images/menu/full_screen.png", "settings.fullscreen_mecanismo", fs_mode_combo));
+            addLeft(pantalla, display_group);
+            // Predeterminado: pantalla completa (índice 1) + borderless (índice 0). Se aplica al GUARDAR.
+            reset_actions.add(() -> {
+                display_combo.setSelectedIndex(1);
+                fs_mode_combo.setSelectedIndex(0);
+            });
+        } else {
+            display_combo.addActionListener(e -> {
+                if (building) {
+                    return;
+                }
+                pending_fullscreen = display_combo.getSelectedIndex() == 1;
+            });
+            addLeft(pantalla, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
+            // Predeterminado: pantalla completa (AUTO_FULLSCREEN=true → índice 1). Se aplica al GUARDAR.
+            reset_actions.add(() -> display_combo.setSelectedIndex(1));
+        }
 
         // Zoom: spinner en % (cada paso = 5% = un nivel de zoom interno). En partida aplica
         // al vuelo al nivel elegido; fuera de partida solo persiste la preferencia.
@@ -1024,14 +1073,33 @@ public class AppearanceSettingsPanel extends JPanel {
     // preferencia de arranque (p.ej. tras un ALT+F transitorio que no la cambia). En
     // partida cambia el modo del frame; fuera de partida solo persiste la preferencia.
     public void applyPendingDisplayMode() {
-        if (pending_fullscreen == snap_fullscreen) {
+        boolean mode_changed = pending_fullscreen != snap_fullscreen;
+        boolean mech_changed = pending_exclusive != snap_exclusive;
+        if (!mode_changed && !mech_changed) {
             return;
         }
         if (gf != null) {
-            gf.setDisplayModeFullScreen(pending_fullscreen);
+            // Persistir el mecanismo ANTES de un posible toggle de encendido: toggleFullScreen lo
+            // lee al ENTRAR. Si no cambió, no se toca (para no reescribir la preferencia sin motivo).
+            if (mech_changed) {
+                gf.persistFullScreenExclusive(pending_exclusive);
+            }
+            if (mode_changed) {
+                gf.setDisplayModeFullScreen(pending_fullscreen);
+            } else {
+                // Mismo on/off pero cambió el mecanismo: re-aplicar en vivo si seguimos en pantalla
+                // completa (en modo ventana ya quedó persistido para la próxima entrada).
+                gf.reapplyFullScreenMechanismIfNeeded();
+            }
         } else {
-            GameFrame.AUTO_FULLSCREEN = pending_fullscreen;
-            persist("auto_fullscreen", String.valueOf(pending_fullscreen));
+            if (mode_changed) {
+                GameFrame.AUTO_FULLSCREEN = pending_fullscreen;
+                persist("auto_fullscreen", String.valueOf(pending_fullscreen));
+            }
+            if (mech_changed) {
+                GameFrame.FULLSCREEN_EXCLUSIVE = pending_exclusive;
+                persist("fullscreen_exclusive", String.valueOf(pending_exclusive));
+            }
         }
     }
 
@@ -1075,6 +1143,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen
+                || pending_exclusive != snap_exclusive
                 || GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration
                 || GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom
                 || GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad

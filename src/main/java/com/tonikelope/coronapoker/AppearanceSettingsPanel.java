@@ -475,6 +475,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // Maestro: activa/desactiva TODAS las animaciones de un plumazo. Al desmarcarlo,
         // DESHABILITA (no desmarca) los 5 checkboxes de abajo, que conservan su valor.
         anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general").toUpperCase(), GameFrame.ANIMACIONES);
+        anim_master.setFont(anim_master.getFont().deriveFont(java.awt.Font.BOLD));
         anim_master.addActionListener(e -> {
             boolean on = anim_master.isSelected();
             if (gf != null) {
@@ -712,12 +713,12 @@ public class AppearanceSettingsPanel extends JPanel {
         addToGroup(swap_group, animCheckbox("/images/menu/swap.png", "menu.efectos_animacion_swap",
                 null, "animacion_swap", v -> GameFrame.ANIMACION_SWAP_PREF = v, GameFrame.ANIMACION_SWAP_PREF));
         final JCheckBox swap_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
-        // Velocidad del cruce: 3 opciones (lento/normal/rápido). "Normal" = valor por defecto
+        // Velocidad del cruce: 3 opciones (lenta/normal/rápida). "Normal" = valor por defecto
         // (320 ms). Cuelga del ajuste: se deshabilita si se desmarca o el maestro está off.
         // Guarda la duración en ms (GameFrame.SWAP_ANIM_DURATION).
         {
-            final int[] speed_ms = {520, GameFrame.DEFAULT_SWAP_ANIM_DURATION, 200}; // lento, normal, rápido
-            final String[] speed_keys = {"settings.reparto_lento", "settings.reparto_normal", "settings.reparto_rapido"};
+            final int[] speed_ms = {520, GameFrame.DEFAULT_SWAP_ANIM_DURATION, 200}; // lenta, normal, rápida
+            final String[] speed_keys = {"settings.swap_lenta", "settings.swap_normal", "settings.swap_rapida"};
             final String[] speed_labels = new String[speed_keys.length];
             for (int i = 0; i < speed_keys.length; i++) {
                 speed_labels[i] = Translator.translate(speed_keys[i]);
@@ -790,8 +791,8 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateStyleEnabled.run());
             swap_cb.addActionListener(e -> updateStyleEnabled.run());
             updateStyleEnabled.run();
-            // Predeterminado: estilo "Arco" (índice 0 = SWAP_ANIM_ARC true).
-            reset_actions.add(() -> style_combo.setSelectedIndex(0));
+            // Predeterminado: estilo "Horizontal" (índice 1 = SWAP_ANIM_ARC false).
+            reset_actions.add(() -> style_combo.setSelectedIndex(1));
 
             JPanel style_row = naturalRow();
             style_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
@@ -1564,6 +1565,9 @@ public class AppearanceSettingsPanel extends JPanel {
     private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu, String prefKey, Consumer<Boolean> effSetter, boolean defaultPref) {
         boolean pref = (menu != null) ? menu.isSelected() : prefBool(prefKey, defaultPref);
         JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), pref);
+        // Cabecera de grupo animado (Barajado, Reparto, Destapar, Ordenar la mano...): en negrita
+        // para distinguirla de sus subajustes (velocidad, estilo, etc.), que van en peso normal.
+        cb.setFont(cb.getFont().deriveFont(java.awt.Font.BOLD));
         cb.setEnabled((menu == null || menu.isEnabled()) && GameFrame.ANIMACIONES);
         cb.addActionListener(e -> {
             if (menu != null) {

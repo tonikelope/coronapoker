@@ -212,17 +212,16 @@ public class AppearanceSettingsPanel extends JPanel {
         JPanel display_row = labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo);
 
         if (Helpers.OSValidator.isWindows()) {
-            // Subcombo SOLO Windows: mecanismo de pantalla completa (ventana sin bordes / exclusiva).
-            // Va A LA DERECHA del combo de modo, en la misma fila, y SOLO se muestra cuando el modo
-            // es pantalla completa (al elegir Ventana se OCULTA). Ventana sin bordes por defecto. NO
-            // se aplica en vivo: lo aplica el diálogo al GUARDAR (applyPendingDisplayMode); el botón
-            // de pantalla completa de la barra rápida ya usará el mecanismo persistido.
+            // Subcombo SOLO Windows: mecanismo de pantalla completa (sin bordes / exclusiva). Va A
+            // LA DERECHA del combo de modo, en la misma fila, y SOLO se muestra cuando el modo es
+            // pantalla completa (al elegir Ventana se OCULTA). Sin bordes por defecto. NO se aplica
+            // en vivo: lo aplica el diálogo al GUARDAR (applyPendingDisplayMode); el botón de pantalla
+            // completa de la barra rápida ya usará el mecanismo persistido.
             JComboBox<String> fs_mode_combo = new JComboBox<>(new String[]{
                 Translator.translate("settings.fullscreen_borderless"),
                 Translator.translate("settings.fullscreen_exclusiva")
             });
             fs_mode_combo.setSelectedIndex(pending_exclusive ? 1 : 0);
-            fs_mode_combo.setVisible(pending_fullscreen);
             Helpers.setTranslatedToolTip(fs_mode_combo, "settings.fullscreen_mecanismo_tooltip");
             fs_mode_combo.addActionListener(e -> {
                 if (building) {
@@ -230,19 +229,30 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
                 pending_exclusive = fs_mode_combo.getSelectedIndex() == 1;
             });
+            // Slot de ancho FIJO: el CardLayout dimensiona el hueco a su mayor hijo (el combo) aunque
+            // muestre la carta vacía, así ocultar/mostrar el selector NO cambia el ancho de la fila ni
+            // de la columna derecha. Con setVisible la fila se encogía/estiraba y la columna daba un
+            // tirón al alternar Ventana <-> Pantalla completa; el slot lo evita (no hay reflow).
+            JPanel fs_mode_slot = new JPanel(new java.awt.CardLayout());
+            fs_mode_slot.setOpaque(false);
+            JPanel fs_mode_empty = new JPanel();
+            fs_mode_empty.setOpaque(false);
+            fs_mode_slot.add(fs_mode_combo, "combo");
+            fs_mode_slot.add(fs_mode_empty, "empty");
+            java.awt.CardLayout fs_mode_cards = (java.awt.CardLayout) fs_mode_slot.getLayout();
+            fs_mode_cards.show(fs_mode_slot, pending_fullscreen ? "combo" : "empty");
             display_combo.addActionListener(e -> {
                 if (building) {
                     return;
                 }
                 pending_fullscreen = display_combo.getSelectedIndex() == 1;
-                // Mostrar el selector de mecanismo solo en pantalla completa; ocultarlo en Ventana.
-                fs_mode_combo.setVisible(pending_fullscreen);
-                display_row.revalidate();
-                display_row.repaint();
+                // Mostrar el selector solo en pantalla completa; ocultarlo en Ventana. El slot conserva
+                // su ancho (CardLayout), así que no hay reflow de la columna.
+                fs_mode_cards.show(fs_mode_slot, pending_fullscreen ? "combo" : "empty");
             });
-            display_row.add(fs_mode_combo);
+            display_row.add(fs_mode_slot);
             addLeft(pantalla, display_row);
-            // Predeterminado: pantalla completa (índice 1) + ventana sin bordes (índice 0). Se aplica al GUARDAR.
+            // Predeterminado: pantalla completa (índice 1) + sin bordes (índice 0). Se aplica al GUARDAR.
             reset_actions.add(() -> {
                 display_combo.setSelectedIndex(1);
                 fs_mode_combo.setSelectedIndex(0);

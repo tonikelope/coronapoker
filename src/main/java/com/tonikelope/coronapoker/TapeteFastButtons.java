@@ -86,6 +86,10 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         Helpers.setScaledIconLabel(menu, getClass().getResource("/images/fast_panel/menu.png"), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));
 
         pref_size = getPreferredSize();
+        // El panel abarca el ancho de la barra desplegada aunque esté plegado; su cursor es normal
+        // para que el hueco vacío (a la derecha del icono) NO muestre la manita. El icono "menu" y
+        // los botones conservan su propio cursor de mano.
+        setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         hideButtons();
         setComListeners();
     }
@@ -193,13 +197,17 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }
 
     // Arranca (o reinicia) el retardo de 1 s tras el que la barra empezará a desvanecerse. No hace
-    // nada si ya está plegada o ya se está desvaneciendo.
-    private void scheduleHide() {
+    // nada si ya está plegada o ya se está desvaneciendo. Público: el tapete (TablePanel) lo llama
+    // al recibir el ratón (señal fiable de "he salido de la barra") en vez de plegar al instante.
+    public void scheduleHide() {
         if (!chat.isVisible() || (fade_timer != null && fade_timer.isRunning())) {
             return;
         }
-        if (hide_delay_timer != null) {
-            hide_delay_timer.restart();
+        // Arranca SOLO si no está ya corriendo: el tapete emite mouseEntered cada vez que el ratón
+        // cruza sus subcomponentes, y con restart() el segundo nunca se cumpliría al mover el ratón.
+        // Así cuenta 1 s desde que se sale de la barra; volver a entrar lo cancela (cancelHide).
+        if (hide_delay_timer != null && !hide_delay_timer.isRunning()) {
+            hide_delay_timer.start();
         }
     }
 

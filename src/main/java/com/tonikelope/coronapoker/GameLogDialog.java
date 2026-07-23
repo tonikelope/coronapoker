@@ -1381,7 +1381,17 @@ public final class GameLogDialog extends JDialog {
         // reactivar la preferencia de autoscroll: debe ponerse al día).
         void snapToBottom() {
             follow = true;
-            scrollToBottomLater();
+            // Doble pasada diferida: al (re)abrir el registro el JTextPane debe
+            // re-maquetar todo el contenido acumulado más los componentes embebidos
+            // (cartas / iconos de rol), cuya altura real llega en un revalidate
+            // POSTERIOR del EDT. Un solo salto se clampa al panel aún pequeño y deja
+            // la vista ARRIBA (de ahí que el scroll apareciera arriba al entrar, de
+            // forma intermitente). La 1ª pasada empuja tras el layout inicial; la 2ª
+            // reafirma el fondo ya con getMaximum() actualizado.
+            SwingUtilities.invokeLater(() -> {
+                forceBottom();
+                SwingUtilities.invokeLater(this::forceBottom);
+            });
         }
 
         // Salta al fondo solo si seguimos al usuario.
@@ -1403,6 +1413,26 @@ public final class GameLogDialog extends JDialog {
                     // La vista puede estar entre dispose/re-show — ignorar.
                 }
             });
+        }
+
+        // Empuja la vista al fondo por dos vías: setCaretPosition (arrastra el
+        // viewport) y setValue(getMaximum()) sobre la barra vertical (llega al fondo
+        // aun cuando el caret se quedaría corto por una geometría todavía sin
+        // actualizar tras un relayout). Lo usa el salto de (re)apertura.
+        private void forceBottom() {
+            try {
+                view.setCaretPosition(view.getDocument().getLength());
+            } catch (Throwable t) {
+                // La vista puede estar entre dispose/re-show — ignorar.
+            }
+            try {
+                javax.swing.JScrollBar vbar = scroll.getVerticalScrollBar();
+                if (vbar != null) {
+                    vbar.setValue(vbar.getMaximum());
+                }
+            } catch (Throwable t) {
+                // Idem: barra en transición — ignorar.
+            }
         }
     }
 

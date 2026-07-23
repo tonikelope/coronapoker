@@ -212,10 +212,22 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }
 
     private void startFade() {
+        // Al empezar a desvanecerse, descarta cualquier tooltip de botón que siguiera colgado.
+        dismissActiveTooltip();
         bar_opacity = 1f;
         if (fade_timer != null) {
             fade_timer.start();
         }
+    }
+
+    // Descarta cualquier tooltip visible de los botones. Swing NO oculta el globo del tooltip al
+    // hacer invisible el componente sobre el que se muestra (ni siempre entrega su MOUSE_EXITED), así
+    // que al plegar la barra el globo podía quedarse colgado. Apagar el ToolTipManager oculta el
+    // tooltip actual; volver a encenderlo deja los tooltips operativos para la próxima.
+    private void dismissActiveTooltip() {
+        javax.swing.ToolTipManager ttm = javax.swing.ToolTipManager.sharedInstance();
+        ttm.setEnabled(false);
+        ttm.setEnabled(true);
     }
 
     // El puntero está fuera de la barra (o la barra no está en pantalla). Con MouseInfo (coordenadas
@@ -263,6 +275,8 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
                 fade_timer.stop();
             }
             bar_opacity = 1f;
+            // Descarta tooltips colgados antes de ocultar los botones (Swing no lo hace solo).
+            dismissActiveTooltip();
             for (Object[] b : botones) {
                 ((Component) b[0]).setVisible(false);
             }

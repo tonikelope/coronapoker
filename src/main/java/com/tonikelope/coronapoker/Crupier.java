@@ -583,7 +583,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Simetrico HOST-side de warnSuspiciousHost: el host ha detectado comportamiento anomalo o abusivo de
     // UN peer concreto (flood de mensajes, negativa a la cascada, forfeit por datos que no resuelven a una
     // carta genesis, etc.). Da la MISMA visibilidad que en el lado cliente pero nombrando al JUGADOR
-    // sospechoso: registro EN ROJO (prefijo zero_trust.peer_alert -> ST_ALERT) + popup, dedup por
+    // sospechoso: registro EN ROJO (prefijo zero_trust.peer_alert -> ST_CRITICAL) + popup, dedup por
     // (peer + anomalia) por partida. La ACCION que proceda segun gravedad (descartar / expulsar / misdeal /
     // forfeit) la aplica el LLAMADOR; esto solo informa. Fail-safe total: se invoca desde caminos criticos
     // (incluido el hilo lector de un Participant o en pleno reparto) y NUNCA debe lanzar.
@@ -646,7 +646,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Torneo/anti-trampa: esta mano el mazo NO se pudo verificar como barajado honesto (host no mandó
     // el bundle, o llegó mal, o se probó deshonesto). NO se bloquea la mano (cartas ya repartidas) ni
     // se fuerza salida: se REGISTRA en el log del juego EN ROJO (el prefijo zero_trust.suspicious_alert
-    // lo colorea vía ST_ALERT, como los demás errores zero-trust) y se avisa con un popup UNA vez por
+    // lo colorea vía ST_CRITICAL, como los demás errores zero-trust) y se avisa con un popup UNA vez por
     // partida. La evidencia firmada ya va en el recibo + disputed_hands; el jugador decide si sigue.
     private volatile byte[] deck_unverified_warned_megapacket = null;
 

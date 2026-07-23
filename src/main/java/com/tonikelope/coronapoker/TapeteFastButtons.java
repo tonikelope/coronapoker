@@ -47,6 +47,17 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     private volatile Dimension pref_size;
     private volatile float zoom_factor;
 
+    // Barra plegable con desvanecimiento. Se despliega SOLO al pasar el ratón por el icono "menu"
+    // (esquina inferior izquierda, el único siempre visible al plegarse). Al salir el ratón NO se
+    // pliega al instante: espera HIDE_DELAY_MS y luego se desvanece durante FADE_MS. Volver a entrar
+    // en la barra durante la espera o el desvanecimiento lo cancela y restaura la opacidad plena.
+    private static final int HIDE_DELAY_MS = 1000;
+    private static final int FADE_MS = 400;
+    private static final int FADE_INTERVAL_MS = 16;
+    private volatile float bar_opacity = 1f;
+    private javax.swing.Timer hide_delay_timer;
+    private javax.swing.Timer fade_timer;
+
     public Dimension getPref_size() {
         return pref_size;
     }
@@ -75,6 +86,10 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         Helpers.setScaledIconLabel(menu, getClass().getResource("/images/fast_panel/menu.png"), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));
 
         pref_size = getPreferredSize();
+        // El panel abarca el ancho de la barra desplegada aunque esté plegado; su cursor es normal
+        // para que el hueco vacío (a la derecha del icono) NO muestre la manita. El icono "menu" y
+        // los botones conservan su propio cursor de mano.
+        setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         hideButtons();
         setComListeners();
     }
@@ -103,32 +118,165 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }
 
     private void setComListeners() {
+        initHoverTimers();
+
+        // El icono "menu" (esquina, siempre visible al plegarse) es el ÚNICO disparador para
+        // DESPLEGAR la barra.
+        menu.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (canShow()) {
+                    showBar();
+                }
+            }
+        });
+
+        // Los botones (visibles solo con la barra desplegada) la mantienen viva mientras el ratón
+        // esté encima; al salir programan el plegado con retardo (1 s + desvanecimiento).
         for (Object[] b : botones) {
             ((Component) b[0]).addMouseListener(new MouseAdapter() {
 
                 @Override
                 public void mouseEntered(MouseEvent e) {
-                    if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && (GameFrame.getInstance().getFastchat_dialog() == null || !GameFrame.getInstance().getFastchat_dialog().isVisible())) {
-                        showButtons();
-                    }
+                    cancelHide();
                 }
 
                 @Override
                 public void mouseExited(MouseEvent e) {
-                    if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
-                        Rectangle r = new Rectangle(getLocationOnScreen(), getSize());
-                        if (!r.contains(e.getPoint())) {
-
-                            hideButtons();
-                        }
-                    }
+                    scheduleHide();
                 }
             });
         }
     }
 
+    // Crea los timers de plegado (una sola vez). El de RETARDO, al cumplirse el segundo, arranca el
+    // desvanecimiento SOLO si el ratón sigue fuera de la barra (recomprobado con MouseInfo, por si
+    // volvió durante la espera sin que llegara un mouseEntered). El de FADE baja la opacidad por
+    // frames y, al llegar a 0, pliega la barra (icono "menu") y restaura la opacidad para la próxima.
+    private void initHoverTimers() {
+        hide_delay_timer = new javax.swing.Timer(HIDE_DELAY_MS, e -> {
+            hide_delay_timer.stop();
+            if (pointerOutsideBar()) {
+                startFade();
+            }
+        });
+        hide_delay_timer.setRepeats(false);
+
+        fade_timer = new javax.swing.Timer(FADE_INTERVAL_MS, e -> {
+            bar_opacity -= FADE_INTERVAL_MS / (float) FADE_MS;
+            if (bar_opacity <= 0f) {
+                fade_timer.stop();
+                // hideButtons restaura la opacidad a 1 junto con el plegado (mismo bloque EDT), así
+                // el icono "menu" reaparece a opacidad plena sin destello.
+                hideButtons();
+            } else {
+                repaint();
+            }
+        });
+    }
+
+    // Despliega la barra desde el icono "menu": cancela cualquier plegado en curso, restaura la
+    // opacidad y muestra los botones.
+    private void showBar() {
+        cancelHide();
+        showButtons();
+    }
+
+    // Cancela el plegado en curso (retardo o desvanecimiento) y restaura la opacidad plena.
+    private void cancelHide() {
+        if (hide_delay_timer != null) {
+            hide_delay_timer.stop();
+        }
+        if (fade_timer != null) {
+            fade_timer.stop();
+        }
+        if (bar_opacity != 1f) {
+            bar_opacity = 1f;
+            repaint();
+        }
+    }
+
+    // Arranca (o reinicia) el retardo de 1 s tras el que la barra empezará a desvanecerse. No hace
+    // nada si ya está plegada o ya se está desvaneciendo. Público: el tapete (TablePanel) lo llama
+    // al recibir el ratón (señal fiable de "he salido de la barra") en vez de plegar al instante.
+    public void scheduleHide() {
+        if (!chat.isVisible() || (fade_timer != null && fade_timer.isRunning())) {
+            return;
+        }
+        // Arranca SOLO si no está ya corriendo: el tapete emite mouseEntered cada vez que el ratón
+        // cruza sus subcomponentes, y con restart() el segundo nunca se cumpliría al mover el ratón.
+        // Así cuenta 1 s desde que se sale de la barra; volver a entrar lo cancela (cancelHide).
+        if (hide_delay_timer != null && !hide_delay_timer.isRunning()) {
+            hide_delay_timer.start();
+        }
+    }
+
+    private void startFade() {
+        // Al empezar a desvanecerse, descarta cualquier tooltip de botón que siguiera colgado.
+        dismissActiveTooltip();
+        bar_opacity = 1f;
+        if (fade_timer != null) {
+            fade_timer.start();
+        }
+    }
+
+    // Descarta cualquier tooltip visible de los botones. Swing NO oculta el globo del tooltip al
+    // hacer invisible el componente sobre el que se muestra (ni siempre entrega su MOUSE_EXITED), así
+    // que al plegar la barra el globo podía quedarse colgado. Apagar el ToolTipManager oculta el
+    // tooltip actual; volver a encenderlo deja los tooltips operativos para la próxima.
+    private void dismissActiveTooltip() {
+        javax.swing.ToolTipManager ttm = javax.swing.ToolTipManager.sharedInstance();
+        ttm.setEnabled(false);
+        ttm.setEnabled(true);
+    }
+
+    // El puntero está fuera de la barra (o la barra no está en pantalla). Con MouseInfo (coordenadas
+    // de pantalla) para no depender del sistema de coordenadas del evento.
+    private boolean pointerOutsideBar() {
+        if (!isShowing()) {
+            return true;
+        }
+        java.awt.PointerInfo pi = java.awt.MouseInfo.getPointerInfo();
+        if (pi == null) {
+            return true;
+        }
+        return !new Rectangle(getLocationOnScreen(), getSize()).contains(pi.getLocation());
+    }
+
+    // La barra puede desplegarse: la partida sigue viva y no hay un chat rápido abierto encima.
+    private boolean canShow() {
+        GameFrame gf = GameFrame.getInstance();
+        return !gf.getCrupier().isFin_de_la_transmision() && (gf.getFastchat_dialog() == null || !gf.getFastchat_dialog().isVisible());
+    }
+
+    // Pinta la barra con la opacidad actual (para el desvanecimiento). A opacidad plena delega
+    // directamente; si no, compone todo el árbol (iconos incluidos) con un AlphaComposite.
+    @Override
+    public void paint(java.awt.Graphics g) {
+        if (bar_opacity >= 1f) {
+            super.paint(g);
+            return;
+        }
+        java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+        try {
+            g2.setComposite(java.awt.AlphaComposite.getInstance(java.awt.AlphaComposite.SRC_OVER, Math.max(0f, bar_opacity)));
+            super.paint(g2);
+        } finally {
+            g2.dispose();
+        }
+    }
+
     public void hideButtons() {
         Helpers.GUIRun(() -> {
+            if (hide_delay_timer != null) {
+                hide_delay_timer.stop();
+            }
+            if (fade_timer != null) {
+                fade_timer.stop();
+            }
+            bar_opacity = 1f;
+            // Descarta tooltips colgados antes de ocultar los botones (Swing no lo hace solo).
+            dismissActiveTooltip();
             for (Object[] b : botones) {
                 ((Component) b[0]).setVisible(false);
             }
@@ -304,22 +452,13 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }// </editor-fold>//GEN-END:initComponents
 
     private void formMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseEntered
-        // TODO add your handling code here:
-        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && (GameFrame.getInstance().getFastchat_dialog() == null || !GameFrame.getInstance().getFastchat_dialog().isVisible())) {
-            showButtons();
-        }
+        // Entrar en el panel (no en el icono "menu") NO despliega la barra: solo mantiene viva la
+        // que ya esté desplegada, cancelando un plegado pendiente.
+        cancelHide();
     }//GEN-LAST:event_formMouseEntered
 
     private void formMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseExited
-        // TODO add your handling code here:
-        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
-            Rectangle r = new Rectangle(this.getLocationOnScreen(), this.getSize());
-            if (!r.contains(evt.getPoint())) {
-
-                hideButtons();
-            }
-        }
-
+        scheduleHide();
     }//GEN-LAST:event_formMouseExited
 
     private void chatMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_chatMouseClicked

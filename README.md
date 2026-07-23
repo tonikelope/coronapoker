@@ -9,7 +9,7 @@
   <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
 </p>
 
-This is the project of a perfectionist who, during the COVID-19 lockdown, decided to build the most complete and enjoyable open-source Texas Hold'em game for his friends. What began as a passion project gradually evolved into something much larger: a long-term software engineering laboratory where every subsystem—from networking and cryptography to artificial intelligence and distributed systems—became an opportunity to build things the way I believed they should be built.
+This is the project of a perfectionist who, during the COVID-19 lockdown, decided to build the most complete and enjoyable open-source Texas Hold'em game for his friends. What began as a passion project gradually evolved into something much larger: a long-term software engineering laboratory where every subsystem (from networking and cryptography to artificial intelligence and distributed systems) became an opportunity to build things the way I believed they should be built.
 
 The ambition was never to create the biggest poker game. It was to create the poker game I always wanted to play—and the software project I always wanted to engineer.
 

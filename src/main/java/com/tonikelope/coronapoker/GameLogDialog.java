@@ -304,7 +304,44 @@ public final class GameLogDialog extends JDialog {
             doc.insertString(doc.getLength(), rest, ST_DIM);
             return;
         }
-        appendGridLine(doc, rest, token.equals("(MV)") ? ST_DIM : ST_DEFAULT);
+        appendGridLine(doc, rest, token.equals("(MV)") ? ST_DIM : balanceContentStyle(rest));
+    }
+
+    // Colorea la fila de la tabla final de resultados (NICK / RESULTADO) según su
+    // última celda: ST_WIN (verde) si el jugador GANA, ST_LOSS (rojo) si PIERDE,
+    // ST_DEFAULT (blanco) si queda igual. Mira SOLO la celda de RESULTADO (la
+    // última, entre los dos últimos '│') para no teñir la fila por un nick que
+    // contenga esas palabras (en español "NI GANA NI PIERDE" contiene ambas), y casa
+    // la frase en el idioma activo y en inglés (igual que categoryRules) para
+    // funcionar en cualquier idioma. Las demás tablas con marcador (cuentas por mano
+    // NICK/STACK/BUYIN, totales del auditor) no llevan estas frases en su última
+    // celda, así que se quedan en ST_DEFAULT como antes.
+    private static SimpleAttributeSet balanceContentStyle(String rest) {
+        int last = rest.lastIndexOf('│');
+        if (last <= 0) {
+            return ST_DEFAULT;
+        }
+        int prev = rest.lastIndexOf('│', last - 1);
+        if (prev < 0) {
+            return ST_DEFAULT;
+        }
+        String cell = rest.substring(prev + 1, last).strip();
+        if (cell.isEmpty()) {
+            return ST_DEFAULT;
+        }
+        if (cell.equals(Translator.translate("ui.ni_gana_ni_pierde"))
+                || cell.equals(Translator.translate("ui.ni_gana_ni_pierde", true))) {
+            return ST_DEFAULT;
+        }
+        if (cell.startsWith(Translator.translate("ui.gana_4"))
+                || cell.startsWith(Translator.translate("ui.gana_4", true))) {
+            return ST_WIN;
+        }
+        if (cell.startsWith(Translator.translate("ui.pierde_2"))
+                || cell.startsWith(Translator.translate("ui.pierde_2", true))) {
+            return ST_LOSS;
+        }
+        return ST_DEFAULT;
     }
 
     // Renders a table line where the box-drawing characters (the grid: ─│┌┐└┘├┤┬┴┼,

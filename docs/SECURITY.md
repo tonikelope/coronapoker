@@ -40,7 +40,7 @@ The availability side of the same threat model, covered in detail in §8. The th
 | Hostile host **smuggling** a card (duplicate, or relocate a pocket into the community half) to read it | Closed | The shuffle and rotation are proven honest with a zero-knowledge **verifiable shuffle** (§2.6), broadcast and verified **independently by every peer** against its own deck. A smuggle is a non-permutation that no proof can pass. Anti-replay on the rotation and the real-time de-lock guards (§2.5) remain as the inner layer |
 | Hostile host or peer rewriting hand history | Yes | Per-action Ed25519 signatures + `H_t` ratchet committed by every peer in a signed receipt. The receiver also **binds each signed record to the action it actually played** (type, amount, player id, hand id), so a peer cannot sign one thing and play another (§5.1) |
 | Hostile host or peer reporting a false pot payout | Yes | Every peer recomputes the hand's settlement independently and binds it into `H_final` as a terminal record. A divergent payout diverges the signed receipt (§5.4) |
-| Network MITM on the ECDH handshake | Yes (with password) | HMAC-SHA512 binding of the shared secret to a table password. Session-key identicon for OOB compare (waiting room, right-click your own nick) |
+| Network MITM on the ECDH handshake | Yes (with password) | HMAC-SHA512 binding of the shared secret to a table password. Session-key identicon for OOB compare (waiting room, right-click the participant list) |
 | Replay or tampering of game commands on the wire | Yes | AES-256-CBC with per-command IV + HMAC-SHA256 over `IV \|\| ciphertext` |
 | Java deserialization gadgets via RECOVERDATA | Yes | Strict `ObjectInputFilter` whitelist (HashMap / String / numeric boxes only, 10 MB cap, depth 20) |
 | Off-curve / weak-point attacks on the SRA cascade | Yes | Ristretto255 canonical-encoding validation on every received point (prime-order group ⇒ no small-order / non-canonical ambiguities), atomic security lockdown on failure |
@@ -130,7 +130,7 @@ The rotation is under proof, and a smuggle is a non-permutation that no proof ca
 
 ### 2.7 Blind straddle: committing before the cards resolve
 
-The under-the-gun seat can post a voluntary **straddle**, a raise placed blind before any hole card is seen. For that blindness to be real rather than a screen convenience, the UTG has to commit its decision before it can resolve its own two cards, otherwise a modified client, or a host sitting in the UTG seat, could peek first and only then decide whether the straddle is worth posting. CoronaPoker enforces this as a **commit-reveal** layered on the same SRA dealing machinery. During the deal the straddler's two pocket slots are dealt with their unlock deliberately **deferred**: no peer strips its lock on them. The straddler signs its decision under a domain-separated context (`"STRADDLE\0"`, payload `HAND_ID || nick || decision`, `signStraddleDecision` in [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java)), the host broadcasts it, and **only after every peer verifies that signature** does each peer serve the deferred unlock of its share of those slots, so the straddler always learns its cards strictly after its decision is committed on the wire. The gate lives in the **responder**, not just the asker: each peer refuses to strip the straddler's slot under the ordinary pocket-dealing phase (`blindStraddlerSlot` in [`WaitingRoomFrame.java`](../src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java), computed from the UTG nick in the seat map) and serves it only under the dedicated straddle phase once the signed decision is verified. Without that responder-side check a hostile host, above all one seated at the UTG itself, could request the unlock through the normal pocket path and read the cards before committing. Host and client derive the same straddler independently (`blindStraddlerNickThisHand`, keyed off `Participant.isCpu`, reliable on either side), so they agree on which slot stays sealed, and if the deferred release or the signature ever fails the hand **MISDEALS** rather than leaking anything.
+The under-the-gun seat can post a voluntary **straddle**, a raise placed blind before any hole card is seen. For that blindness to be real rather than a screen convenience, the UTG has to commit its decision before it can resolve its own two cards, otherwise a modified client, or a host sitting in the UTG seat, could peek first and only then decide whether the straddle is worth posting. CoronaPoker enforces this as a **commit-reveal** layered on the same SRA dealing machinery. During the deal the straddler's two pocket slots are dealt with their unlock deliberately **deferred**: no peer strips its lock on them. The straddler signs its decision under a domain-separated context (`"STRADDLE\0"`, payload `HAND_ID || nick || decision`, `signStraddleDecision` in [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java)), the host broadcasts it, and **only after every peer verifies that signature** does each peer serve the deferred unlock of its share of those slots, so the straddler always learns its cards strictly after its decision is committed on the wire. The gate lives in the **responder**, not just the asker: each peer refuses to strip the straddler's slot under the ordinary pocket-dealing phase (the responder gate lives in the `REQ_SRA_UNLOCK_CHAIN` handler in [`WaitingRoomFrame.java`](../src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java), keyed off `Crupier.blindStraddlerSlot`, itself computed from the UTG nick in the seat map) and serves it only under the dedicated straddle phase once the signed decision is verified. Without that responder-side check a hostile host, above all one seated at the UTG itself, could request the unlock through the normal pocket path and read the cards before committing. Host and client derive the same straddler independently (`blindStraddlerNickThisHand`, keyed off `Participant.isCpu`, reliable on either side), so they agree on which slot stays sealed, and if the deferred release or the signature ever fails the hand **MISDEALS** rather than leaking anything.
 
 ---
 
@@ -158,7 +158,7 @@ PKCS5 padding for the CBC layer. The MAC covers `IV || ciphertext` (encrypt-then
 
 ### 3.3 Session-key identicon
 
-An "identicon" dialog ([`IdenticonDialog.java`](../src/main/java/com/tonikelope/coronapoker/IdenticonDialog.java) `Mode.SESSION`) renders a deterministic mosaic from `SHA-256(AES key)`, reachable from the waiting room by **right-clicking your own nick** in the participant list. A client opens the mosaic of its single channel with the host. The host opens the per-client grid of all channels ([`SessionIdenticonMosaicDialog.java`](../src/main/java/com/tonikelope/coronapoker/SessionIdenticonMosaicDialog.java)). Peers compare the mosaic visually out-of-band (voice call, in-person glance). Different mosaics mean the handshake was MITM'd, and both sides should disconnect.
+An "identicon" dialog ([`IdenticonDialog.java`](../src/main/java/com/tonikelope/coronapoker/IdenticonDialog.java) `Mode.SESSION`) renders a deterministic mosaic from `SHA-256(AES key)`, reachable from the waiting room by **right-clicking anywhere in the participant list** (the dialog does not depend on which row is clicked). A client opens the mosaic of its single channel with the host. The host opens the per-client grid of all channels ([`SessionIdenticonMosaicDialog.java`](../src/main/java/com/tonikelope/coronapoker/SessionIdenticonMosaicDialog.java)). Peers compare the mosaic visually out-of-band (voice call, in-person glance). Different mosaics mean the handshake was MITM'd, and both sides should disconnect.
 
 ---
 
@@ -175,19 +175,20 @@ Each install carries an `Ed25519` keypair per nick, stored at:
 Where `player_id_hex` is the first 8 bytes of `SHA-256(NFC(nick) UTF-8)` ([`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java), `playerIdHex`). The file is created with:
 
 - **POSIX**: `Files.setPosixFilePermissions(rw-------)` (read/write owner only).
-- **Windows**: ICACLS reset → grant FULL CONTROL only to the current SID → strip inheritance.
+- **Windows**: `icacls <file> /inheritance:r /grant:r <user>:(F)`, which strips the inherited ACEs and replaces the file's grants with Full Control for the current account (`user.name`) only.
 
 Identity binding is per-nick, not per-machine: re-using the same nick on the same machine reuses the same Ed25519 key.
 
 ### 4.2 Domain-separated signing contexts
 
-Four application-level contexts are signed under distinct prefixes so a signature collected in one context cannot be replayed in another:
+Five application-level contexts are signed under distinct prefixes so a signature collected in one context cannot be replayed in another:
 
 | Context | What it signs |
 |---|---|
 | `"ACTION\0"` | A `CanonicalActionRecord` (see §5), covering every bet, check, call, fold, raise, all-in, community announce |
 | `"RECEIPT\0"` | `HAND_ID \|\| H_final \|\| flags`, the final receipt sent to every peer at the end of the hand |
 | `"SHOWDOWN\0"` | `HAND_ID \|\| nick \|\| k_pocket`, releasing one's pocket key at showdown |
+| `"STRADDLE\0"` | `HAND_ID \|\| nick \|\| decision`, the UTG's blind-straddle commit-reveal decision (§2.7) |
 | `"JOIN\0"` | The join handshake commitment that pins the pubkey on first contact |
 
 The internal spec [`ec-identity-spec.md`](ec-identity-spec.md) covers each context in full detail (replay defenses, encoding rules, what each field commits to).
@@ -309,6 +310,7 @@ The fossil is a single row keyed by `id_game` (INSERT OR REPLACE) containing eve
 | `ORDER@` | b64-encoded nick list defining the ring permutation |
 | `FULLMEGAPACKET@` | The cascaded deck after every peer's lock pass |
 | `SRAKEYS@` / `SRAKEYS_COMMUNITY@` | The local peer's pocket / community unlocks |
+| `COMMITMENTS@` | The ring's per-peer key commitments (`K_pocket`, `K_community`), so recovery rebuilds the exact same `H_0` and the recovered action chain still verifies against it |
 | `BOTKEYS@`, `BOTKEYS_COMMUNITY@`, `BOTVISUAL@` | Equivalents for any local bots in the ring |
 | `POCKETS@` | Single-locked pocket residuals received from peers (for showdown verification) |
 | `VISUAL@` | The local peer's visible hole cards |
@@ -324,7 +326,7 @@ On `continue-last-game`:
 - The host reads SQLite, rebuilds dealer/SB/BB and re-derives blinds, and broadcasts a `RECOVERDATA` payload to every reconnecting client.
 - Each client reads its own SQLite, loads its fossil (if any), re-injects the SRA state, then absorbs the persisted actions to rebuild the `HandStateChain` and verify signatures along the way.
 - Recovery is **per-peer**: a late joiner who was never in the in-progress hand watches it as a passive observer (no cards dealt, no actions requested) and joins normally on the next hand. Cross-checking `preflop_players` from the host map against the local nick is what distinguishes a returning participant from an observer ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) `recuperarDatosClavePartida` client branch).
-- The RECOVERDATA payload is deserialized with a strict `ObjectInputFilter`: only `HashMap`, `String`, `Integer`, `Long`, `Float`, `Double` and `Boolean`, capped at 10 MB, 20 levels deep, and 10 000 array elements max. This blocks classic Java deserialization gadget chains.
+- The RECOVERDATA payload is deserialized with a strict `ObjectInputFilter` that allow-lists only the map scaffolding and boxed primitives it actually carries (`HashMap` and its internals, `Map.Entry`, `String`, `Number` and the numeric / `Boolean` boxes, plus the primitive types) and denies everything else, capped at 10 MB, 20 levels deep, and 10 000 references / array elements max. This blocks classic Java deserialization gadget chains.
 
 ---
 
@@ -361,7 +363,7 @@ A **client cannot MISDEAL, FORFEIT or AUTO-EXPEL** (it does not run the hand). I
 Every reaction above a benign SILENT-REFUSE surfaces on three channels at once:
 
 1. A **debug log** line through `java.util.logging` for the author reading the logs.
-2. A **red line in the in-game registro**. The line carries a translated marker (`security_alert`, `suspicious_alert` or `peer_alert`) that `GameLogDialog` maps to the red `ST_ALERT` style, so the incident stands out from normal play.
+2. A **red line in the in-game registro**. The line carries a translated marker (`zero_trust.security_alert`, `zero_trust.suspicious_alert` or `zero_trust.peer_alert`) that `GameLogDialog` maps to its strongest red style, `ST_CRITICAL` (white text on a red band), so the incident stands out from normal play.
 3. A **popup** for the player at the table.
 
 The alert **names the suspect** whenever there is one. On a **client**, the party that deals and coordinates is the host, so `warnSuspiciousHost` / `triggerSecurityLockdown` prepend `SUSPECT: host "X"`. On the **host**, the party at fault is a peer, so `warnMaliciousPeer` prepends `SUSPECT: player "X"`. The FORFEIT and MISDEAL sites choose the direction from `isPartida_local()`, so the same anomaly points at the host on a client and at the peer on the host. A benign-race SILENT-REFUSE names nobody because there is no incident to attribute.
@@ -387,7 +389,7 @@ The threat here is different from cheating. The adversary is a peer who already 
 
 Three properties keep these deadlines from ever punishing an honest player. They are set **far above** any legitimate slow client or slow-PC crypto. They **do not count paused time, nor time while any peer is reconnecting** (this is exactly the condition under which each client freezes the acting player's think-time countdown, so the host stays in lockstep with the clients and never expels an honest player who is simply waiting out someone else's network blip). And a genuinely dead peer still leaves through the normal socket-death path (`isExit`), not through the deadline. The betting deadline has one extra guard: it only applies when the **think-time limit is enabled** (the default). With think-time disabled the game allows unlimited thinking on purpose, so a withheld action cannot be told apart from a human taking their time, and the remedy there is a manual kick.
 
-Because a single refusal or one slow reveal might be a bug, the deadlines respond proportionately. The cascade and rotation MISDEAL first and only AUTO-EXPEL a peer that forces **several** cancellations in a row (a same-version client never produces invalid crypto or withholds past the deadline, so a repeat is unambiguous). This keeps a one-off hiccup from removing anyone while still stopping a peer from looping MISDEALs forever.
+Because a single refusal or one slow reveal might be a bug, the deadlines respond proportionately. The cascade and rotation MISDEAL first and only AUTO-EXPEL a peer once its refusals over the game reach a strike threshold (`MAX_DEAL_REFUSAL_STRIKES`). A same-version client never produces invalid crypto or withholds past the deadline, so repeated refusals are unambiguous. This keeps a one-off hiccup from removing anyone while still stopping a peer from looping MISDEALs forever.
 
 The three layers, the six-tier reaction ladder and the withheld-message AUTO-EXPEL flow are drawn together in the [denial-of-service diagram](#denial-of-service-resistance-and-the-reaction-ladder) at the top of this document.
 

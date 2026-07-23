@@ -41,7 +41,7 @@ Source: [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/Ide
 An Ed25519 keypair is generated on first use of a given nick on a given machine.
 
 - **Algorithm**: `Ed25519` (RFC 8032), via `KeyPairGenerator.getInstance("Ed25519")` (native in JDK 15+).
-- **Binding**: **per-nick**, not per-install. The keypair is bound to the NFC-canonicalized nick. A `playerIdHex` slug = the first 16 hex chars (8 bytes / 64 bits) of `SHA-256(NFC(nick) UTF-8)`.
+- **Binding**: **per-nick**, not per-install. The keypair is bound to the canonicalized nick (`IdentityManager.canonicalNick`: surrounding whitespace trimmed, then NFC-normalized). A `playerIdHex` slug = the first 16 hex chars (8 bytes / 64 bits) of `SHA-256(NFC(trim(nick)) UTF-8)`.
 - **Storage** under `<user.home>/.coronapoker/`:
   - Private key: `identity_<player_id_hex>.ed25519`, PKCS#8 encoded.
   - Public key: sidecar `identity_<player_id_hex>.ed25519.pub`, 32 raw bytes (no header).
@@ -77,8 +77,8 @@ Exposed via `getShortFingerprint()` / `getFullFingerprint()`.
 
 Two distinct identicons exist, both rendered by [`IdenticonDialog.java`](../src/main/java/com/tonikelope/coronapoker/IdenticonDialog.java) on a `SHA-256` hash over a `7×7` grid with horizontal symmetry, two foreground colors drawn from disjoint hash bytes and a transparent background:
 
-- **Session identicon**: hashes the negotiated session **AES key**, for network-MITM detection. Reachable from the waiting room by **right-clicking your own nick** in the participant list: a **client** opens the AES identicon of its single channel with the host. The **host** opens the per-client mosaic of every channel ([`SessionIdenticonMosaicDialog.java`](../src/main/java/com/tonikelope/coronapoker/SessionIdenticonMosaicDialog.java)).
-- **Identity identicon**: hashes the peer's **Ed25519 pubkey**, for identity OOB verification, with the full fingerprint hex shown in the title and a "Verify identity" button. Reachable at the table by clicking a human player's avatar.
+- **Session identicon**: hashes the negotiated session **AES key**, for network-MITM detection. Reachable from the waiting room by **right-clicking anywhere in the participant list** (the opened dialog does not depend on where the click lands): a **client** opens the AES identicon of its single channel with the host. The **host** opens the per-client mosaic of every channel ([`SessionIdenticonMosaicDialog.java`](../src/main/java/com/tonikelope/coronapoker/SessionIdenticonMosaicDialog.java)).
+- **Identity identicon**: hashes a peer's **Ed25519 pubkey**, for identity OOB verification, with the full fingerprint hex shown in the title. Reachable at the table by clicking a human player's avatar. Clicking a **remote** human's avatar shows the "Verify identity" button; clicking **your own** avatar shows the same identicon and fingerprint with a copy-to-share hint instead, since there is no peer to verify against.
 
 ---
 
@@ -107,7 +107,7 @@ The Ed25519 domain `"JOIN\0"` is prepended to the signed message (the manager ca
 
 ### Replay protection by `session_id`
 
-Each game has a fresh `session_id`. A `self_sig` is valid only for the session whose `session_id` it encodes. Replaying a join from a previous session fails verification against the current `session_id`. A failed self-sig is rejected with the same response as a version mismatch, to avoid giving an attacker an oracle.
+Each game has a fresh `session_id`. A `self_sig` is valid only for the session whose `session_id` it encodes. Replaying a join from a previous session fails verification against the current `session_id`. A cryptographically invalid self-sig closes the socket silently with no reply at all (`WaitingRoomFrame.verifyJoinSelfSig`), so a replayed or tampered join gets no distinguishing message back. The one join failure that does answer, with `BADVERSION#<host_version>` exactly as a version mismatch would, is a structurally malformed JOIN (wrong field count or missing `JOIN` marker field).
 
 ### Version gate
 
@@ -243,10 +243,12 @@ A peer also drops any `COMM_REVEAL` whose `STREET` doesn't match the street it i
 ### 4.9 Wire encoding of a signed action
 
 ```
-GAME # <hand_seq> # <ACTION_TYPE_STR> # <nick> # <amount_str> # <record_b64> # <sig_b64>
+GAME # <command_id> # ACTION # <nick_b64> # <decision> # <bet> # <cinematic_or_*> # <record_b64> # <sig_b64>
 ```
 
-The human-readable fields (`hand_seq`, `ACTION_TYPE_STR`, `nick`, `amount_str`) are retained for logs and parser compatibility. **Only `<record_b64>` and `<sig_b64>` are cryptographically meaningful**. They are the canonical values fed to the chain and verifier.
+The outer `GAME # <command_id> #` envelope is prepended by `broadcastGAMECommandFromServer` / `sendGAMECommandToServer`, where `command_id` is a random per-command int (`Helpers.CSPRNG_GENERATOR.nextInt()`) used only for CONF de-duplication, not a hand sequence number. The inner `ACTION` subcommand carries the Base64 nick, the numeric `decision` code (the Java `Player` action constant), the `bet` amount as a decimal string (`0` for non-bets), a `cinematic_or_*` slot (the all-in animation payload or `*`), and finally `record_or_*` / `sig_or_*` (each `*` when absent).
+
+The nick, decision, bet and cinematic fields are operational (logs, animations, parser compatibility). **Only `<record_b64>` and `<sig_b64>` are cryptographically meaningful**. They are the canonical values fed to the chain and verifier.
 
 ---
 
@@ -313,11 +315,11 @@ At hand close every peer publishes a signed receipt over the `HANDVERIFY` comman
 ### 6.1 Wire form
 
 ```
-Host → all:      SERVER # <dest> # HANDVERIFY                       (no payload, trigger)
-Each peer → all: SERVER # <dest> # HANDVERIFY # <nick_b64> # <receipt_b64>
+Host → all:      GAME # <command_id> # HANDVERIFY                       (no payload, trigger)
+Each peer → all: GAME # <command_id> # HANDVERIFY # <nick_b64> # <receipt_b64>
 ```
 
-The parser distinguishes the two by field count.
+Both forms ride the standard `GAME # <command_id> #` envelope. The parser distinguishes the trigger from a receipt by field count (3 fields vs 5).
 
 ### 6.2 Receipt format
 
@@ -346,7 +348,7 @@ The outcomes, in descending priority (only the strongest is surfaced):
 |---|---|---|---|
 | `DIVERGENT` | a receipt's sig fails or its `H_final` differs | SEVERE (interpreted as host manipulation) | `reason='DIVERGENT'` |
 | `MISSING` | a peer's receipt is absent / wrong length / stale `HAND_ID` / pubkey unavailable | WARNING (ambiguous: network or crash) | `reason='MISSING'` |
-| `INVALID_SIG_SEEN` | all sigs valid and `H_final`s match, but some peer flagged an invalid action sig (bit0) | SEVERE | `reason='INVALID_SIG_SEEN'` |
+| `INVALID_SIG_SEEN` | all sigs valid and `H_final`s match, but some peer flagged an invalid action sig (bit0) | WARNING (popup to the table) | `reason='INVALID_SIG_SEEN'` |
 | `DECK_NO_PROOF` | otherwise clean, but some peer never received the shuffle proof (bit1+bit2), host may be withholding it | WARNING (popup to the table) | `reason='DECK_NO_PROOF'` |
 | `DECK_UNVERIFIED` | otherwise clean, but some peer's proof is still verifying (bit1 alone, slow peer) | WARNING (silent: JUL + row, no popup) | `reason='DECK_UNVERIFIED'` |
 | `OK` | all present, unanimous, no flag bit set | INFO | No |
@@ -363,7 +365,7 @@ Aborting would be a trivial griefing vector (any peer could rage-quit mid-river 
 
 ### 6.4 User-facing messaging
 
-The Crupier log shows one of the verification outcomes at hand close. On divergence / invalid-sig / missing a modal `Helpers.mostrarMensajeInformativo` is shown (none on success), and the JUL `LOGGER` records INFO / WARNING / SEVERE accordingly. The translatable strings live under the `game.mano_verificada_consenso`, `game.mano_verificacion_divergente`, `game.mano_verificacion_jugador_ausente`, `game.popup_verificacion_firma_invalida`, `game.popup_verificacion_divergente` and `game.popup_verificacion_ausente` keys in `messages_es.properties` / `messages_en.properties`.
+The Crupier log shows one of the verification outcomes at hand close. On divergence / missing / invalid-sig / deck-no-proof a modal `Helpers.mostrarMensajeInformativo` is shown (none on `OK`, and none on the deliberately silent `DECK_UNVERIFIED`), and the JUL `LOGGER` records INFO / WARNING / SEVERE accordingly. The translatable strings live under the `game.mano_verificada_consenso`, `game.mano_verificacion_divergente`, `game.mano_verificacion_jugador_ausente`, `game.popup_verificacion_firma_invalida`, `game.popup_verificacion_divergente` and `game.popup_verificacion_ausente` keys in `messages_es.properties` / `messages_en.properties`.
 
 ---
 
@@ -415,12 +417,12 @@ Wire-incompatible changes are gated by the strict `AboutDialog.VERSION` equality
 
 | Where | Element | Behavior |
 |---|---|---|
-| Table, `LocalPlayer` (human) | Clickable avatar | Opens the identity identicon of own pubkey + full fingerprint + "Verify identity". No passive verification indicator on the table. |
+| Table, `LocalPlayer` (human) | Clickable avatar | Opens the identity identicon of own pubkey + full fingerprint + a copy-to-share hint. No "Verify identity" button (self-verification is meaningless) and no passive verification indicator on the table. |
 | Table, `RemotePlayer` (human) | Clickable avatar | Opens the identity identicon of the peer's pubkey + fingerprint + "Verify identity" (sets `verified_oob=1` for that `(nick, pubkey)`). No passive verification indicator on the table. |
 | Table, `RemotePlayer` (bot) | Avatar click is a no-op | Bots have no identity. The avatar click does nothing for them. |
-| Waiting room, own nick (right-click) | Session-key identicon | Client opens the AES identicon of its channel with the host. Host opens the per-client session-identicon mosaic (`SessionIdenticonMosaicDialog`). |
+| Waiting room, participant list (right-click) | Session-key identicon | Client opens the AES identicon of its channel with the host. Host opens the per-client session-identicon mosaic (`SessionIdenticonMosaicDialog`). |
 | `NewGameDialog` (host) | Non-blocking warning | If estimated password entropy `< 60 bits`, warn. The host may proceed. |
-| Crupier log / modal at hand close | Verification outcome | `✓ verified` / `⚠ divergent` / `⚠ missing`. Modal only on a non-OK outcome. |
+| Crupier log / modal at hand close | Verification outcome | `✓ verified` / `⚠ divergent` / `⚠ missing`. Modal on any non-OK outcome except the deliberately silent `DECK_UNVERIFIED`. |
 
 ---
 

@@ -186,9 +186,12 @@ does not recompute invariants):
    penalties, floored at `0.10`.
 4. **Scare-card detection:** on a new street, an effective-strength drop greater
    than `0.15` flags a scare card (and can downgrade an aggressive plan).
-5. **`winProb` adjustments** to the raw equity for the *context*:
+5. **`winProb` adjustments** to the raw equity for the *context*. The whole
+   block applies **only to non-`RECREATIONAL` skills**: a `RECREATIONAL` bot
+   skips every adjustment below and only gets a `+0.10` nudge when on tilt.
    - −0.10 in a 3-bet-or-larger pot, −0.04 per extra multiway opponent,
-     −0.12 on a scare card, −0.03 out of position.
+     −0.12 on a scare card (skipped for a LAG profile, which does not flinch at
+     scare cards), −0.03 out of position.
    - opponent read (when there is enough data): −0.18 vs a nit, +0.12 vs a
      maniac, −0.03 vs a station.
    - a small shark edge on HARD/MEDIUM, and a touch of random noise on EASY.
@@ -236,7 +239,7 @@ survives across streets instead of deciding each street in a vacuum:
 
 | Plan | When | Behaviour |
 |------|------|-----------|
-| `BET·BET·BET` | a monster, or a LAG triple-barrel bluff | barrel every street |
+| `BET·BET·BET` | a monster, a LAG value-barrel (strength in `[0.60, 0.80)`), or a LAG triple-barrel bluff | barrel every street |
 | `BET·CHK·BET` | a strong-but-not-nutted hand | pot control on the turn |
 | `CHK·CALL` | a trap with the nuts (slow-play / TAG) | check-call down |
 | `none` | draws and marginal hands | decide street by street |

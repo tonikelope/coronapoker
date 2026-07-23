@@ -249,6 +249,20 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         return !gf.getCrupier().isFin_de_la_transmision() && (gf.getFastchat_dialog() == null || !gf.getFastchat_dialog().isVisible());
     }
 
+    // El panel abarca el ancho de la barra DESPLEGADA aunque esté plegada, y vive en la POPUP_LAYER
+    // del tapete (por encima de los asientos). Plegada solo se ve el icono "menu", pero un JPanel
+    // transparente seguiría capturando el ratón en TODO su rectángulo, tapando lo que hay debajo
+    // (p. ej. la etiqueta de jugada de un jugador, que se resalta al pasar el ratón por ella).
+    // Acotamos el hit-test: plegada, solo el icono "menu" pertenece al panel; el resto deja pasar el
+    // ratón a los componentes del tapete. Desplegada (chat visible), comportamiento normal.
+    @Override
+    public boolean contains(int x, int y) {
+        if (!chat.isVisible()) {
+            return menu.isVisible() && menu.getBounds().contains(x, y);
+        }
+        return super.contains(x, y);
+    }
+
     // Pinta la barra con la opacidad actual (para el desvanecimiento). A opacidad plena delega
     // directamente; si no, compone todo el árbol (iconos incluidos) con un AlphaComposite.
     @Override

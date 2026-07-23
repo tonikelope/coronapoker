@@ -387,9 +387,11 @@ public class AppearanceSettingsPanel extends JPanel {
         JLabel trasera_label = new JLabel(Translator.translate("settings.trasera") + ":");
         trasera_label.setIcon(icon("/images/menu/baraja.png"));
         JPanel baraja_grid = new JPanel(new java.awt.GridBagLayout()) {
+            // Ancho máximo = preferido: el BoxLayout del recuadro no la estira (con weightx=0
+            // centraría las filas); ceñida a su preferido queda pegada a la izquierda.
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+                return getPreferredSize();
             }
         };
         baraja_grid.setOpaque(false);
@@ -400,13 +402,18 @@ public class AppearanceSettingsPanel extends JPanel {
         baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM));
         baraja_grid.add(baraja_label, baraja_gbc);
         baraja_gbc.gridx = 1;
+        // fill=HORIZONTAL: ambos desplegables al ancho de la columna (= el más ancho), así Baraja
+        // y Cara trasera quedan del MISMO ancho.
+        baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
         baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
         baraja_grid.add(baraja_combo, baraja_gbc);
         baraja_gbc.gridx = 0;
         baraja_gbc.gridy = 1;
+        baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
         baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
         baraja_grid.add(trasera_label, baraja_gbc);
         baraja_gbc.gridx = 1;
+        baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
         baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
         baraja_grid.add(trasera_combo, baraja_gbc);
         addToGroup(baraja_group, baraja_grid);

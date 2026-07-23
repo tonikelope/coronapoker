@@ -724,6 +724,8 @@ public class AppearanceSettingsPanel extends JPanel {
         addToGroup(destapar_group, animCheckbox("/images/menu/flip.png", "menu.efectos_animacion_destape",
                 null, "animacion_destape", v -> GameFrame.ANIMACION_DESTAPE_PREF = v, GameFrame.ANIMACION_DESTAPE_PREF));
         final JCheckBox destapar_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Velocidad y efecto acercar van en una rejilla que ALINEA sus desplegables en columna.
+        JPanel destapar_sub = subGrid();
         // Velocidad del destape: 5 opciones (muy lenta ... muy rápida). "Normal" es el valor
         // por defecto exacto. Cuelga (más sangrado) del ajuste "Destapar": se deshabilita si se
         // desmarca "Destapar" o el maestro. Guarda la duración en ms (GameFrame.CARD_FLIP_DURATION).
@@ -769,12 +771,7 @@ public class AppearanceSettingsPanel extends JPanel {
             // Predeterminado: velocidad "Normal" (índice 2 = DEFAULT_CARD_FLIP_DURATION).
             reset_actions.add(() -> speed_combo.setSelectedIndex(2));
 
-            JPanel flip_row = naturalRow();
-            flip_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // más sangrado: cuelga de "Destapar"
-            flip_row.add(new JLabel(icon("/images/menu/clock.png")));
-            flip_row.add(flip_text);
-            flip_row.add(speed_combo);
-            addToGroup(destapar_group, flip_row);
+            addAlignedSubRow(destapar_sub, 0, "/images/menu/clock.png", flip_text, speed_combo);
         }
         // Efecto "acercar": 4 opciones (desactivado ... fuerte). Cuelga de "Destapar" igual que la
         // velocidad. Guarda el porcentaje de agrandado (GameFrame.CARD_FLIP_ZOOM): 100 = desactivado.
@@ -820,13 +817,9 @@ public class AppearanceSettingsPanel extends JPanel {
             // Predeterminado: efecto acercar DESACTIVADO (índice 0 = DEFAULT_CARD_FLIP_ZOOM 100).
             reset_actions.add(() -> zoom_combo.setSelectedIndex(0));
 
-            JPanel zoom_row = naturalRow();
-            zoom_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
-            zoom_row.add(new JLabel(icon("/images/menu/zoom_in.png")));
-            zoom_row.add(zoom_text);
-            zoom_row.add(zoom_combo);
-            addToGroup(destapar_group, zoom_row);
+            addAlignedSubRow(destapar_sub, 1, "/images/menu/zoom_in.png", zoom_text, zoom_combo);
         }
+        addToGroup(destapar_group, destapar_sub);
         addLeft(anim, indent(destapar_group));
 
         // --- Ordenar la mano (cruce animado de tus dos hole cards al ordenarlas, solo Ajustes) ---
@@ -835,6 +828,8 @@ public class AppearanceSettingsPanel extends JPanel {
         addToGroup(swap_group, animCheckbox("/images/menu/swap.png", "menu.efectos_animacion_swap",
                 null, "animacion_swap", v -> GameFrame.ANIMACION_SWAP_PREF = v, GameFrame.ANIMACION_SWAP_PREF));
         final JCheckBox swap_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Velocidad y estilo van en una rejilla que ALINEA sus desplegables en columna.
+        JPanel swap_sub = subGrid();
         // Velocidad del cruce: 3 opciones (lenta/normal/rápida). "Normal" = valor por defecto
         // (320 ms). Cuelga del ajuste: se deshabilita si se desmarca o el maestro está off.
         // Guarda la duración en ms (GameFrame.SWAP_ANIM_DURATION).
@@ -878,12 +873,7 @@ public class AppearanceSettingsPanel extends JPanel {
             // Predeterminado: velocidad "Normal" (índice 1 = DEFAULT_SWAP_ANIM_DURATION).
             reset_actions.add(() -> swap_combo.setSelectedIndex(1));
 
-            JPanel swap_row = naturalRow();
-            swap_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Ordenar la mano"
-            swap_row.add(new JLabel(icon("/images/menu/clock.png")));
-            swap_row.add(swap_text);
-            swap_row.add(swap_combo);
-            addToGroup(swap_group, swap_row);
+            addAlignedSubRow(swap_sub, 0, "/images/menu/clock.png", swap_text, swap_combo);
         }
         // Estilo del cruce: 2 opciones (Arco "saltito" / Horizontal). Cuelga del ajuste
         // "Ordenar la mano" igual que la velocidad. Guarda un booleano (GameFrame.SWAP_ANIM_ARC).
@@ -916,13 +906,9 @@ public class AppearanceSettingsPanel extends JPanel {
             // Predeterminado: estilo "Horizontal" (índice 1 = SWAP_ANIM_ARC false).
             reset_actions.add(() -> style_combo.setSelectedIndex(1));
 
-            JPanel style_row = naturalRow();
-            style_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // mismo sangrado que la velocidad
-            style_row.add(new JLabel(icon("/images/menu/swap.png")));
-            style_row.add(style_text);
-            style_row.add(style_combo);
-            addToGroup(swap_group, style_row);
+            addAlignedSubRow(swap_sub, 1, "/images/menu/swap.png", style_text, style_combo);
         }
+        addToGroup(swap_group, swap_sub);
         addLeft(anim, indent(swap_group));
 
         // --- Recolocación de la mesa al salir jugadores (DynamicTablePanel, solo Ajustes) ---
@@ -1669,6 +1655,41 @@ public class AppearanceSettingsPanel extends JPanel {
                 return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
             }
         };
+    }
+
+    // Rejilla vacía para subajustes que cuelgan de un checkbox padre (velocidad, efecto, estilo...):
+    // cada fila se añade con addAlignedSubRow y TODOS los desplegables quedan alineados en una
+    // columna común, en vez de caer a distinta x según lo ancha que sea su etiqueta. La rejilla
+    // (GridBagLayout) mide los anchos EN VIVO, así que se adapta a cambios de fuente/zoom.
+    private JPanel subGrid() {
+        JPanel grid = new JPanel(new java.awt.GridBagLayout()) {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        grid.setOpaque(false);
+        grid.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        return grid;
+    }
+
+    // Añade una fila (etiqueta con icono | desplegable) a una rejilla creada con subGrid(). La
+    // sangría de sub-opción va como inset izquierdo de la etiqueta; la columna de etiquetas mide
+    // lo que la más ancha, de modo que los desplegables de todas las filas arrancan en la MISMA x.
+    // gridy = índice de fila (0 la primera); las siguientes llevan un poco de aire arriba.
+    private void addAlignedSubRow(JPanel grid, int gridy, String iconPath, JLabel label, JComponent control) {
+        label.setIcon(icon(iconPath));
+        int gap = Math.round(6 * Helpers.DIALOG_ZOOM);
+        int top = gridy > 0 ? Math.round(4 * Helpers.DIALOG_ZOOM) : 0;
+        java.awt.GridBagConstraints g = new java.awt.GridBagConstraints();
+        g.gridy = gridy;
+        g.anchor = java.awt.GridBagConstraints.WEST;
+        g.gridx = 0;
+        g.insets = new java.awt.Insets(top, Math.round(24 * Helpers.DIALOG_ZOOM), 0, gap);
+        grid.add(label, g);
+        g.gridx = 1;
+        g.insets = new java.awt.Insets(top, 0, 0, 0);
+        grid.add(control, g);
     }
 
     // Checkbox que REFLEJA un toggle de apariencia. En partida (menu != null) un clic =

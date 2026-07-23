@@ -512,7 +512,7 @@ public class AudioSettingsPanel extends JPanel {
         // individuales AGRUPADOS POR TIPO (cabecera en negrita + sus casillas sangradas), en DOS
         // columnas para que la lista no dispare el alto. "Mis cartas" cuelga (más sangría) de
         // "Destapar". Cada casilla se nombra por PARA QUÉ se usa (no por el sonido).
-        JPanel efectos_group = groupBox();
+        JPanel efectos_group = groupBox(true);
         efectos_group.add(iconRow(menuIcon("/images/menu/fx.png"), sonido_efectos_checkbox));
 
         // Columna izquierda de tipos: acciones + cartas + sala. Repartida para quedar pareja en
@@ -574,15 +574,17 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_b.add(effectRow(menuIcon("/images/menu/corona.png"), sonido_arranque_checkbox, false, previewButton("misc/init.wav")));
         fx_col_b.add(Box.createVerticalGlue());
 
-        // GridBagLayout (no GridLayout): cada subcolumna toma su ANCHO PREFERIDO. GridLayout las
-        // forzaba al MISMO ancho, dejando un hueco muerto en la más estrecha y ensanchando el
-        // recuadro sin motivo. Ambas a la MISMA ALTURA (fill=BOTH, weighty=1) para alinear sus
-        // cabeceras; getMaximumSize=preferido evita que el BoxLayout del recuadro las estire y
-        // las centre. La izquierda (más corta) deja hueco abajo, absorbido por su glue.
+        // GridBagLayout (no GridLayout): cada subcolumna toma su ANCHO PREFERIDO (weightx=0);
+        // GridLayout las forzaba al MISMO ancho, dejando hueco muerto en la más estrecha. Ambas a
+        // la MISMA ALTURA (fill=BOTH, weighty=1) para alinear sus cabeceras. Entre las dos va una
+        // celda ELÁSTICA (weightx=1): al ensanchar el diálogo, el sobre-ancho ABRE la separación
+        // entre columnas en vez de quedar como hueco a la derecha del recuadro. Ancho máximo libre
+        // (para poder estirarse) y alto topado al preferido (no crece de más); la izquierda, más
+        // corta, deja hueco abajo absorbido por su glue.
         JPanel fx_cols = new JPanel(new java.awt.GridBagLayout()) {
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return getPreferredSize();
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
             }
         };
         fx_cols.setOpaque(false);
@@ -594,13 +596,19 @@ public class AudioSettingsPanel extends JPanel {
         fx_gbc.weightx = 0.0;
         fx_gbc.anchor = java.awt.GridBagConstraints.NORTHWEST;
         fx_gbc.gridx = 0;
+        // Separación mínima entre columnas cuando el diálogo está a su ancho natural.
         fx_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(16 * Helpers.DIALOG_ZOOM));
         fx_cols.add(fx_col_a, fx_gbc);
+        // Muelle central: se lleva todo el ancho sobrante y empuja la 2ª columna hacia la derecha.
         fx_gbc.gridx = 1;
+        fx_gbc.weightx = 1.0;
         fx_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        fx_cols.add(Box.createHorizontalGlue(), fx_gbc);
+        fx_gbc.gridx = 2;
+        fx_gbc.weightx = 0.0;
         fx_cols.add(fx_col_b, fx_gbc);
         efectos_group.add(fx_cols);
-        sound_music_panel.add(indent(efectos_group));
+        sound_music_panel.add(indentFill(efectos_group));
 
         // --- Output device ---
         DefaultListModel<String> output_model = new DefaultListModel<>();
@@ -1470,6 +1478,14 @@ public class AudioSettingsPanel extends JPanel {
     // que el fondo del panel se vea a través; alto máximo = preferido (no se estira en el
     // BoxLayout vertical de "Sonido y música").
     private static JPanel groupBox() {
+        return groupBox(false);
+    }
+
+    // fill_width=true: el recuadro OCUPA el ancho disponible de la columna (alto topado a su
+    // preferido) en lugar de ceñirse a su contenido — lo usa el recuadro de efectos para que el
+    // sobre-ancho al ensanchar el diálogo se reparta como separación entre sus dos columnas y no
+    // quede como hueco muerto a su derecha.
+    private static JPanel groupBox(boolean fill_width) {
         JPanel p = new JPanel() {
             @Override
             protected void paintComponent(java.awt.Graphics g) {
@@ -1482,12 +1498,14 @@ public class AudioSettingsPanel extends JPanel {
                 g2.dispose();
             }
 
-            // Ciñe el recuadro a su contenido (no ocupa todo el ancho de la columna): así,
-            // sangrado bajo el maestro, se lee como un subgrupo y no como una franja. En vivo
-            // (getPreferredSize), no un valor cacheado con la fuente vieja.
+            // Por defecto ciñe el recuadro a su contenido (no ocupa todo el ancho de la columna):
+            // así, sangrado bajo el maestro, se lee como un subgrupo y no como una franja. Con
+            // fill_width deja crecer el ancho (alto topado al preferido) para estirarse con la
+            // columna. En vivo (getPreferredSize), no un valor cacheado con la fuente vieja.
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return getPreferredSize();
+                java.awt.Dimension pref = getPreferredSize();
+                return fill_width ? new java.awt.Dimension(Short.MAX_VALUE, pref.height) : pref;
             }
         };
         p.setOpaque(false);
@@ -1630,6 +1648,27 @@ public class AudioSettingsPanel extends JPanel {
         comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         wrap.add(comp);
         wrap.add(Box.createHorizontalGlue());
+        return wrap;
+    }
+
+    // Como indent() pero SIN glue final: el componente OCUPA el ancho de la columna en lugar de
+    // ceñirse a su contenido (para el recuadro de efectos, que debe estirarse con la columna y
+    // repartir el sobre-ancho entre sus dos columnas en vez de dejar hueco muerto a su derecha).
+    // Mantiene la sangría de 22px bajo el maestro; alto máximo = preferido (no se estira en el
+    // BoxLayout Y del panel).
+    private static JComponent indentFill(JComponent comp) {
+        JPanel wrap = new JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        wrap.setOpaque(false);
+        wrap.setLayout(new BoxLayout(wrap, BoxLayout.X_AXIS));
+        wrap.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        wrap.add(Box.createHorizontalStrut(Math.round(22 * Helpers.DIALOG_ZOOM)));
+        comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        wrap.add(comp);
         return wrap;
     }
 

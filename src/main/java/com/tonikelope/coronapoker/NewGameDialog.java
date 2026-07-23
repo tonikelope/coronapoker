@@ -404,11 +404,16 @@ public class NewGameDialog extends JDialog {
 
         Helpers.scaleIcons(this, Helpers.DIALOG_ZOOM);
 
-        revalidate();
-        repaint();
-
-        pack();
-
+        // Apertura con un SOLO pack(). Antes se empaquetaba para leer el tamano
+        // preferido, se clampaba y se volvia a empaquetar: dos relayouts completos
+        // de ventana en el caso habitual (este dialogo es alto y casi siempre hay
+        // que clampar). El tamano preferido ya se puede consultar directamente
+        // (getPreferredSize refleja el estado tras updateFonts/scaleIcons y el peer
+        // existe desde el pack() de initComponents), asi que clampamos ANTES y
+        // empaquetamos una unica vez. Se quitan tambien el revalidate()/repaint()
+        // previos: el pack() ya revalida y la ventana todavia no es visible (Init
+        // hace setVisible despues), asi que no pintaban nada.
+        //
         // Se clampa al AREA UTIL (getMaximumWindowBounds excluye la barra de
         // tareas), no al tamano total de pantalla: en baja resolucion la
         // ventana cabe entera por encima de la barra de tareas y el scroll
@@ -416,19 +421,22 @@ public class NewGameDialog extends JDialog {
         // quedan fijos abajo (fuera del scroll), siempre visibles.
         Rectangle usable_bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
 
-        int w = Math.min(getWidth(), Math.round(usable_bounds.width * 0.95f));
+        Dimension pref_size = getPreferredSize();
 
-        int h = Math.min(getHeight(), Math.round(usable_bounds.height * 0.95f));
+        int w = Math.min(pref_size.width, Math.round(usable_bounds.width * 0.95f));
 
-        if (w != getWidth() || h != getHeight()) {
-            setSize(w, h);
+        int h = Math.min(pref_size.height, Math.round(usable_bounds.height * 0.95f));
 
-            setPreferredSize(getSize());
+        boolean clamped = (w != pref_size.width || h != pref_size.height);
 
-            pack();
+        if (clamped) {
+            setPreferredSize(new Dimension(w, h));
+        }
 
+        pack();
+
+        if (clamped) {
             Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), usable_bounds.width);
-
         }
 
         init = true;

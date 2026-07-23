@@ -751,7 +751,6 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
             speed_combo.setSelectedIndex(sel);
-            speed_combo.setMaximumSize(speed_combo.getPreferredSize());
             speed_combo.addActionListener(e -> {
                 int ms = speed_ms[speed_combo.getSelectedIndex()];
                 GameFrame.CARD_FLIP_DURATION = ms;
@@ -797,7 +796,6 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
             zoom_combo.setSelectedIndex(sel);
-            zoom_combo.setMaximumSize(zoom_combo.getPreferredSize());
             zoom_combo.addActionListener(e -> {
                 int pct = acercar_pct[zoom_combo.getSelectedIndex()];
                 GameFrame.CARD_FLIP_ZOOM = pct;
@@ -854,7 +852,6 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
             swap_combo.setSelectedIndex(sel);
-            swap_combo.setMaximumSize(swap_combo.getPreferredSize());
             swap_combo.addActionListener(e -> {
                 int ms = speed_ms[swap_combo.getSelectedIndex()];
                 GameFrame.SWAP_ANIM_DURATION = ms;
@@ -887,7 +884,6 @@ public class AppearanceSettingsPanel extends JPanel {
             final JLabel style_text = new JLabel(Translator.translate("settings.swap_estilo") + ":");
             final javax.swing.JComboBox<String> style_combo = new javax.swing.JComboBox<>(style_labels);
             style_combo.setSelectedIndex(GameFrame.SWAP_ANIM_ARC ? 0 : 1);
-            style_combo.setMaximumSize(style_combo.getPreferredSize());
             style_combo.addActionListener(e -> {
                 boolean arc = style_combo.getSelectedIndex() == 0;
                 GameFrame.SWAP_ANIM_ARC = arc;
@@ -1662,10 +1658,13 @@ public class AppearanceSettingsPanel extends JPanel {
     // columna común, en vez de caer a distinta x según lo ancha que sea su etiqueta. La rejilla
     // (GridBagLayout) mide los anchos EN VIVO, así que se adapta a cambios de fuente/zoom.
     private JPanel subGrid() {
+        // Ancho máximo = preferido (no solo el alto): así el BoxLayout del recuadro NO estira la
+        // rejilla; con weightx=0 en todas las celdas, estirarla centraría las filas en vez de
+        // dejarlas pegadas a la izquierda. Ceñida a su preferido, queda a la izquierda (LEFT).
         JPanel grid = new JPanel(new java.awt.GridBagLayout()) {
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+                return getPreferredSize();
             }
         };
         grid.setOpaque(false);
@@ -1688,6 +1687,9 @@ public class AppearanceSettingsPanel extends JPanel {
         g.insets = new java.awt.Insets(top, Math.round(24 * Helpers.DIALOG_ZOOM), 0, gap);
         grid.add(label, g);
         g.gridx = 1;
+        // fill=HORIZONTAL: el desplegable ocupa el ancho de la columna (= el del más ancho de la
+        // rejilla), así todos los desplegables del grupo quedan del MISMO ancho (más limpio).
+        g.fill = java.awt.GridBagConstraints.HORIZONTAL;
         g.insets = new java.awt.Insets(top, 0, 0, 0);
         grid.add(control, g);
     }

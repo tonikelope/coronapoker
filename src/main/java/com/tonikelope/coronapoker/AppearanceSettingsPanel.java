@@ -336,17 +336,16 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
         });
-        // Baraja + Trasera van juntas en un recuadro con borde (groupBox), igual
-        // que las opciones agrupadas de la columna Animaciones: la baraja es la
-        // opción principal y la trasera su subajuste (cuelga con sangría).
+        // Baraja + Cara trasera van juntas en un recuadro con borde (groupBox). Ambas se
+        // disponen en una rejilla de 2 columnas (etiqueta | desplegable) más abajo, para que
+        // sus desplegables queden ALINEADOS en la misma columna.
         JPanel baraja_group = groupBox();
-        addToGroup(baraja_group, labeledRow("/images/menu/baraja.png", "settings.baraja", baraja_combo));
         // Predeterminado: baraja de fábrica.
         reset_actions.add(() -> baraja_combo.setSelectedItem(GameFrame.BARAJA_DEFAULT));
 
         // Trasera: "default" (sigue a la baraja actual) + una opción por cada baraja (juego o
-        // mod) para usar su dorso con otras caras. Va con SANGRÍA bajo "Baraja". En partida
-        // aplica en vivo (refresca el dorso); fuera persiste y reconstruye el dorso estático.
+        // mod) para usar su dorso con otras caras. Va alineada con "Baraja" (misma rejilla). En
+        // partida aplica en vivo (refresca el dorso); fuera persiste y reconstruye el dorso estático.
         List<String> traseras = new ArrayList<>();
         traseras.add("default");
         traseras.addAll(decks);
@@ -378,13 +377,39 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
         });
-        JPanel trasera_row = naturalRow();
-        trasera_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sangría: cuelga de "Baraja"
+        // Rejilla de 2 columnas: etiqueta | desplegable. La columna de etiquetas mide lo que la
+        // más ancha ("Cara trasera:"), así ambos desplegables arrancan en la MISMA x y "Cara
+        // trasera" queda alineada con "Baraja" de encima (antes iba sangrada y desplazada). El
+        // inset derecho de las etiquetas (6px) replica el hgap de labeledRow; el inferior (4px),
+        // la separación entre filas de addToGroup.
+        JLabel baraja_label = new JLabel(Translator.translate("settings.baraja") + ":");
+        baraja_label.setIcon(icon("/images/menu/baraja.png"));
         JLabel trasera_label = new JLabel(Translator.translate("settings.trasera") + ":");
         trasera_label.setIcon(icon("/images/menu/baraja.png"));
-        trasera_row.add(trasera_label);
-        trasera_row.add(trasera_combo);
-        addToGroup(baraja_group, trasera_row);
+        JPanel baraja_grid = new JPanel(new java.awt.GridBagLayout()) {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        baraja_grid.setOpaque(false);
+        java.awt.GridBagConstraints baraja_gbc = new java.awt.GridBagConstraints();
+        baraja_gbc.anchor = java.awt.GridBagConstraints.WEST;
+        baraja_gbc.gridx = 0;
+        baraja_gbc.gridy = 0;
+        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM));
+        baraja_grid.add(baraja_label, baraja_gbc);
+        baraja_gbc.gridx = 1;
+        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
+        baraja_grid.add(baraja_combo, baraja_gbc);
+        baraja_gbc.gridx = 0;
+        baraja_gbc.gridy = 1;
+        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
+        baraja_grid.add(trasera_label, baraja_gbc);
+        baraja_gbc.gridx = 1;
+        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        baraja_grid.add(trasera_combo, baraja_gbc);
+        addToGroup(baraja_group, baraja_grid);
         // Predeterminado: trasera "default" (sigue a la baraja). Se resetea DESPUÉS de la baraja.
         reset_actions.add(() -> trasera_combo.setSelectedItem("default"));
         addLeft(mesa, baraja_group);

@@ -2321,10 +2321,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     }// </editor-fold>//GEN-END:initComponents
 
     private void formMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseEntered
-        // TODO add your handling code here:
-        if (fastbuttons.areButtonsVisible()) {
-            fastbuttons.hideButtons();
-        }
+        // Entrar en el tapete = el ratón ha salido de la barra rápida: programa su plegado con
+        // retardo + desvanecimiento (no la pliega al instante). scheduleHide no hace nada si la
+        // barra ya está plegada.
+        fastbuttons.scheduleHide();
     }//GEN-LAST:event_formMouseEntered
 
     @Override

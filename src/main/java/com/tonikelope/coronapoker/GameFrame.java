@@ -3590,6 +3590,26 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    // Recomprar bots: EDITABLE en partida (solo se lee al arruinarse un bot). En el host se difunde
+    // (BOTREBUYRULE) para mantener coherente el estado y se persiste en recover. Mismo patrón que las
+    // demás reglas en vivo.
+    public static void setBotRebuy(boolean on) {
+
+        GameFrame gf = getInstance();
+
+        if (gf != null && gf.isPartida_local()) {
+            Helpers.threadRun(() -> {
+                synchronized (gf.getCrupier().getLock_fin_mano()) {
+                    GameFrame.BOT_REBUY = on;
+                    gf.getCrupier().broadcastGAMECommandFromServer("BOTREBUYRULE#" + (on ? "1" : "0"), null);
+                    GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
+                }
+            });
+        } else {
+            GameFrame.BOT_REBUY = on;
+        }
+    }
+
     public static void setRunItTwiceRule(boolean on) {
 
         // Congelado durante el run-out del all-in: el voto ya se está decidiendo con

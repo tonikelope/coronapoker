@@ -1386,12 +1386,12 @@ public class NewGameDialog extends JDialog {
         bots_label.setFont(new java.awt.Font("Segoe UI", 1, 16)); // NOI18N
         bots_label.setText("Dificultad bots:");
 
-        bot_rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        bot_rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         bot_rebuy_checkbox.setText("Recomprar bots");
         bot_rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         bot_rebuy_checkbox.setDoubleBuffered(true);
 
-        bot_balance_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        bot_balance_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         bot_balance_checkbox.setText("Repartir saldo de bots entre humanos");
         bot_balance_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         bot_balance_checkbox.setDoubleBuffered(true);

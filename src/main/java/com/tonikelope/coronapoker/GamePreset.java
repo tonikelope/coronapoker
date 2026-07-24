@@ -95,6 +95,7 @@ public final class GamePreset {
         public boolean rebuy = true;
         public int rebuyLimit = 0;
         public boolean botRebuy = true;
+        public boolean botBalanceToHumans = false; // al terminar, reparte el saldo conjunto de los bots entre los humanos
         public int rebuyCapPolicy = GameFrame.REBUY_CAP_BUYIN;
         public int doubleEvery = 0; // 0 = no se doblan las ciegas
         public int doubleType = 1;  // 1 = minutos, 2 = manos
@@ -124,6 +125,7 @@ public final class GamePreset {
                     + "#REBUY=" + (rebuy ? "1" : "0")
                     + "#RLIM=" + rebuyLimit
                     + "#BOTRB=" + (botRebuy ? "1" : "0")
+                    + "#BOTBAL=" + (botBalanceToHumans ? "1" : "0")
                     + "#RCAP=" + rebuyCapPolicy
                     + "#DBL=" + doubleEvery
                     + "#DTYPE=" + doubleType
@@ -188,6 +190,9 @@ public final class GamePreset {
                             break;
                         case "BOTRB":
                             s.botRebuy = "1".equals(val);
+                            break;
+                        case "BOTBAL":
+                            s.botBalanceToHumans = "1".equals(val);
                             break;
                         case "RCAP":
                             s.rebuyCapPolicy = Integer.parseInt(val);
@@ -260,6 +265,7 @@ public final class GamePreset {
             s.rebuy = GameFrame.REBUY;
             s.rebuyLimit = GameFrame.REBUY_LIMIT;
             s.botRebuy = GameFrame.BOT_REBUY;
+            s.botBalanceToHumans = GameFrame.BOT_BALANCE_TO_HUMANS;
             s.rebuyCapPolicy = GameFrame.REBUY_CAP_POLICY;
             s.doubleEvery = GameFrame.CIEGAS_DOUBLE;
             s.doubleType = GameFrame.CIEGAS_DOUBLE_TYPE;
@@ -300,6 +306,7 @@ public final class GamePreset {
             // pausa de showdown fuera de rango (el spinner ya acota 5-30).
             GameFrame.SHOWDOWN_TIME = Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, showdownTime));
             GameFrame.BOT_REBUY = botRebuy;
+            GameFrame.BOT_BALANCE_TO_HUMANS = botBalanceToHumans;
             GameFrame.REBUY_LIMIT = rebuyLimit;
             GameFrame.BLIND_CAP = blindCap;
             GameFrame.BUYIN = buyin;

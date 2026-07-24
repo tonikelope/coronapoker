@@ -355,6 +355,7 @@ public class NewGameDialog extends JDialog {
             rebuy_checkbox.setSelected(true);
             doblar_checkbox.setSelected(false);
             bot_rebuy_checkbox.setSelected(true);
+            bot_balance_checkbox.setSelected(false);
             fixed_buyin_checkbox.setSelected(true);
             buyin_spinner.setEnabled(true);
             double_blinds_radio_minutos.setEnabled(false);
@@ -517,6 +518,7 @@ public class NewGameDialog extends JDialog {
                         this.rebuy_limit_spinner.setValue(GameFrame.REBUY_LIMIT);
                     }
                     this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
+                    this.bot_balance_checkbox.setSelected(GameFrame.BOT_BALANCE_TO_HUMANS);
                     // Recompra EDITABLE al recuperar: permitir recomprar desde la columna
                     // game.rebuy; tope de recompra desde la config recuperada (REBUY_CAP_POLICY).
                     this.rebuy_checkbox.setSelected(rs.getBoolean("rebuy"));
@@ -617,6 +619,7 @@ public class NewGameDialog extends JDialog {
         bots_combobox = new javax.swing.JComboBox<>();
         bots_label = new javax.swing.JLabel();
         bot_rebuy_checkbox = new javax.swing.JCheckBox();
+        bot_balance_checkbox = new javax.swing.JCheckBox();
         nick_pass_panel = new javax.swing.JPanel();
         nick = new javax.swing.JTextField();
         nick_label = new javax.swing.JLabel();
@@ -1388,6 +1391,11 @@ public class NewGameDialog extends JDialog {
         bot_rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         bot_rebuy_checkbox.setDoubleBuffered(true);
 
+        bot_balance_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        bot_balance_checkbox.setText("Repartir saldo de bots entre humanos");
+        bot_balance_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        bot_balance_checkbox.setDoubleBuffered(true);
+
         javax.swing.GroupLayout bots_panelLayout = new javax.swing.GroupLayout(bots_panel);
         bots_panel.setLayout(bots_panelLayout);
         bots_panelLayout.setHorizontalGroup(
@@ -1401,6 +1409,8 @@ public class NewGameDialog extends JDialog {
                 .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
                 .addComponent(bot_rebuy_checkbox)
+                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
+                .addComponent(bot_balance_checkbox)
                 .addContainerGap(Math.round(72 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE))
         );
         bots_panelLayout.setVerticalGroup(
@@ -1412,11 +1422,13 @@ public class NewGameDialog extends JDialog {
                     .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                         .addComponent(bots_label)
                         .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(bot_rebuy_checkbox)))
+                        .addComponent(bot_rebuy_checkbox)
+                        .addComponent(bot_balance_checkbox)))
                 .addContainerGap())
         );
 
         bot_rebuy_checkbox.putClientProperty("i18n.key", "rebuy.permitir_bots");
+        bot_balance_checkbox.putClientProperty("i18n.key", "balance.repartir_saldo_bots");
 
         javax.swing.GroupLayout config_partida_panelLayout = new javax.swing.GroupLayout(config_partida_panel);
         config_partida_panel.setLayout(config_partida_panelLayout);
@@ -1749,6 +1761,8 @@ public class NewGameDialog extends JDialog {
             GameFrame.REBUY = this.rebuy_checkbox.isSelected();
 
             GameFrame.BOT_REBUY = this.bot_rebuy_checkbox.isSelected();
+
+            GameFrame.BOT_BALANCE_TO_HUMANS = this.bot_balance_checkbox.isSelected();
 
             GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
 
@@ -2861,6 +2875,7 @@ public class NewGameDialog extends JDialog {
         s.rebuy = rebuy_checkbox.isSelected();
         s.rebuyLimit = rebuy_limit_checkbox.isSelected() ? ((Number) rebuy_limit_spinner.getValue()).intValue() : 0;
         s.botRebuy = bot_rebuy_checkbox.isSelected();
+        s.botBalanceToHumans = bot_balance_checkbox.isSelected();
         s.rebuyCapPolicy = rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
         if (doblar_checkbox.isSelected()) {
             if (double_blinds_radio_minutos.isSelected()) {
@@ -2985,6 +3000,7 @@ public class NewGameDialog extends JDialog {
             rabbit_combo.setSelectedIndex(Math.min(Math.max(s.rabbit, 0), 3));
             bot_rebuy_checkbox.setSelected(s.botRebuy);
             bot_rebuy_checkbox.setEnabled(s.rebuy);
+            bot_balance_checkbox.setSelected(s.botBalanceToHumans);
 
             // Modo de buy-in.
             fixed_buyin_checkbox.setSelected(s.fixedBuyin);
@@ -3127,6 +3143,7 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JLabel blind_cap_label;
     private javax.swing.JSpinner blind_cap_spinner;
     private javax.swing.JCheckBox bot_rebuy_checkbox;
+    private javax.swing.JCheckBox bot_balance_checkbox;
     private javax.swing.JLabel bots_avatar_label;
     private javax.swing.JComboBox<String> bots_combobox;
     private javax.swing.JLabel bots_label;

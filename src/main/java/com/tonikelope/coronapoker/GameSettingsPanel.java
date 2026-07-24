@@ -293,17 +293,18 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         rules_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("settings.varios")));
         ((javax.swing.border.TitledBorder) rules_panel.getBorder()).setTitleFont(title_font);
 
-        // Bots: dificultad y "recomprar bots" en SOLO LECTURA (no cambiables una vez empezada la timba);
-        // "repartir saldo entre humanos" SÍ es editable en partida (inocuo). El combo refleja la
-        // dificultad vigente (server-local). Para cliente todo queda deshabilitado en el bloque read_only.
+        // Bots: dificultad, "recomprar bots" y "repartir saldo entre humanos" son EDITABLES en partida
+        // (la dificultad se lee en vivo en cada decisión —perBotDifficulty nunca se fija—; recomprar se
+        // lee al arruinarse un bot; repartir solo afecta a la liquidación final). Para el CLIENTE todo va
+        // en solo-lectura (los bots son del host): lo deshabilita el bloque read_only.
         bots_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("newgame.grupo_bots")));
         ((javax.swing.border.TitledBorder) bots_panel.getBorder()).setTitleFont(title_font);
         bots_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{
             Translator.translate("ui.bots_facil"), Translator.translate("ui.bots_media"), Translator.translate("ui.bots_dificil")}));
         bots_combobox.setSelectedIndex(Bot.DIFFICULTY == Bot.Difficulty.EASY ? 0 : (Bot.DIFFICULTY == Bot.Difficulty.HARD ? 2 : 1));
-        bots_combobox.setEnabled(false);
         bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
-        bot_rebuy_checkbox.setEnabled(false);
+        // "Recomprar bots" solo aplica si la recompra está activa (REBUY, fijo en partida); si no, moot.
+        bot_rebuy_checkbox.setEnabled(GameFrame.REBUY);
         bot_balance_checkbox.setSelected(GameFrame.BOT_BALANCE_TO_HUMANS);
 
         // Compra + recompra: SOLO INFORMATIVO (todo fijado al empezar la timba). Se puebla con la config
@@ -351,7 +352,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             rit_checkbox.setEnabled(false);
             rabbit_combo.setEnabled(false);
             estructura_combobox.setEnabled(false);
-            // Cliente: también "repartir saldo" en solo-lectura (solo el host lo cambia y lo difunde).
+            // Cliente: los bots son del host, así que dificultad/recomprar/repartir van en solo-lectura.
+            bots_combobox.setEnabled(false);
+            bot_rebuy_checkbox.setEnabled(false);
             bot_balance_checkbox.setEnabled(false);
         } else if (GameFrame.RUN_IT_TWICE_LOCKED) {
             rit_checkbox.setEnabled(false);
@@ -372,7 +375,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 + blind_cap_spinner.getValue() + "|" + ante_checkbox.isSelected() + "|"
                 + straddle_checkbox.isSelected() + "|"
                 + String.valueOf(estructura_combobox.getSelectedItem()) + "|"
-                + bot_balance_checkbox.isSelected();
+                + bot_balance_checkbox.isSelected() + "|"
+                + bots_combobox.getSelectedIndex() + "|" + bot_rebuy_checkbox.isSelected();
     }
 
     // ¿Hay cambios sin guardar en la pestaña Partida? Lo usa el diálogo para preguntar
@@ -931,12 +935,12 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         bots_combobox.setFont(new java.awt.Font("Dialog", 0, 16));
         bots_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        bot_rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
+        bot_rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
         bot_rebuy_checkbox.setText("Recomprar bots");
         bot_rebuy_checkbox.putClientProperty("i18n.key", "rebuy.permitir_bots");
         bot_rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        bot_balance_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
+        bot_balance_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
         bot_balance_checkbox.setText("Repartir saldo de bots entre humanos");
         bot_balance_checkbox.putClientProperty("i18n.key", "balance.repartir_saldo_bots");
         bot_balance_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1102,10 +1106,22 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             GameFrame.setRabbitHunting(rabbit);
         }
 
-        // Reparto del saldo de bots entre humanos: editable en partida (inocuo). setBotBalanceToHumans
-        // difunde a los clientes y persiste en recover.
+        // Bots (editables en partida). Dificultad: server-local (los bots son del host), se lee en vivo;
+        // no se difunde, se persiste en recover. Recomprar y repartir: setters que difunden + persisten.
+        Bot.Difficulty new_diff = bots_combobox.getSelectedIndex() == 0 ? Bot.Difficulty.EASY
+                : (bots_combobox.getSelectedIndex() == 2 ? Bot.Difficulty.HARD : Bot.Difficulty.MEDIUM);
+        boolean diff_changed = new_diff != Bot.DIFFICULTY;
+        if (diff_changed) {
+            Bot.DIFFICULTY = new_diff;
+        }
+        if (bot_rebuy_checkbox.isSelected() != GameFrame.BOT_REBUY) {
+            GameFrame.setBotRebuy(bot_rebuy_checkbox.isSelected());
+        }
         if (bot_balance_checkbox.isSelected() != GameFrame.BOT_BALANCE_TO_HUMANS) {
             GameFrame.setBotBalanceToHumans(bot_balance_checkbox.isSelected());
+        }
+        if (diff_changed) {
+            GameFrame.persistRecoverSettings(GameFrame.getInstance().getCrupier().getSqlite_game_id());
         }
 
         // La estructura va en el fósil de recover (serializeRecoverSettings la incluye)

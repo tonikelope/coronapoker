@@ -4238,19 +4238,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // (mismo orden que Crupier.run al cerrar una mano vía sqlUpdateHandEnd).
         // Sin el snapshot, anidar synchronized(lock_contabilidad) dentro del
         // SQL_LOCK invierte el orden y produce deadlock AB-BA con Crupier.run.
-        // Tabla final HABITUAL (resultado real, con los bots) + tabla ADAPTADA tras repartir el saldo
-        // conjunto de los bots entre los humanos (opción BOT_BALANCE_TO_HUMANS). El registro muestra la
-        // habitual, luego un mensaje, luego la adaptada; la pantalla de balance muestra ya la adaptada
-        // (lee el auditor en vivo, mutado por el reparto).
+        // El resultado OFICIAL de la timba (pantalla de balance + estadísticas + historial) es SIEMPRE el
+        // REAL: el auditor en vivo NO se toca. auditor_snapshot lleva ese resultado real (tabla final
+        // habitual). Si la opción BOT_BALANCE_TO_HUMANS está activa, la redistribución se calcula sobre una
+        // COPIA aparte (auditor_snapshot_adapted) y solo alimenta la SEGUNDA tabla del registro: es una
+        // liquidación de dinero real entre humanos "a posteriori", no el resultado oficial.
         HashMap<String, Double[]> auditor_snapshot = null;
         HashMap<String, Double[]> auditor_snapshot_adapted = null;
         boolean bot_balance_applied = false;
-        // !fin: si la timba YA se cerró (esta es una segunda entrada a finTransmision, que tiene varios
-        // llamadores concurrentes), NO se vuelve a tocar el auditor. El reparto muta el mapa en vivo que
-        // lee la pantalla de balance; re-ejecutar auditorCuentas+reparto sobre una timba ya cerrada
-        // podría dejar ver valores reales un instante. El cuerpo principal ya es idempotente por el
-        // mismo flag más abajo.
-        if (partida_terminada && crupier != null && !fin) {
+        if (partida_terminada && crupier != null) {
             synchronized (crupier.getLock_contabilidad()) {
                 // print=false: refrescamos el mapa del auditor para el snapshot SIN
                 // volcar la tabla de stacks (NICK/STACK/BUYIN) al registro. Esa tabla
@@ -4259,16 +4255,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // de finTransmision) la metía además en medio de las acciones que el
                 // hilo del Crupier seguía logueando.
                 crupier.auditorCuentas(false);
-                // Snapshot PRE-reparto (tabla habitual). redistributeBotBalanceToHumans REEMPLAZA
-                // entradas con Double[] nuevos (no muta los existentes), así que este snapshot conserva
-                // los valores originales aunque el reparto se aplique después sobre el mismo mapa.
                 auditor_snapshot = new HashMap<>(crupier.getAuditor());
-                // El reparto muta el mapa del auditor (bots a neutral + saldo conjunto a los humanos)
-                // bajo el mismo lock_contabilidad. Idéntico en todos los peers.
                 if (GameFrame.BOT_BALANCE_TO_HUMANS) {
-                    bot_balance_applied = crupier.redistributeBotBalanceToHumans();
+                    // Copia independiente: redistributeBotBalanceToHumans REEMPLAZA entradas con Double[]
+                    // nuevos (no muta los existentes), así que el auditor en vivo y auditor_snapshot
+                    // conservan los valores reales; solo 'adapted' lleva el reparto.
+                    HashMap<String, Double[]> adapted = new HashMap<>(crupier.getAuditor());
+                    bot_balance_applied = Crupier.redistributeBotBalanceToHumans(adapted);
                     if (bot_balance_applied) {
-                        auditor_snapshot_adapted = new HashMap<>(crupier.getAuditor());
+                        auditor_snapshot_adapted = adapted;
                     }
                 }
             }

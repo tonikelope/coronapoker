@@ -3011,6 +3011,11 @@ public class WaitingRoomFrame extends JFrame {
                                                         case "RUNITWICERULE":
                                                             GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
                                                             break;
+                                                        case "BOTBALRULE":
+                                                            // Reparto del saldo de bots entre humanos (editable en partida por el host).
+                                                            // El diálogo "Ajustes de partida" refleja el flag al abrirse.
+                                                            GameFrame.BOT_BALANCE_TO_HUMANS = "1".equals(partes_comando[3]);
+                                                            break;
                                                         case "VOICEMSGRULE":
                                                             // Regla global del host. El diálogo de ajustes de
                                                             // audio refleja el flag al abrirse; no hay control

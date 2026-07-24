@@ -973,33 +973,34 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        // Fila reglas | ciegas en el NORTE: ambos con TOP_ALIGNMENT y alto máximo libre, así el más
-        // corto se estira hasta el alto del más alto y los dos bordes titulados quedan alineados arriba
-        // y abajo. El row toma el alto del más alto; el resto del diálogo cae limpio debajo (CENTER).
-        rules_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
-        ciegas_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
+        // Rejilla 2x2 con el MISMO orden y disposición que la pestaña "Partida" de la SALA DE ESPERA
+        // (WaitingGameSettingsPanel): Compra | Ciegas / Varios(reglas) | Bots. GridBagLayout liga el
+        // ancho de cada columna ENTRE las dos filas (col. izquierda idéntica en Compra y Varios; col.
+        // derecha idéntica en Ciegas y Bots) y fill BOTH estira cada subpanel hasta el alto de su vecino
+        // de fila, de modo que los bordes titulados queden alineados. weighty 0 -> las filas quedan a su
+        // alto natural y el sobrante vertical del diálogo cae limpio DEBAJO (al CENTER).
+        javax.swing.JPanel grid = new javax.swing.JPanel(new java.awt.GridBagLayout());
+        java.awt.GridBagConstraints gc = new java.awt.GridBagConstraints();
+        gc.fill = java.awt.GridBagConstraints.BOTH;
+        gc.weightx = 0.5;
+        gc.weighty = 0.0;
 
-        javax.swing.JPanel row = new javax.swing.JPanel();
-        row.setLayout(new javax.swing.BoxLayout(row, javax.swing.BoxLayout.X_AXIS));
-        row.add(rules_panel);
-        row.add(javax.swing.Box.createHorizontalStrut(Math.round(12 * Helpers.DIALOG_ZOOM)));
-        row.add(ciegas_panel);
+        gc.gridx = 0;
+        gc.gridy = 0;
+        gc.insets = new java.awt.Insets(0, 0, 8, 6);
+        grid.add(compra_panel, gc);
+        gc.gridx = 1;
+        gc.insets = new java.awt.Insets(0, 6, 8, 0);
+        grid.add(ciegas_panel, gc);
+        gc.gridx = 0;
+        gc.gridy = 1;
+        gc.insets = new java.awt.Insets(0, 0, 0, 6);
+        grid.add(rules_panel, gc);
+        gc.gridx = 1;
+        gc.insets = new java.awt.Insets(0, 6, 0, 0);
+        grid.add(bots_panel, gc);
 
-        // Norte apilado: Compra (info) arriba, luego la fila reglas|ciegas (editable), luego Bots.
-        // Todo alineado a la izquierda y a su alto natural (el sobrante cae al CENTER).
-        compra_panel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        row.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-        bots_panel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-
-        javax.swing.JPanel north_container = new javax.swing.JPanel();
-        north_container.setLayout(new javax.swing.BoxLayout(north_container, javax.swing.BoxLayout.Y_AXIS));
-        north_container.add(compra_panel);
-        north_container.add(javax.swing.Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        north_container.add(row);
-        north_container.add(javax.swing.Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        north_container.add(bots_panel);
-
-        add(north_container, java.awt.BorderLayout.NORTH);
+        add(grid, java.awt.BorderLayout.NORTH);
 
         // i18n de las etiquetas con icono (se traducen en translateComponents).
         manos_label.putClientProperty("i18n.key", "game.limite_de_manos");

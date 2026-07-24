@@ -4573,6 +4573,104 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    // Ajuste de liquidación final (opción GameFrame.BOT_BALANCE_TO_HUMANS): calcula, sobre una COPIA del
+    // auditor, la liquidación en la que los bots se disuelven del reparto de dinero real. TODOS los bots
+    // pasan a NEUTRAL (stack := buyin, resultado 0) y su saldo conjunto (Σ stack-buyin, CON SIGNO) se
+    // reparte a PARTES IGUALES entre los humanos (los humanos quedan a suma cero entre ellos, salvo el
+    // bote_sobrante). El piquillo en céntimos no divisible va a UN humano elegido de forma DETERMINISTA
+    // (la semilla deriva del propio auditor —idéntico en toda la mesa—, así que la elección es la misma en
+    // todos los peers). Conserva el dinero: lo restado a los bots es exactamente lo sumado a los humanos.
+    //
+    // NO toca el auditor EN VIVO: opera sobre el mapa que se le pasa (una copia). Así el resultado OFICIAL
+    // de la timba (pantalla de balance, estadísticas, historial) queda INTACTO con los valores reales; este
+    // reparto solo alimenta la SEGUNDA tabla del registro (efectos de liquidación de dinero real entre
+    // humanos "a posteriori"). Un bot es todo nick con el prefijo canónico "CoronaBot$" (mismo criterio que
+    // el resto del protocolo de red), de modo que host y clientes clasifican idéntico.
+    //
+    // @param auditor copia MUTABLE del auditor ({stack, buyin} por nick) sobre la que se aplica el reparto.
+    // @return true si se aplicó (había al menos un bot no-plano y al menos un humano).
+    public static boolean redistributeBotBalanceToHumans(java.util.Map<String, Double[]> auditor) {
+        java.util.ArrayList<String> humans = new java.util.ArrayList<>();
+        java.util.ArrayList<String> bots = new java.util.ArrayList<>();
+
+        for (String nick : auditor.keySet()) {
+            if (nick.startsWith("CoronaBot$")) {
+                bots.add(nick);
+            } else {
+                humans.add(nick);
+            }
+        }
+
+        if (bots.isEmpty() || humans.isEmpty()) {
+            return false;
+        }
+
+        // Orden canónico (idéntico en todos los peers) para que la semilla del piquillo y el
+        // recorrido de reparto sean deterministas.
+        java.util.Collections.sort(humans);
+        java.util.Collections.sort(bots);
+
+        // Saldo conjunto de los bots en céntimos (con signo) + neutralización de cada bot.
+        long sb_cents = 0;
+        boolean any_bot_nonflat = false;
+        for (String bot : bots) {
+            Double[] pasta = auditor.get(bot);
+            if (pasta == null) {
+                continue;
+            }
+            double stack = Helpers.doubleClean(pasta[0]);
+            double buyin = Helpers.doubleClean(pasta[1]);
+            long bot_cents = Math.round((stack - buyin) * 100.0);
+            sb_cents += bot_cents;
+            if (bot_cents != 0) {
+                any_bot_nonflat = true;
+            }
+            // Bot a neutral: stack := buyin (resultado 0). Sobre un bot ya plano es un no-op de valor.
+            auditor.put(bot, new Double[]{buyin, buyin});
+        }
+
+        // Si TODOS los bots ya estaban exactamente planos no hay nada que disolver: no marcamos el
+        // reparto como aplicado para no imprimir un mensaje y una tabla adaptada idénticos a la habitual.
+        if (!any_bot_nonflat) {
+            return false;
+        }
+
+        int h = humans.size();
+        long sign = sb_cents < 0 ? -1L : 1L;
+        long abs_cents = Math.abs(sb_cents);
+        long per_cents = abs_cents / h;                 // parte igual por humano (céntimos)
+        long rem_cents = abs_cents - per_cents * h;     // piquillo no divisible (0..h-1 céntimos)
+
+        // Humano DETERMINISTA que recibe el piquillo. La semilla deriva de los nicks (orden
+        // canónico) y del saldo conjunto: misma entrada en todos los peers -> misma elección.
+        long seed = 1125899906842597L;
+        for (String nick : humans) {
+            seed = seed * 31 + nick.hashCode();
+        }
+        for (String nick : bots) {
+            seed = seed * 31 + nick.hashCode();
+        }
+        seed = seed * 31 + sb_cents;
+        int chosen = new java.util.Random(seed).nextInt(h);
+
+        for (int i = 0; i < h; i++) {
+            String nick = humans.get(i);
+            Double[] pasta = auditor.get(nick);
+            if (pasta == null) {
+                continue;
+            }
+            double buyin = Helpers.doubleClean(pasta[1]);
+            long add_cents = per_cents + (i == chosen ? rem_cents : 0L);
+            double new_stack = Helpers.doubleClean(Helpers.doubleClean(pasta[0]) + sign * add_cents / 100.0);
+            auditor.put(nick, new Double[]{new_stack, buyin});
+        }
+
+        LOGGER.log(Level.INFO, "Bot balance redistributed to humans (registro-only): joint bot balance {0} cents split among {1} humans (remainder cents to human index {2})",
+                new Object[]{sb_cents, h, chosen});
+
+        return true;
+    }
+
     // Arranca el visual de cuenta atrás de game over (GIF sobre las cartas en
     // modo CINEMATICAS, o cuenta atrás numérica en la action label) de los
     // arruinados que SON humanos remotos. Idempotente (setRebuying ignora si ya
@@ -17633,6 +17731,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // estructura, para que el cliente muestre el resultado de la mano el mismo tiempo
                     // que el host (los clientes tambien corren pausaConBarra/setTiempo_pausa).
                     + "#" + String.valueOf(GameFrame.SHOWDOWN_TIME)
+                    // Reparto del saldo de los bots entre humanos al terminar (campo FIJO, ANTES del
+                    // campo opcional de estructura): el cliente debe aplicar el MISMO ajuste que el host
+                    // en su propia liquidacion final (cada peer calcula el auditor por su cuenta), o la
+                    // tabla final y la pantalla de balance no coincidirian entre peers.
+                    + "#" + (GameFrame.BOT_BALANCE_TO_HUMANS ? "1" : "0")
                     // Estructura de ciegas personalizada (campo opcional al final): los
                     // clientes recomputan la escalada por su cuenta, así que TODOS deben
                     // caminar la misma lista o desincronizan al subir las ciegas. Solo se

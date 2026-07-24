@@ -157,6 +157,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean REBUY = true;
     public static volatile int REBUY_LIMIT = 0; //0 = sin limite de rebuys por jugador; en otro caso, max veces que un jugador puede rebuyar en la partida
     public static volatile boolean BOT_REBUY = true; //true = bots pueden rebuyar (sujetos al limite si > 0); false = bots se quedan de espectador sin preguntar al host
+    // true = al TERMINAR la timba, el saldo conjunto de los bots (con signo) se disuelve del reparto de
+    // dinero real: todos los bots pasan a neutrales (stack := buyin) y ese saldo se reparte a partes
+    // iguales entre los jugadores humanos (el piquillo en centimos no divisible va a un humano elegido de
+    // forma DETERMINISTA, identico en todos los peers), de modo que el dinero real solo se liquide entre
+    // personas. Conserva el dinero (el auditor no descuadra). Solo afecta a la liquidacion final (tabla
+    // del registro + pantalla de balance), no al historial por mano. Por defecto OFF. Ver
+    // Crupier.redistributeBotBalanceToHumans y GameFrame.finTransmision.
+    public static volatile boolean BOT_BALANCE_TO_HUMANS = false;
     public static volatile boolean AUTO_REBUY_ON_BROKE = false; //true = el humano local recompra automaticamente al arruinarse (importe por defecto, sin dialogo); preferencia LOCAL de sesion, por defecto false
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
@@ -1024,6 +1032,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 + "#BLIND_CAP=" + BLIND_CAP
                 + "#REBUY_LIMIT=" + REBUY_LIMIT
                 + "#BOT_REBUY=" + (BOT_REBUY ? "1" : "0")
+                + "#BOTBAL=" + (BOT_BALANCE_TO_HUMANS ? "1" : "0")
                 + "#RUNITWICE=" + (runittwice ? "1" : "0")
                 + "#VOICEMSG=" + (voicemsg ? "1" : "0")
                 + "#TTS=" + (tts ? "1" : "0")
@@ -1071,6 +1080,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         THINK_TIME = DEFAULT_THINK_TIME;
         THINK_TIME_ENABLED = true;
         SHOWDOWN_TIME = DEFAULT_SHOWDOWN_TIME;
+        // Reparto del saldo de los bots entre humanos: una fila anterior a esta feature no trae la
+        // clave, asi que se parte SIEMPRE de off y no se arrastra un estado stale de otra timba
+        // abierta en esta misma sesion.
+        BOT_BALANCE_TO_HUMANS = false;
         if (serialized == null || serialized.isEmpty()) {
             return;
         }
@@ -1115,6 +1128,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 case "BOT_REBUY":
                     BOT_REBUY = "1".equals(val);
+                    break;
+                case "BOTBAL":
+                    BOT_BALANCE_TO_HUMANS = "1".equals(val);
                     break;
                 case "RUNITWICE":
                     RUN_IT_TWICE_RECOVER = "1".equals(val);
@@ -3554,6 +3570,46 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    // Reparto del saldo de bots entre humanos: EDITABLE en partida (inocuo, solo afecta a la 2ª tabla
+    // del registro al terminar; no toca la auditoría). Mismo patrón que setIwtsthRule: en el host se
+    // difunde a los clientes (BOTBALRULE) para que su liquidación final coincida y se persiste en recover.
+    public static void setBotBalanceToHumans(boolean on) {
+
+        GameFrame gf = getInstance();
+
+        if (gf != null && gf.isPartida_local()) {
+            Helpers.threadRun(() -> {
+                synchronized (gf.getCrupier().getLock_fin_mano()) {
+                    GameFrame.BOT_BALANCE_TO_HUMANS = on;
+                    gf.getCrupier().broadcastGAMECommandFromServer("BOTBALRULE#" + (on ? "1" : "0"), null);
+                    GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
+                }
+            });
+        } else {
+            GameFrame.BOT_BALANCE_TO_HUMANS = on;
+        }
+    }
+
+    // Recomprar bots: EDITABLE en partida (solo se lee al arruinarse un bot). En el host se difunde
+    // (BOTREBUYRULE) para mantener coherente el estado y se persiste en recover. Mismo patrón que las
+    // demás reglas en vivo.
+    public static void setBotRebuy(boolean on) {
+
+        GameFrame gf = getInstance();
+
+        if (gf != null && gf.isPartida_local()) {
+            Helpers.threadRun(() -> {
+                synchronized (gf.getCrupier().getLock_fin_mano()) {
+                    GameFrame.BOT_REBUY = on;
+                    gf.getCrupier().broadcastGAMECommandFromServer("BOTREBUYRULE#" + (on ? "1" : "0"), null);
+                    GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
+                }
+            });
+        } else {
+            GameFrame.BOT_REBUY = on;
+        }
+    }
+
     public static void setRunItTwiceRule(boolean on) {
 
         // Congelado durante el run-out del all-in: el voto ya se está decidiendo con
@@ -4159,6 +4215,57 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return shortcuts_dialog;
     }
 
+    // Construye la tabla final NICK / RESULTADO (rejilla con bordes, mismo estilo que la tabla de
+    // cuentas) a partir de un snapshot del auditor ({stack, buyin}). El token "(  )" deja el gutter del
+    // marcador en blanco (sin icono de rol) alineado con la cabecera "(##)". Se llama una vez con el
+    // resultado real y, si se repartió el saldo de los bots, otra con el snapshot adaptado.
+    private static String buildFinalResultTable(Map<String, Double[]> auditor) {
+        ArrayList<String[]> fin_rows = new ArrayList<>();
+
+        int fin_nick_w = "NICK".length();
+        int fin_res_w = Translator.translate("ui.resultado").length();
+
+        for (Map.Entry<String, Double[]> entry : auditor.entrySet()) {
+
+            Double[] pasta = entry.getValue();
+
+            double ganancia = Helpers.doubleClean(Helpers.doubleClean(pasta[0]) - Helpers.doubleClean(pasta[1]));
+
+            String ganancia_msg;
+
+            if (Helpers.doubleSecureCompare(ganancia, 0f) < 0) {
+                ganancia_msg = Translator.translate("ui.pierde_2") + " " + Helpers.money2String(ganancia * -1);
+            } else if (Helpers.doubleSecureCompare(ganancia, 0f) > 0) {
+                ganancia_msg = Translator.translate("ui.gana_4") + " " + Helpers.money2String(ganancia);
+            } else {
+                ganancia_msg = Translator.translate("ui.ni_gana_ni_pierde");
+            }
+
+            fin_nick_w = Math.max(fin_nick_w, entry.getKey().length());
+            fin_res_w = Math.max(fin_res_w, ganancia_msg.length());
+
+            fin_rows.add(new String[]{entry.getKey(), ganancia_msg});
+        }
+
+        int[] fin_cols = {fin_nick_w, fin_res_w};
+
+        StringBuilder fin_table = new StringBuilder("(##) ").append(Crupier.gridBorderLine('┌', '┬', '┐', fin_cols))
+                .append("\n(##) ").append(Crupier.gridRowLine(
+                        String.format("%-" + fin_nick_w + "s", "NICK"),
+                        String.format("%-" + fin_res_w + "s", Translator.translate("ui.resultado"))))
+                .append("\n(##) ").append(Crupier.gridBorderLine('├', '┼', '┤', fin_cols));
+
+        for (String[] r : fin_rows) {
+            fin_table.append("\n(  ) ").append(Crupier.gridRowLine(
+                    String.format("%-" + fin_nick_w + "s", r[0]),
+                    String.format("%-" + fin_res_w + "s", r[1])));
+        }
+
+        fin_table.append("\n(##) ").append(Crupier.gridBorderLine('└', '┴', '┘', fin_cols));
+
+        return fin_table.toString();
+    }
+
     public void finTransmision(boolean partida_terminada) {
 
         // Desregistrar el shutdown hook: la partida termina por la via
@@ -4171,7 +4278,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // (mismo orden que Crupier.run al cerrar una mano vía sqlUpdateHandEnd).
         // Sin el snapshot, anidar synchronized(lock_contabilidad) dentro del
         // SQL_LOCK invierte el orden y produce deadlock AB-BA con Crupier.run.
+        // El resultado OFICIAL de la timba (pantalla de balance + estadísticas + historial) es SIEMPRE el
+        // REAL: el auditor en vivo NO se toca. auditor_snapshot lleva ese resultado real (tabla final
+        // habitual). Si la opción BOT_BALANCE_TO_HUMANS está activa, la redistribución se calcula sobre una
+        // COPIA aparte (auditor_snapshot_adapted) y solo alimenta la SEGUNDA tabla del registro: es una
+        // liquidación de dinero real entre humanos "a posteriori", no el resultado oficial.
         HashMap<String, Double[]> auditor_snapshot = null;
+        HashMap<String, Double[]> auditor_snapshot_adapted = null;
+        boolean bot_balance_applied = false;
         if (partida_terminada && crupier != null) {
             synchronized (crupier.getLock_contabilidad()) {
                 // print=false: refrescamos el mapa del auditor para el snapshot SIN
@@ -4182,6 +4296,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // hilo del Crupier seguía logueando.
                 crupier.auditorCuentas(false);
                 auditor_snapshot = new HashMap<>(crupier.getAuditor());
+                if (GameFrame.BOT_BALANCE_TO_HUMANS) {
+                    // Copia independiente: redistributeBotBalanceToHumans REEMPLAZA entradas con Double[]
+                    // nuevos (no muta los existentes), así que el auditor en vivo y auditor_snapshot
+                    // conservan los valores reales; solo 'adapted' lleva el reparto.
+                    HashMap<String, Double[]> adapted = new HashMap<>(crupier.getAuditor());
+                    bot_balance_applied = Crupier.redistributeBotBalanceToHumans(adapted);
+                    if (bot_balance_applied) {
+                        auditor_snapshot_adapted = adapted;
+                    }
+                }
             }
         }
 
@@ -4297,54 +4421,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     // por tanto no hay deadlock con Crupier.run.
                     if (auditor_snapshot != null) {
 
-                        // Resultados finales en tabla con bordes (rejilla), mismo
-                        // estilo que la tabla de cuentas: columnas NICK / RESULTADO.
-                        // El token "(  )" deja el gutter del marcador en blanco (sin
-                        // icono de rol) y alineado con la cabecera "(##)".
-                        ArrayList<String[]> fin_rows = new ArrayList<>();
+                        // Tabla final HABITUAL (resultado real, incluidos los bots).
+                        getRegistro().print(buildFinalResultTable(auditor_snapshot));
 
-                        int fin_nick_w = "NICK".length();
-                        int fin_res_w = Translator.translate("ui.resultado").length();
-
-                        for (Map.Entry<String, Double[]> entry : auditor_snapshot.entrySet()) {
-
-                            Double[] pasta = entry.getValue();
-
-                            double ganancia = Helpers.doubleClean(Helpers.doubleClean(pasta[0]) - Helpers.doubleClean(pasta[1]));
-
-                            String ganancia_msg;
-
-                            if (Helpers.doubleSecureCompare(ganancia, 0f) < 0) {
-                                ganancia_msg = Translator.translate("ui.pierde_2") + " " + Helpers.money2String(ganancia * -1);
-                            } else if (Helpers.doubleSecureCompare(ganancia, 0f) > 0) {
-                                ganancia_msg = Translator.translate("ui.gana_4") + " " + Helpers.money2String(ganancia);
-                            } else {
-                                ganancia_msg = Translator.translate("ui.ni_gana_ni_pierde");
-                            }
-
-                            fin_nick_w = Math.max(fin_nick_w, entry.getKey().length());
-                            fin_res_w = Math.max(fin_res_w, ganancia_msg.length());
-
-                            fin_rows.add(new String[]{entry.getKey(), ganancia_msg});
+                        // Si se repartió el saldo conjunto de los bots: nota explicativa + tabla ADAPTADA
+                        // (bots a neutral, saldo repartido a partes iguales entre los humanos) DEBAJO de la
+                        // habitual. Es lo que muestra también la pantalla de balance.
+                        if (bot_balance_applied && auditor_snapshot_adapted != null) {
+                            getRegistro().print("($$) " + Translator.translate("balance.saldo_bots_repartido"));
+                            getRegistro().print(buildFinalResultTable(auditor_snapshot_adapted));
                         }
-
-                        int[] fin_cols = {fin_nick_w, fin_res_w};
-
-                        StringBuilder fin_table = new StringBuilder("(##) ").append(Crupier.gridBorderLine('┌', '┬', '┐', fin_cols))
-                                .append("\n(##) ").append(Crupier.gridRowLine(
-                                        String.format("%-" + fin_nick_w + "s", "NICK"),
-                                        String.format("%-" + fin_res_w + "s", Translator.translate("ui.resultado"))))
-                                .append("\n(##) ").append(Crupier.gridBorderLine('├', '┼', '┤', fin_cols));
-
-                        for (String[] r : fin_rows) {
-                            fin_table.append("\n(  ) ").append(Crupier.gridRowLine(
-                                    String.format("%-" + fin_nick_w + "s", r[0]),
-                                    String.format("%-" + fin_res_w + "s", r[1])));
-                        }
-
-                        fin_table.append("\n(##) ").append(Crupier.gridBorderLine('└', '┴', '┘', fin_cols));
-
-                        getRegistro().print(fin_table.toString());
 
                         getRegistro().setFin_transmision(true);
                     }

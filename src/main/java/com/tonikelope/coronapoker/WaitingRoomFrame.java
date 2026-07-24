@@ -3591,7 +3591,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             // campo FIJO antes de la estructura): el cliente debe aplicar el mismo
                                                             // ajuste que el host en su liquidación final. Guarda de longitud por si
                                                             // falta (default = off).
-                                                            GameFrame.BOT_BALANCE_TO_HUMANS = partes_comando.length > 25 && Boolean.parseBoolean(partes_comando[25]);
+                                                            GameFrame.BOT_BALANCE_TO_HUMANS = partes_comando.length > 25 && "1".equals(partes_comando[25]);
                                                             // Estructura de ciegas personalizada (campo opcional al final, ahora
                                                             // en el índice 26): el cliente recomputa la escalada con la MISMA
                                                             // lista que el host. Ausente = escalera por defecto (null). Nunca

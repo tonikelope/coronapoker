@@ -97,6 +97,23 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox bot_rebuy_checkbox;
     private javax.swing.JCheckBox bot_balance_checkbox;
 
+    // Compra + recompra (subpanel, SOLO INFORMATIVO en partida: el buy-in y la economía de recompra
+    // quedan fijados al empezar la timba; se muestran DESHABILITADOS como información).
+    private javax.swing.JPanel compra_panel;
+    private javax.swing.JLabel buyin_label;
+    private javax.swing.JSpinner buyin_spinner;
+    private javax.swing.JCheckBox fixed_buyin_checkbox;
+    private javax.swing.JLabel buyin_range_label;
+    private javax.swing.JSpinner buyin_min_bb_spinner;
+    private javax.swing.JLabel buyin_range_sep_label;
+    private javax.swing.JSpinner buyin_max_bb_spinner;
+    private javax.swing.JCheckBox rebuy_checkbox;
+    private javax.swing.JLabel recomprar_label;
+    private javax.swing.JCheckBox rebuy_limit_checkbox;
+    private javax.swing.JSpinner rebuy_limit_spinner;
+    private javax.swing.JLabel rebuy_cap_label;
+    private javax.swing.JComboBox<String> rebuy_cap_combo;
+
     // Tooltips i18n (setTranslatedToolTip => se re-traducen al cambiar idioma) de los controles de
     // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents().
     private void setupTooltips() {
@@ -124,6 +141,13 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(bot_rebuy_checkbox, "tooltip.cfg.bot_rebuy");
         Helpers.setTranslatedToolTip(bot_balance_checkbox, "tooltip.cfg.bot_balance");
+        Helpers.setTranslatedToolTip(fixed_buyin_checkbox, "tooltip.cfg.buyin_fixed");
+        Helpers.setTranslatedToolTip(buyin_min_bb_spinner, "tooltip.buyin_range");
+        Helpers.setTranslatedToolTip(buyin_max_bb_spinner, "tooltip.buyin_range");
+        Helpers.setTranslatedToolTip(rebuy_checkbox, "tooltip.rebuy_description");
+        Helpers.setTranslatedToolTip(recomprar_label, "tooltip.rebuy_description");
+        Helpers.setTranslatedToolTip(rebuy_limit_checkbox, "tooltip.cfg.rebuy_limit");
+        Helpers.setTranslatedToolTip(rebuy_limit_spinner, "tooltip.cfg.rebuy_limit");
     }
 
     public GameSettingsPanel(boolean read_only) {
@@ -282,6 +306,24 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         bot_rebuy_checkbox.setEnabled(false);
         bot_balance_checkbox.setSelected(GameFrame.BOT_BALANCE_TO_HUMANS);
 
+        // Compra + recompra: SOLO INFORMATIVO (todo fijado al empezar la timba). Se puebla con la config
+        // vigente y se deshabilita entero (host y cliente).
+        compra_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("newgame.grupo_compra")));
+        ((javax.swing.border.TitledBorder) compra_panel.getBorder()).setTitleFont(title_font);
+        buyin_spinner.setModel(new SpinnerNumberModel(Math.max(1, GameFrame.BUYIN), 1, null, 1));
+        fixed_buyin_checkbox.setSelected(GameFrame.FIXED_BUYIN);
+        buyin_min_bb_spinner.setModel(new SpinnerNumberModel(Math.max(1, GameFrame.BUYIN_MIN_BB), 1, null, 1));
+        buyin_max_bb_spinner.setModel(new SpinnerNumberModel(Math.max(1, GameFrame.BUYIN_MAX_BB), 1, null, 1));
+        rebuy_checkbox.setSelected(GameFrame.REBUY);
+        rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
+        if (GameFrame.REBUY_LIMIT > 0) {
+            rebuy_limit_spinner.setModel(new SpinnerNumberModel(GameFrame.REBUY_LIMIT, 1, null, 1));
+        }
+        rebuy_cap_combo.setSelectedIndex(GameFrame.REBUY_CAP_POLICY == GameFrame.REBUY_CAP_HIGHEST_STACK ? 1 : 0);
+        for (javax.swing.JComponent comp : new javax.swing.JComponent[]{buyin_label, buyin_spinner, fixed_buyin_checkbox, buyin_range_label, buyin_min_bb_spinner, buyin_range_sep_label, buyin_max_bb_spinner, rebuy_checkbox, recomprar_label, rebuy_limit_checkbox, rebuy_limit_spinner, rebuy_cap_label, rebuy_cap_combo}) {
+            comp.setEnabled(false);
+        }
+
         Helpers.translateComponents(this, false);
 
         // Importe ACTUAL de ante (= ciega pequeña) y straddle (= 2x ciega grande) entre
@@ -405,6 +447,21 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         bots_combobox = new javax.swing.JComboBox<>();
         bot_rebuy_checkbox = new javax.swing.JCheckBox();
         bot_balance_checkbox = new javax.swing.JCheckBox();
+
+        compra_panel = new javax.swing.JPanel();
+        buyin_label = new javax.swing.JLabel();
+        buyin_spinner = new javax.swing.JSpinner();
+        fixed_buyin_checkbox = new javax.swing.JCheckBox();
+        buyin_range_label = new javax.swing.JLabel();
+        buyin_min_bb_spinner = new javax.swing.JSpinner();
+        buyin_range_sep_label = new javax.swing.JLabel();
+        buyin_max_bb_spinner = new javax.swing.JSpinner();
+        rebuy_checkbox = new javax.swing.JCheckBox();
+        recomprar_label = new javax.swing.JLabel();
+        rebuy_limit_checkbox = new javax.swing.JCheckBox();
+        rebuy_limit_spinner = new javax.swing.JSpinner();
+        rebuy_cap_label = new javax.swing.JLabel();
+        rebuy_cap_combo = new javax.swing.JComboBox<>();
 
         // ---------------- Reglas (izquierda, sin subpanel) ----------------
         manos_label.setFont(new java.awt.Font("Dialog", 1, 16));
@@ -751,6 +808,119 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
+        // ---------------- Compra + recompra (SOLO INFORMATIVO en partida) ----------------
+        buyin_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        buyin_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png")));
+        buyin_label.setText("Compra inicial:");
+        buyin_label.putClientProperty("i18n.key", "blinds.compra_inicial");
+
+        buyin_spinner.setFont(new java.awt.Font("Dialog", 0, 16));
+        buyin_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 1, null, 1));
+
+        fixed_buyin_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
+        fixed_buyin_checkbox.setText("Buy-in fijo");
+        fixed_buyin_checkbox.putClientProperty("i18n.key", "newgame.buyin_fijo");
+
+        buyin_range_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        buyin_range_label.setText("Rango compra (CG):");
+        buyin_range_label.putClientProperty("i18n.key", "blinds.rango_compra");
+
+        buyin_min_bb_spinner.setFont(new java.awt.Font("Dialog", 0, 16));
+        buyin_min_bb_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 1, null, 1));
+
+        buyin_range_sep_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        buyin_range_sep_label.setText("a");
+        buyin_range_sep_label.putClientProperty("i18n.key", "blinds.rango_a");
+
+        buyin_max_bb_spinner.setFont(new java.awt.Font("Dialog", 0, 16));
+        buyin_max_bb_spinner.setModel(new javax.swing.SpinnerNumberModel(100, 1, null, 1));
+
+        rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
+
+        recomprar_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        recomprar_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rebuy.png")));
+        recomprar_label.setText("Recomprar");
+        recomprar_label.putClientProperty("i18n.key", "rebuy.recomprar_2");
+
+        rebuy_limit_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
+        rebuy_limit_checkbox.setText("Límite recompra por jugador");
+        rebuy_limit_checkbox.putClientProperty("i18n.key", "rebuy.limite_por_jugador");
+
+        rebuy_limit_spinner.setFont(new java.awt.Font("Dialog", 0, 14));
+        rebuy_limit_spinner.setModel(new javax.swing.SpinnerNumberModel(3, 1, null, 1));
+
+        rebuy_cap_label.setFont(new java.awt.Font("Dialog", 1, 14));
+        rebuy_cap_label.setText("Tope recompra:");
+        rebuy_cap_label.putClientProperty("i18n.key", "rebuy.tope_recompra");
+
+        rebuy_cap_combo.setFont(new java.awt.Font("Dialog", 0, 14));
+        rebuy_cap_combo.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{
+            Translator.translate("rebuy.cap_policy_buyin"), Translator.translate("rebuy.cap_policy_highest")}));
+
+        javax.swing.GroupLayout compra_panelLayout = new javax.swing.GroupLayout(compra_panel);
+        compra_panel.setLayout(compra_panelLayout);
+        compra_panelLayout.setHorizontalGroup(
+            compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(compra_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(compra_panelLayout.createSequentialGroup()
+                        .addComponent(buyin_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buyin_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
+                        .addComponent(fixed_buyin_checkbox))
+                    .addGroup(compra_panelLayout.createSequentialGroup()
+                        .addComponent(buyin_range_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buyin_range_sep_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(compra_panelLayout.createSequentialGroup()
+                        .addComponent(rebuy_checkbox)
+                        .addGap(0, 0, 0)
+                        .addComponent(recomprar_label))
+                    .addGroup(compra_panelLayout.createSequentialGroup()
+                        .addComponent(rebuy_limit_checkbox)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(compra_panelLayout.createSequentialGroup()
+                        .addComponent(rebuy_cap_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        compra_panelLayout.setVerticalGroup(
+            compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(compra_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(buyin_label)
+                    .addComponent(buyin_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(fixed_buyin_checkbox))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(buyin_range_label)
+                    .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(buyin_range_sep_label)
+                    .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(rebuy_checkbox)
+                    .addComponent(recomprar_label))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(rebuy_limit_checkbox)
+                    .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(rebuy_cap_label)
+                    .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+
         // ---------------- Bots (subpanel, debajo de reglas|ciegas) ----------------
         Helpers.setScaledIconLabel(bots_avatar_label, getClass().getResource("/images/avatar_bot.png"), 48, 48);
 
@@ -815,12 +985,16 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         row.add(javax.swing.Box.createHorizontalStrut(Math.round(12 * Helpers.DIALOG_ZOOM)));
         row.add(ciegas_panel);
 
-        // Bots debajo de la fila reglas|ciegas, a todo el ancho (subpanel titulado propio).
+        // Norte apilado: Compra (info) arriba, luego la fila reglas|ciegas (editable), luego Bots.
+        // Todo alineado a la izquierda y a su alto natural (el sobrante cae al CENTER).
+        compra_panel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         row.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         bots_panel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
 
         javax.swing.JPanel north_container = new javax.swing.JPanel();
         north_container.setLayout(new javax.swing.BoxLayout(north_container, javax.swing.BoxLayout.Y_AXIS));
+        north_container.add(compra_panel);
+        north_container.add(javax.swing.Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
         north_container.add(row);
         north_container.add(javax.swing.Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
         north_container.add(bots_panel);

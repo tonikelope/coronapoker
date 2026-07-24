@@ -4573,6 +4573,95 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    // Ajuste de liquidación final (opción GameFrame.BOT_BALANCE_TO_HUMANS): disuelve a los bots del
+    // reparto de dinero real. TODOS los bots pasan a NEUTRAL (stack := buyin, resultado 0) y su saldo
+    // conjunto (Σ stack-buyin, CON SIGNO) se reparte a PARTES IGUALES entre los humanos; así el dinero
+    // real solo se liquida entre personas (los humanos quedan a suma cero entre ellos, salvo el
+    // bote_sobrante). El piquillo en céntimos no divisible va a UN humano elegido de forma DETERMINISTA
+    // (la semilla deriva del propio auditor —idéntico en toda la mesa—, así que la elección es la misma
+    // en todos los peers y la tabla final + la pantalla de balance coinciden sin difundir el resultado).
+    // Conserva el dinero: lo que se resta a los bots es exactamente lo que se suma a los humanos, así que
+    // el invariante Σ stacks + bote_sobrante == Σ buyins se mantiene y el auditor no descuadra.
+    //
+    // Un bot es todo nick con el prefijo canónico "CoronaBot$" (el mismo criterio que usa el resto del
+    // protocolo de red para identificar bots), de modo que host y clientes clasifican idéntico.
+    //
+    // DEBE llamarse bajo lock_contabilidad, tras auditorCuentas(false) y ANTES del snapshot del auditor.
+    // Idempotente en la práctica: tras aplicarlo los bots ya están neutros y el saldo conjunto es 0.
+    // @return true si se aplicó (había al menos un bot y al menos un humano en el auditor).
+    public boolean redistributeBotBalanceToHumans() {
+        synchronized (this.getLock_contabilidad()) {
+            java.util.ArrayList<String> humans = new java.util.ArrayList<>();
+            java.util.ArrayList<String> bots = new java.util.ArrayList<>();
+
+            for (String nick : this.auditor.keySet()) {
+                if (nick.startsWith("CoronaBot$")) {
+                    bots.add(nick);
+                } else {
+                    humans.add(nick);
+                }
+            }
+
+            if (bots.isEmpty() || humans.isEmpty()) {
+                return false;
+            }
+
+            // Orden canónico (idéntico en todos los peers) para que la semilla del piquillo y el
+            // recorrido de reparto sean deterministas.
+            java.util.Collections.sort(humans);
+            java.util.Collections.sort(bots);
+
+            // Saldo conjunto de los bots en céntimos (con signo) + neutralización de cada bot.
+            long sb_cents = 0;
+            for (String bot : bots) {
+                Double[] pasta = this.auditor.get(bot);
+                if (pasta == null) {
+                    continue;
+                }
+                double stack = Helpers.doubleClean(pasta[0]);
+                double buyin = Helpers.doubleClean(pasta[1]);
+                sb_cents += Math.round((stack - buyin) * 100.0);
+                // Bot a neutral: stack := buyin (resultado 0).
+                this.auditor.put(bot, new Double[]{buyin, buyin});
+            }
+
+            int h = humans.size();
+            long sign = sb_cents < 0 ? -1L : 1L;
+            long abs_cents = Math.abs(sb_cents);
+            long per_cents = abs_cents / h;                 // parte igual por humano (céntimos)
+            long rem_cents = abs_cents - per_cents * h;     // piquillo no divisible (0..h-1 céntimos)
+
+            // Humano DETERMINISTA que recibe el piquillo. La semilla deriva de los nicks (orden
+            // canónico) y del saldo conjunto: misma entrada en todos los peers -> misma elección.
+            long seed = 1125899906842597L;
+            for (String nick : humans) {
+                seed = seed * 31 + nick.hashCode();
+            }
+            for (String nick : bots) {
+                seed = seed * 31 + nick.hashCode();
+            }
+            seed = seed * 31 + sb_cents;
+            int chosen = new java.util.Random(seed).nextInt(h);
+
+            for (int i = 0; i < h; i++) {
+                String nick = humans.get(i);
+                Double[] pasta = this.auditor.get(nick);
+                if (pasta == null) {
+                    continue;
+                }
+                double buyin = Helpers.doubleClean(pasta[1]);
+                long add_cents = per_cents + (i == chosen ? rem_cents : 0L);
+                double new_stack = Helpers.doubleClean(Helpers.doubleClean(pasta[0]) + sign * add_cents / 100.0);
+                this.auditor.put(nick, new Double[]{new_stack, buyin});
+            }
+
+            LOGGER.log(Level.INFO, "Bot balance redistributed to humans: joint bot balance {0} cents split among {1} humans (remainder cents to human index {2})",
+                    new Object[]{sb_cents, h, chosen});
+
+            return true;
+        }
+    }
+
     // Arranca el visual de cuenta atrás de game over (GIF sobre las cartas en
     // modo CINEMATICAS, o cuenta atrás numérica en la action label) de los
     // arruinados que SON humanos remotos. Idempotente (setRebuying ignora si ya
@@ -17633,6 +17722,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // estructura, para que el cliente muestre el resultado de la mano el mismo tiempo
                     // que el host (los clientes tambien corren pausaConBarra/setTiempo_pausa).
                     + "#" + String.valueOf(GameFrame.SHOWDOWN_TIME)
+                    // Reparto del saldo de los bots entre humanos al terminar (campo FIJO, ANTES del
+                    // campo opcional de estructura): el cliente debe aplicar el MISMO ajuste que el host
+                    // en su propia liquidacion final (cada peer calcula el auditor por su cuenta), o la
+                    // tabla final y la pantalla de balance no coincidirian entre peers.
+                    + "#" + (GameFrame.BOT_BALANCE_TO_HUMANS ? "1" : "0")
                     // Estructura de ciegas personalizada (campo opcional al final): los
                     // clientes recomputan la escalada por su cuenta, así que TODOS deben
                     // caminar la misma lista o desincronizan al subir las ciegas. Solo se

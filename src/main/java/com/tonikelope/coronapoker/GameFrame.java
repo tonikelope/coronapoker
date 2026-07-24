@@ -157,6 +157,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean REBUY = true;
     public static volatile int REBUY_LIMIT = 0; //0 = sin limite de rebuys por jugador; en otro caso, max veces que un jugador puede rebuyar en la partida
     public static volatile boolean BOT_REBUY = true; //true = bots pueden rebuyar (sujetos al limite si > 0); false = bots se quedan de espectador sin preguntar al host
+    // true = al TERMINAR la timba, el saldo conjunto de los bots (con signo) se disuelve del reparto de
+    // dinero real: todos los bots pasan a neutrales (stack := buyin) y ese saldo se reparte a partes
+    // iguales entre los jugadores humanos (el piquillo en centimos no divisible va a un humano elegido de
+    // forma DETERMINISTA, identico en todos los peers), de modo que el dinero real solo se liquide entre
+    // personas. Conserva el dinero (el auditor no descuadra). Solo afecta a la liquidacion final (tabla
+    // del registro + pantalla de balance), no al historial por mano. Por defecto OFF. Ver
+    // Crupier.redistributeBotBalanceToHumans y GameFrame.finTransmision.
+    public static volatile boolean BOT_BALANCE_TO_HUMANS = false;
     public static volatile boolean AUTO_REBUY_ON_BROKE = false; //true = el humano local recompra automaticamente al arruinarse (importe por defecto, sin dialogo); preferencia LOCAL de sesion, por defecto false
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
@@ -1024,6 +1032,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 + "#BLIND_CAP=" + BLIND_CAP
                 + "#REBUY_LIMIT=" + REBUY_LIMIT
                 + "#BOT_REBUY=" + (BOT_REBUY ? "1" : "0")
+                + "#BOTBAL=" + (BOT_BALANCE_TO_HUMANS ? "1" : "0")
                 + "#RUNITWICE=" + (runittwice ? "1" : "0")
                 + "#VOICEMSG=" + (voicemsg ? "1" : "0")
                 + "#TTS=" + (tts ? "1" : "0")
@@ -1071,6 +1080,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         THINK_TIME = DEFAULT_THINK_TIME;
         THINK_TIME_ENABLED = true;
         SHOWDOWN_TIME = DEFAULT_SHOWDOWN_TIME;
+        // Reparto del saldo de los bots entre humanos: una fila anterior a esta feature no trae la
+        // clave, asi que se parte SIEMPRE de off y no se arrastra un estado stale de otra timba
+        // abierta en esta misma sesion.
+        BOT_BALANCE_TO_HUMANS = false;
         if (serialized == null || serialized.isEmpty()) {
             return;
         }
@@ -1115,6 +1128,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 case "BOT_REBUY":
                     BOT_REBUY = "1".equals(val);
+                    break;
+                case "BOTBAL":
+                    BOT_BALANCE_TO_HUMANS = "1".equals(val);
                     break;
                 case "RUNITWICE":
                     RUN_IT_TWICE_RECOVER = "1".equals(val);
@@ -4172,6 +4188,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // Sin el snapshot, anidar synchronized(lock_contabilidad) dentro del
         // SQL_LOCK invierte el orden y produce deadlock AB-BA con Crupier.run.
         HashMap<String, Double[]> auditor_snapshot = null;
+        // Reparto del saldo de los bots entre humanos (opción BOT_BALANCE_TO_HUMANS): se aplica sobre el
+        // mapa del auditor JUSTO antes del snapshot, así que la tabla final del registro Y la pantalla de
+        // balance (que lee el auditor en vivo) salen ya actualizadas. bot_balance_applied gobierna el
+        // mensaje explicativo que precede a la tabla final.
+        boolean bot_balance_applied = false;
         if (partida_terminada && crupier != null) {
             synchronized (crupier.getLock_contabilidad()) {
                 // print=false: refrescamos el mapa del auditor para el snapshot SIN
@@ -4181,6 +4202,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // de finTransmision) la metía además en medio de las acciones que el
                 // hilo del Crupier seguía logueando.
                 crupier.auditorCuentas(false);
+                // El reparto muta el mapa del auditor (bots a neutral + saldo conjunto a los humanos)
+                // ANTES del snapshot, bajo el mismo lock_contabilidad. Idéntico en todos los peers.
+                if (GameFrame.BOT_BALANCE_TO_HUMANS) {
+                    bot_balance_applied = crupier.redistributeBotBalanceToHumans();
+                }
                 auditor_snapshot = new HashMap<>(crupier.getAuditor());
             }
         }
@@ -4343,6 +4369,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         }
 
                         fin_table.append("\n(##) ").append(Crupier.gridBorderLine('└', '┴', '┘', fin_cols));
+
+                        // Nota explicativa ANTES de la tabla final: los resultados de abajo ya reflejan
+                        // que el saldo conjunto de los bots se repartió a partes iguales entre los humanos.
+                        if (bot_balance_applied) {
+                            getRegistro().print("($$) " + Translator.translate("balance.saldo_bots_repartido"));
+                        }
 
                         getRegistro().print(fin_table.toString());
 

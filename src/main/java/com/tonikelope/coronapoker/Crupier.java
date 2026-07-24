@@ -4613,6 +4613,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // Saldo conjunto de los bots en céntimos (con signo) + neutralización de cada bot.
             long sb_cents = 0;
+            boolean any_bot_nonflat = false;
             for (String bot : bots) {
                 Double[] pasta = this.auditor.get(bot);
                 if (pasta == null) {
@@ -4620,9 +4621,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 double stack = Helpers.doubleClean(pasta[0]);
                 double buyin = Helpers.doubleClean(pasta[1]);
-                sb_cents += Math.round((stack - buyin) * 100.0);
-                // Bot a neutral: stack := buyin (resultado 0).
+                long bot_cents = Math.round((stack - buyin) * 100.0);
+                sb_cents += bot_cents;
+                if (bot_cents != 0) {
+                    any_bot_nonflat = true;
+                }
+                // Bot a neutral: stack := buyin (resultado 0). Sobre un bot ya plano es un no-op de valor.
                 this.auditor.put(bot, new Double[]{buyin, buyin});
+            }
+
+            // Si TODOS los bots ya estaban exactamente planos no hay nada que disolver: no marcamos el
+            // reparto como aplicado para no imprimir un mensaje y una tabla adaptada idénticos a la
+            // habitual (la pantalla de balance tampoco cambia).
+            if (!any_bot_nonflat) {
+                return false;
             }
 
             int h = humans.size();

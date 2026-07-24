@@ -4245,7 +4245,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         HashMap<String, Double[]> auditor_snapshot = null;
         HashMap<String, Double[]> auditor_snapshot_adapted = null;
         boolean bot_balance_applied = false;
-        if (partida_terminada && crupier != null) {
+        // !fin: si la timba YA se cerró (esta es una segunda entrada a finTransmision, que tiene varios
+        // llamadores concurrentes), NO se vuelve a tocar el auditor. El reparto muta el mapa en vivo que
+        // lee la pantalla de balance; re-ejecutar auditorCuentas+reparto sobre una timba ya cerrada
+        // podría dejar ver valores reales un instante. El cuerpo principal ya es idempotente por el
+        // mismo flag más abajo.
+        if (partida_terminada && crupier != null && !fin) {
             synchronized (crupier.getLock_contabilidad()) {
                 // print=false: refrescamos el mapa del auditor para el snapshot SIN
                 // volcar la tabla de stacks (NICK/STACK/BUYIN) al registro. Esa tabla

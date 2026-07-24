@@ -87,6 +87,16 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox straddle_checkbox;
     private javax.swing.JLabel straddle_label;
 
+    // Bots (subpanel, debajo de reglas|ciegas). Dificultad y recompra en SOLO LECTURA en partida (no
+    // cambiables una vez empezada); "repartir saldo" SÍ es editable (inocuo: solo afecta a la 2ª tabla
+    // del registro al terminar, no toca la auditoría). Para clientes todo va en solo-lectura.
+    private javax.swing.JPanel bots_panel;
+    private javax.swing.JLabel bots_avatar_label;
+    private javax.swing.JLabel bots_label;
+    private javax.swing.JComboBox<String> bots_combobox;
+    private javax.swing.JCheckBox bot_rebuy_checkbox;
+    private javax.swing.JCheckBox bot_balance_checkbox;
+
     // Tooltips i18n (setTranslatedToolTip => se re-traducen al cambiar idioma) de los controles de
     // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents().
     private void setupTooltips() {
@@ -111,6 +121,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         Helpers.setTranslatedToolTip(blind_cap_spinner, "tooltip.cfg.blind_cap");
         Helpers.setTranslatedToolTip(ante_checkbox, "tooltip.cfg.ante");
         Helpers.setTranslatedToolTip(straddle_checkbox, "tooltip.cfg.straddle");
+        Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
+        Helpers.setTranslatedToolTip(bot_rebuy_checkbox, "tooltip.cfg.bot_rebuy");
+        Helpers.setTranslatedToolTip(bot_balance_checkbox, "tooltip.cfg.bot_balance");
     }
 
     public GameSettingsPanel(boolean read_only) {
@@ -256,6 +269,19 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         rules_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("settings.varios")));
         ((javax.swing.border.TitledBorder) rules_panel.getBorder()).setTitleFont(title_font);
 
+        // Bots: dificultad y "recomprar bots" en SOLO LECTURA (no cambiables una vez empezada la timba);
+        // "repartir saldo entre humanos" SÍ es editable en partida (inocuo). El combo refleja la
+        // dificultad vigente (server-local). Para cliente todo queda deshabilitado en el bloque read_only.
+        bots_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("newgame.grupo_bots")));
+        ((javax.swing.border.TitledBorder) bots_panel.getBorder()).setTitleFont(title_font);
+        bots_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{
+            Translator.translate("ui.bots_facil"), Translator.translate("ui.bots_media"), Translator.translate("ui.bots_dificil")}));
+        bots_combobox.setSelectedIndex(Bot.DIFFICULTY == Bot.Difficulty.EASY ? 0 : (Bot.DIFFICULTY == Bot.Difficulty.HARD ? 2 : 1));
+        bots_combobox.setEnabled(false);
+        bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
+        bot_rebuy_checkbox.setEnabled(false);
+        bot_balance_checkbox.setSelected(GameFrame.BOT_BALANCE_TO_HUMANS);
+
         Helpers.translateComponents(this, false);
 
         // Importe ACTUAL de ante (= ciega pequeña) y straddle (= 2x ciega grande) entre
@@ -283,6 +309,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             rit_checkbox.setEnabled(false);
             rabbit_combo.setEnabled(false);
             estructura_combobox.setEnabled(false);
+            // Cliente: también "repartir saldo" en solo-lectura (solo el host lo cambia y lo difunde).
+            bot_balance_checkbox.setEnabled(false);
         } else if (GameFrame.RUN_IT_TWICE_LOCKED) {
             rit_checkbox.setEnabled(false);
         }
@@ -301,7 +329,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 + doblar_ciegas_spinner_manos.getValue() + "|" + blind_cap_checkbox.isSelected() + "|"
                 + blind_cap_spinner.getValue() + "|" + ante_checkbox.isSelected() + "|"
                 + straddle_checkbox.isSelected() + "|"
-                + String.valueOf(estructura_combobox.getSelectedItem());
+                + String.valueOf(estructura_combobox.getSelectedItem()) + "|"
+                + bot_balance_checkbox.isSelected();
     }
 
     // ¿Hay cambios sin guardar en la pestaña Partida? Lo usa el diálogo para preguntar
@@ -369,6 +398,13 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         ante_checkbox = new javax.swing.JCheckBox();
         straddle_checkbox = new javax.swing.JCheckBox();
         straddle_label = new javax.swing.JLabel();
+
+        bots_panel = new javax.swing.JPanel();
+        bots_avatar_label = new javax.swing.JLabel();
+        bots_label = new javax.swing.JLabel();
+        bots_combobox = new javax.swing.JComboBox<>();
+        bot_rebuy_checkbox = new javax.swing.JCheckBox();
+        bot_balance_checkbox = new javax.swing.JCheckBox();
 
         // ---------------- Reglas (izquierda, sin subpanel) ----------------
         manos_label.setFont(new java.awt.Font("Dialog", 1, 16));
@@ -715,6 +751,58 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
+        // ---------------- Bots (subpanel, debajo de reglas|ciegas) ----------------
+        Helpers.setScaledIconLabel(bots_avatar_label, getClass().getResource("/images/avatar_bot.png"), 48, 48);
+
+        bots_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        bots_label.setText("Dificultad de los bots:");
+        bots_label.putClientProperty("i18n.key", "ui.bots_dificultad");
+
+        bots_combobox.setFont(new java.awt.Font("Dialog", 0, 16));
+        bots_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
+        bot_rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
+        bot_rebuy_checkbox.setText("Recomprar bots");
+        bot_rebuy_checkbox.putClientProperty("i18n.key", "rebuy.permitir_bots");
+        bot_rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
+        bot_balance_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
+        bot_balance_checkbox.setText("Repartir saldo de bots entre humanos");
+        bot_balance_checkbox.putClientProperty("i18n.key", "balance.repartir_saldo_bots");
+        bot_balance_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
+        javax.swing.GroupLayout bots_panelLayout = new javax.swing.GroupLayout(bots_panel);
+        bots_panel.setLayout(bots_panelLayout);
+        bots_panelLayout.setHorizontalGroup(
+            bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(bots_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(bots_panelLayout.createSequentialGroup()
+                        .addComponent(bots_avatar_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(bots_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(bot_rebuy_checkbox)
+                    .addComponent(bot_balance_checkbox))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+        bots_panelLayout.setVerticalGroup(
+            bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(bots_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(bots_avatar_label)
+                    .addComponent(bots_label)
+                    .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(bot_rebuy_checkbox)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(bot_balance_checkbox)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+
         // Fila reglas | ciegas en el NORTE: ambos con TOP_ALIGNMENT y alto máximo libre, así el más
         // corto se estira hasta el alto del más alto y los dos bordes titulados quedan alineados arriba
         // y abajo. El row toma el alto del más alto; el resto del diálogo cae limpio debajo (CENTER).
@@ -727,7 +815,17 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         row.add(javax.swing.Box.createHorizontalStrut(Math.round(12 * Helpers.DIALOG_ZOOM)));
         row.add(ciegas_panel);
 
-        add(row, java.awt.BorderLayout.NORTH);
+        // Bots debajo de la fila reglas|ciegas, a todo el ancho (subpanel titulado propio).
+        row.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        bots_panel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+
+        javax.swing.JPanel north_container = new javax.swing.JPanel();
+        north_container.setLayout(new javax.swing.BoxLayout(north_container, javax.swing.BoxLayout.Y_AXIS));
+        north_container.add(row);
+        north_container.add(javax.swing.Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
+        north_container.add(bots_panel);
+
+        add(north_container, java.awt.BorderLayout.NORTH);
 
         // i18n de las etiquetas con icono (se traducen en translateComponents).
         manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
@@ -827,6 +925,12 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         }
         if (rabbit != GameFrame.RABBIT_HUNTING) {
             GameFrame.setRabbitHunting(rabbit);
+        }
+
+        // Reparto del saldo de bots entre humanos: editable en partida (inocuo). setBotBalanceToHumans
+        // difunde a los clientes y persiste en recover.
+        if (bot_balance_checkbox.isSelected() != GameFrame.BOT_BALANCE_TO_HUMANS) {
+            GameFrame.setBotBalanceToHumans(bot_balance_checkbox.isSelected());
         }
 
         // La estructura va en el fósil de recover (serializeRecoverSettings la incluye)

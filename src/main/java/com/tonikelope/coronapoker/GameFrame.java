@@ -3570,6 +3570,26 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    // Reparto del saldo de bots entre humanos: EDITABLE en partida (inocuo, solo afecta a la 2ª tabla
+    // del registro al terminar; no toca la auditoría). Mismo patrón que setIwtsthRule: en el host se
+    // difunde a los clientes (BOTBALRULE) para que su liquidación final coincida y se persiste en recover.
+    public static void setBotBalanceToHumans(boolean on) {
+
+        GameFrame gf = getInstance();
+
+        if (gf != null && gf.isPartida_local()) {
+            Helpers.threadRun(() -> {
+                synchronized (gf.getCrupier().getLock_fin_mano()) {
+                    GameFrame.BOT_BALANCE_TO_HUMANS = on;
+                    gf.getCrupier().broadcastGAMECommandFromServer("BOTBALRULE#" + (on ? "1" : "0"), null);
+                    GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
+                }
+            });
+        } else {
+            GameFrame.BOT_BALANCE_TO_HUMANS = on;
+        }
+    }
+
     public static void setRunItTwiceRule(boolean on) {
 
         // Congelado durante el run-out del all-in: el voto ya se está decidiendo con

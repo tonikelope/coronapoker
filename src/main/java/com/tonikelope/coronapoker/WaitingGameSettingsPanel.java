@@ -132,6 +132,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox rebuy_limit_checkbox;
     private javax.swing.JSpinner rebuy_limit_spinner;
     private javax.swing.JCheckBox bot_rebuy_checkbox;
+    private javax.swing.JCheckBox bot_balance_checkbox;
     private javax.swing.JLabel rebuy_cap_label;
     private javax.swing.JComboBox<String> rebuy_cap_combo;
 
@@ -180,6 +181,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         Helpers.setTranslatedToolTip(rebuy_limit_checkbox, "tooltip.cfg.rebuy_limit");
         Helpers.setTranslatedToolTip(rebuy_limit_spinner, "tooltip.cfg.rebuy_limit");
         Helpers.setTranslatedToolTip(bot_rebuy_checkbox, "tooltip.cfg.bot_rebuy");
+        Helpers.setTranslatedToolTip(bot_balance_checkbox, "tooltip.cfg.bot_balance");
         Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
         // rebuy_cap_combo ya tiene su tooltip propio ("rebuy.tope_recompra_tooltip") en initComponents.
     }
@@ -254,6 +256,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 + buyin_min_bb_spinner.getValue() + "|" + buyin_max_bb_spinner.getValue() + "|"
                 + rebuy_checkbox.isSelected() + "|" + rebuy_limit_checkbox.isSelected() + "|"
                 + rebuy_limit_spinner.getValue() + "|" + bot_rebuy_checkbox.isSelected() + "|"
+                + bot_balance_checkbox.isSelected() + "|"
                 + rebuy_cap_combo.getSelectedIndex() + "|" + bots_combobox.getSelectedIndex();
     }
 
@@ -309,6 +312,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         GameFrame.REBUY = rebuy_checkbox.isSelected();
         GameFrame.REBUY_LIMIT = rebuy_limit_checkbox.isSelected() ? ((Number) rebuy_limit_spinner.getValue()).intValue() : 0;
         GameFrame.BOT_REBUY = bot_rebuy_checkbox.isSelected();
+        GameFrame.BOT_BALANCE_TO_HUMANS = bot_balance_checkbox.isSelected();
         GameFrame.REBUY_CAP_POLICY = rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
         // "Permitir recomprar" no viaja en recover_settings: se persiste en game.rebuy para que
         // el resume no revierta la edición (ver GameFrame.persistRecoverRebuy).
@@ -349,6 +353,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         rebuy_limit_checkbox.setEnabled(e);
         rebuy_limit_spinner.setEnabled(e);
         bot_rebuy_checkbox.setEnabled(e);
+        bot_balance_checkbox.setEnabled(e);
         rebuy_cap_label.setEnabled(e);
         rebuy_cap_combo.setEnabled(e);
         bots_label.setEnabled(e);
@@ -438,6 +443,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         rebuy_limit_checkbox = new javax.swing.JCheckBox();
         rebuy_limit_spinner = new javax.swing.JSpinner();
         bot_rebuy_checkbox = new javax.swing.JCheckBox();
+        bot_balance_checkbox = new javax.swing.JCheckBox();
         rebuy_cap_label = new javax.swing.JLabel();
         rebuy_cap_combo = new javax.swing.JComboBox<>();
 
@@ -859,6 +865,11 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         bot_rebuy_checkbox.putClientProperty("i18n.key", "rebuy.permitir_bots");
         bot_rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
+        bot_balance_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
+        bot_balance_checkbox.setText("Repartir saldo de bots entre humanos");
+        bot_balance_checkbox.putClientProperty("i18n.key", "balance.repartir_saldo_bots");
+        bot_balance_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
         rebuy_cap_label.setFont(new java.awt.Font("Dialog", 1, 14));
         rebuy_cap_label.setText("Tope recompra:");
         rebuy_cap_label.putClientProperty("i18n.key", "rebuy.tope_recompra");
@@ -975,13 +986,15 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(bots_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(bots_avatar_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(bots_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(bot_rebuy_checkbox)
+                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(bots_panelLayout.createSequentialGroup()
+                        .addComponent(bots_avatar_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(bots_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(bot_rebuy_checkbox)
+                    .addComponent(bot_balance_checkbox))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         bots_panelLayout.setVerticalGroup(
@@ -991,8 +1004,11 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(bots_avatar_label)
                     .addComponent(bots_label)
-                    .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(bot_rebuy_checkbox))
+                    .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(bot_rebuy_checkbox)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(bot_balance_checkbox)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
@@ -1557,6 +1573,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         s.rebuy = rebuy_checkbox.isSelected();
         s.rebuyLimit = rebuy_limit_checkbox.isSelected() ? ((Number) rebuy_limit_spinner.getValue()).intValue() : 0;
         s.botRebuy = bot_rebuy_checkbox.isSelected();
+        s.botBalanceToHumans = bot_balance_checkbox.isSelected();
         s.rebuyCapPolicy = rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
         if (doblar_checkbox.isSelected()) {
             if (double_blinds_radio_minutos.isSelected()) {
@@ -1641,6 +1658,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             rabbit_combo.setSelectedIndex(Math.min(Math.max(s.rabbit, 0), 3));
             bot_rebuy_checkbox.setSelected(s.botRebuy);
             bot_rebuy_checkbox.setEnabled(s.rebuy);
+            bot_balance_checkbox.setSelected(s.botBalanceToHumans);
 
             fixed_buyin_checkbox.setSelected(s.fixedBuyin);
             buyin_spinner.setEnabled(s.fixedBuyin);

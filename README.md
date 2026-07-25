@@ -149,7 +149,7 @@ These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real 
 ## 💬 Chat, voice & social
 
 ### Waiting room chat
-Full chat while the game is being set up, with a built-in **emoji picker (~1.800 emojis with recent-use history)**, inline **GIF support** with automatic format conversion (bundled `gifsicle` binary for Windows / Linux / macOS) and **automatic image previews** for URLs pasted into the chat.
+Full chat while the game is being set up, with a built-in **emoji picker (~1.800 emojis with recent-use history)**, inline **GIF support** and **automatic image previews** for URLs pasted into the chat.
 
 ### In-game fast chat
 A side panel for sending quick messages mid-hand without leaving the action, with **text-to-speech readout** of incoming messages and inline GIFs.

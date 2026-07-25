@@ -9099,11 +9099,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && GameFrame.getInstance().getLocalPlayer().isActivo()) {
             final String sp1 = Card.shortStringFromIndex(this.local_original_cards[0] & 0xFF);
             final String sp2 = Card.shortStringFromIndex(this.local_original_cards[1] & 0xFF);
+            // Las hole cards del local se parten (media altura) SOLO en el nivel 3 de vista
+            // compacta, así que su giro se pre-decodifica ya recortado en ese nivel. Si la
+            // vista cambia antes del destape, takePrefetchedHoleCardFlip lo detecta y decodifica inline.
+            final boolean local_top_half = (GameFrame.VISTA_COMPACTA == 3);
             if (sp1 != null) {
-                prefetch_flip_hc1 = Helpers.futureRun(() -> decodeCardFlipAnim(sp1));
+                prefetch_flip_hc1 = Helpers.futureRun(() -> decodeCardFlipAnim(sp1, local_top_half));
             }
             if (sp2 != null) {
-                prefetch_flip_hc2 = Helpers.futureRun(() -> decodeCardFlipAnim(sp2));
+                prefetch_flip_hc2 = Helpers.futureRun(() -> decodeCardFlipAnim(sp2, local_top_half));
             }
         }
 
@@ -16242,13 +16246,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         private final int display_h;
         private final float zoom_factor;
         private final String card;
+        // Si el giro se rindió a media altura (vista compacta). Se compara con el
+        // estado actual al recoger el prefetch: si el usuario cambió la vista compacta
+        // entre el pre-decode y el destape, el prefetch ya no casa y se re-decodifica.
+        private final boolean top_half;
 
-        private FlipAnim(PreRenderedGif anim, int display_w, int display_h, float zoom_factor, String card) {
+        private FlipAnim(PreRenderedGif anim, int display_w, int display_h, float zoom_factor, String card, boolean top_half) {
             this.anim = anim;
             this.display_w = display_w;
             this.display_h = display_h;
             this.zoom_factor = zoom_factor;
             this.card = card;
+            this.top_half = top_half;
         }
     }
 
@@ -16257,8 +16266,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // PreRenderedGif para el motor catch-up. Devuelve null si la carta no tiene
     // JPG de cara: el llamante cae al destape seco.
     private FlipAnim decodeCardFlipAnim(Card carta) {
-        // toShortString() == getValor() + "_" + getPalo().
-        return decodeCardFlipAnim(carta.toShortString());
+        // toShortString() == getValor() + "_" + getPalo(). En vista compacta la carta
+        // se muestra partida a media altura (su mitad superior), así que su giro también
+        // gira media carta para casar con la estática (mismo criterio que el swap hole).
+        return decodeCardFlipAnim(carta.toShortString(),
+                GameFrame.VISTA_COMPACTA > 0 && carta.isCompactable());
     }
 
     // Igual pero a partir de la clave "valor_palo" directamente (sin necesitar la
@@ -16267,7 +16279,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // antes de que aterricen. Rendir los 20-45 frames (warp por píxel + SS) cuesta
     // decenas/cientos de ms y CardFlipAnimator NO cachea los frames, así que
     // hacerlo inline al aterrizar metía ese coste como pausa fantasma.
-    private FlipAnim decodeCardFlipAnim(String valor_palo) {
+    private FlipAnim decodeCardFlipAnim(String valor_palo, boolean top_half) {
 
         float zoom_factor = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
@@ -16288,16 +16300,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             PreRenderedGif anim = CardFlipAnimator.generate(GameFrame.BARAJA,
                     valor_palo,
-                    card_w, card_h, corner, duration, num_frames, flip_zoom);
+                    card_w, card_h, corner, duration, num_frames, flip_zoom, top_half);
 
             if (anim == null) {
                 return null;
             }
 
+            // En compacta el lienzo (y el overlay que lo pinta) va a media altura, para
+            // que el giro de media carta quede centrado sobre la estática partida y el
+            // relevo giro->carta no salte de tamaño.
             int display_w = CardFlipAnimator.canvasWidth(card_w, flip_zoom);
-            int display_h = CardFlipAnimator.canvasHeight(card_h, flip_zoom);
+            int display_h = CardFlipAnimator.canvasHeight(top_half ? card_h / 2 : card_h, flip_zoom);
 
-            return new FlipAnim(anim, display_w, display_h, zoom_factor, valor_palo);
+            return new FlipAnim(anim, display_w, display_h, zoom_factor, valor_palo, top_half);
 
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Card flip render failed (plain uncover fallback)", ex);
@@ -16332,7 +16347,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             FlipAnim decoded = (FlipAnim) prefetched.get();
 
             if (decoded != null && decoded.card.equals(carta.toShortString())
-                    && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)) {
+                    && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
+                    && decoded.top_half == (GameFrame.VISTA_COMPACTA > 0 && carta.isCompactable())) {
                 return decoded;
             }
         } catch (Exception ex) {
@@ -16460,13 +16476,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // (la jugada en etiqueta neutra del showdown) entre JUSTO al
                 // terminar el giro — destaparSync deja la estática debajo de
                 // cada carta y los overlays se retiran sin parpadeo.
-                // El overlay gira a proporción natural (display_w x display_h),
-                // como las comunitarias en showCentralFrames: en vista compacta
-                // achatar solo la altura (la anchura seguía completa) estiraba el
-                // frame a una caja ancha-y-baja y la carta salía deformada. La
-                // estática de debajo sí va achatada, pero destaparSync la coloca
-                // bajo el último frame, así que el cambio de tamaño se hace sin
-                // que se pinte ningún hueco — igual que en las comunitarias.
+                // El tamaño del overlay (display_w x display_h) lo fija decodeCardFlipAnim:
+                // en vista compacta el giro se rinde a MEDIA altura (girando la mitad
+                // superior de la carta, no achatando el frame entero, que deformaba el
+                // trapecio del warp), así casa con la estática partida que queda debajo.
                 GameFrame.getInstance().getTapete().playCardFlipOverlays(
                         new Card[]{c1, c2},
                         new PreRenderedGif[]{anim1.anim, anim2.anim},
@@ -16607,7 +16620,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             FlipAnim decoded = (FlipAnim) prefetched.get();
 
             if (decoded != null && decoded.card.equals(carta.toShortString())
-                    && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)) {
+                    && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
+                    && decoded.top_half == (GameFrame.VISTA_COMPACTA > 0 && carta.isCompactable())) {
                 return decoded;
             }
         } catch (Exception ex) {

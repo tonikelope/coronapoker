@@ -435,6 +435,57 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     }
 
+    // Vista compacta: la carta se recorta a su mitad superior por el clip del propio
+    // componente (el icono se muestra a altura completa). Ese corte deja el borde inferior
+    // RECTO. Este helper devuelve el MISMO icono a altura completa pero mordiendo sus dos
+    // esquinas en la linea de corte (y = CARD_HEIGHT/2) con el mismo radio (CARD_CORNER),
+    // para que la carta partida ensene las esquinas inferiores redondeadas identicas a las
+    // superiores. La mitad inferior queda intacta (no se ve, fuera del recorte). El swap de
+    // las hole cards hereda esto gratis (recorta esta misma franja superior ya mordida via
+    // getDisplayedImage). Imagen nueva: NO muta el icono cacheado compartido.
+    private static ImageIcon roundCompactBottomCorners(ImageIcon full) {
+
+        if (full == null) {
+            return null;
+        }
+
+        int w = full.getIconWidth();
+        int fh = full.getIconHeight();
+        int cut = Math.round(CARD_HEIGHT / 2);
+
+        if (w <= 0 || fh <= 0 || cut <= 0 || cut >= fh) {
+            return full;
+        }
+
+        java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(w, fh, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = out.createGraphics();
+
+        try {
+            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // Mascara de conservacion (patron SrcIn, igual que makeImageRoundedCorner y que el
+            // topHalf del flip): mitad superior redondeada a las 4 esquinas + mitad inferior
+            // intacta. La union deja las muescas de las esquinas inferiores justo encima de la
+            // linea de corte (el rectangulo inferior arranca en ella y no las tapa), asi el clip
+            // a CARD_HEIGHT/2 muestra las 4 esquinas iguales. Se pinta la mascara PRIMERO y el
+            // icono despues con SrcIn: lo que cae fuera de la mascara queda transparente. (Con
+            // DstIn + fill no se borraba: fill solo rasteriza DENTRO de la forma y las esquinas
+            // de fuera se quedaban intactas.)
+            java.awt.geom.Area keep = new java.awt.geom.Area(
+                    new java.awt.geom.RoundRectangle2D.Float(0, 0, w, cut, CARD_CORNER, CARD_CORNER));
+            keep.add(new java.awt.geom.Area(new java.awt.Rectangle(0, cut, w, fh - cut)));
+
+            g.setColor(java.awt.Color.WHITE);
+            g.fill(keep);
+            g.setComposite(java.awt.AlphaComposite.SrcIn);
+            g.drawImage(full.getImage(), 0, 0, null);
+        } finally {
+            g.dispose();
+        }
+
+        return new ImageIcon(out);
+    }
+
     /**
      * Creates new form PlayingCard
      */
@@ -571,7 +622,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
                 Runnable guiUpdate = () -> {
                     // Avoid redundant repaints and layout invalidations
-                    Dimension targetSize = new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT);
+                    boolean compact = (GameFrame.VISTA_COMPACTA > 0 && compactable);
+                    Dimension targetSize = new Dimension(CARD_WIDTH, compact ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT);
 
                     if (!targetSize.equals(card_image.getPreferredSize())) {
                         card_image.setPreferredSize(targetSize);
@@ -579,7 +631,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                         setPreferredSize(targetSize);
                     }
 
-                    card_image.setIcon(finalImg);
+                    // Partida: mismo icono a altura completa pero con las esquinas inferiores
+                    // redondeadas en la linea de corte, para que el clip del componente muestre
+                    // las 4 esquinas iguales en vez del borde inferior recto.
+                    card_image.setIcon(compact ? roundCompactBottomCorners(finalImg) : finalImg);
                     card_image.setVisible(isVisible_card());
 
                     if (rabbit == RABBIT_DESTAPADA) {

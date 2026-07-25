@@ -101,8 +101,8 @@ public class CardFlipAnimator {
             // El ancho no cambia (el giro es sobre el eje vertical, comprime la anchura).
             int card_h_eff = card_h_logical;
             if (top_half) {
-                front = topHalf(front);
-                back = topHalf(back);
+                front = topHalf(front, corner_logical, card_w_logical);
+                back = topHalf(back, corner_logical, card_w_logical);
                 card_h_eff = card_h_logical / 2;
             }
 
@@ -245,15 +245,25 @@ public class CardFlipAnimator {
      * píxeles, sin escalar), para el giro en vista compacta. Es el mismo recorte que
      * muestra la carta estática partida. Copia real (no getSubimage) para no compartir
      * el raster de la fuente cacheada. Conserva las esquinas superiores redondeadas y
-     * deja el borde inferior recto, igual que la estática.
+     * redondea las inferiores (nuevas, en la línea de corte) al MISMO radio nativo con
+     * que rounded() redondeó las superiores (w * corner / card_w), para que las cuatro
+     * esquinas de la carta partida queden idénticas, igual que en la estática.
      */
-    private static BufferedImage topHalf(BufferedImage src) {
+    private static BufferedImage topHalf(BufferedImage src, int corner_logical, int card_w_logical) {
         int w = src.getWidth();
         int h = Math.max(1, src.getHeight() / 2);
+        int radius = Math.max(1, Math.round(w * (corner_logical / (float) card_w_logical)));
         BufferedImage cut = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = cut.createGraphics();
-        g.drawImage(src, 0, 0, w, h, 0, 0, w, h, null);
-        g.dispose();
+        try {
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(Color.WHITE);
+            g.fill(new RoundRectangle2D.Float(0, 0, w, h, radius, radius));
+            g.setComposite(AlphaComposite.SrcIn);
+            g.drawImage(src, 0, 0, w, h, 0, 0, w, h, null);
+        } finally {
+            g.dispose();
+        }
         return cut;
     }
 

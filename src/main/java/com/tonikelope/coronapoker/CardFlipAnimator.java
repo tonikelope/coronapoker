@@ -77,11 +77,13 @@ public class CardFlipAnimator {
      * @param num_frames número de frames a generar
      * @param zoom factor "acercar" sobre el tamaño de la carta estática (1.0 = alineado
      * pixel-perfect; &gt;1.0 dibuja la carta más grande para el efecto de acercamiento)
+     * @param top_half vista compacta: gira solo la MITAD SUPERIOR de la carta (la
+     * misma que muestra la estática partida), no la carta entera
      * @return PreRenderedGif con los frames del giro, o null si falla la carga
      */
     public static PreRenderedGif generate(String baraja, String valor_palo,
             int card_w_logical, int card_h_logical, int corner_logical,
-            int duration_ms, int num_frames, float zoom) {
+            int duration_ms, int num_frames, float zoom, boolean top_half) {
 
         try {
             BufferedImage front = cachedFace(baraja, valor_palo, card_w_logical, corner_logical);
@@ -90,17 +92,31 @@ public class CardFlipAnimator {
                 return null;
             }
 
+            // Vista compacta: la estática solo enseña su MITAD SUPERIOR (recorte a media
+            // altura a native res, sin escalar). Para que el giro respete ese recorte NO
+            // se achata el frame (deformaría el trapecio del warp: la carta salía ancha y
+            // baja), sino que se gira una carta que YA es media: se recorta la fuente a su
+            // mitad superior y se encoge el lienzo a la par. El warp genera entonces el
+            // trapecio correcto de una mini carta y el último frame casa con la estática.
+            // El ancho no cambia (el giro es sobre el eje vertical, comprime la anchura).
+            int card_h_eff = card_h_logical;
+            if (top_half) {
+                front = topHalf(front);
+                back = topHalf(back);
+                card_h_eff = card_h_logical / 2;
+            }
+
             double dens = screenDensity();
             // Carta y lienzo a resolución FÍSICA. La carta se dibuja a CARD * zoom: con zoom=1
             // queda al TAMAÑO EXACTO de la estática (alineada y centrada, relevo pixel-perfect);
             // con zoom>1 se dibuja mayor (efecto acercar) y el lienzo crece en la misma proporción
             // para que el giro siga centrado sobre la carta estática.
             int drawn_w_logical = Math.round(card_w_logical * zoom);
-            int drawn_h_logical = Math.round(card_h_logical * zoom);
+            int drawn_h_logical = Math.round(card_h_eff * zoom);
             int draw_w = Math.round(drawn_w_logical * (float) dens);
             int draw_h = Math.round(drawn_h_logical * (float) dens);
             int canvas_w = Math.round(canvasWidth(card_w_logical, zoom) * (float) dens);
-            int canvas_h = Math.round(canvasHeight(card_h_logical, zoom) * (float) dens);
+            int canvas_h = Math.round(canvasHeight(card_h_eff, zoom) * (float) dens);
 
             // Calidad (por defecto): supersampling SS completo, idéntico a siempre. Rendimiento:
             // warp sin supersampling (ss=1, ~1/4 del coste del bucle por píxel; además la reducción
@@ -222,6 +238,23 @@ public class CardFlipAnimator {
         SRC_CACHE.clear();
         CACHE_BARAJA = null;
         CACHE_TRASERA = null;
+    }
+
+    /**
+     * Recorte de la MITAD SUPERIOR a resolución nativa (franja de los primeros h/2
+     * píxeles, sin escalar), para el giro en vista compacta. Es el mismo recorte que
+     * muestra la carta estática partida. Copia real (no getSubimage) para no compartir
+     * el raster de la fuente cacheada. Conserva las esquinas superiores redondeadas y
+     * deja el borde inferior recto, igual que la estática.
+     */
+    private static BufferedImage topHalf(BufferedImage src) {
+        int w = src.getWidth();
+        int h = Math.max(1, src.getHeight() / 2);
+        BufferedImage cut = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = cut.createGraphics();
+        g.drawImage(src, 0, 0, w, h, 0, 0, w, h, null);
+        g.dispose();
+        return cut;
     }
 
     /** Aplica esquinas redondeadas (máscara SrcIn) conservando la resolución. */

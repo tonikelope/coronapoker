@@ -1018,7 +1018,6 @@ public class NewGameDialog extends JDialog {
 
         fixed_buyin_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         fixed_buyin_checkbox.setText("Buy-in fijo");
-        fixed_buyin_checkbox.setToolTipText("Marcado: todos arrancan con el mismo buy-in. Desmarcado: cada jugador elige su buy-in (dentro del rango configurado) al entrar al tablero.");
         fixed_buyin_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         fixed_buyin_checkbox.setDoubleBuffered(true);
         fixed_buyin_checkbox.addActionListener(new java.awt.event.ActionListener() {
@@ -1058,7 +1057,6 @@ public class NewGameDialog extends JDialog {
         recompra_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
         rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        rebuy_checkbox.setToolTipText("Si algún jugador se queda sin fichas");
         rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_checkbox.setDoubleBuffered(true);
         rebuy_checkbox.addActionListener(new java.awt.event.ActionListener() {
@@ -1468,7 +1466,6 @@ public class NewGameDialog extends JDialog {
 
         nick_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         nick_label.setText("Nick:");
-        nick_label.setToolTipText("Haz click para cambiar el avatar");
         nick_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         nick_label.setDoubleBuffered(true);
         nick_label.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -1534,7 +1531,6 @@ public class NewGameDialog extends JDialog {
         password.putClientProperty("i18n.key", "ui.password");
 
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        recover_checkbox.setToolTipText("El MODO RECUPERACIÓN permite arrancar una timba que se interrumpió previamente");
         recover_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_checkbox.setDoubleBuffered(true);
         recover_checkbox.addActionListener(new java.awt.event.ActionListener() {
@@ -3099,6 +3095,15 @@ public class NewGameDialog extends JDialog {
     // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents() y
     // SOBREESCRIBE cualquier setToolTipText hardcodeado dentro de initComponents.
     private void setupTooltips() {
+        Helpers.setTranslatedToolTip(server_label, "tooltip.cfg.server_ip");
+        Helpers.setTranslatedToolTip(server_ip_textfield, "tooltip.cfg.server_ip");
+        Helpers.setTranslatedToolTip(server_port_puntos, "tooltip.cfg.server_port");
+        Helpers.setTranslatedToolTip(server_port_textfield, "tooltip.cfg.server_port");
+        Helpers.setTranslatedToolTip(upnp_checkbox, "tooltip.cfg.upnp");
+        Helpers.setTranslatedToolTip(preset_label, "tooltip.cfg.preset");
+        Helpers.setTranslatedToolTip(presets_combobox, "tooltip.cfg.preset");
+        Helpers.setTranslatedToolTip(preset_save_button, "tooltip.cfg.preset_save");
+        Helpers.setTranslatedToolTip(preset_delete_button, "tooltip.cfg.preset_delete");
         Helpers.setTranslatedToolTip(manos_checkbox, "tooltip.cfg.hand_limit");
         Helpers.setTranslatedToolTip(limite_manos_label, "tooltip.cfg.hand_limit");
         Helpers.setTranslatedToolTip(manos_spinner, "tooltip.cfg.hand_limit");
@@ -3114,23 +3119,31 @@ public class NewGameDialog extends JDialog {
         Helpers.setTranslatedToolTip(rabbit_combo, "tooltip.cfg.rabbit");
         Helpers.setTranslatedToolTip(rabbit_label, "tooltip.cfg.rabbit");
         Helpers.setTranslatedToolTip(rabbit_icon, "tooltip.cfg.rabbit");
+        Helpers.setTranslatedToolTip(estructura_label, "tooltip.cfg.structure");
         Helpers.setTranslatedToolTip(estructura_combobox, "tooltip.cfg.structure");
+        Helpers.setTranslatedToolTip(ciegas_label, "tooltip.cfg.blinds_level");
         Helpers.setTranslatedToolTip(ciegas_combobox, "tooltip.cfg.blinds_level");
         Helpers.setTranslatedToolTip(doblar_checkbox, "tooltip.cfg.double_blinds");
         Helpers.setTranslatedToolTip(blind_cap_checkbox, "tooltip.cfg.blind_cap");
         Helpers.setTranslatedToolTip(blind_cap_spinner, "tooltip.cfg.blind_cap");
         Helpers.setTranslatedToolTip(ante_checkbox, "tooltip.cfg.ante");
         Helpers.setTranslatedToolTip(straddle_checkbox, "tooltip.cfg.straddle");
+        Helpers.setTranslatedToolTip(straddle_icon, "tooltip.cfg.straddle");
+        Helpers.setTranslatedToolTip(buyin_label, "tooltip.cfg.buyin");
+        Helpers.setTranslatedToolTip(buyin_spinner, "tooltip.cfg.buyin");
         Helpers.setTranslatedToolTip(fixed_buyin_checkbox, "tooltip.cfg.buyin_fixed");
-        Helpers.setTranslatedToolTip(buyin_min_bb_spinner, "tooltip.buyin_range");
-        Helpers.setTranslatedToolTip(buyin_max_bb_spinner, "tooltip.buyin_range");
+        Helpers.setTranslatedToolTip(buyin_range_label, "tooltip.cfg.buyin_range");
+        Helpers.setTranslatedToolTip(buyin_min_bb_spinner, "tooltip.cfg.buyin_range");
+        Helpers.setTranslatedToolTip(buyin_max_bb_spinner, "tooltip.cfg.buyin_range");
         Helpers.setTranslatedToolTip(rebuy_checkbox, "tooltip.rebuy_description");
         Helpers.setTranslatedToolTip(recomprar_label, "tooltip.rebuy_description");
         Helpers.setTranslatedToolTip(rebuy_limit_checkbox, "tooltip.cfg.rebuy_limit");
         Helpers.setTranslatedToolTip(rebuy_limit_spinner, "tooltip.cfg.rebuy_limit");
         Helpers.setTranslatedToolTip(bot_rebuy_checkbox, "tooltip.cfg.bot_rebuy");
         Helpers.setTranslatedToolTip(bot_balance_checkbox, "tooltip.cfg.bot_balance");
+        Helpers.setTranslatedToolTip(bots_label, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
+        Helpers.setTranslatedToolTip(rebuy_cap_label, "rebuy.tope_recompra_tooltip");
         Helpers.setTranslatedToolTip(nick_label, "tooltip.change_avatar");
         Helpers.setTranslatedToolTip(recover_checkbox, "tooltip.cfg.recover");
         Helpers.setTranslatedToolTip(recover_checkbox_label, "tooltip.cfg.recover");

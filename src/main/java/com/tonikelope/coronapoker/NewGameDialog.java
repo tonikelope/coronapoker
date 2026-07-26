@@ -1450,8 +1450,10 @@ public class NewGameDialog extends JDialog {
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(compra_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                // Hueco fijo entre columnas (ya no un muelle que dejaba blanco variable)
-                .addGap(Math.round(16 * Helpers.DIALOG_ZOOM), Math.round(16 * Helpers.DIALOG_ZOOM), Math.round(16 * Helpers.DIALOG_ZOOM))
+                // Hueco fijo entre columnas = gap RELATED de plataforma (mismo ancho PREFERIDO que
+                // el antiguo muelle central, para NO ensanchar el diálogo); las columnas rellenables
+                // absorben el sobrante en vez de dejarlo en blanco a la derecha.
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 // Columna derecha (Ciegas arriba, Bots abajo), también rellenable
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(bots_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)

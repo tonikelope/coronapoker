@@ -198,13 +198,13 @@ public class AppearanceSettingsPanel extends JPanel {
             Translator.translate("settings.modo_pantalla_completa")
         });
         display_combo.setSelectedIndex(pending_fullscreen ? 1 : 0);
+        Helpers.setTranslatedToolTip(display_combo, "tooltip.cfg.display_mode");
         display_combo.addActionListener(e -> {
             if (building) {
                 return;
             }
             pending_fullscreen = display_combo.getSelectedIndex() == 1;
         });
-        addLeft(pantalla, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
         // Predeterminado: pantalla completa (AUTO_FULLSCREEN=true → índice 1). Se aplica al GUARDAR.
         reset_actions.add(() -> display_combo.setSelectedIndex(1));
 
@@ -241,8 +241,6 @@ public class AppearanceSettingsPanel extends JPanel {
                     GameFrame.AUTO_ZOOM = !GameFrame.AUTO_ZOOM;
                     persist("auto_zoom", String.valueOf(GameFrame.AUTO_ZOOM));
                 }, false));
-        addLeft(pantalla, zoom_group);
-
         // Vista compacta: desplegable de cuatro estados (0=off, 1=compacta,
         // 2=compacta+cartas, 3=compacta+cartas+local), aplica al vuelo en partida
         // / solo persiste fuera de partida.
@@ -253,6 +251,7 @@ public class AppearanceSettingsPanel extends JPanel {
             Translator.translate("settings.compacta_local")
         });
         compact_combo.setSelectedIndex(Math.min(Math.max(GameFrame.VISTA_COMPACTA, 0), 3));
+        Helpers.setTranslatedToolTip(compact_combo, "tooltip.cfg.compact_view");
         compact_combo.addActionListener(e -> {
             if (building) {
                 return;
@@ -265,7 +264,6 @@ public class AppearanceSettingsPanel extends JPanel {
                 persist("vista_compacta", String.valueOf(idx));
             }
         });
-        addLeft(pantalla, labeledRow("/images/menu/tiny.png", "view.vista_compacta", compact_combo));
         // Predeterminado: vista compacta desactivada (índice 0).
         reset_actions.add(() -> compact_combo.setSelectedIndex(0));
 
@@ -292,7 +290,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // Cambiarlo en cualquier otro sitio no refrescaría los diálogos ya abiertos ni la sala/mesa.
         WaitingRoomFrame wr = WaitingRoomFrame.getInstance();
         dialog_zoom_spinner.setEnabled(gf == null && (wr == null || !wr.isShowing()));
-        addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.dialog_zoom_pct", dialog_zoom_spinner));
+        Helpers.setTranslatedToolTip(dialog_zoom_spinner, "tooltip.cfg.dialog_zoom");
         // Predeterminado: 100 %. SOLO si el spinner está habilitado (solo en la pantalla de
         // inicio): en partida/sala está en gris y no debe reescribir la preferencia pendiente.
         reset_actions.add(() -> {
@@ -305,6 +303,60 @@ public class AppearanceSettingsPanel extends JPanel {
         // vacía dentro de su borde titulado. El hueco sobrante de la columna derecha se recoge ENTRE
         // Mesa y Pantalla (ver el ensamblado de right_inner), no dentro de este panel.
 
+        // Los tres controles sueltos (modo de pantalla, vista compacta y zoom de diálogos) van en una
+        // rejilla común etiqueta|control para que sus desplegables arranquen en la MISMA x (antes cada
+        // uno caía a distinta x según lo ancha que fuese su etiqueta). El recuadro "Zoom de la mesa"
+        // (zoom_group) se intercala ocupando las dos columnas, conservando el orden original.
+        JLabel display_label = new JLabel(Translator.translate("settings.modo_pantalla") + ":");
+        display_label.setIcon(icon("/images/menu/full_screen.png"));
+        JLabel compact_label = new JLabel(Translator.translate("view.vista_compacta") + ":");
+        compact_label.setIcon(icon("/images/menu/tiny.png"));
+        JLabel dialog_zoom_label = new JLabel(Translator.translate("settings.dialog_zoom_pct") + ":");
+        dialog_zoom_label.setIcon(icon("/images/menu/zoom.png"));
+        JPanel pantalla_grid = new JPanel(new java.awt.GridBagLayout()) {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return getPreferredSize();
+            }
+        };
+        pantalla_grid.setOpaque(false);
+        pantalla_grid.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        int pantalla_vgap = Math.round(12 * Helpers.DIALOG_ZOOM);
+        int pantalla_lgap = Math.round(6 * Helpers.DIALOG_ZOOM);
+        java.awt.GridBagConstraints pgc = new java.awt.GridBagConstraints();
+        pgc.anchor = java.awt.GridBagConstraints.WEST;
+        pgc.gridx = 0;
+        pgc.gridy = 0;
+        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, pantalla_lgap);
+        pantalla_grid.add(display_label, pgc);
+        pgc.gridx = 1;
+        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, 0);
+        pantalla_grid.add(display_combo, pgc);
+        // Recuadro de zoom de la mesa: ocupa las dos columnas (su borde se lee como bloque aparte).
+        pgc.gridx = 0;
+        pgc.gridy = 1;
+        pgc.gridwidth = 2;
+        pgc.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, 0);
+        pantalla_grid.add(zoom_group, pgc);
+        pgc.gridwidth = 1;
+        pgc.fill = java.awt.GridBagConstraints.NONE;
+        pgc.gridx = 0;
+        pgc.gridy = 2;
+        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, pantalla_lgap);
+        pantalla_grid.add(compact_label, pgc);
+        pgc.gridx = 1;
+        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, 0);
+        pantalla_grid.add(compact_combo, pgc);
+        pgc.gridx = 0;
+        pgc.gridy = 3;
+        pgc.insets = new java.awt.Insets(0, 0, 0, pantalla_lgap);
+        pantalla_grid.add(dialog_zoom_label, pgc);
+        pgc.gridx = 1;
+        pgc.insets = new java.awt.Insets(0, 0, 0, 0);
+        pantalla_grid.add(dialog_zoom_spinner, pgc);
+        addLeft(pantalla, pantalla_grid);
+
         // ---------------- Mesa ----------------
         JPanel mesa = titledColumn("settings.apariencia_mesa");
 
@@ -315,6 +367,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // en el item de radio del submenú de barajas (recarga las imágenes); fuera de partida
         // persiste y reconstruye las imágenes estáticas (así la trasera "default" queda bien).
         JComboBox<String> baraja_combo = new JComboBox<>(decks.toArray(new String[0]));
+        Helpers.setTranslatedToolTip(baraja_combo, "tooltip.cfg.deck");
         baraja_combo.setSelectedItem(GameFrame.BARAJA);
         baraja_combo.addActionListener(e -> {
             if (building) {
@@ -350,6 +403,7 @@ public class AppearanceSettingsPanel extends JPanel {
         traseras.add("default");
         traseras.addAll(decks);
         JComboBox<String> trasera_combo = new JComboBox<>(traseras.toArray(new String[0]));
+        Helpers.setTranslatedToolTip(trasera_combo, "tooltip.cfg.deck_back");
         // El VALOR interno sigue siendo "default" (persistencia), pero se muestra traducido.
         trasera_combo.setRenderer(new javax.swing.DefaultListCellRenderer() {
             @Override
@@ -410,11 +464,11 @@ public class AppearanceSettingsPanel extends JPanel {
         baraja_gbc.gridx = 0;
         baraja_gbc.gridy = 1;
         baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
+        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM));
         baraja_grid.add(trasera_label, baraja_gbc);
         baraja_gbc.gridx = 1;
         baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
         baraja_grid.add(trasera_combo, baraja_gbc);
         addToGroup(baraja_group, baraja_grid);
         // Predeterminado: trasera "default" (sigue a la baraja). Se resetea DESPUÉS de la baraja.
@@ -433,6 +487,7 @@ public class AppearanceSettingsPanel extends JPanel {
             Translator.translate("menu.sin_tapete")
         });
         tapete_combo.setSelectedIndex(currentTapeteIndex());
+        Helpers.setTranslatedToolTip(tapete_combo, "tooltip.cfg.table_felt");
         tapete_combo.addActionListener(e -> {
             if (building) {
                 return;
@@ -465,7 +520,19 @@ public class AppearanceSettingsPanel extends JPanel {
                 refreshLauncherTapete();
             }
         });
-        addLeft(mesa, labeledRow("/images/menu/tapetes.png", "settings.tapete", tapete_combo));
+        // "Tapete" se alinea con Baraja y Cara trasera en la MISMA rejilla (baraja, reverso y tapete
+        // son "aspecto de la mesa"): antes iba suelto debajo y arrancaba a otra x según su etiqueta.
+        JLabel tapete_label = new JLabel(Translator.translate("settings.tapete") + ":");
+        tapete_label.setIcon(icon("/images/menu/tapetes.png"));
+        baraja_gbc.gridx = 0;
+        baraja_gbc.gridy = 2;
+        baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
+        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
+        baraja_grid.add(tapete_label, baraja_gbc);
+        baraja_gbc.gridx = 1;
+        baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        baraja_grid.add(tapete_combo, baraja_gbc);
         // Predeterminado: tapete verde (índice 0).
         reset_actions.add(() -> tapete_combo.setSelectedIndex(0));
 
@@ -1635,7 +1702,7 @@ public class AppearanceSettingsPanel extends JPanel {
         g.gridy = gridy;
         g.anchor = java.awt.GridBagConstraints.WEST;
         g.gridx = 0;
-        g.insets = new java.awt.Insets(top, Math.round(24 * Helpers.DIALOG_ZOOM), 0, gap);
+        g.insets = new java.awt.Insets(top, Math.round(18 * Helpers.DIALOG_ZOOM), 0, gap);
         grid.add(label, g);
         g.gridx = 1;
         // fill=HORIZONTAL: el desplegable ocupa el ancho de la columna (= el del más ancho de la

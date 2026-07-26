@@ -104,6 +104,10 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
             {"shortcuts.act_confirm", new String[][]{{"ENTER"}}},
             {"shortcuts.act_allin", new String[][]{{"SHIFT", "ENTER"}}}
         }},
+        {"shortcuts.sec_overlays", new Object[][]{
+            {"shortcuts.act_overlay_accept", new String[][]{{"SPACE"}}},
+            {"shortcuts.act_overlay_cancel", new String[][]{{"ESC"}}}
+        }},
         {"shortcuts.sec_view", new Object[][]{
             {"shortcuts.act_zoomin", new String[][]{{"CTRL", "+"}}},
             {"shortcuts.act_zoomout", new String[][]{{"CTRL", "-"}}},

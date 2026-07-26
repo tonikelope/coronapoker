@@ -99,6 +99,13 @@ public class AutoActionDialog extends JPanel {
         resolve(true);
     }
 
+    // Acepta desde fuera (atajo de teclado ESPACIO): ejecuta ya la acción automática,
+    // como si se hubiese agotado la cuenta atrás. Idempotente (resolve es de un solo
+    // disparo), inofensivo si ya se resolvió.
+    public void accept() {
+        resolve(false);
+    }
+
     public AutoActionDialog(Component center_over, Component width_ref, int seconds, String action_text, BooleanSupplier keep_waiting, Consumer<Boolean> on_resolve) {
 
         super();
@@ -163,15 +170,27 @@ public class AutoActionDialog extends JPanel {
         // (width_ref) ANTES de que el layout calcule el alto, para que salga correcto y no
         // quede holgura vertical. La POSICIÓN definitiva se calcula en showOn, en
         // coordenadas del tapete.
+        // Icono del MODO AUTO a la IZQUIERDA del título, escalado a la altura de su letra. Su
+        // ancho se reserva en el ajuste de fuente para que el conjunto (icono + texto) siga
+        // cabiendo en la botonera y NO ensanche el diálogo.
+        java.awt.Image auto_icon = new javax.swing.ImageIcon(getClass().getResource("/images/menu/auto.png")).getImage();
+        title.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+
         if (center_over != null && center_over.isShowing() && width_ref != null && width_ref.isShowing()) {
             // Ancho útil = botonera − borde (10 px a cada lado) − insets (20 px a cada
             // lado). fitFontToWidth solo encoge la fuente si el texto no cabe.
             int avail = width_ref.getWidth() - 2 * 10 - 2 * 20;
-            title.setFont(Helpers.fitFontToWidth(title, title.getText(), title.getFont(), avail, 14));
+            // Reserva del icono (fuente antes de ajustar; el icono final nunca es mayor -> conservador).
+            int reserved = title.getFont().getSize() + title.getIconTextGap();
+            title.setFont(Helpers.fitFontToWidth(title, title.getText(), title.getFont(), Math.max(20, avail - reserved), 14));
             if (action != null) {
                 action.setFont(Helpers.fitFontToWidth(action, action.getText(), action.getFont(), avail, 12));
             }
         }
+
+        // Icono cuadrado a la altura de la letra del título (ya con su tamaño final), a su izquierda.
+        int auto_px = Math.max(1, title.getFont().getSize());
+        title.setIcon(new javax.swing.ImageIcon(auto_icon.getScaledInstance(auto_px, auto_px, java.awt.Image.SCALE_SMOOTH)));
 
         // Cuenta atrás en background. Resuelve por callback: timeout -> ejecutar;
         // fin de partida o keep_waiting falso (el jugador actuó a mano) -> abortar.

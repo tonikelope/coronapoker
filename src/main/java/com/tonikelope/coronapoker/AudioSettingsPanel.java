@@ -118,6 +118,9 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_error_red_checkbox;
     private final JCheckBox tts_checkbox;
     private final JCheckBox voice_messages_checkbox;
+    // Cabeceras de categoría de la sección de efectos ("Acciones", "Cartas"...): se agrisan
+    // junto con los efectos cuando estos se desactivan (refreshSoundControlsEnabled).
+    private final List<JLabel> fx_type_headers = new java.util.ArrayList<>();
     private final boolean global_rules_locked;
     private final JSlider volume_slider;
     private final JLabel volume_value_label;
@@ -1330,6 +1333,10 @@ public class AudioSettingsPanel extends JPanel {
         // maestro, y "mis cartas" además de "Destapar".
         sonido_efectos_checkbox.setEnabled(on);
         boolean fx_on = on && sonido_efectos_checkbox.isSelected();
+        // Cabeceras de categoría ("Acciones", "Cartas"...): se agrisan como sus efectos.
+        for (JLabel header : fx_type_headers) {
+            header.setEnabled(fx_on);
+        }
         sonido_barajado_checkbox.setEnabled(fx_on);
         sonido_reparto_checkbox.setEnabled(fx_on);
         sonido_destape_checkbox.setEnabled(fx_on);
@@ -1631,7 +1638,7 @@ public class AudioSettingsPanel extends JPanel {
     // Cabecera de un subgrupo de efectos (Acciones, Cartas...): etiqueta en NEGRITA al borde de
     // la columna, con las casillas del grupo sangradas debajo (effectRow ya las sangra). El BOLD
     // sobrevive al updateFonts del host (deriveFont conserva el estilo). Alto máximo = preferido.
-    private static JComponent typeHeader(String key) {
+    private JComponent typeHeader(String key) {
         JPanel row = new JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -1645,6 +1652,8 @@ public class AudioSettingsPanel extends JPanel {
         row.setBorder(BorderFactory.createEmptyBorder(Math.round(7 * Helpers.DIALOG_ZOOM), 0, Math.round(1 * Helpers.DIALOG_ZOOM), 0));
         JLabel lbl = new JLabel(Translator.translate(key));
         lbl.setFont(lbl.getFont().deriveFont(java.awt.Font.BOLD));
+        // Registrada para agrisarse cuando los efectos se desactivan (como sus casillas).
+        fx_type_headers.add(lbl);
         row.add(lbl);
         row.add(Box.createHorizontalGlue());
         return row;

@@ -33,15 +33,12 @@ import java.awt.Color;
 import java.awt.Font;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JDialog;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
-import javax.swing.JTabbedPane;
-import javax.swing.JTextArea;
 import javax.swing.JTextPane;
 import javax.swing.SwingUtilities;
 import javax.swing.text.BadLocationException;
@@ -66,11 +63,7 @@ public final class GameLogDialog extends JDialog {
     // o movido.
     private volatile boolean default_bounds_applied = false;
     private final Object log_lock = new Object();
-    private JTextArea debug_textarea;
-    private JScrollPane debug_scroll;
-    private Consumer<String> debug_log_listener;
     private BottomFollower main_follow;
-    private BottomFollower debug_follow;
 
     // Rich rendering: the generated `textarea` (JTextArea) cannot show mixed
     // styles, so the scrollpane's viewport is swapped at runtime to this styled
@@ -90,9 +83,9 @@ public final class GameLogDialog extends JDialog {
     private java.awt.Rectangle normal_bounds;
 
     // Console look (PowerShell-ish): near-black background + a monospaced font,
-    // identical for the main log and the debug tab.
-    private static final Color LOG_BG = new Color(12, 12, 12);
-    private static final Font LOG_FONT = new Font("Consolas", Font.PLAIN, 20);
+    // shared with the Debug console in Ajustes (DebugSettingsPanel) — package-visible.
+    static final Color LOG_BG = new Color(12, 12, 12);
+    static final Font LOG_FONT = new Font("Consolas", Font.PLAIN, 20);
 
     private static SimpleAttributeSet logStyle(Color c, boolean bold, boolean italic) {
         SimpleAttributeSet s = new SimpleAttributeSet();
@@ -780,7 +773,7 @@ public final class GameLogDialog extends JDialog {
     // nombre y el botón de cerrar. Va ENCIMA del menú — como el JMenuBar nativo
     // ocupa el slot superior del root pane, lo sacamos de ahí (setJMenuBar(null)) y
     // lo apilamos bajo la barra de título en el NORTH del content pane (que
-    // setupDebugTab ya dejó en BorderLayout con las pestañas en CENTER).
+    // wrapLogInBorderLayout ya dejó en BorderLayout con el log en CENTER).
     private void setupTitleBar() {
         setJMenuBar(null);
 
@@ -1047,23 +1040,19 @@ public final class GameLogDialog extends JDialog {
 
         renderAll(GameLogDialog.LOG_TEXT);
 
-        setupDebugTab();
+        wrapLogInBorderLayout();
 
         setupTitleBar();
 
         // Cada vez que el dialog se hace visible (apertura o reapertura tras
-        // dispose) saltamos al final y reanudamos el seguimiento en ambas
-        // pestañas — al abrir el registro el usuario quiere ver lo más reciente.
-        // snapToBottom() ya difiere el scroll (invokeLater) para que ocurra
-        // DESPUES del layout del viewport.
+        // dispose) saltamos al final y reanudamos el seguimiento — al abrir el
+        // registro el usuario quiere ver lo más reciente. snapToBottom() ya difiere
+        // el scroll (invokeLater) para que ocurra DESPUES del layout del viewport.
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentShown(java.awt.event.ComponentEvent evt) {
                 if (main_follow != null) {
                     main_follow.snapToBottom();
-                }
-                if (debug_follow != null) {
-                    debug_follow.snapToBottom();
                 }
             }
         });
@@ -1076,44 +1065,14 @@ public final class GameLogDialog extends JDialog {
 
     }
 
-    private void setupDebugTab() {
-
-        debug_textarea = new JTextArea();
-        debug_textarea.setEditable(false);
-        debug_textarea.setBackground(LOG_BG);
-        debug_textarea.setForeground(new Color(220, 220, 220));
-        debug_textarea.setFont(LOG_FONT.deriveFont(LOG_FONT.getSize2D() * Helpers.DIALOG_ZOOM));
-        debug_textarea.setLineWrap(true);
-        debug_textarea.setWrapStyleWord(false);
-        Helpers.JTextFieldRegularPopupMenu.addTo(debug_textarea);
-
-        debug_scroll = new JScrollPane(debug_textarea);
-
-        debug_follow = new BottomFollower(debug_scroll, debug_textarea);
-
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.setFont(new Font("Dialog", Font.BOLD, Math.round(16 * Helpers.DIALOG_ZOOM)));
-        tabs.addTab(Translator.translate("log.registro"), jScrollPane1);
-        tabs.addTab(Translator.translate("log.debug"), debug_scroll);
-
+    // La ventana es sin bordes con barra de título propia: setupTitleBar apila título +
+    // menú en el NORTH del content pane, lo que exige que este sea BorderLayout con el log
+    // en CENTER. El debug ya no vive aquí (se movió a la pestaña Debug de Ajustes), así que
+    // el content pane vuelve a mostrar solo el registro.
+    private void wrapLogInBorderLayout() {
         getContentPane().remove(jScrollPane1);
         getContentPane().setLayout(new BorderLayout());
-        getContentPane().add(tabs, BorderLayout.CENTER);
-
-        debug_textarea.setText(DebugLog.snapshot());
-        debug_textarea.setCaretPosition(debug_textarea.getDocument().getLength());
-
-        debug_log_listener = (String record) -> Helpers.GUIRun(() -> {
-            try {
-                debug_textarea.append(record);
-                if (auto_scroll && debug_follow != null) {
-                    debug_follow.followIfNeeded();
-                }
-            } catch (Throwable t) {
-                // Textarea may be in transition between dispose/re-show; skip.
-            }
-        });
-        DebugLog.subscribe(debug_log_listener);
+        getContentPane().add(jScrollPane1, BorderLayout.CENTER);
     }
 
     public JTextComponent getTextArea() {
@@ -1263,9 +1222,6 @@ public final class GameLogDialog extends JDialog {
             if (main_follow != null) {
                 main_follow.snapToBottom();
             }
-            if (debug_follow != null) {
-                debug_follow.snapToBottom();
-            }
         }
     }//GEN-LAST:event_auto_scroll_menuActionPerformed
 
@@ -1306,7 +1262,8 @@ public final class GameLogDialog extends JDialog {
     // programáticos nunca lo tocan, así que un retraso transitorio de layout no
     // puede desactivar el seguimiento. El salto al fondo va en invokeLater para
     // ejecutarse DESPUÉS del revalidate del append y llegar al fondo de verdad.
-    private static final class BottomFollower {
+    // Package-visible: la reutiliza la consola de Debug de Ajustes (DebugSettingsPanel).
+    static final class BottomFollower {
 
         private final JScrollPane scroll;
         private final JTextComponent view;

@@ -2603,6 +2603,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e
             ) {
+                // Con el diálogo del straddle voluntario o el del MODO AUTO abiertos, ESC = CANCELAR
+                // (straddle: NO poner; auto: cancelar la acción automática) en lugar de retirarse.
+                VoluntaryStraddleDialog sd = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
+                if (sd != null && sd.isShowing()) {
+                    sd.cancel();
+                    return;
+                }
+                AutoActionDialog ad = getLocalPlayer() != null ? getLocalPlayer().getAuto_action_dialog() : null;
+                if (ad != null && ad.isShowing()) {
+                    ad.cancel();
+                    return;
+                }
                 if (!getCrupier().isSincronizando_mano()) {
                     getLocalPlayer().getPlayer_fold().doClick();
                 }
@@ -2614,6 +2626,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e
             ) {
+                // Con el diálogo del straddle voluntario o el del MODO AUTO abiertos, ESPACIO = ACEPTAR
+                // (straddle: PONER; auto: ejecutar ya la acción automática) en lugar de pasar.
+                VoluntaryStraddleDialog sd = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
+                if (sd != null && sd.isShowing()) {
+                    sd.accept();
+                    return;
+                }
+                AutoActionDialog ad = getLocalPlayer() != null ? getLocalPlayer().getAuto_action_dialog() : null;
+                if (ad != null && ad.isShowing()) {
+                    ad.accept();
+                    return;
+                }
                 if (!getCrupier().isSincronizando_mano()) {
                     if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar()) {
                         getLocalPlayer().getPlayer_allin().doClick();

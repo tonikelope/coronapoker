@@ -882,6 +882,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public final static int UGI_LENGTH = 50;
     public static volatile long GAME_START_TIMESTAMP;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
+    // Guarda anti-doble-acción: al resolver por teclado un overlay (straddle / MODO AUTO) con
+    // ESC/ESPACIO, se tragan las repeticiones de la MISMA tecla mantenida (auto-repeat del SO)
+    // y los toques inmediatos, para que ESC no acabe RETIRÁNDOSE tras cancelar el MODO AUTO (su
+    // cancel re-habilita la botonera y quita el overlay justo a tiempo para que el siguiente
+    // evento caiga en el fold normal). Se limpian al SOLTAR la tecla (KEY_RELEASED en el dispatcher).
+    private volatile boolean kbd_overlay_swallow_esc = false;
+    private volatile boolean kbd_overlay_swallow_space = false;
     private static final Object ZOOM_LOCK = new Object();
 
     private static volatile GameFrame THIS = null;
@@ -2603,6 +2610,26 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e
             ) {
+                // Con el diálogo del straddle voluntario o el del MODO AUTO abiertos, ESC = CANCELAR
+                // (straddle: NO poner; auto: cancelar la acción automática) en lugar de retirarse.
+                VoluntaryStraddleDialog sd = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
+                if (sd != null && sd.isShowing()) {
+                    sd.cancel();
+                    kbd_overlay_swallow_esc = true;
+                    return;
+                }
+                AutoActionDialog ad = getLocalPlayer() != null ? getLocalPlayer().getAuto_action_dialog() : null;
+                if (ad != null && ad.isShowing()) {
+                    ad.cancel();
+                    kbd_overlay_swallow_esc = true;
+                    return;
+                }
+                // Cancelar el MODO AUTO re-habilita la botonera y quita el overlay; si la tecla ESC
+                // sigue MANTENIDA (auto-repeat) o se repite al instante, ese evento no debe caer en
+                // el fold normal (retirada accidental). Se limpia al soltar ESC (dispatcher).
+                if (kbd_overlay_swallow_esc) {
+                    return;
+                }
                 if (!getCrupier().isSincronizando_mano()) {
                     getLocalPlayer().getPlayer_fold().doClick();
                 }
@@ -2614,6 +2641,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e
             ) {
+                // Con el diálogo del straddle voluntario o el del MODO AUTO abiertos, ESPACIO = ACEPTAR
+                // (straddle: PONER; auto: ejecutar ya la acción automática) en lugar de pasar.
+                VoluntaryStraddleDialog sd = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
+                if (sd != null && sd.isShowing()) {
+                    sd.accept();
+                    kbd_overlay_swallow_space = true;
+                    return;
+                }
+                AutoActionDialog ad = getLocalPlayer() != null ? getLocalPlayer().getAuto_action_dialog() : null;
+                if (ad != null && ad.isShowing()) {
+                    ad.accept();
+                    kbd_overlay_swallow_space = true;
+                    return;
+                }
+                // Igual que ESC: tras aceptar un overlay con ESPACIO mantenido/repetido, no dejar que
+                // el siguiente evento caiga en el pasar/mostrar normal. Se limpia al soltar ESPACIO.
+                if (kbd_overlay_swallow_space) {
+                    return;
+                }
                 if (!getCrupier().isSincronizando_mano()) {
                     if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar()) {
                         getLocalPlayer().getPlayer_allin().doClick();
@@ -2726,6 +2772,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         GameFrame.key_event_dispatcher = (KeyEvent e) -> {
+            // Al SOLTAR ESC/ESPACIO se limpia la guarda anti-doble-acción de los overlays (ver las
+            // acciones FOLD/CHECK): así una pulsación nueva (no una repetición de la mantenida)
+            // vuelve a comportarse con normalidad.
+            if (e.getID() == KeyEvent.KEY_RELEASED) {
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    kbd_overlay_swallow_esc = false;
+                } else if (e.getKeyCode() == KeyEvent.VK_SPACE) {
+                    kbd_overlay_swallow_space = false;
+                }
+            }
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
             JFrame frame = GameFrame.getInstance();
             if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !apariencia_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && ((frame.isActive() && !balance_overlay_active) || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {

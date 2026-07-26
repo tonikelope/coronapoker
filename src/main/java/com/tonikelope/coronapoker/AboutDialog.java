@@ -91,6 +91,7 @@ public class AboutDialog extends JDialog {
     private javax.swing.Timer logo_timer = null;
     private volatile int logo_frame_idx = 0;
     private volatile long logo_t0 = 0L;
+    private volatile boolean logo_clock_started = false;
 
     /**
      * Creates new form About
@@ -246,7 +247,19 @@ public class AboutDialog extends JDialog {
         // Mismo tick fino que las animaciones de mesa: muestrear el frame por tiempo
         // cada ~2 ms lo deja liso; con ticks más gruesos daba tirones.
         logo_timer = new javax.swing.Timer(GameFrame.getTickMs(), (ActionEvent ae) -> {
-            int idx = logo_anim.frameAt(((System.nanoTime() - logo_t0) / 1_000_000L) % total_ms);
+            long now = System.nanoTime();
+            if (!logo_clock_started) {
+                // Ancla el reloj en el PRIMER tick REAL, no en formWindowOpened. Al abrir,
+                // el EDT aún está saturado (primer layout y pintado del diálogo, creación
+                // del peer nativo/superficie D3D, arranque del audio): anclar antes hacía
+                // que el modelo catch-up (frameAt por tiempo transcurrido) computara ya un
+                // elapsed grande en el primer tick y saltara varios frames de golpe = el
+                // tirón al arrancar el giro. Anclando aquí el giro siempre arranca liso
+                // desde el frame 0 pase lo que pase antes.
+                logo_clock_started = true;
+                logo_t0 = now;
+            }
+            int idx = logo_anim.frameAt(((now - logo_t0) / 1_000_000L) % total_ms);
             if (idx != logo_frame_idx) {
                 logo_frame_idx = idx;
                 corona_icon_label.repaint();
@@ -634,11 +647,13 @@ public class AboutDialog extends JDialog {
 
         memory_timer.start();
 
-        // Arranca la reproducción del logo desde el frame 0 (el reloj se ancla aquí,
-        // así el logo empieza a girar al abrir el diálogo).
+        // Arranca la reproducción del logo desde el frame 0. El reloj NO se ancla aquí:
+        // se ancla en el primer tick real del timer (ver setupLogoAnimation), porque en
+        // este punto el EDT todavía está ocupado abriendo el diálogo y anclar ahora hacía
+        // que el giro pegara un tirón al arrancar.
         if (logo_timer != null) {
             logo_frame_idx = 0;
-            logo_t0 = System.nanoTime();
+            logo_clock_started = false;
             corona_icon_label.repaint();
             logo_timer.start();
         }

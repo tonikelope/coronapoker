@@ -386,6 +386,9 @@ public class AppearanceSettingsPanel extends JPanel {
                     GameFrame.BARAJA = sel;
                     persist("baraja", sel);
                     Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
+                    // Fuera de partida no hay cambiarBaraja() que caliente la caché: pre-decodifica
+                    // aquí el shuffle.gif de la nueva baraja para que la primera mano no pague el decode.
+                    Crupier.warmShuffleAnimCache();
                 }
             }
         });
@@ -1403,8 +1406,9 @@ public class AppearanceSettingsPanel extends JPanel {
         // cartas/fichas al tamaño equivocado aunque ZOOM_LEVEL/BARAJA ya estén revertidos. Por eso,
         // igual que revertLive en partida (vía setZoomLevel/selectBaraja), aquí hay que reconstruir la
         // caché al estado de apertura. Se anota ANTES de revertir los estáticos y se rehace al final.
+        boolean baraja_reverted = !snap_baraja.equals(GameFrame.BARAJA);
         boolean rebuild_card_cache = GameFrame.ZOOM_LEVEL != snap_zoom_level
-                || !snap_baraja.equals(GameFrame.BARAJA)
+                || baraja_reverted
                 || !snap_trasera.equals(GameFrame.TRASERA);
 
         GameFrame.ZOOM_LEVEL = snap_zoom_level;
@@ -1480,6 +1484,13 @@ public class AppearanceSettingsPanel extends JPanel {
         // timba no herede cartas/fichas a la escala/baraja que dejó una edición descartada.
         if (rebuild_card_cache) {
             Card.updateCachedImages(1f + snap_zoom_level * GameFrame.getZOOM_STEP(), true);
+        }
+
+        // Si la baraja se revierte a una cuyo shuffle.gif no se calentó durante la sesión del
+        // diálogo, recalienta la caché (BARAJA ya está revertida arriba) para no arrastrar el
+        // decode a la primera mano. Fuera de partida no hay cambiarBaraja() que lo haga.
+        if (baraja_reverted) {
+            Crupier.warmShuffleAnimCache();
         }
 
         if (tapete_changed) {

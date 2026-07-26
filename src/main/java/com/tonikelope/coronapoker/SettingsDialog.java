@@ -59,6 +59,9 @@ public class SettingsDialog extends JDialog {
     // Pestaña "Partida" de la SALA DE ESPERA (config de timba antes de empezar). Excluyente
     // con game_panel: uno u otro según el contexto (in-game vs sala), nunca los dos.
     private final WaitingGameSettingsPanel waiting_panel;
+    // Pestaña "Debug": consola de logs (java.util.logging) de solo lectura. Global (en todos
+    // los contextos), sin ajustes que confirmar/revertir.
+    private final DebugSettingsPanel debug_panel;
     // Diálogo transaccional: true solo si se pulsó GUARDAR (entonces NO se revierte).
     private boolean committed = false;
 
@@ -103,6 +106,7 @@ public class SettingsDialog extends JDialog {
         audio_panel = new AudioSettingsPanel();
         game_panel = in_game ? new GameSettingsPanel(read_only_game) : null;
         waiting_panel = in_waiting ? new WaitingGameSettingsPanel(read_only_wait, recover_wait) : null;
+        debug_panel = new DebugSettingsPanel();
 
         // Cada pestaña va dentro de un JScrollPane (ScrollableTabPanel): sigue el ancho
         // del viewport (sin barra horizontal espuria) y rellena el alto cuando cabe, pero
@@ -116,6 +120,9 @@ public class SettingsDialog extends JDialog {
         } else if (in_waiting) {
             tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(waiting_panel));
         }
+        // Consola de Debug (logs java.util.logging). Global, va la última. NO se envuelve en
+        // scrollableTab: la consola ya trae su propio JScrollPane y debe rellenar la pestaña.
+        tabs.addTab(Translator.translate("settings.tab_debug"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/log.png")), debug_panel);
 
         // Diálogo TRANSACCIONAL: Apariencia y Audio se aplican en vivo como
         // previsualización, pero GUARDAR es lo que los CONFIRMA y además aplica el modo
@@ -179,6 +186,13 @@ public class SettingsDialog extends JDialog {
             }
 
             @Override
+            public void windowOpened(WindowEvent e) {
+                // Consola de Debug al fondo (lo más reciente) al abrir el diálogo. snapToBottom
+                // ya difiere el scroll (invokeLater), así que corre tras el layout del viewport.
+                debug_panel.snapToBottom();
+            }
+
+            @Override
             public void windowActivated(WindowEvent e) {
                 if (isModal()) {
                     Init.CURRENT_MODAL_DIALOG.add(SettingsDialog.this);
@@ -208,6 +222,8 @@ public class SettingsDialog extends JDialog {
                 }
                 // Cierra la captura de tecla del panel de audio + persiste el volumen.
                 audio_panel.cleanup();
+                // Libera la suscripción de la consola de Debug a DebugLog.
+                debug_panel.cleanup();
                 if (INSTANCE == SettingsDialog.this) {
                     INSTANCE = null;
                 }
@@ -228,6 +244,10 @@ public class SettingsDialog extends JDialog {
         // Arreglos de tamaño del panel de audio (máximos de fila/panel), ya con la
         // fuente unificada aplicada.
         audio_panel.applyFontsAndSizing();
+
+        // La consola de Debug conserva su fuente monoespaciada de consola (setUniformFont la
+        // acaba de pisar con la GUI_FONT). Se repone antes del pack.
+        debug_panel.reapplyConsoleFont();
 
         // Botones de acción un pelín más grandes que el resto del diálogo.
         java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f * Helpers.DIALOG_ZOOM);

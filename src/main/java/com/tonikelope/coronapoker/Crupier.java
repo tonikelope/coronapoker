@@ -323,8 +323,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int CARD_ANIMATION_DELAY = 100;
     // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce los giros de carta
     private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
-    // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce el barajado
-    private static volatile boolean PRE_RENDERED_SHUFFLE_LOGGED = false;
     // Tope de memoria para pre-decodificar shuffle.gif (las barajas integradas
     // rondan los 43 MB gracias al fast path indexado; un shuffle.gif de mod que
     // estime por encima cae a la ruta legacy Toolkit en vez de tragarse la RAM)
@@ -395,10 +393,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.WARNING, "Shuffle GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
             }
 
-            if (anim != null && !PRE_RENDERED_SHUFFLE_LOGGED) {
-                PRE_RENDERED_SHUFFLE_LOGGED = true;
-                LOGGER.log(Level.INFO, "Shuffle animation: pre-rendered catch-up engine active ({0} frames / {1} ms)",
-                        new Object[]{anim.getFrameCount(), anim.getTotalMs()});
+            // Se loguea en CADA decode real (solo ocurre en fallo de caché, es decir al
+            // arranque y en cada cambio de baraja: la caché es de una sola entrada por URL),
+            // así el log confirma la pre-generación tras cambiar la baraja, no solo la inicial.
+            if (anim != null) {
+                LOGGER.log(Level.INFO, "Shuffle animation pre-rendered for deck \"{0}\" ({1} frames / {2} ms)",
+                        new Object[]{GameFrame.BARAJA, anim.getFrameCount(), anim.getTotalMs()});
             }
 
             SHUFFLE_ANIM_CACHE = new HashMap.SimpleEntry<>(url_key, anim);

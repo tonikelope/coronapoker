@@ -100,6 +100,12 @@ public class VoluntaryStraddleDialog extends JPanel {
         resolve(NO_STRADDLE);
     }
 
+    // Acepta desde fuera (atajo de teclado ESPACIO): pone el straddle. Idempotente
+    // (resolve es de un solo disparo), inofensivo si ya se resolvió.
+    public void accept() {
+        resolve(POST_STRADDLE);
+    }
+
     public VoluntaryStraddleDialog(Component card1, Component card2, int seconds, String amount_text, IntConsumer on_resolve) {
 
         super();
@@ -181,6 +187,12 @@ public class VoluntaryStraddleDialog extends JPanel {
         // que el layout calcule el alto (para que salga correcto). El span (diferencia de
         // coordenadas) es invariante a la traslación, así que aquí sirve getLocationOnScreen;
         // la POSICIÓN definitiva se calcula en showOn, en coordenadas del tapete.
+        // Icono de la ficha de straddle a la IZQUIERDA del título, escalado a la altura de la
+        // letra del título. Su ancho se reserva en el ajuste de fuente para que el conjunto
+        // (icono + texto) siga cabiendo en el vano de las dos cartas y NO ensanche el diálogo.
+        java.awt.Image straddle_chip = new javax.swing.ImageIcon(getClass().getResource("/images/straddle.png")).getImage();
+        title.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+
         if (card1 != null && card1.isShowing() && card2 != null && card2.isShowing()) {
             Point a1 = card1.getLocationOnScreen();
             Point a2 = card2.getLocationOnScreen();
@@ -191,12 +203,19 @@ public class VoluntaryStraddleDialog extends JPanel {
             // Ancho útil = vano − borde (10 px a cada lado) − insets (14 px a cada lado).
             int avail = span - 2 * 10 - 2 * 14;
             if (avail > 20) {
-                title.setFont(Helpers.fitFontToWidth(title, title.getText(), title.getFont(), avail, 12));
+                // Reserva del icono (estimada con la fuente ANTES de ajustar; el icono final va
+                // ligado a la fuente ya ajustada, que nunca es mayor, así que es conservador).
+                int reserved = title.getFont().getSize() + title.getIconTextGap();
+                title.setFont(Helpers.fitFontToWidth(title, title.getText(), title.getFont(), Math.max(20, avail - reserved), 12));
                 if (amount != null) {
                     amount.setFont(Helpers.fitFontToWidth(amount, amount.getText(), amount.getFont(), avail, 11));
                 }
             }
         }
+
+        // Ficha cuadrada a la altura de la letra del título (ya con su tamaño final), a su izquierda.
+        int chip_px = Math.max(1, title.getFont().getSize());
+        title.setIcon(new javax.swing.ImageIcon(straddle_chip.getScaledInstance(chip_px, chip_px, java.awt.Image.SCALE_SMOOTH)));
 
         // Cuenta atrás en background. Resuelve por callback: timeout o fin de partida
         // -> NO straddle. El host (o el resultado canónico) puede cerrarlo antes via

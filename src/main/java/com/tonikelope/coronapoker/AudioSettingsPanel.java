@@ -118,6 +118,9 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_error_red_checkbox;
     private final JCheckBox tts_checkbox;
     private final JCheckBox voice_messages_checkbox;
+    // Cabeceras de categoría de la sección de efectos ("Acciones", "Cartas"...): se agrisan
+    // junto con los efectos cuando estos se desactivan (refreshSoundControlsEnabled).
+    private final List<JLabel> fx_type_headers = new java.util.ArrayList<>();
     private final boolean global_rules_locked;
     private final JSlider volume_slider;
     private final JLabel volume_value_label;
@@ -287,6 +290,7 @@ public class AudioSettingsPanel extends JPanel {
 
         // --- Master volume (same value the Shift+Up/Down shortcut drives) ---
         volume_slider = new JSlider(0, 100, Math.round(Audio.MASTER_VOLUME * 100));
+        Helpers.setTranslatedToolTip(volume_slider, "tooltip.cfg.volume");
 
         volume_value_label = new JLabel(volume_slider.getValue() + "%");
 
@@ -329,6 +333,7 @@ public class AudioSettingsPanel extends JPanel {
         global_rules_locked = GameFrame.getInstance() != null && !GameFrame.getInstance().isPartida_local();
 
         sonidos_checkbox = new JCheckBox(Translator.translate("audio.sonidos"), GameFrame.SONIDOS);
+        Helpers.setTranslatedToolTip(sonidos_checkbox, "tooltip.cfg.sound_master");
         sonidos_checkbox.setFont(sonidos_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
         sonidos_checkbox.addActionListener(e -> {
             GameFrame.setSonidos(sonidos_checkbox.isSelected());
@@ -341,6 +346,7 @@ public class AudioSettingsPanel extends JPanel {
         // Maestro de música: apaga las cuatro pistas de un plumazo y refresca su habilitado
         // (mismo patrón que el maestro de efectos). Cuelga de "Sonidos".
         musica_master_checkbox = new JCheckBox(Translator.translate("audio.musica_maestro"), GameFrame.MUSICA);
+        Helpers.setTranslatedToolTip(musica_master_checkbox, "tooltip.cfg.music_master");
         musica_master_checkbox.setFont(musica_master_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
         musica_master_checkbox.addActionListener(e -> {
             GameFrame.setMusica(musica_master_checkbox.isSelected());
@@ -364,6 +370,7 @@ public class AudioSettingsPanel extends JPanel {
         // El maestro y "destapar" refrescan el habilitado de sus dependientes. El grupo entero
         // cuelga del master "Sonidos" (se deshabilita si está off, como coña/música).
         sonido_efectos_checkbox = new JCheckBox(Translator.translate("audio.efectos_sonido"), GameFrame.SONIDO_EFECTOS);
+        Helpers.setTranslatedToolTip(sonido_efectos_checkbox, "tooltip.cfg.fx_master");
         sonido_efectos_checkbox.setFont(sonido_efectos_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
         sonido_efectos_checkbox.addActionListener(e -> {
             GameFrame.setSonidoEfectos(sonido_efectos_checkbox.isSelected());
@@ -476,9 +483,11 @@ public class AudioSettingsPanel extends JPanel {
         sonido_error_red_checkbox.addActionListener(e -> GameFrame.setSonidoErrorRed(sonido_error_red_checkbox.isSelected()));
 
         tts_checkbox = new JCheckBox(Translator.translate("menu.tts"), GameFrame.TTS_SERVER);
+        Helpers.setTranslatedToolTip(tts_checkbox, "tooltip.cfg.tts");
         tts_checkbox.addActionListener(e -> GameFrame.setTTSGlobal(tts_checkbox.isSelected()));
 
         voice_messages_checkbox = new JCheckBox(Translator.translate("menu.notas_de_voz"), GameFrame.VOICE_MESSAGES);
+        Helpers.setTranslatedToolTip(voice_messages_checkbox, "tooltip.cfg.voice_notes_rule");
         voice_messages_checkbox.addActionListener(e -> GameFrame.setVoiceMessages(voice_messages_checkbox.isSelected()));
 
         sound_music_panel = new JPanel();
@@ -691,6 +700,7 @@ public class AudioSettingsPanel extends JPanel {
         });
 
         voice_key_button = new JButton(KeyEvent.getKeyText(VoiceMessageManager.getVoiceKey()));
+        Helpers.setTranslatedToolTip(voice_key_button, "tooltip.cfg.voice_key");
 
         voice_key_button.addActionListener(e -> startVoiceKeyCapture());
 
@@ -709,6 +719,7 @@ public class AudioSettingsPanel extends JPanel {
         // "bloqueo" (AudioDeviceManager.setBlockVoiceMessages), así el resto del código
         // (recepción de notas, sala) no cambia; aquí solo se invierte la vista.
         notes_local_checkbox = new JCheckBox(Translator.translate("audio.notas_de_voz_local"), !AudioDeviceManager.isBlockVoiceMessages());
+        Helpers.setTranslatedToolTip(notes_local_checkbox, "tooltip.cfg.notes_local");
 
         notes_local_checkbox.addActionListener(e -> {
             AudioDeviceManager.setBlockVoiceMessages(!notes_local_checkbox.isSelected());
@@ -717,12 +728,14 @@ public class AudioSettingsPanel extends JPanel {
         });
 
         play_own_checkbox = new JCheckBox(Translator.translate("audio.reproducir_mis_notas"), AudioDeviceManager.isPlayOwnVoiceMessages());
+        Helpers.setTranslatedToolTip(play_own_checkbox, "tooltip.cfg.play_own_notes");
 
         play_own_checkbox.addActionListener(e -> AudioDeviceManager.setPlayOwnVoiceMessages(play_own_checkbox.isSelected()));
 
         // --- Retention: days a stored voice note survives before the startup
         // purge drops it (0 = forever). Parallel to VOICE_NOTE_RETENTION_OPTIONS.
         retention_combo = new JComboBox<>();
+        Helpers.setTranslatedToolTip(retention_combo, "tooltip.cfg.notes_retention");
 
         int retention_index = 0;
 
@@ -761,6 +774,7 @@ public class AudioSettingsPanel extends JPanel {
         // Manual wipe: drops every stored note now, independent of retention and
         // of the self-block toggle (you may want to clear disk even while blocking).
         purge_button = new JButton(Translator.translate("audio.purgar_notas"));
+        Helpers.setTranslatedToolTip(purge_button, "tooltip.cfg.purge_notes");
 
         purge_button.addActionListener(e -> {
             if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("audio.purgar_notas_confirm")) == javax.swing.JOptionPane.YES_OPTION) {
@@ -774,6 +788,7 @@ public class AudioSettingsPanel extends JPanel {
         // Abre el visor de notas de voz (galería de los .wav guardados en VOICE_DIR). Siempre
         // habilitado: se pueden revisar/escuchar/borrar notas aunque las notas estén desactivadas.
         JButton view_notes_button = new JButton(Translator.translate("audio.ver_notas"));
+        Helpers.setTranslatedToolTip(view_notes_button, "tooltip.cfg.view_notes");
         view_notes_button.addActionListener(e -> VoiceNotesViewerDialog.open(javax.swing.SwingUtilities.getWindowAncestor(this)));
 
         purge_panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
@@ -797,14 +812,22 @@ public class AudioSettingsPanel extends JPanel {
         // topa a su alto preferido en applyFontsAndSizing para no estirarse. Arriba la regla
         // GLOBAL de la timba (server); debajo el interruptor maestro LOCAL que gobierna el resto
         // de controles de notas de voz (ambos en positivo, ambos con el icono de micrófono).
+        // Los hijos gateados por el maestro LOCAL (tecla de captura + reproducir mis notas) van
+        // SANGRADOS 22px bajo el, como el resto de sub-opciones del panel; antes se anadian a ras
+        // (menos sangrados que su propio maestro = sangria invertida). voice_key_panel usa
+        // indentFill para que su boton siga pegado a la derecha de la columna. Retencion y purga
+        // NO estan gateadas por el maestro (gestionan las notas ya guardadas), asi que se quedan a
+        // nivel base. Ritmo vertical uniforme: 6px entre sub-filas, 8px de separador maestro.
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
         notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), notes_local_checkbox));
         notes_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        notes_panel.add(voice_key_panel);
-        notes_panel.add(play_own_checkbox);
-        notes_panel.add(Box.createVerticalStrut(Math.round(5 * Helpers.DIALOG_ZOOM)));
+        notes_panel.add(indentFill(voice_key_panel));
+        notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
+        notes_panel.add(indent(play_own_checkbox));
+        notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(retention_panel);
+        notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(purge_panel);
 
         // --- Voz (TTS): arriba la regla GLOBAL de la timba (server); debajo el
@@ -1310,6 +1333,10 @@ public class AudioSettingsPanel extends JPanel {
         // maestro, y "mis cartas" además de "Destapar".
         sonido_efectos_checkbox.setEnabled(on);
         boolean fx_on = on && sonido_efectos_checkbox.isSelected();
+        // Cabeceras de categoría ("Acciones", "Cartas"...): se agrisan como sus efectos.
+        for (JLabel header : fx_type_headers) {
+            header.setEnabled(fx_on);
+        }
         sonido_barajado_checkbox.setEnabled(fx_on);
         sonido_reparto_checkbox.setEnabled(fx_on);
         sonido_destape_checkbox.setEnabled(fx_on);
@@ -1611,7 +1638,7 @@ public class AudioSettingsPanel extends JPanel {
     // Cabecera de un subgrupo de efectos (Acciones, Cartas...): etiqueta en NEGRITA al borde de
     // la columna, con las casillas del grupo sangradas debajo (effectRow ya las sangra). El BOLD
     // sobrevive al updateFonts del host (deriveFont conserva el estilo). Alto máximo = preferido.
-    private static JComponent typeHeader(String key) {
+    private JComponent typeHeader(String key) {
         JPanel row = new JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -1625,6 +1652,8 @@ public class AudioSettingsPanel extends JPanel {
         row.setBorder(BorderFactory.createEmptyBorder(Math.round(7 * Helpers.DIALOG_ZOOM), 0, Math.round(1 * Helpers.DIALOG_ZOOM), 0));
         JLabel lbl = new JLabel(Translator.translate(key));
         lbl.setFont(lbl.getFont().deriveFont(java.awt.Font.BOLD));
+        // Registrada para agrisarse cuando los efectos se desactivan (como sus casillas).
+        fx_type_headers.add(lbl);
         row.add(lbl);
         row.add(Box.createHorizontalGlue());
         return row;

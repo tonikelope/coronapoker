@@ -131,23 +131,32 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         Helpers.setTranslatedToolTip(rit_label, "tooltip.cfg.rit");
         Helpers.setTranslatedToolTip(rabbit_combo, "tooltip.cfg.rabbit");
         Helpers.setTranslatedToolTip(rabbit_label, "tooltip.cfg.rabbit");
+        Helpers.setTranslatedToolTip(estructura_label, "tooltip.cfg.structure");
         Helpers.setTranslatedToolTip(estructura_combobox, "tooltip.cfg.structure");
+        Helpers.setTranslatedToolTip(ciegas_label, "tooltip.cfg.blinds_level");
         Helpers.setTranslatedToolTip(ciegas_combobox, "tooltip.cfg.blinds_level");
         Helpers.setTranslatedToolTip(doblar_checkbox, "tooltip.cfg.double_blinds");
         Helpers.setTranslatedToolTip(blind_cap_checkbox, "tooltip.cfg.blind_cap");
         Helpers.setTranslatedToolTip(blind_cap_spinner, "tooltip.cfg.blind_cap");
         Helpers.setTranslatedToolTip(ante_checkbox, "tooltip.cfg.ante");
         Helpers.setTranslatedToolTip(straddle_checkbox, "tooltip.cfg.straddle");
+        Helpers.setTranslatedToolTip(straddle_label, "tooltip.cfg.straddle");
+        Helpers.setTranslatedToolTip(bots_label, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(bot_rebuy_checkbox, "tooltip.cfg.bot_rebuy");
         Helpers.setTranslatedToolTip(bot_balance_checkbox, "tooltip.cfg.bot_balance");
+        Helpers.setTranslatedToolTip(buyin_label, "tooltip.cfg.buyin");
+        Helpers.setTranslatedToolTip(buyin_spinner, "tooltip.cfg.buyin");
         Helpers.setTranslatedToolTip(fixed_buyin_checkbox, "tooltip.cfg.buyin_fixed");
-        Helpers.setTranslatedToolTip(buyin_min_bb_spinner, "tooltip.buyin_range");
-        Helpers.setTranslatedToolTip(buyin_max_bb_spinner, "tooltip.buyin_range");
+        Helpers.setTranslatedToolTip(buyin_range_label, "tooltip.cfg.buyin_range");
+        Helpers.setTranslatedToolTip(buyin_min_bb_spinner, "tooltip.cfg.buyin_range");
+        Helpers.setTranslatedToolTip(buyin_max_bb_spinner, "tooltip.cfg.buyin_range");
         Helpers.setTranslatedToolTip(rebuy_checkbox, "tooltip.rebuy_description");
         Helpers.setTranslatedToolTip(recomprar_label, "tooltip.rebuy_description");
         Helpers.setTranslatedToolTip(rebuy_limit_checkbox, "tooltip.cfg.rebuy_limit");
         Helpers.setTranslatedToolTip(rebuy_limit_spinner, "tooltip.cfg.rebuy_limit");
+        Helpers.setTranslatedToolTip(rebuy_cap_label, "rebuy.tope_recompra_tooltip");
+        Helpers.setTranslatedToolTip(rebuy_cap_combo, "rebuy.tope_recompra_tooltip");
     }
 
     public GameSettingsPanel(boolean read_only) {
@@ -563,22 +572,24 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             .addGroup(rules_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    // Limite de manos / Tiempo de pensar / Tiempo de showdown comparten tres
+                    // columnas (casilla | etiqueta | spinner) para que los tres spinners queden
+                    // alineados por su borde izquierdo (igual que en la sala). Showdown no tiene
+                    // casilla: deja el hueco y alinea su etiqueta con las otras dos.
                     .addGroup(rules_panelLayout.createSequentialGroup()
-                        .addComponent(manos_checkbox)
+                        .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(manos_checkbox)
+                            .addComponent(think_time_checkbox))
                         .addGap(0, 0, 0)
-                        .addComponent(manos_label)
+                        .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(manos_label)
+                            .addComponent(think_time_label)
+                            .addComponent(showdown_time_label))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(rules_panelLayout.createSequentialGroup()
-                        .addComponent(think_time_checkbox)
-                        .addGap(0, 0, 0)
-                        .addComponent(think_time_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(rules_panelLayout.createSequentialGroup()
-                        .addComponent(showdown_time_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)))
                     .addGroup(rules_panelLayout.createSequentialGroup()
                         .addComponent(iwtsth_checkbox)
                         .addGap(0, 0, 0)
@@ -601,24 +612,24 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                     .addComponent(manos_checkbox)
                     .addComponent(manos_label)
                     .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(think_time_checkbox)
                     .addComponent(think_time_label)
                     .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(showdown_time_label)
                     .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(iwtsth_checkbox)
                     .addComponent(iwtsth_label))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(rit_checkbox)
                     .addComponent(rit_label))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(rabbit_label)
                     .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -764,15 +775,19 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
                         .addComponent(doblar_checkbox)
                         .addGap(0, 0, Short.MAX_VALUE))
+                    // Sub-opciones de "Aumentar ciegas" (manos/minutos + tope) sangradas
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
+                        .addGap(Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM))
                         .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(double_blinds_radio_minutos)
-                            .addComponent(double_blinds_radio_manos))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)))
-                    .addComponent(blind_cap_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGroup(ciegas_panelLayout.createSequentialGroup()
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(double_blinds_radio_minutos)
+                                    .addComponent(double_blinds_radio_manos))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)))
+                            .addComponent(blind_cap_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
                         .addComponent(ante_checkbox)
                         .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
@@ -882,18 +897,22 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                         .addComponent(buyin_range_sep_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                    // "Recomprar" = cabecera; sus sub-opciones (limite + tope) van sangradas
                     .addGroup(compra_panelLayout.createSequentialGroup()
                         .addComponent(rebuy_checkbox)
                         .addGap(0, 0, 0)
                         .addComponent(recomprar_label))
                     .addGroup(compra_panelLayout.createSequentialGroup()
-                        .addComponent(rebuy_limit_checkbox)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(compra_panelLayout.createSequentialGroup()
-                        .addComponent(rebuy_cap_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addGap(Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM))
+                        .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(compra_panelLayout.createSequentialGroup()
+                                .addComponent(rebuy_limit_checkbox)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(compra_panelLayout.createSequentialGroup()
+                                .addComponent(rebuy_cap_label)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         compra_panelLayout.setVerticalGroup(

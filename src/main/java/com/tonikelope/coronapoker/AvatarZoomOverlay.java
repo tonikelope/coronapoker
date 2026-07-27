@@ -87,7 +87,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
     // Marco oscuro alrededor de la imagen: despega la lupa del tapete y de las
     // cartas cuando el avatar es de tonos parecidos.
-    private static final float FRAME_ALPHA = 0.55f;
+    private static final float FRAME_ALPHA = 0.9f;
 
     // Cadencia del vigilante que retira la lupa. Sondea la posición del puntero
     // en vez de escuchar eventos porque ni el overlay los recibe (es transparente

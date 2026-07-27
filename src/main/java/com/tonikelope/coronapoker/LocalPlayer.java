@@ -1093,9 +1093,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             action_font_base = player_check_button.getFont().getSize();
             botonera_ref_width = botonera.getPreferredSize().width;
             installShowdownHandHighlight();
-            // Lupa del avatar: mismo origen que consulta setAvatar (el avatar
-            // elegido en la sala de espera, o "" para el que viene por defecto).
-            AvatarZoomOverlay.install(avatar, () -> {
+            // Lupa del avatar (con el stack del asiento al lado): mismo origen que
+            // consulta setAvatar (el avatar elegido en la sala de espera, o "" para
+            // el que viene por defecto).
+            AvatarZoomOverlay.install(avatar, player_stack, () -> {
                 java.io.File propio = GameFrame.getInstance().getSala_espera().getAvatar();
                 return propio != null ? propio.getAbsolutePath() : "";
             });

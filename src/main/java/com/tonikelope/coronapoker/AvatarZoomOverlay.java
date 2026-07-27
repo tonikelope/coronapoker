@@ -103,18 +103,30 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
     private static volatile AvatarZoomOverlay current = null;
     private static volatile JLabel current_avatar = null;
-    private static volatile String current_tooltip = null;
     private static javax.swing.Timer watchdog = null;
 
     private final BufferedImage image;
     private final int pad;
 
-    private AvatarZoomOverlay(BufferedImage image, int pad) {
+    // Stack del jugador, ampliado al lado de la foto. Se lee del propio JLabel del
+    // asiento en cada pintada (no una copia al abrir): durante una mano el número
+    // cambia, y la lupa puede estar puesta mientras cambia.
+    private final JLabel stack;
+    private final java.awt.Font stack_font;
+    private final Color stack_color;
+    private String painted_stack = null;
+
+    private AvatarZoomOverlay(BufferedImage image, int pad, JLabel stack, float factor) {
         this.image = image;
         this.pad = pad;
+        this.stack = stack;
+        this.stack_font = stack != null && stack.getFont() != null
+                ? stack.getFont().deriveFont(stack.getFont().getSize2D() * factor) : null;
+        this.stack_color = stack != null ? stack.getForeground() : null;
+        this.painted_stack = stackText();
         setOpaque(false);
         setFocusable(false);
-        setSize(image.getWidth() + 2 * pad, image.getHeight() + 2 * pad);
+        setSize(preferredBox());
 
         // La ampliación es SÓLIDA al ratón: se queda con los clicks que caen sobre
         // ella en vez de dejarlos pasar a lo que tape (el nick del asiento, el
@@ -157,33 +169,110 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 target.getWidth() / 2, target.getHeight() / 2, e.getClickCount(), e.isPopupTrigger(), e.getButton()));
     }
 
+    // Texto del stack tal y como lo muestra el asiento ahora mismo, o null si ese
+    // asiento no tiene stack que enseñar.
+    private String stackText() {
+
+        if (stack == null || stack_font == null) {
+            return null;
+        }
+
+        String text = stack.getText();
+
+        return text != null && !text.trim().isEmpty() ? text.trim() : null;
+    }
+
+    // Caja que ocupa la lupa: la foto y, si hay stack, su número al lado.
+    private java.awt.Dimension preferredBox() {
+
+        int w = image.getWidth() + 2 * pad;
+        int h = image.getHeight() + 2 * pad;
+
+        String text = painted_stack;
+
+        if (text != null) {
+            java.awt.FontMetrics fm = getFontMetrics(stack_font);
+            w += fm.stringWidth(text) + pad;
+            h = Math.max(h, fm.getHeight() + 2 * pad);
+        }
+
+        return new java.awt.Dimension(w, h);
+    }
+
+    /**
+     * Reajusta la lupa si el stack ha cambiado mientras estaba puesta (una apuesta
+     * del jugador, el reparto de un bote). La foto no se mueve: el número crece
+     * hacia la derecha, y si eso se saliera del tapete la lupa se recoloca.
+     */
+    private void refreshStackIfChanged() {
+
+        String text = stackText();
+
+        if (java.util.Objects.equals(text, painted_stack)) {
+            return;
+        }
+
+        painted_stack = text;
+
+        java.awt.Dimension box = preferredBox();
+
+        if (!box.equals(getSize())) {
+            setSize(box);
+            java.awt.Container parent = getParent();
+            if (parent != null) {
+                setLocation(Math.max(0, Math.min(getX(), parent.getWidth() - getWidth())),
+                        Math.max(0, Math.min(getY(), parent.getHeight() - getHeight())));
+            }
+        }
+
+        repaint();
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
             g2.setColor(new Color(0f, 0f, 0f, FRAME_ALPHA));
             int arc = cornerRadius(image.getWidth()) + pad;
             g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), arc, arc));
-            g2.drawImage(image, pad, pad, null);
+
+            int image_y = (getHeight() - image.getHeight()) / 2;
+
+            g2.drawImage(image, pad, image_y, null);
+
+            String text = painted_stack;
+
+            if (text != null) {
+                g2.setFont(stack_font);
+                g2.setColor(stack_color != null ? stack_color : Color.WHITE);
+                java.awt.FontMetrics fm = g2.getFontMetrics();
+                // Centrado en vertical respecto a la foto, no al componente: si el
+                // número es más alto que ella, manda la foto igualmente.
+                int baseline = image_y + (image.getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+                g2.drawString(text, pad + image.getWidth() + pad, baseline);
+            }
         } finally {
             g2.dispose();
         }
     }
 
     /**
-     * Engancha la lupa al avatar de un asiento. El proveedor devuelve la MISMA
-     * cadena que usa setAvatar para pintar el asiento (ruta del fichero, "*"
-     * para un bot o "" para el avatar por defecto) y se consulta en el momento
-     * de mostrar, no aquí: al instalarse, el asiento todavía no tiene nick.
+     * Engancha la lupa al avatar de un asiento, con el stack de ese asiento para
+     * mostrarlo ampliado al lado de la foto. El proveedor devuelve la MISMA cadena
+     * que usa setAvatar para pintar el asiento (ruta del fichero, "*" para un bot
+     * o "" para el avatar por defecto) y se consulta en el momento de mostrar, no
+     * aquí: al instalarse, el asiento todavía no tiene nick.
      */
-    public static void install(final JLabel avatar, final Supplier<String> source) {
+    public static void install(final JLabel avatar, final JLabel stack, final Supplier<String> source) {
 
         final javax.swing.Timer[] delay = new javax.swing.Timer[1];
 
         delay[0] = new javax.swing.Timer(HOVER_DELAY_MS, e -> {
             delay[0].stop();
-            show(avatar, source);
+            show(avatar, stack, source);
         });
 
         delay[0].setRepeats(false);
@@ -198,7 +287,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 if (HOVER_DELAY_MS <= 0) {
                     // Sin espera: en el mismo evento, para no perder ni un ciclo
                     // del EDT en un timer que vencería de inmediato.
-                    show(avatar, source);
+                    show(avatar, stack, source);
                 } else {
                     delay[0].restart();
                 }
@@ -226,7 +315,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
      * reescalarlo cuesta lo suyo la primera vez de cada avatar) y la muestra
      * después, si para entonces el puntero sigue sobre el mismo avatar.
      */
-    private static void show(final JLabel avatar, final Supplier<String> source) {
+    private static void show(final JLabel avatar, final JLabel stack, final Supplier<String> source) {
 
         if (!canShow() || !avatar.isShowing() || !pointerOver(avatar)) {
             return;
@@ -261,7 +350,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         final BufferedImage cached = cachedImage(src, size);
 
         if (cached != null) {
-            display(avatar, tapete, cached, size);
+            display(avatar, stack, tapete, cached, size);
             return;
         }
 
@@ -273,12 +362,12 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 return;
             }
 
-            Helpers.GUIRun(() -> display(avatar, tapete, img, size));
+            Helpers.GUIRun(() -> display(avatar, stack, tapete, img, size));
         });
     }
 
     // Coloca la ampliación centrada sobre su avatar. Solo en el EDT.
-    private static void display(final JLabel avatar, final JLayeredPane tapete, final BufferedImage img, final int size) {
+    private static void display(final JLabel avatar, final JLabel stack, final JLayeredPane tapete, final BufferedImage img, final int size) {
 
         if (!canShow() || !avatar.isShowing() || !pointerOver(avatar)) {
             return;
@@ -286,18 +375,27 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
         hideZoom();
 
-        AvatarZoomOverlay overlay = new AvatarZoomOverlay(img, Math.max(4, size / 24));
+        int seat = Math.min(avatar.getWidth(), avatar.getHeight());
+
+        AvatarZoomOverlay overlay = new AvatarZoomOverlay(img, Math.max(4, size / 24), stack,
+                seat > 0 ? size / (float) seat : ZOOM_FACTOR);
 
         // Mismo cursor que el avatar que amplía: si pinchar el pequeño hace algo
         // (identicon), la imagen grande lo anuncia igual; sobre un bot, cursor
         // normal en los dos.
         overlay.setCursor(avatar.getCursor());
 
+        // La lupa tapa el avatar, así que hereda su tooltip: pasar el ratón por la
+        // imagen grande sigue explicando lo que hace el click. El del avatar se
+        // deja intacto (con la lupa puesta no puede salir de todas formas).
+        overlay.setToolTipText(avatar.getToolTipText());
+
         Point p = SwingUtilities.convertPoint(avatar, 0, 0, tapete);
 
-        // Centrada sobre el avatar original, y acotada al tapete para que en los
-        // asientos de las esquinas se vea entera.
-        int x = p.x + (avatar.getWidth() - overlay.getWidth()) / 2;
+        // La FOTO va centrada sobre el avatar original (el stack sobresale a su
+        // derecha), y el conjunto se acota al tapete para que en los asientos de
+        // las esquinas se vea entero.
+        int x = p.x + avatar.getWidth() / 2 - (overlay.pad + img.getWidth() / 2);
         int y = p.y + (avatar.getHeight() - overlay.getHeight()) / 2;
 
         x = Math.max(0, Math.min(x, tapete.getWidth() - overlay.getWidth()));
@@ -309,12 +407,6 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
         current = overlay;
         current_avatar = avatar;
-
-        // El avatar ya tiene su propio tooltip (el del identicon): con la lupa
-        // puesta el globo sobra y encima la tapa. Se retira mientras dura y se
-        // devuelve al ocultarla.
-        current_tooltip = avatar.getToolTipText();
-        avatar.setToolTipText(null);
 
         startWatchdog();
 
@@ -346,23 +438,15 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 current = null;
             }
 
-            JLabel avatar = current_avatar;
-
-            if (avatar != null) {
-                if (current_tooltip != null) {
-                    avatar.setToolTipText(current_tooltip);
-                }
-                current_avatar = null;
-                current_tooltip = null;
-            }
+            current_avatar = null;
         });
     }
 
     // Mientras la lupa esté puesta, comprueba que el puntero siga dentro de su
     // área (el avatar MÁS la propia ampliación). Es la única vía para retirarla:
-    // el overlay es transparente a los eventos, así que moverse por encima de él
-    // no genera entered/exited propios, y el exited del avatar salta en cuanto el
-    // ratón pisa la ampliación, que es justo cuando NO hay que retirarla.
+    // el overlay tapa el avatar, así que no hay entered/exited aprovechables, y el
+    // exited del avatar salta justo al pisar la ampliación, que es cuando NO hay
+    // que retirarla. De paso refresca el stack si ha cambiado con la lupa puesta.
     private static void startWatchdog() {
 
         if (watchdog == null) {
@@ -370,6 +454,11 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 JLabel avatar = current_avatar;
                 if (avatar == null || !avatar.isShowing() || !canShow() || !pointerInHoverArea(avatar)) {
                     hideZoom();
+                    return;
+                }
+                AvatarZoomOverlay overlay = current;
+                if (overlay != null) {
+                    overlay.refreshStackIfChanged();
                 }
             });
         }

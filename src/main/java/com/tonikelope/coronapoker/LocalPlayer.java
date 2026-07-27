@@ -3800,13 +3800,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_stackMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
-        if (!Helpers.isReleaseInsideComponent(evt)) {
+        // Plain left click, same as the remote seats: the right button is kept for
+        // controls whose left click already does something else.
+        if (!Helpers.isRealClick(evt)) {
             return;
         }
-        if (!javax.swing.SwingUtilities.isRightMouseButton(evt)) {
-            return;
-        }
-        // Identity: right-clicking own avatar opens the identicon of THIS installation's
+        // Identity: clicking own avatar opens the identicon of THIS installation's
         // Ed25519 public identity. The dialog shows the visual icon and the 128-bit
         // fingerprint in 8 groups of 4, ready to be shared with a peer through an
         // out-of-band channel (WhatsApp, Telegram, voice).

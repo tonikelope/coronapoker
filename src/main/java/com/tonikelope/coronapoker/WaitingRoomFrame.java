@@ -1128,6 +1128,10 @@ public class WaitingRoomFrame extends JFrame {
 
         avatar_label.setText("");
 
+        // El avatar del cuadro de chat es decorativo (no tiene ningún listener):
+        // el cursor de mano heredado del .form prometía un click que no existe.
+        avatar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+
         server_address_label.setText(server_ip_port);
 
         DefaultListModel<ParticipantJListData> listModel = new DefaultListModel<>();

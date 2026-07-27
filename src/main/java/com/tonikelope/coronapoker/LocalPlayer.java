@@ -963,9 +963,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             // Own identity identicon (Ed25519 public key): right-click the avatar.
             // The handler works in both roles, so the affordance (tooltip + hand
-            // cursor) is shown for host and client alike.
-            Helpers.setTranslatedToolTip(avatar, "ui.click_identity_identicon");
-            avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            // cursor) is shown for host and client alike — but only while there IS
+            // an identity to show: if the keypair could not be loaded the handler
+            // bails out, and a hand cursor over a dead click would be a lie.
+            if (IdentityManager.getInstance().isReady()) {
+                Helpers.setTranslatedToolTip(avatar, "ui.click_identity_identicon");
+                avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            } else {
+                avatar.setToolTipText(null);
+                avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+            }
         });
     }
 
@@ -1086,6 +1093,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             action_font_base = player_check_button.getFont().getSize();
             botonera_ref_width = botonera.getPreferredSize().width;
             installShowdownHandHighlight();
+            // Lupa del avatar: mismo origen que consulta setAvatar (el avatar
+            // elegido en la sala de espera, o "" para el que viene por defecto).
+            AvatarZoomOverlay.install(avatar, () -> {
+                java.io.File propio = GameFrame.getInstance().getSala_espera().getAvatar();
+                return propio != null ? propio.getAbsolutePath() : "";
+            });
             // Wire opcional al latency_dot_widget del .form (si existe).
             try {
                 java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");

@@ -1618,6 +1618,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setOpaque(false);
             setBackground(null);
             installShowdownHandHighlight();
+            // Lupa del avatar: el proveedor devuelve lo MISMO que consulta setAvatar
+            // (ruta del fichero, "*" para un bot, "" sin avatar) y se evalúa al
+            // mostrarla, no ahora: aquí el asiento todavía no tiene nick.
+            AvatarZoomOverlay.install(avatar, () -> nickname == null ? "" : GameFrame.getInstance().getNick2avatar().get(nickname));
             latency_label.setVisible(false);
             // Placeholder traducido hasta que llegue el primer PING (el texto del .form
             // es solo el default de diseño).

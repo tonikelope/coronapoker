@@ -69,14 +69,15 @@ import javax.swing.SwingUtilities;
  */
 public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
-    // Por debajo del retardo con el que Swing saca sus tooltips (750 ms): así la
-    // lupa se adelanta al globo del identicon en vez de relevarlo a medias.
-    public static final int HOVER_DELAY_MS = 700;
+    // Sin espera: la lupa sale al entrar en el avatar. La primera de cada avatar
+    // tarda lo que cueste decodificar su fichero (fuera del EDT); a partir de ahí
+    // sale ya cacheada, en el mismo evento del ratón.
+    public static final int HOVER_DELAY_MS = 0;
 
     // Tamaño de la ampliación: N veces el alto del avatar del asiento, con tope
     // en una fracción del alto del tapete para que en ventanas pequeñas (o con
     // el zoom muy subido) no se coma la mesa.
-    private static final float ZOOM_FACTOR = 3f;
+    private static final float ZOOM_FACTOR = 2f;
     private static final float MAX_TABLE_FRACTION = 0.45f;
 
     // Radio de las esquinas del avatar del asiento (setAvatar) relativo a su
@@ -114,17 +115,46 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         setOpaque(false);
         setFocusable(false);
         setSize(image.getWidth() + 2 * pad, image.getHeight() + 2 * pad);
+
+        // La ampliación es SÓLIDA al ratón: se queda con los clicks que caen sobre
+        // ella en vez de dejarlos pasar a lo que tape (el nick del asiento, el
+        // tapete...). Y como es el mismo avatar en grande, el click se reenvía al
+        // original: sobre un humano abre su identicon, sobre un bot no hace nada,
+        // igual que pinchando el pequeño. Que el overlay se coma los eventos del
+        // avatar no afecta a la lupa: quien decide retirarla es el vigilante, que
+        // sondea la posición del puntero y no depende de entered/exited.
+        addMouseListener(new MouseAdapter() {
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+                redispatchToAvatar(e);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                redispatchToAvatar(e);
+            }
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                redispatchToAvatar(e);
+            }
+        });
     }
 
-    /**
-     * Transparente al ratón: aunque el overlay quede justo debajo del puntero,
-     * el hit-test lo atraviesa y el avatar sigue recibiendo sus eventos (si no,
-     * al aparecer la lupa el avatar recibiría un mouseExited y se retiraría
-     * sola, en bucle).
-     */
-    @Override
-    public boolean contains(int x, int y) {
-        return false;
+    // Reenvía el evento al avatar que la lupa está ampliando, apuntando a su
+    // centro: pinchar cualquier punto de la imagen grande equivale a pinchar el
+    // avatar, así que los guards de "soltado dentro del componente" se cumplen.
+    private void redispatchToAvatar(MouseEvent e) {
+
+        JLabel target = current_avatar;
+
+        if (target == null || !target.isShowing() || target.getWidth() <= 0) {
+            return;
+        }
+
+        target.dispatchEvent(new MouseEvent(target, e.getID(), e.getWhen(), e.getModifiersEx(),
+                target.getWidth() / 2, target.getHeight() / 2, e.getClickCount(), e.isPopupTrigger(), e.getButton()));
     }
 
     @Override
@@ -162,7 +192,14 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
             @Override
             public void mouseEntered(MouseEvent e) {
-                if (canShow()) {
+                if (!canShow()) {
+                    return;
+                }
+                if (HOVER_DELAY_MS <= 0) {
+                    // Sin espera: en el mismo evento, para no perder ni un ciclo
+                    // del EDT en un timer que vencería de inmediato.
+                    show(avatar, source);
+                } else {
                     delay[0].restart();
                 }
             }
@@ -219,6 +256,15 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
             return;
         }
 
+        // Ya generada: se pinta en este mismo evento del ratón, sin rebotar por un
+        // hilo y volver al EDT. Es lo normal salvo la primera vez de cada avatar.
+        final BufferedImage cached = cachedImage(src, size);
+
+        if (cached != null) {
+            display(avatar, tapete, cached, size);
+            return;
+        }
+
         Helpers.threadRun(() -> {
 
             final BufferedImage img = zoomedImage(src, size);
@@ -227,44 +273,54 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 return;
             }
 
-            Helpers.GUIRun(() -> {
-
-                if (!canShow() || !avatar.isShowing() || !pointerOver(avatar)) {
-                    return;
-                }
-
-                hideZoom();
-
-                AvatarZoomOverlay overlay = new AvatarZoomOverlay(img, Math.max(4, size / 24));
-
-                Point p = SwingUtilities.convertPoint(avatar, 0, 0, tapete);
-
-                // Centrada sobre el avatar original, y acotada al tapete para que
-                // en los asientos de las esquinas se vea entera.
-                int x = p.x + (avatar.getWidth() - overlay.getWidth()) / 2;
-                int y = p.y + (avatar.getHeight() - overlay.getHeight()) / 2;
-
-                x = Math.max(0, Math.min(x, tapete.getWidth() - overlay.getWidth()));
-                y = Math.max(0, Math.min(y, tapete.getHeight() - overlay.getHeight()));
-
-                overlay.setLocation(x, y);
-
-                tapete.add(overlay, JLayeredPane.DRAG_LAYER);
-
-                current = overlay;
-                current_avatar = avatar;
-
-                // El avatar ya tiene su propio tooltip (el del identicon): con la
-                // lupa puesta el globo sobra y encima la tapa. Se retira mientras
-                // dura y se devuelve al ocultarla.
-                current_tooltip = avatar.getToolTipText();
-                avatar.setToolTipText(null);
-
-                startWatchdog();
-
-                tapete.repaint();
-            });
+            Helpers.GUIRun(() -> display(avatar, tapete, img, size));
         });
+    }
+
+    // Coloca la ampliación centrada sobre su avatar. Solo en el EDT.
+    private static void display(final JLabel avatar, final JLayeredPane tapete, final BufferedImage img, final int size) {
+
+        if (!canShow() || !avatar.isShowing() || !pointerOver(avatar)) {
+            return;
+        }
+
+        hideZoom();
+
+        AvatarZoomOverlay overlay = new AvatarZoomOverlay(img, Math.max(4, size / 24));
+
+        // Mismo cursor que el avatar que amplía: si pinchar el pequeño hace algo
+        // (identicon), la imagen grande lo anuncia igual; sobre un bot, cursor
+        // normal en los dos.
+        overlay.setCursor(avatar.getCursor());
+
+        Point p = SwingUtilities.convertPoint(avatar, 0, 0, tapete);
+
+        // Centrada sobre el avatar original, y acotada al tapete para que en los
+        // asientos de las esquinas se vea entera.
+        int x = p.x + (avatar.getWidth() - overlay.getWidth()) / 2;
+        int y = p.y + (avatar.getHeight() - overlay.getHeight()) / 2;
+
+        x = Math.max(0, Math.min(x, tapete.getWidth() - overlay.getWidth()));
+        y = Math.max(0, Math.min(y, tapete.getHeight() - overlay.getHeight()));
+
+        overlay.setLocation(x, y);
+
+        tapete.add(overlay, JLayeredPane.DRAG_LAYER);
+
+        current = overlay;
+        current_avatar = avatar;
+
+        // El avatar ya tiene su propio tooltip (el del identicon): con la lupa
+        // puesta el globo sobra y encima la tapa. Se retira mientras dura y se
+        // devuelve al ocultarla.
+        current_tooltip = avatar.getToolTipText();
+        avatar.setToolTipText(null);
+
+        startWatchdog();
+
+        // Solo su rectángulo: ahora la lupa sale sin espera, así que cruzar la
+        // mesa con el ratón no debe costar un repintado del tapete entero.
+        tapete.repaint(x, y, overlay.getWidth(), overlay.getHeight());
     }
 
     /**
@@ -350,28 +406,6 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return pointerOver(avatar) || pointerOver(current);
     }
 
-    /**
-     * ¿La lupa está tapando este punto de pantalla? El overlay es transparente al
-     * ratón (para no romper el hover del avatar), así que los clicks sobre la
-     * ampliación caen en lo que haya debajo: el tapete lo consulta para no
-     * disparar sus propias acciones cuando el usuario cree estar pinchando en la
-     * imagen ampliada.
-     */
-    public static boolean coversScreenPoint(java.awt.Point screen_point) {
-
-        AvatarZoomOverlay overlay = current;
-
-        if (overlay == null || screen_point == null || !overlay.isShowing()) {
-            return false;
-        }
-
-        try {
-            return new Rectangle(overlay.getLocationOnScreen(), overlay.getSize()).contains(screen_point);
-        } catch (java.awt.IllegalComponentStateException ex) {
-            return false;
-        }
-    }
-
     // Lado de la ampliación: ZOOM_FACTOR veces el avatar del asiento, sin pasar
     // de MAX_TABLE_FRACTION del alto del tapete.
     private static int zoomSize(JLabel avatar, JLayeredPane tapete) {
@@ -391,15 +425,24 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return Math.max(1, Math.round(SEAT_CORNER_RADIUS * size / (float) SEAT_CORNER_REFERENCE));
     }
 
+    private static String cacheKey(String src, int size) {
+        return (src != null ? src : "") + "@" + size;
+    }
+
+    // La ampliación ya generada, o null si toca hacerla. Barato: sirve para
+    // decidir si se puede pintar en el acto o hay que salir del EDT.
+    private static BufferedImage cachedImage(String src, int size) {
+        java.lang.ref.SoftReference<BufferedImage> ref = CACHE.get(cacheKey(src, size));
+        return ref != null ? ref.get() : null;
+    }
+
     // Ampliación cacheada por (origen, tamaño): el mismo avatar solo se decodifica
     // y reescala una vez por tamaño, y el tamaño solo cambia con el zoom.
     private static BufferedImage zoomedImage(String src, int size) {
 
-        String key = (src != null ? src : "") + "@" + size;
+        String key = cacheKey(src, size);
 
-        java.lang.ref.SoftReference<BufferedImage> ref = CACHE.get(key);
-
-        BufferedImage cached = ref != null ? ref.get() : null;
+        BufferedImage cached = cachedImage(src, size);
 
         if (cached != null) {
             return cached;

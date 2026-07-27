@@ -69,7 +69,9 @@ import javax.swing.SwingUtilities;
  */
 public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
-    public static final int HOVER_DELAY_MS = 1000;
+    // Por debajo del retardo con el que Swing saca sus tooltips (750 ms): así la
+    // lupa se adelanta al globo del identicon en vez de relevarlo a medias.
+    public static final int HOVER_DELAY_MS = 700;
 
     // Tamaño de la ampliación: N veces el alto del avatar del asiento, con tope
     // en una fracción del alto del tapete para que en ventanas pequeñas (o con

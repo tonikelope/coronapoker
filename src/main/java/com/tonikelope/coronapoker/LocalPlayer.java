@@ -963,9 +963,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             // Own identity identicon (Ed25519 public key): right-click the avatar.
             // The handler works in both roles, so the affordance (tooltip + hand
-            // cursor) is shown for host and client alike.
-            Helpers.setTranslatedToolTip(avatar, "ui.click_identity_identicon");
-            avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            // cursor) is shown for host and client alike — but only while there IS
+            // an identity to show: if the keypair could not be loaded the handler
+            // bails out, and a hand cursor over a dead click would be a lie.
+            if (IdentityManager.getInstance().isReady()) {
+                Helpers.setTranslatedToolTip(avatar, "ui.click_identity_identicon");
+                avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            } else {
+                avatar.setToolTipText(null);
+                avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+            }
         });
     }
 
@@ -1086,6 +1093,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             action_font_base = player_check_button.getFont().getSize();
             botonera_ref_width = botonera.getPreferredSize().width;
             installShowdownHandHighlight();
+            // Lupa del avatar (con el stack del asiento al lado): mismo origen que
+            // consulta setAvatar (el avatar elegido en la sala de espera, o "" para
+            // el que viene por defecto).
+            AvatarZoomOverlay.install(avatar, player_stack, player_name, () -> {
+                java.io.File propio = GameFrame.getInstance().getSala_espera().getAvatar();
+                return propio != null ? propio.getAbsolutePath() : "";
+            });
             // Wire opcional al latency_dot_widget del .form (si existe).
             try {
                 java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");
@@ -3787,13 +3801,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_stackMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
-        if (!Helpers.isReleaseInsideComponent(evt)) {
+        // Plain left click, same as the remote seats: the right button is kept for
+        // controls whose left click already does something else.
+        if (!Helpers.isRealClick(evt)) {
             return;
         }
-        if (!javax.swing.SwingUtilities.isRightMouseButton(evt)) {
-            return;
-        }
-        // Identity: right-clicking own avatar opens the identicon of THIS installation's
+        // Identity: clicking own avatar opens the identicon of THIS installation's
         // Ed25519 public identity. The dialog shows the visual icon and the 128-bit
         // fingerprint in 8 groups of 4, ready to be shared with a peer through an
         // out-of-band channel (WhatsApp, Telegram, voice).

@@ -1618,6 +1618,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setOpaque(false);
             setBackground(null);
             installShowdownHandHighlight();
+            // Lupa del avatar (con el stack del asiento al lado): el proveedor
+            // devuelve lo MISMO que consulta setAvatar (ruta del fichero, "*" para
+            // un bot, "" sin avatar) y se evalúa al mostrarla, no ahora: aquí el
+            // asiento todavía no tiene nick.
+            AvatarZoomOverlay.install(avatar, player_stack, player_name, () -> nickname == null ? "" : GameFrame.getInstance().getNick2avatar().get(nickname));
             latency_label.setVisible(false);
             // Placeholder traducido hasta que llegue el primer PING (el texto del .form
             // es solo el default de diseño).
@@ -2158,13 +2163,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_actionMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
-        if (!Helpers.isReleaseInsideComponent(evt)) {
+        // Plain left click: nothing else claims it on a seat avatar, and the
+        // primary action of a control belongs to the primary button. The right
+        // button is reserved for controls whose left click is already taken (the
+        // avatar of the new game dialog, where it restores the default one).
+        if (!Helpers.isRealClick(evt)) {
             return;
         }
-        if (!javax.swing.SwingUtilities.isRightMouseButton(evt)) {
-            return;
-        }
-        // Identity: right-clicking a remote human avatar opens the identicon of that
+        // Identity: clicking a remote human avatar opens the identicon of that
         // peer's Ed25519 public identity. The dialog includes a "Verificar identidad"
         // button that marks (nick, pubkey) as verified_oob if the user has compared
         // the fingerprint with the peer through an external secure channel.

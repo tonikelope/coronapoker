@@ -88,10 +88,12 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     // cartas cuando el avatar es de tonos parecidos.
     private static final float FRAME_ALPHA = 0.55f;
 
-    // Vigilante de salida: el mouseExited del avatar es la vía normal para
-    // retirar la lupa, pero no siempre llega (el asiento puede ocultarse bajo el
-    // puntero al cambiar de mano, entrar en vista compacta o terminar la timba).
-    private static final int POLL_MS = 150;
+    // Cadencia del vigilante que retira la lupa. Sondea la posición del puntero
+    // en vez de escuchar eventos porque ni el overlay los recibe (es transparente
+    // al ratón) ni el mouseExited del avatar sirve: ese salta justo al pisar la
+    // ampliación, y encima no llega si el asiento se oculta bajo el puntero
+    // (cambio de mano, vista compacta, fin de timba).
+    private static final int POLL_MS = 100;
 
     // Ampliaciones ya generadas. Por referencia blanda: sobreviven a la partida
     // entera (rehacerlas en cada hover daría un tirón), pero el recolector puede
@@ -167,16 +169,11 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
             @Override
             public void mouseExited(MouseEvent e) {
+                // Solo cancela la aparición pendiente. Si la lupa YA está puesta,
+                // salir del avatar no la retira: la ampliación es más grande que
+                // él, y el ratón sigue dentro de ella. De eso decide el vigilante,
+                // que mira toda el área (avatar + ampliación).
                 delay[0].stop();
-                hideZoom();
-            }
-
-            @Override
-            public void mousePressed(MouseEvent e) {
-                // Un click sobre el avatar (identicon) descarta la lupa: el
-                // diálogo se abre encima y taparlo con ella no aporta nada.
-                delay[0].stop();
-                hideZoom();
             }
         });
     }
@@ -305,15 +302,17 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         });
     }
 
-    // Mientras la lupa esté puesta, comprueba que el puntero siga sobre su
-    // avatar. Cubre los casos en los que el mouseExited no llega: el asiento se
-    // oculta bajo el ratón, la timba termina o el tablero se reconstruye.
+    // Mientras la lupa esté puesta, comprueba que el puntero siga dentro de su
+    // área (el avatar MÁS la propia ampliación). Es la única vía para retirarla:
+    // el overlay es transparente a los eventos, así que moverse por encima de él
+    // no genera entered/exited propios, y el exited del avatar salta en cuanto el
+    // ratón pisa la ampliación, que es justo cuando NO hay que retirarla.
     private static void startWatchdog() {
 
         if (watchdog == null) {
             watchdog = new javax.swing.Timer(POLL_MS, e -> {
                 JLabel avatar = current_avatar;
-                if (avatar == null || !avatar.isShowing() || !pointerOver(avatar) || !canShow()) {
+                if (avatar == null || !avatar.isShowing() || !canShow() || !pointerInHoverArea(avatar)) {
                     hideZoom();
                 }
             });
@@ -324,9 +323,9 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
     // El puntero está sobre el avatar. Con MouseInfo (coordenadas de pantalla)
     // para no depender de que llegue el evento.
-    private static boolean pointerOver(JLabel avatar) {
+    private static boolean pointerOver(java.awt.Component c) {
 
-        if (!avatar.isShowing()) {
+        if (c == null || !c.isShowing()) {
             return false;
         }
 
@@ -337,11 +336,38 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 return false;
             }
 
-            return new Rectangle(avatar.getLocationOnScreen(), avatar.getSize()).contains(pi.getLocation());
+            return new Rectangle(c.getLocationOnScreen(), c.getSize()).contains(pi.getLocation());
 
         } catch (java.awt.IllegalComponentStateException ex) {
-            // El asiento ha dejado de estar en pantalla entre el isShowing y la
+            // El componente ha dejado de estar en pantalla entre el isShowing y la
             // consulta: cuenta como puntero fuera.
+            return false;
+        }
+    }
+
+    // Área que mantiene viva la lupa: el avatar o la ampliación que sale de él.
+    private static boolean pointerInHoverArea(JLabel avatar) {
+        return pointerOver(avatar) || pointerOver(current);
+    }
+
+    /**
+     * ¿La lupa está tapando este punto de pantalla? El overlay es transparente al
+     * ratón (para no romper el hover del avatar), así que los clicks sobre la
+     * ampliación caen en lo que haya debajo: el tapete lo consulta para no
+     * disparar sus propias acciones cuando el usuario cree estar pinchando en la
+     * imagen ampliada.
+     */
+    public static boolean coversScreenPoint(java.awt.Point screen_point) {
+
+        AvatarZoomOverlay overlay = current;
+
+        if (overlay == null || screen_point == null || !overlay.isShowing()) {
+            return false;
+        }
+
+        try {
+            return new Rectangle(overlay.getLocationOnScreen(), overlay.getSize()).contains(screen_point);
+        } catch (java.awt.IllegalComponentStateException ex) {
             return false;
         }
     }

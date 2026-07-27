@@ -132,8 +132,10 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         this.painted_stack = stackText();
         this.name = name;
         this.name_color = name != null ? name.getForeground() : null;
-        this.name_font = name != null && name.getFont() != null
-                ? name.getFont().deriveFont(name.getFont().getSize2D() * factor) : null;
+        // El nick NO se amplía: con la fuente del asiento ya se lee, y escalarlo
+        // por el factor de la foto alargaba la lupa hasta el doble por un texto
+        // que no es el motivo de ampliar nada.
+        this.name_font = name != null ? name.getFont() : null;
         this.painted_name = nameText();
         setOpaque(false);
         setFocusable(false);
@@ -205,41 +207,44 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return text != null && !text.trim().isEmpty() ? text.trim() : null;
     }
 
-    // Columna de la izquierda: la foto y, debajo, el nick. Se ensancha si el nick
-    // es más largo que la foto (va a su tamaño normal, así que rara vez).
-    private int columnWidth() {
-
-        int w = image.getWidth();
-
-        if (painted_name != null) {
-            w = Math.max(w, getFontMetrics(name_font).stringWidth(painted_name));
-        }
-
-        return w;
-    }
-
-    // Desplazamiento de la FOTO dentro de la lupa: es ella la que se ancla al
-    // avatar del asiento, no el borde del componente.
+    // La FOTO manda: va SIEMPRE pegada a la izquierda de la lupa, con el stack a
+    // su derecha y el nick debajo. Ni el nick ni el stack la mueven de sitio, así
+    // que la imagen cae exactamente sobre el avatar del asiento sea cual sea el
+    // largo de los textos.
     private int imageOffsetX() {
-        return pad + (columnWidth() - image.getWidth()) / 2;
+        return pad;
     }
 
-    // Caja que ocupa la lupa: la columna (foto + nick) y, si hay, el stack al lado.
+    private int nameWidth() {
+        return painted_name != null ? getFontMetrics(name_font).stringWidth(painted_name) : 0;
+    }
+
+    // El nick se centra bajo la foto mientras quepa; si es más largo, arranca
+    // alineado con ella y sobresale hacia la derecha.
+    private int nameOffsetX() {
+        return pad + Math.max(0, (image.getWidth() - nameWidth()) / 2);
+    }
+
+    private int stackOffsetX() {
+        return pad + image.getWidth() + pad;
+    }
+
+    // Caja que ocupa la lupa: la foto con el stack al lado y el nick debajo.
     private java.awt.Dimension preferredBox() {
 
-        int column = columnWidth();
-
-        int w = column + 2 * pad;
+        int w = image.getWidth() + 2 * pad;
         int h = image.getHeight() + 2 * pad;
-
-        if (painted_name != null) {
-            h += getFontMetrics(name_font).getHeight();
-        }
 
         if (painted_stack != null) {
             java.awt.FontMetrics fm = getFontMetrics(stack_font);
-            w += fm.stringWidth(painted_stack) + pad;
+            w = Math.max(w, stackOffsetX() + fm.stringWidth(painted_stack) + pad);
             h = Math.max(h, fm.getHeight() + 2 * pad);
+        }
+
+        if (painted_name != null) {
+            java.awt.FontMetrics fm = getFontMetrics(name_font);
+            w = Math.max(w, nameOffsetX() + nameWidth() + pad);
+            h = Math.max(h, pad + image.getHeight() + fm.getHeight() + pad);
         }
 
         return new java.awt.Dimension(w, h);
@@ -287,18 +292,12 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
             int arc = cornerRadius(image.getWidth()) + pad;
             g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), arc, arc));
 
-            int column = columnWidth();
-            int image_x = imageOffsetX();
-
-            g2.drawImage(image, image_x, pad, null);
+            g2.drawImage(image, imageOffsetX(), pad, null);
 
             if (painted_name != null) {
                 g2.setFont(name_font);
                 g2.setColor(name_color != null ? name_color : Color.WHITE);
-                java.awt.FontMetrics fm = g2.getFontMetrics();
-                // Centrado bajo la foto, en el hueco que la caja reservó para él.
-                g2.drawString(painted_name, pad + (column - fm.stringWidth(painted_name)) / 2,
-                        pad + image.getHeight() + fm.getAscent());
+                g2.drawString(painted_name, nameOffsetX(), pad + image.getHeight() + g2.getFontMetrics().getAscent());
             }
 
             if (painted_stack != null) {
@@ -308,7 +307,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 // Centrado en vertical respecto a la FOTO, no al componente: el
                 // nick de debajo no debe descolgar el número.
                 int baseline = pad + (image.getHeight() - fm.getHeight()) / 2 + fm.getAscent();
-                g2.drawString(painted_stack, pad + column + pad, baseline);
+                g2.drawString(painted_stack, stackOffsetX(), baseline);
             }
         } finally {
             g2.dispose();

@@ -359,10 +359,12 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         });
     }
 
-    // La lupa puede aparecer: la partida sigue viva.
+    // La lupa puede aparecer: está activada en los ajustes y la partida sigue viva.
+    // Se consulta en cada hover Y en cada sondeo del vigilante, así que desactivarla
+    // con una lupa puesta la retira sin más.
     private static boolean canShow() {
         GameFrame gf = GameFrame.getInstance();
-        return gf != null && gf.getCrupier() != null && !gf.getCrupier().isFin_de_la_transmision();
+        return GameFrame.RESALTAR_AVATARES && gf != null && gf.getCrupier() != null && !gf.getCrupier().isFin_de_la_transmision();
     }
 
     /**

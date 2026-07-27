@@ -574,6 +574,15 @@ public class AppearanceSettingsPanel extends JPanel {
                     GameFrame.SCREENSHOT_FIN_TIMBA = !GameFrame.SCREENSHOT_FIN_TIMBA;
                     persist("screenshot_fin_timba", String.valueOf(GameFrame.SCREENSHOT_FIN_TIMBA));
                 }, false, "tooltip.cfg.screenshot_fin_timba"));
+        // Lupa del avatar al pasar el ratón por él: persist-only, sin item de menú (la lee
+        // AvatarZoomOverlay al vuelo en cada hover, y desmarcarla con una lupa puesta la retira
+        // en el siguiente sondeo de su vigilante). Default ON.
+        addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "settings.resaltar_avatares", GameFrame.RESALTAR_AVATARES,
+                null,
+                () -> {
+                    GameFrame.RESALTAR_AVATARES = !GameFrame.RESALTAR_AVATARES;
+                    persist("resaltar_avatares", String.valueOf(GameFrame.RESALTAR_AVATARES));
+                }, true, "tooltip.cfg.resaltar_avatares"));
 
         // ---------------- Animaciones ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");

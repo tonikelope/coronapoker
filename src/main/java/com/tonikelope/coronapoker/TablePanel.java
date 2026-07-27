@@ -189,6 +189,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 @Override
                 public void mouseReleased(java.awt.event.MouseEvent evt) {
                     if (evt.getClickCount() == 2 && Helpers.isRealClick(evt)) {
+                        // La lupa del avatar es transparente al ratón (si no, se
+                        // retiraría sola al taparlo), así que un clic sobre la
+                        // imagen ampliada llega hasta aquí: ahí NO es una zona
+                        // libre del tapete.
+                        if (AvatarZoomOverlay.coversScreenPoint(evt.getLocationOnScreen())) {
+                            return;
+                        }
                         cycleNextTapete();
                     }
                 }

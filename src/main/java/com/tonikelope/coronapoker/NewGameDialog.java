@@ -3160,6 +3160,10 @@ public class NewGameDialog extends JDialog {
         Helpers.setTranslatedToolTip(bots_label, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(rebuy_cap_label, "rebuy.tope_recompra_tooltip");
+        // El avatar y la etiqueta "Nick:" comparten el mismo gesto (avatar_labelMouseClicked delega
+        // en nick_labelMouseClicked): click normal abre el selector de imagen, click derecho
+        // restaura el avatar por defecto.
+        Helpers.setTranslatedToolTip(avatar_label, "tooltip.change_avatar");
         Helpers.setTranslatedToolTip(nick_label, "tooltip.change_avatar");
         Helpers.setTranslatedToolTip(recover_checkbox, "tooltip.cfg.recover");
         Helpers.setTranslatedToolTip(recover_checkbox_label, "tooltip.cfg.recover");

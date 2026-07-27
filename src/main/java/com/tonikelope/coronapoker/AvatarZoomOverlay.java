@@ -108,15 +108,21 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     private final BufferedImage image;
     private final int pad;
 
-    // Stack del jugador, ampliado al lado de la foto. Se lee del propio JLabel del
-    // asiento en cada pintada (no una copia al abrir): durante una mano el número
-    // cambia, y la lupa puede estar puesta mientras cambia.
+    // Stack del jugador (al lado de la foto) y nick (debajo), los dos con la fuente
+    // y el color del asiento escalados por el mismo factor que la imagen. Se leen
+    // de sus JLabel en cada pintada (no una copia al abrir): el stack cambia
+    // durante la mano y la lupa puede estar puesta mientras cambia.
     private final JLabel stack;
     private final java.awt.Font stack_font;
     private final Color stack_color;
     private String painted_stack = null;
 
-    private AvatarZoomOverlay(BufferedImage image, int pad, JLabel stack, float factor) {
+    private final JLabel name;
+    private final java.awt.Font name_font;
+    private final Color name_color;
+    private String painted_name = null;
+
+    private AvatarZoomOverlay(BufferedImage image, int pad, JLabel stack, JLabel name, float factor) {
         this.image = image;
         this.pad = pad;
         this.stack = stack;
@@ -124,6 +130,11 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 ? stack.getFont().deriveFont(stack.getFont().getSize2D() * factor) : null;
         this.stack_color = stack != null ? stack.getForeground() : null;
         this.painted_stack = stackText();
+        this.name = name;
+        this.name_color = name != null ? name.getForeground() : null;
+        this.name_font = name != null && name.getFont() != null
+                ? name.getFont().deriveFont(name.getFont().getSize2D() * factor) : null;
+        this.painted_name = nameText();
         setOpaque(false);
         setFocusable(false);
         setSize(preferredBox());
@@ -182,17 +193,52 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return text != null && !text.trim().isEmpty() ? text.trim() : null;
     }
 
-    // Caja que ocupa la lupa: la foto y, si hay stack, su número al lado.
+    // Nick tal y como lo muestra el asiento, o null si no hay.
+    private String nameText() {
+
+        if (name == null || name_font == null) {
+            return null;
+        }
+
+        String text = name.getText();
+
+        return text != null && !text.trim().isEmpty() ? text.trim() : null;
+    }
+
+    // Columna de la izquierda: la foto y, debajo, el nick. Se ensancha si el nick
+    // es más largo que la foto (va a su tamaño normal, así que rara vez).
+    private int columnWidth() {
+
+        int w = image.getWidth();
+
+        if (painted_name != null) {
+            w = Math.max(w, getFontMetrics(name_font).stringWidth(painted_name));
+        }
+
+        return w;
+    }
+
+    // Desplazamiento de la FOTO dentro de la lupa: es ella la que se ancla al
+    // avatar del asiento, no el borde del componente.
+    private int imageOffsetX() {
+        return pad + (columnWidth() - image.getWidth()) / 2;
+    }
+
+    // Caja que ocupa la lupa: la columna (foto + nick) y, si hay, el stack al lado.
     private java.awt.Dimension preferredBox() {
 
-        int w = image.getWidth() + 2 * pad;
+        int column = columnWidth();
+
+        int w = column + 2 * pad;
         int h = image.getHeight() + 2 * pad;
 
-        String text = painted_stack;
+        if (painted_name != null) {
+            h += getFontMetrics(name_font).getHeight();
+        }
 
-        if (text != null) {
+        if (painted_stack != null) {
             java.awt.FontMetrics fm = getFontMetrics(stack_font);
-            w += fm.stringWidth(text) + pad;
+            w += fm.stringWidth(painted_stack) + pad;
             h = Math.max(h, fm.getHeight() + 2 * pad);
         }
 
@@ -200,19 +246,21 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     }
 
     /**
-     * Reajusta la lupa si el stack ha cambiado mientras estaba puesta (una apuesta
-     * del jugador, el reparto de un bote). La foto no se mueve: el número crece
-     * hacia la derecha, y si eso se saliera del tapete la lupa se recoloca.
+     * Reajusta la lupa si el stack o el nick han cambiado mientras estaba puesta
+     * (una apuesta, el reparto de un bote). Si la caja crece y eso la sacaría del
+     * tapete, se recoloca dentro.
      */
-    private void refreshStackIfChanged() {
+    private void refreshIfChanged() {
 
-        String text = stackText();
+        String new_stack = stackText();
+        String new_name = nameText();
 
-        if (java.util.Objects.equals(text, painted_stack)) {
+        if (java.util.Objects.equals(new_stack, painted_stack) && java.util.Objects.equals(new_name, painted_name)) {
             return;
         }
 
-        painted_stack = text;
+        painted_stack = new_stack;
+        painted_name = new_name;
 
         java.awt.Dimension box = preferredBox();
 
@@ -239,20 +287,28 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
             int arc = cornerRadius(image.getWidth()) + pad;
             g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), arc, arc));
 
-            int image_y = (getHeight() - image.getHeight()) / 2;
+            int column = columnWidth();
+            int image_x = imageOffsetX();
 
-            g2.drawImage(image, pad, image_y, null);
+            g2.drawImage(image, image_x, pad, null);
 
-            String text = painted_stack;
+            if (painted_name != null) {
+                g2.setFont(name_font);
+                g2.setColor(name_color != null ? name_color : Color.WHITE);
+                java.awt.FontMetrics fm = g2.getFontMetrics();
+                // Centrado bajo la foto, en el hueco que la caja reservó para él.
+                g2.drawString(painted_name, pad + (column - fm.stringWidth(painted_name)) / 2,
+                        pad + image.getHeight() + fm.getAscent());
+            }
 
-            if (text != null) {
+            if (painted_stack != null) {
                 g2.setFont(stack_font);
                 g2.setColor(stack_color != null ? stack_color : Color.WHITE);
                 java.awt.FontMetrics fm = g2.getFontMetrics();
-                // Centrado en vertical respecto a la foto, no al componente: si el
-                // número es más alto que ella, manda la foto igualmente.
-                int baseline = image_y + (image.getHeight() - fm.getHeight()) / 2 + fm.getAscent();
-                g2.drawString(text, pad + image.getWidth() + pad, baseline);
+                // Centrado en vertical respecto a la FOTO, no al componente: el
+                // nick de debajo no debe descolgar el número.
+                int baseline = pad + (image.getHeight() - fm.getHeight()) / 2 + fm.getAscent();
+                g2.drawString(painted_stack, pad + column + pad, baseline);
             }
         } finally {
             g2.dispose();
@@ -266,13 +322,13 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
      * o "" para el avatar por defecto) y se consulta en el momento de mostrar, no
      * aquí: al instalarse, el asiento todavía no tiene nick.
      */
-    public static void install(final JLabel avatar, final JLabel stack, final Supplier<String> source) {
+    public static void install(final JLabel avatar, final JLabel stack, final JLabel name, final Supplier<String> source) {
 
         final javax.swing.Timer[] delay = new javax.swing.Timer[1];
 
         delay[0] = new javax.swing.Timer(HOVER_DELAY_MS, e -> {
             delay[0].stop();
-            show(avatar, stack, source);
+            show(avatar, stack, name, source);
         });
 
         delay[0].setRepeats(false);
@@ -287,7 +343,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 if (HOVER_DELAY_MS <= 0) {
                     // Sin espera: en el mismo evento, para no perder ni un ciclo
                     // del EDT en un timer que vencería de inmediato.
-                    show(avatar, stack, source);
+                    show(avatar, stack, name, source);
                 } else {
                     delay[0].restart();
                 }
@@ -315,7 +371,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
      * reescalarlo cuesta lo suyo la primera vez de cada avatar) y la muestra
      * después, si para entonces el puntero sigue sobre el mismo avatar.
      */
-    private static void show(final JLabel avatar, final JLabel stack, final Supplier<String> source) {
+    private static void show(final JLabel avatar, final JLabel stack, final JLabel name, final Supplier<String> source) {
 
         if (!canShow() || !avatar.isShowing() || !pointerOver(avatar)) {
             return;
@@ -350,7 +406,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         final BufferedImage cached = cachedImage(src, size);
 
         if (cached != null) {
-            display(avatar, stack, tapete, cached, size);
+            display(avatar, stack, name, tapete, cached, size);
             return;
         }
 
@@ -362,12 +418,12 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 return;
             }
 
-            Helpers.GUIRun(() -> display(avatar, stack, tapete, img, size));
+            Helpers.GUIRun(() -> display(avatar, stack, name, tapete, img, size));
         });
     }
 
     // Coloca la ampliación centrada sobre su avatar. Solo en el EDT.
-    private static void display(final JLabel avatar, final JLabel stack, final JLayeredPane tapete, final BufferedImage img, final int size) {
+    private static void display(final JLabel avatar, final JLabel stack, final JLabel name, final JLayeredPane tapete, final BufferedImage img, final int size) {
 
         if (!canShow() || !avatar.isShowing() || !pointerOver(avatar)) {
             return;
@@ -377,7 +433,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
         int seat = Math.min(avatar.getWidth(), avatar.getHeight());
 
-        AvatarZoomOverlay overlay = new AvatarZoomOverlay(img, Math.max(4, size / 24), stack,
+        AvatarZoomOverlay overlay = new AvatarZoomOverlay(img, Math.max(4, size / 24), stack, name,
                 seat > 0 ? size / (float) seat : ZOOM_FACTOR);
 
         // Mismo cursor que el avatar que amplía: si pinchar el pequeño hace algo
@@ -393,10 +449,10 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         Point p = SwingUtilities.convertPoint(avatar, 0, 0, tapete);
 
         // La FOTO va centrada sobre el avatar original (el stack sobresale a su
-        // derecha), y el conjunto se acota al tapete para que en los asientos de
-        // las esquinas se vea entero.
-        int x = p.x + avatar.getWidth() / 2 - (overlay.pad + img.getWidth() / 2);
-        int y = p.y + (avatar.getHeight() - overlay.getHeight()) / 2;
+        // derecha y el nick cuelga debajo), y el conjunto se acota al tapete para
+        // que en los asientos de las esquinas se vea entero.
+        int x = p.x + avatar.getWidth() / 2 - (overlay.imageOffsetX() + img.getWidth() / 2);
+        int y = p.y + avatar.getHeight() / 2 - (overlay.pad + img.getHeight() / 2);
 
         x = Math.max(0, Math.min(x, tapete.getWidth() - overlay.getWidth()));
         y = Math.max(0, Math.min(y, tapete.getHeight() - overlay.getHeight()));
@@ -458,7 +514,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 }
                 AvatarZoomOverlay overlay = current;
                 if (overlay != null) {
-                    overlay.refreshStackIfChanged();
+                    overlay.refreshIfChanged();
                 }
             });
         }

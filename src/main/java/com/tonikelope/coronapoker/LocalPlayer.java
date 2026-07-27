@@ -1096,7 +1096,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             // Lupa del avatar (con el stack del asiento al lado): mismo origen que
             // consulta setAvatar (el avatar elegido en la sala de espera, o "" para
             // el que viene por defecto).
-            AvatarZoomOverlay.install(avatar, player_stack, () -> {
+            AvatarZoomOverlay.install(avatar, player_stack, player_name, () -> {
                 java.io.File propio = GameFrame.getInstance().getSala_espera().getAvatar();
                 return propio != null ? propio.getAbsolutePath() : "";
             });

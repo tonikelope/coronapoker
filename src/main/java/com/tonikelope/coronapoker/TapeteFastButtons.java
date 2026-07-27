@@ -317,13 +317,19 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
                 }
             }
 
+            // El icono "menu" se oculta ANTES de medir: si se ocultara después, el ancho preferido
+            // incluiría el suyo (es el primero del FlowLayout, así que al desaparecer los botones se
+            // corren a la izquierda) y el panel quedaría con una franja invisible del ancho de un
+            // botón a la derecha de la barra. Estando dentro de ella no llega el mouseExited del
+            // panel ni el mouseEntered del tapete, así que había que alejar el ratón un botón entero
+            // para que se detectara la salida y arrancara el plegado.
+            menu.setVisible(false);
+
             if (getPref_size() != getPreferredSize()) {
                 pref_size = getPreferredSize();
                 setSize(pref_size);
                 setLocation(0, (int) (GameFrame.getInstance().getTapete().getHeight() - getSize().getHeight()));
             }
-
-            menu.setVisible(false);
         });
 
     }

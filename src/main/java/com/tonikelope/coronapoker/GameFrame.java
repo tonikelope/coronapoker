@@ -340,10 +340,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // Migración de clave: antes se guardaba como "resaltar_jugada_perdedor" (solo perdedores);
     // se lee esa clave vieja como fallback para no perder el ajuste de quien ya la tenía.
     public static volatile boolean RESALTAR_JUGADA_SHOWDOWN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_showdown", Helpers.PROPERTIES.getProperty("resaltar_jugada_perdedor", "true")));
-    // Al pasar el ratón por el avatar de un asiento, se muestra ampliado sobre la mesa junto al
+    // Al dejar el ratón sobre el avatar de un asiento, se muestra ampliado sobre la mesa junto al
     // nick y al stack de ese jugador (AvatarZoomOverlay), y se retira al salir. Puramente visual
-    // y LOCAL por cliente (no se difunde). Por defecto activado.
-    public static volatile boolean RESALTAR_AVATARES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_avatares", "true"));
+    // y LOCAL por cliente (no se difunde). Por defecto DESACTIVADO (tapa parte de la mesa).
+    public static volatile boolean RESALTAR_AVATARES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_avatares", "false"));
     // La pantalla final (BalanceScreen) guarda automáticamente una captura (mismo mecanismo que
     // CTRL+P: printAll del rootPane, sin Robot ni captura del SO) JUSTO al terminar el contador de
     // dinero; y si el jugador SALE de la pantalla final ANTES de que termine (por cualquiera de los

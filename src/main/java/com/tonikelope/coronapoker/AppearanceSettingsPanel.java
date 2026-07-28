@@ -119,6 +119,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_anim_contadores;
     private final boolean snap_anim_cascada_overlay;
     private final boolean snap_resaltar_jugada_showdown;
+    private final boolean snap_resaltar_avatares;
     private final boolean snap_screenshot_fin_timba;
     private final boolean snap_animaciones;
     private final boolean snap_chat_images;
@@ -167,6 +168,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_contadores = prefBool("animacion_contadores");
         snap_anim_cascada_overlay = prefBool("animacion_cascada_overlay", false);
         snap_resaltar_jugada_showdown = prefBool("resaltar_jugada_showdown", true);
+        snap_resaltar_avatares = prefBool("resaltar_avatares", false);
         snap_screenshot_fin_timba = prefBool("screenshot_fin_timba", false);
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
@@ -574,15 +576,15 @@ public class AppearanceSettingsPanel extends JPanel {
                     GameFrame.SCREENSHOT_FIN_TIMBA = !GameFrame.SCREENSHOT_FIN_TIMBA;
                     persist("screenshot_fin_timba", String.valueOf(GameFrame.SCREENSHOT_FIN_TIMBA));
                 }, false, "tooltip.cfg.screenshot_fin_timba"));
-        // Lupa del avatar al pasar el ratón por él: persist-only, sin item de menú (la lee
+        // Lupa del avatar al dejar el ratón sobre él: persist-only, sin item de menú (la lee
         // AvatarZoomOverlay al vuelo en cada hover, y desmarcarla con una lupa puesta la retira
-        // en el siguiente sondeo de su vigilante). Default ON.
+        // en el siguiente sondeo de su vigilante). Default OFF (la ampliación tapa parte de la mesa).
         addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "settings.resaltar_avatares", GameFrame.RESALTAR_AVATARES,
                 null,
                 () -> {
                     GameFrame.RESALTAR_AVATARES = !GameFrame.RESALTAR_AVATARES;
                     persist("resaltar_avatares", String.valueOf(GameFrame.RESALTAR_AVATARES));
-                }, true, "tooltip.cfg.resaltar_avatares"));
+                }, false, "tooltip.cfg.resaltar_avatares"));
 
         // ---------------- Animaciones ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
@@ -1164,6 +1166,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("animacion_contadores") != snap_anim_contadores
                 || prefBool("animacion_cascada_overlay", false) != snap_anim_cascada_overlay
                 || prefBool("resaltar_jugada_showdown", true) != snap_resaltar_jugada_showdown
+                || prefBool("resaltar_avatares", false) != snap_resaltar_avatares
                 || prefBool("screenshot_fin_timba", false) != snap_screenshot_fin_timba
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
@@ -1311,6 +1314,14 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("resaltar_jugada_showdown", String.valueOf(snap_resaltar_jugada_showdown));
             Helpers.savePropertiesFile();
         }
+        // Lupa del avatar: persist-only, sin item de menú. Igual que el resaltado del showdown, y
+        // si al revertir queda apagada con una lupa puesta, su vigilante la retira en el siguiente
+        // sondeo (canShow mira este mismo flag).
+        if (GameFrame.RESALTAR_AVATARES != snap_resaltar_avatares) {
+            GameFrame.RESALTAR_AVATARES = snap_resaltar_avatares;
+            Helpers.PROPERTIES.setProperty("resaltar_avatares", String.valueOf(snap_resaltar_avatares));
+            Helpers.savePropertiesFile();
+        }
         // Captura al terminar la timba: persist-only, sin item de menú ni efecto en vivo. Se revierte
         // fijando el flag + re-persistiendo el snapshot, como el resaltado del showdown.
         if (GameFrame.SCREENSHOT_FIN_TIMBA != snap_screenshot_fin_timba) {
@@ -1441,6 +1452,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.ANIMACION_CONTADORES_PREF = snap_anim_contadores;
         GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = snap_anim_cascada_overlay;
         GameFrame.RESALTAR_JUGADA_SHOWDOWN = snap_resaltar_jugada_showdown;
+        GameFrame.RESALTAR_AVATARES = snap_resaltar_avatares;
         GameFrame.SCREENSHOT_FIN_TIMBA = snap_screenshot_fin_timba;
         GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
@@ -1475,6 +1487,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(snap_anim_contadores));
         Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
         Helpers.PROPERTIES.setProperty("resaltar_jugada_showdown", String.valueOf(snap_resaltar_jugada_showdown));
+        Helpers.PROPERTIES.setProperty("resaltar_avatares", String.valueOf(snap_resaltar_avatares));
         Helpers.PROPERTIES.setProperty("screenshot_fin_timba", String.valueOf(snap_screenshot_fin_timba));
         Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));

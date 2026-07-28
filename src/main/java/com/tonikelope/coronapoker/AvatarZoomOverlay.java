@@ -69,10 +69,12 @@ import javax.swing.SwingUtilities;
  */
 public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
-    // Sin espera: la lupa sale al entrar en el avatar. La primera de cada avatar
-    // tarda lo que cueste decodificar su fichero (fuera del EDT); a partir de ahí
-    // sale ya cacheada, en el mismo evento del ratón.
-    public static final int HOVER_DELAY_MS = 0;
+    // Lo que el ratón tiene que llevar dentro del avatar para que asome la lupa:
+    // cruzar la mesa con el puntero no debe ir encendiendo avatares por el camino,
+    // solo el que se está mirando de verdad. La primera de cada avatar tarda además
+    // lo que cueste decodificar su fichero (fuera del EDT); a partir de ahí sale ya
+    // cacheada, en el mismo disparo del temporizador.
+    public static final int HOVER_DELAY_MS = 250;
 
     // Tamaño de la ampliación: N veces el alto del avatar del asiento, con tope
     // en una fracción del alto del tapete para que en ventanas pequeñas (o con
@@ -339,13 +341,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 if (!canShow()) {
                     return;
                 }
-                if (HOVER_DELAY_MS <= 0) {
-                    // Sin espera: en el mismo evento, para no perder ni un ciclo
-                    // del EDT en un timer que vencería de inmediato.
-                    show(avatar, stack, name, source);
-                } else {
-                    delay[0].restart();
-                }
+                delay[0].restart();
             }
 
             @Override
@@ -467,8 +463,8 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
         startWatchdog();
 
-        // Solo su rectángulo: ahora la lupa sale sin espera, así que cruzar la
-        // mesa con el ratón no debe costar un repintado del tapete entero.
+        // Solo su rectángulo: asomar la lupa no tiene por qué costar un repintado
+        // del tapete entero.
         tapete.repaint(x, y, overlay.getWidth(), overlay.getHeight());
     }
 

@@ -94,6 +94,16 @@ public class Init extends JFrame {
     public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";
     public static final String VOICE_DIR = CORONA_DIR + "/voice";
     public static final int DEADLOCK_DETECT_WAIT = 5000;
+    // Franja del splash donde se canta el paso de arranque en curso. Va al pie
+    // de la carta (el gif mide 427x618), sobre su blanco limpio, para no tapar
+    // el logo.
+    private static final int SPLASH_STEP_BAND_HEIGHT = 26;
+    private static final int SPLASH_STEP_BOTTOM_MARGIN = 24;
+    private static final int SPLASH_STEP_PILL_PADDING = 14;
+    // Pastilla del violeta del logo con letra blanca: sobre el blanco de la
+    // carta, una pastilla clara no se distinguía del fondo.
+    private static final Color SPLASH_STEP_TEXT_COLOR = Color.WHITE;
+    private static final Color SPLASH_STEP_PILL_COLOR = new Color(60, 20, 120, 235);
     public static String SQL_FILE;
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();
@@ -1620,7 +1630,119 @@ public class Init extends JFrame {
         });
     }
 
+    /**
+     * Escribe en el splash el paso de arranque en curso.
+     *
+     * Un arranque lento (el antivirus escaneando el jar tras una actualización
+     * del sistema, o el SO tardando en servir la semilla del CSPRNG) era
+     * indistinguible de uno colgado, porque el splash no cantaba nada. Cada
+     * paso releva al anterior sobre una pastilla redondeada al pie de la carta.
+     *
+     * No hace nada si no hay splash (arranque desde el IDE, o lanzado sin
+     * -splash) y nunca propaga: es cosmético y jamás debe tumbar el arranque.
+     */
+    private static void splashStep(String msg) {
+
+        try {
+            java.awt.SplashScreen splash = java.awt.SplashScreen.getSplashScreen();
+
+            if (splash == null || msg == null || !splash.isVisible()) {
+                return;
+            }
+
+            java.awt.Graphics2D g = splash.createGraphics();
+
+            if (g == null) {
+                return;
+            }
+
+            try {
+                java.awt.Dimension size = splash.getSize();
+                int band_y = size.height - SPLASH_STEP_BOTTOM_MARGIN - SPLASH_STEP_BAND_HEIGHT;
+
+                // Borrar la franja anterior en vez de repintarla de blanco: la
+                // superficie de dibujo se compone SOBRE el gif del splash, así que
+                // dejarla transparente es lo que devuelve el fondo original.
+                g.setComposite(java.awt.AlphaComposite.Clear);
+                g.fillRect(0, band_y, size.width, SPLASH_STEP_BAND_HEIGHT);
+                g.setPaintMode();
+
+                g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
+
+                java.awt.FontMetrics fm = g.getFontMetrics();
+                int max_text_width = size.width - 2 * SPLASH_STEP_PILL_PADDING - 20;
+                String text = msg;
+
+                while (text.length() > 1 && fm.stringWidth(text) > max_text_width) {
+                    text = text.substring(0, text.length() - 2) + "…";
+                }
+
+                int text_width = fm.stringWidth(text);
+
+                g.setColor(SPLASH_STEP_PILL_COLOR);
+                g.fillRoundRect((size.width - text_width) / 2 - SPLASH_STEP_PILL_PADDING, band_y, text_width + 2 * SPLASH_STEP_PILL_PADDING, SPLASH_STEP_BAND_HEIGHT, SPLASH_STEP_BAND_HEIGHT, SPLASH_STEP_BAND_HEIGHT);
+                g.setColor(SPLASH_STEP_TEXT_COLOR);
+                g.drawString(text, (size.width - text_width) / 2, band_y + (SPLASH_STEP_BAND_HEIGHT - fm.getHeight()) / 2 + fm.getAscent());
+
+            } finally {
+                g.dispose();
+            }
+
+            splash.update();
+
+        } catch (Throwable ignored) {
+            // El splash puede cerrarse (al hacerse visible la primera ventana)
+            // entre la comprobación y el update, lo que da IllegalStateException.
+        }
+    }
+
+    /**
+     * Aborta el arranque avisando al usuario en lugar de dejar el proceso zombi.
+     *
+     * Los hilos del pool no son daemon y el detector de deadlocks es un bucle
+     * infinito, así que si el hilo principal muere por un Error (la carga de la
+     * librería nativa de SQLite fallando, por ejemplo) la JVM se queda viva sin
+     * ninguna ventana detrás y con el splash congelado en pantalla para siempre.
+     */
+    private static void fatalStartupError(String msg, Throwable cause) {
+
+        LOGGER.log(Level.SEVERE, "FATAL: startup aborted", cause);
+
+        try {
+            java.awt.SplashScreen splash = java.awt.SplashScreen.getSplashScreen();
+
+            if (splash != null && splash.isVisible()) {
+                splash.close();
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            final String text = (cause != null) ? msg + "\n\n" + cause : msg;
+
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                javax.swing.JOptionPane.showMessageDialog(null, text, WINDOW_TITLE, javax.swing.JOptionPane.ERROR_MESSAGE);
+            });
+
+        } catch (Throwable ignored) {
+            // Sin GUI utilizable el detalle ya está en el log: salimos igual.
+        }
+
+        System.exit(1);
+    }
+
     public static void main(String args[]) {
+
+        try {
+            boot(args);
+        } catch (Throwable ex) {
+            fatalStartupError(Translator.translate("error.arranque_fatal", DEBUG_DIR), ex);
+        }
+    }
+
+    private static void boot(String args[]) {
 
         //ensureRequiredJvmParameters(args, Init.class);
         setupConsoleLogger();
@@ -1674,8 +1796,17 @@ public class Init extends JFrame {
         EmojiPanel.initClass();
         Helpers.setCoronaLocale();
 
+        splashStep(Translator.translate("splash.base_datos"));
+
         LOGGER.log(Level.INFO, "Loading SQLITE DB...");
-        Helpers.initSQLITE();
+
+        // Sin base de datos no hay estadísticas, ni recuperación de timba, ni
+        // identidades TOFU: no tiene sentido seguir arrancando a medias.
+        if (!Helpers.initSQLITE()) {
+            fatalStartupError(Translator.translate("error.bd_fatal", DEBUG_DIR), null);
+        }
+
+        splashStep(Translator.translate("splash.aleatoriedad"));
 
         try {
             LOGGER.log(Level.INFO, "Trying to load CSPRNG HASH DRBG SHA-512...");
@@ -1686,6 +1817,8 @@ public class Init extends JFrame {
             Helpers.CSPRNG_GENERATOR = new SecureRandom();
             LOGGER.log(Level.WARNING, "Fallback CSPRNG -> {0}", Helpers.CSPRNG_GENERATOR.getAlgorithm());
         }
+
+        splashStep(Translator.translate("splash.recursos"));
 
         Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
         Helpers.updateCoronaDialogsFont();
@@ -1750,6 +1883,8 @@ public class Init extends JFrame {
         // lentos (multi-segundo en frío vs ~0,1 s ya compilado). Ver CryptoWarmup.
         com.tonikelope.coronapoker.crypto.CryptoWarmup.warmup();
 
+        splashStep(Translator.translate("splash.cartas"));
+
         Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
 
         // A corrupt master_volume used to cascade: >1.0 overflows the gain control
@@ -1766,6 +1901,8 @@ public class Init extends JFrame {
             LOGGER.log(Level.WARNING, "Invalid master_volume property, falling back to default.");
             master_volume = 0.8f;
         }
+
+        splashStep(Translator.translate("splash.audio"));
 
         Audio.MASTER_VOLUME = master_volume;
 
@@ -1791,6 +1928,8 @@ public class Init extends JFrame {
         });
 
         Audio.playLoopMp3Resource("misc/background_music.mp3");
+
+        splashStep(Translator.translate("splash.ventana"));
 
         LOGGER.log(Level.INFO, "Loading GUI Window...");
 

@@ -25,6 +25,12 @@
                         </manifest>
                         <manifestEntries>
                             <SplashScreen-Image>images/splash.gif</SplashScreen-Image>
+                            <!-- Java 24+ avisa por consola cada vez que una libreria del
+                                 classpath carga codigo nativo (sqlite-jdbc, JNA), y las
+                                 versiones siguientes lo deniegan de fabrica. Concederlo
+                                 aqui evita el aviso y que el arranque muera el dia que
+                                 pase a denegarse. Solo lo lee la JVM al lanzar con -jar. -->
+                            <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
                         </manifestEntries>
                     </archive>
                     <descriptorRefs>

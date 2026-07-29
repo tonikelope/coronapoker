@@ -1560,7 +1560,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
             Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
             zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-            ZoomToast.showZoom();
+            InGameNotifyDialog.notifyZoom();
 
             if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
                 for (Card carta : jugadas_dialog.getCartas()) {
@@ -5518,7 +5518,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
             Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
             zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-            ZoomToast.showZoom();
+            InGameNotifyDialog.notifyZoom();
             if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
                 for (Card carta : jugadas_dialog.getCartas()) {
                     carta.invalidateImagePrecache();
@@ -5556,7 +5556,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
                 Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
                 zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-                ZoomToast.showZoom();
+                InGameNotifyDialog.notifyZoom();
                 if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
                     for (Card carta : jugadas_dialog.getCartas()) {
                         carta.invalidateImagePrecache();
@@ -5590,7 +5590,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
                 Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
                 zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-                ZoomToast.showZoom();
+                InGameNotifyDialog.notifyZoom();
                 if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
                     for (Card carta : jugadas_dialog.getCartas()) {
                         carta.invalidateImagePrecache();
@@ -5810,7 +5810,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
             Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
             zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-            ZoomToast.showZoom();
+            InGameNotifyDialog.notifyZoom();
             if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
                 for (Card carta : jugadas_dialog.getCartas()) {
                     carta.invalidateImagePrecache();

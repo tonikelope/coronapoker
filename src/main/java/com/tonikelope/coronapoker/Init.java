@@ -98,12 +98,13 @@ public class Init extends JFrame {
     // de la carta (el gif mide 427x618), sobre su blanco limpio, para no tapar
     // el logo.
     private static final int SPLASH_STEP_BAND_HEIGHT = 26;
-    private static final int SPLASH_STEP_BOTTOM_MARGIN = 24;
+    private static final int SPLASH_STEP_BOTTOM_MARGIN = 40;
     private static final int SPLASH_STEP_PILL_PADDING = 14;
-    // Pastilla del violeta del logo con letra blanca: sobre el blanco de la
-    // carta, una pastilla clara no se distinguía del fondo.
+    // Pastilla del naranja del contorno del logo (muestreado del propio gif) con
+    // letra blanca: sobre el blanco de la carta, una pastilla clara no se
+    // distinguía del fondo.
     private static final Color SPLASH_STEP_TEXT_COLOR = Color.WHITE;
-    private static final Color SPLASH_STEP_PILL_COLOR = new Color(60, 20, 120, 235);
+    private static final Color SPLASH_STEP_PILL_COLOR = new Color(255, 88, 0, 235);
     public static String SQL_FILE;
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
     public static final ConcurrentLinkedDeque<JDialog> CURRENT_MODAL_DIALOG = new ConcurrentLinkedDeque<>();

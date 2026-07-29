@@ -28,20 +28,123 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import javax.swing.JLabel;
 
 /**
+ * Cuerpo de las notificaciones del juego: caja de esquinas redondeadas con el
+ * color que pide cada aviso (el fondo es su background y la letra su
+ * foreground), un filo del color de la letra muy diluido para despegarla del
+ * tapete, y una cuenta atrás opcional pintada dentro de la propia caja.
  *
  * @author tonikelope
  */
 public class InGameNotifyPanel extends javax.swing.JPanel {
 
+    // Radio de las esquinas y grosor del filo, relativos al alto de la caja: la
+    // silueta acompaña al tamaño de la letra sea cual sea el zoom.
+    private static final float ARC_RATIO = 0.6f;
+    private static final float BORDER_RATIO = 0.02f;
+    private static final int BORDER_ALPHA = 90;
+
+    // Franja de la cuenta atrás: alto y separación de los lados, también relativos
+    // al alto de la caja.
+    private static final float COUNTDOWN_RATIO = 0.06f;
+    private static final int COUNTDOWN_TRACK_ALPHA = 70;
+
     // Cached overlay color rebuilt only when the brightness changes.
     private Color cached_overlay = null;
     private float cached_brightness = -1f;
+
+    // La silueta redondeada exige que la ventana sea transparente por píxel; donde
+    // el sistema no lo permita, la caja se pinta rectangular como siempre.
+    private boolean rounded = false;
+
+    // Fracción pendiente de la cuenta atrás (1 = recién abierta, 0 = agotada), o
+    // negativo si esta notificación no lleva cuenta atrás.
+    private float countdown = -1f;
+
+    public void setRounded(boolean rounded) {
+        this.rounded = rounded;
+        setOpaque(!rounded);
+    }
+
+    public void setCountdown(float fraction) {
+        this.countdown = fraction;
+        repaint();
+    }
+
+    private int arc() {
+        return rounded ? Math.round(Math.min(getWidth(), getHeight()) * ARC_RATIO) : 0;
+    }
+
+    private Color diluted(Color c, int alpha) {
+        return new Color(c.getRed(), c.getGreen(), c.getBlue(), alpha);
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+
+        if (!rounded) {
+            super.paintComponent(g);
+            paintCountdown((Graphics2D) g, 0);
+            return;
+        }
+
+        Graphics2D g2 = (Graphics2D) g.create();
+
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            final int arc = arc();
+
+            g2.setColor(getBackground());
+            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
+
+            g2.setColor(diluted(msg.getForeground(), BORDER_ALPHA));
+            g2.setStroke(new BasicStroke(Math.max(1f, getHeight() * BORDER_RATIO)));
+            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
+
+            paintCountdown(g2, arc);
+
+        } finally {
+            g2.dispose();
+        }
+    }
+
+    // Cuenta atrás como una franja en la base de la caja, DENTRO de su silueta: una
+    // barra colgada por fuera rompería las esquinas redondeadas.
+    private void paintCountdown(Graphics2D g, int arc) {
+
+        if (countdown < 0f) {
+            return;
+        }
+
+        final int thickness = Math.max(2, Math.round(getHeight() * COUNTDOWN_RATIO));
+        final int inset = Math.max(2, arc / 4);
+        final int y = getHeight() - thickness - inset;
+        final int track = getWidth() - 2 * inset;
+
+        if (track <= 0 || y <= 0) {
+            return;
+        }
+
+        Graphics2D g2 = (Graphics2D) g.create();
+
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(diluted(msg.getForeground(), COUNTDOWN_TRACK_ALPHA));
+            g2.fillRoundRect(inset, y, track, thickness, thickness, thickness);
+            g2.setColor(msg.getForeground());
+            g2.fillRoundRect(inset, y, Math.round(track * Math.min(1f, countdown)), thickness, thickness, thickness);
+        } finally {
+            g2.dispose();
+        }
+    }
 
     // paint() is intentional here (not paintComponent): the overlay must be
     // drawn after paintChildren so it sits on top of the JLabel.
@@ -58,8 +161,12 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
                 }
                 Graphics2D g2d = (Graphics2D) g.create();
                 try {
+                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     g2d.setColor(cached_overlay);
-                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                    // El velo de la capa de brillo se queda dentro de la silueta: fuera de
+                    // ella la ventana es transparente y una esquina oscura la delataría.
+                    final int arc = arc();
+                    g2d.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
                 } finally {
                     g2d.dispose();
                 }

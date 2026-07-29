@@ -30,12 +30,16 @@ package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL;
 import static com.tonikelope.coronapoker.GameFrame.ZOOM_STEP;
-import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.event.ActionEvent;
 import java.net.URL;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.BorderFactory;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
-import javax.swing.JProgressBar;
 import javax.swing.Timer;
 
 /**
@@ -48,7 +52,18 @@ public class InGameNotifyDialog extends JDialog {
     // Aviso de captura de pantalla (CTRL+P): es solo una confirmación rápida, así que dura
     // bastante menos que el aviso genérico para no tapar la mesa más de lo necesario.
     public static final int SCREENSHOT_NOTIFICATION_TIMEOUT = 2000;
+    // El nivel de zoom se anuncia de pasada, y encima se toca a ráfagas: dura aún menos.
+    public static final int ZOOM_NOTIFICATION_TIMEOUT = 1500;
     private static final int COUNTDOWN_TICK_MS = 50;
+    // Aire alrededor del texto y hueco entre el icono y el texto, en proporción al
+    // cuerpo de la letra (que ya viene escalada por el zoom de la mesa). A los lados
+    // hace falta más que arriba y abajo: ahí es donde muerde la curva de la esquina.
+    private static final float PAD_X_RATIO = 0.7f;
+    private static final float PAD_Y_RATIO = 0.25f;
+    private static final float ICON_GAP_RATIO = 0.35f;
+    // Aire extra bajo el texto cuando la notificación lleva cuenta atrás: la franja
+    // se pinta dentro de la caja y no debe rozar las letras.
+    private static final float COUNTDOWN_PAD_RATIO = 0.5f;
     public static volatile InGameNotifyDialog LATEST_NOTIFICATION = null;
     public static final Object LATEST_LOCK = new Object();
     private volatile Timer timer = null;
@@ -77,6 +92,8 @@ public class InGameNotifyDialog extends JDialog {
 
         Helpers.translateComponents(this, false);
 
+        applyStyle(withCountdownBar);
+
         pack();
 
         if (icon_path != null) {
@@ -85,31 +102,21 @@ public class InGameNotifyDialog extends JDialog {
         }
 
         if (timeout != null && withCountdownBar) {
-            // Countdown visual: barra que arranca al 100% y baja hasta 0 sincronizada
-            // con el timeout. Layout: BorderLayout sobrescribe el GroupLayout que
-            // initComponents() deja puesto (panel queda al CENTER, barra al SOUTH),
-            // sin tocar initComponents (autogenerado por NetBeans).
-            JProgressBar countdown = new JProgressBar(0, timeout);
-            countdown.setValue(timeout);
-            countdown.setStringPainted(false);
-            countdown.setBorderPainted(false);
-            countdown.setForeground(fg);
-            countdown.setBackground(bg);
-            getContentPane().setLayout(new BorderLayout());
-            getContentPane().add(panel, BorderLayout.CENTER);
-            getContentPane().add(countdown, BorderLayout.SOUTH);
-            pack();
+            // Countdown visual: franja que arranca al 100% y baja hasta 0 sincronizada
+            // con el timeout. La pinta el propio panel dentro de su caja redondeada
+            // (una JProgressBar colgada debajo rompía la silueta).
+            panel.setCountdown(1f);
 
             final long deadline = System.currentTimeMillis() + timeout;
             final int totalMs = timeout;
             timer = new Timer(COUNTDOWN_TICK_MS, (ActionEvent ae) -> {
                 long remaining = deadline - System.currentTimeMillis();
                 if (remaining <= 0) {
-                    countdown.setValue(0);
+                    panel.setCountdown(0f);
                     timer.stop();
                     dispose();
                 } else {
-                    countdown.setValue((int) Math.min(remaining, totalMs));
+                    panel.setCountdown(Math.min(remaining, totalMs) / (float) totalMs);
                 }
             });
             timer.setRepeats(true);
@@ -125,6 +132,81 @@ public class InGameNotifyDialog extends JDialog {
             timer.setCoalesce(false);
         }
 
+    }
+
+    /**
+     * Anuncia el nivel de zoom de la mesa por el mismo canal que el resto de
+     * avisos del juego, en la esquina superior izquierda de la ventana. Como
+     * toda notificación, releva a la que hubiera puesta. Seguro desde cualquier
+     * hilo; fuera de partida no hace nada.
+     */
+    public static void notifyZoom() {
+
+        Helpers.GUIRun(() -> {
+
+            GameFrame gf = GameFrame.getInstance();
+
+            if (gf == null || !gf.isShowing()) {
+                return;
+            }
+
+            // El porcentaje se lee ya dentro del EDT: los cambios de zoom se aplican
+            // cada uno en su hilo, así el aviso canta el nivel vigente y no el que
+            // había cuando arrancó el que lo pidió.
+            InGameNotifyDialog dialog = new InGameNotifyDialog(gf, false,
+                    "ZOOM: " + Math.round((1f + ZOOM_LEVEL * ZOOM_STEP) * 100f) + "%",
+                    Color.BLACK, Color.WHITE, InGameNotifyDialog.class.getResource("/images/zoom_notify.png"),
+                    ZOOM_NOTIFICATION_TIMEOUT);
+
+            dialog.setLocation(gf.getLocation());
+
+            dialog.setVisible(true);
+        });
+    }
+
+    // Estilo común a todas las notificaciones: caja redondeada (que necesita la
+    // ventana transparente por píxel, si el sistema la da), aire alrededor del
+    // texto y hueco entre el icono y el mensaje, todo a la escala de la letra ya
+    // zoomeada. El color lo pone cada aviso; aquí solo se le da forma.
+    private void applyStyle(boolean withCountdownBar) {
+
+        final boolean rounded = applyTranslucentWindow();
+
+        panel.setRounded(rounded);
+
+        final float font_size = panel.getMsg().getFont().getSize2D();
+        final int pad_x = Math.round(font_size * PAD_X_RATIO);
+        final int pad_y = Math.round(font_size * PAD_Y_RATIO);
+        final int bottom = withCountdownBar ? pad_y + Math.round(font_size * COUNTDOWN_PAD_RATIO) : pad_y;
+
+        panel.setBorder(BorderFactory.createEmptyBorder(pad_y, pad_x, bottom, pad_x));
+        panel.getMsg().setIconTextGap(Math.round(font_size * ICON_GAP_RATIO));
+    }
+
+    // Hace transparente el fondo de la ventana para que asomen las esquinas
+    // redondeadas del panel. Devuelve false donde el sistema no soporta
+    // translucidez por píxel: allí la notificación se queda rectangular, como
+    // siempre, en vez de enseñar cuatro esquinas del color del escritorio.
+    private boolean applyTranslucentWindow() {
+
+        try {
+            if (!GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
+                    .isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
+                return false;
+            }
+
+            setBackground(new Color(0, 0, 0, 0));
+
+            if (getContentPane() instanceof JComponent) {
+                ((JComponent) getContentPane()).setOpaque(false);
+            }
+
+            return true;
+
+        } catch (Exception ex) {
+            Logger.getLogger(InGameNotifyDialog.class.getName()).log(Level.WARNING, "Per-pixel translucency not available for notifications", ex);
+            return false;
+        }
     }
 
     /**

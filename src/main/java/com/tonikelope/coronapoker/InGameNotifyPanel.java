@@ -28,7 +28,6 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -38,18 +37,17 @@ import javax.swing.JLabel;
 /**
  * Cuerpo de las notificaciones del juego: caja de esquinas redondeadas con el
  * color que pide cada aviso (el fondo es su background y la letra su
- * foreground), un filo del color de la letra muy diluido para despegarla del
- * tapete, y una cuenta atrás opcional pintada dentro de la propia caja.
+ * foreground) y una cuenta atrás opcional pintada dentro de la propia caja.
  *
  * @author tonikelope
  */
 public class InGameNotifyPanel extends javax.swing.JPanel {
 
-    // Radio de las esquinas y grosor del filo, relativos al alto de la caja: la
-    // silueta acompaña al tamaño de la letra sea cual sea el zoom.
+    // Radio de las esquinas, relativo al alto de la caja: la silueta acompaña al
+    // tamaño de la letra sea cual sea el zoom. La caja va SIN filo: el color de
+    // fondo ya la despega del tapete, y un contorno del color de la letra dibujaba
+    // un cerco blanco en las notificaciones de texto claro.
     private static final float ARC_RATIO = 0.6f;
-    private static final float BORDER_RATIO = 0.02f;
-    private static final int BORDER_ALPHA = 90;
 
     // Franja de la cuenta atrás: alto y separación de los lados, también relativos
     // al alto de la caja.
@@ -104,10 +102,6 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
 
             g2.setColor(getBackground());
             g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
-
-            g2.setColor(diluted(msg.getForeground(), BORDER_ALPHA));
-            g2.setStroke(new BasicStroke(Math.max(1f, getHeight() * BORDER_RATIO)));
-            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
 
             paintCountdown(g2, arc);
 

@@ -1580,7 +1580,16 @@ public class Helpers {
         }
     }
 
-    public static void initSQLITE() {
+    /**
+     * @return true si la base de datos queda abierta y con el esquema al día.
+     *
+     * Devuelve false (nunca propaga) ante cualquier fallo, incluidos los que no
+     * son Exception: si la librería nativa de SQLite no se puede cargar
+     * (bloqueada en el directorio temporal, o acceso nativo denegado por la JVM)
+     * lo que sale de aquí es un Error, y hasta ahora se escapaba del catch y
+     * mataba el hilo de arranque, dejando el splash congelado sin explicación.
+     */
+    public static boolean initSQLITE() {
         try {
             Class.forName("org.sqlite.JDBC");
 
@@ -1676,10 +1685,15 @@ public class Helpers {
                 }
 
             }
-        } catch (Exception ex) {
+
+            return true;
+
+        } catch (Throwable ex) {
             Logger.getLogger(Helpers.class
-                    .getName()).log(Level.SEVERE, null, ex);
+                    .getName()).log(Level.SEVERE, "SQLite initialization failed", ex);
         }
+
+        return false;
     }
 
     /**

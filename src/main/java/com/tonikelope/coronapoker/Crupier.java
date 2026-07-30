@@ -18454,6 +18454,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
 
                         GameFrame.getInstance().getTapete().repaint();
+
+                        GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                     }
 
                     gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true);
@@ -18469,6 +18471,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         GameFrame.getInstance().getTapete().repaint();
                     }
+
+                    // Re-sincroniza el icono del interruptor con el brillo, igual que hacen el
+                    // buy-in inicial y el recover: mientras dura el dialogo la mesa se oscurece
+                    // por debajo de el, y el icono se quedaba luciendo "luces encendidas".
+                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                 });
 
                 GameFrame.getInstance().setGame_over_dialog(false);
@@ -18534,6 +18541,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
 
                         GameFrame.getInstance().getTapete().repaint();
+
+                        GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                     }
 
                     gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true, true);
@@ -18550,6 +18559,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         GameFrame.getInstance().getTapete().repaint();
                     }
+
+                    // Mismo re-sincronizado del icono que en la rama de recompra de arriba.
+                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                 });
 
                 GameFrame.getInstance().setGame_over_dialog(false);

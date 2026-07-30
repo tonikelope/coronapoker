@@ -4262,15 +4262,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (badbeat) {
                 Helpers.threadRun(() -> {
                     Audio.muteAllLoopMp3();
-                    Audio.playWavResourceAndWait("misc/badbeat.wav");
-                    Audio.unmuteAllLoopMp3();
+                    try {
+                        Audio.playWavResourceAndWait("misc/badbeat.wav");
+                    } finally {
+                        Audio.unmuteAllLoopMp3();
+                    }
                 });
             } else if (jugada_ganadora >= Hand.POKER && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
                 Helpers.threadRun(() -> {
                     Audio.muteAllLoopMp3();
-                    Audio.playWavResourceAndWait("misc/youarelucky.wav");
-                    Audio.unmuteAllLoopMp3();
+                    try {
+                        Audio.playWavResourceAndWait("misc/youarelucky.wav");
+                    } finally {
+                        Audio.unmuteAllLoopMp3();
+                    }
                 });
 
             } else {
@@ -4291,8 +4297,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 Helpers.threadRun(() -> {
                     Audio.muteAllLoopMp3();
-                    Audio.playWavResourceAndWait("misc/youarelucky.wav");
-                    Audio.unmuteAllLoopMp3();
+                    try {
+                        Audio.playWavResourceAndWait("misc/youarelucky.wav");
+                    } finally {
+                        Audio.unmuteAllLoopMp3();
+                    }
                 });
 
             } else {
@@ -4324,8 +4333,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (badbeat) {
                 Helpers.threadRun(() -> {
                     Audio.muteAllLoopMp3();
-                    Audio.playWavResourceAndWait("misc/badbeat.wav");
-                    Audio.unmuteAllLoopMp3();
+                    try {
+                        Audio.playWavResourceAndWait("misc/badbeat.wav");
+                    } finally {
+                        Audio.unmuteAllLoopMp3();
+                    }
                 });
             } else if (jugada >= Hand.FULL && GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 

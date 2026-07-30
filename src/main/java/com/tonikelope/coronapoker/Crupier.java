@@ -4917,10 +4917,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         final LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
         final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
+        // El velo de apagado se captura AQUI, una sola vez: desde que la luminosidad es
+        // configurable ya no es una constante, y si cambiase entre el apagado y la restauracion
+        // las dos guardas dejarian de ser simetricas (apagar y no restaurar, o al reves).
+        final float lights_off = BrightnessLayerUI.lightsOffBrightness();
 
         Helpers.GUIRunAndWait(() -> {
-            if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
-                GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.lightsOffBrightness());
+            if (old_brightness != lights_off) {
+                GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
                 GameFrame.getInstance().getTapete().repaint();
             }
         });
@@ -4995,7 +4999,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.GUIRunAndWait(() -> {
             // Cierra el dialogo de "esperando a los demas" (ya estan todos).
             dlg[0].dispose();
-            if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
+            if (old_brightness != lights_off) {
                 GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
                 GameFrame.getInstance().getTapete().repaint();
             }
@@ -6753,10 +6757,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
+            // Una sola lectura del velo de apagado para las dos guardas (ver solicitarBuyinsIniciales).
+            final float lights_off = BrightnessLayerUI.lightsOffBrightness();
 
             Helpers.GUIRun(() -> {
-                if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
-                    GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.lightsOffBrightness());
+                if (old_brightness != lights_off) {
+                    GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
                     GameFrame.getInstance().getTapete().repaint();
                 }
 
@@ -6764,7 +6770,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
                 recover_dialog.setVisible(true);
 
-                if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
+                if (old_brightness != lights_off) {
                     GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
                     GameFrame.getInstance().getTapete().repaint();
                 }
@@ -18364,6 +18370,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.rebuy_time = true;
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
+            // Una sola lectura del velo de apagado para las dos guardas (ver solicitarBuyinsIniciales).
+            final float lights_off = BrightnessLayerUI.lightsOffBrightness();
 
             if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname()) && GameFrame.AUTO_REBUY_ON_BROKE) {
 
@@ -18442,8 +18450,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 Helpers.GUIRunAndWait(() -> {
-                    if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.lightsOffBrightness());
+                    if (old_brightness != lights_off) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
 
                         GameFrame.getInstance().getTapete().repaint();
                     }
@@ -18456,7 +18464,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     gameover_dialog.setVisible(true);
 
-                    if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
+                    if (old_brightness != lights_off) {
                         GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
 
                         GameFrame.getInstance().getTapete().repaint();
@@ -18522,8 +18530,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
 
                 Helpers.GUIRunAndWait(() -> {
-                    if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.lightsOffBrightness());
+                    if (old_brightness != lights_off) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
 
                         GameFrame.getInstance().getTapete().repaint();
                     }
@@ -18536,7 +18544,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     gameover_dialog.setVisible(true);
 
-                    if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
+                    if (old_brightness != lights_off) {
 
                         GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
 

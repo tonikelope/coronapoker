@@ -358,7 +358,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_NIVEL_LUZ = 50;
     public static final int NIVEL_LUZ_MIN = 10;
     public static final int NIVEL_LUZ_MAX = 90;
-    public static volatile int NIVEL_LUZ = Integer.parseInt(Helpers.PROPERTIES.getProperty("nivel_luz", String.valueOf(DEFAULT_NIVEL_LUZ)));
+    // Se acota AL CARGAR (no solo al pintar el velo): así el spinner de Ajustes, el valor que se
+    // re-persiste al descartar cambios y el velo hablan siempre del mismo número, aunque la clave
+    // se haya editado a mano fuera de rango.
+    public static volatile int NIVEL_LUZ = Math.max(NIVEL_LUZ_MIN, Math.min(Integer.parseInt(Helpers.PROPERTIES.getProperty("nivel_luz", String.valueOf(DEFAULT_NIVEL_LUZ))), NIVEL_LUZ_MAX));
     // La pantalla final (BalanceScreen) guarda automáticamente una captura (mismo mecanismo que
     // CTRL+P: printAll del rootPane, sin Robot ni captura del SO) JUSTO al terminar el contador de
     // dinero; y si el jugador SALE de la pantalla final ANTES de que termine (por cualquiera de los

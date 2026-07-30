@@ -559,10 +559,12 @@ public class AppearanceSettingsPanel extends JPanel {
             }
             GameFrame.NIVEL_LUZ = (Integer) luz_spinner.getValue();
             persist("nivel_luz", String.valueOf(GameFrame.NIVEL_LUZ));
-            applyNivelLuz(gf);
+            applyNivelLuz();
         });
         JLabel luz_label = new JLabel(Translator.translate("settings.nivel_luz") + ":");
-        luz_label.setIcon(scaledIcon("/images/lights_on.png", 24));
+        // El interruptor es apaisado (256x120), así que va al alto de los demás iconos de la fila
+        // pero con SU ancho: escalarlo a un cuadrado de 24 lo dejaría aplastado a menos de la mitad.
+        luz_label.setIcon(scaledIcon("/images/lights_on.png", Math.round(24 * (256f / 120)), 24));
         baraja_gbc.gridx = 0;
         baraja_gbc.gridy = 3;
         baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
@@ -1245,6 +1247,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.SWAP_ANIM_ARC != snap_swap_arc
                 || GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade
                 || GameFrame.DOWNGRADE_VELOCIDAD != snap_downgrade_velocidad
+                || GameFrame.NIVEL_LUZ != snap_nivel_luz
                 || pending_dialog_zoom != snap_dialog_zoom;
     }
 
@@ -1477,7 +1480,7 @@ public class AppearanceSettingsPanel extends JPanel {
             GameFrame.NIVEL_LUZ = snap_nivel_luz;
             Helpers.PROPERTIES.setProperty("nivel_luz", String.valueOf(snap_nivel_luz));
             Helpers.savePropertiesFile();
-            applyNivelLuz(gf);
+            applyNivelLuz();
         }
         // Zoom de diálogos: persist-only, sin efecto en vivo (lo lee cada diálogo al abrirse). Se
         // revierte fijando el flag + re-persistiendo el snapshot, como los demás persist-only.
@@ -1621,15 +1624,29 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // Previsualización en vivo del nivel de luz: solo hay algo que repintar si las luces están
-    // APAGADAS en este momento (el nivel es justo la profundidad de ese velo). Con las luces
-    // encendidas el ajuste no se nota hasta que se apaguen, así que no se toca nada. Reutiliza
-    // lightsOFF, que recalcula el velo con el nivel recién guardado, y applyLightsVisuals, que
-    // arrastra al resto de superficies con velo propio (chat rápido y avisos in-game).
-    private static void applyNivelLuz(GameFrame gf) {
-        if (gf != null && gf.getTapete() != null && gf.getCapa_brillo().getBrightness() > 0f) {
-            gf.getCapa_brillo().lightsOFF();
-            gf.getTapete().getCommunityCards().applyLightsVisuals();
+    // Previsualización en vivo de la luminosidad: solo hay algo que repintar si las luces están
+    // APAGADAS en este momento (el ajuste es justo la profundidad de ese velo). Con las luces
+    // encendidas no se nota hasta que se apaguen, así que no se toca nada. lightsOFF recalcula el
+    // velo con el nivel recién guardado.
+    // Se mira GameFrame.getInstance() y NO el gf capturado al abrir el diálogo: si la timba
+    // terminó con Ajustes abierto, ese gf sigue siendo no-null pero la mesa ya no existe, y este
+    // método corre también al descartar cambios (revertLive).
+    // Repintar es suficiente y evita el revalidate del frame entero en cada tic del spinner: el
+    // interruptor luce el mismo icono (sigue apagado) y los colores del chat rápido dependen de si
+    // hay velo, no de cuánto. El aviso in-game sí pinta un velo proporcional, así que se repinta.
+    private static void applyNivelLuz() {
+
+        GameFrame live = GameFrame.getInstance();
+
+        if (live == null || live.getTapete() == null || live.getCapa_brillo().getBrightness() == 0f) {
+            return;
+        }
+
+        live.getCapa_brillo().lightsOFF();
+        live.getTapete().repaint();
+
+        if (live.getNotify_dialog() != null) {
+            live.getNotify_dialog().repaint();
         }
     }
 
@@ -1934,8 +1951,13 @@ public class AppearanceSettingsPanel extends JPanel {
     // Icono de fuera de /images/menu (los de ahí ya vienen al tamaño de estas filas) reducido al
     // mismo alto que ellos, para que no descuadre la fila del checkbox.
     private static javax.swing.ImageIcon scaledIcon(String path, int size) {
+        return scaledIcon(path, size, size);
+    }
+
+    // Para los iconos que NO son cuadrados y quedarían aplastados al meterlos en una caja cuadrada.
+    private static javax.swing.ImageIcon scaledIcon(String path, int width, int height) {
         try {
-            return Helpers.scaleIcon(AppearanceSettingsPanel.class.getResource(path), size, size);
+            return Helpers.scaleIcon(AppearanceSettingsPanel.class.getResource(path), width, height);
         } catch (java.net.MalformedURLException ex) {
             return null;
         }

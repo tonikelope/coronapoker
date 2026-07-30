@@ -39,8 +39,22 @@ import java.awt.Graphics2D;
 // de sus componentes arranque en él, también con las luces encendidas, que es el 99 % de la partida.
 public class BrightnessOverlay {
 
-    // Lo escribe el EDT y lo leen los hilos del crupier (que guardan el brillo previo antes de
-    // apagar por su cuenta en el game over, el recover y el buy-in inicial).
+    // El velo tiene DOS dueños y este es el único sitio donde se juntan:
+    //
+    // 1) El interruptor del jugador (el del tapete y el atajo), que es una preferencia suya y dura
+    //    hasta que la cambie.
+    // 2) Los apagados TEMPORALES que impone la partida: la pausa y los diálogos que corren con la
+    //    mesa a oscuras (game over, recover, buy-in inicial). Se CUENTAN, porque pueden solaparse:
+    //    cada uno suma al entrar y resta al salir, y el velo aguanta mientras quede alguno vivo.
+    //
+    // Antes no había tal separación: cada sitio se guardaba el brillo que había, lo forzaba y lo
+    // reponía al terminar, así que dos solapados se pisaban. Una pausa que entrase mientras estaba
+    // abierto el game over acababa con la mesa ILUMINADA en plena pausa, y con el interruptor
+    // diciendo lo contrario de lo que se veía.
+    private volatile boolean user_lights_off = false;
+    private final java.util.concurrent.atomic.AtomicInteger forced_lights_off = new java.util.concurrent.atomic.AtomicInteger(0);
+    // Brillo EFECTIVO, el que se pinta: derivado de los dos de arriba, nunca se fija a mano. Lo
+    // escribe el EDT y lo leen los hilos del crupier.
     private volatile float brightness = 0f;
     // Color del velo, recreado solo cuando cambia el brillo. Lo comparten todas las superficies
     // que se oscurecen, que siempre pintan al mismo brillo y desde el EDT.
@@ -50,23 +64,51 @@ public class BrightnessOverlay {
     // Opacidad del velo negro que corresponde a la luminosidad configurada: su complemento
     // (50 % de luz -> 0,50 de velo). Se acota al rango del ajuste por si la clave del fichero de
     // configuración se editó a mano fuera de él.
-    public static float lightsOffBrightness() {
+    private static float lightsOffBrightness() {
 
         return (100 - Math.max(GameFrame.NIVEL_LUZ_MIN, Math.min(GameFrame.NIVEL_LUZ, GameFrame.NIVEL_LUZ_MAX))) / 100f;
     }
 
+    // Interruptor del jugador.
     public void lightsOFF() {
 
-        setBrightness(BrightnessOverlay.lightsOffBrightness());
+        user_lights_off = true;
+        refreshBrightness();
     }
 
     public void lightsON() {
 
-        setBrightness(0f);
+        user_lights_off = false;
+        refreshBrightness();
     }
 
-    public void setBrightness(float brightness) {
-        this.brightness = brightness;
+    // Lo que pidió el jugador, INDEPENDIENTEMENTE de que la partida esté forzando el velo ahora
+    // mismo: es lo que decide si su siguiente clic enciende o apaga.
+    public boolean isUserLightsOff() {
+        return user_lights_off;
+    }
+
+    // Apagado temporal de la partida. SIEMPRE en pareja (el que suma, resta), preferiblemente con
+    // el pop en un finally: si alguien se deja un push suelto, la mesa se queda a oscuras.
+    public void pushForcedLightsOFF() {
+
+        forced_lights_off.incrementAndGet();
+        refreshBrightness();
+    }
+
+    public void popForcedLightsOFF() {
+
+        // Nunca por debajo de cero: un pop de más (un camino de error que restara dos veces) no
+        // debe dejar el contador en negativo y que el siguiente push no encienda el velo.
+        forced_lights_off.updateAndGet(pending -> pending > 0 ? pending - 1 : 0);
+        refreshBrightness();
+    }
+
+    // Recalcula el brillo efectivo. Público porque cambiar la luminosidad en Ajustes tiene que
+    // reflejarse en el velo que ya esté puesto.
+    public void refreshBrightness() {
+
+        brightness = (user_lights_off || forced_lights_off.get() > 0) ? BrightnessOverlay.lightsOffBrightness() : 0f;
     }
 
     public float getBrightness() {

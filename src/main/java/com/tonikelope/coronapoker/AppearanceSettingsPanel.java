@@ -1641,11 +1641,18 @@ public class AppearanceSettingsPanel extends JPanel {
 
         GameFrame live = GameFrame.getInstance();
 
-        if (live == null || live.getTapete() == null || live.getCapa_brillo().getBrightness() == 0f) {
+        if (live == null || live.getTapete() == null) {
             return;
         }
 
-        live.getCapa_brillo().lightsOFF();
+        // Recalcula el velo con el nivel recién guardado SIN tocar quién lo tiene pedido (ni el
+        // interruptor del jugador ni los apagados temporales de la partida).
+        live.getCapa_brillo().refreshBrightness();
+
+        if (live.getCapa_brillo().getBrightness() == 0f) {
+            return;
+        }
+
         live.getTapete().repaint();
 
         if (live.getNotify_dialog() != null) {

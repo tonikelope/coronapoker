@@ -1439,10 +1439,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean timba_pausada = false;
     private volatile String nick_pause = null;
     private volatile PauseDialog pausa_dialog = null;
-    // Brillo del tapete justo antes de pausar, para restaurarlo al reanudar: si
-    // las luces estaban encendidas (0f) la pausa las apaga y luego las repone; si
-    // ya estaban apagadas, la pausa no las toca (pero bloquea el botón igual).
-    private volatile float pre_pause_brightness = 0f;
     private volatile boolean game_over_dialog = false;
     private volatile AboutDialog about_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
@@ -2305,15 +2301,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
                     pausa_dialog.setVisible(true);
 
-                    // Al pausar, apaga las luces (solo si estaban encendidas) y
-                    // deshabilita el botón de luces mientras dure la pausa.
-                    // Guardamos el brillo previo para reponerlo al reanudar.
-                    pre_pause_brightness = capa_brillo.getBrightness();
-
-                    if (pre_pause_brightness == 0f) {
-                        capa_brillo.lightsOFF();
-                        getTapete().getCommunityCards().applyLightsVisuals();
-                    }
+                    // Al pausar, la mesa se oscurece y el interruptor se deshabilita mientras dure
+                    // la pausa. Es un apagado TEMPORAL más: si el jugador ya tenía las luces
+                    // apagadas por su cuenta, esto no cambia nada de lo que ve, y al reanudar se
+                    // respeta lo que él hubiera elegido.
+                    capa_brillo.pushForcedLightsOFF();
+                    getTapete().getCommunityCards().applyLightsVisuals();
 
                     getTapete().getCommunityCards().getLights_label().setEnabled(false);
 
@@ -2332,14 +2325,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     pausa_dialog.dispose();
                     pausa_dialog = null;
 
-                    // Al reanudar, reactiva el botón de luces y repón el estado
-                    // que tenían antes de pausar: si las apagamos nosotros (estaban
-                    // encendidas), vuelve a encenderlas; si ya estaban apagadas, no
-                    // se tocan.
-                    if (pre_pause_brightness == 0f && capa_brillo.getBrightness() != 0f) {
-                        capa_brillo.lightsON();
-                        getTapete().getCommunityCards().applyLightsVisuals();
-                    }
+                    // Al reanudar se retira ese apagado temporal y el interruptor vuelve a mandar:
+                    // la mesa se enciende sola salvo que el jugador las tenga apagadas.
+                    capa_brillo.popForcedLightsOFF();
+                    getTapete().getCommunityCards().applyLightsVisuals();
 
                     getTapete().getCommunityCards().getLights_label().setEnabled(true);
 

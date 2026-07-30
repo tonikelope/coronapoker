@@ -1217,19 +1217,22 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         final javax.swing.Icon lights_icon = lights_label.getIcon();
 
         if (evt == null || (lights_icon != null && new Rectangle(lights_icon.getIconWidth(), lights_icon.getIconHeight()).contains(evt.getPoint()))) {
-            if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
-
-                if (GameFrame.interruptorSonidoOn()) {
-                    Audio.playWavResource("misc/button_off.wav");
-                }
-                GameFrame.getInstance().getCapa_brillo().lightsOFF();
-
-            } else {
+            // Conmuta lo que el JUGADOR tiene pedido, no el velo que se ve: si la partida está
+            // forzando el velo por su cuenta (una pausa, un game over), el interruptor sigue
+            // representando su elección y no se queda invertido al levantarse ese velo.
+            if (GameFrame.getInstance().getCapa_brillo().isUserLightsOff()) {
 
                 if (GameFrame.interruptorSonidoOn()) {
                     Audio.playWavResource("misc/button_on.wav");
                 }
                 GameFrame.getInstance().getCapa_brillo().lightsON();
+
+            } else {
+
+                if (GameFrame.interruptorSonidoOn()) {
+                    Audio.playWavResource("misc/button_off.wav");
+                }
+                GameFrame.getInstance().getCapa_brillo().lightsOFF();
             }
 
             applyLightsVisuals();

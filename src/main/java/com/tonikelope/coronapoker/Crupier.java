@@ -4916,99 +4916,98 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         final LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
-        final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
-        // El velo de apagado se captura AQUI, una sola vez: desde que la luminosidad es
-        // configurable ya no es una constante, y si cambiase entre el apagado y la restauracion
-        // las dos guardas dejarian de ser simetricas (apagar y no restaurar, o al reves).
-        final float lights_off = BrightnessOverlay.lightsOffBrightness();
 
+        // Apagado temporal mientras dura la eleccion de buy-in. El try/finally que abre aqui
+        // garantiza que el velo se levanta aunque la recoleccion reviente por el camino.
         Helpers.GUIRunAndWait(() -> {
-            if (old_brightness != lights_off) {
-                GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
-                GameFrame.getInstance().getTapete().repaint();
-            }
+            GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
+            GameFrame.getInstance().getTapete().repaint();
+            GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
         });
 
         final RebuyDialog[] dlg = new RebuyDialog[1];
-        Helpers.GUIRunAndWait(() -> {
-            dlg[0] = new RebuyDialog(GameFrame.getInstance(), true, false,
-                    GameOverDialog.REBUY_DIALOG_COUNTDOWN,
-                    GameFrame.getBuyinMin(), GameFrame.getBuyinMax(), GameFrame.getBuyinDefault(),
-                    "rebuy.compra_inicial");
-            dlg[0].setDeferClose(true);
-            dlg[0].setLocationRelativeTo(dlg[0].getParent());
-        });
-
-        // Mostrar SIN bloquear este hilo: el crupier debe seguir para recolectar al
-        // resto. El dialogo es modal y, al aceptar (defer_close), pasa a "esperando
-        // a los demas jugadores" en vez de cerrarse; lo cierra el crupier al
-        // terminar la recoleccion.
-        Helpers.GUIRun(() -> dlg[0].setVisible(true));
-
-        // Espera la eleccion local (OK o auto-aceptar a los 15s).
-        while (!dlg[0].isRebuy() && !fin_de_la_transmision) {
-            Helpers.pausar(GameFrame.WAIT_QUEUES);
-        }
-
-        // El spinner ya acota al rango configurado; el clamp es defensivo.
-        int chosen = Math.max(GameFrame.getBuyinMin(),
-                Math.min((int) dlg[0].getRebuy_spinner().getValue(), GameFrame.getBuyinMax()));
-
-        ArrayList<String> pending = new ArrayList<>();
 
         try {
-            // Cada peer auto-aplica su propio buy-in y NO se mete en su pending
-            // (igual que el arruinado local en el game-over): asi el host puede
-            // rebroadcast con skip=remitente sin que nadie espere su propio eco.
-            aplicarBuyinInicial(local.getNickname(), chosen);
-            String localCmd = "BUYIN#"
-                    + Base64.getEncoder().encodeToString(local.getNickname().getBytes("UTF-8"))
-                    + "#" + chosen;
+            Helpers.GUIRunAndWait(() -> {
+                dlg[0] = new RebuyDialog(GameFrame.getInstance(), true, false,
+                        GameOverDialog.REBUY_DIALOG_COUNTDOWN,
+                        GameFrame.getBuyinMin(), GameFrame.getBuyinMax(), GameFrame.getBuyinDefault(),
+                        "rebuy.compra_inicial");
+                dlg[0].setDeferClose(true);
+                dlg[0].setLocationRelativeTo(dlg[0].getParent());
+            });
 
-            if (GameFrame.getInstance().isPartida_local()) {
-                broadcastGAMECommandFromServer(localCmd, local.getNickname());
-                for (Player jugador : GameFrame.getInstance().getJugadores()) {
-                    if (jugador == local || jugador.isExit()) {
-                        continue;
-                    }
-                    Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-                    if (p != null && p.isCpu()) {
-                        int botbuy = GameFrame.getBuyinDefault();
-                        aplicarBuyinInicial(jugador.getNickname(), botbuy);
-                        broadcastGAMECommandFromServer("BUYIN#"
-                                + Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
-                                + "#" + botbuy, jugador.getNickname());
-                    } else {
-                        pending.add(jugador.getNickname());
-                    }
-                }
-            } else {
-                sendGAMECommandToServer(localCmd);
-                for (Player jugador : GameFrame.getInstance().getJugadores()) {
-                    if (jugador != local && !jugador.isExit()) {
-                        pending.add(jugador.getNickname());
-                    }
-                }
+            // Mostrar SIN bloquear este hilo: el crupier debe seguir para recolectar al
+            // resto. El dialogo es modal y, al aceptar (defer_close), pasa a "esperando
+            // a los demas jugadores" en vez de cerrarse; lo cierra el crupier al
+            // terminar la recoleccion.
+            Helpers.GUIRun(() -> dlg[0].setVisible(true));
+
+            // Espera la eleccion local (OK o auto-aceptar a los 15s).
+            while (!dlg[0].isRebuy() && !fin_de_la_transmision) {
+                Helpers.pausar(GameFrame.WAIT_QUEUES);
             }
-        } catch (UnsupportedEncodingException ex) {
-            LOGGER.log(Level.SEVERE, null, ex);
-        }
 
-        recibirBuyinsIniciales(pending);
+            // El spinner ya acota al rango configurado; el clamp es defensivo.
+            int chosen = Math.max(GameFrame.getBuyinMin(),
+                    Math.min((int) dlg[0].getRebuy_spinner().getValue(), GameFrame.getBuyinMax()));
 
-        Helpers.GUIRunAndWait(() -> {
-            // Cierra el dialogo de "esperando a los demas" (ya estan todos).
-            dlg[0].dispose();
-            if (old_brightness != lights_off) {
-                GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
+            ArrayList<String> pending = new ArrayList<>();
+
+            try {
+                // Cada peer auto-aplica su propio buy-in y NO se mete en su pending
+                // (igual que el arruinado local en el game-over): asi el host puede
+                // rebroadcast con skip=remitente sin que nadie espere su propio eco.
+                aplicarBuyinInicial(local.getNickname(), chosen);
+                String localCmd = "BUYIN#"
+                        + Base64.getEncoder().encodeToString(local.getNickname().getBytes("UTF-8"))
+                        + "#" + chosen;
+
+                if (GameFrame.getInstance().isPartida_local()) {
+                    broadcastGAMECommandFromServer(localCmd, local.getNickname());
+                    for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                        if (jugador == local || jugador.isExit()) {
+                            continue;
+                        }
+                        Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
+                        if (p != null && p.isCpu()) {
+                            int botbuy = GameFrame.getBuyinDefault();
+                            aplicarBuyinInicial(jugador.getNickname(), botbuy);
+                            broadcastGAMECommandFromServer("BUYIN#"
+                                    + Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
+                                    + "#" + botbuy, jugador.getNickname());
+                        } else {
+                            pending.add(jugador.getNickname());
+                        }
+                    }
+                } else {
+                    sendGAMECommandToServer(localCmd);
+                    for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                        if (jugador != local && !jugador.isExit()) {
+                            pending.add(jugador.getNickname());
+                        }
+                    }
+                }
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+
+            recibirBuyinsIniciales(pending);
+
+        } finally {
+            Helpers.GUIRunAndWait(() -> {
+                // Cierra el dialogo de "esperando a los demas" (ya estan todos).
+                if (dlg[0] != null) {
+                    dlg[0].dispose();
+                }
+                GameFrame.getInstance().getCapa_brillo().popForcedLightsOFF();
                 GameFrame.getInstance().getTapete().repaint();
-            }
-            // Re-sincroniza el icono de luces con el brillo restaurado (igual que el
-            // dialogo de recover, Crupier.java): este dialogo corre durante el
-            // montaje de la mesa, donde un render puede dejar el icono en "off"
-            // mientras las luces vuelven a "on" -> icono bloqueado/desincronizado.
-            GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
-        });
+                // Re-sincroniza el icono de luces con el brillo resultante: este dialogo corre
+                // durante el montaje de la mesa, donde un render puede dejar el icono en "off"
+                // mientras las luces vuelven a "on" -> icono bloqueado/desincronizado.
+                GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+            });
+        }
     }
 
     // Espera (host) los BUYIN de los clientes humanos o (cliente) los broadcasts
@@ -6756,26 +6755,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 recovering_music_active = true;
             }
 
-            final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
-            // Una sola lectura del velo de apagado para las dos guardas (ver solicitarBuyinsIniciales).
-            final float lights_off = BrightnessOverlay.lightsOffBrightness();
-
             Helpers.GUIRun(() -> {
-                if (old_brightness != lights_off) {
-                    GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
-                    GameFrame.getInstance().getTapete().repaint();
-                }
-
-                recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
-                recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
-                recover_dialog.setVisible(true);
-
-                if (old_brightness != lights_off) {
-                    GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
-                    GameFrame.getInstance().getTapete().repaint();
-                }
-
+                // Apagado temporal mientras se recupera la mano. El finally garantiza que el velo
+                // se levanta aunque el dialogo reviente.
+                GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
+                GameFrame.getInstance().getTapete().repaint();
                 GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+
+                try {
+                    recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
+                    recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
+                    recover_dialog.setVisible(true);
+                } finally {
+                    GameFrame.getInstance().getCapa_brillo().popForcedLightsOFF();
+                    GameFrame.getInstance().getTapete().repaint();
+                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+                }
             });
 
             if (GameFrame.getInstance().isPartida_local() || GameFrame.getInstance().getLocalPlayer().isActivo()) {
@@ -18369,10 +18364,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.rebuy_time = true;
 
-            final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
-            // Una sola lectura del velo de apagado para las dos guardas (ver solicitarBuyinsIniciales).
-            final float lights_off = BrightnessOverlay.lightsOffBrightness();
-
             if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname()) && GameFrame.AUTO_REBUY_ON_BROKE) {
 
                 // Recompra automática al arruinarse: NO se muestra la animación de
@@ -18450,32 +18441,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 Helpers.GUIRunAndWait(() -> {
-                    if (old_brightness != lights_off) {
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
+                    // La mesa se oscurece mientras dura el game over. El icono del interruptor
+                    // sigue al velo, y el finally garantiza que el velo se levanta aunque el
+                    // diálogo reviente.
+                    GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
+
+                    GameFrame.getInstance().getTapete().repaint();
+
+                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+
+                    try {
+                        gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true);
+
+                        GameFrame.getInstance().setGame_over_dialog(true);
+
+                        gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
+
+                        gameover_dialog.setVisible(true);
+                    } finally {
+                        GameFrame.getInstance().getCapa_brillo().popForcedLightsOFF();
 
                         GameFrame.getInstance().getTapete().repaint();
 
                         GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                     }
-
-                    gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true);
-
-                    GameFrame.getInstance().setGame_over_dialog(true);
-
-                    gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
-
-                    gameover_dialog.setVisible(true);
-
-                    if (old_brightness != lights_off) {
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
-
-                        GameFrame.getInstance().getTapete().repaint();
-                    }
-
-                    // Re-sincroniza el icono del interruptor con el brillo, igual que hacen el
-                    // buy-in inicial y el recover: mientras dura el diálogo la mesa se oscurece
-                    // por debajo de él, y el icono se quedaba luciendo "luces encendidas".
-                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                 });
 
                 GameFrame.getInstance().setGame_over_dialog(false);
@@ -18537,32 +18526,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
 
                 Helpers.GUIRunAndWait(() -> {
-                    if (old_brightness != lights_off) {
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(lights_off);
+                    // Mismo apagado temporal que en la rama de recompra de arriba. Aquí la mesa ya
+                    // no se recupera: el jugador se queda de espectador.
+                    GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
+
+                    GameFrame.getInstance().getTapete().repaint();
+
+                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+
+                    try {
+                        gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true, true);
+
+                        GameFrame.getInstance().setGame_over_dialog(true);
+
+                        gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
+
+                        gameover_dialog.setVisible(true);
+                    } finally {
+                        GameFrame.getInstance().getCapa_brillo().popForcedLightsOFF();
 
                         GameFrame.getInstance().getTapete().repaint();
 
                         GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                     }
-
-                    gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true, true);
-
-                    GameFrame.getInstance().setGame_over_dialog(true);
-
-                    gameover_dialog.setLocationRelativeTo(gameover_dialog.getParent());
-
-                    gameover_dialog.setVisible(true);
-
-                    if (old_brightness != lights_off) {
-
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
-
-                        GameFrame.getInstance().getTapete().repaint();
-                    }
-
-                    // Mismo re-sincronizado del icono que en la rama de recompra de arriba.
-                    // Aquí la mesa ya no se recupera: el jugador se queda de espectador.
-                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                 });
 
                 GameFrame.getInstance().setGame_over_dialog(false);

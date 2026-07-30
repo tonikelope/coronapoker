@@ -18328,12 +18328,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void checkRebuyTime() {
 
-        // Reset defensivo: solo el game over local interactivo lo pone a true
-        // (más abajo) para silenciar los GIF remotos mientras su diálogo es el
-        // dueño del audio. Limpiarlo al entrar evita que un flag colgado de una
-        // mano anterior deje mudos los GIF remotos de la siguiente.
-        RemotePlayer.LOCAL_GAMEOVER_OWNS_AUDIO = false;
-
         ArrayList<String> rebuy_players = new ArrayList<>();
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
@@ -18596,10 +18590,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.recibirRebuys(rebuy_players, local_ruined);
         }
-
-        // Cerrado el ciclo de rebuy: el diálogo local ya no es dueño de ningún
-        // audio (además del reset defensivo al entrar la próxima mano).
-        RemotePlayer.LOCAL_GAMEOVER_OWNS_AUDIO = false;
 
         this.rebuy_time = false;
 

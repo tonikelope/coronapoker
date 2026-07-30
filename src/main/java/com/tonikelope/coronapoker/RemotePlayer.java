@@ -144,7 +144,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Color shuffle_border_saved = null;
     private volatile boolean shuffle_border_active = false;
     // GIF de game over sobre las cartas del arruinado mientras decide la
-    // recompra (solo modo CINEMATICAS). Label dedicada (capa 1001, debajo del
+    // recompra (solo con la cinemática de GAME OVER on). Label dedicada (capa 1001, debajo del
     // chat_notify_label): un meme del chat se pinta encima y al ocultarse el
     // game over sigue debajo, sin pelear por el ownership del notify.
     private final GifLabel rebuy_gif_label = new GifLabel();
@@ -3355,9 +3355,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
                 rebuying_visual = true;
                 rebuy_countdown_saved_text = player_action.getText();
-                // Snapshot LOCAL de CINEMATICAS al empezar: decide el modo para
-                // toda la espera (toggles posteriores del menú no afectan).
-                if (GameFrame.cinematicasOn()) {
+                // Snapshot LOCAL de la cinemática de GAME OVER al empezar: decide
+                // el modo para toda la espera (toggles posteriores no afectan).
+                if (GameFrame.cinematicasGameOverOn()) {
                     // Modo GIF: la label queda FIJA en "¿RECOMPRA?" (sin número)
                     // y la cuenta atrás la pone el GIF de game over sobre las
                     // cartas — entero UNA vez (por frames, sin reloj) y con su
@@ -3446,7 +3446,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     // GIF de game over sobre las cartas mientras este arruinado decide la
-    // recompra (solo lo lanza setRebuying en modo CINEMATICAS). El de cuenta
+    // recompra (solo lo lanza setRebuying con la cinemática de GAME OVER on). El de cuenta
     // atrás se reproduce entero UNA vez, gobernado por sus frames (sin reloj)
     // y con su audio (solo el PRIMER arruinado del grupo lo engancha); al
     // terminar se fija el de cero hasta que setRebuying(false) lo retire

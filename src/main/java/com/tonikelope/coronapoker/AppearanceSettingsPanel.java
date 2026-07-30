@@ -111,6 +111,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_cinematicas;
     private final boolean snap_cinematicas_accion;
     private final boolean snap_cinematicas_allin;
+    private final boolean snap_cinematicas_gameover;
     private final boolean snap_anim_barajado;
     private final boolean snap_anim_reparto;
     private final boolean snap_anim_destape;
@@ -157,6 +158,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_cinematicas = prefBool("cinematicas");
         snap_cinematicas_accion = prefBool("cinematicas_accion", true);
         snap_cinematicas_allin = prefBool("cinematicas_allin", true);
+        snap_cinematicas_gameover = prefBool("cinematicas_gameover", true);
         // Barajado y destape no tienen item de menú: su preferencia es el flag de GameFrame
         // (ya migrado del histórico "animacion_reparto" si aún no se habían guardado), no PROPERTIES
         // en crudo, que podría no tener aún la clave.
@@ -672,6 +674,33 @@ public class AppearanceSettingsPanel extends JPanel {
             allin_row.add(allin_cb);
             addToGroup(cinematicas_group, allin_row);
         }
+        // Subtipo GAME OVER: los GIFs del arruinado mientras decide la recompra (el del propio
+        // diálogo de game over y el que tapa las cartas de los rivales arruinados). Apagado, el
+        // ciclo de recompra pasa a su modo estático: cartel "GAME OVER" con cuenta atrás, la
+        // action label contando "¿RECOMPRA? (N)" y la barra de tiempo en smooth.
+        {
+            final JCheckBox gameover_cb = new JCheckBox(Translator.translate("menu.cinematicas_gameover"),
+                    prefBool("cinematicas_gameover", true));
+            gameover_cb.addActionListener(e -> {
+                boolean now = gameover_cb.isSelected();
+                persist("cinematicas_gameover", String.valueOf(now));
+                GameFrame.CINEMATICAS_GAMEOVER_PREF = now;
+            });
+            Runnable updateGameOverEnabled = () -> gameover_cb.setEnabled(anim_master.isSelected() && cinematicas_cb.isSelected());
+            anim_master.addActionListener(e -> updateGameOverEnabled.run());
+            cinematicas_cb.addActionListener(e -> updateGameOverEnabled.run());
+            updateGameOverEnabled.run();
+            reset_actions.add(() -> {
+                if (!gameover_cb.isSelected()) {
+                    gameover_cb.doClick();
+                }
+            });
+            JPanel gameover_row = naturalRow();
+            gameover_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Cinemáticas"
+            gameover_row.add(new JLabel(scaledIcon("/images/action/skull.png", 24)));
+            gameover_row.add(gameover_cb);
+            addToGroup(cinematicas_group, gameover_row);
+        }
         addLeft(anim, indent(cinematicas_group));
         // --- Barajado (solo Ajustes, sin item de menú) + su subajuste Cascada SRA ---
         // Al activarlo re-calienta la caché del shuffle.gif (el warm-up de arranque pudo saltárselo).
@@ -1158,6 +1187,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("cinematicas") != snap_cinematicas
                 || prefBool("cinematicas_accion", true) != snap_cinematicas_accion
                 || prefBool("cinematicas_allin", true) != snap_cinematicas_allin
+                || prefBool("cinematicas_gameover", true) != snap_cinematicas_gameover
                 || GameFrame.ANIMACION_BARAJADO_PREF != snap_anim_barajado
                 || prefBool("animacion_reparto") != snap_anim_reparto
                 || GameFrame.ANIMACION_DESTAPE_PREF != snap_anim_destape
@@ -1295,8 +1325,8 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
             Helpers.savePropertiesFile();
         }
-        // Subtipos de cinemática (acción / all-in): persist-only sin item de menú, se revierten
-        // fijando el flag + re-persistiendo el snapshot, como el overlay de cascada.
+        // Subtipos de cinemática (acción / all-in / game over): persist-only sin item de menú, se
+        // revierten fijando el flag + re-persistiendo el snapshot, como el overlay de cascada.
         if (GameFrame.CINEMATICAS_ACCION_PREF != snap_cinematicas_accion) {
             GameFrame.CINEMATICAS_ACCION_PREF = snap_cinematicas_accion;
             Helpers.PROPERTIES.setProperty("cinematicas_accion", String.valueOf(snap_cinematicas_accion));
@@ -1305,6 +1335,11 @@ public class AppearanceSettingsPanel extends JPanel {
         if (GameFrame.CINEMATICAS_ALLIN_PREF != snap_cinematicas_allin) {
             GameFrame.CINEMATICAS_ALLIN_PREF = snap_cinematicas_allin;
             Helpers.PROPERTIES.setProperty("cinematicas_allin", String.valueOf(snap_cinematicas_allin));
+            Helpers.savePropertiesFile();
+        }
+        if (GameFrame.CINEMATICAS_GAMEOVER_PREF != snap_cinematicas_gameover) {
+            GameFrame.CINEMATICAS_GAMEOVER_PREF = snap_cinematicas_gameover;
+            Helpers.PROPERTIES.setProperty("cinematicas_gameover", String.valueOf(snap_cinematicas_gameover));
             Helpers.savePropertiesFile();
         }
         // Resaltado del showdown: persist-only, sin item de menú ni efecto en vivo (se lee al
@@ -1444,6 +1479,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.CINEMATICAS_PREF = snap_cinematicas;
         GameFrame.CINEMATICAS_ACCION_PREF = snap_cinematicas_accion;
         GameFrame.CINEMATICAS_ALLIN_PREF = snap_cinematicas_allin;
+        GameFrame.CINEMATICAS_GAMEOVER_PREF = snap_cinematicas_gameover;
         GameFrame.ANIMACION_BARAJADO_PREF = snap_anim_barajado;
         GameFrame.ANIMACION_REPARTO_PREF = snap_anim_reparto;
         GameFrame.ANIMACION_DESTAPE_PREF = snap_anim_destape;
@@ -1479,6 +1515,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("cinematicas", String.valueOf(snap_cinematicas));
         Helpers.PROPERTIES.setProperty("cinematicas_accion", String.valueOf(snap_cinematicas_accion));
         Helpers.PROPERTIES.setProperty("cinematicas_allin", String.valueOf(snap_cinematicas_allin));
+        Helpers.PROPERTIES.setProperty("cinematicas_gameover", String.valueOf(snap_cinematicas_gameover));
         Helpers.PROPERTIES.setProperty("animacion_barajado", String.valueOf(snap_anim_barajado));
         Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(snap_anim_reparto));
         Helpers.PROPERTIES.setProperty("animacion_destape", String.valueOf(snap_anim_destape));
@@ -1834,6 +1871,16 @@ public class AppearanceSettingsPanel extends JPanel {
 
     private static javax.swing.ImageIcon icon(String path) {
         return new javax.swing.ImageIcon(AppearanceSettingsPanel.class.getResource(path));
+    }
+
+    // Icono de fuera de /images/menu (los de ahí ya vienen al tamaño de estas filas) reducido al
+    // mismo alto que ellos, para que no descuadre la fila del checkbox.
+    private static javax.swing.ImageIcon scaledIcon(String path, int size) {
+        try {
+            return Helpers.scaleIcon(AppearanceSettingsPanel.class.getResource(path), size, size);
+        } catch (java.net.MalformedURLException ex) {
+            return null;
+        }
     }
 
     private int currentTapeteIndex() {

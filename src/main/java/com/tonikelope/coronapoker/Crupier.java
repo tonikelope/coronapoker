@@ -4671,8 +4671,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    // Arranca el visual de cuenta atrás de game over (GIF sobre las cartas en
-    // modo CINEMATICAS, o cuenta atrás numérica en la action label) de los
+    // Arranca el visual de cuenta atrás de game over (GIF sobre las cartas con
+    // su cinemática on, o cuenta atrás numérica en la action label) de los
     // arruinados que SON humanos remotos. Idempotente (setRebuying ignora si ya
     // está activo o si el jugador salió/es espectador), así que es seguro
     // llamarlo dos veces: una pronto (a la vez que el game over local) y otra
@@ -4690,16 +4690,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void recibirRebuys(ArrayList<String> pending, boolean skip_countdown) {
 
-        // Barra de tiempo según el modo local (mismo snapshot de CINEMATICAS
+        // Barra de tiempo según el modo local (misma cinemática de GAME OVER
         // que decide el visual de los arruinados en setRebuying):
-        // - CINEMATICAS ON: el GIF de game over sobre las cartas YA es la
-        //   cuenta atrás → barra indeterminada desde el principio.
-        // - CINEMATICAS OFF: la barra se llena y baja en smooth los segundos
-        //   de decisión del game over (los mismos que marca la cuenta atrás
+        // - CINEMÁTICA DE GAME OVER ON: el GIF de game over sobre las cartas
+        //   YA es la cuenta atrás → barra indeterminada desde el principio.
+        // - OFF: la barra se llena y baja en smooth los segundos de decisión
+        //   del game over (los mismos que marca la cuenta atrás
         //   "¿RECOMPRA? (N)" de la action label) y al agotarse pasa a
         //   indeterminada (en el bucle de abajo) hasta que lleguen los REBUY
         //   o salten los timeouts de seguridad del crupier.
-        final boolean barra_smooth = !GameFrame.cinematicasOn();
+        final boolean barra_smooth = !GameFrame.cinematicasGameOverOn();
         if (barra_smooth) {
             Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameOverDialog.REBUY_DIALOG_COUNTDOWN);
         } else {

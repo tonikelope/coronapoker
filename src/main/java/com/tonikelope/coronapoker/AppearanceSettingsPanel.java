@@ -1804,8 +1804,20 @@ public class AppearanceSettingsPanel extends JPanel {
         // usuario (aplica en vivo + persiste). El estado marcado y el efecto conmutan un paso, así
         // que basta con clicar si difiere del valor de fábrica.
         reset_actions.add(() -> {
-            if (cb.isSelected() != defaultValue) {
+            if (cb.isSelected() == defaultValue) {
+                return;
+            }
+
+            if (cb.isEnabled() && (menu == null || menu.isEnabled())) {
                 cb.doClick();
+            } else {
+                // Un doClick sobre un control DESHABILITADO no hace nada, y el item de menú puede
+                // estarlo a ratos: el auto-ajuste de zoom deshabilita el suyo mientras corre su
+                // trabajo en segundo plano. Sin esta salida, ese ajuste se escapaba de "Restaurar
+                // predeterminados" (o peor: la casilla cambiaba y el ajuste de verdad no). Es el
+                // mismo peligro que revertLive ya esquiva al revertir las animaciones.
+                standalone.run();
+                cb.setSelected(defaultValue);
             }
         });
         // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con

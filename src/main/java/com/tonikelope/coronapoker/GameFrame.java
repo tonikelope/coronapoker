@@ -74,7 +74,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JLayer;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JProgressBar;
@@ -196,12 +195,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_CARD_FLIP_DURATION = 620; // ~ la del GIF antiguo (31 frames x 20 ms)
     public static final int CARD_FLIP_DURATION_MIN = 150;
     public static final int CARD_FLIP_DURATION_MAX = 1500;
-    public static volatile int CARD_FLIP_DURATION = Integer.parseInt(Helpers.PROPERTIES.getProperty("card_flip_duration", String.valueOf(DEFAULT_CARD_FLIP_DURATION)));
+    // Acotada a MIN/MAX, que hasta ahora eran dos constantes declaradas y sin usar.
+    public static volatile int CARD_FLIP_DURATION = Helpers.propInt("card_flip_duration", DEFAULT_CARD_FLIP_DURATION, CARD_FLIP_DURATION_MIN, CARD_FLIP_DURATION_MAX);
     // Efecto "acercar": la animación de destape se renderiza a este porcentaje del tamaño de la
     // carta estática (100 = desactivado, alineado pixel-perfect; >100 da sensación de que la carta
     // se acerca a la pantalla y luego se asienta a su tamaño real al terminar el giro).
     public static final int DEFAULT_CARD_FLIP_ZOOM = 100; // desactivado por defecto
-    public static volatile int CARD_FLIP_ZOOM = Integer.parseInt(Helpers.PROPERTIES.getProperty("card_flip_zoom", String.valueOf(DEFAULT_CARD_FLIP_ZOOM)));
+    public static volatile int CARD_FLIP_ZOOM = Helpers.propInt("card_flip_zoom", DEFAULT_CARD_FLIP_ZOOM);
     public static final int HURRYUP_WARNING_SECONDS = 10; // aviso "date prisa" (bocina + parpadeo) cuando quedan estos segundos
 
     // Umbral efectivo del aviso hurryup en segundos restantes. El contador de accion arranca en
@@ -307,13 +307,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "true"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
-    public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
+    // SIN acotar: el zoom no tiene tope en el motor y el nivel puede ser negativo (zoom out).
+    public static volatile int ZOOM_LEVEL = Helpers.propInt("zoom_level", GameFrame.DEFAULT_ZOOM_LEVEL);
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
     // Trasera de las cartas: "default" (sigue a la baraja actual) o el nombre de otra
     // baraja cuyo dorso se usa. Al ser "default" el que sigue a la baraja, no hace falta
     // resetear nada al cambiar de baraja.
     public static volatile String TRASERA = Helpers.PROPERTIES.getProperty("trasera", "default");
-    public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 4;
+    // Su guarda anterior era isNumeric, que valida con Double.parseDouble: "1.5", "1e3" o un valor
+    // mayor que un int pasaban el filtro y reventaban después en Integer.parseInt.
+    public static volatile int VISTA_COMPACTA = Helpers.propInt("vista_compacta", 0) % 4;
     // Efectos de animación, con granularidad: reparto/destapes de cartas, fichas de
     // posición (ciegas+dealer), ficha al bote (apuestas) y el rodaje de los contadores
     // (stack/bote/apuesta + cortinilla de llenado y recompra). Estos 5 flags *_PREF
@@ -346,6 +349,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // nick y al stack de ese jugador (AvatarZoomOverlay), y se retira al salir. Puramente visual
     // y LOCAL por cliente (no se difunde). Por defecto DESACTIVADO (tapa parte de la mesa).
     public static volatile boolean RESALTAR_AVATARES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_avatares", "false"));
+    // Luminosidad que queda en la mesa con las luces APAGADAS, en % (100 = sin oscurecer). El velo
+    // negro que pinta BrightnessOverlay es su complemento: 50 % de luz = velo alpha 0,50. Antes
+    // estaba clavado en 0,40 (equivalente al 60 %), así que el apagado por defecto es ahora un
+    // punto más oscuro. Puramente visual y LOCAL por cliente (no se difunde). Lo aplican por igual
+    // el interruptor de la mesa, el atajo y los apagados automáticos (pausa, game over, recover,
+    // buy-in inicial).
+    // El tope NO llega a 100 a propósito: "luces apagadas" se distingue en todas partes por que
+    // el velo es > 0 (el icono del interruptor, la pausa, el chat rápido...), así que un nivel de
+    // luz del 100 % dejaría el estado apagado indistinguible del encendido.
+    public static final int DEFAULT_NIVEL_LUZ = 50;
+    public static final int NIVEL_LUZ_MIN = 10;
+    public static final int NIVEL_LUZ_MAX = 90;
+    // Se acota AL CARGAR (no solo al pintar el velo): así el spinner de Ajustes, el valor que se
+    // re-persiste al descartar cambios y el velo hablan siempre del mismo número, aunque la clave
+    // se haya editado a mano fuera de rango.
+    public static volatile int NIVEL_LUZ = Helpers.propInt("nivel_luz", DEFAULT_NIVEL_LUZ, NIVEL_LUZ_MIN, NIVEL_LUZ_MAX);
     // La pantalla final (BalanceScreen) guarda automáticamente una captura (mismo mecanismo que
     // CTRL+P: printAll del rootPane, sin Robot ni captura del SO) JUSTO al terminar el contador de
     // dinero; y si el jugador SALE de la pantalla final ANTES de que termine (por cualquiera de los
@@ -366,7 +385,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean ANIMACION_SWAP_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_swap", "true"));
     // Duración (ms) del cruce del swap. 320 = normal (por defecto).
     public static final int DEFAULT_SWAP_ANIM_DURATION = 320;
-    public static volatile int SWAP_ANIM_DURATION = Integer.parseInt(Helpers.PROPERTIES.getProperty("swap_velocidad", String.valueOf(DEFAULT_SWAP_ANIM_DURATION)));
+    public static volatile int SWAP_ANIM_DURATION = Helpers.propInt("swap_velocidad", DEFAULT_SWAP_ANIM_DURATION);
     // Estilo del cruce: true = con arco ("saltito", una arquea arriba y la otra abajo); false =
     // desplazamiento horizontal recto (una pasa por delante de la otra, por defecto).
     public static volatile boolean SWAP_ANIM_ARC = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("swap_arco", "false"));
@@ -376,11 +395,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean ANIMACION_DOWNGRADE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_downgrade", "true"));
     // Duración (ms) de la animación de recolocación. 500 = normal (por defecto).
     public static final int DEFAULT_DOWNGRADE_VELOCIDAD = 500;
-    public static volatile int DOWNGRADE_VELOCIDAD = Integer.parseInt(Helpers.PROPERTIES.getProperty("downgrade_velocidad", String.valueOf(DEFAULT_DOWNGRADE_VELOCIDAD)));
+    public static volatile int DOWNGRADE_VELOCIDAD = Helpers.propInt("downgrade_velocidad", DEFAULT_DOWNGRADE_VELOCIDAD);
     // Velocidad del reparto como % de la pausa base (Crupier.REPARTIR_PAUSA): 100 = normal (por
     // defecto, la velocidad histórica), >100 más lento, <100 más rápido.
     public static final int DEFAULT_REPARTO_VELOCIDAD = 100;
-    public static volatile int REPARTO_VELOCIDAD = Integer.parseInt(Helpers.PROPERTIES.getProperty("reparto_velocidad", String.valueOf(DEFAULT_REPARTO_VELOCIDAD)));
+    public static volatile int REPARTO_VELOCIDAD = Helpers.propInt("reparto_velocidad", DEFAULT_REPARTO_VELOCIDAD);
 
     // Periodo (ms) del Timer de las animaciones pre-renderizadas (barajado, reparto, fichas, destape),
     // FIJADO a 2 ms (≈500 repaints/s). El ritmo real lo marca el reloj (System.nanoTime); esto solo
@@ -853,7 +872,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // importe). Solo aplica con AUTO_ACTION_BUTTONS activo. En fichas (la ficha
     // mínima del motor es el céntimo, 0,01).
     public static volatile boolean AUTO_CALL_ENABLED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_call_enabled", "false"));
-    public static volatile double AUTO_CALL_MAX = Double.parseDouble(Helpers.PROPERTIES.getProperty("auto_call_max", "0.0"));
+    public static volatile double AUTO_CALL_MAX = Helpers.propDouble("auto_call_max", 0.0);
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
@@ -1412,7 +1431,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private final Crupier crupier;
     private final boolean partida_local;
     private final String nick_local;
-    private final BrightnessLayerUI capa_brillo = new BrightnessLayerUI();
+    private final BrightnessOverlay capa_brillo = new BrightnessOverlay();
 
     private volatile ZoomableInterface[] zoomables;
     private volatile long conta_tiempo_juego = 0L;
@@ -1420,10 +1439,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean timba_pausada = false;
     private volatile String nick_pause = null;
     private volatile PauseDialog pausa_dialog = null;
-    // Brillo del tapete justo antes de pausar, para restaurarlo al reanudar: si
-    // las luces estaban encendidas (0f) la pausa las apaga y luego las repone; si
-    // ya estaban apagadas, la pausa no las toca (pero bloquea el botón igual).
-    private volatile float pre_pause_brightness = 0f;
     private volatile boolean game_over_dialog = false;
     private volatile AboutDialog about_dialog = null;
     private volatile HandGeneratorDialog jugadas_dialog = null;
@@ -1440,7 +1455,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile Timer tiempo_juego;
     private volatile int tapete_counter = 0;
     private volatile int i60_c = 0;
-    private volatile JLayer<JComponent> frame_layer = null;
     private volatile boolean recover = false;
     // La pantalla final (BalanceScreen) es un overlay montado sobre el glassPane de
     // ESTE frame (ya no un JDialog modal aparte). Mientras está activo, el
@@ -1518,7 +1532,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         THIS = null;
     }
 
-    public BrightnessLayerUI getCapa_brillo() {
+    public BrightnessOverlay getCapa_brillo() {
         return capa_brillo;
     }
 
@@ -2267,13 +2281,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             this.lock_pause.notifyAll();
 
+            // El bloque de abajo va al EDT de forma ASÍNCRONA, así que se captura aquí el estado
+            // que lo encola: si llegan dos cambios seguidos (pausar y reanudar, o dos jugadores a
+            // la vez), leer el campo dentro del lambda haría que los dos vieran el valor final y
+            // ejecutasen la MISMA rama dos veces. El apagado de la mesa lleva la cuenta de cuántos
+            // motivos la mantienen a oscuras, y una rama repetida la descuadra: de más, la mesa se
+            // queda negra con el interruptor muerto; de menos, se ilumina bajo un diálogo.
+            final boolean pausada = this.timba_pausada;
+
             Helpers.GUIRun(() -> {
 
                 if (pausa_dialog == null) {
                     pausa_dialog = new PauseDialog(this, false);
                 }
 
-                if (timba_pausada) {
+                if (pausada) {
 
                     if (isPartida_local() || getNick_local().equals(user)) {
                         Helpers.setScaledIconButton(GameFrame.getInstance().getTapete().getCommunityCards().getPause_button(), getClass().getResource("/images/continue.png"), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()));
@@ -2287,15 +2309,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
                     pausa_dialog.setVisible(true);
 
-                    // Al pausar, apaga las luces (solo si estaban encendidas) y
-                    // deshabilita el botón de luces mientras dure la pausa.
-                    // Guardamos el brillo previo para reponerlo al reanudar.
-                    pre_pause_brightness = capa_brillo.getBrightness();
-
-                    if (pre_pause_brightness == 0f) {
-                        capa_brillo.lightsOFF();
-                        getTapete().getCommunityCards().applyLightsVisuals();
-                    }
+                    // Al pausar, la mesa se oscurece y el interruptor se deshabilita mientras dure
+                    // la pausa. Es un apagado TEMPORAL más: si el jugador ya tenía las luces
+                    // apagadas por su cuenta, esto no cambia nada de lo que ve, y al reanudar se
+                    // respeta lo que él hubiera elegido.
+                    capa_brillo.pushForcedLightsOFF();
+                    getTapete().getCommunityCards().applyLightsVisuals();
 
                     getTapete().getCommunityCards().getLights_label().setEnabled(false);
 
@@ -2314,14 +2333,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     pausa_dialog.dispose();
                     pausa_dialog = null;
 
-                    // Al reanudar, reactiva el botón de luces y repón el estado
-                    // que tenían antes de pausar: si las apagamos nosotros (estaban
-                    // encendidas), vuelve a encenderlas; si ya estaban apagadas, no
-                    // se tocan.
-                    if (pre_pause_brightness == 0f && capa_brillo.getBrightness() != 0f) {
-                        capa_brillo.lightsON();
-                        getTapete().getCommunityCards().applyLightsVisuals();
-                    }
+                    // Al reanudar se retira ese apagado temporal y el interruptor vuelve a mandar:
+                    // la mesa se enciende sola salvo que el jugador las tenga apagadas.
+                    capa_brillo.popForcedLightsOFF();
+                    getTapete().getCommunityCards().applyLightsVisuals();
 
                     getTapete().getCommunityCards().getLights_label().setEnabled(true);
 
@@ -3061,11 +3076,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().getJugadores().addAll(Arrays.asList(nuevo_tapete.getPlayers()));
 
             Helpers.GUIRunAndWait(() -> {
-                GameFrame.getInstance().getContentPane().remove(frame_layer);
+                GameFrame.getInstance().getContentPane().remove(tapete);
                 tapete = nuevo_tapete;
                 zoomables = new ZoomableInterface[]{tapete};
-                frame_layer = new JLayer<>(tapete, capa_brillo);
-                GameFrame.getInstance().getContentPane().add(frame_layer);
+                GameFrame.getInstance().getContentPane().add(tapete);
 
                 // TOCTOU: si la partida terminó mientras se construía/swapeaba el
                 // tablero acortado, sus paneles (visibles por defecto) NO deben
@@ -3881,9 +3895,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         setTitle(Init.WINDOW_TITLE + Translator.translate("game.timba_en_curso_2") + nicklocal + ")");
 
-        frame_layer = new JLayer<>(tapete, capa_brillo);
-
-        getContentPane().add(frame_layer);
+        getContentPane().add(tapete);
 
         force_reconnect_menu.setEnabled(isPartida_local());
 
@@ -5839,7 +5851,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     tapete.autoZoom(false);
                 });
             }
-            Helpers.savePropertiesFile();
+            // Volcado coalescido: este camino lo dispara el spinner de Ajustes, que con la flecha
+            // mantenida encadena un cambio por repetición (el zoom fuera de partida ya lo hace).
+            Helpers.savePropertiesFileDeferred();
         });
     }
 

@@ -196,7 +196,7 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 
 - **Four table layouts** (Normal, Compact, Super-Compact and Ultra-Compact) to fit anything from a 13" laptop to a 4K monitor.
 - **Global zoom** with keyboard shortcuts and an optional auto-zoom that fits the table to the window.
-- **Low-brightness overlay** for late-night sessions.
+- **Low-brightness overlay** for late-night sessions, with a configurable light level.
 - **Cool animations** (optional).
 - **Action confirmation**: optional safety prompt before fold / all-in / raise.
 - **Auto-action buttons**: pre-arm your next move while it's not your turn: check/fold (never mucks a free check) or auto-call up to a configurable limit. Optionally keep the pre-press armed across hands, and veto each automatic action through a 5-second cancelable **AUTO MODE** dialog.

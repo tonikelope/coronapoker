@@ -1251,6 +1251,19 @@ public class Helpers {
         });
     }
 
+    // Pone un icono que el llamante YA tiene escalado (normalmente cacheado, para no repetir la
+    // decodificación y el escalado suavizado en cada cambio), marcándolo igual que los helpers
+    // setScaled* para que scaleIcons no lo vuelva a escalar.
+    public static void setPreScaledIconLabel(JLabel label, ImageIcon icon) {
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+                label.setIcon(icon);
+                label.putClientProperty("cp_scaled_icon", Boolean.TRUE);
+            }
+        });
+    }
+
     // Escala un icono y lo recolorea a BLANCO preservando el alfa (la silueta del
     // dibujo). Para iconos pensados para fondo claro (p. ej. el engranaje del menú)
     // que se muestran sobre el tapete oscuro, como el icono del altavoz.
@@ -3387,6 +3400,11 @@ public class Helpers {
      */
     public static void restartCoronaPoker() {
         try {
+            // 0. Flush any pending deferred save BEFORE spawning the child JVM: the shutdown hook
+            // would otherwise truncate and rewrite the properties file while the new instance is
+            // already reading it, and the child could start with everything at its defaults.
+            Helpers.savePropertiesFile();
+
             // 1. Get the Java executable and the current JAR paths
             String javaBin = Helpers.getJavaBinPath();
             String currentJar = Helpers.getCurrentJarPath();
@@ -3461,6 +3479,38 @@ public class Helpers {
                 }
             } while (error);
 
+        }
+    }
+
+    // Lee una preferencia NUMERICA de PROPERTIES con red: si la clave falta, viene vacía o no es
+    // un número, cae al valor por defecto en vez de tumbar el arranque. Estos parseos viven en
+    // inicializadores estáticos, donde un NumberFormatException sube como
+    // ExceptionInInitializerError y deja la ventana a medio montar. Es lo que readDialogZoom (aquí
+    // debajo) ya hacía para dialog_zoom, generalizado al resto de claves numéricas.
+    public static int propInt(String key, int def) {
+
+        try {
+            return Integer.parseInt(PROPERTIES.getProperty(key, String.valueOf(def)).trim());
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Invalid {0} property, falling back to default.", key);
+            return def;
+        }
+    }
+
+    // Variante que además acota el valor al rango válido del ajuste, para las claves que lo tienen.
+    public static int propInt(String key, int def, int min, int max) {
+
+        return Math.max(min, Math.min(propInt(key, def), max));
+    }
+
+    // La misma red para las claves con decimales.
+    public static double propDouble(String key, double def) {
+
+        try {
+            return Double.parseDouble(PROPERTIES.getProperty(key, String.valueOf(def)).trim());
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Invalid {0} property, falling back to default.", key);
+            return def;
         }
     }
 
@@ -3898,20 +3948,87 @@ public class Helpers {
         return thousands ? MONEY_DF_3.get() : MONEY_DF_2.get();
     }
 
-    public synchronized static void savePropertiesFile() {
+    // Volcado COALESCIDO de las preferencias, para los controles CONTINUOS: un JSpinner con la
+    // flecha mantenida dispara un cambio por repetición, y con savePropertiesFile() cada uno
+    // reescribiría el fichero entero (I/O en el EDT). Aquí se reprograma el volcado y solo se
+    // escribe una vez, PROPERTIES_FLUSH_DELAY ms después del último cambio. Es el equivalente
+    // para spinners de lo que los sliders resuelven con getValueIsAdjusting(). Los ajustes
+    // DISCRETOS (casillas, desplegables, menús) siguen guardando al momento con
+    // savePropertiesFile(): un clic, una escritura.
+    private static final int PROPERTIES_FLUSH_DELAY = 500;
+    // Lock PROPIO del fichero de preferencias. Antes savePropertiesFile era "synchronized static",
+    // o sea que tomaba el monitor de Helpers.class, que es el lock de facto de la base de datos
+    // (getSQLITE, closeSQLITE y los cuatro bloques de TOFUResolver lo usan). Escribir un
+    // .properties no tiene nada que ver con SQLite, y desde el hook de cierre esa dependencia
+    // dejaba la salida esperando a la transacción que estuviera en curso, sin límite de tiempo.
+    private static final Object PROPERTIES_LOCK = new Object();
+    // Hay valores apuntados en PROPERTIES que todavía no están en disco. NO vale mirar
+    // PROPERTIES_FLUSH_TIMER.isRunning(): un Timer no repetitivo se da de baja de la TimerQueue AL
+    // DISPARAR (TimerQueue.run hace post() y acto seguido delayedTimer = null) y post() solo encola
+    // el listener con invokeLater, así que entre el disparo y el volcado de verdad isRunning() ya
+    // dice false y el hook se saltaría justo el guardado que tenía que salvar.
+    private static volatile boolean PROPERTIES_DIRTY = false;
+    private static final javax.swing.Timer PROPERTIES_FLUSH_TIMER = new javax.swing.Timer(PROPERTIES_FLUSH_DELAY, (java.awt.event.ActionEvent e) -> savePropertiesFile());
 
-        try (FileOutputStream fos = new FileOutputStream(PROPERTIES_FILE)) {
-            // Properties.store NO cierra el OutputStream que recibe (contrato JDK).
-            // Sin try-with-resources, cada cambio de preferencia (volumen, zoom,
-            // sonidos, etc.) filtraba un FD. En partidas largas con muchos cambios
-            // acumulativos llegaba a ser visible en lsof.
-            PROPERTIES.store(fos, null);
+    static {
+        PROPERTIES_FLUSH_TIMER.setRepeats(false);
 
-        } catch (IOException ex) {
-            Logger.getLogger(Helpers.class
-                    .getName()).log(Level.SEVERE, null, ex);
+        // Cierra la ventana del volcado coalescido: si la aplicación se cierra dentro de esos
+        // PROPERTIES_FLUSH_DELAY ms, el valor estaría solo en memoria y se perdería. El hook cubre
+        // el cierre normal y System.exit (no un kill a lo bruto, que es la misma exposición que
+        // tiene cualquier escritura a medias). En diseño (NetBeans) no se registra: ahí PROPERTIES
+        // es un objeto vacío y volcarlo machacaría el fichero real del desarrollador.
+        if (!isDesignTime()) {
+            try {
+                Thread flush_hook = new Thread(() -> {
+                    try {
+                        if (PROPERTIES_DIRTY) {
+                            savePropertiesFile();
+                        }
+                    } catch (Throwable ignored) {
+                        // Durante el shutdown no hay a quién avisar: un fallo aquí no debe ensuciar
+                        // la salida con una traza ni matar el hilo del hook.
+                    }
+                }, "CoronaPoker-Properties-Flush-Hook");
+                flush_hook.setDaemon(false);
+                Runtime.getRuntime().addShutdownHook(flush_hook);
+            } catch (Throwable ignored) {
+                // Sin hook se vuelve al comportamiento de antes: se pierde, como mucho, el último
+                // valor de un control continuo movido en el medio segundo previo al cierre.
+            }
         }
+    }
 
+    public static void savePropertiesFileDeferred() {
+
+        PROPERTIES_DIRTY = true;
+        PROPERTIES_FLUSH_TIMER.restart();
+    }
+
+    public static void savePropertiesFile() {
+
+        synchronized (PROPERTIES_LOCK) {
+
+            // Un volcado inmediato deja sin trabajo al que estuviera pendiente: ya se escribe TODO
+            // el fichero, incluido lo que dejó el control continuo.
+            PROPERTIES_FLUSH_TIMER.stop();
+
+            try (FileOutputStream fos = new FileOutputStream(PROPERTIES_FILE)) {
+                // Properties.store NO cierra el OutputStream que recibe (contrato JDK).
+                // Sin try-with-resources, cada cambio de preferencia (volumen, zoom,
+                // sonidos, etc.) filtraba un FD. En partidas largas con muchos cambios
+                // acumulativos llegaba a ser visible en lsof.
+                PROPERTIES.store(fos, null);
+
+                // Solo cuando de verdad se ha escrito: si el volcado falla, lo pendiente sigue
+                // pendiente y el hook de cierre volverá a intentarlo.
+                PROPERTIES_DIRTY = false;
+
+            } catch (IOException ex) {
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
+            }
+        }
     }
 
     public static String getFechaHoraActual() {
@@ -5244,16 +5361,6 @@ public class Helpers {
     public static int doubleSecureCompare(double val1, double val2) {
 
         return Double.compare(doubleClean(val1), doubleClean(val2));
-    }
-
-    public static boolean isNumeric(String str) {
-        try {
-            Double.parseDouble(str);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-
-        }
     }
 
     private Helpers() {

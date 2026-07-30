@@ -36,6 +36,7 @@ import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.util.Base64;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
@@ -67,6 +68,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private volatile boolean ready = false;
     private volatile Timer icon_zoom_timer = null;
     private final Object zoom_lock = new Object();
+    // Los dos iconos del interruptor de luces, ya escalados al alto de la fila del bote, y el alto
+    // con el que se escalaron: solo se rehacen si ese alto cambia, o sea al cambiar el zoom (la
+    // vista compacta no reescala los iconos de esta fila, ni antes ni ahora).
+    private volatile ImageIcon lights_on_icon = null;
+    private volatile ImageIcon lights_off_icon = null;
+    private volatile int lights_icon_height = -1;
 
     public void lightsButtonClick() {
 
@@ -84,7 +91,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         Helpers.GUIRun(() -> {
 
-            Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
+            refreshLightsIcon();
 
             if (GameFrame.getInstance().getFastchat_dialog() != null) {
                 GameFrame.getInstance().getFastchat_dialog().refreshColors();
@@ -519,16 +526,46 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             // bet_label sin icono (muestra solo la calle). Para reponerlo: setScaledIconLabel(bet_label, "/images/pot.png", ...).
             Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
             refreshStraddleIcon();
-            Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
+            refreshLightsIcon();
 
             ready = true;
         });
 
     }
 
+    // ÚNICO sitio que decide qué icono luce el interruptor: encendido si no hay velo, apagado si
+    // lo hay. Lo llaman el clic, los apagados automáticos y el re-escalado de iconos del tapete.
+    // Los dos iconos se escalan una vez por altura de fila y se guardan: antes cada encendido y
+    // cada apagado (incluidos los de la pausa, el game over y el recover) pagaba una decodificación
+    // del PNG y un escalado suavizado en el EDT.
     public void refreshLightsIcon() {
         Helpers.GUIRun(() -> {
-            Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
+
+            if (GameFrame.getInstance() == null) {
+                return;
+            }
+
+            final int height = Math.round(0.7f * pot_label.getHeight());
+
+            if (height <= 0) {
+                return;
+            }
+
+            if (lights_icon_height != height) {
+
+                final int width = Math.round(0.7f * pot_label.getHeight() * (512f / 240));
+
+                try {
+                    lights_on_icon = Helpers.scaleIcon(getClass().getResource("/images/lights_on.png"), width, height);
+                    lights_off_icon = Helpers.scaleIcon(getClass().getResource("/images/lights_off.png"), width, height);
+                    lights_icon_height = height;
+                } catch (MalformedURLException ex) {
+                    Logger.getLogger(CommunityCardsPanel.class.getName()).log(Level.SEVERE, null, ex);
+                    return;
+                }
+            }
+
+            Helpers.setPreScaledIconLabel(lights_label, GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? lights_on_icon : lights_off_icon);
         });
     }
 
@@ -1173,20 +1210,29 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             return;
         }
 
-        if (evt == null || new Rectangle(new Dimension(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()))).contains(evt.getPoint())) {
-            if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
+        // El interruptor solo ocupa la parte izquierda de su etiqueta, así que el clic vale
+        // únicamente dentro del dibujo. Se mide el icono QUE HAY PUESTO en vez de recalcular la
+        // fórmula con la que se escaló (que vive en refreshLightsIcon): así no pueden divergir.
+        // Sin icono todavía no hay interruptor que pulsar; el atajo (evt == null) entra igual.
+        final javax.swing.Icon lights_icon = lights_label.getIcon();
 
-                if (GameFrame.interruptorSonidoOn()) {
-                    Audio.playWavResource("misc/button_off.wav");
-                }
-                GameFrame.getInstance().getCapa_brillo().lightsOFF();
-
-            } else {
+        if (evt == null || (lights_icon != null && new Rectangle(lights_icon.getIconWidth(), lights_icon.getIconHeight()).contains(evt.getPoint()))) {
+            // Conmuta lo que el JUGADOR tiene pedido, no el velo que se ve: si la partida está
+            // forzando el velo por su cuenta (una pausa, un game over), el interruptor sigue
+            // representando su elección y no se queda invertido al levantarse ese velo.
+            if (GameFrame.getInstance().getCapa_brillo().isUserLightsOff()) {
 
                 if (GameFrame.interruptorSonidoOn()) {
                     Audio.playWavResource("misc/button_on.wav");
                 }
                 GameFrame.getInstance().getCapa_brillo().lightsON();
+
+            } else {
+
+                if (GameFrame.interruptorSonidoOn()) {
+                    Audio.playWavResource("misc/button_off.wav");
+                }
+                GameFrame.getInstance().getCapa_brillo().lightsOFF();
             }
 
             applyLightsVisuals();
@@ -1259,7 +1305,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     Helpers.setScaledIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
                     Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
                     // bet_label sin icono (muestra solo la calle). Para reponerlo: setScaledIconLabel(bet_label, "/images/pot.png", ...).
-                    Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
+                    refreshLightsIcon();
                     Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
                     refreshStraddleIcon();
                     // Re-ajusta la fuente del bote al nuevo zoom: el icono ya está

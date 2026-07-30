@@ -1804,7 +1804,15 @@ public class AppearanceSettingsPanel extends JPanel {
         // usuario (aplica en vivo + persiste). El estado marcado y el efecto conmutan un paso, así
         // que basta con clicar si difiere del valor de fábrica.
         reset_actions.add(() -> {
-            if (cb.isSelected() == defaultValue) {
+            // El estado DE VERDAD es el del item de menú, que va en lockstep con el flag; la
+            // casilla puede haberse quedado desincronizada (marcarla mientras su item estaba
+            // deshabilitado no aplica nada). Mirar la casilla aquí dejaba escapar justo el caso
+            // que la rama de abajo viene a arreglar.
+            boolean current = menu != null ? menu.isSelected() : cb.isSelected();
+
+            if (current == defaultValue) {
+                // Nada que aplicar, pero la casilla se pone en su sitio por si venía desviada.
+                cb.setSelected(defaultValue);
                 return;
             }
 
@@ -1818,9 +1826,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 // mismo peligro que revertLive ya esquiva al revertir las animaciones, y hay que
                 // dejar igual de sincronizados sus DOS espejos: el item del menú principal y el
                 // del popup del tapete. setSelected no dispara el listener, así que no reentra.
-                if ((menu != null ? menu.isSelected() : cb.isSelected()) != defaultValue) {
-                    standalone.run();
-                }
+                standalone.run();
 
                 cb.setSelected(defaultValue);
 

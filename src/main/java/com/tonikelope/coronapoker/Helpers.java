@@ -4519,9 +4519,13 @@ public class Helpers {
                 //DECKS
                 HashMap<String, Object> decks = new HashMap<>();
 
-                NodeList nodeList = document.getElementsByTagName("decks").item(0).getChildNodes();
+                // Un MOD puede traer solo sonidos, imagenes o fondo y NO tocar las barajas: sin
+                // esta guarda, la ausencia de <decks> reventaba la carga (y con ella el arranque).
+                Node decks_node = document.getElementsByTagName("decks").item(0);
 
-                for (int i = 0; i < nodeList.getLength(); i++) {
+                NodeList nodeList = decks_node != null ? decks_node.getChildNodes() : null;
+
+                for (int i = 0; nodeList != null && i < nodeList.getLength(); i++) {
 
                     if (nodeList.item(i).getNodeType() == Node.ELEMENT_NODE) {
                         Element el = (Element) nodeList.item(i);
@@ -4553,7 +4557,12 @@ public class Helpers {
                     }
                 }
 
-                mod.put("decks", decks.isEmpty() ? null : decks);
+                // OJO: mod es un ConcurrentHashMap y NO admite valores null, asi que un MOD sin
+                // barajas propias no puede guardar null aqui: simplemente no se pone la clave, que
+                // para quien la lee (get -> null) es exactamente lo mismo.
+                if (!decks.isEmpty()) {
+                    mod.put("decks", decks);
+                }
 
                 mod.put("init_background", Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/init.png")));
 
@@ -4570,6 +4579,13 @@ public class Helpers {
             } catch (IOException ex) {
                 Logger.getLogger(Helpers.class
                         .getName()).log(Level.SEVERE, null, ex);
+
+            } catch (RuntimeException ex) {
+                // Un mod.xml a medias (una etiqueta que falta, un aspect que no es un numero) solo
+                // debe dejar el MOD sin cargar. Esto corre en el arranque, donde una excepcion que
+                // se escape deja la ventana a medio montar y el splash colgado.
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, "Broken MOD, ignoring it.", ex);
             }
         }
 

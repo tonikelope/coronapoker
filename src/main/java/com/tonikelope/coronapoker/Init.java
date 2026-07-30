@@ -1838,9 +1838,15 @@ public class Init extends JFrame {
                 }
             }
 
-            for (Map.Entry<String, HashMap> entry : ((HashMap<String, HashMap>) Init.MOD.get("decks")).entrySet()) {
-                HashMap<String, Object> baraja = entry.getValue();
-                Card.BARAJAS.put((String) baraja.get("name"), new Object[]{baraja.get("aspect"), true, baraja.containsKey("sound") ? baraja.get("sound") : null});
+            // Un MOD puede no traer barajas propias (solo sonidos, imagenes o fondo): entonces no
+            // hay clave "decks" y aqui no hay nada que anadir al catalogo.
+            HashMap<String, HashMap> mod_decks = (HashMap<String, HashMap>) Init.MOD.get("decks");
+
+            if (mod_decks != null) {
+                for (Map.Entry<String, HashMap> entry : mod_decks.entrySet()) {
+                    HashMap<String, Object> baraja = entry.getValue();
+                    Card.BARAJAS.put((String) baraja.get("name"), new Object[]{baraja.get("aspect"), true, baraja.containsKey("sound") ? baraja.get("sound") : null});
+                }
             }
 
             if (Init.MOD.containsKey("fusion_sounds")) {

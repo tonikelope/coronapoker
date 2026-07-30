@@ -440,15 +440,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     // Subtipos de cinemática que cuelgan del maestro "Cinemáticas" (igual que la cascada cuelga
-    // de "Barajado"): las de ACCIÓN (GIFs de fold/call/check/bet/raise de los rivales) y las de
-    // ALL-IN (secuencia a pantalla completa). Cada una solo aplica si el maestro de animaciones,
-    // el de cinemáticas Y su propia preferencia están on.
+    // de "Barajado"): las de ACCIÓN (GIFs de fold/call/check/bet/raise de los rivales), las de
+    // ALL-IN (secuencia a pantalla completa) y la de GAME OVER (los GIFs del arruinado mientras
+    // decide la recompra). Cada una solo aplica si el maestro de animaciones, el de cinemáticas Y
+    // su propia preferencia están on.
     public static boolean cinematicasAccionOn() {
         return cinematicasOn() && CINEMATICAS_ACCION_PREF;
     }
 
     public static boolean cinematicasAllinOn() {
         return cinematicasOn() && CINEMATICAS_ALLIN_PREF;
+    }
+
+    // GAME OVER: gobierna los TRES visuales del ciclo de recompra, que deben ir siempre en el
+    // mismo modo — el GIF del GameOverDialog propio, el GIF sobre las cartas de los arruinados
+    // remotos (RemotePlayer.setRebuying) y la barra de tiempo del crupier mientras espera los
+    // REBUY (Crupier.recibirRebuys). Apagado: cartel "GAME OVER" estático con cuenta atrás,
+    // cuenta atrás numérica "¿RECOMPRA? (N)" en la action label y barra smooth.
+    public static boolean cinematicasGameOverOn() {
+        return cinematicasOn() && CINEMATICAS_GAMEOVER_PREF;
     }
 
     public static boolean repartoAnimOn() {
@@ -848,9 +858,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     // Subajustes de "Cinemáticas": preferencia cruda de cada subtipo (gateados por CINEMATICAS_PREF
-    // vía cinematicasAccionOn()/cinematicasAllinOn()). Por defecto on (no cambia el comportamiento).
+    // vía cinematicasAccionOn()/cinematicasAllinOn()/cinematicasGameOverOn()). Por defecto on (no
+    // cambia el comportamiento).
     public static volatile boolean CINEMATICAS_ACCION_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas_accion", "true"));
     public static volatile boolean CINEMATICAS_ALLIN_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas_allin", "true"));
+    public static volatile boolean CINEMATICAS_GAMEOVER_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas_gameover", "true"));
     public static volatile boolean CHAT_IMAGES_INGAME = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_images_ingame", "true"));
     public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
     // Ficha de posición del jugador local sobre sus cartas: 3 estados cíclicos por click

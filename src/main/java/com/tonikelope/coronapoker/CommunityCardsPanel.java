@@ -282,7 +282,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             pot_label.setForeground(Color.YELLOW);
             pot_flash_timer = new javax.swing.Timer(170, e -> {
                 ((javax.swing.Timer) e.getSource()).stop();
-                if (pot_flash_restore != null) {
+                // Solo se restaura si el bote sigue con NUESTRO amarillo. La ficha voladora no
+                // bloquea a quien la lanzó, así que entre el despegue y el aterrizaje puede
+                // haberle dado otro color al bote cualquiera de la docena de sitios que lo pintan
+                // (el ganador de la mano, el showdown, un cambio de tapete). Ese color es más
+                // reciente que el que capturamos al empezar el parpadeo, y restaurar el nuestro
+                // encima lo dejaría, por ejemplo, en verde sobre el panel verde del bote.
+                if (pot_flash_restore != null && Color.YELLOW.equals(pot_label.getForeground())) {
                     pot_label.setForeground(pot_flash_restore);
                 }
                 Runnable cb = pot_flash_done_callback;

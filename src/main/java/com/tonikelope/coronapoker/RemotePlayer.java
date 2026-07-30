@@ -160,14 +160,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // UN solo game_over.wav (lo engancha el primero) y se corta cuando el
     // último se resuelve.
     private static int REBUY_GIF_ACTIVOS = 0;
-    // Cuando el JUGADOR LOCAL también está en game over con su propio
-    // GameOverDialog interactivo (que ya reproduce el game_over.wav de cuenta
-    // atrás "para él"), los GIF de rebuy de los arruinados remotos arrancan a
-    // la vez sobre la mesa viva pero deben quedarse MUDOS: el diálogo local es
-    // el dueño del audio y lo corta en cuanto el local decide. Lo gobierna el
-    // Crupier alrededor del game over local interactivo. volatile: lo escribe
-    // el hilo del crupier y lo lee el EDT en mostrarRebuyGameOverGif.
-    public static volatile boolean LOCAL_GAMEOVER_OWNS_AUDIO = false;
     private volatile boolean notify_blocked = false;
     private volatile URL chat_notify_image_url = null;
     private volatile Long chat_notify_thread = null;
@@ -3487,11 +3479,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     // El audio se engancha DESPUÉS de setIcon (setIcon lo
                     // resetea); end_frame -1 = el wav suena entero y lo corta
                     // setRebuying(false) si el rebuy se resuelve antes. Solo el
-                    // primero del grupo: UN audio aunque haya varios GIFs. Si el
-                    // local está en su propio game over interactivo, el diálogo
-                    // local es el dueño del game_over.wav (y lo corta al decidir)
-                    // → estos GIF remotos van mudos para no doblar el audio.
-                    if (REBUY_GIF_ACTIVOS == 0 && !LOCAL_GAMEOVER_OWNS_AUDIO) {
+                    // primero del grupo: UN audio aunque haya varios GIFs. No hay
+                    // riesgo de doblarlo con el game over del propio jugador: si
+                    // el LOCAL también se arruinó, su diálogo modal corre antes y
+                    // estos GIF remotos ni se lanzan (recibirRebuys los salta con
+                    // skip_countdown y solo refleja el desenlace).
+                    if (REBUY_GIF_ACTIVOS == 0) {
                         rebuy_gif_label.addAudio(GameFrame.finPartidaSonidoOn() ? "misc/game_over.wav" : null, 1, -1);
                     }
                     REBUY_GIF_ACTIVOS++;

@@ -101,7 +101,9 @@ public class Audio {
     public static final Timer VOLUME_TIMER;
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_WAV = false;
-    public volatile static boolean MUTED_MP3_LOOP = false;
+    // Estado DERIVADO (ver refreshMp3LoopMuteState): no se fija a mano desde ningun sitio, y como
+    // solo lo consulta esta clase, deja de ser publico.
+    private volatile static boolean MUTED_MP3_LOOP = false;
     // Total local silence while recording a voice message (the mic must not
     // pick up music, effects or other voices). Derived state: every volume
     // law consults it, so overlapping TTS/note playback windows cannot undo

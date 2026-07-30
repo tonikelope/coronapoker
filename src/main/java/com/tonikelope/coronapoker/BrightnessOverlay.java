@@ -32,11 +32,11 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 
-// Estado del velo de "apagar las luces" de la mesa y su pintado. Lo pintan el propio tapete al
-// final de su paint() y las ventanas sueltas que también deben oscurecerse (el panel de GIFs).
-// Antes era el LayerUI de un JLayer que envolvía la mesa entera, pero un JLayer obliga a que TODO
-// repintado de cualquiera de sus componentes arranque en él, también con las luces encendidas,
-// que es el 99 % de la partida.
+// Estado del velo de "apagar las luces" de la mesa y su pintado. Lo pinta el tapete al final de su
+// paint(), y también el panel de GIFs, que es una ventana suelta y se oscurece por su cuenta (esa,
+// como no es la mesa, nunca ha forzado el repintado desde arriba). Antes el velo era el LayerUI de
+// un JLayer que envolvía la mesa entera, pero un JLayer obliga a que TODO repintado de cualquiera
+// de sus componentes arranque en él, también con las luces encendidas, que es el 99 % de la partida.
 public class BrightnessOverlay {
 
     // Lo escribe el EDT y lo leen los hilos del crupier (que guardan el brillo previo antes de

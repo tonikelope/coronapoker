@@ -418,9 +418,15 @@ public class BalanceScreen extends JPanel {
     private void openLog() {
         GameLogDialog log = GameFrame.getInstance().getRegistro_dialog();
 
-        log.setPreferredSize(new Dimension(Math.round(0.7f * GameFrame.getInstance().getWidth()), Math.round(0.7f * GameFrame.getInstance().getHeight())));
-        log.pack();
-        log.setLocationRelativeTo(this);
+        // El tamaño solo se impone la PRIMERA vez que se abre el registro en esta timba, igual que
+        // hace el menú de la mesa (isDefaultBoundsApplied): es el mismo diálogo, y si el jugador ya
+        // lo redimensionó a su gusto, abrirlo desde aquí se lo machacaba.
+        if (!log.isDefaultBoundsApplied()) {
+            log.setPreferredSize(new Dimension(Math.round(0.7f * GameFrame.getInstance().getWidth()), Math.round(0.7f * GameFrame.getInstance().getHeight())));
+            log.pack();
+            log.setLocationRelativeTo(this);
+            log.setDefaultBoundsApplied(true);
+        }
 
         // El registro es el MISMO diálogo que abre el menú de la mesa, y nace NO modal. Aquí hace
         // falta modal (la pantalla final está por encima de todo), pero hay que devolverlo como

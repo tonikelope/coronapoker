@@ -278,6 +278,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 pot_flash_restore = pot_label.getForeground();
             } else {
                 pot_flash_timer.stop();
+                // Reentrada (otra ficha aterriza dentro de los 170 ms, que es lo normal cuando
+                // caen varias): se conserva el color de antes del parpadeo, PERO si mientras tanto
+                // alguien le ha dado otro color al bote, ese manda y es el que hay que devolver.
+                if (!Color.YELLOW.equals(pot_label.getForeground())) {
+                    pot_flash_restore = pot_label.getForeground();
+                }
             }
             pot_label.setForeground(Color.YELLOW);
             pot_flash_timer = new javax.swing.Timer(170, e -> {

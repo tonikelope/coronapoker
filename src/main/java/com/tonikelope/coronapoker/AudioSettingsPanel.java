@@ -562,12 +562,12 @@ public class AudioSettingsPanel extends JPanel {
         JPanel fx_col_b = effectsColumn();
         fx_col_b.add(typeHeader("audio.grupo_partida"));
         fx_col_b.add(effectRow(menuIcon("/images/menu/games.png"), sonido_inicio_checkbox, false, previewButton("misc/startplay.wav")));
-        fx_col_b.add(effectRow(scaledIcon("/images/ciegas.png", 24), sonido_ciegas_checkbox, false, previewButton("misc/double_blinds.wav")));
+        fx_col_b.add(effectRow(fitIcon("/images/ciegas.png", EFFECT_ICON_CELL_W, EFFECT_ICON_CELL_H), sonido_ciegas_checkbox, false, previewButton("misc/double_blinds.wav")));
         fx_col_b.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false, previewButton("misc/cash_register.wav")));
         fx_col_b.add(effectRow(menuIcon("/images/menu/last_hand.png"), sonido_ultima_mano_checkbox, false, previewButton("misc/last_hand_on.wav")));
         fx_col_b.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false, previewButton("misc/balance_count.wav")));
         fx_col_b.add(effectRow(menuIcon("/images/menu/video.png"), sonido_iwtsth_checkbox, false, previewButton("misc/iwtsth.wav")));
-        fx_col_b.add(effectRow(scaledIcon("/images/lights_on.png", 24), sonido_interruptor_checkbox, false, previewButton("misc/button_on.wav")));
+        fx_col_b.add(effectRow(fitIcon("/images/lights_on.png", EFFECT_ICON_CELL_W, EFFECT_ICON_CELL_H), sonido_interruptor_checkbox, false, previewButton("misc/button_on.wav")));
         fx_col_b.add(effectRow(scaledIcon("/images/pause.png", 24), sonido_pausa_checkbox, false, previewButton("misc/pause.wav")));
         fx_col_b.add(effectRow(scaledIcon("/images/action/skull.png", 24), sonido_fin_partida_checkbox, false, previewButton("misc/game_over.wav")));
         fx_col_b.add(typeHeader("audio.grupo_turno_tiempo"));
@@ -1493,11 +1493,31 @@ public class AudioSettingsPanel extends JPanel {
     // microphone down to menu-icon size). Null on a malformed URL (never happens for
     // bundled resources), which a JLabel renders as no icon.
     private static javax.swing.ImageIcon scaledIcon(String resource, int size) {
+        return scaledIcon(resource, size, size);
+    }
+
+    private static javax.swing.ImageIcon scaledIcon(String resource, int width, int height) {
         try {
-            return Helpers.scaleIcon(AudioSettingsPanel.class.getResource(resource), size, size);
+            return Helpers.scaleIcon(AudioSettingsPanel.class.getResource(resource), width, height);
         } catch (java.net.MalformedURLException ex) {
             return null;
         }
+    }
+
+    // Escala un icono para que QUEPA dentro de la caja indicada sin deformarlo. Para los dibujos
+    // que no son cuadrados: el interruptor de luces (256x120) y las ciegas (43x32) metidos en un
+    // cuadrado de 24 salían aplastados, el primero a menos de la mitad de su ancho.
+    private static javax.swing.ImageIcon fitIcon(String resource, int max_width, int max_height) {
+
+        javax.swing.ImageIcon raw = new javax.swing.ImageIcon(AudioSettingsPanel.class.getResource(resource));
+
+        if (raw.getIconWidth() <= 0 || raw.getIconHeight() <= 0) {
+            return raw;
+        }
+
+        float scale = Math.min((float) max_width / raw.getIconWidth(), (float) max_height / raw.getIconHeight());
+
+        return scaledIcon(resource, Math.max(1, Math.round(raw.getIconWidth() * scale)), Math.max(1, Math.round(raw.getIconHeight() * scale)));
     }
 
     // Recuadro fino redondeado (mismo estilo que los grupos de la pestaña "Apariencia"):
@@ -1542,6 +1562,12 @@ public class AudioSettingsPanel extends JPanel {
         return p;
     }
 
+    // Caja del icono de cada fila de efecto. El ancho es mayor que el alto para dar sitio a los
+    // dibujos apaisados sin encogerlos de más; los cuadrados (la mayoría, los de /images/menu) se
+    // quedan a su tamaño y se centran dentro.
+    private static final int EFFECT_ICON_CELL_W = 32;
+    private static final int EFFECT_ICON_CELL_H = 24;
+
     // Fila de un efecto/pista individual dentro de su recuadro, sangrada bajo el maestro (deep =
     // sangría mayor, para la subopción "mis cartas" que cuelga de "Destapar"). trailing (o null):
     // el botón de audición, que va A LA DERECHA del label.
@@ -1560,6 +1586,14 @@ public class AudioSettingsPanel extends JPanel {
         row.setBorder(BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), 0, 0, 0));
         row.add(Box.createHorizontalStrut(Math.round((deep ? 34 : 18) * Helpers.DIALOG_ZOOM)));
         JLabel icon_label = new JLabel(icon);
+        // Celda de ancho FIJO para el icono, con el dibujo centrado: así todas las casillas de la
+        // columna arrancan en la misma x aunque el icono sea apaisado. Sin ella, devolverle su
+        // proporción al interruptor de luces empujaría su casilla ~27 px a la derecha.
+        java.awt.Dimension icon_cell = new java.awt.Dimension(Math.round(EFFECT_ICON_CELL_W * Helpers.DIALOG_ZOOM), Math.round(EFFECT_ICON_CELL_H * Helpers.DIALOG_ZOOM));
+        icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        icon_label.setPreferredSize(icon_cell);
+        icon_label.setMinimumSize(icon_cell);
+        icon_label.setMaximumSize(icon_cell);
         icon_label.setAlignmentY(JComponent.CENTER_ALIGNMENT);
         cb.setAlignmentY(JComponent.CENTER_ALIGNMENT);
         row.add(icon_label);

@@ -62,6 +62,12 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private BlindStructure pending_structure = null;
     private String item_por_defecto;
     private String item_gestionar;
+    // Entrada sintética "(actual)" para la escalera en uso cuando NO coincide con ninguna guardada
+    // (viene de un preset, o de una estructura que se edito o borro despues). Sin ella el combo
+    // decia "Por defecto" mientras la partida arrancaba con la escalera personalizada: el mismo
+    // mecanismo que ya tiene el panel gemelo de la pantalla de inicio.
+    private String item_estructura_actual;
+    private BlindStructure actual_structure;
 
     // Paso del spinner de buy-in (derivado de la magnitud de la ciega pequeña).
     private int buyin_spinner_step = 1;
@@ -1218,7 +1224,12 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             java.awt.Window owner = SwingUtilities.getWindowAncestor(this);
             BlindStructureManagerDialog mgr = new BlindStructureManagerDialog(owner);
             mgr.setVisible(true);
-            if (!item_por_defecto.equals(previous) && !BlindStructure.loadAll().containsKey(previous)) {
+            // La entrada sintetica de la escalera en uso NO esta entre las guardadas, pero sigue
+            // siendo una seleccion valida: sin esta excepcion, abrir y cerrar el gestor la perdia
+            // y dejaba el combo en "Por defecto".
+            if (!item_por_defecto.equals(previous)
+                    && !previous.equals(item_estructura_actual)
+                    && !BlindStructure.loadAll().containsKey(previous)) {
                 previous = item_por_defecto;
             }
             populateStructureCombo(previous);
@@ -1237,6 +1248,11 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             item_gestionar = Translator.translate("blinds.gestionar");
             estructura_combobox.removeAllItems();
             estructura_combobox.addItem(item_por_defecto);
+            // Salvo que ya exista una guardada con ese mismo nombre: el combo mostraria la entrada
+            // dos veces y la guardada quedaria inseleccionable.
+            if (item_estructura_actual != null && !BlindStructure.loadAll().containsKey(item_estructura_actual)) {
+                estructura_combobox.addItem(item_estructura_actual);
+            }
             for (String name : BlindStructure.loadAll().keySet()) {
                 estructura_combobox.addItem(name);
             }
@@ -1258,7 +1274,16 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             pending_structure = null;
             levels = BlindStructure.defaultLevels();
         } else {
+            // Las GUARDADAS mandan sobre la entrada sintetica: si hay una con ese nombre, es la
+            // que el combo esta mostrando (la sintetica ni siquiera se anade), asi que resolver
+            // primero por nombre y solo caer a la escalera en uso cuando no exista ninguna. Al
+            // reves, una guardada que se llamara igual quedaba inseleccionable.
             BlindStructure bs = BlindStructure.loadAll().get((String) sel);
+
+            if (bs == null && item_estructura_actual != null && sel.equals(item_estructura_actual)) {
+                bs = actual_structure;
+            }
+
             pending_structure = bs;
             levels = bs != null ? bs.getLevels() : BlindStructure.defaultLevels();
         }
@@ -1277,6 +1302,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     // niveles y selecciona/sintetiza su entrada en el combo de estructuras.
     private void initBlindStructureUIFrom(double[][] active) {
         pending_structure = null;
+        item_estructura_actual = null;
+        actual_structure = null;
         String selectName = null;
         if (active != null) {
             for (java.util.Map.Entry<String, BlindStructure> e : BlindStructure.loadAll().entrySet()) {
@@ -1289,6 +1316,11 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             if (pending_structure == null) {
                 try {
                     pending_structure = new BlindStructure(Translator.translate("blinds.estructura_actual"), active);
+                    // Se recuerda para poder OFRECERLA en el combo: si no, el desplegable
+                    // seleccionaba "Por defecto" y mentia sobre la escalera con la que se juega.
+                    item_estructura_actual = pending_structure.getName();
+                    actual_structure = pending_structure;
+                    selectName = item_estructura_actual;
                 } catch (IllegalArgumentException ignore) {
                 }
             }

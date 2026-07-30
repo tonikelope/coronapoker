@@ -113,8 +113,10 @@ public class Audio {
     // the newer one. Counting keeps VOICE_RECORDING true while ANY recording is
     // live, regardless of which thread increments/decrements first.
     private final static AtomicInteger VOICE_RECORDING_COUNT = new AtomicInteger(0);
-    // Cuantos silencios de la musica de fondo hay vivos a la vez (ver muteAllLoopMp3).
+    // Cuantos silencios TEMPORALES de la musica de fondo hay vivos a la vez, y si el interruptor
+    // global de sonido la tiene callada (ver refreshMp3LoopMuteState).
     private final static AtomicInteger MP3_LOOP_MUTE_COUNT = new AtomicInteger(0);
+    private volatile static boolean MUTED_MP3_LOOP_GLOBAL = false;
     public volatile static CoronaMP3FilePlayer TTS_PLAYER = null;
 
     // Audición del diálogo de Ajustes (botón play junto a cada sonido): una sola a la vez, sea
@@ -1552,7 +1554,12 @@ public class Audio {
 
         MUTED_ALL = true;
 
-        muteAllLoopMp3();
+        // Interruptor global: NO pasa por el contador de silencios temporales (ver
+        // refreshMp3LoopMuteState); el juego lo llama tambien para sincronizar estado, no solo
+        // para conmutar.
+        MUTED_MP3_LOOP_GLOBAL = true;
+
+        refreshMp3LoopMuteState();
 
         muteAllWav();
 
@@ -1614,31 +1621,37 @@ public class Audio {
         }
     }
 
-    // Se cuentan los silencios solapados en vez de un simple interruptor, igual que hace
-    // VOICE_RECORDING_COUNT con las notas de voz: los stings del crupier (badbeat, suertudo,
-    // perdedor) se lanzan cada uno en su hilo, y en un badbeat multiway sale uno POR CADA
-    // perdedor. Con un booleano, el primero que terminaba devolvia la musica mientras los demas
-    // seguian sonando encima.
+    // El silencio de la musica tiene DOS origenes y este es el unico sitio donde se juntan:
+    //
+    // 1) El interruptor GLOBAL de sonido del jugador (muteAll / unmuteAll), que dura hasta que lo
+    //    cambie. NO se puede contar, porque el juego lo aplica tambien como sincronizacion de
+    //    estado y no solo como conmutador: al terminar cada timba, RESET_GAME vuelve a llamar a
+    //    muteAll si el sonido esta apagado. Contandolo, dos muteAll seguidos dejaban la cuenta
+    //    alta y la musica muda para el resto de la sesion.
+    // 2) Los silencios TEMPORALES de los stings del crupier (badbeat, suertudo, perdedor), que si
+    //    se cuentan: cada uno va en su hilo y en un badbeat multiway sale uno POR CADA perdedor,
+    //    asi que con un booleano el primero en terminar devolvia la musica encima de los demas.
+    //    Es lo mismo que ya hace VOICE_RECORDING_COUNT con las notas de voz.
+    private static void refreshMp3LoopMuteState() {
+
+        MUTED_MP3_LOOP = MUTED_MP3_LOOP_GLOBAL || MP3_LOOP_MUTE_COUNT.get() > 0;
+
+        refreshALLMP3LoopVolume();
+    }
+
     public static void muteAllLoopMp3() {
 
         MP3_LOOP_MUTE_COUNT.incrementAndGet();
 
-        MUTED_MP3_LOOP = true;
-
-        refreshALLMP3LoopVolume();
+        refreshMp3LoopMuteState();
 
     }
 
     public static void unmuteAllLoopMp3() {
 
-        if (MP3_LOOP_MUTE_COUNT.updateAndGet(n -> n > 0 ? n - 1 : 0) > 0) {
-            // Queda algun silencio vivo: la musica sigue callada hasta que lo suelte el ultimo.
-            return;
-        }
+        MP3_LOOP_MUTE_COUNT.updateAndGet(n -> n > 0 ? n - 1 : 0);
 
-        MUTED_MP3_LOOP = false;
-
-        refreshALLMP3LoopVolume();
+        refreshMp3LoopMuteState();
 
     }
 
@@ -1682,7 +1695,11 @@ public class Audio {
 
         MUTED_ALL = false;
 
-        unmuteAllLoopMp3();
+        // Se levanta el silencio GLOBAL. Si aun queda algun sting sonando, la musica sigue callada
+        // hasta que lo suelte el ultimo: eso lo decide refreshMp3LoopMuteState, no este metodo.
+        MUTED_MP3_LOOP_GLOBAL = false;
+
+        refreshMp3LoopMuteState();
 
         unmuteAllWav();
 

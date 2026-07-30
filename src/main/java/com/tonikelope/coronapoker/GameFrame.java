@@ -314,7 +314,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // baraja cuyo dorso se usa. Al ser "default" el que sigue a la baraja, no hace falta
     // resetear nada al cambiar de baraja.
     public static volatile String TRASERA = Helpers.PROPERTIES.getProperty("trasera", "default");
-    public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 4;
+    // Su guarda anterior era isNumeric, que valida con Double.parseDouble: "1.5", "1e3" o un valor
+    // mayor que un int pasaban el filtro y reventaban después en Integer.parseInt.
+    public static volatile int VISTA_COMPACTA = Helpers.propInt("vista_compacta", 0) % 4;
     // Efectos de animación, con granularidad: reparto/destapes de cartas, fichas de
     // posición (ciegas+dealer), ficha al bote (apuestas) y el rodaje de los contadores
     // (stack/bote/apuesta + cortinilla de llenado y recompra). Estos 5 flags *_PREF
@@ -870,7 +872,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // importe). Solo aplica con AUTO_ACTION_BUTTONS activo. En fichas (la ficha
     // mínima del motor es el céntimo, 0,01).
     public static volatile boolean AUTO_CALL_ENABLED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_call_enabled", "false"));
-    public static volatile double AUTO_CALL_MAX = Double.parseDouble(Helpers.PROPERTIES.getProperty("auto_call_max", "0.0"));
+    public static volatile double AUTO_CALL_MAX = Helpers.propDouble("auto_call_max", 0.0);
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));

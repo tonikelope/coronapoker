@@ -134,6 +134,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_swap_arc;
     private final boolean snap_anim_downgrade;
     private final int snap_downgrade_velocidad;
+    private final int snap_nivel_luz;
     private final float snap_dialog_zoom;
 
     public AppearanceSettingsPanel() {
@@ -184,6 +185,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_swap_arc = GameFrame.SWAP_ANIM_ARC;
         snap_anim_downgrade = GameFrame.ANIMACION_DOWNGRADE_PREF;
         snap_downgrade_velocidad = GameFrame.DOWNGRADE_VELOCIDAD;
+        snap_nivel_luz = GameFrame.NIVEL_LUZ;
         snap_dialog_zoom = Helpers.DIALOG_ZOOM;
         pending_dialog_zoom = snap_dialog_zoom;
 
@@ -534,14 +536,47 @@ public class AppearanceSettingsPanel extends JPanel {
         baraja_gbc.gridx = 0;
         baraja_gbc.gridy = 2;
         baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
+        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM));
         baraja_grid.add(tapete_label, baraja_gbc);
         baraja_gbc.gridx = 1;
         baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
         baraja_grid.add(tapete_combo, baraja_gbc);
         // Predeterminado: tapete verde (índice 0).
         reset_actions.add(() -> tapete_combo.setSelectedIndex(0));
+
+        // Nivel de luz que queda al APAGAR las luces de la mesa (el interruptor del tapete, el atajo
+        // y los apagados automáticos): cuanto más bajo, más oscura se ve, y el 60 % por defecto es
+        // el velo histórico. En partida se previsualiza en vivo si están apagadas ahora mismo; fuera
+        // de partida solo persiste. Cierra la rejilla de aspecto de la mesa.
+        JSpinner luz_spinner = new JSpinner(new SpinnerNumberModel(
+                Math.max(GameFrame.NIVEL_LUZ_MIN, Math.min(GameFrame.NIVEL_LUZ, GameFrame.NIVEL_LUZ_MAX)),
+                GameFrame.NIVEL_LUZ_MIN, GameFrame.NIVEL_LUZ_MAX, 5));
+        Helpers.setTranslatedToolTip(luz_spinner, "tooltip.cfg.nivel_luz");
+        luz_spinner.addChangeListener(e -> {
+            if (building) {
+                return;
+            }
+            GameFrame.NIVEL_LUZ = (Integer) luz_spinner.getValue();
+            persist("nivel_luz", String.valueOf(GameFrame.NIVEL_LUZ));
+            applyNivelLuz(gf);
+        });
+        JLabel luz_label = new JLabel(Translator.translate("settings.nivel_luz") + ":");
+        luz_label.setIcon(scaledIcon("/images/lights_on.png", 24));
+        baraja_gbc.gridx = 0;
+        baraja_gbc.gridy = 3;
+        baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
+        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
+        baraja_grid.add(luz_label, baraja_gbc);
+        baraja_gbc.gridx = 1;
+        // Sin fill (a diferencia de los desplegables de arriba): un spinner de dos dígitos estirado
+        // al ancho de la columna quedaría desproporcionado. Arranca en la misma x, que es lo que
+        // alinea la rejilla; el mismo criterio que los spinners de "Pantalla y zoom".
+        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        baraja_grid.add(luz_spinner, baraja_gbc);
+        // Predeterminado: 60 % (velo histórico). setValue dispara el listener, que persiste y
+        // previsualiza igual que un cambio a mano.
+        reset_actions.add(() -> luz_spinner.setValue(GameFrame.DEFAULT_NIVEL_LUZ));
 
         addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK,
                 gf != null ? gf.getTime_menu() : null,
@@ -1435,6 +1470,15 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
             Helpers.savePropertiesFile();
         }
+        // Nivel de luz: se revierte fijando el flag + re-persistiendo el snapshot, y además hay que
+        // deshacer la previsualización (si las luces están apagadas, siguen pintadas al nivel que
+        // dejó la edición descartada).
+        if (GameFrame.NIVEL_LUZ != snap_nivel_luz) {
+            GameFrame.NIVEL_LUZ = snap_nivel_luz;
+            Helpers.PROPERTIES.setProperty("nivel_luz", String.valueOf(snap_nivel_luz));
+            Helpers.savePropertiesFile();
+            applyNivelLuz(gf);
+        }
         // Zoom de diálogos: persist-only, sin efecto en vivo (lo lee cada diálogo al abrirse). Se
         // revierte fijando el flag + re-persistiendo el snapshot, como los demás persist-only.
         if (Helpers.DIALOG_ZOOM != snap_dialog_zoom) {
@@ -1499,6 +1543,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.SWAP_ANIM_ARC = snap_swap_arc;
         GameFrame.ANIMACION_DOWNGRADE_PREF = snap_anim_downgrade;
         GameFrame.DOWNGRADE_VELOCIDAD = snap_downgrade_velocidad;
+        GameFrame.NIVEL_LUZ = snap_nivel_luz;
         Helpers.DIALOG_ZOOM = snap_dialog_zoom;
         Helpers.updateCoronaDialogsFont();
 
@@ -1535,6 +1580,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("swap_arco", String.valueOf(snap_swap_arc));
         Helpers.PROPERTIES.setProperty("animacion_downgrade", String.valueOf(snap_anim_downgrade));
         Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
+        Helpers.PROPERTIES.setProperty("nivel_luz", String.valueOf(snap_nivel_luz));
         Helpers.PROPERTIES.setProperty("dialog_zoom", String.valueOf(snap_dialog_zoom));
         Helpers.savePropertiesFile();
 
@@ -1572,6 +1618,18 @@ public class AppearanceSettingsPanel extends JPanel {
                 Audio.playWavResource("misc/mat.wav");
             }
             Init.VENTANA_INICIO.getTapete().refresh();
+        }
+    }
+
+    // Previsualización en vivo del nivel de luz: solo hay algo que repintar si las luces están
+    // APAGADAS en este momento (el nivel es justo la profundidad de ese velo). Con las luces
+    // encendidas el ajuste no se nota hasta que se apaguen, así que no se toca nada. Reutiliza
+    // lightsOFF, que recalcula el velo con el nivel recién guardado, y applyLightsVisuals, que
+    // arrastra al resto de superficies con velo propio (chat rápido y avisos in-game).
+    private static void applyNivelLuz(GameFrame gf) {
+        if (gf != null && gf.getTapete() != null && gf.getCapa_brillo().getBrightness() > 0f) {
+            gf.getCapa_brillo().lightsOFF();
+            gf.getTapete().getCommunityCards().applyLightsVisuals();
         }
     }
 

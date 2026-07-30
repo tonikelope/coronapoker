@@ -36,15 +36,22 @@ import javax.swing.plaf.LayerUI;
 
 public class BrightnessLayerUI extends LayerUI<JComponent> {
 
-    public static final float LIGHTS_OFF_BRIGHTNESS = 0.40f;
     private float brightness = 0f;
     // Cached overlay color rebuilt only when brightness changes.
     private Color cached_color = null;
     private float cached_brightness = -1f;
 
+    // Opacidad del velo negro que corresponde al nivel de luz configurado: su complemento
+    // (60 % de luz -> 0,40 de velo, el valor histórico). Se acota al rango del ajuste por si
+    // la clave del fichero de configuración se editó a mano fuera de él.
+    public static float lightsOffBrightness() {
+
+        return (100 - Math.max(GameFrame.NIVEL_LUZ_MIN, Math.min(GameFrame.NIVEL_LUZ, GameFrame.NIVEL_LUZ_MAX))) / 100f;
+    }
+
     public void lightsOFF() {
 
-        setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+        setBrightness(BrightnessLayerUI.lightsOffBrightness());
     }
 
     public void lightsON() {

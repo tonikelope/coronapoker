@@ -4919,8 +4919,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
 
         Helpers.GUIRunAndWait(() -> {
-            if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+            if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
+                GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.lightsOffBrightness());
                 GameFrame.getInstance().getTapete().repaint();
             }
         });
@@ -4995,7 +4995,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.GUIRunAndWait(() -> {
             // Cierra el dialogo de "esperando a los demas" (ya estan todos).
             dlg[0].dispose();
-            if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+            if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
                 GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
                 GameFrame.getInstance().getTapete().repaint();
             }
@@ -6755,8 +6755,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
 
             Helpers.GUIRun(() -> {
-                if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                    GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+                if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
+                    GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.lightsOffBrightness());
                     GameFrame.getInstance().getTapete().repaint();
                 }
 
@@ -6764,7 +6764,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
                 recover_dialog.setVisible(true);
 
-                if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
                     GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
                     GameFrame.getInstance().getTapete().repaint();
                 }
@@ -18442,8 +18442,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 Helpers.GUIRunAndWait(() -> {
-                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+                    if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.lightsOffBrightness());
 
                         GameFrame.getInstance().getTapete().repaint();
                     }
@@ -18456,7 +18456,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     gameover_dialog.setVisible(true);
 
-                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                    if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
                         GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
 
                         GameFrame.getInstance().getTapete().repaint();
@@ -18522,8 +18522,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
 
                 Helpers.GUIRunAndWait(() -> {
-                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
-                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+                    if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
+                        GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.lightsOffBrightness());
 
                         GameFrame.getInstance().getTapete().repaint();
                     }
@@ -18536,7 +18536,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     gameover_dialog.setVisible(true);
 
-                    if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                    if (old_brightness != BrightnessLayerUI.lightsOffBrightness()) {
 
                         GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
 

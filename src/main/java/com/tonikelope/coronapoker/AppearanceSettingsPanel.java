@@ -545,10 +545,10 @@ public class AppearanceSettingsPanel extends JPanel {
         // Predeterminado: tapete verde (índice 0).
         reset_actions.add(() -> tapete_combo.setSelectedIndex(0));
 
-        // Nivel de luz que queda al APAGAR las luces de la mesa (el interruptor del tapete, el atajo
-        // y los apagados automáticos): cuanto más bajo, más oscura se ve, y el 60 % por defecto es
-        // el velo histórico. En partida se previsualiza en vivo si están apagadas ahora mismo; fuera
-        // de partida solo persiste. Cierra la rejilla de aspecto de la mesa.
+        // Luminosidad que queda al APAGAR las luces de la mesa (el interruptor del tapete, el atajo
+        // y los apagados automáticos): cuanto más bajo, más oscura se ve. En partida se previsualiza
+        // en vivo si están apagadas ahora mismo; fuera de partida solo persiste. Cierra la rejilla
+        // de aspecto de la mesa.
         JSpinner luz_spinner = new JSpinner(new SpinnerNumberModel(
                 Math.max(GameFrame.NIVEL_LUZ_MIN, Math.min(GameFrame.NIVEL_LUZ, GameFrame.NIVEL_LUZ_MAX)),
                 GameFrame.NIVEL_LUZ_MIN, GameFrame.NIVEL_LUZ_MAX, 5));
@@ -574,8 +574,8 @@ public class AppearanceSettingsPanel extends JPanel {
         // alinea la rejilla; el mismo criterio que los spinners de "Pantalla y zoom".
         baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
         baraja_grid.add(luz_spinner, baraja_gbc);
-        // Predeterminado: 60 % (velo histórico). setValue dispara el listener, que persiste y
-        // previsualiza igual que un cambio a mano.
+        // Predeterminado: 50 %. setValue dispara el listener, que persiste y previsualiza igual
+        // que un cambio a mano.
         reset_actions.add(() -> luz_spinner.setValue(GameFrame.DEFAULT_NIVEL_LUZ));
 
         addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK,

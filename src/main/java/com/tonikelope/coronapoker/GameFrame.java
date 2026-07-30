@@ -346,14 +346,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // nick y al stack de ese jugador (AvatarZoomOverlay), y se retira al salir. Puramente visual
     // y LOCAL por cliente (no se difunde). Por defecto DESACTIVADO (tapa parte de la mesa).
     public static volatile boolean RESALTAR_AVATARES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_avatares", "false"));
-    // Luz que queda en la mesa con las luces APAGADAS, en % (100 = sin oscurecer). El velo negro
-    // que pinta BrightnessLayerUI es su complemento: 60 % de luz = velo alpha 0,40 (el histórico).
-    // Puramente visual y LOCAL por cliente (no se difunde). Lo aplican por igual el interruptor de
-    // la mesa, el atajo y los apagados automáticos (pausa, game over, recover, buy-in inicial).
+    // Luminosidad que queda en la mesa con las luces APAGADAS, en % (100 = sin oscurecer). El velo
+    // negro que pinta BrightnessLayerUI es su complemento: 50 % de luz = velo alpha 0,50. Antes
+    // estaba clavado en 0,40 (equivalente al 60 %), así que el apagado por defecto es ahora un
+    // punto más oscuro. Puramente visual y LOCAL por cliente (no se difunde). Lo aplican por igual
+    // el interruptor de la mesa, el atajo y los apagados automáticos (pausa, game over, recover,
+    // buy-in inicial).
     // El tope NO llega a 100 a propósito: "luces apagadas" se distingue en todas partes por que
     // el velo es > 0 (el icono del interruptor, la pausa, el chat rápido...), así que un nivel de
     // luz del 100 % dejaría el estado apagado indistinguible del encendido.
-    public static final int DEFAULT_NIVEL_LUZ = 60;
+    public static final int DEFAULT_NIVEL_LUZ = 50;
     public static final int NIVEL_LUZ_MIN = 10;
     public static final int NIVEL_LUZ_MAX = 90;
     public static volatile int NIVEL_LUZ = Integer.parseInt(Helpers.PROPERTIES.getProperty("nivel_luz", String.valueOf(DEFAULT_NIVEL_LUZ)));

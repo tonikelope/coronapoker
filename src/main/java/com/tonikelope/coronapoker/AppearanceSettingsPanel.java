@@ -134,6 +134,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_swap_arc;
     private final boolean snap_anim_downgrade;
     private final int snap_downgrade_velocidad;
+    private final int snap_nivel_luz;
     private final float snap_dialog_zoom;
 
     public AppearanceSettingsPanel() {
@@ -184,6 +185,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_swap_arc = GameFrame.SWAP_ANIM_ARC;
         snap_anim_downgrade = GameFrame.ANIMACION_DOWNGRADE_PREF;
         snap_downgrade_velocidad = GameFrame.DOWNGRADE_VELOCIDAD;
+        snap_nivel_luz = GameFrame.NIVEL_LUZ;
         snap_dialog_zoom = Helpers.DIALOG_ZOOM;
         pending_dialog_zoom = snap_dialog_zoom;
 
@@ -228,7 +230,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 gf.setZoomLevel(level);
             } else {
                 GameFrame.ZOOM_LEVEL = level;
-                persist("zoom_level", String.valueOf(level));
+                persistDeferred("zoom_level", String.valueOf(level));
             }
         });
         // Zoom de la mesa + Auto ajustar juntos en un recuadro negro fino (el auto-ajuste es un
@@ -534,14 +536,52 @@ public class AppearanceSettingsPanel extends JPanel {
         baraja_gbc.gridx = 0;
         baraja_gbc.gridy = 2;
         baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
+        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM));
         baraja_grid.add(tapete_label, baraja_gbc);
         baraja_gbc.gridx = 1;
         baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
         baraja_grid.add(tapete_combo, baraja_gbc);
         // Predeterminado: tapete verde (índice 0).
         reset_actions.add(() -> tapete_combo.setSelectedIndex(0));
+
+        // Luminosidad que queda al APAGAR las luces de la mesa (el interruptor del tapete, el atajo
+        // y los apagados automáticos): cuanto más bajo, más oscura se ve. En partida se previsualiza
+        // en vivo si están apagadas ahora mismo; fuera de partida solo persiste. Cierra la rejilla
+        // de aspecto de la mesa.
+        JSpinner luz_spinner = new JSpinner(new SpinnerNumberModel(
+                Math.max(GameFrame.NIVEL_LUZ_MIN, Math.min(GameFrame.NIVEL_LUZ, GameFrame.NIVEL_LUZ_MAX)),
+                GameFrame.NIVEL_LUZ_MIN, GameFrame.NIVEL_LUZ_MAX, 5));
+        Helpers.setTranslatedToolTip(luz_spinner, "tooltip.cfg.nivel_luz");
+        luz_spinner.addChangeListener(e -> {
+            if (building) {
+                return;
+            }
+            GameFrame.NIVEL_LUZ = (Integer) luz_spinner.getValue();
+            persistDeferred("nivel_luz", String.valueOf(GameFrame.NIVEL_LUZ));
+            applyNivelLuz();
+        });
+        JLabel luz_label = new JLabel(Translator.translate("settings.nivel_luz") + ":");
+        // El interruptor es apaisado (256x120): se encaja dentro de la misma caja de 24 que ocupan
+        // los iconos de las otras tres filas, conservando su proporción. Darle su ancho real (51)
+        // lo haría más grande, pero descolgaría su texto de "Baraja", "Cara trasera" y "Tapete", y
+        // empujaría los tres desplegables a la derecha: en esta rejilla el icono va DENTRO de la
+        // etiqueta, así que su ancho es parte del ancho de la columna.
+        luz_label.setIcon(fitIcon("/images/lights_on.png", 24, 24));
+        baraja_gbc.gridx = 0;
+        baraja_gbc.gridy = 3;
+        baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
+        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
+        baraja_grid.add(luz_label, baraja_gbc);
+        baraja_gbc.gridx = 1;
+        // Sin fill (a diferencia de los desplegables de arriba): un spinner de dos dígitos estirado
+        // al ancho de la columna quedaría desproporcionado. Arranca en la misma x, que es lo que
+        // alinea la rejilla; el mismo criterio que los spinners de "Pantalla y zoom".
+        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+        baraja_grid.add(luz_spinner, baraja_gbc);
+        // Predeterminado: 50 %. setValue dispara el listener, que persiste y previsualiza igual
+        // que un cambio a mano.
+        reset_actions.add(() -> luz_spinner.setValue(GameFrame.DEFAULT_NIVEL_LUZ));
 
         addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK,
                 gf != null ? gf.getTime_menu() : null,
@@ -1210,6 +1250,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.SWAP_ANIM_ARC != snap_swap_arc
                 || GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade
                 || GameFrame.DOWNGRADE_VELOCIDAD != snap_downgrade_velocidad
+                || GameFrame.NIVEL_LUZ != snap_nivel_luz
                 || pending_dialog_zoom != snap_dialog_zoom;
     }
 
@@ -1435,6 +1476,15 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
             Helpers.savePropertiesFile();
         }
+        // Nivel de luz: se revierte fijando el flag + re-persistiendo el snapshot, y además hay que
+        // deshacer la previsualización (si las luces están apagadas, siguen pintadas al nivel que
+        // dejó la edición descartada).
+        if (GameFrame.NIVEL_LUZ != snap_nivel_luz) {
+            GameFrame.NIVEL_LUZ = snap_nivel_luz;
+            Helpers.PROPERTIES.setProperty("nivel_luz", String.valueOf(snap_nivel_luz));
+            Helpers.savePropertiesFile();
+            applyNivelLuz();
+        }
         // Zoom de diálogos: persist-only, sin efecto en vivo (lo lee cada diálogo al abrirse). Se
         // revierte fijando el flag + re-persistiendo el snapshot, como los demás persist-only.
         if (Helpers.DIALOG_ZOOM != snap_dialog_zoom) {
@@ -1499,6 +1549,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.SWAP_ANIM_ARC = snap_swap_arc;
         GameFrame.ANIMACION_DOWNGRADE_PREF = snap_anim_downgrade;
         GameFrame.DOWNGRADE_VELOCIDAD = snap_downgrade_velocidad;
+        GameFrame.NIVEL_LUZ = snap_nivel_luz;
         Helpers.DIALOG_ZOOM = snap_dialog_zoom;
         Helpers.updateCoronaDialogsFont();
 
@@ -1535,6 +1586,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("swap_arco", String.valueOf(snap_swap_arc));
         Helpers.PROPERTIES.setProperty("animacion_downgrade", String.valueOf(snap_anim_downgrade));
         Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
+        Helpers.PROPERTIES.setProperty("nivel_luz", String.valueOf(snap_nivel_luz));
         Helpers.PROPERTIES.setProperty("dialog_zoom", String.valueOf(snap_dialog_zoom));
         Helpers.savePropertiesFile();
 
@@ -1572,6 +1624,39 @@ public class AppearanceSettingsPanel extends JPanel {
                 Audio.playWavResource("misc/mat.wav");
             }
             Init.VENTANA_INICIO.getTapete().refresh();
+        }
+    }
+
+    // Previsualización en vivo de la luminosidad: el velo se recalcula siempre con el nivel recién
+    // guardado, pero solo hay algo que repintar si la mesa está oscurecida en este momento (el
+    // ajuste es justo la profundidad de ese velo). Con las luces encendidas no se nota hasta que
+    // se apaguen.
+    // Se mira GameFrame.getInstance() y NO el gf capturado al abrir el diálogo: si la timba
+    // terminó con Ajustes abierto, ese gf sigue siendo no-null pero la mesa ya no existe, y este
+    // método corre también al descartar cambios (revertLive).
+    // Repintar es suficiente y evita el revalidate del frame entero en cada tic del spinner: el
+    // interruptor luce el mismo icono (sigue apagado) y los colores del chat rápido dependen de si
+    // hay velo, no de cuánto. El aviso in-game sí pinta un velo proporcional, así que se repinta.
+    private static void applyNivelLuz() {
+
+        GameFrame live = GameFrame.getInstance();
+
+        if (live == null || live.getTapete() == null) {
+            return;
+        }
+
+        // Recalcula el velo con el nivel recién guardado SIN tocar quién lo tiene pedido (ni el
+        // interruptor del jugador ni los apagados temporales de la partida).
+        live.getCapa_brillo().refreshBrightness();
+
+        if (live.getCapa_brillo().getBrightness() == 0f) {
+            return;
+        }
+
+        live.getTapete().repaint();
+
+        if (live.getNotify_dialog() != null) {
+            live.getNotify_dialog().repaint();
         }
     }
 
@@ -1625,6 +1710,15 @@ public class AppearanceSettingsPanel extends JPanel {
 
     private static boolean prefBool(String key, boolean def) {
         return Boolean.parseBoolean(Helpers.PROPERTIES.getProperty(key, String.valueOf(def)));
+    }
+
+    // Como persist, pero para los SPINNERS: mantener pulsada la flecha dispara un cambio por
+    // repetición, y escribir el fichero en cada uno es I/O en el EDT a ráfagas. El valor se
+    // apunta al momento (lo que leen el revert y isDirty) y el volcado se coalesce. Cualquier
+    // otro guardado inmediato del diálogo (GUARDAR, restaurar, cancelar) lo arrastra igualmente.
+    private static void persistDeferred(String key, String value) {
+        Helpers.PROPERTIES.setProperty(key, value);
+        Helpers.savePropertiesFileDeferred();
     }
 
     // Persiste una preferencia (clave -> valor) sin efecto en vivo. Lo usan los controles
@@ -1876,11 +1970,37 @@ public class AppearanceSettingsPanel extends JPanel {
     // Icono de fuera de /images/menu (los de ahí ya vienen al tamaño de estas filas) reducido al
     // mismo alto que ellos, para que no descuadre la fila del checkbox.
     private static javax.swing.ImageIcon scaledIcon(String path, int size) {
+        return scaledIcon(path, size, size);
+    }
+
+    private static javax.swing.ImageIcon scaledIcon(String path, int width, int height) {
         try {
-            return Helpers.scaleIcon(AppearanceSettingsPanel.class.getResource(path), size, size);
+            return Helpers.scaleIcon(AppearanceSettingsPanel.class.getResource(path), width, height);
         } catch (java.net.MalformedURLException ex) {
             return null;
         }
+    }
+
+    // Encaja un icono dentro de la caja indicada SIN deformarlo, para los dibujos que no son
+    // cuadrados (el interruptor de luces es 256x120: en un cuadrado de 24 sale aplastado a menos
+    // de la mitad de su ancho).
+    private static javax.swing.ImageIcon fitIcon(String path, int max_width, int max_height) {
+
+        java.net.URL url = AppearanceSettingsPanel.class.getResource(path);
+
+        if (url == null) {
+            return null;
+        }
+
+        javax.swing.ImageIcon raw = new javax.swing.ImageIcon(url);
+
+        if (raw.getIconWidth() <= 0 || raw.getIconHeight() <= 0) {
+            return raw;
+        }
+
+        float scale = Math.min((float) max_width / raw.getIconWidth(), (float) max_height / raw.getIconHeight());
+
+        return scaledIcon(path, Math.max(1, Math.round(raw.getIconWidth() * scale)), Math.max(1, Math.round(raw.getIconHeight() * scale)));
     }
 
     private int currentTapeteIndex() {

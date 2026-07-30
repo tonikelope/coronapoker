@@ -2177,6 +2177,29 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
+    // El velo de "apagar las luces" lo pinta la propia mesa, encima de todo lo que hay en ella.
+    // paint() y no paintComponent(): tiene que ir DESPUÉS de los hijos (cartas, asientos, botes),
+    // no debajo. Antes lo pintaba un JLayer que envolvía la mesa entera.
+    @Override
+    public void paint(Graphics g) {
+
+        super.paint(g);
+
+        if (GameFrame.getInstance() != null) {
+            GameFrame.getInstance().getCapa_brillo().paintOverlay(g, getWidth(), getHeight());
+        }
+    }
+
+    // Con el velo puesto, el repintado de cualquier componente de la mesa tiene que arrancar AQUÍ
+    // para que el velo se vuelva a pintar por encima de lo que se acaba de redibujar. Con las
+    // luces encendidas no hace falta y la mesa se repinta como cualquier JLayeredPane, componente
+    // a componente: eso es lo que costaba tener el velo en un JLayer, que lo exigía SIEMPRE.
+    @Override
+    protected boolean isPaintingOrigin() {
+
+        return GameFrame.getInstance() != null && GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f;
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
 

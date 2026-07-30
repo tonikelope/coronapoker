@@ -1273,12 +1273,17 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         if (sel == null || sel.equals(item_por_defecto) || sel.equals(item_gestionar)) {
             pending_structure = null;
             levels = BlindStructure.defaultLevels();
-        } else if (item_estructura_actual != null && sel.equals(item_estructura_actual)) {
-            // La escalera en uso que no esta guardada: no se puede buscar por nombre.
-            pending_structure = actual_structure;
-            levels = actual_structure != null ? actual_structure.getLevels() : BlindStructure.defaultLevels();
         } else {
+            // Las GUARDADAS mandan sobre la entrada sintetica: si hay una con ese nombre, es la
+            // que el combo esta mostrando (la sintetica ni siquiera se anade), asi que resolver
+            // primero por nombre y solo caer a la escalera en uso cuando no exista ninguna. Al
+            // reves, una guardada que se llamara igual quedaba inseleccionable.
             BlindStructure bs = BlindStructure.loadAll().get((String) sel);
+
+            if (bs == null && item_estructura_actual != null && sel.equals(item_estructura_actual)) {
+                bs = actual_structure;
+            }
+
             pending_structure = bs;
             levels = bs != null ? bs.getLevels() : BlindStructure.defaultLevels();
         }

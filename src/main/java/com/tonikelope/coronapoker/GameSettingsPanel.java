@@ -1332,11 +1332,16 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         if (sel.equals(item_estructura_por_defecto)) {
             pending_structure = null;
             levels = BlindStructure.defaultLevels();
-        } else if (item_estructura_actual != null && sel.equals(item_estructura_actual)) {
-            pending_structure = actual_structure;
-            levels = actual_structure != null ? actual_structure.getLevels() : BlindStructure.defaultLevels();
         } else {
+            // Las GUARDADAS mandan sobre la entrada sintetica (ver el gemelo de la sala): si hay
+            // una con ese nombre es la que muestra el combo, asi que se resuelve primero por
+            // nombre y solo se cae a la escalera en uso cuando no exista ninguna.
             BlindStructure bs = BlindStructure.loadAll().get((String) sel);
+
+            if (bs == null && item_estructura_actual != null && sel.equals(item_estructura_actual)) {
+                bs = actual_structure;
+            }
+
             pending_structure = bs;
             levels = bs != null ? bs.getLevels() : BlindStructure.defaultLevels();
         }

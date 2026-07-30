@@ -433,9 +433,22 @@ public final class GameLogDialog extends JDialog {
         }
     }
 
+    // Los iconos de rol se encajan en un cuadrado de ROLE_ICON_PX SIN deformarse: los de dealer y
+    // ciegas son cuadrados en origen (350x350) pero el de fichas del AUDITOR DE CUENTAS es
+    // apaisado (287x211), y forzarlo al cuadrado lo estrechaba a tres cuartas partes de su ancho.
     private static javax.swing.ImageIcon scaledRoleIcon(String resource) {
-        java.awt.Image img = new javax.swing.ImageIcon(GameLogDialog.class.getResource(resource)).getImage();
-        return new javax.swing.ImageIcon(img.getScaledInstance(ROLE_ICON_PX, ROLE_ICON_PX, java.awt.Image.SCALE_SMOOTH));
+        javax.swing.ImageIcon raw = new javax.swing.ImageIcon(GameLogDialog.class.getResource(resource));
+
+        int width = ROLE_ICON_PX;
+        int height = ROLE_ICON_PX;
+
+        if (raw.getIconWidth() > 0 && raw.getIconHeight() > 0) {
+            float scale = Math.min((float) ROLE_ICON_PX / raw.getIconWidth(), (float) ROLE_ICON_PX / raw.getIconHeight());
+            width = Math.max(1, Math.round(raw.getIconWidth() * scale));
+            height = Math.max(1, Math.round(raw.getIconHeight() * scale));
+        }
+
+        return new javax.swing.ImageIcon(raw.getImage().getScaledInstance(width, height, java.awt.Image.SCALE_SMOOTH));
     }
 
     // Builds a uniform white, rounded-corner card chip for a [A♠] token: value +

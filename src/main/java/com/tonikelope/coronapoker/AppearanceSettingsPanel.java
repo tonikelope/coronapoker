@@ -230,7 +230,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 gf.setZoomLevel(level);
             } else {
                 GameFrame.ZOOM_LEVEL = level;
-                persist("zoom_level", String.valueOf(level));
+                persistDeferred("zoom_level", String.valueOf(level));
             }
         });
         // Zoom de la mesa + Auto ajustar juntos en un recuadro negro fino (el auto-ajuste es un
@@ -558,7 +558,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 return;
             }
             GameFrame.NIVEL_LUZ = (Integer) luz_spinner.getValue();
-            persist("nivel_luz", String.valueOf(GameFrame.NIVEL_LUZ));
+            persistDeferred("nivel_luz", String.valueOf(GameFrame.NIVEL_LUZ));
             applyNivelLuz();
         });
         JLabel luz_label = new JLabel(Translator.translate("settings.nivel_luz") + ":");
@@ -1700,6 +1700,15 @@ public class AppearanceSettingsPanel extends JPanel {
 
     private static boolean prefBool(String key, boolean def) {
         return Boolean.parseBoolean(Helpers.PROPERTIES.getProperty(key, String.valueOf(def)));
+    }
+
+    // Como persist, pero para los SPINNERS: mantener pulsada la flecha dispara un cambio por
+    // repetición, y escribir el fichero en cada uno es I/O en el EDT a ráfagas. El valor se
+    // apunta al momento (lo que leen el revert y isDirty) y el volcado se coalesce. Cualquier
+    // otro guardado inmediato del diálogo (GUARDAR, restaurar, cancelar) lo arrastra igualmente.
+    private static void persistDeferred(String key, String value) {
+        Helpers.PROPERTIES.setProperty(key, value);
+        Helpers.savePropertiesFileDeferred();
     }
 
     // Persiste una preferencia (clave -> valor) sin efecto en vivo. Lo usan los controles

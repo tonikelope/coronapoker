@@ -1210,7 +1210,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             return;
         }
 
-        if (evt == null || new Rectangle(new Dimension(Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()))).contains(evt.getPoint())) {
+        // El interruptor solo ocupa la parte izquierda de su etiqueta, así que el clic vale
+        // únicamente dentro del dibujo. Se mide el icono QUE HAY PUESTO en vez de recalcular la
+        // fórmula con la que se escaló (que vive en refreshLightsIcon): así no pueden divergir.
+        // Sin icono todavía no hay interruptor que pulsar; el atajo (evt == null) entra igual.
+        final javax.swing.Icon lights_icon = lights_label.getIcon();
+
+        if (evt == null || (lights_icon != null && new Rectangle(lights_icon.getIconWidth(), lights_icon.getIconHeight()).contains(evt.getPoint()))) {
             if (GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f) {
 
                 if (GameFrame.interruptorSonidoOn()) {

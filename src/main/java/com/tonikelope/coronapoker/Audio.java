@@ -113,6 +113,8 @@ public class Audio {
     // the newer one. Counting keeps VOICE_RECORDING true while ANY recording is
     // live, regardless of which thread increments/decrements first.
     private final static AtomicInteger VOICE_RECORDING_COUNT = new AtomicInteger(0);
+    // Cuantos silencios de la musica de fondo hay vivos a la vez (ver muteAllLoopMp3).
+    private final static AtomicInteger MP3_LOOP_MUTE_COUNT = new AtomicInteger(0);
     public volatile static CoronaMP3FilePlayer TTS_PLAYER = null;
 
     // Audición del diálogo de Ajustes (botón play junto a cada sonido): una sola a la vez, sea
@@ -892,31 +894,36 @@ public class Audio {
 
                         muteAllExceptMp3Loops();
 
-                        Helpers.GUIRun(() -> {
-                            chat_notify_label.setVisible(true);
-                        });
-
-                        TTS_PLAYER = new CoronaMP3FilePlayer();
-
-                        // Short pre-roll: the duck lands in <= the music line
-                        // buffer (120ms) and opening the voice line below takes
-                        // >= 100ms on its own (same rationale as the voice
-                        // messages).
-                        Helpers.parkThreadMillis(100);
-
-                        float volume = (GameFrame.SONIDOS && !VOICE_RECORDING && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
-
+                        // El silencio se levanta SIEMPRE: si reventara la creacion del reproductor
+                        // (fuera del try de abajo) el juego se quedaba mudo el resto de la sesion,
+                        // con el altavoz diciendo que el sonido esta encendido.
                         try {
+                            Helpers.GUIRun(() -> {
+                                chat_notify_label.setVisible(true);
+                            });
 
-                            TTS_PLAYER.play(System.getProperty("java.io.tmpdir") + "/" + filename, volume);
+                            TTS_PLAYER = new CoronaMP3FilePlayer();
 
-                        } catch (Exception ex) {
-                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS playback error: {0}", ex.getMessage());
+                            // Short pre-roll: the duck lands in <= the music line
+                            // buffer (120ms) and opening the voice line below takes
+                            // >= 100ms on its own (same rationale as the voice
+                            // messages).
+                            Helpers.parkThreadMillis(100);
+
+                            float volume = (GameFrame.SONIDOS && !VOICE_RECORDING && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
+
+                            try {
+
+                                TTS_PLAYER.play(System.getProperty("java.io.tmpdir") + "/" + filename, volume);
+
+                            } catch (Exception ex) {
+                                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS playback error: {0}", ex.getMessage());
+                            } finally {
+                                TTS_PLAYER = null;
+                            }
                         } finally {
-                            TTS_PLAYER = null;
+                            unmuteAllExceptMp3Loops();
                         }
-
-                        unmuteAll();
 
                         Helpers.pausar(500);
 
@@ -990,63 +997,67 @@ public class Audio {
 
             muteAllExceptMp3Loops();
 
-            Helpers.GUIRun(() -> {
-                if (chat_notify_label != null) {
-                    chat_notify_label.setVisible(true);
+            // El silencio se levanta SIEMPRE (mismo motivo que en el TTS de arriba): un fallo al
+            // crear el reproductor dejaba el juego mudo el resto de la sesion.
+            try {
+                Helpers.GUIRun(() -> {
+                    if (chat_notify_label != null) {
+                        chat_notify_label.setVisible(true);
+                    }
+                });
+
+                // Created before the pre-roll so a concurrent stop() (e.g. clicking
+                // another note) during it still cancels this playback, as before.
+                TTS_PLAYER = new CoronaMP3FilePlayer();
+
+                // Short pre-roll: the duck lands in <= the music line buffer
+                // (120ms) and opening the voice line below takes >= 100ms on its
+                // own, so a long wait here just delays the voice.
+                Helpers.parkThreadMillis(100);
+
+                // true once the output line opened (played, finished or played
+                // silent); false ONLY when the line could not be opened at all.
+                boolean line_opened = false;
+
+                // The output line can be momentarily unavailable right after a
+                // recording: closing the capture line plus the mute/unmute/duck
+                // churn leave the device busy for a few tens of ms, so a single
+                // open would drop the note silently (the talk icon shows but
+                // nothing plays). Wait it out with a small bounded backoff. The
+                // happy path opens on the first attempt and is byte-for-byte
+                // unchanged. A silent attempt (sound off, or a fresh recording
+                // reopened the mic) or a dead audio device is never retried: there
+                // is no audibility to recover by waiting.
+                for (int attempt = 0; attempt < VOICE_LINE_OPEN_ATTEMPTS && !line_opened; attempt++) {
+
+                    if (attempt > 0) {
+                        Helpers.parkThreadMillis(VOICE_LINE_OPEN_BACKOFF_MILLIS);
+                        TTS_PLAYER = new CoronaMP3FilePlayer();
+                    }
+
+                    float volume = voiceLineVolume();
+
+                    try {
+                        line_opened = TTS_PLAYER.play(AudioSystem.getAudioInputStream(new ByteArrayInputStream(wav)), volume);
+                    } catch (Exception ex) {
+                        // Decode/stream error: not a line-open failure, retrying would not help
+                        line_opened = true;
+                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Voice message playback error: {0}", ex.getMessage());
+                    } finally {
+                        TTS_PLAYER = null;
+                    }
+
+                    if (!line_opened && (volume == 0f || !AUDIO_AVAILABLE)) {
+                        break;
+                    }
                 }
-            });
 
-            // Created before the pre-roll so a concurrent stop() (e.g. clicking
-            // another note) during it still cancels this playback, as before.
-            TTS_PLAYER = new CoronaMP3FilePlayer();
-
-            // Short pre-roll: the duck lands in <= the music line buffer
-            // (120ms) and opening the voice line below takes >= 100ms on its
-            // own, so a long wait here just delays the voice.
-            Helpers.parkThreadMillis(100);
-
-            // true once the output line opened (played, finished or played
-            // silent); false ONLY when the line could not be opened at all.
-            boolean line_opened = false;
-
-            // The output line can be momentarily unavailable right after a
-            // recording: closing the capture line plus the mute/unmute/duck
-            // churn leave the device busy for a few tens of ms, so a single
-            // open would drop the note silently (the talk icon shows but
-            // nothing plays). Wait it out with a small bounded backoff. The
-            // happy path opens on the first attempt and is byte-for-byte
-            // unchanged. A silent attempt (sound off, or a fresh recording
-            // reopened the mic) or a dead audio device is never retried: there
-            // is no audibility to recover by waiting.
-            for (int attempt = 0; attempt < VOICE_LINE_OPEN_ATTEMPTS && !line_opened; attempt++) {
-
-                if (attempt > 0) {
-                    Helpers.parkThreadMillis(VOICE_LINE_OPEN_BACKOFF_MILLIS);
-                    TTS_PLAYER = new CoronaMP3FilePlayer();
+                if (!line_opened && AUDIO_AVAILABLE && voiceLineVolume() > 0f) {
+                    Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Voice message output line unavailable; note stays clickable in the chat");
                 }
-
-                float volume = voiceLineVolume();
-
-                try {
-                    line_opened = TTS_PLAYER.play(AudioSystem.getAudioInputStream(new ByteArrayInputStream(wav)), volume);
-                } catch (Exception ex) {
-                    // Decode/stream error: not a line-open failure, retrying would not help
-                    line_opened = true;
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Voice message playback error: {0}", ex.getMessage());
-                } finally {
-                    TTS_PLAYER = null;
-                }
-
-                if (!line_opened && (volume == 0f || !AUDIO_AVAILABLE)) {
-                    break;
-                }
+            } finally {
+                unmuteAllExceptMp3Loops();
             }
-
-            if (!line_opened && AUDIO_AVAILABLE && voiceLineVolume() > 0f) {
-                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Voice message output line unavailable; note stays clickable in the chat");
-            }
-
-            unmuteAll();
 
             Helpers.pausar(500);
 
@@ -1558,6 +1569,20 @@ public class Audio {
 
     }
 
+    // Pareja de muteAllExceptMp3Loops. NO usar unmuteAll aqui: aquel suelta tambien el silencio
+    // de la musica, que este nunca puso (solo la agacha), asi que un sting del crupier que
+    // estuviera silenciandola se quedaba sin su silencio a mitad y la musica volvia encima.
+    public static void unmuteAllExceptMp3Loops() {
+
+        MUTED_ALL = false;
+
+        unmuteAllWav();
+
+        // Deshace el agachado: el volumen vuelve a lo que digan las banderas que sigan vivas.
+        refreshALLMP3LoopVolume();
+
+    }
+
     public static void muteAllWav() {
 
         MUTED_WAV = true;
@@ -1589,7 +1614,14 @@ public class Audio {
         }
     }
 
+    // Se cuentan los silencios solapados en vez de un simple interruptor, igual que hace
+    // VOICE_RECORDING_COUNT con las notas de voz: los stings del crupier (badbeat, suertudo,
+    // perdedor) se lanzan cada uno en su hilo, y en un badbeat multiway sale uno POR CADA
+    // perdedor. Con un booleano, el primero que terminaba devolvia la musica mientras los demas
+    // seguian sonando encima.
     public static void muteAllLoopMp3() {
+
+        MP3_LOOP_MUTE_COUNT.incrementAndGet();
 
         MUTED_MP3_LOOP = true;
 
@@ -1598,6 +1630,11 @@ public class Audio {
     }
 
     public static void unmuteAllLoopMp3() {
+
+        if (MP3_LOOP_MUTE_COUNT.updateAndGet(n -> n > 0 ? n - 1 : 0) > 0) {
+            // Queda algun silencio vivo: la musica sigue callada hasta que lo suelte el ultimo.
+            return;
+        }
 
         MUTED_MP3_LOOP = false;
 

@@ -41,9 +41,9 @@ public class BrightnessLayerUI extends LayerUI<JComponent> {
     private Color cached_color = null;
     private float cached_brightness = -1f;
 
-    // Opacidad del velo negro que corresponde al nivel de luz configurado: su complemento
-    // (60 % de luz -> 0,40 de velo, el valor histórico). Se acota al rango del ajuste por si
-    // la clave del fichero de configuración se editó a mano fuera de él.
+    // Opacidad del velo negro que corresponde a la luminosidad configurada: su complemento
+    // (50 % de luz -> 0,50 de velo). Se acota al rango del ajuste por si la clave del fichero de
+    // configuración se editó a mano fuera de él.
     public static float lightsOffBrightness() {
 
         return (100 - Math.max(GameFrame.NIVEL_LUZ_MIN, Math.min(GameFrame.NIVEL_LUZ, GameFrame.NIVEL_LUZ_MAX))) / 100f;

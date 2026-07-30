@@ -1815,9 +1815,22 @@ public class AppearanceSettingsPanel extends JPanel {
                 // estarlo a ratos: el auto-ajuste de zoom deshabilita el suyo mientras corre su
                 // trabajo en segundo plano. Sin esta salida, ese ajuste se escapaba de "Restaurar
                 // predeterminados" (o peor: la casilla cambiaba y el ajuste de verdad no). Es el
-                // mismo peligro que revertLive ya esquiva al revertir las animaciones.
-                standalone.run();
+                // mismo peligro que revertLive ya esquiva al revertir las animaciones, y hay que
+                // dejar igual de sincronizados sus DOS espejos: el item del menú principal y el
+                // del popup del tapete. setSelected no dispara el listener, así que no reentra.
+                if ((menu != null ? menu.isSelected() : cb.isSelected()) != defaultValue) {
+                    standalone.run();
+                }
+
                 cb.setSelected(defaultValue);
+
+                if (menu != null) {
+                    menu.setSelected(defaultValue);
+
+                    if (gf != null && menu == gf.getAuto_fit_zoom_menu() && Helpers.TapetePopupMenu.AUTO_ZOOM_MENU != null) {
+                        Helpers.TapetePopupMenu.AUTO_ZOOM_MENU.setSelected(defaultValue);
+                    }
+                }
             }
         });
         // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con

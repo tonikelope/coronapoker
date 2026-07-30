@@ -18473,8 +18473,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                     // Re-sincroniza el icono del interruptor con el brillo, igual que hacen el
-                    // buy-in inicial y el recover: mientras dura el dialogo la mesa se oscurece
-                    // por debajo de el, y el icono se quedaba luciendo "luces encendidas".
+                    // buy-in inicial y el recover: mientras dura el diálogo la mesa se oscurece
+                    // por debajo de él, y el icono se quedaba luciendo "luces encendidas".
                     GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                 });
 
@@ -18561,6 +18561,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                     // Mismo re-sincronizado del icono que en la rama de recompra de arriba.
+                    // Aquí la mesa ya no se recupera: el jugador se queda de espectador.
                     GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
                 });
 

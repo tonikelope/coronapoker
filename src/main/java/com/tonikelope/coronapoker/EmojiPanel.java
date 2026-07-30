@@ -217,8 +217,12 @@ public class EmojiPanel extends javax.swing.JPanel {
                     historial.removeFirst();
                 }
 
-            } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (UnsupportedEncodingException | IllegalArgumentException ex) {
+                // IllegalArgumentException cubre tanto un Base64 corrupto como un numero que no lo
+                // es (NumberFormatException lo extiende). Esto corre en un hilo del pool y nadie
+                // recoge su resultado, asi que sin esta red un historial de emojis a medias dejaba
+                // el panel a null en silencio y reventaba mas tarde, al abrir el chat.
+                Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, "Broken emoji history, starting over.", ex);
             }
         }
 

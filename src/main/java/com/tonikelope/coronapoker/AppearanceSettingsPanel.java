@@ -562,9 +562,12 @@ public class AppearanceSettingsPanel extends JPanel {
             applyNivelLuz();
         });
         JLabel luz_label = new JLabel(Translator.translate("settings.nivel_luz") + ":");
-        // El interruptor es apaisado (256x120), así que va al alto de los demás iconos de la fila
-        // pero con SU ancho: escalarlo a un cuadrado de 24 lo dejaría aplastado a menos de la mitad.
-        luz_label.setIcon(scaledIcon("/images/lights_on.png", Math.round(24 * (256f / 120)), 24));
+        // El interruptor es apaisado (256x120): se encaja dentro de la misma caja de 24 que ocupan
+        // los iconos de las otras tres filas, conservando su proporción. Darle su ancho real (51)
+        // lo haría más grande, pero descolgaría su texto de "Baraja", "Cara trasera" y "Tapete", y
+        // empujaría los tres desplegables a la derecha: en esta rejilla el icono va DENTRO de la
+        // etiqueta, así que su ancho es parte del ancho de la columna.
+        luz_label.setIcon(fitIcon("/images/lights_on.png", 24, 24));
         baraja_gbc.gridx = 0;
         baraja_gbc.gridy = 3;
         baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
@@ -1963,13 +1966,34 @@ public class AppearanceSettingsPanel extends JPanel {
         return scaledIcon(path, size, size);
     }
 
-    // Para los iconos que NO son cuadrados y quedarían aplastados al meterlos en una caja cuadrada.
     private static javax.swing.ImageIcon scaledIcon(String path, int width, int height) {
         try {
             return Helpers.scaleIcon(AppearanceSettingsPanel.class.getResource(path), width, height);
         } catch (java.net.MalformedURLException ex) {
             return null;
         }
+    }
+
+    // Encaja un icono dentro de la caja indicada SIN deformarlo, para los dibujos que no son
+    // cuadrados (el interruptor de luces es 256x120: en un cuadrado de 24 sale aplastado a menos
+    // de la mitad de su ancho).
+    private static javax.swing.ImageIcon fitIcon(String path, int max_width, int max_height) {
+
+        java.net.URL url = AppearanceSettingsPanel.class.getResource(path);
+
+        if (url == null) {
+            return null;
+        }
+
+        javax.swing.ImageIcon raw = new javax.swing.ImageIcon(url);
+
+        if (raw.getIconWidth() <= 0 || raw.getIconHeight() <= 0) {
+            return raw;
+        }
+
+        float scale = Math.min((float) max_width / raw.getIconWidth(), (float) max_height / raw.getIconHeight());
+
+        return scaledIcon(path, Math.max(1, Math.round(raw.getIconWidth() * scale)), Math.max(1, Math.round(raw.getIconHeight() * scale)));
     }
 
     private int currentTapeteIndex() {

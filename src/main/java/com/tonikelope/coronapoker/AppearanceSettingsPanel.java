@@ -1878,8 +1878,12 @@ public class AppearanceSettingsPanel extends JPanel {
 
     // Checkbox que REFLEJA un toggle de apariencia. En partida (menu != null) un clic =
     // un clic en el item de menú (aplica en vivo + persiste + refleja en el popup). Fuera
-    // de partida (menu == null) ejecuta el persist-only suministrado. Ambos conmutan un
-    // paso, así que quedan sincronizados con el estado.
+    // de partida (menu == null) ejecuta el persist-only suministrado.
+    // OJO: la casilla NO siempre va sincronizada con el ajuste. Marcarla mientras su item de menú
+    // está deshabilitado (el auto-ajuste de zoom deshabilita el suyo mientras trabaja) la conmuta
+    // igual, pero el clic delegado es un NO-OP, así que se queda diciendo lo contrario del estado
+    // real. Por eso el estado DE VERDAD es el del item de menú, y por eso "Restaurar
+    // predeterminados" recoloca la casilla en todos sus caminos.
     private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone, boolean defaultValue) {
         return delegatingCheckbox(iconPath, i18nKey, selected, menu, standalone, defaultValue, null);
     }
@@ -1894,12 +1898,48 @@ public class AppearanceSettingsPanel extends JPanel {
                 standalone.run();
             }
         });
-        // Restaurar predeterminados: un doClick condicional recorre el mismo camino que un clic del
-        // usuario (aplica en vivo + persiste). El estado marcado y el efecto conmutan un paso, así
-        // que basta con clicar si difiere del valor de fábrica.
+        // Restaurar predeterminados: mientras se pueda, un clic recorre el mismo camino que el del
+        // usuario (aplica en vivo + persiste). Los tres caminos (nada que hacer, clic normal y
+        // salida de emergencia) dejan la casilla en el valor de fábrica, porque puede llegar aquí
+        // desviada del ajuste real (ver la nota de delegatingCheckbox).
         reset_actions.add(() -> {
-            if (cb.isSelected() != defaultValue) {
+            // El estado DE VERDAD es el del item de menú, que va en lockstep con el flag; la
+            // casilla puede haberse quedado desincronizada (marcarla mientras su item estaba
+            // deshabilitado no aplica nada). Mirar la casilla aquí dejaba escapar justo el caso
+            // que la rama de abajo viene a arreglar.
+            boolean current = menu != null ? menu.isSelected() : cb.isSelected();
+
+            if (current == defaultValue) {
+                // Nada que aplicar, pero la casilla se pone en su sitio por si venía desviada.
+                cb.setSelected(defaultValue);
+                return;
+            }
+
+            if (cb.isEnabled() && (menu == null || menu.isEnabled())) {
                 cb.doClick();
+                // El clic CONMUTA la casilla, y si venía desviada del estado real la deja marcando
+                // lo contrario del ajuste que se acaba de aplicar (y el siguiente clic del usuario
+                // lo desharía). No-op cuando ya coincide, que es lo normal.
+                cb.setSelected(defaultValue);
+            } else {
+                // Un doClick sobre un control DESHABILITADO no hace nada, y el item de menú puede
+                // estarlo a ratos: el auto-ajuste de zoom deshabilita el suyo mientras corre su
+                // trabajo en segundo plano. Sin esta salida, ese ajuste se escapaba de "Restaurar
+                // predeterminados" (o peor: la casilla cambiaba y el ajuste de verdad no). Es el
+                // mismo peligro que revertLive ya esquiva al revertir las animaciones, y hay que
+                // dejar igual de sincronizados sus DOS espejos: el item del menú principal y el
+                // del popup del tapete. setSelected no dispara el listener, así que no reentra.
+                standalone.run();
+
+                cb.setSelected(defaultValue);
+
+                if (menu != null) {
+                    menu.setSelected(defaultValue);
+
+                    if (gf != null && menu == gf.getAuto_fit_zoom_menu() && Helpers.TapetePopupMenu.AUTO_ZOOM_MENU != null) {
+                        Helpers.TapetePopupMenu.AUTO_ZOOM_MENU.setSelected(defaultValue);
+                    }
+                }
             }
         });
         // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con

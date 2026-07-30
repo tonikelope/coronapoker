@@ -416,11 +416,24 @@ public class BalanceScreen extends JPanel {
     }
 
     private void openLog() {
-        GameFrame.getInstance().getRegistro_dialog().setPreferredSize(new Dimension(Math.round(0.7f * GameFrame.getInstance().getWidth()), Math.round(0.7f * GameFrame.getInstance().getHeight())));
-        GameFrame.getInstance().getRegistro_dialog().pack();
-        GameFrame.getInstance().getRegistro_dialog().setLocationRelativeTo(this);
-        GameFrame.getInstance().getRegistro_dialog().setModal(true);
-        GameFrame.getInstance().getRegistro_dialog().setVisible(true);
+        GameLogDialog log = GameFrame.getInstance().getRegistro_dialog();
+
+        log.setPreferredSize(new Dimension(Math.round(0.7f * GameFrame.getInstance().getWidth()), Math.round(0.7f * GameFrame.getInstance().getHeight())));
+        log.pack();
+        log.setLocationRelativeTo(this);
+
+        // El registro es el MISMO diálogo que abre el menú de la mesa, y nace NO modal. Aquí hace
+        // falta modal (la pantalla final está por encima de todo), pero hay que devolverlo como
+        // estaba: el menú solo lo reconstruye si cambia de ventana padre, así que dentro de la
+        // misma timba volvía a abrirse modal y dejaba la mesa bloqueada. Se restaura ya cerrado,
+        // que es cuando setModal surte efecto.
+        log.setModal(true);
+
+        try {
+            log.setVisible(true);
+        } finally {
+            log.setModal(false);
+        }
     }
 
     // -------------------------------------------------------------------------

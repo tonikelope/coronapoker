@@ -1294,7 +1294,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             item_estructura_por_defecto = Translator.translate("blinds.estructura_por_defecto");
             estructura_combobox.removeAllItems();
             estructura_combobox.addItem(item_estructura_por_defecto);
-            if (item_estructura_actual != null) {
+            // Salvo que ya exista una guardada con ese mismo nombre: el combo mostraria la entrada
+            // dos veces y la guardada quedaria inseleccionable.
+            if (item_estructura_actual != null && !BlindStructure.loadAll().containsKey(item_estructura_actual)) {
                 estructura_combobox.addItem(item_estructura_actual);
             }
             for (String name : BlindStructure.loadAll().keySet()) {

@@ -1251,6 +1251,19 @@ public class Helpers {
         });
     }
 
+    // Pone un icono que el llamante YA tiene escalado (normalmente cacheado, para no repetir la
+    // decodificación y el escalado suavizado en cada cambio), marcándolo igual que los helpers
+    // setScaled* para que scaleIcons no lo vuelva a escalar.
+    public static void setPreScaledIconLabel(JLabel label, ImageIcon icon) {
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+                label.setIcon(icon);
+                label.putClientProperty("cp_scaled_icon", Boolean.TRUE);
+            }
+        });
+    }
+
     // Escala un icono y lo recolorea a BLANCO preservando el alfa (la silueta del
     // dibujo). Para iconos pensados para fondo claro (p. ej. el engranaje del menú)
     // que se muestran sobre el tapete oscuro, como el icono del altavoz.

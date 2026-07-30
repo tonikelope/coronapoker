@@ -74,7 +74,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JLayer;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JProgressBar;
@@ -347,7 +346,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // y LOCAL por cliente (no se difunde). Por defecto DESACTIVADO (tapa parte de la mesa).
     public static volatile boolean RESALTAR_AVATARES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_avatares", "false"));
     // Luminosidad que queda en la mesa con las luces APAGADAS, en % (100 = sin oscurecer). El velo
-    // negro que pinta BrightnessLayerUI es su complemento: 50 % de luz = velo alpha 0,50. Antes
+    // negro que pinta BrightnessOverlay es su complemento: 50 % de luz = velo alpha 0,50. Antes
     // estaba clavado en 0,40 (equivalente al 60 %), así que el apagado por defecto es ahora un
     // punto más oscuro. Puramente visual y LOCAL por cliente (no se difunde). Lo aplican por igual
     // el interruptor de la mesa, el atajo y los apagados automáticos (pausa, game over, recover,
@@ -1428,7 +1427,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private final Crupier crupier;
     private final boolean partida_local;
     private final String nick_local;
-    private final BrightnessLayerUI capa_brillo = new BrightnessLayerUI();
+    private final BrightnessOverlay capa_brillo = new BrightnessOverlay();
 
     private volatile ZoomableInterface[] zoomables;
     private volatile long conta_tiempo_juego = 0L;
@@ -1456,7 +1455,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile Timer tiempo_juego;
     private volatile int tapete_counter = 0;
     private volatile int i60_c = 0;
-    private volatile JLayer<JComponent> frame_layer = null;
     private volatile boolean recover = false;
     // La pantalla final (BalanceScreen) es un overlay montado sobre el glassPane de
     // ESTE frame (ya no un JDialog modal aparte). Mientras está activo, el
@@ -1534,7 +1532,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         THIS = null;
     }
 
-    public BrightnessLayerUI getCapa_brillo() {
+    public BrightnessOverlay getCapa_brillo() {
         return capa_brillo;
     }
 
@@ -3077,11 +3075,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().getJugadores().addAll(Arrays.asList(nuevo_tapete.getPlayers()));
 
             Helpers.GUIRunAndWait(() -> {
-                GameFrame.getInstance().getContentPane().remove(frame_layer);
+                GameFrame.getInstance().getContentPane().remove(tapete);
                 tapete = nuevo_tapete;
                 zoomables = new ZoomableInterface[]{tapete};
-                frame_layer = new JLayer<>(tapete, capa_brillo);
-                GameFrame.getInstance().getContentPane().add(frame_layer);
+                GameFrame.getInstance().getContentPane().add(tapete);
 
                 // TOCTOU: si la partida terminó mientras se construía/swapeaba el
                 // tablero acortado, sus paneles (visibles por defecto) NO deben
@@ -3897,9 +3894,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         setTitle(Init.WINDOW_TITLE + Translator.translate("game.timba_en_curso_2") + nicklocal + ")");
 
-        frame_layer = new JLayer<>(tapete, capa_brillo);
-
-        getContentPane().add(frame_layer);
+        getContentPane().add(tapete);
 
         force_reconnect_menu.setEnabled(isPartida_local());
 

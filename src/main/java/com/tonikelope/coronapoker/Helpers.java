@@ -3482,6 +3482,27 @@ public class Helpers {
         }
     }
 
+    // Lee una preferencia NUMERICA de PROPERTIES con red: si la clave falta, viene vacía o no es
+    // un número, cae al valor por defecto en vez de tumbar el arranque. Estos parseos viven en
+    // inicializadores estáticos, donde un NumberFormatException sube como
+    // ExceptionInInitializerError y deja la ventana a medio montar. Es lo que readDialogZoom (aquí
+    // debajo) ya hacía para dialog_zoom, generalizado al resto de claves numéricas.
+    public static int propInt(String key, int def) {
+
+        try {
+            return Integer.parseInt(PROPERTIES.getProperty(key, String.valueOf(def)).trim());
+        } catch (NumberFormatException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Invalid {0} property, falling back to default.", key);
+            return def;
+        }
+    }
+
+    // Variante que además acota el valor al rango válido del ajuste, para las claves que lo tienen.
+    public static int propInt(String key, int def, int min, int max) {
+
+        return Math.max(min, Math.min(propInt(key, def), max));
+    }
+
     // Lee la preferencia de zoom de diálogos (dialog_zoom) de PROPERTIES, acotada al rango
     // válido. 1.0 = tamaño de diseño. Se llama al inicializar el campo estático DIALOG_ZOOM.
     private static float readDialogZoom() {

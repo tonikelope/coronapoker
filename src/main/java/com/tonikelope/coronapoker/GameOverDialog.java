@@ -50,14 +50,14 @@ public class GameOverDialog extends JDialog {
     private volatile RebuyDialog buyin_dialog = null;
     private volatile boolean exit = false;
 
-    // Sin cinemáticas el GIF de game over no debe reproducirse: en su lugar se pinta un
-    // "GAME OVER" estático (rojo borde negro sobre fondo negro) con una CUENTA ATRÁS de
-    // ALT_COUNTDOWN_SECONDS y SIN audio alguno (ni game_over.wav ni los efectos). Esa
-    // cuenta atrás es además la ventana de decisión de este diálogo alternativo (al
-    // llegar a 0 -> espectador). Los botones continuar/espectador son los mismos.
-    // Congruente con el rótulo BARAJANDO del barajado sin gif.
+    // Sin la cinemática de game over (su propio ajuste o el maestro de cinemáticas/animaciones)
+    // el GIF de game over no debe reproducirse: en su lugar se pinta un "GAME OVER" estático
+    // (rojo borde negro sobre fondo negro) con una CUENTA ATRÁS de ALT_COUNTDOWN_SECONDS y SIN
+    // audio alguno (ni game_over.wav ni los efectos). Esa cuenta atrás es además la ventana de
+    // decisión de este diálogo alternativo (al llegar a 0 -> espectador). Los botones
+    // continuar/espectador son los mismos. Congruente con el rótulo BARAJANDO del barajado sin gif.
     private static final int ALT_COUNTDOWN_SECONDS = 10;
-    private final boolean cinematics_off = !GameFrame.cinematicasOn();
+    private final boolean cinematics_off = !GameFrame.cinematicasGameOverOn();
     private volatile int countdown_seconds = ALT_COUNTDOWN_SECONDS;
     private volatile javax.swing.Timer countdown_timer = null;
 

@@ -6756,13 +6756,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             Helpers.GUIRun(() -> {
-                // Apagado temporal mientras se recupera la mano. El finally garantiza que el velo
-                // se levanta aunque el dialogo reviente.
-                GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
-                GameFrame.getInstance().getTapete().repaint();
-                GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
-
+                // Apagado temporal mientras se recupera la mano. Va DENTRO del try (igual que los
+                // dos bloques del game over) para que el finally lo deshaga aunque reviente el
+                // repintado, el icono o el propio dialogo: un apagado suelto dejaria la mesa negra
+                // y el interruptor muerto.
                 try {
+                    GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
+                    GameFrame.getInstance().getTapete().repaint();
+                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+
                     recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
                     recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
                     recover_dialog.setVisible(true);
@@ -18441,16 +18443,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 Helpers.GUIRunAndWait(() -> {
-                    // La mesa se oscurece mientras dura el game over. El icono del interruptor
-                    // sigue al velo, y el finally garantiza que el velo se levanta aunque el
-                    // diálogo reviente.
-                    GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
-
-                    GameFrame.getInstance().getTapete().repaint();
-
-                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
-
+                    // La mesa se oscurece mientras dura el game over. El apagado va DENTRO del try
+                    // para que el finally lo deshaga pase lo que pase: si reventara el repintado o
+                    // el icono, un apagado suelto dejaría la mesa negra y el interruptor muerto.
                     try {
+                        GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
+
+                        GameFrame.getInstance().getTapete().repaint();
+
+                        GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+
                         gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true);
 
                         GameFrame.getInstance().setGame_over_dialog(true);
@@ -18526,15 +18528,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
 
                 Helpers.GUIRunAndWait(() -> {
-                    // Mismo apagado temporal que en la rama de recompra de arriba. Aquí la mesa ya
-                    // no se recupera: el jugador se queda de espectador.
-                    GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
-
-                    GameFrame.getInstance().getTapete().repaint();
-
-                    GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
-
+                    // Mismo apagado temporal que en la rama de recompra de arriba (y dentro del try
+                    // por lo mismo). Aquí la mesa ya no se recupera: el jugador se queda de
+                    // espectador.
                     try {
+                        GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
+
+                        GameFrame.getInstance().getTapete().repaint();
+
+                        GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+
                         gameover_dialog = new GameOverDialog(GameFrame.getInstance(), true, true);
 
                         GameFrame.getInstance().setGame_over_dialog(true);

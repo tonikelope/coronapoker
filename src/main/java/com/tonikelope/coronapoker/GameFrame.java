@@ -2281,13 +2281,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             this.lock_pause.notifyAll();
 
+            // El bloque de abajo va al EDT de forma ASÍNCRONA, así que se captura aquí el estado
+            // que lo encola: si llegan dos cambios seguidos (pausar y reanudar, o dos jugadores a
+            // la vez), leer el campo dentro del lambda haría que los dos vieran el valor final y
+            // ejecutasen la MISMA rama dos veces. El apagado de la mesa lleva la cuenta de cuántos
+            // motivos la mantienen a oscuras, y una rama repetida la descuadra: de más, la mesa se
+            // queda negra con el interruptor muerto; de menos, se ilumina bajo un diálogo.
+            final boolean pausada = this.timba_pausada;
+
             Helpers.GUIRun(() -> {
 
                 if (pausa_dialog == null) {
                     pausa_dialog = new PauseDialog(this, false);
                 }
 
-                if (timba_pausada) {
+                if (pausada) {
 
                     if (isPartida_local() || getNick_local().equals(user)) {
                         Helpers.setScaledIconButton(GameFrame.getInstance().getTapete().getCommunityCards().getPause_button(), getClass().getResource("/images/continue.png"), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()), Math.round(0.6f * GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().getHeight()));

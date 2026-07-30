@@ -1627,10 +1627,10 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // Previsualización en vivo de la luminosidad: solo hay algo que repintar si las luces están
-    // APAGADAS en este momento (el ajuste es justo la profundidad de ese velo). Con las luces
-    // encendidas no se nota hasta que se apaguen, así que no se toca nada. lightsOFF recalcula el
-    // velo con el nivel recién guardado.
+    // Previsualización en vivo de la luminosidad: el velo se recalcula siempre con el nivel recién
+    // guardado, pero solo hay algo que repintar si la mesa está oscurecida en este momento (el
+    // ajuste es justo la profundidad de ese velo). Con las luces encendidas no se nota hasta que
+    // se apaguen.
     // Se mira GameFrame.getInstance() y NO el gf capturado al abrir el diálogo: si la timba
     // terminó con Ajustes abierto, ese gf sigue siendo no-null pero la mesa ya no existe, y este
     // método corre también al descartar cambios (revertLive).

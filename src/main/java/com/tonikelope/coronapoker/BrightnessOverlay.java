@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.util.concurrent.atomic.AtomicInteger;
 
 // Estado del velo de "apagar las luces" de la mesa y su pintado. Lo pinta el tapete al final de su
 // paint(), y también el panel de GIFs, que es una ventana suelta y se oscurece por su cuenta (esa,
@@ -52,9 +53,11 @@ public class BrightnessOverlay {
     // abierto el game over acababa con la mesa ILUMINADA en plena pausa, y con el interruptor
     // diciendo lo contrario de lo que se veía.
     private volatile boolean user_lights_off = false;
-    private final java.util.concurrent.atomic.AtomicInteger forced_lights_off = new java.util.concurrent.atomic.AtomicInteger(0);
-    // Brillo EFECTIVO, el que se pinta: derivado de los dos de arriba, nunca se fija a mano. Lo
-    // escribe el EDT y lo leen los hilos del crupier.
+    private final AtomicInteger forced_lights_off = new AtomicInteger(0);
+    // Brillo EFECTIVO, el que se pinta: derivado de los dos de arriba, nunca se fija a mano. Hoy
+    // todo lo que lo escribe y lo lee corre en el EDT (el crupier toca el velo desde dentro de sus
+    // GUIRun), pero se deja volatile y el recálculo sincronizado para que llamarlo desde otro hilo
+    // no pueda dejarlo desfasado de forma permanente.
     private volatile float brightness = 0f;
     // Color del velo, recreado solo cuando cambia el brillo. Lo comparten todas las superficies
     // que se oscurecen, que siempre pintan al mismo brillo y desde el EDT.
@@ -106,7 +109,7 @@ public class BrightnessOverlay {
 
     // Recalcula el brillo efectivo. Público porque cambiar la luminosidad en Ajustes tiene que
     // reflejarse en el velo que ya esté puesto.
-    public void refreshBrightness() {
+    public synchronized void refreshBrightness() {
 
         brightness = (user_lights_off || forced_lights_off.get() > 0) ? BrightnessOverlay.lightsOffBrightness() : 0f;
     }

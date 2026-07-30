@@ -195,12 +195,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int DEFAULT_CARD_FLIP_DURATION = 620; // ~ la del GIF antiguo (31 frames x 20 ms)
     public static final int CARD_FLIP_DURATION_MIN = 150;
     public static final int CARD_FLIP_DURATION_MAX = 1500;
-    public static volatile int CARD_FLIP_DURATION = Integer.parseInt(Helpers.PROPERTIES.getProperty("card_flip_duration", String.valueOf(DEFAULT_CARD_FLIP_DURATION)));
+    // Acotada a MIN/MAX, que hasta ahora eran dos constantes declaradas y sin usar.
+    public static volatile int CARD_FLIP_DURATION = Helpers.propInt("card_flip_duration", DEFAULT_CARD_FLIP_DURATION, CARD_FLIP_DURATION_MIN, CARD_FLIP_DURATION_MAX);
     // Efecto "acercar": la animación de destape se renderiza a este porcentaje del tamaño de la
     // carta estática (100 = desactivado, alineado pixel-perfect; >100 da sensación de que la carta
     // se acerca a la pantalla y luego se asienta a su tamaño real al terminar el giro).
     public static final int DEFAULT_CARD_FLIP_ZOOM = 100; // desactivado por defecto
-    public static volatile int CARD_FLIP_ZOOM = Integer.parseInt(Helpers.PROPERTIES.getProperty("card_flip_zoom", String.valueOf(DEFAULT_CARD_FLIP_ZOOM)));
+    public static volatile int CARD_FLIP_ZOOM = Helpers.propInt("card_flip_zoom", DEFAULT_CARD_FLIP_ZOOM);
     public static final int HURRYUP_WARNING_SECONDS = 10; // aviso "date prisa" (bocina + parpadeo) cuando quedan estos segundos
 
     // Umbral efectivo del aviso hurryup en segundos restantes. El contador de accion arranca en
@@ -306,7 +307,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "true"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
-    public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
+    // SIN acotar: el zoom no tiene tope en el motor y el nivel puede ser negativo (zoom out).
+    public static volatile int ZOOM_LEVEL = Helpers.propInt("zoom_level", GameFrame.DEFAULT_ZOOM_LEVEL);
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
     // Trasera de las cartas: "default" (sigue a la baraja actual) o el nombre de otra
     // baraja cuyo dorso se usa. Al ser "default" el que sigue a la baraja, no hace falta
@@ -360,7 +362,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // Se acota AL CARGAR (no solo al pintar el velo): así el spinner de Ajustes, el valor que se
     // re-persiste al descartar cambios y el velo hablan siempre del mismo número, aunque la clave
     // se haya editado a mano fuera de rango.
-    public static volatile int NIVEL_LUZ = Math.max(NIVEL_LUZ_MIN, Math.min(Integer.parseInt(Helpers.PROPERTIES.getProperty("nivel_luz", String.valueOf(DEFAULT_NIVEL_LUZ))), NIVEL_LUZ_MAX));
+    public static volatile int NIVEL_LUZ = Helpers.propInt("nivel_luz", DEFAULT_NIVEL_LUZ, NIVEL_LUZ_MIN, NIVEL_LUZ_MAX);
     // La pantalla final (BalanceScreen) guarda automáticamente una captura (mismo mecanismo que
     // CTRL+P: printAll del rootPane, sin Robot ni captura del SO) JUSTO al terminar el contador de
     // dinero; y si el jugador SALE de la pantalla final ANTES de que termine (por cualquiera de los
@@ -381,7 +383,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean ANIMACION_SWAP_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_swap", "true"));
     // Duración (ms) del cruce del swap. 320 = normal (por defecto).
     public static final int DEFAULT_SWAP_ANIM_DURATION = 320;
-    public static volatile int SWAP_ANIM_DURATION = Integer.parseInt(Helpers.PROPERTIES.getProperty("swap_velocidad", String.valueOf(DEFAULT_SWAP_ANIM_DURATION)));
+    public static volatile int SWAP_ANIM_DURATION = Helpers.propInt("swap_velocidad", DEFAULT_SWAP_ANIM_DURATION);
     // Estilo del cruce: true = con arco ("saltito", una arquea arriba y la otra abajo); false =
     // desplazamiento horizontal recto (una pasa por delante de la otra, por defecto).
     public static volatile boolean SWAP_ANIM_ARC = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("swap_arco", "false"));
@@ -391,11 +393,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean ANIMACION_DOWNGRADE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_downgrade", "true"));
     // Duración (ms) de la animación de recolocación. 500 = normal (por defecto).
     public static final int DEFAULT_DOWNGRADE_VELOCIDAD = 500;
-    public static volatile int DOWNGRADE_VELOCIDAD = Integer.parseInt(Helpers.PROPERTIES.getProperty("downgrade_velocidad", String.valueOf(DEFAULT_DOWNGRADE_VELOCIDAD)));
+    public static volatile int DOWNGRADE_VELOCIDAD = Helpers.propInt("downgrade_velocidad", DEFAULT_DOWNGRADE_VELOCIDAD);
     // Velocidad del reparto como % de la pausa base (Crupier.REPARTIR_PAUSA): 100 = normal (por
     // defecto, la velocidad histórica), >100 más lento, <100 más rápido.
     public static final int DEFAULT_REPARTO_VELOCIDAD = 100;
-    public static volatile int REPARTO_VELOCIDAD = Integer.parseInt(Helpers.PROPERTIES.getProperty("reparto_velocidad", String.valueOf(DEFAULT_REPARTO_VELOCIDAD)));
+    public static volatile int REPARTO_VELOCIDAD = Helpers.propInt("reparto_velocidad", DEFAULT_REPARTO_VELOCIDAD);
 
     // Periodo (ms) del Timer de las animaciones pre-renderizadas (barajado, reparto, fichas, destape),
     // FIJADO a 2 ms (≈500 repaints/s). El ritmo real lo marca el reloj (System.nanoTime); esto solo

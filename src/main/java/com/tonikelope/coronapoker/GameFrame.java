@@ -5850,7 +5850,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     tapete.autoZoom(false);
                 });
             }
-            Helpers.savePropertiesFile();
+            // Volcado coalescido: este camino lo dispara el spinner de Ajustes, que con la flecha
+            // mantenida encadena un cambio por repetición (el zoom fuera de partida ya lo hace).
+            Helpers.savePropertiesFileDeferred();
         });
     }
 

@@ -3400,6 +3400,11 @@ public class Helpers {
      */
     public static void restartCoronaPoker() {
         try {
+            // 0. Flush any pending deferred save BEFORE spawning the child JVM: the shutdown hook
+            // would otherwise truncate and rewrite the properties file while the new instance is
+            // already reading it, and the child could start with everything at its defaults.
+            Helpers.savePropertiesFile();
+
             // 1. Get the Java executable and the current JAR paths
             String javaBin = Helpers.getJavaBinPath();
             String currentJar = Helpers.getCurrentJarPath();
@@ -3919,51 +3924,79 @@ public class Helpers {
     // DISCRETOS (casillas, desplegables, menús) siguen guardando al momento con
     // savePropertiesFile(): un clic, una escritura.
     private static final int PROPERTIES_FLUSH_DELAY = 500;
+    // Lock PROPIO del fichero de preferencias. Antes savePropertiesFile era "synchronized static",
+    // o sea que tomaba el monitor de Helpers.class, que es el lock de facto de la base de datos
+    // (getSQLITE, closeSQLITE y los cuatro bloques de TOFUResolver lo usan). Escribir un
+    // .properties no tiene nada que ver con SQLite, y desde el hook de cierre esa dependencia
+    // dejaba la salida esperando a la transacción que estuviera en curso, sin límite de tiempo.
+    private static final Object PROPERTIES_LOCK = new Object();
+    // Hay valores apuntados en PROPERTIES que todavía no están en disco. NO vale mirar
+    // PROPERTIES_FLUSH_TIMER.isRunning(): un Timer no repetitivo se da de baja de la TimerQueue AL
+    // DISPARAR (TimerQueue.run hace post() y acto seguido delayedTimer = null) y post() solo encola
+    // el listener con invokeLater, así que entre el disparo y el volcado de verdad isRunning() ya
+    // dice false y el hook se saltaría justo el guardado que tenía que salvar.
+    private static volatile boolean PROPERTIES_DIRTY = false;
     private static final javax.swing.Timer PROPERTIES_FLUSH_TIMER = new javax.swing.Timer(PROPERTIES_FLUSH_DELAY, (java.awt.event.ActionEvent e) -> savePropertiesFile());
 
-    // Cierra la ventana del volcado coalescido: si la aplicación se cierra dentro de esos
-    // PROPERTIES_FLUSH_DELAY ms, el valor estaría solo en memoria y se perdería. El hook cubre el
-    // cierre normal y System.exit (no un kill a lo bruto, que es la misma exposición que tiene
-    // cualquier escritura a medias). Solo escribe si de verdad quedaba algo pendiente.
     static {
-        try {
-            Thread flush_hook = new Thread(() -> {
-                if (PROPERTIES_FLUSH_TIMER.isRunning()) {
-                    savePropertiesFile();
-                }
-            }, "CoronaPoker-Properties-Flush-Hook");
-            flush_hook.setDaemon(false);
-            Runtime.getRuntime().addShutdownHook(flush_hook);
-        } catch (Throwable ignored) {
-            // Sin hook se vuelve al comportamiento de antes: se pierde, como mucho, el ultimo
-            // valor de un control continuo movido en el medio segundo previo al cierre.
+        PROPERTIES_FLUSH_TIMER.setRepeats(false);
+
+        // Cierra la ventana del volcado coalescido: si la aplicación se cierra dentro de esos
+        // PROPERTIES_FLUSH_DELAY ms, el valor estaría solo en memoria y se perdería. El hook cubre
+        // el cierre normal y System.exit (no un kill a lo bruto, que es la misma exposición que
+        // tiene cualquier escritura a medias). En diseño (NetBeans) no se registra: ahí PROPERTIES
+        // es un objeto vacío y volcarlo machacaría el fichero real del desarrollador.
+        if (!isDesignTime()) {
+            try {
+                Thread flush_hook = new Thread(() -> {
+                    try {
+                        if (PROPERTIES_DIRTY) {
+                            savePropertiesFile();
+                        }
+                    } catch (Throwable ignored) {
+                        // Durante el shutdown no hay a quién avisar: un fallo aquí no debe ensuciar
+                        // la salida con una traza ni matar el hilo del hook.
+                    }
+                }, "CoronaPoker-Properties-Flush-Hook");
+                flush_hook.setDaemon(false);
+                Runtime.getRuntime().addShutdownHook(flush_hook);
+            } catch (Throwable ignored) {
+                // Sin hook se vuelve al comportamiento de antes: se pierde, como mucho, el último
+                // valor de un control continuo movido en el medio segundo previo al cierre.
+            }
         }
     }
 
     public static void savePropertiesFileDeferred() {
 
-        PROPERTIES_FLUSH_TIMER.setRepeats(false);
+        PROPERTIES_DIRTY = true;
         PROPERTIES_FLUSH_TIMER.restart();
     }
 
-    public synchronized static void savePropertiesFile() {
+    public static void savePropertiesFile() {
 
-        // Un volcado inmediato deja sin trabajo al que estuviera pendiente: ya se escribe TODO
-        // el fichero, incluido lo que dejó el control continuo.
-        PROPERTIES_FLUSH_TIMER.stop();
+        synchronized (PROPERTIES_LOCK) {
 
-        try (FileOutputStream fos = new FileOutputStream(PROPERTIES_FILE)) {
-            // Properties.store NO cierra el OutputStream que recibe (contrato JDK).
-            // Sin try-with-resources, cada cambio de preferencia (volumen, zoom,
-            // sonidos, etc.) filtraba un FD. En partidas largas con muchos cambios
-            // acumulativos llegaba a ser visible en lsof.
-            PROPERTIES.store(fos, null);
+            // Un volcado inmediato deja sin trabajo al que estuviera pendiente: ya se escribe TODO
+            // el fichero, incluido lo que dejó el control continuo.
+            PROPERTIES_FLUSH_TIMER.stop();
 
-        } catch (IOException ex) {
-            Logger.getLogger(Helpers.class
-                    .getName()).log(Level.SEVERE, null, ex);
+            try (FileOutputStream fos = new FileOutputStream(PROPERTIES_FILE)) {
+                // Properties.store NO cierra el OutputStream que recibe (contrato JDK).
+                // Sin try-with-resources, cada cambio de preferencia (volumen, zoom,
+                // sonidos, etc.) filtraba un FD. En partidas largas con muchos cambios
+                // acumulativos llegaba a ser visible en lsof.
+                PROPERTIES.store(fos, null);
+
+                // Solo cuando de verdad se ha escrito: si el volcado falla, lo pendiente sigue
+                // pendiente y el hook de cierre volverá a intentarlo.
+                PROPERTIES_DIRTY = false;
+
+            } catch (IOException ex) {
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
+            }
         }
-
     }
 
     public static String getFechaHoraActual() {

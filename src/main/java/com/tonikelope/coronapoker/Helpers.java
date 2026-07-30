@@ -3921,6 +3921,25 @@ public class Helpers {
     private static final int PROPERTIES_FLUSH_DELAY = 500;
     private static final javax.swing.Timer PROPERTIES_FLUSH_TIMER = new javax.swing.Timer(PROPERTIES_FLUSH_DELAY, (java.awt.event.ActionEvent e) -> savePropertiesFile());
 
+    // Cierra la ventana del volcado coalescido: si la aplicación se cierra dentro de esos
+    // PROPERTIES_FLUSH_DELAY ms, el valor estaría solo en memoria y se perdería. El hook cubre el
+    // cierre normal y System.exit (no un kill a lo bruto, que es la misma exposición que tiene
+    // cualquier escritura a medias). Solo escribe si de verdad quedaba algo pendiente.
+    static {
+        try {
+            Thread flush_hook = new Thread(() -> {
+                if (PROPERTIES_FLUSH_TIMER.isRunning()) {
+                    savePropertiesFile();
+                }
+            }, "CoronaPoker-Properties-Flush-Hook");
+            flush_hook.setDaemon(false);
+            Runtime.getRuntime().addShutdownHook(flush_hook);
+        } catch (Throwable ignored) {
+            // Sin hook se vuelve al comportamiento de antes: se pierde, como mucho, el ultimo
+            // valor de un control continuo movido en el medio segundo previo al cierre.
+        }
+    }
+
     public static void savePropertiesFileDeferred() {
 
         PROPERTIES_FLUSH_TIMER.setRepeats(false);

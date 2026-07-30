@@ -1509,7 +1509,14 @@ public class AudioSettingsPanel extends JPanel {
     // cuadrado de 24 salían aplastados, el primero a menos de la mitad de su ancho.
     private static javax.swing.ImageIcon fitIcon(String resource, int max_width, int max_height) {
 
-        javax.swing.ImageIcon raw = new javax.swing.ImageIcon(AudioSettingsPanel.class.getResource(resource));
+        java.net.URL url = AudioSettingsPanel.class.getResource(resource);
+
+        if (url == null) {
+            // Como scaledIcon con una ruta mal escrita: sin icono, no reventando el panel entero.
+            return null;
+        }
+
+        javax.swing.ImageIcon raw = new javax.swing.ImageIcon(url);
 
         if (raw.getIconWidth() <= 0 || raw.getIconHeight() <= 0) {
             return raw;
@@ -1562,10 +1569,11 @@ public class AudioSettingsPanel extends JPanel {
         return p;
     }
 
-    // Caja del icono de cada fila de efecto. El ancho es mayor que el alto para dar sitio a los
-    // dibujos apaisados sin encogerlos de más; los cuadrados (la mayoría, los de /images/menu) se
-    // quedan a su tamaño y se centran dentro.
-    private static final int EFFECT_ICON_CELL_W = 32;
+    // Caja del icono de cada fila de efecto: EXACTAMENTE el tamaño que ya ocupaban los iconos
+    // (todos son de 24 en origen), para que las casillas no se muevan ni un píxel de donde estaban
+    // y el ancho del diálogo tampoco cambie. Los apaisados se encajan dentro conservando su
+    // proporción, así que salen más bajos que los cuadrados pero sin aplastar.
+    private static final int EFFECT_ICON_CELL_W = 24;
     private static final int EFFECT_ICON_CELL_H = 24;
 
     // Fila de un efecto/pista individual dentro de su recuadro, sangrada bajo el maestro (deep =

@@ -193,18 +193,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         Helpers.GUIRun(() -> {
             if (!((RoundedPanel) pot_panel).isRoundedFill()) {
+                // Cambiar el color del tapete mientras el bote parpadea en amarillo ya NO necesita
+                // nada especial: el parpadeo respeta al último que haya pintado el bote, aquí o en
+                // cualquiera de los otros sitios que lo hacen (ver flashPotLabelYellow).
                 pot_label.setForeground(color);
-
-                // Carrera cambio-de-tapete vs parpadeo del bote: si una ficha acaba de
-                // aterrizar en el bote (flashPotLabelYellow lo tiene en amarillo con un
-                // timer de restauración pendiente) y en esa ventana se cambia el color
-                // del tapete, el timer del flash repintaría el bote con el color VIEJO
-                // que capturó ANTES del cambio, dejando la fuente del bote pegada al
-                // color del tapete anterior. Actualizamos también el color a restaurar
-                // para que el flash termine dejando el color NUEVO.
-                if (pot_flash_timer != null && pot_flash_timer.isRunning()) {
-                    pot_flash_restore = color;
-                }
             }
 
             bet_label.setForeground(color);
@@ -285,11 +277,23 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 pot_flash_restore = pot_label.getForeground();
             } else {
                 pot_flash_timer.stop();
+                // Reentrada (otra ficha aterriza dentro de los 170 ms, que es lo normal cuando
+                // caen varias): se conserva el color de antes del parpadeo, PERO si mientras tanto
+                // alguien le ha dado otro color al bote, ese manda y es el que hay que devolver.
+                if (!Color.YELLOW.equals(pot_label.getForeground())) {
+                    pot_flash_restore = pot_label.getForeground();
+                }
             }
             pot_label.setForeground(Color.YELLOW);
             pot_flash_timer = new javax.swing.Timer(170, e -> {
                 ((javax.swing.Timer) e.getSource()).stop();
-                if (pot_flash_restore != null) {
+                // Solo se restaura si el bote sigue con NUESTRO amarillo. La ficha voladora no
+                // bloquea a quien la lanzó, así que entre el despegue y el aterrizaje puede
+                // haberle dado otro color al bote cualquiera de la docena de sitios que lo pintan
+                // (el ganador de la mano, el showdown, un cambio de tapete). Ese color es más
+                // reciente que el que capturamos al empezar el parpadeo, y restaurar el nuestro
+                // encima lo dejaría, por ejemplo, en verde sobre el panel verde del bote.
+                if (pot_flash_restore != null && Color.YELLOW.equals(pot_label.getForeground())) {
                     pot_label.setForeground(pot_flash_restore);
                 }
                 Runnable cb = pot_flash_done_callback;

@@ -4920,7 +4920,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // El velo de apagado se captura AQUI, una sola vez: desde que la luminosidad es
         // configurable ya no es una constante, y si cambiase entre el apagado y la restauracion
         // las dos guardas dejarian de ser simetricas (apagar y no restaurar, o al reves).
-        final float lights_off = BrightnessLayerUI.lightsOffBrightness();
+        final float lights_off = BrightnessOverlay.lightsOffBrightness();
 
         Helpers.GUIRunAndWait(() -> {
             if (old_brightness != lights_off) {
@@ -6758,7 +6758,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
             // Una sola lectura del velo de apagado para las dos guardas (ver solicitarBuyinsIniciales).
-            final float lights_off = BrightnessLayerUI.lightsOffBrightness();
+            final float lights_off = BrightnessOverlay.lightsOffBrightness();
 
             Helpers.GUIRun(() -> {
                 if (old_brightness != lights_off) {
@@ -18371,7 +18371,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
             // Una sola lectura del velo de apagado para las dos guardas (ver solicitarBuyinsIniciales).
-            final float lights_off = BrightnessLayerUI.lightsOffBrightness();
+            final float lights_off = BrightnessOverlay.lightsOffBrightness();
 
             if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname()) && GameFrame.AUTO_REBUY_ON_BROKE) {
 

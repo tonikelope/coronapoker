@@ -69,7 +69,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private volatile Timer icon_zoom_timer = null;
     private final Object zoom_lock = new Object();
     // Los dos iconos del interruptor de luces, ya escalados al alto de la fila del bote, y el alto
-    // con el que se escalaron: solo se rehacen si ese alto cambia (zoom o vista compacta).
+    // con el que se escalaron: solo se rehacen si ese alto cambia, o sea al cambiar el zoom (la
+    // vista compacta no reescala los iconos de esta fila, ni antes ni ahora).
     private volatile ImageIcon lights_on_icon = null;
     private volatile ImageIcon lights_off_icon = null;
     private volatile int lights_icon_height = -1;

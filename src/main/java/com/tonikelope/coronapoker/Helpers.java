@@ -3911,7 +3911,27 @@ public class Helpers {
         return thousands ? MONEY_DF_3.get() : MONEY_DF_2.get();
     }
 
+    // Volcado COALESCIDO de las preferencias, para los controles CONTINUOS: un JSpinner con la
+    // flecha mantenida dispara un cambio por repetición, y con savePropertiesFile() cada uno
+    // reescribiría el fichero entero (I/O en el EDT). Aquí se reprograma el volcado y solo se
+    // escribe una vez, PROPERTIES_FLUSH_DELAY ms después del último cambio. Es el equivalente
+    // para spinners de lo que los sliders resuelven con getValueIsAdjusting(). Los ajustes
+    // DISCRETOS (casillas, desplegables, menús) siguen guardando al momento con
+    // savePropertiesFile(): un clic, una escritura.
+    private static final int PROPERTIES_FLUSH_DELAY = 500;
+    private static final javax.swing.Timer PROPERTIES_FLUSH_TIMER = new javax.swing.Timer(PROPERTIES_FLUSH_DELAY, (java.awt.event.ActionEvent e) -> savePropertiesFile());
+
+    public static void savePropertiesFileDeferred() {
+
+        PROPERTIES_FLUSH_TIMER.setRepeats(false);
+        PROPERTIES_FLUSH_TIMER.restart();
+    }
+
     public synchronized static void savePropertiesFile() {
+
+        // Un volcado inmediato deja sin trabajo al que estuviera pendiente: ya se escribe TODO
+        // el fichero, incluido lo que dejó el control continuo.
+        PROPERTIES_FLUSH_TIMER.stop();
 
         try (FileOutputStream fos = new FileOutputStream(PROPERTIES_FILE)) {
             // Properties.store NO cierra el OutputStream que recibe (contrato JDK).

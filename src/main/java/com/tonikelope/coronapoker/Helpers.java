@@ -3491,7 +3491,7 @@ public class Helpers {
 
         try {
             return Integer.parseInt(PROPERTIES.getProperty(key, String.valueOf(def)).trim());
-        } catch (NumberFormatException ex) {
+        } catch (Exception ex) {
             Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Invalid {0} property, falling back to default.", key);
             return def;
         }
@@ -3501,6 +3501,17 @@ public class Helpers {
     public static int propInt(String key, int def, int min, int max) {
 
         return Math.max(min, Math.min(propInt(key, def), max));
+    }
+
+    // La misma red para las claves con decimales.
+    public static double propDouble(String key, double def) {
+
+        try {
+            return Double.parseDouble(PROPERTIES.getProperty(key, String.valueOf(def)).trim());
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "Invalid {0} property, falling back to default.", key);
+            return def;
+        }
     }
 
     // Lee la preferencia de zoom de diálogos (dialog_zoom) de PROPERTIES, acotada al rango
@@ -5350,16 +5361,6 @@ public class Helpers {
     public static int doubleSecureCompare(double val1, double val2) {
 
         return Double.compare(doubleClean(val1), doubleClean(val2));
-    }
-
-    public static boolean isNumeric(String str) {
-        try {
-            Double.parseDouble(str);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-
-        }
     }
 
     private Helpers() {

@@ -992,12 +992,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> rabbit_players = new ConcurrentHashMap<>();
 
-    // Peticiones de rabbit hunting contadas AQUI, una entrada por nick y por mano. El
-    // numero que viaja en el wire lo elige el propio solicitante, asi que decidir con el
-    // la tarifa era regalarle el precio: mandando siempre "la primera" no pagaba nunca.
-    // Todos los peers reciben los mismos avisos en el mismo orden, asi que todos llegan
-    // al mismo numero y el dinero no diverge.
-    private final ConcurrentHashMap<String, Integer> rabbit_conta = new ConcurrentHashMap<>();
     // ConcurrentHashMap (no HashMap): se escribe bajo lock_contabilidad
     // (auditorCuentas, updateExitPlayers) pero se ITERA fuera de ese lock,
     // bajo SQL_LOCK, en sqlNewHand/sqlUpdateHandEnd. Como el orden global es
@@ -7451,7 +7445,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    public void RABBIT_HANDLER(String nick, int conta_rabbit_wire) {
+    public void RABBIT_HANDLER(String nick, int conta_rabbit) {
 
         Helpers.threadRun(() -> {
 
@@ -7460,18 +7454,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 rabbit_players.put(nick, true); // Lo ponemos en PENDING (para que el server pueda llevar la cuenta de
                 // todos los que fueron procesados).
 
-                // La cuenta de peticiones la lleva CADA PEER por su lado. La que viaja en el
-                // wire la elige el propio solicitante, y con ella se decidia la tarifa: quien
-                // mandara siempre "esta es la primera" no pagaba nunca. Como todos los peers
-                // reciben los mismos avisos en el mismo orden, todos llegan al mismo numero y
-                // el dinero sigue cuadrando en la mesa entera.
-                final int conta_rabbit = rabbit_conta.merge(nick, 1, Integer::sum);
-
-                if (conta_rabbit != conta_rabbit_wire) {
-                    LOGGER.log(Level.WARNING,
-                            "Rabbit hunting request count mismatch for {0}: wire says {1}, we counted {2} — charging by ours",
-                            new Object[]{nick, conta_rabbit_wire, conta_rabbit});
-                }
+                // La tarifa se decide con el numero que viaja en el wire, que lo elige el
+                // solicitante. Se probo a que cada peer llevara su propia cuenta para que un
+                // cliente modificado no se regalara el precio, y era PEOR: quien entra o se
+                // recupera con la partida ya empezada arranca su cuenta a cero, cobra una
+                // tarifa distinta al resto y desde ahi el dinero y el consenso de cierre
+                // divergen cada mano. El numero del wire es el mismo para todos pase lo que
+                // pase, que es lo que de verdad importa aqui.
 
                 if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
                     destaparRabbitCards();
@@ -7920,11 +7909,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         rabbit_players.clear();
-        // rabbit_conta NO se limpia aqui: la cuenta de peticiones es de TODA LA PARTIDA,
-        // igual que la que llevaba el propio jugador. Limpiarla por mano dejaba la tarifa
-        // en cero para siempre, porque solo se puede pedir rabbit una vez por mano (la
-        // primera destapa todas las comunitarias), asi que la cuenta valia siempre uno y
-        // no llegaba nunca al escalon de pago: los modos de pago se quedaban en gratis.
         this.iwtsth = false;
         this.iwtsthing = false;
         this.iwtsthing_request = false;
@@ -11966,20 +11950,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.straddle_cards_pending = false;
                     return true;
                 }
-                // PAUSE-AWARE: el tiempo en pausa no cuenta contra el plazo. Sin esto, una
-                // pausa mas larga que el tope hacia que el straddler volviera sin cartas en
-                // el mismo instante de reanudar, y quedarse sin ellas aqui significa anular
-                // la mano. El resto de esperas del fichero refrescan igual.
-                if (GameFrame.getInstance().checkPause()) {
-                    deadline = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
-                }
-
                 try {
                     this.getReceived_commands().wait(Math.min(WAIT_QUEUES, Math.max(1, deadline - System.currentTimeMillis())));
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     return false;
                 }
+            }
+
+            // El tiempo en pausa no cuenta contra el plazo: sin esto, una pausa mas larga
+            // que el tope hacia que el straddler volviera sin cartas en el mismo instante de
+            // reanudar, y quedarse sin ellas aqui significa anular la mano.
+            //
+            // Y va FUERA del monitor de la cola, como las quince esperas hermanas del
+            // fichero: la comprobacion DUERME mientras dura la pausa y no suelta ese
+            // monitor, asi que dentro clavaba al hilo que reparte los comandos entrantes
+            // (incluida la orden de reanudar y las propias cartas que se esperan aqui).
+            if (GameFrame.getInstance().checkPause()) {
+                deadline = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
             }
         }
         return false;

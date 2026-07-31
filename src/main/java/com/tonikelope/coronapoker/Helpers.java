@@ -2126,7 +2126,14 @@ public class Helpers {
 
                 return new String(msg, "UTF-8");
 
-            } catch (UnsupportedEncodingException | IllegalStateException | InvalidAlgorithmParameterException | KeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
+                // OJO: KeyException NO se captura aqui, y es deliberado. Es la que se lanza
+                // unas lineas mas arriba cuando el HMAC no cuadra, o sea cuando alguien ha
+                // tocado el frame, y tiene que llegar hasta quien lee del socket para que
+                // descarte ESE frame y siga. Capturandola aqui se tragaba a si misma, se
+                // devolvia vacio, y el lector lo interpretaba como fin de conexion: bastaba
+                // un byte inyectado para tirar a un jugador de la mesa. El gemelo que
+                // descifra binario tampoco la captura, por lo mismo.
+            } catch (UnsupportedEncodingException | IllegalStateException | InvalidAlgorithmParameterException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
                 Logger.getLogger(Helpers.class
                         .getName()).log(Level.SEVERE, null, ex);
             }

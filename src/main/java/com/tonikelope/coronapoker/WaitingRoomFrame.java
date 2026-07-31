@@ -4412,11 +4412,15 @@ public class WaitingRoomFrame extends JFrame {
                     }
                 }
             }
-            net_server.getClient_threads().remove(Thread.currentThread().threadId());
             } finally {
                 // Anti-DoS pre-auth: libera el slot reservado en el accept loop, terminase como terminase
                 // el handshake. Sin esto un handshake que sale por return/excepcion filtraria el permiso.
                 handshake_slots.release();
+                // Y se da de baja el hilo, por lo mismo y aqui dentro: estaba fuera, asi que
+                // cualquier salida por return se lo saltaba y el hilo se quedaba apuntado para
+                // siempre. Con uno solo colgado, el cierre de la sala ve que quedan hilos vivos
+                // y se salta su manejador entero: la X deja de responder el resto de la sesion.
+                net_server.getClient_threads().remove(Thread.currentThread().threadId());
             }
         });
 

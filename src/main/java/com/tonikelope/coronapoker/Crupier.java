@@ -13306,8 +13306,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             } else {
-                if (nick2player.containsKey(this.small_blind_nick) && nick2player.get(this.small_blind_nick).isActivo()) {
-                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.small_blind_nick)) {
+                // Quien ABRE postflop: la ciega pequeña multiway, la GRANDE en cara a cara.
+                // En heads-up el boton ES la ciega pequeña (calcularPosiciones lo fija asi),
+                // y por regla abre preflop pero habla el ULTIMO en flop, turn y river.
+                // Arrancar siempre en la pequeña le daba la primera palabra tambien
+                // postflop, invirtiendo la ventaja de posicion durante toda la fase heads-up
+                // (o sea, el final de cualquier partida) y contradiciendo al pivote del
+                // showdown de este mismo fichero, que si la calcula bien.
+                String primero_postflop = BetRules.firstToActPostflop(getJugadoresActivos(), this.small_blind_nick, this.big_blind_nick);
+                if (nick2player.containsKey(primero_postflop) && nick2player.get(primero_postflop).isActivo()) {
+                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(primero_postflop)) {
                         conta_pos++;
                     }
                 } else {

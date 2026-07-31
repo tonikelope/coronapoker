@@ -6097,17 +6097,13 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.threadRun(() -> {
             // Dos cambios seguidos pueden acabar entregandose al reves, y quien se quede con
             // la vieja no puede volver a entrar cuando se le corte la red, porque el canal se
-            // deriva de ella. Se resuelve descartando los cambios pasados: se mira la version
-            // ANTES DE CADA PEER y el que ve una mas nueva se retira, porque el que la puso
-            // reparte a todos, no solo a los que faltaban.
+            // deriva de ella. De que eso no pase se encarga cada Participant por su cuenta
+            // (ver writeRoomPassword): el numero de cambio se apunta dentro de su propio
+            // cerrojo, asi que el orden queda bien en cada socket sin que un peer atascado
+            // retenga el reparto a los demas.
             //
-            // Y NO se hace bajo un cerrojo global, aunque el orden saldria mas redondo: el
-            // turno de salida de un socket lo comparten los envios binarios (una nota de voz,
-            // un avatar), que con poca subida tardan decenas de segundos, asi que retener el
-            // reparto entero mientras se escribe a UN peer atascado dejaba a los demas sin la
-            // contrasena nueva justo durante esas decenas de segundos. Cualquiera que se
-            // cayera en esa ventana quedaba fuera para siempre: el mismo fallo que esto viene
-            // a evitar, servido por la propia cura.
+            // Este corte de aqui es solo para no gastar el viaje: si mientras esperabamos ya
+            // ha entrado un cambio mas nuevo, ese reparte a todos y este no pinta nada.
             if (version != password_version.get()) {
                 return;
             }
@@ -6127,17 +6123,8 @@ public class WaitingRoomFrame extends JFrame {
             }
 
             for (Participant resto : destinatarios) {
-                if (version != password_version.get()) {
-                    return;
-                }
-
                 if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
-                    try {
-                        resto.writeCommandFromServer(Helpers.encryptCommand(
-                                "NEWPASS#" + payload, resto.getAes_key(), resto.getHmac_key()));
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
-                    }
+                    resto.writeRoomPassword(version, payload);
                 }
             }
         });

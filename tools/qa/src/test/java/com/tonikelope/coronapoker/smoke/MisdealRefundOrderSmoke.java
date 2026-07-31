@@ -62,8 +62,11 @@ class MisdealRefundOrderSmoke {
         // parked == the 300 that ever entered the game.
         double[] stack = {89.99d, 89.99d, 89.99d};
         double[] bet = {10d, 10d, 10d};
-        // The pot carries the inherited leftover: a hand opens at max(0, leftover)
-        // and adds the bets on top.
+        // What the players staked this hand, on its own. The payout adds the
+        // leftover to THIS, it does not choose between them.
+        double hand_pot = 30d;
+        // The running total carries the inherited leftover too: a hand opens at
+        // max(0, leftover) and adds the bets on top.
         double pot_total = 30.03d;
         double leftover = 0.03d;
         boolean refunded = false;
@@ -108,11 +111,16 @@ class MisdealRefundOrderSmoke {
          * money came back, on purpose: see the class javadoc.
          */
         void settleWithWinner(int winner) {
-            double payout = pot_total > 0d ? pot_total : effectiveLeftover();
+            // The real payout is hand pot PLUS leftover, a sum of two separate
+            // amounts. Modelling it as a choice would hide the very mistake this
+            // pins: with the money already refunded the hand pot is empty, so
+            // what gets paid out is the inherited leftover.
+            double payout = hand_pot + leftover;
 
             stack[winner] += payout;
             pot_total -= payout;
             leftover = pot_total;
+            hand_pot = 0d;
             clearBets();
         }
 
@@ -130,8 +138,45 @@ class MisdealRefundOrderSmoke {
             }
 
             pot_total = 0d;
+            hand_pot = 0d;
             refunded = true;
         }
+    }
+
+    /**
+     * The void arriving from INSIDE the settlement, which is the ordering that
+     * makes freezing the answer wrong.
+     *
+     * The verification barrier runs inside the same lock the settlement holds,
+     * and on a client it can end up voiding the hand right there. So the answer
+     * to "has the money been given back?" changes AFTER the settlement started.
+     * Read on entry, it still says no, and an emptied pot gets written over the
+     * inherited leftover.
+     */
+    @Test
+    @DisplayName("Void arriving mid-settlement: reading the answer on entry destroys the leftover")
+    void freezingTheAnswerOnEntryDestroysTheLeftover() {
+        Table frozen = new Table();
+        Table fresh = new Table();
+
+        // Both settle with nobody standing, and in both the barrier voids the hand
+        // partway through.
+        boolean answer_on_entry = frozen.refunded;   // false, captured too early
+        frozen.refund();                             // the barrier voids it here
+        if (!answer_on_entry) {
+            frozen.leftover = frozen.pot_total;      // pot is 0 by now: leftover wiped
+        }
+        frozen.pot_total = 0d;
+        frozen.clearBets();
+
+        fresh.refund();                              // same barrier, same moment
+        fresh.settleWithNoWinner();                  // asks at the point of use
+
+        assertEquals(Table.buyins() - 0.03d, frozen.onTable(), EPS,
+                "this pins the cost of freezing: the inherited leftover is destroyed");
+        assertEquals(Table.buyins(), fresh.onTable(), EPS,
+                "asking at the point of use keeps the books straight");
+        assertEquals(0.03d, fresh.leftover, EPS, "the inherited leftover survives");
     }
 
     @Test

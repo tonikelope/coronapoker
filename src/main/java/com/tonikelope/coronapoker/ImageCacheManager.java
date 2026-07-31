@@ -84,8 +84,23 @@ public class ImageCacheManager {
         }
     }
 
+    // Topes de la descarga de una imagen de chat. La URL la elige quien manda el
+    // mensaje, asi que sin ellos un servidor que no responde deja el hilo esperando
+    // para siempre y uno que sirve sin parar llena el disco.
+    private static final int CONNECT_TIMEOUT_MS = 10000;
+    private static final int READ_TIMEOUT_MS = 20000;
+    private static final long MAX_IMAGE_BYTES = 16L * 1024 * 1024;
+
+    // Tope del directorio de imagenes cacheadas. Se purga por antiguedad al arrancar.
+    private static final long MAX_CACHE_BYTES = 256L * 1024 * 1024;
+
     /**
      * Downloads the resource to the local file system.
+     *
+     * <p>Se baja a un temporal y solo al terminar se pone en su sitio: escribir
+     * directamente sobre el destino dejaba, si la descarga se cortaba, un fichero a
+     * medias que YA EXISTE, y a partir de ahi la imagen rota se daba por buena para
+     * siempre porque la cache solo mira si el fichero esta.
      */
     private static boolean downloadImage(URL url, File destination) {
         File parent = destination.getParentFile();
@@ -93,19 +108,85 @@ public class ImageCacheManager {
             parent.mkdirs();
         }
 
-        try (BufferedInputStream in = new BufferedInputStream(url.openStream()); FileOutputStream out = new FileOutputStream(destination)) {
+        File tmp = new File(destination.getAbsolutePath() + ".part");
 
-            byte[] buffer = new byte[8192];
-            int bytesRead;
-            while ((bytesRead = in.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
+        try {
+            java.net.URLConnection conn = url.openConnection();
+            conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
+            conn.setReadTimeout(READ_TIMEOUT_MS);
+
+            long total = 0;
+
+            try (BufferedInputStream in = new BufferedInputStream(conn.getInputStream()); FileOutputStream out = new FileOutputStream(tmp)) {
+
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    total += bytesRead;
+                    if (total > MAX_IMAGE_BYTES) {
+                        throw new IOException("chat image exceeds " + MAX_IMAGE_BYTES + " bytes");
+                    }
+                    out.write(buffer, 0, bytesRead);
+                }
+                out.flush();
             }
-            out.flush();
+
+            java.nio.file.Files.move(tmp.toPath(), destination.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             return true;
         } catch (IOException e) {
             Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE,
                     "Critical: Failed to cache image from " + url, e);
+            tmp.delete();
             return false;
+        }
+    }
+
+    /**
+     * Purga la cache de imagenes de chat si se ha pasado del tope, borrando de lo mas
+     * viejo a lo mas nuevo. El directorio no se limpiaba NUNCA: cada imagen que alguien
+     * pegara en el chat se quedaba ahi para siempre.
+     *
+     * <p>Se llama una vez al arrancar, antes de que nadie use la cache.
+     */
+    public static void purgeCache() {
+        try {
+            File dir = new File(CHAT_IMAGE_CACHE);
+            File[] files = dir.listFiles(File::isFile);
+
+            if (files == null || files.length == 0) {
+                return;
+            }
+
+            long total = 0;
+            for (File f : files) {
+                total += f.length();
+            }
+
+            if (total <= MAX_CACHE_BYTES) {
+                return;
+            }
+
+            java.util.Arrays.sort(files, java.util.Comparator.comparingLong(File::lastModified));
+
+            int borrados = 0;
+            for (File f : files) {
+                if (total <= MAX_CACHE_BYTES) {
+                    break;
+                }
+                long size = f.length();
+                if (f.delete()) {
+                    total -= size;
+                    borrados++;
+                }
+            }
+
+            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.INFO,
+                    "Chat image cache purged: {0} files removed, {1} bytes left",
+                    new Object[]{borrados, total});
+        } catch (Exception ex) {
+            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.WARNING,
+                    "Could not purge the chat image cache", ex);
         }
     }
 

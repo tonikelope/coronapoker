@@ -2370,7 +2370,15 @@ public class WaitingRoomFrame extends JFrame {
                                     try {
                                     switch (partes_comando[0]) {
                                         case "PING":
-                                            writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
+                                            // Con la misma red que su gemelo del bucle de la partida: un
+                                            // latido al que le falte el numero, o que no lo sea, ya no se
+                                            // lleva por delante al cliente que esta en la sala.
+                                            if (partes_comando.length >= 2) {
+                                                try {
+                                                    writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
+                                                } catch (NumberFormatException nfe) {
+                                                }
+                                            }
                                             break;
 
                                         case "CHAT":
@@ -6101,6 +6109,11 @@ public class WaitingRoomFrame extends JFrame {
         }
 
         if (server) {
+            // El socket puede no existir todavia (o no haberse podido abrir el puerto):
+            // desde que se publica DESPUES de atarlo, aqui hay que comprobarlo.
+            if (net_server.getServer_socket() == null) {
+                return;
+            }
             int port = net_server.getServer_socket().getLocalPort();
             Helpers.copyTextToClipboard("[CoronaPoker] INTERNET -> " + Helpers.getMyPublicIP() + ":"
                     + String.valueOf(port) + "\n\nLAN -> " + Helpers.getMyLocalIP() + ":"

@@ -591,7 +591,12 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_rebuyMouseClicked
 
     private void logMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_logMouseClicked
-        // TODO add your handling code here:
+        // Solo con el boton de siempre, como el resto de iconos de esta barra: este
+        // abria el registro tambien con el derecho, que en el tapete es el del menu.
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             GameFrame.getInstance().getRegistro_menu().doClick();

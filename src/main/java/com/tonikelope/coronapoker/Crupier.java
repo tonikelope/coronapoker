@@ -14635,6 +14635,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             HashMap<Player, Integer[]> multiverse = monteCarlo(resisten, MONTECARLO_ITERATIONS);
 
+            // Board para la columna de fuerza, armado con las comunitarias que estan a la
+            // vista. El de los bots NO vale: solo se rellena en el anfitrion (los bots son
+            // suyos), asi que en los clientes esta VACIO y esa columna salia calculada como
+            // si no hubiera flop. En el anfitrion sale exactamente lo mismo que antes.
+            org.alberta.poker.Hand board_loki = new org.alberta.poker.Hand();
+
+            for (Card comun : GameFrame.getInstance().getCartas_comunes()) {
+                if (comun != null && !comun.isTapada() && comun.getValor() != null && !comun.getValor().isEmpty()) {
+                    org.alberta.poker.Card loki_card = Bot.coronaIntegerCard2LokiCard(comun.getCartaComoEntero());
+                    if (loki_card != null) {
+                        board_loki.addCard(loki_card);
+                    }
+                }
+            }
+
             for (Player p : resisten) {
                 // Solo simulamos los que confesaron sus cartas
                 if (!jugadas.containsKey(p)) {
@@ -14648,9 +14663,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     continue;
                 }
 
-                double strength = Bot.HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS,
+                double strength = Bot.HANDEVALUATOR.handRank(card1, card2, board_loki,
                         resisten.size() - 1);
-                double ppot = Bot.HANDPOTENTIAL.ppot_raw(card1, card2, Bot.BOT_COMMUNITY_CARDS, false);
+                double ppot = Bot.HANDPOTENTIAL.ppot_raw(card1, card2, board_loki, false);
                 double npot = Bot.HANDPOTENTIAL.getLastNPot();
                 double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
 
@@ -15935,6 +15950,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
+            // OJO: devolver la cadena VACIA en vez de nada NO vale, y por poco se cuela.
+            // Partirla por el separador no da una lista vacia, da una lista con UN
+            // elemento vacio, y los bucles que recorren los asientos avanzan con el resto
+            // de la division entre su tamano: con un solo elemento, el indice se queda
+            // clavado en cero y el bucle no termina JAMAS, quemando un nucleo con la mesa
+            // parada y sin una linea en el registro. Se devuelve nada, como siempre, que
+            // al menos falla de forma ruidosa; protegerlo de verdad es reestructurar los
+            // cuatro bloques que recolocan las posiciones, y eso no toca aqui.
             return ret;
 
         }
@@ -17652,6 +17675,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.setTiempo_pausa(tiempo);
 
+        // Vueltas seguidas (de un segundo) en las que la cuenta atras no ha bajado por
+        // estar alguien mirando una mano (isIwtsthing).
+        //
+        // El tope es DELIBERADAMENTE enorme porque quien levanta esa marca en los
+        // clientes no es un reloj: es el anfitrion contestando un si/no en un dialogo,
+        // o sea una persona, que puede tardar lo que le de la gana. Un tope corto
+        // rompia la pausa mientras el anfitrion se lo pensaba y dejaba escrita en el
+        // registro la mano del perdedor como oculta, sin volver a corregirla nunca.
+        // Esto es solo la red para que la mano no se quede parada de por vida.
+        int vueltas_sin_bajar = 0;
+        final int MAX_VUELTAS_SIN_BAJAR = 600;
+
         while (getTiempoPausa() > 0) {
 
             // El jugador local ha salido de la timba: la pausa es puro tiempo
@@ -17669,8 +17704,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     lock_pausa_barra.wait(1000);
 
+                    if (isIwtsthing() && !GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()
+                            && ++vueltas_sin_bajar > MAX_VUELTAS_SIN_BAJAR) {
+                        LOGGER.log(Level.SEVERE,
+                                "Pause bar stuck: someone has been reviewing a hand for {0}s — resuming so the table can move on",
+                                vueltas_sin_bajar);
+                        break;
+                    }
+
                     if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision() && !isIwtsthing()) {
 
+                        vueltas_sin_bajar = 0;
                         tiempo_pausa--;
 
                         // setValue(tiempo_pausa) redundante: el Timer interno de
@@ -18365,7 +18409,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
                                             Player perdedor = entry.getKey();
-                                            badbeat = badbeat(perdedor, unganador);
+                                            badbeat |= badbeat(perdedor, unganador);
                                             perdedores.put(perdedor, entry.getValue());
                                             GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
                                         }
@@ -18428,7 +18472,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
                                             Player perdedor = entry.getKey();
-                                            badbeat = badbeat(perdedor, unganador);
+                                            badbeat |= badbeat(perdedor, unganador);
                                             perdedores.put(perdedor, entry.getValue());
                                             GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
                                         }

@@ -12854,8 +12854,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // de calle antes del showdown de CARA-B.
         GameFrame.getInstance().hideTapeteApuestas();
 
-        // CARA-B abortó en MISDEAL: la mano entera está ANULADA
-        // (cancelarManoYDevolverApuestas devolvió todas las apuestas y
+        // CARA-B abortó y las apuestas YA se devolvieron: la mano entera está
+        // anulada de verdad (cancelarManoYDevolverApuestas devolvió todo y
         // rollbackAbortedHand la cerró en SQL con pot=0 y balances
         // post-refund). El settle de CARA-A debe revertirse — quedó pendiente
         // en pagar y nadie lo va a consolidar, pero el auditor y el
@@ -12863,9 +12863,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // de A un medio bote que los demás ya recuperaron con el refund.
         // conta_win vuelve al snapshot (una mano anulada no cuenta victorias)
         // y NO se escriben filas de showdown de una mano anulada. El abort
-        // sin MISDEAL (p.ej. fin por salida del propio jugador local) sigue
+        // sin devolución (p.ej. fin por salida del propio jugador local) sigue
         // el camino de siempre: CARA-A liquidada se queda como está.
-        if (!dealt && this.mano_anulada) {
+        //
+        // Se pregunta si el dinero YA VOLVIO a los stacks, no si la mano esta
+        // marcada como anulada, por lo mismo que la rama de mas abajo y que la
+        // liquidacion normal: esa marca se iza FUERA del cerrojo de contabilidad
+        // y la devolucion va dentro, asi que se puede llegar aqui con la marca
+        // puesta y el dinero todavia sin devolver. Mirando la marca, en esa
+        // ventana se revertia lo pagado por CARA-A y se salia... y la devolucion,
+        // cuando por fin entraba, ya no encontraba nada que devolver, porque esta
+        // misma liquidacion vacia los botes antes de soltar el cerrojo. Se perdia
+        // la apuesta ENTERA de la mano, el doble que en la rama de abajo.
+        if (!dealt && this.apuestas_devueltas) {
             for (Player p : GameFrame.getInstance().getJugadores()) {
                 p.setPagar(pagarSnapshot.get(p));
                 p.setContaWin(contaWinSnapshot.get(p));

@@ -2015,6 +2015,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     "Peer {0} left during cascade (drop or zero-trust violation) — restarting shuffle without them",
                                     currNick);
                             restart = true;
+                        } else if (p.isSocketDownOrReconnecting()) {
+                            // El peer se CAYO o esta RECONECTANDO durante la cascada. Al
+                            // reconectar a mitad pierde sus escalares SRA efimeros y ya no
+                            // puede contestar, asi que su silencio NO es una negativa
+                            // maliciosa: MISDEAL sin acusarle ni darle strike, exactamente
+                            // igual que hace la rotacion, su gemela, mas abajo. Sin esta
+                            // rama caia en el else de acusar, y a un jugador honesto al que
+                            // se le habia ido la red un momento se le nombraba tramposo en
+                            // rojo y con ventana emergente; a los tres, expulsado.
+                            //
+                            // Y no vale reiniciar la cascada como en la rama de arriba: ahi
+                            // el peer esta fuera y el reintento lo salta, pero este sigue
+                            // dentro, asi que el reintento volveria a toparse con el y a
+                            // quedarse igual, una y otra vez.
+                            LOGGER.log(Level.WARNING,
+                                    "Peer {0} unavailable for cascade (drop/reconnect), aborting hand without strike, game continues",
+                                    currNick);
+                            cancelarManoYDevolverApuestas("peer.dropped_during_cascade");
+                            return false;
                         } else {
                             // El peer sigue VIVO (contesta PING) pero no entregó una
                             // DECK_CASCADE_RESP válida a tiempo: CALLÓ hasta vencer el deadline de

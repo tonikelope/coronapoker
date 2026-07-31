@@ -39,6 +39,13 @@ import java.util.Comparator;
 public final class HandPot {
 
     private final ArrayList<Player> players = new ArrayList<>();
+    // Dinero muerto que llega de un bote de nivel inferior: jugadores retirados que
+    // pusieron MÁS que el tope de aquel bote, así que su exceso sigue vivo en este.
+    // Van aparte de players porque APORTAN pero NO COMPITEN: getPlayers() decide quién
+    // cobra el bote (Crupier lo usa para pagar y para calcular jugadas) y ahí no pintan
+    // nada. En el bote principal esta lista está vacía: allí los retirados ya vienen en
+    // players, tal y como los mete el crupier.
+    private final ArrayList<Player> dead_money = new ArrayList<>();
     private volatile double diff = 0;
     private volatile double bet = 0;
     private volatile HandPot sidePot = null;
@@ -76,16 +83,46 @@ public final class HandPot {
         }
     }
 
+    /**
+     * ¿este jugador COMPITE por el bote? El que se retiró (o ya no está activo) deja
+     * su dinero, pero no puede cobrarlo.
+     */
+    private static boolean compite(Player jugador) {
+        return jugador.getDecision() != Player.FOLD && jugador.isActivo();
+    }
+
+    /**
+     * Lo que aporta a ESTE bote un jugador que ya no compite. Se cuenta desde el suelo
+     * del bote (diff) y se capa a su tope (bet): lo que puso por encima NO es de este
+     * bote, sigue vivo en los derivados, donde solo pueden cobrarlo los que llegaron a
+     * ese nivel. Sin ese cap, todo el dinero muerto caía en el bote principal y se lo
+     * llevaba un all-in corto que jamás igualó esa cantidad.
+     *
+     * El bote más profundo (sin derivados) no capa: ahí ya no hay ningún nivel superior
+     * al que mandar el resto, así que lo absorbe y la suma de los botes sigue siendo
+     * exactamente lo que se apostó.
+     */
+    private double aportacionMuerta(Player jugador) {
+
+        double aportado = Math.max(0, jugador.getBote() - this.diff);
+
+        return (sidePot != null) ? Math.min(aportado, bet) : aportado;
+    }
+
     public double getTotal() {
 
         double total = 0;
 
         for (Player jugador : players) {
-            if (jugador.getDecision() != Player.FOLD && jugador.isActivo()) {
+            if (compite(jugador)) {
                 total += bet;
             } else {
-                total += jugador.getBote();
+                total += aportacionMuerta(jugador);
             }
+        }
+
+        for (Player jugador : dead_money) {
+            total += aportacionMuerta(jugador);
         }
 
         return total;
@@ -97,6 +134,17 @@ public final class HandPot {
 
     public ArrayList<Player> getPlayers() {
         return players;
+    }
+
+    /**
+     * Añade dinero muerto heredado de un bote de nivel inferior. NO toca {@code bet}:
+     * un retirado no fija el tope de un bote, solo aporta lo que le corresponda.
+     */
+    void addDeadMoney(Player jugador) {
+
+        if (!dead_money.contains(jugador) && !players.contains(jugador)) {
+            dead_money.add(jugador);
+        }
     }
 
     public void addPlayer(Player jugador) {
@@ -149,9 +197,35 @@ public final class HandPot {
                         }
                     }
 
-                    sidePot = new HandPot(sidepot_players, bet + this.diff);
+                    // SIN competidores por encima del suelo no se crea bote derivado. Uno
+                    // sin nadie que compita no lo puede cobrar NADIE (getPlayers vacio), y
+                    // llevarle dinero muerto seria hacerlo desaparecer del reparto. Al no
+                    // crearlo, este bote se queda como el mas profundo y absorbe ese dinero
+                    // entero, que es exactamente lo que pasaba antes de repartir por niveles.
+                    if (!sidepot_players.isEmpty()) {
 
-                    sidePot.genSidePots();
+                        sidePot = new HandPot(sidepot_players, bet + this.diff);
+
+                        // El dinero de los retirados que pasa del tope de este bote sigue
+                        // vivo en el derivado: viaja como dinero muerto (aporta, no compite).
+                        // Sin esto, capar la aportación en getTotal haría desaparecer ese
+                        // exceso del reparto.
+                        double techo = bet + this.diff;
+
+                        for (var jugador : players) {
+                            if (!compite(jugador) && Helpers.doubleSecureCompare(jugador.getBote(), techo) > 0) {
+                                sidePot.addDeadMoney(jugador);
+                            }
+                        }
+
+                        for (var jugador : dead_money) {
+                            if (Helpers.doubleSecureCompare(jugador.getBote(), techo) > 0) {
+                                sidePot.addDeadMoney(jugador);
+                            }
+                        }
+
+                        sidePot.genSidePots();
+                    }
                 }
             }
         }

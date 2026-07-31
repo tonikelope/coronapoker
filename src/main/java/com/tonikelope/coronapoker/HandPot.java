@@ -197,27 +197,35 @@ public final class HandPot {
                         }
                     }
 
-                    sidePot = new HandPot(sidepot_players, bet + this.diff);
+                    // SIN competidores por encima del suelo no se crea bote derivado. Uno
+                    // sin nadie que compita no lo puede cobrar NADIE (getPlayers vacio), y
+                    // llevarle dinero muerto seria hacerlo desaparecer del reparto. Al no
+                    // crearlo, este bote se queda como el mas profundo y absorbe ese dinero
+                    // entero, que es exactamente lo que pasaba antes de repartir por niveles.
+                    if (!sidepot_players.isEmpty()) {
 
-                    // El dinero de los retirados que pasa del tope de este bote sigue
-                    // vivo en el derivado: viaja como dinero muerto (aporta, no compite).
-                    // Sin esto, capar la aportación en getTotal haría desaparecer ese
-                    // exceso del reparto.
-                    double techo = bet + this.diff;
+                        sidePot = new HandPot(sidepot_players, bet + this.diff);
 
-                    for (var jugador : players) {
-                        if (!compite(jugador) && Helpers.doubleSecureCompare(jugador.getBote(), techo) > 0) {
-                            sidePot.addDeadMoney(jugador);
+                        // El dinero de los retirados que pasa del tope de este bote sigue
+                        // vivo en el derivado: viaja como dinero muerto (aporta, no compite).
+                        // Sin esto, capar la aportación en getTotal haría desaparecer ese
+                        // exceso del reparto.
+                        double techo = bet + this.diff;
+
+                        for (var jugador : players) {
+                            if (!compite(jugador) && Helpers.doubleSecureCompare(jugador.getBote(), techo) > 0) {
+                                sidePot.addDeadMoney(jugador);
+                            }
                         }
-                    }
 
-                    for (var jugador : dead_money) {
-                        if (Helpers.doubleSecureCompare(jugador.getBote(), techo) > 0) {
-                            sidePot.addDeadMoney(jugador);
+                        for (var jugador : dead_money) {
+                            if (Helpers.doubleSecureCompare(jugador.getBote(), techo) > 0) {
+                                sidePot.addDeadMoney(jugador);
+                            }
                         }
-                    }
 
-                    sidePot.genSidePots();
+                        sidePot.genSidePots();
+                    }
                 }
             }
         }

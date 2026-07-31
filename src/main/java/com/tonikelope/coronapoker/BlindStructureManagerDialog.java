@@ -492,15 +492,28 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     private String uniqueCopyName(String base) {
         String suffix = " " + Translator.translate("blinds.copia_sufijo");
         String candidate = truncarNombre(base + suffix);
-        int n = 2;
+
         // Se comprueba que no exista SOBRE EL NOMBRE YA RECORTADO. Recortar despues
         // deshacia el trabajo: con un nombre largo, la copia y la copia 2 acababan en la
         // misma cadena tras el recorte, asi que duplicar machacaba una estructura que ya
         // existia en vez de crear una nueva.
-        while (working.containsKey(candidate)) {
-            candidate = truncarNombre(base + suffix + " " + n);
-            n++;
+        //
+        // Lo que se recorta es la BASE, no el sufijo: el sufijo con su numero entra
+        // SIEMPRE entero, asi que cada intento da un nombre distinto de verdad. Recortar
+        // el resultado entero dejaba el mismo candidato vuelta tras vuelta en cuanto la
+        // base llenaba el hueco (y con una base del tamano maximo, ese candidato es la
+        // propia estructura que se esta duplicando), o sea, un bucle sin salida en el
+        // hilo grafico. El tope de intentos es la red por si el nombre no diera para
+        // distinguirlos: entonces se devuelve el ultimo, que es lo que hacia antes.
+        for (int n = 2; working.containsKey(candidate) && n < 1000; n++) {
+            String cola = suffix + " " + n;
+            int hueco_base = BlindStructure.MAX_NAME_LENGTH - cola.length();
+            String base_recortada = hueco_base > 0
+                    ? base.substring(0, Math.min(base.length(), hueco_base))
+                    : "";
+            candidate = truncarNombre(base_recortada + cola);
         }
+
         return candidate;
     }
 

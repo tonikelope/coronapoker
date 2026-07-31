@@ -16061,15 +16061,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (name.equals(nick)) {
 
-                    // Recovery: return a 6-slot action so the
+                    // Recovery: return a full-width action so the
                     // rondaApuestas absorb path picks up the persisted record + sig
                     // bytes and ratchets H_t exactly as before the crash. Shorter
                     // recovery data (3 fields) falls back to "*" placeholders — those
                     // leave record/sig null, the canBuild gate takes over (host
                     // re-builds with its privkey for its own actions, client no-ops
                     // for others), so the chain ends up null for the recovered hand
-                    // only when the shorter data is fed in.
-                    res = new Object[6];
+                    // only when the shorter data is fed in. El ancho es el mismo que el
+                    // del camino vivo (readActionFromRemotePlayer) porque un replay
+                    // forjado sintetiza el MISMO fold, y ese sale al wire.
+                    res = new Object[7];
 
                     res[0] = Integer.parseInt(accion_partes[1]);
 
@@ -16099,8 +16101,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // que el cliente RE-FIRMA con SU clave aguas abajo) al record firmado (recoveredActionBinds
                             // ToRecord) -> un host no puede servir un record valido con un plaintext distinto. Ambas
                             // fallando = forja.
-                            byte[] recoverSignerPubkey = resolveActionSignerPubkey(name, Boolean.TRUE.equals(res[5]));
-                            if (recoverSignerPubkey != null
+                            byte[] recoverSignerPubkey = resolveActionSignerPubkey(name, true);
+                            if (!Boolean.TRUE.equals(res[5])) {
+                                // §4.5 (mismo gate que el camino vivo): NINGUNA accion se firma como
+                                // no voluntaria. Aceptarlo mandaba la verificacion a la clave del HOST,
+                                // que es justo quien nos sirve el record en el replay: podia firmar EL
+                                // un FOLD a nombre de la victima, pasar la firma y pasar el binding
+                                // (que no mira el bit) y hacerle reproducir una accion que nunca jugo.
+                                LOGGER.log(Level.SEVERE,
+                                        "ZERO-TRUST RECOVER: recovered action for {0} claims is_voluntary=0, which no genuine action ever does — host forging",
+                                        name);
+                                recoverForged = true;
+                            } else if (recoverSignerPubkey != null
                                     && !IdentityManager.verifyAction(recoverSignerPubkey, recordBytes, sigBytes)) {
                                 LOGGER.log(Level.SEVERE,
                                         "ZERO-TRUST RECOVER: recovered action for {0} FAILED signature verify — host forging",
@@ -16119,16 +16131,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         if (recoverForged) {
                             // NO reproducir la decision/importe forjados NI re-firmarlos con la clave de la
-                            // victima: se sintetiza un FOLD (simetrico en todo receptor via el re-broadcast del
-                            // replay -> converge por omision mutua) y se marca el incidente para el consenso de
+                            // victima: se sintetiza un FOLD y se marca el incidente para el consenso de
                             // cierre. Cierra el HIGH: antes se anulaba record+sig pero se mantenia res[0]/res[1],
                             // que el cliente re-firmaba con su clave -> forja LIMPIA en H_t.
+                            // Es el MISMO synth del camino vivo (wire que no se puede verificar), asi que
+                            // usa su helper: sale al wire para que la mesa converja en vez de quedarse
+                            // esperando este asiento.
                             warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
-                            res[0] = Player.FOLD;
-                            res[1] = 0d;
-                            res[3] = null;
-                            res[4] = null;
-                            res[5] = Boolean.FALSE;
+                            synthesizeUnverifiedFoldAction(res);
                             this.saw_invalid_action_sig = true;
                         }
                     } else if (this.hand_state_chain != null) {
@@ -16141,9 +16151,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 "ZERO-TRUST RECOVER: recovered action for {0} carries no signed record while the chain is active — host forging",
                                 name);
                         warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
-                        res[0] = Player.FOLD;
-                        res[1] = 0d;
-                        res[5] = Boolean.FALSE;
+                        synthesizeUnverifiedFoldAction(res);
                         this.saw_invalid_action_sig = true;
                     }
 

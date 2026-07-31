@@ -18441,26 +18441,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         HashMap<Player, Hand> ganadores;
 
                         synchronized (getLock_contabilidad()) {
-                            // Se lee UNA vez, al entrar, y solo la usa el case 0 de aqui abajo.
-                            //
-                            // OJO: no es que no pueda cambiar mientras se liquida. La barrera de
-                            // verificacion se llama DENTRO de este cerrojo y en el cliente puede
-                            // acabar anulando la mano (es, a proposito, el unico punto donde una
-                            // anulacion tardia corta antes de que se mueva una ficha), asi que el
-                            // testigo puede pasar a true despues de esta linea. Se congela aqui a
-                            // proposito: al case 0 le importa el estado con el que ENTRO, porque si
-                            // el dinero aun no habia vuelto tiene que dejar el bote donde se pueda
-                            // encontrar.
-                            //
-                            // Los otros dos casos NO llevan guarda, y es deliberado: ahi el bote se
-                            // reparte, y las cuentas ya salen solas porque quien liquida primero
-                            // vacia las apuestas y quien llegue detras no encuentra nada que
-                            // devolver. Guardarlos fue un intento de esta misma auditoria que
-                            // CREABA fichas: en el reparto normal el pago sale de bote + sobrante,
-                            // asi que tapar solo el sumidero pagaba el pico heredado Y ADEMAS lo
-                            // conservaba.
-                            final boolean ya_devuelto = this.apuestas_devueltas;
-
                             java.util.Iterator<Player> iterator = resisten.iterator();
                             while (iterator.hasNext()) {
                                 Player jugador = iterator.next();
@@ -18514,7 +18494,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     // anulada se iza FUERA del cerrojo: entre la marca y la devolucion cabe
                                     // esta liquidacion entera, y saltarla ahi dejaba el bote sin repartir Y
                                     // sin apuntar, con la devolucion llegando despues a un bote ya vaciado.
-                                    if (!ya_devuelto) {
+                                    // Se lee AQUI, no al entrar en la liquidacion. La barrera de
+                                    // verificacion de aqui arriba se llama dentro de este mismo
+                                    // cerrojo y en el cliente puede acabar anulando la mano (es, a
+                                    // proposito, el unico punto donde una anulacion tardia corta
+                                    // antes de que se mueva una ficha), asi que el testigo cambia
+                                    // DESPUES de entrar. Congelarlo al entrar hacia que en ese caso
+                                    // se creyera que el dinero seguia en el bote cuando ya habia
+                                    // vuelto a los stacks, y se apuntaba un bote vacio como sobrante,
+                                    // borrando el pico heredado de la mano anterior.
+                                    if (!this.apuestas_devueltas) {
                                         this.bote_sobrante = this.bote_total;
                                     }
                                     ganadores = new HashMap<>();

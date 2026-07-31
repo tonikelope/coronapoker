@@ -2001,6 +2001,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         chainStepK.add(botLock);
                         chainDecks.add(workingDeck);
                     } else if (p != null && !p.isExit()) {
+                        // Cuantas reconexiones llevaba ANTES de pedirle su paso. Si al fallar
+                        // lleva mas, es que se cayo y volvio por el camino, y entonces su
+                        // silencio no es culpa suya: al reconectar pierde sus escalares
+                        // efimeros y ya no puede contestar a una peticion que se le hizo
+                        // antes. Mirar el estado del socket al vencer el plazo no sirve para
+                        // esto, porque para entonces ya suele estar reconectado y parece que
+                        // nunca se fue. El contador solo sube, y solo con una reconexion que
+                        // haya salido bien.
+                        int reconexiones_antes = p.getReconnectionCount();
                         byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
                         if (cascaded != null) {
                             workingDeck = cascaded;
@@ -2020,22 +2029,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     "Peer {0} left during cascade (drop or zero-trust violation) — restarting shuffle without them",
                                     currNick);
                             restart = true;
-                        } else if (p.isSocketDownOrReconnecting()) {
-                            // El peer se CAYO o esta RECONECTANDO durante la cascada. Al
-                            // reconectar a mitad pierde sus escalares SRA efimeros y ya no
-                            // puede contestar, asi que su silencio NO es una negativa
-                            // maliciosa: MISDEAL sin acusarle ni darle strike, exactamente
-                            // igual que hace la rotacion, su gemela, mas abajo. Sin esta
-                            // rama caia en el else de acusar, y a un jugador honesto al que
+                        } else if (p.isSocketDownOrReconnecting() || p.getReconnectionCount() != reconexiones_antes) {
+                            // El peer se CAYO o RECONECTO en algun momento desde que se le
+                            // pidio su paso. Al reconectar a mitad pierde sus escalares SRA
+                            // efimeros y ya no puede contestar, asi que su silencio NO es una
+                            // negativa maliciosa: mano anulada sin acusarle ni apuntarle
+                            // nada, igual que hace la rotacion, su gemela, mas abajo. Sin
+                            // esto caia en el else de acusar, y a un jugador honesto al que
                             // se le habia ido la red un momento se le nombraba tramposo en
-                            // rojo y con ventana emergente; a los tres, expulsado.
+                            // rojo y con ventana emergente.
+                            //
+                            // Se miran las DOS cosas porque cada una cubre un momento: el
+                            // estado del socket vale si sigue caido ahora mismo, y el
+                            // contador de reconexiones vale si ya volvio, que es el caso mas
+                            // frecuente (el plazo no corre mientras esta caido, asi que
+                            // cuando vence lo normal es que haya vuelto y parezca que nunca
+                            // se fue).
                             //
                             // Y no vale reiniciar la cascada como en la rama de arriba: ahi
                             // el peer esta fuera y el reintento lo salta, pero este sigue
-                            // dentro, asi que el reintento volveria a toparse con el y a
-                            // quedarse igual, una y otra vez.
+                            // dentro, asi que el reintento se lo volveria a encontrar y a
+                            // gastar otro plazo entero con el.
                             LOGGER.log(Level.WARNING,
-                                    "Peer {0} unavailable for cascade (drop/reconnect), aborting hand without strike, game continues",
+                                    "Peer {0} unavailable for cascade (drop/reconnect), aborting hand without accusing them",
                                     currNick);
                             cancelarManoYDevolverApuestas("peer.dropped_during_cascade");
                             return false;
@@ -5346,8 +5362,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // ningun otro sitio, no se emitia jamas. Los demas se quedaban esperando el turno de
     // alguien a quien la mesa acababa de echar.
     //
-    // Y el aviso va SIN esperar confirmacion, que es lo que hace que esto se pueda ejecutar
-    // sin peligro con el cerrojo puesto. Esperandola, el anfitrion se colgaba: las
+    // Y el aviso va SIN esperar confirmacion. Esperandola, el anfitrion se colgaba: las
     // confirmaciones las despacha el hilo consumidor de cada peer, asi que cualquiera que
     // se fuera a la vez se quedaba esperando este mismo cerrojo y la suya no llegaba nunca;
     // tres minutos parado, acusacion por el registro a ese inocente de estar reteniendola, y
@@ -5355,10 +5370,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // aqui con el cerrojo puesto (los monitores de Java son reentrantes) y corre al cerrar
     // cada mano. Lo que sobra es la espera, no el sitio.
     //
-    // Perder la confirmacion no cuesta nada aqui: es un aviso de una sola direccion, el
-    // orden en cada socket lo garantiza TCP, y si a alguien no le llega es porque su socket
-    // ha muerto, en cuyo caso se entera por su cuenta. Nueve sitios mas del fichero difunden
-    // asi.
+    // OJO, lo que esto se deja fuera: al no esperar confirmacion tampoco hay reintento, y el
+    // reintento cubria un caso. A quien tenga la red caida justo ahora (pero al que todavia
+    // no se le haya dado por ido) el aviso se le escribe a un socket condenado y se pierde;
+    // si luego reconecta dentro de su ventana, vuelve a la mesa sin haberse enterado y se
+    // queda esperando el turno del que se fue. Al reconectar solo se le manda el acuse, no
+    // el estado de la mesa. Aun asi esto es mejor que lo que habia: antes NADIE se enteraba
+    // de ninguna expulsion, y ahora se entera todo el mundo menos ese caso. Cerrarlo del
+    // todo es reenviar el estado al reconectar, y eso es harina de otro costal.
+    //
+    // Y quedan dos esperas dentro de la escritura, ninguna de este cambio: la del peer que
+    // esta reconectando (acotada por el vigilante de la reconexion forzada) y la del turno
+    // de salida del socket (acotada por el detector de atasco del latido). El bucle de
+    // escrituras es el mismo de siempre y la version anterior pasaba por el igual.
     public synchronized void remotePlayerQuit(String nick, String testamento) {
         Player jugador = nick2player.get(nick);
         if (jugador != null && quit_anunciado.add(nick)) {

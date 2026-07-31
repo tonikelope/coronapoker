@@ -11097,13 +11097,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                     } else if (signerPubkey == null) {
                                                         // Con la cadena ACTIVA todos los del anillo tienen identidad
-                                                        // fijada, asi que no poder resolver la clave de quien firma
-                                                        // no es una carrera pasajera: es que no hay con que
-                                                        // comprobar nada. Saltarse la verificacion dejaba pasar
-                                                        // TODAS las acciones de ese jugador durante el resto de la
-                                                        // partida, que es justo el agujero por el que se cuela una
-                                                        // decision falsificada. Mismo trato que una firma que no
-                                                        // cuadra.
+                                                        // fijada, y eso lo garantiza initHandStateChain, que no la
+                                                        // arranca si falta alguna. Asi que llegar aqui sin poder
+                                                        // resolver la clave no es una carrera pasajera ni un peer
+                                                        // que aun no se ha presentado: es que su identidad ha
+                                                        // desaparecido despues, con la mano en marcha. Saltarse la
+                                                        // verificacion dejaba pasar TODAS las acciones de ese
+                                                        // jugador durante el resto de la partida, que es justo el
+                                                        // agujero por el que se cuela una decision falsificada.
+                                                        // Mismo trato que una firma que no cuadra.
                                                         LOGGER.log(Level.SEVERE,
                                                                 "ZERO-TRUST: cannot resolve the signer pubkey for action by {0} while the chain is active — SYNTHESIZING FOLD",
                                                                 jugador.getNickname());
@@ -15123,6 +15125,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE, "Missing K commitments — hand state chain not initialized (no consensus this hand)");
             this.hand_state_chain = null;
             return;
+        }
+        // Y tampoco se arranca si a alguien del anillo no se le conoce la identidad. Sin ella
+        // no hay con que comprobar sus firmas, asi que la cadena no aportaria nada: solo
+        // serviria para que sus acciones, perfectamente honestas, se tomaran por no
+        // verificables y se convirtieran en retiradas. Y como cada peer conoce identidades
+        // distintas, cada uno acabaria jugando una mano diferente.
+        //
+        // Que falte alguna es un estado alcanzable, no una hipotesis: el anfitrion arranca
+        // igual si su fichero de identidad viene ilegible (lo apunta como error grave y
+        // sigue), y un cliente da por bueno un alta cuya identidad no cuadra dejandola sin
+        // fijar. Sin cadena se juega como se jugaba antes de que existiera: sin verificar
+        // firmas, pero todos igual y sin partir la mesa.
+        // El propio jugador queda fuera de la comprobacion, y no por comodidad: sus acciones
+        // no llegan por el cable ni se verifican contra nada, las genera el. Ademas figura en
+        // el mapa de participantes SIN objeto detras, asi que preguntar por su clave devuelve
+        // siempre vacio y la cadena no se activaria jamas.
+        String yo = GameFrame.getInstance().getLocalPlayer().getNickname();
+
+        for (String nick : this.active_crypto_ring) {
+            if (!nick.equals(yo) && resolveActionSignerPubkey(nick, true) == null) {
+                LOGGER.log(Level.SEVERE,
+                        "No identity for {0} — hand state chain not initialized (no signature checks this hand)",
+                        nick);
+                this.hand_state_chain = null;
+                return;
+            }
         }
         try {
             this.hand_state_chain = HandStateChain.start(

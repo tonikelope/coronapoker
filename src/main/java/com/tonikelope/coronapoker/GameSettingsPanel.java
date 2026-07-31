@@ -1065,16 +1065,18 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         }
 
         double blind_cap = (this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected()) ? blindCapSelectedBB() : 0;
+        final boolean blind_cap_changed = Helpers.doubleSecureCompare(GameFrame.BLIND_CAP, blind_cap) != 0;
         GameFrame.BLIND_CAP = blind_cap;
 
         boolean ante_nuevo = this.ante_checkbox.isSelected();
         boolean straddle_nuevo = this.straddle_checkbox.isSelected();
+        final boolean ante_straddle_changed = GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo;
 
         // El ante/straddle se siguen aplicando y difundiendo al instante (más abajo,
         // en UPDATEBLINDS); si cambian, además, se marca el aviso diferido para que
         // salga el indicador amarillo y el popup en la próxima mano, igual que con
         // las ciegas.
-        if (GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo) {
+        if (ante_straddle_changed) {
             GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
         }
 
@@ -1139,14 +1141,22 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         if (bot_balance_checkbox.isSelected() != GameFrame.BOT_BALANCE_TO_HUMANS) {
             GameFrame.setBotBalanceToHumans(bot_balance_checkbox.isSelected());
         }
-        if (diff_changed) {
-            GameFrame.persistRecoverSettings(GameFrame.getInstance().getCrupier().getSqlite_game_id());
-        }
+        // Fósil de recover: todo lo que serializeRecoverSettings incluye tiene que
+        // persistirse para que sobreviva a un detener+recuperar. Faltaban cuatro reglas
+        // (el tope de ciegas, el ante, el straddle y el limite de manos), que se editaban
+        // en partida y volvian a su valor viejo al recuperar mientras sus siete hermanas
+        // de este mismo metodo si aguantaban.
+        //
+        // Va FUERA del hilo grafico y en UNA sola escritura: persistir aqui mismo apunta
+        // a la base de datos desde el boton de GUARDAR, que es justo el camino por el que
+        // el hilo grafico se queda esperando al cerrar la partida. Mismo patron que los
+        // gemelos de recomprar y repartir saldo.
+        final boolean recover_settings_changed = diff_changed || structure_changed
+                || blind_cap_changed || ante_straddle_changed || manos_changed;
 
-        // La estructura va en el fósil de recover (serializeRecoverSettings la incluye)
-        // para que sobreviva a un detener+recuperar; persistir si cambió.
-        if (structure_changed) {
-            GameFrame.persistRecoverSettings(GameFrame.getInstance().getCrupier().getSqlite_game_id());
+        if (recover_settings_changed) {
+            Helpers.threadRun(()
+                    -> GameFrame.persistRecoverSettings(GameFrame.getInstance().getCrupier().getSqlite_game_id()));
         }
     }
 

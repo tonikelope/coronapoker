@@ -557,16 +557,25 @@ public class WaitingRoomFrame extends JFrame {
             return;
         }
 
-        SecretKeySpec my_key = getLocal_client_aes_key();
+        // Pedir la clave BLOQUEA mientras haya una reconexión en curso, y aquí venimos
+        // del click derecho, o sea, del hilo gráfico: la sala se congelaba entera, y
+        // encima quien tiene que dar por terminada la reconexión necesita que ese mismo
+        // hilo siga atendiendo. Se pide fuera y el diálogo se abre al volver.
+        Helpers.threadRun(() -> {
+            SecretKeySpec my_key = getLocal_client_aes_key();
 
-        if (my_key == null) {
-            return;
-        }
+            if (my_key == null) {
+                return;
+            }
 
-        String title = server_nick != null ? local_nick + " ↔ " + server_nick : local_nick;
-        IdenticonDialog dialog = new IdenticonDialog(this, true, title, my_key);
-        dialog.setLocationRelativeTo(this);
-        dialog.setVisible(true);
+            String title = server_nick != null ? local_nick + " ↔ " + server_nick : local_nick;
+
+            Helpers.GUIRun(() -> {
+                IdenticonDialog dialog = new IdenticonDialog(this, true, title, my_key);
+                dialog.setLocationRelativeTo(this);
+                dialog.setVisible(true);
+            });
+        });
     }
 
     private void HTMLEditorKitAppend(String text) {
@@ -4444,10 +4453,17 @@ public class WaitingRoomFrame extends JFrame {
                     Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
                     Helpers.savePropertiesFile();
                     booting = false;
+                    // El socket se publica DESPUES de atarlo al puerto (y se limpia antes de
+                    // intentarlo). Publicarlo antes hacia INALCANZABLE la guarda del catch de
+                    // abajo, que mira precisamente si se quedo sin crear: con el puerto ocupado
+                    // no se avisaba de nada, no se marcaba la salida, y este bucle reintentaba
+                    // sin pausa reescribiendo el fichero de preferencias en cada vuelta. El
+                    // mensaje de "no se pudo abrir el puerto" no habia salido nunca.
+                    net_server.setServer_socket(null);
                     ServerSocket ss = new ServerSocket();
-                    net_server.setServer_socket(ss);
                     ss.setReuseAddress(true);
                     ss.bind(new InetSocketAddress(server_port));
+                    net_server.setServer_socket(ss);
                     while (!ss.isClosed()) {
                         Socket incoming = ss.accept();
                         // Anti-DoS pre-auth: solo procesamos el handshake si hay slot libre. Agotados,
@@ -5881,14 +5897,6 @@ public class WaitingRoomFrame extends JFrame {
 
             Helpers.threadRun(() -> {
                 try {
-                    String bot_nick;
-                    int conta_bot = 0;
-                    do {
-                        conta_bot++;
-                        bot_nick = "CoronaBot$" + String.valueOf(conta_bot);
-                    } while (participantes.get(bot_nick) != null);
-
-                    String comando = "NEWUSER#" + Base64.getEncoder().encodeToString(bot_nick.getBytes("UTF-8")) + "#0";
                     byte[] avatar_b = null;
                     try (java.io.InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
                         if (is != null) {
@@ -5897,9 +5905,34 @@ public class WaitingRoomFrame extends JFrame {
                     } catch (Exception ex) {
                         LOGGER.log(Level.SEVERE, "Failed to load bot avatar", ex);
                     }
-                    comando += "#" + (avatar_b != null ? Base64.getEncoder().encodeToString(avatar_b) : "*");
 
                     synchronized (lock_new_client) {
+                        // El aforo se vuelve a mirar AQUI DENTRO, como hace el gemelo del alta
+                        // de un cliente: la comprobacion del boton se hizo antes de pedir el
+                        // turno, y en ese hueco puede haber entrado alguien por la red. Pasarse
+                        // del aforo deja la sala sin tablero para tanta gente y se queda colgada
+                        // al empezar la timba. El nick tambien se elige aqui, o dos altas a la
+                        // vez podrian quedarse con el mismo.
+                        if (participantes.size() >= MAX_PARTICIPANTES) {
+                            LOGGER.log(Level.WARNING,
+                                    "Table filled up while adding a bot ({0} participants) — not adding it",
+                                    participantes.size());
+                            Helpers.GUIRun(() -> {
+                                new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
+                            });
+                            return;
+                        }
+
+                        String bot_nick;
+                        int conta_bot = 0;
+                        do {
+                            conta_bot++;
+                            bot_nick = "CoronaBot$" + String.valueOf(conta_bot);
+                        } while (participantes.get(bot_nick) != null);
+
+                        String comando = "NEWUSER#" + Base64.getEncoder().encodeToString(bot_nick.getBytes("UTF-8")) + "#0";
+                        comando += "#" + (avatar_b != null ? Base64.getEncoder().encodeToString(avatar_b) : "*");
+
                         nuevoParticipante(bot_nick, null, null, null, null, true, false);
                         broadcastASYNCGAMECommandFromServer(comando, participantes.get(bot_nick));
                         Helpers.GUIRun(() -> {

@@ -1459,15 +1459,29 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 // Pure check (sin dinero): cinemática BLOQUEANTE de siempre (no hay
                 // contadores que sincronizar; el check.wav va atado a un frame del GIF).
                 setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/check.gif"));
-                if (getChat_notify_label().getGif_barrier() != null) {
+                // Mismo patron que fold(): la barrera se captura en una local y se espera CON
+                // tope. Leer el campo dos veces (una para el null-check y otra para el await)
+                // permitia esperar en una barrera distinta de la que acaba de instalarse, si
+                // otro notify la reemplazaba en medio; y sin tope esa espera no termina nunca.
+                // Colgarse aqui congela la mesa ENTERA, no solo este asiento: no se llega a
+                // finTurno, `turno` no baja y el bucle de rondaApuestas que espera por este
+                // jugador no tiene deadline.
+                java.util.concurrent.CyclicBarrier check_barrier = getChat_notify_label().getGif_barrier();
+                if (check_barrier != null) {
                     try {
-                        getChat_notify_label().getGif_barrier().await();
+                        check_barrier.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
                     } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
                         Thread.currentThread().interrupt();
                         // Expected during pool shutdown — animation barrier
                         // cancelled cooperatively.
                         Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
                                 "Animation barrier cancelled (cooperative cancellation)");
+                    } catch (java.util.concurrent.TimeoutException ex) {
+                        // El notify fue reemplazado (o su GIF desmontado) antes de cerrarse
+                        // el rendezvous: no es fatal, la etiqueta la oculta quien la posea
+                        // ahora. No es una interrupcion.
+                        Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
+                                "Check animation barrier timed out (superseded notify — cooperative cancellation)");
                     } catch (Exception ex) {
                         Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                     }

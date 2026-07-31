@@ -4630,15 +4630,38 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         final BalanceScreen[] balance_ref = new BalanceScreen[1];
 
                         Helpers.GUIRun(() -> {
+                            // El boton SOLO baja el contador. NO toca el candado de la base de
+                            // datos: esto corre en el hilo grafico, y pedirlo aqui lo deja
+                            // esperando a quien lo tenga. Con dos pulsaciones seguidas eso era
+                            // un abrazo mortal nuevo: la segunda se quedaba esperando el
+                            // candado mientras el hilo que acaba de despertar, que lo tiene,
+                            // esperaba al hilo grafico para quitar la pantalla. La espera de
+                            // abajo se entera igual, que mira el contador cada cuarto de
+                            // segundo; ese retardo en una pantalla final no lo nota nadie.
                             BalanceScreen balance = new BalanceScreen(GameFrame.getInstance(), balance_latch::countDown);
                             balance_ref[0] = balance;
                             showBalanceOverlay(balance);
                         });
 
-                        try {
-                            balance_latch.await();
-                        } catch (InterruptedException ex) {
-                            Thread.currentThread().interrupt();
+                        // Esta espera es a que el JUGADOR pulse, o sea, indefinida, y estamos
+                        // DENTRO del SQL_LOCK. Esperar aqui con un latch retiene el lock todo
+                        // ese rato, y el hilo grafico se queda clavado en el mismo lock en cuanto
+                        // alguien le da a GUARDAR en los ajustes: la partida se congela entera y
+                        // ya nadie puede ni pulsar el boton que desbloquearia esto.
+                        // Dormir sobre el propio SQL_LOCK SUELTA el monitor por completo, incluso
+                        // tomado varias veces, asi que mientras esperamos los ajustes se guardan
+                        // con normalidad. Se comprueba el contador cada cuarto de segundo: nadie
+                        // nos avisa a proposito, porque avisar exigiria pedir este mismo candado
+                        // desde el hilo grafico y eso es justo lo que no puede pasar.
+                        synchronized (GameFrame.SQL_LOCK) {
+                            while (balance_latch.getCount() > 0) {
+                                try {
+                                    GameFrame.SQL_LOCK.wait(WAIT_QUEUES);
+                                } catch (InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                    break;
+                                }
+                            }
                         }
 
                         recover = balance_ref[0] != null && balance_ref[0].isRecover();

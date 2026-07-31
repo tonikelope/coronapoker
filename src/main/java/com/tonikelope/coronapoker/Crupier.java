@@ -11533,26 +11533,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (result != null) {
                     return result;
                 }
-                // El plazo se congela con la timba en PAUSA, que es simetrico entre todos y
-                // se levanta solo. Asumir NO al vencer solo converge si el anfitrion tambien
-                // lo asumio; si su aviso viene de camino, asumirlo aqui deja a este cliente
-                // jugando una mano distinta a la de la mesa.
-                //
-                // Lo que NO se mira aqui es si hay algun peer reconectando: en un cliente esa
-                // marca la enciende un aviso del anfitrion y NO la apaga nadie hasta que
-                // arranca la ronda de apuestas, o sea, despues de esta espera. Mirarla
-                // convertia el plazo en eterno y dejaba al cliente colgado antes del preflop
-                // con la mesa entera esperandole. Es la misma trampa que ya advierte por
-                // escrito el reparto de comandos con confirmacion.
-                if (GameFrame.getInstance().checkPause()) {
-                    deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
-                }
                 try {
                     this.getReceived_commands().wait(200);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                     break;
                 }
+            }
+
+            // La comprobacion de PAUSA va FUERA del monitor de la cola, que es como lo hacen
+            // las quince esperas hermanas de este fichero. checkPause() DUERME mientras la
+            // timba esta pausada y NO suelta ese monitor: dejarla dentro clavaba al hilo que
+            // reparte los comandos entrantes, y como la orden de reanudar llega por esa misma
+            // cola, no se procesaba nunca. Abrazo mortal permanente con solo pulsar pausa.
+            //
+            // Congelar el plazo mientras dura la pausa es lo correcto: asumir que no hay
+            // straddle al vencer solo converge si el anfitrion tambien lo asumio; si su aviso
+            // viene de camino, este cliente se queda jugando una mano distinta a la de la
+            // mesa. Lo que NO se mira es si hay peers reconectando: en un cliente esa marca
+            // no la apaga nadie hasta que arranca la ronda, o sea, despues de esta espera, y
+            // mirarla volvia el plazo eterno.
+            if (GameFrame.getInstance().checkPause()) {
+                deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
             }
         }
         return VoluntaryStraddleDialog.NO_STRADDLE;
@@ -11572,9 +11574,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void broadcastStraddleResult(int v) {
-        // confirmation=false (fire-and-forget) como RIT_VOTE_CLOSE: TCP ya garantiza
-        // la entrega y el cliente lo drena en waitStraddleResult; evita que el handshake
-        // de confirmación se trague comandos pendientes.
+        // confirmation=false (fire-and-forget): TCP ya garantiza la entrega y el cliente lo
+        // drena en waitStraddleResult; evita que el handshake de confirmación se trague
+        // comandos pendientes. (El cierre de la votación de correr dos veces SÍ pasó a
+        // confirmado, porque ahí lo que se pierde es cómo se reparte el bote.)
         try {
             broadcastGAMECommandFromServer("STRADDLE_RESULT#" + v, null, false);
         } catch (RuntimeException e) {

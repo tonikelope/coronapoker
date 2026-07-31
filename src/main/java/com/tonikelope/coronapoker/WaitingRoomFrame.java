@@ -2382,14 +2382,18 @@ public class WaitingRoomFrame extends JFrame {
 
                                         case "NEWPASS":
                                             // El anfitrion ha cambiado la contrasena de la sala (al expulsar a
-                                            // alguien) y nos manda la nueva. Sin esto nos quedabamos con la
+                                            // alguien, al cambiarla a mano, al generar una fuerte o al
+                                            // quitarla) y nos manda la nueva. Sin esto nos quedabamos con la
                                             // vieja, y como el canal se deriva de ella, una caida de red
-                                            // significaba no poder volver a entrar. Llega por el canal ya
-                                            // cifrado con las claves de esta sesion, que no dependen de que la
-                                            // contrasena cambie.
+                                            // significaba no poder volver a entrar. El centinela "*" es
+                                            // "ya no hay contrasena", que tambien cambia como se deriva el
+                                            // canal. Llega por el canal ya cifrado con las claves de esta
+                                            // sesion, que no dependen de que la contrasena cambie.
                                             if (partes_comando.length > 1) {
                                                 try {
-                                                    password = new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8");
+                                                    password = "*".equals(partes_comando[1])
+                                                            ? null
+                                                            : new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8");
                                                 } catch (Exception ex) {
                                                     LOGGER.log(Level.WARNING, "Could not read the new room password", ex);
                                                 }
@@ -5971,6 +5975,9 @@ public class WaitingRoomFrame extends JFrame {
         String trimmed = (chars == null) ? "" : new String(chars).trim();
         if (trimmed.isEmpty()) {
             password = null;
+            // Quitarla tambien hay que contarlo: sin contrasena el canal se deriva por otro
+            // camino, asi que quien se quedara con la vieja no podria volver a entrar.
+            difundirNuevaPassword();
             pass_icon.setEnabled(false);
             pass_icon.setToolTipText(null);
             mostrarMensajeInformativo(this,
@@ -5996,39 +6003,51 @@ public class WaitingRoomFrame extends JFrame {
      * password). Usa CSPRNG + alphabet rico — ~86 bits con length=14.
      */
     /**
-     * Reparte la contrasena ACTUAL de la sala a todos los que siguen dentro.
+     * Reparte la contrasena ACTUAL de la sala (o el aviso de que ya no hay) a todos los
+     * que siguen dentro.
      *
-     * <p>Se llama desde los TRES sitios que la cambian (expulsar a alguien, cambiarla a
-     * mano y generar una fuerte). Sin esto, los demas se quedaban con la vieja y, como
-     * el canal se deriva de ella, al primero que se le cortara la red se quedaba fuera
-     * sin poder volver a entrar. Viaja por el canal ya cifrado con las claves de cada
-     * sesion, que no dependen de que la contrasena cambie.
+     * <p>Se llama desde los CUATRO sitios que la cambian: expulsar a alguien, cambiarla a
+     * mano, generar una fuerte y quitarla. Sin esto los demas se quedan con la vieja y,
+     * como el canal se deriva de ella, al primero que se le cortara la red se quedaba
+     * fuera sin poder volver a entrar. Quitarla cuenta igual: sin contrasena el canal se
+     * deriva por otro camino, asi que tambien hay que avisar (viaja el centinela "*").
+     *
+     * <p>Va SIEMPRE en un hilo aparte: escribir a un peer espera mientras ese peer este
+     * reconectando, y tres de los cuatro llamadores vienen del hilo grafico (el menu del
+     * candado), asi que hacerlo ahi congelaba la sala entera. Es el mismo motivo por el
+     * que el identicon de sesion se saco del hilo grafico unas lineas mas arriba.
      */
     private void difundirNuevaPassword() {
 
-        if (password == null) {
-            return;
-        }
+        final String actual = password;
+        final String payload;
 
-        String nueva_pass_b64;
-
-        try {
-            nueva_pass_b64 = Base64.getEncoder().encodeToString(password.getBytes("UTF-8"));
-        } catch (UnsupportedEncodingException ex) {
-            LOGGER.log(Level.SEVERE, null, ex);
-            return;
-        }
-
-        for (Participant resto : participantes.values()) {
-            if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
-                try {
-                    resto.writeCommandFromServer(Helpers.encryptCommand(
-                            "NEWPASS#" + nueva_pass_b64, resto.getAes_key(), resto.getHmac_key()));
-                } catch (Exception ex) {
-                    LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
-                }
+        if (actual == null) {
+            payload = "*";
+        } else {
+            try {
+                payload = Base64.getEncoder().encodeToString(actual.getBytes("UTF-8"));
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+                return;
             }
         }
+
+        // Copia de la lista: se recorre fuera del hilo grafico y el mapa puede mutar.
+        final java.util.ArrayList<Participant> destinatarios = new java.util.ArrayList<>(participantes.values());
+
+        Helpers.threadRun(() -> {
+            for (Participant resto : destinatarios) {
+                if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
+                    try {
+                        resto.writeCommandFromServer(Helpers.encryptCommand(
+                                "NEWPASS#" + payload, resto.getAes_key(), resto.getHmac_key()));
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
+                    }
+                }
+            }
+        });
     }
 
     private void generateAndShowStrongPassword() {

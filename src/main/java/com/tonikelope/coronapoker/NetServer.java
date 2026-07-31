@@ -278,7 +278,17 @@ public class NetServer {
      */
     public synchronized void removeParticipant(String nick) {
         Map<String, Participant> participantes = waiting_room.getParticipantes();
-        if (!participantes.containsKey(nick)) {
+        // Mirar, coger y quitar, los tres bajo el monitor del mapa. Sueltos, entre el
+        // "esta?" y el "cogelo" cabe otro hilo que lo quite, y entonces se lee un nulo y
+        // revienta aqui mismo. Es un mapa sincronizado: cada operacion suelta es atomica,
+        // pero la secuencia no, y esto es una secuencia.
+        Participant pToDel;
+
+        synchronized (participantes) {
+            pToDel = participantes.remove(nick);
+        }
+
+        if (pToDel == null) {
             return;
         }
 
@@ -286,11 +296,7 @@ public class NetServer {
             Audio.playWavResource("misc/toilet.wav");
         }
 
-        // Guardamos la referencia ANTES de retirarlo
-        Participant pToDel = participantes.get(nick);
         String avatar_src = pToDel.getAvatar_chat_src();
-
-        participantes.remove(nick);
 
         // Callback a la UI (también desabilita botones, etc.)
         waiting_room.onParticipantRemoved(nick, avatar_src);

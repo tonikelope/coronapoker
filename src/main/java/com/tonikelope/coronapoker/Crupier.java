@@ -2153,7 +2153,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // El peer se CAYO o esta RECONECTANDO durante la rotacion (al reconectar mid-cascade
                         // pierde sus scalars SRA efimeros y no puede responder, issue#9). NO es una negativa
                         // maliciosa: MISDEAL SIN acusar ni dar strike, igual que la rama de peer-exit de abajo.
-                        // Un abuso REPETIDO de reconexion lo caza el strike de tormenta de reconexion, aparte.
+                        // OJO: no hay ningun control de abuso de reconexiones. El contador que
+                        // se lleva por peer es solo para la telemetria y el indicador de
+                        // enlace, nadie lo usa para echar a nadie, asi que un peer que se
+                        // caiga y vuelva una y otra vez puede repetir esto sin tope.
                         LOGGER.log(Level.WARNING,
                                 "Peer {0} unavailable for rotation (drop/reconnect), aborting hand without strike, game continues",
                                 currNick);

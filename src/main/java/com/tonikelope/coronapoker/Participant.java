@@ -1379,6 +1379,14 @@ public class Participant implements Runnable {
                 this.pong2_timeout_counter = 0;
                 this.ping_write_stall_counter = 0;
                 this.stall_close_ns = NO_STALL_CLOSE;
+                // Y la marca de ventana abierta, que es del socket viejo igual que los
+                // contadores de aqui arriba. Se quedaba puesta porque solo la baja LEER un
+                // frame, y el primero tarda hasta el siguiente latido: si al peer se le iba
+                // la red otra vez en ese hueco, el lector lo encontraba ya marcado, daba su
+                // ventana por agotada y lo echaba en el acto, sin concederle nada. Justo al
+                // de enlace inestable, que es el que mas reconecta.
+                this.timeout = false;
+                setPlayerTimeoutSafe(false);
                 LOGGER.log(Level.INFO, "PEER: Participant {0} resetSocket OK — reconnect succeeded within grace period (exit stays false)", nick);
             } catch (Exception ex) {
                 this.reset_socket = false;

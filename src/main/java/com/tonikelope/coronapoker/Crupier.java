@@ -10829,10 +10829,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         printInvalidActionSigToRegistro(jugador.getNickname());
                                                         this.saw_invalid_action_sig = true;
                                                         synthesizeUnverifiedFoldAction(action);
-                                                    } else if (signerPubkey == null) {
+                                                    } else if (signerPubkey == null && this.hand_state_chain == null) {
+                                                        // Sin cadena activa (mano heredada, sin identidades) no hay
+                                                        // nada contra lo que verificar: se deja pasar, como siempre.
                                                         LOGGER.log(Level.WARNING,
-                                                                "Cannot resolve signer pubkey for action by {0} (voluntary={1}) — verification skipped",
+                                                                "Cannot resolve signer pubkey for action by {0} (voluntary={1}) — verification skipped (no chain)",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
+                                                    } else if (signerPubkey == null) {
+                                                        // Con la cadena ACTIVA todos los del anillo tienen identidad
+                                                        // fijada, asi que no poder resolver la clave de quien firma
+                                                        // no es una carrera pasajera: es que no hay con que
+                                                        // comprobar nada. Saltarse la verificacion dejaba pasar
+                                                        // TODAS las acciones de ese jugador durante el resto de la
+                                                        // partida, que es justo el agujero por el que se cuela una
+                                                        // decision falsificada. Mismo trato que una firma que no
+                                                        // cuadra.
+                                                        LOGGER.log(Level.SEVERE,
+                                                                "ZERO-TRUST: cannot resolve the signer pubkey for action by {0} while the chain is active — SYNTHESIZING FOLD",
+                                                                jugador.getNickname());
+                                                        printInvalidActionSigToRegistro(jugador.getNickname());
+                                                        this.saw_invalid_action_sig = true;
+                                                        synthesizeUnverifiedFoldAction(action);
                                                     } else if (!IdentityManager.verifyAction(signerPubkey, wireRecord, wireSig)) {
                                                         LOGGER.log(Level.SEVERE,
                                                                 "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — SYNTHESIZING FOLD instead of applying falsified decision",

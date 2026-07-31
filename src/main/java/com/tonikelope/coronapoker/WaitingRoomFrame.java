@@ -3383,7 +3383,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
                                                                             // Dual-lock: el testamento es la mitad community del peer que sale.
                                                                             // La mitad pocket nunca se comparte vía EXIT.
-                                                                            if (testament.length == 32) {
+                                                                            // Se exige un escalar USABLE, no solo del tamano correcto:
+                                                                            // 32 ceros pasaban la medida y al invertirlos reventaba el
+                                                                            // hilo del crupier, que se lleva el proceso por delante.
+                                                                            if (RistrettoSRA.isValidScalar(testament)) {
                                                                                 p.setSra_unlock_community(testament);
                                                                             }
                                                                         } catch (Exception e) {

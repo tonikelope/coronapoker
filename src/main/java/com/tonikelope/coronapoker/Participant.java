@@ -8,6 +8,7 @@ package com.tonikelope.coronapoker;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.PING_INTERVAL_MS;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.POISON_PILL;
+import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import java.awt.Image;
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -1378,7 +1379,10 @@ public class Participant implements Runnable {
                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
                                                             // Dual-lock: el testamento entrega SOLO la mitad community.
                                                             // La mitad pocket del peer que sale permanece secreta.
-                                                            if (testament.length == 32) {
+                                                            // Se exige un escalar USABLE, no solo del tamano correcto:
+                                                            // 32 ceros pasaban la medida y al invertirlos reventaba el
+                                                            // hilo del crupier, que se lleva el proceso por delante.
+                                                            if (RistrettoSRA.isValidScalar(testament)) {
                                                                 p.setSra_unlock_community(testament);
                                                             }
                                                         } catch (Exception e) {

@@ -278,10 +278,13 @@ public class NetServer {
      */
     public synchronized void removeParticipant(String nick) {
         Map<String, Participant> participantes = waiting_room.getParticipantes();
-        // Mirar, coger y quitar, los tres bajo el monitor del mapa. Sueltos, entre el
-        // "esta?" y el "cogelo" cabe otro hilo que lo quite, y entonces se lee un nulo y
-        // revienta aqui mismo. Es un mapa sincronizado: cada operacion suelta es atomica,
-        // pero la secuencia no, y esto es una secuencia.
+        // Se quita en UNA operacion y se mira lo que devuelve, en vez de preguntar si esta,
+        // cogerlo y quitarlo por separado: sobre un mapa sincronizado cada operacion suelta
+        // es atomica, pero la secuencia no.
+        //
+        // Hoy no hay carrera que temer, porque los dos unicos sitios que mutan el mapa de
+        // verdad estan sincronizados sobre la sala. De hecho este metodo no lo llama nadie:
+        // el que se usa es el borrado de la sala, que sigue haciendo la secuencia suelta.
         Participant pToDel;
 
         synchronized (participantes) {

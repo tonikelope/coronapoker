@@ -17953,7 +17953,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     // Acumular lo contaba dos veces y CREABA fichas, rompiendo el
                                     // invariante de conservacion (suma de stacks + sobrante == suma de
                                     // compras) que se comprueba al arrancar cada mano.
-                                    this.bote_sobrante = this.bote_total;
+                                    //
+                                    // Con la mano ANULADA no se toca: ese es el unico camino que pone el
+                                    // bote a cero conservando el sobrante a proposito (las apuestas ya se
+                                    // han devuelto), asi que asignar ahi se llevaria por delante el pico
+                                    // heredado de la mano anterior.
+                                    if (!this.mano_anulada) {
+                                        this.bote_sobrante = this.bote_total;
+                                    }
                                     ganadores = new HashMap<>();
                                     for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                                         carta.desenfocar();

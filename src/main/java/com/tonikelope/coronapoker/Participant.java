@@ -354,9 +354,10 @@ public class Participant implements Runnable {
                 // voz, un avatar, los datos de recuperacion, un lote de estadisticas), que
                 // con varios peers y poca subida tardan lo suyo con todo el mundo sano; y
                 // mientras hay una reconexion en marcha la escritura espera POR DISENO. Por
-                // eso el plazo es holgado, no cuenta si el peer esta reconectando o en su
-                // periodo de gracia, y hacen falta VARIAS seguidas, exactamente el mismo
-                // criterio que el cierre por PONGs perdidos de aqui abajo.
+                // eso el plazo es holgado, no cuenta si el peer esta reconectando y hacen
+                // falta VARIAS seguidas, con el mismo umbral que el cierre por PONGs
+                // perdidos de aqui abajo. La cuenta se pone a cero al reconectar, para que
+                // los atascos del socket viejo no se hereden al nuevo.
                 java.util.concurrent.Future<?> ping_write;
 
                 try {
@@ -375,13 +376,16 @@ public class Participant implements Runnable {
                         LOGGER.log(Level.SEVERE,
                                 "PING write to {0} stalled {1} times in a row ({2} ms each) — peer is not reading; closing its socket",
                                 new Object[]{nick, ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
-                        // SOLO se cierra el socket, NO se da al peer por ido: exactamente
-                        // lo que hace el gemelo de los latidos sin respuesta de aqui abajo.
-                        // Cerrar despierta al lector, que es quien abre el periodo de gracia
-                        // y le da su ventana para volver. Marcarlo como ido saltaba esa
-                        // ventana (el bucle de gracia lleva esa condicion), asi que un
-                        // portatil que se suspende un rato ya no volvia a la partida.
+                        // Se le da por ido AQUI, a proposito. El gemelo de los latidos sin
+                        // respuesta de aqui abajo se limita a cerrar el socket y deja que el
+                        // lector abra el periodo de gracia, pero alli la escritura del PING
+                        // volvio bien y no hay nadie parado en el socket. Aqui si lo hay: es
+                        // justo la escritura que acaba de agotar el plazo, y cerrar la
+                        // despierta con IOException, cuyo catch da al peer por ido antes de
+                        // que al lector le de tiempo a abrir la gracia. Dejarlo a esa carrera
+                        // era prometer una ventana que casi nunca se abria.
                         ping_pong_thread_alive = false;
+                        markExitAndNotify("PING write stalled");
                         try {
                             socketClose();
                         } catch (Exception ignored) {
@@ -565,7 +569,7 @@ public class Participant implements Runnable {
                 } else {
                     try {
                         if (!socket_reader_queue.contains(POISON_PILL)) {
-                            encolarLeido(POISON_PILL);
+                            encolarSenalCierre();
                         }
                     } catch (Exception ex) {
                     }
@@ -795,6 +799,8 @@ public class Participant implements Runnable {
      * dado por ido; si no cabe, se descarta ese mensaje y se sigue (el peer que llena
      * una cola de diez mil o esta siendo expulsado o esta roto).
      *
+     * <p>Para la senal de cierre NO vale esto: usar {@link #encolarSenalCierre()}.
+     *
      * @return false si no se pudo encolar
      */
     private boolean encolarLeido(String mensaje) {
@@ -811,6 +817,25 @@ public class Participant implements Runnable {
             Thread.currentThread().interrupt();
         }
         return false;
+    }
+
+    /**
+     * Encola la senal de cierre pase lo que pase.
+     *
+     * <p>Es lo unico que saca al consumidor de su {@code take()}, y del teardown que
+     * viene detras sale el aviso al resto de la mesa de que este peer se ha ido. Por eso
+     * aqui no se mira {@code exit}: cuando la salida la ordena otro hilo (una expulsion,
+     * un plazo vencido, el fallo de una escritura) {@code exit} ya vale true al llegar
+     * aqui, y esperar a que dejara de valerlo dejaba la senal sin encolar y al consumidor
+     * dormido para siempre, con la mesa esperando a un peer que ya no estaba.
+     *
+     * <p>Si la cola estuviera llena se hace hueco tirando lo mas viejo: son comandos de un
+     * peer que ya se ha ido y ninguno importa mas que la propia senal.
+     */
+    private void encolarSenalCierre() {
+        for (int intentos = 0; intentos < SOCKET_READER_QUEUE_CAPACITY && !socket_reader_queue.offer(POISON_PILL); intentos++) {
+            socket_reader_queue.poll();
+        }
     }
 
     public boolean writeCommandFromServer(String command) {
@@ -1201,6 +1226,7 @@ public class Participant implements Runnable {
                 // threshold ni cerrar el socket recien instalado.
                 this.pong_timeout_counter = 0;
                 this.pong2_timeout_counter = 0;
+                this.ping_write_stall_counter = 0;
                 LOGGER.log(Level.INFO, "PEER: Participant {0} resetSocket OK — reconnect succeeded within grace period (exit stays false)", nick);
             } catch (Exception ex) {
                 this.reset_socket = false;

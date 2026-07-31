@@ -2691,21 +2691,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // corrompe la mano. Ponerle plazo exige antes que el llamador sepa que
                 // hacer cuando no hay cartas.
                 GameFrame.getInstance().checkPause();
-                {
-                    // Patrón estándar del Crupier (15+ receive* loops lo usan):
-                    // espera sobre received_commands para que un notifyAll de
-                    // los productores (Participant reader, WaitingRoomFrame.cliente)
-                    // nos despierte inmediatamente al llegar el próximo comando.
-                    // El timeout WAIT_QUEUES es safety net consistente con el resto
-                    // del fichero — sustituye el Helpers.pausar(100) anterior que
-                    // polleaba sin escuchar al notifier real.
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.getReceived_commands().wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                            Thread.currentThread().interrupt();
-                            break;
-                        }
+                // Patrón estándar del Crupier (15+ receive* loops lo usan):
+                // espera sobre received_commands para que un notifyAll de
+                // los productores (Participant reader, WaitingRoomFrame.cliente)
+                // nos despierte inmediatamente al llegar el próximo comando.
+                // El timeout WAIT_QUEUES es safety net consistente con el resto
+                // del fichero — sustituye el Helpers.pausar(100) anterior que
+                // polleaba sin escuchar al notifier real.
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        break;
                     }
                 }
             }
@@ -9596,9 +9594,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Consensus: on the client, waits for the host's bare
-     * {@code HANDVERIFY} trigger (no payload). Returns true when the trigger
-     * arrived (or the per-call deadline elapsed and we give up); returns false
-     * only if a MISDEAL command was polled instead — in that case the hand was
+     * {@code HANDVERIFY} trigger (no payload). There is NO deadline here on
+     * purpose: see the comment inside the loop. Returns true when the trigger
+     * arrived; returns false only if a MISDEAL command was polled instead
+     * — in that case the hand was
      * already cancelled here and the caller must NOT continue with the
      * consensus phase. Other {@code HANDVERIFY} commands (with payload) and
      * unrelated commands are left in {@code received_commands} so the

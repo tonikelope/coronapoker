@@ -1306,7 +1306,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = THIS;
         double highest = 0;
         if (gf != null && gf.getJugadores() != null) {
-            for (Player p : gf.getJugadores()) {
+            // Se recorre una COPIA: la lista de jugadores la vacia y rellena el crupier
+            // al rehacer la mesa (un jugador que se va, un tablero nuevo), y recorrerla
+            // en directo mientras eso pasa revienta el recorrido. De esto sale el tope
+            // de recompra, asi que el fallo aparecia justo al pedir fichas.
+            for (Player p : new java.util.ArrayList<>(gf.getJugadores())) {
                 if (p != null && !p.isExit() && !p.isSpectator() && p.getStack() > highest) {
                     highest = p.getStack();
                 }
@@ -3602,6 +3606,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static void setTTSGlobal(boolean on) {
 
         GameFrame.TTS_SERVER = on;
+        // Se retira el valor heredado de la timba recuperada: mientras siguiera puesto,
+        // lo que se guardaba era EL VIEJO, asi que editar la regla la revertia y encima
+        // dejaba escrita la reversion. Es lo mismo que ya hace el panel de ajustes al
+        // recuperar con las otras tres reglas.
+        GameFrame.TTS_SERVER_RECOVER = null;
 
         Helpers.PROPERTIES.setProperty("tts_server", String.valueOf(on));
         Helpers.savePropertiesFile();
@@ -3621,6 +3630,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static void setVoiceMessages(boolean on) {
 
         GameFrame.VOICE_MESSAGES = on;
+        // Mismo motivo que en la regla del TTS: con el valor heredado aun puesto, editar
+        // esta regla guardaba el viejo y la edicion se perdia.
+        GameFrame.VOICE_MESSAGES_RECOVER = null;
 
         Helpers.PROPERTIES.setProperty("voice_messages", String.valueOf(on));
         Helpers.savePropertiesFile();
@@ -4545,12 +4557,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     String previous_log_data = "";
 
+                    // Escritura ATOMICA. El fichero acumula el registro de TODAS las timbas
+                    // del dia: se lee entero, se le anade lo nuevo y se reescribe, asi que
+                    // truncar primero significa que un corte a mitad se lleva por delante
+                    // todo el historico, no solo lo que se estaba anadiendo.
                     if (Files.exists(Paths.get(log_file))) {
 
                         previous_log_data = "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + log_file + "\n" + Files.readString(Paths.get(log_file)) + "\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<" + log_file + "\n";
-                        Files.writeString(Paths.get(log_file), previous_log_data + getRegistro().getText(), StandardOpenOption.TRUNCATE_EXISTING);
+                        Helpers.writeStringAtomic(Paths.get(log_file), previous_log_data + getRegistro().getText());
                     } else {
-                        Files.writeString(Paths.get(log_file), getRegistro().getText());
+                        Helpers.writeStringAtomic(Paths.get(log_file), getRegistro().getText());
                     }
 
                 } catch (IOException ex1) {
@@ -4572,13 +4588,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 + ".bubble-other{background-color:white;}"
                                 + "</style></head>";
 
+                        // Atomica por lo mismo que el registro: aqui tambien se reescribe
+                        // el historico entero del dia.
                         if (Files.exists(Paths.get(chat_file))) {
 
                             previous_chat_data = Files.readString(Paths.get(chat_file)).replaceAll("<html>(?:<head>.*?</head>)?<body.*?>(.*?)</body></html>", "$1");
-                            Files.writeString(Paths.get(chat_file), "<html>" + chat_html_head + "<body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + previous_chat_data + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>", StandardOpenOption.TRUNCATE_EXISTING);
+                            Helpers.writeStringAtomic(Paths.get(chat_file), "<html>" + chat_html_head + "<body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + previous_chat_data + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
 
                         } else {
-                            Files.writeString(Paths.get(chat_file), "<html>" + chat_html_head + "<body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
+                            Helpers.writeStringAtomic(Paths.get(chat_file), "<html>" + chat_html_head + "<body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
 
                         }
 
@@ -4744,6 +4762,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Audio.stopAllWavResources();
 
             Audio.closeAllPreloadedWavs();
+
+            // Los avisos de chat pendientes (una nota de voz, una imagen) mueren con la
+            // timba: no se vaciaban nunca, asi que lo que quedara sin reproducir sonaba
+            // al empezar la timba SIGUIENTE, de alguien que a lo mejor ya no esta.
+            GameFrame.NOTIFY_CHAT_QUEUE.clear();
 
             // SHUTDOWN antes de resetLOG (no al reves): el shutdownNow() descarta las
             // tareas de log encoladas en LOG_POOL ANTES de vaciar LOG_TEXT, asi ninguna

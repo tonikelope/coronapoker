@@ -2061,7 +2061,16 @@ public class StatsDialog extends JFrame {
             statement.setQueryTimeout(30);
             statement.executeUpdate(sql);
         } catch (SQLException ex) {
+            // Se devuelve el fallo al que llamo. Devolver que todo fue bien cuando el
+            // borrado habia fallado hacia que se anunciara "se han borrado todas las
+            // timbas" con las timbas intactas en el disco, y encima el desplegable ya
+            // vaciado arriba: parecia hecho y no lo estaba.
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            Helpers.GUIRunAndWait(() -> {
+                cargando.setVisible(false);
+                setEnabled(true);
+            });
+            return false;
         }
 
         // A purge cascades across game/hand/action/... and frees a large number

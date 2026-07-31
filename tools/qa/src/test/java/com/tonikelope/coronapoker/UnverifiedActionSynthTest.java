@@ -76,6 +76,26 @@ class UnverifiedActionSynthTest {
     }
 
     @Test
+    @DisplayName("A departed-peer fold does NOT inherit the rebroadcast mark from an earlier unverified one")
+    void exitSynthClearsAnEarlierUnverifiedMark() {
+        // The real race: the wire arrived and failed verification (so the slot is
+        // marked), and only then does the peer turn out to have left. The exit path
+        // rewrites the fold on the SAME array, and must leave it silent — otherwise
+        // the table emits a fold for somebody who already announced their EXIT.
+        Object[] action = genuineBetAction();
+
+        Crupier.synthesizeUnverifiedFoldAction(action);
+        assertTrue(Crupier.isUnverifiedSynthFold(action), "precondition: the mark is set");
+
+        Crupier.synthesizeExitFoldAction(action);
+
+        assertFalse(Crupier.isUnverifiedSynthFold(action),
+                "the exit fold must clear the mark, not inherit it");
+        assertEquals(Player.FOLD, action[0]);
+        assertEquals(Boolean.FALSE, action[5]);
+    }
+
+    @Test
     @DisplayName("The fold synthesised because the wire did not verify MUST reach the wire")
     void unverifiedSynthMustBeRebroadcast() {
         Object[] action = genuineBetAction();
@@ -112,8 +132,8 @@ class UnverifiedActionSynthTest {
     @Test
     @DisplayName("An action[] without the seventh slot is never an unverified synth")
     void legacyActionArraysDefaultToSilent() {
-        // The bot path builds a 3-slot action[] and the recovery replay a 6-slot
-        // one. Neither can ask for a rebroadcast: the safe default is silence.
+        // The bot path builds a 3-slot action[]; older shapes may reach here too.
+        // None of them can ask for a rebroadcast: the safe default is silence.
         assertFalse(Crupier.isUnverifiedSynthFold(new Object[]{Player.CHECK, 0d, null}));
 
         Object[] recovered = new Object[6];

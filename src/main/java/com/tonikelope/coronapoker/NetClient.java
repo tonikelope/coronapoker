@@ -357,11 +357,23 @@ public class NetClient {
                         handleBinaryFromServer(frame.binary());
                         continue;
                     }
-                    return Helpers.decryptCommand(frame.text(), local_client_aes_key, local_client_hmac_key);
+                    try {
+                        return Helpers.decryptCommand(frame.text(), local_client_aes_key, local_client_hmac_key);
+                    } catch (java.security.KeyException ke) {
+                        // Se DESCARTA el frame y se sigue leyendo, como documenta SECURITY.md
+                        // ("the receiver drops the frame"). Antes esto salia del bucle y
+                        // acababa en el return null de abajo, o sea en EOF: un frame que no
+                        // supere el canal disparaba una reconexion completa en vez de
+                        // ignorarse.
+                        LOGGER.log(Level.WARNING,
+                                "Dropping unauthenticated frame from the host ({0}) — wrong password, MITM or corruption",
+                                ke.getMessage());
+                        continue;
+                    }
                 }
-            } catch (java.security.KeyException ex) {
-                LOGGER.log(Level.SEVERE, "Channel HMAC verification failed (wrong password or MITM)", ex);
             } catch (Exception ex) {
+                // Los fallos de canal ya no llegan aqui: se descartan por frame dentro del
+                // bucle. Lo que quede es I/O real, y eso si es fin de lectura.
                 LOGGER.log(Level.SEVERE, null, ex);
             }
         }

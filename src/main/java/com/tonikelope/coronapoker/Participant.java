@@ -858,7 +858,19 @@ public class Participant implements Runnable {
                     }
                     // Text frame body is the exact line readBoundedLine returned, so
                     // decryptCommand is unchanged.
-                    return Helpers.decryptCommand(frame.text(), getAes_key(), getHmac_key());
+                    try {
+                        return Helpers.decryptCommand(frame.text(), getAes_key(), getHmac_key());
+                    } catch (java.security.KeyException ke) {
+                        // Frame que no supera el canal (HMAC malo, manipulado, o sin cifrar
+                        // sin ser keepalive): se DESCARTA y se sigue leyendo, que es lo que
+                        // documenta SECURITY.md ("the receiver drops the frame"). Dejarlo
+                        // caer hasta el return null de abajo lo convertiria en EOF y tiraria
+                        // la conexion entera, de modo que un solo byte inyectado bastaria
+                        // para echar a un jugador de la mesa.
+                        LOGGER.log(Level.WARNING, "PEER: dropping unauthenticated frame from {0} ({1})",
+                                new Object[]{nick, ke.getMessage()});
+                        continue;
+                    }
                 }
             } catch (Exception ex) {
             }

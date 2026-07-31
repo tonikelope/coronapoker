@@ -2834,6 +2834,45 @@ public class Helpers {
         // pegue se queda ahi para siempre. Se poda aqui, una vez al arrancar y con los
         // directorios ya creados, antes de que nadie la use.
         ImageCacheManager.purgeCache();
+
+        purgeOrphanAvatarTempFiles();
+    }
+
+    /**
+     * Barre los avatares que el juego deja en el directorio temporal del sistema (uno
+     * por participante y timba, mas su miniatura para el chat). Se borran al cerrar,
+     * pero solo si el cierre es limpio: tras un cuelgue o un cierre a lo bruto se
+     * quedan ahi, y en una maquina que juega a diario se acumulan sin fin.
+     *
+     * <p>Solo se tocan los de MAS DE UN DIA, que es lo que garantiza no pisarle los
+     * suyos a otra instancia del juego abierta a la vez.
+     */
+    private static void purgeOrphanAvatarTempFiles() {
+        try {
+            File tmp = new File(System.getProperty("java.io.tmpdir"));
+            File[] restos = tmp.listFiles((dir, name) -> name.startsWith("corona_") && name.contains("_avatar"));
+
+            if (restos == null) {
+                return;
+            }
+
+            long corte = System.currentTimeMillis() - 24L * 60L * 60L * 1000L;
+            int borrados = 0;
+
+            for (File f : restos) {
+                if (f.isFile() && f.lastModified() < corte && f.delete()) {
+                    borrados++;
+                }
+            }
+
+            if (borrados > 0) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.INFO,
+                        "Removed {0} leftover avatar temp files from previous sessions", borrados);
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING,
+                    "Could not sweep leftover avatar temp files", ex);
+        }
     }
 
     public static void copyTextToClipboard(String text) {

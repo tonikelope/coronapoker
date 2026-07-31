@@ -17940,9 +17940,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                                     });
                                     GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0d);
-                                    if (Helpers.doubleSecureCompare(0f, this.bote_total) < 0) {
-                                        this.bote_sobrante += this.bote_total;
-                                    }
+                                    // Nadie resiste: el bote entero queda sin repartir y pasa a la mano
+                                    // siguiente. Se ASIGNA, como en los dos gemelos de este mismo switch
+                                    // (case 1 y default) y como en la ruta run-it-twice, porque bote_total
+                                    // YA ARRASTRA el sobrante heredado: la mano arranca con
+                                    // bote_total = max(0, bote_sobrante) y de ahi va sumando apuestas.
+                                    // Acumular lo contaba dos veces y CREABA fichas, rompiendo el
+                                    // invariante de conservacion (suma de stacks + sobrante == suma de
+                                    // compras) que se comprueba al arrancar cada mano.
+                                    this.bote_sobrante = this.bote_total;
                                     ganadores = new HashMap<>();
                                     for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                                         carta.desenfocar();

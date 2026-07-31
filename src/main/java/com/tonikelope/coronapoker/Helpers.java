@@ -1805,14 +1805,30 @@ public class Helpers {
      * is taken from a file at rest and is never poisoned by a corrupt source.
      */
     private static void backupSQLite() {
+        java.nio.file.Path tmp = java.nio.file.Paths.get(SQL_FILE + ".autobak.tmp");
         try {
             java.nio.file.Path db = java.nio.file.Paths.get(SQL_FILE);
             if (java.nio.file.Files.exists(db)) {
-                java.nio.file.Files.copy(db, java.nio.file.Paths.get(SQL_FILE + ".autobak"),
-                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                // La copia va primero a un temporal y luego se mueve encima. Copiar
+                // directamente sobre la copia de seguridad la BORRA antes de empezar a
+                // escribirla: un corte por el medio destruia la unica copia que habia, y
+                // esa copia es justo de lo que se tira cuando la base de datos se rompe.
+                java.nio.file.Path bak = java.nio.file.Paths.get(SQL_FILE + ".autobak");
+                java.nio.file.Files.copy(db, tmp, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                try {
+                    java.nio.file.Files.move(tmp, bak,
+                            java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                    java.nio.file.Files.move(tmp, bak, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
             }
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Could not write the SQLite backup", ex);
+            try {
+                java.nio.file.Files.deleteIfExists(tmp);
+            } catch (Exception ignored) {
+            }
         }
     }
 
@@ -2813,6 +2829,11 @@ public class Helpers {
                 }
             }
         }
+
+        // La cache de imagenes del chat no se limpiaba nunca: cada imagen que alguien
+        // pegue se queda ahi para siempre. Se poda aqui, una vez al arrancar y con los
+        // directorios ya creados, antes de que nadie la use.
+        ImageCacheManager.purgeCache();
     }
 
     public static void copyTextToClipboard(String text) {

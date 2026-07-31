@@ -2358,7 +2358,15 @@ public class WaitingRoomFrame extends JFrame {
                                     try {
                                     switch (partes_comando[0]) {
                                         case "PING":
-                                            writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
+                                            // Con la misma red que su gemelo del bucle de la partida: un
+                                            // latido al que le falte el numero, o que no lo sea, ya no se
+                                            // lleva por delante al cliente que esta en la sala.
+                                            if (partes_comando.length >= 2) {
+                                                try {
+                                                    writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
+                                                } catch (NumberFormatException nfe) {
+                                                }
+                                            }
                                             break;
 
                                         case "CHAT":

@@ -47,6 +47,19 @@ public final class FastChatDialog extends JDialog {
 
     private volatile static ArrayList<String[]> HISTORIAL = new ArrayList<>();
     private volatile static int HISTORIAL_INDEX = 0;
+
+    // Tope del historial de mensajes escritos (el que se recorre con las flechas). Es
+    // estatico y no se vaciaba nunca, asi que en una sesion larga crecia sin parar y
+    // ademas los mensajes de una timba seguian ahi en la siguiente.
+    private static final int MAX_HISTORIAL = 200;
+
+    /** Vacia el historial. Se llama al terminar una timba. */
+    public static void resetHistorial() {
+        synchronized (HISTORIAL) {
+            HISTORIAL.clear();
+            HISTORIAL_INDEX = 0;
+        }
+    }
     private volatile boolean focusing = false;
     private volatile String current_message = null;
     private volatile boolean auto_close;
@@ -259,6 +272,11 @@ public final class FastChatDialog extends JDialog {
             }
 
             HISTORIAL.add(new String[]{mensaje, null});
+
+            // Se queda con los ultimos: sin tope, una sesion larga lo hace crecer sin fin.
+            while (HISTORIAL.size() > MAX_HISTORIAL) {
+                HISTORIAL.remove(0);
+            }
 
             HISTORIAL_INDEX = HISTORIAL.size();
 

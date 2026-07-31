@@ -7920,7 +7920,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         rabbit_players.clear();
-        rabbit_conta.clear();
+        // rabbit_conta NO se limpia aqui: la cuenta de peticiones es de TODA LA PARTIDA,
+        // igual que la que llevaba el propio jugador. Limpiarla por mano dejaba la tarifa
+        // en cero para siempre, porque solo se puede pedir rabbit una vez por mano (la
+        // primera destapa todas las comunitarias), asi que la cuenta valia siempre uno y
+        // no llegaba nunca al escalon de pago: los modos de pago se quedaban en gratis.
         this.iwtsth = false;
         this.iwtsthing = false;
         this.iwtsthing_request = false;
@@ -18168,7 +18172,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             HashMap<Player, Hand> ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
                                             jugadas_por_lateral.add(jugadas_lateral);
                                             ganadores_por_lateral.add(ganadores_lateral);
-                                            ganadores_todos.putAll(ganadores_lateral);
+
+                                            // Un bote derivado con UN SOLO jugador no se gana: se
+                                            // RECUPERA, que es la parte de su apuesta que nadie llego a
+                                            // igualar (el bucle de pagos lo dice con esas palabras).
+                                            // Contarlo como victoria le pintaba el borde de ganador, le
+                                            // sumaba una mano ganada y lo guardaba como tal, aunque
+                                            // hubiera perdido todo lo demas. La ruta de correr dos veces
+                                            // ya lo trata asi.
+                                            if (lateral.getPlayers().size() > 1) {
+                                                ganadores_todos.putAll(ganadores_lateral);
+                                            }
                                         }
 
                                         this.showdown(jugadas, ganadores_todos, diferir_dim);

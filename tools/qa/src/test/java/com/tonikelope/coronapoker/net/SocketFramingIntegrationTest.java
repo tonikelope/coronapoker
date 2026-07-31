@@ -223,4 +223,46 @@ class SocketFramingIntegrationTest {
         assertThrows(KeyException.class, () -> Helpers.decryptCommand(r.text(), AES, HMAC),
                 "an unauthenticated plaintext frame must never reach the dispatcher");
     }
+
+    @Test
+    @DisplayName("the plaintext keepalive (PING/PONG/PONG2) still goes through untouched")
+    void plaintextKeepaliveStillAccepted() throws Exception {
+        // The keepalive is written WITHOUT encryption on purpose: the transport writers
+        // dump the raw string and the PING/PONG senders do not wrap it, unlike every game
+        // command. Rejecting it would drop the connection on the first ping, so the reader
+        // must let this closed set of verbs through exactly as it arrives.
+        String[] control = {"PING#42", "PONG#43", "PONG2#44", "PING#-2147483648"};
+        OutputStream os = writerSide.getOutputStream();
+        for (String c : control) {
+            os.write((c + "\n").getBytes(StandardCharsets.UTF_8));
+        }
+        os.flush();
+
+        for (String c : control) {
+            WireFrame.Result r = WireFrame.read(in, CAP);
+            assertTrue(r.isText(), "expected TEXT frame");
+            assertEquals(c, Helpers.decryptCommand(r.text(), AES, HMAC),
+                    "the keepalive must survive the authenticated-channel check");
+        }
+    }
+
+    @Test
+    @DisplayName("a command dressed up as keepalive is still rejected")
+    void keepaliveLookalikesAreRejected() throws Exception {
+        // The plaintext door is only for the exact verbs with an integer counter. Anything
+        // that merely resembles them is an injection attempt.
+        String[] bogus = {"PING", "PING#", "PING#1#GAME", "PINGS#1", "GAME#1#ACTION#x", "PONG3#1", "#1"};
+        OutputStream os = writerSide.getOutputStream();
+        for (String c : bogus) {
+            os.write((c + "\n").getBytes(StandardCharsets.UTF_8));
+        }
+        os.flush();
+
+        for (String c : bogus) {
+            WireFrame.Result r = WireFrame.read(in, CAP);
+            assertTrue(r.isText(), "expected TEXT frame");
+            assertThrows(KeyException.class, () -> Helpers.decryptCommand(r.text(), AES, HMAC),
+                    "must not accept a lookalike: " + c);
+        }
+    }
 }

@@ -2268,20 +2268,80 @@ public class Helpers {
             return null;
         }
 
+        // El trim se aplica ANTES de mirar el prefijo: comprobarlo sobre la cadena sin
+        // recortar y descifrar sobre la recortada mandaba un frame cifrado legitimo con un
+        // espacio delante por la rama de texto plano.
         String frame = command.trim();
 
-        // Todo emisor pasa por encryptCommand, que SIEMPRE antepone '*': con las claves del
-        // canal ya establecidas no existe ningun frame legitimo en claro (el intercambio
-        // ECDH previo viaja como bytes crudos, no por aqui). Devolver el texto tal cual
-        // dejaba que un atacante on-path inyectara comandos de juego sin superar el HMAC ni
-        // conocer la password. El trim se aplica ANTES de mirar el prefijo: comprobarlo
-        // sobre la cadena sin recortar y descifrar sobre la recortada mandaba un frame
-        // cifrado legitimo con un espacio delante por la rama de texto plano.
-        if (frame.isEmpty() || frame.charAt(0) != '*') {
-            throw new KeyException("Plaintext frame rejected on an authenticated channel");
+        if (!frame.isEmpty() && frame.charAt(0) == '*') {
+            return Helpers.decryptString(frame.substring(1), aes_key, hmac_key);
         }
 
-        return Helpers.decryptString(frame.substring(1), aes_key, hmac_key);
+        // Aqui abajo el frame NO viene cifrado. Se admite unicamente el keepalive, que va en
+        // claro a proposito, y se rechaza cualquier otra cosa: devolver el texto tal cual
+        // dejaba que un atacante on-path inyectara comandos de JUEGO en el socket ya
+        // establecido y se procesaran como validos, sin superar el HMAC ni conocer la
+        // password. El ack de reconexion ya se defendia por su cuenta; el resto del bucle de
+        // mensajes no.
+        if (isPlaintextControlFrame(frame)) {
+            return frame;
+        }
+
+        throw new KeyException("Unauthenticated frame rejected on an encrypted channel");
+    }
+
+    /**
+     * Verbos que el keepalive escribe SIN cifrar, por diseño: los escritores de transporte
+     * (Participant.writeCommandFromServer y NetClient.writeCommand) vuelcan la cadena cruda
+     * y el cifrado lo pone cada llamador, cosa que los emisores de PING/PONG no hacen
+     * (Participant 322/452/1243 y WaitingRoomFrame 1955/2361, frente a los de juego, que sí
+     * pasan por encryptCommand). WireFrame lo documenta en su cabecera.
+     */
+    private static final String[] PLAINTEXT_CONTROL_VERBS = {"PING", "PONG", "PONG2"};
+
+    /**
+     * {@code PING#<n>}, {@code PONG#<n>} o {@code PONG2#<n>} y nada más: verbo exacto del
+     * conjunto cerrado y un contador entero. Deliberadamente estricto, para que la puerta que
+     * el keepalive necesita no sirva para colar nada más.
+     */
+    private static boolean isPlaintextControlFrame(String frame) {
+
+        int sep = frame.indexOf('#');
+
+        if (sep <= 0 || sep == frame.length() - 1) {
+            return false;
+        }
+
+        String verb = frame.substring(0, sep);
+        boolean known = false;
+
+        for (String v : PLAINTEXT_CONTROL_VERBS) {
+            if (v.equals(verb)) {
+                known = true;
+                break;
+            }
+        }
+
+        if (!known) {
+            return false;
+        }
+
+        String counter = frame.substring(sep + 1);
+
+        // El contador es un int con signo (nextInt puede ser negativo): 11 caracteres como
+        // mucho, contando el '-'.
+        if (counter.length() > 11) {
+            return false;
+        }
+
+        for (int i = 0; i < counter.length(); i++) {
+            char c = counter.charAt(i);
+            if ((c < '0' || c > '9') && !(i == 0 && c == '-')) {
+                return false;
+            }
+        }
+
+        return !"-".equals(counter);
     }
 
     /**

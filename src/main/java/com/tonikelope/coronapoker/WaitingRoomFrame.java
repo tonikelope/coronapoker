@@ -2815,7 +2815,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                             return;
                                                                         }
                                                                         if (commRange != null) {
-                                                                            int reqLast = it.offsetBase + it.chains.size() - 1;
+                                                                            // long por el mismo motivo que el bucle de abajo: offsetBase
+                                                                    // viene del wire y en int la suma se desborda a negativo,
+                                                                    // con lo que este guard de ventana daria por bueno un
+                                                                    // offset enorme. UnlockChainWire ya lo acota al parsear;
+                                                                    // esta era la ultima aritmetica del handler que seguia
+                                                                    // dependiendo de aquello.
+                                                                    long reqLast = (long) it.offsetBase + it.chains.size() - 1;
                                                                             if (it.chains.isEmpty() || it.offsetBase < commRange[0] || reqLast >= commRange[0] + commRange[1]) {
                                                                                 LOGGER.log(Level.SEVERE,
                                                                                         "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset {0}(+{1}) outside phase {2} community slots [{3},{4}) — host reading the future board, refusing",

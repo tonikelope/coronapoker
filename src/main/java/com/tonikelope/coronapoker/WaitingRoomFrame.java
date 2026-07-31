@@ -1533,11 +1533,11 @@ public class WaitingRoomFrame extends JFrame {
                             throw new IOException("Server closed socket without sending reconnect ack");
                         }
 
-                        // El ack DEBE venir autenticado: decryptCommand devuelve el texto tal
-                        // cual si NO empieza por '*' (frame en claro), de modo que un
-                        // "RECONNECT_OK" inyectado en claro por un atacante on-path pasaria el
-                        // startsWith sin prueba criptografica. Exigimos frame cifrado ('*' ->
-                        // decryptString verifica HMAC); si no, intento fallido.
+                        // El ack DEBE venir autenticado. decryptCommand ya rechaza por su cuenta
+                        // cualquier frame en claro, asi que esta guarda es defensa en profundidad:
+                        // convierte el rechazo en un IOException del intento de reconexion (mismo
+                        // tratamiento que el resto de fallos de este bloque) y deja el requisito
+                        // escrito en el punto donde importa.
                         if (!ackLine.trim().startsWith("*")) {
                             throw new IOException("Reconnect ack not authenticated (plaintext frame rejected)");
                         }

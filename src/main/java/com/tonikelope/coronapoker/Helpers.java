@@ -2261,7 +2261,27 @@ public class Helpers {
 
     public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
 
-        return (command != null && command.charAt(0) == '*') ? Helpers.decryptString(command.trim().substring(1), aes_key, hmac_key) : command;
+        // null = EOF / socket caido: es el contrato que esperan los lectores, no un fallo
+        // de canal (propagarlo como KeyException llenaria el log de falsos MITM en cada
+        // desconexion limpia).
+        if (command == null) {
+            return null;
+        }
+
+        String frame = command.trim();
+
+        // Todo emisor pasa por encryptCommand, que SIEMPRE antepone '*': con las claves del
+        // canal ya establecidas no existe ningun frame legitimo en claro (el intercambio
+        // ECDH previo viaja como bytes crudos, no por aqui). Devolver el texto tal cual
+        // dejaba que un atacante on-path inyectara comandos de juego sin superar el HMAC ni
+        // conocer la password. El trim se aplica ANTES de mirar el prefijo: comprobarlo
+        // sobre la cadena sin recortar y descifrar sobre la recortada mandaba un frame
+        // cifrado legitimo con un espacio delante por la rama de texto plano.
+        if (frame.isEmpty() || frame.charAt(0) != '*') {
+            throw new KeyException("Plaintext frame rejected on an authenticated channel");
+        }
+
+        return Helpers.decryptString(frame.substring(1), aes_key, hmac_key);
     }
 
     /**

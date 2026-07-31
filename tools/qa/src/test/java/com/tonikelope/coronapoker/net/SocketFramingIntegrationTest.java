@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -203,5 +204,23 @@ class SocketFramingIntegrationTest {
         }
         org.junit.jupiter.api.Assertions.assertNotEquals("ACTION#secret", out,
                 "corrupted ciphertext must never decrypt back to the plaintext");
+    }
+
+    @Test
+    @DisplayName("an injected plaintext frame is rejected, never handed back as a command")
+    void plaintextFrameRejected() throws Exception {
+        // An on-path attacker injects an unencrypted line into the already established
+        // socket. Every writer goes through encryptCommand, which always prepends '*', so
+        // once the channel keys exist no legitimate frame is plaintext: it must be rejected
+        // instead of being returned verbatim to the command dispatcher, which would bypass
+        // both the AES layer and the HMAC without knowing any key.
+        OutputStream os = writerSide.getOutputStream();
+        os.write("GAME#1#ACTION#injected\n".getBytes(StandardCharsets.UTF_8));
+        os.flush();
+
+        WireFrame.Result r = WireFrame.read(in, CAP);
+        assertTrue(r.isText(), "expected TEXT frame");
+        assertThrows(KeyException.class, () -> Helpers.decryptCommand(r.text(), AES, HMAC),
+                "an unauthenticated plaintext frame must never reach the dispatcher");
     }
 }

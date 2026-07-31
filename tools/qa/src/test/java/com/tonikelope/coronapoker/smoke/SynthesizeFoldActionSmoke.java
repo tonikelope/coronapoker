@@ -19,10 +19,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * AAA test del Crupier.synthesizeFoldAction(Object[]) introducido en
- * el deferred 🟠-2. Garantiza que cuando se sintetiza FOLD por sig
- * inválida o peer exited, el action[] queda en estado canónico que
- * la rueda de apuestas reconoce y que NO desencadena absorb al chain.
+ * AAA test del Crupier.synthesizeExitFoldAction(Object[]) introducido en
+ * el deferred 🟠-2. Garantiza que cuando se sintetiza FOLD porque el peer
+ * se fue, el action[] queda en estado canónico que la rueda de apuestas
+ * reconoce y que NO desencadena absorb al chain.
  *
  * Cobertura:
  *   - decision se reemplaza por Player.FOLD INDEPENDIENTEMENTE de
@@ -35,16 +35,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  *     broadcast y el absorb.
  *   - null o length < 6 lanzan IllegalArgumentException (defensiva
  *     contra mal uso).
+ *
+ * El OTRO synth (el del wire que no supera la verificación, que SÍ hay que
+ * emitir) vive en UnverifiedActionSynthTest.
  */
 class SynthesizeFoldActionSmoke {
 
     /**
-     * synthesizeFoldAction es package-private. Tests viven en package
+     * synthesizeExitFoldAction es package-private. Tests viven en package
      * .smoke (distinto del .coronapoker del Crupier), así que llamamos
      * via reflection.
      */
     private static void invokeSynthesize(Object[] action) throws Exception {
-        Method m = Crupier.class.getDeclaredMethod("synthesizeFoldAction", Object[].class);
+        Method m = Crupier.class.getDeclaredMethod("synthesizeExitFoldAction", Object[].class);
         m.setAccessible(true);
         m.invoke(null, (Object) action);
     }

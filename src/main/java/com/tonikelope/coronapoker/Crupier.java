@@ -136,35 +136,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Sprint deferred 🟠-2: muta action[] in-place a FOLD voluntario sintético.
-     * Usado en DOS situaciones simétricas:
-     *   1. El peer (sender de la ACTION) ya está marcado isExit() — su decisión
-     *      no llegó; sintetizamos fold para que la rueda de apuestas avance.
-     *      (caso existente desde antes, líneas 6926-6931)
-     *   2. La firma Ed25519 de la ACTION recibida del wire es inválida — un
-     *      peer (o host hostil con clave robada) intentó falsificar la
-     *      decisión. NO debemos aplicar la decisión/bet falsificados al state
-     *      del juego — se desplaza al peer perdiendo posiblemente fichas.
-     *      Sintetizamos fold para que el peor caso sea "ese peer pierde su
-     *      turno". (NUEVO en este commit)
+     * Sprint deferred 🟠-2: muta action[] in-place a FOLD sintético. Contrato común
+     * a las DOS situaciones que lo necesitan (ver los dos entry points de abajo):
      *
-     * action[] post-call (mismo contrato que el exit-synth existente):
      *   action[0] = Player.FOLD     // decision sintética
      *   action[1] = 0d              // bet=0
      *   action[2] = null            // sin cinematic
      *   action[3] = null            // sin record para absorber en el chain
      *   action[4] = null            // sin sig
-     *   action[5] = Boolean.FALSE   // NO voluntario (rondaApuestas keys off
-     *                                 esto para saltar absorbActionIntoChain
-     *                                 y broadcast — la cadena converge por
-     *                                 omisión mutua: si todos los peers
-     *                                 detectan el mismo bad sig, todos
-     *                                 absorben nothing y H_t avanza igual)
+     *   action[5] = Boolean.FALSE   // NO voluntario: rondaApuestas lee esto para NO
+     *                                 construir un record local ni absorber nada en
+     *                                 H_t. La cadena converge por OMISIÓN MUTUA:
+     *                                 ningún peer aporta record para ese asiento y
+     *                                 H_t avanza igual en todos.
      *
      * El array debe tener length >= 6 (contrato del action[] del Sprint
      * Identity, comentado en readActionFromRemotePlayer).
      */
-    static void synthesizeFoldAction(Object[] action) {
+    private static void synthesizeFoldActionSlots(Object[] action) {
         if (action == null || action.length < 6) {
             throw new IllegalArgumentException(
                     "action must have length >= 6 (slots [decision, bet, cinematic, record, sig, voluntary])");
@@ -175,6 +164,105 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         action[3] = null;
         action[4] = null;
         action[5] = Boolean.FALSE;
+    }
+
+    /**
+     * FOLD sintético porque el peer SE FUE (isExit): su decisión no llegó y la rueda
+     * de apuestas tiene que avanzar igual.
+     *
+     * Este fold NO sale al wire. El EXIT ya viajó por el canal en el momento de irse,
+     * así que CADA receptor llega a ese asiento y sintetiza exactamente el mismo fold
+     * por su cuenta; rebroadcastearlo sería ruido. Por eso deja sin marcar el slot [6].
+     */
+    static void synthesizeExitFoldAction(Object[] action) {
+        synthesizeFoldActionSlots(action);
+    }
+
+    /**
+     * FOLD sintético porque el ACTION que llegó por el wire NO supera la verificación:
+     * firma Ed25519 inválida, record que no ata con la acción jugada, record ausente
+     * (centinela "*") o malformado (longitud != RECORD_BYTES). Un peer (o un host hostil con
+     * una clave robada) intentó falsificar la decisión: NO se aplica la decisión ni el
+     * importe falsificados, y el peor caso pasa a ser "ese peer pierde su turno".
+     *
+     * A diferencia del exit-synth, aquí el RESTO DE LA MESA NO HA VISTO ese wire: solo
+     * lo vio el receptor directo (el host, o un cliente cuando el hostil es el host).
+     * Si el host se lo callara, los demás peers seguirían esperando la acción de ese
+     * asiento y la mesa se quedaría colgada en silencio, así que el slot [6] marca
+     * "esto SÍ hay que emitirlo".
+     *
+     * Lo que el host emite es el fold PELADO (ACTION#nick#FOLD#0#*#*#*): sin record y
+     * sin firma, porque nadie puede firmar en nombre del actor (§4.5: el único record
+     * is_voluntary=0 del protocolo es el reveal de comunitarias, jamás una acción).
+     * Cada cliente lo ve entrar por la rama "sin record con la cadena activa" y
+     * sintetiza el MISMO fold con el MISMO saw_invalid_action_sig, sin absorber nada:
+     * la cadena converge por omisión mutua y el consenso de cierre de mano registra el
+     * incidente en TODOS los peers, no solo en el que lo detectó.
+     *
+     * Requiere length >= 7 (readActionFromRemotePlayer construye el array con 7 slots).
+     */
+    static void synthesizeUnverifiedFoldAction(Object[] action) {
+        if (action == null || action.length < 7) {
+            throw new IllegalArgumentException(
+                    "action must have length >= 7 (slot [6] flags the synth that MUST be rebroadcast)");
+        }
+        synthesizeFoldActionSlots(action);
+        action[6] = Boolean.TRUE;
+    }
+
+    /**
+     * ¿este action[] es el FOLD sintetizado por un wire que no superó la verificación?
+     * Es lo ÚNICO que distingue los dos synths, idénticos en todo lo demás. Un array
+     * sin ese slot (los 3 del bot, los 6 del replay de recover) NUNCA lo es: el
+     * defecto seguro es "no emitir".
+     */
+    static boolean isUnverifiedSynthFold(Object[] action) {
+        return action != null && action.length >= 7 && Boolean.TRUE.equals(action[6]);
+    }
+
+    /**
+     * Identity / anti-forgery (PURA y testeable): ¿el record que trae el wire es
+     * ESTRUCTURALMENTE apto para verificar? Solo lo es con la longitud canónica EXACTA:
+     * el firmante siempre emite RECORD_BYTES (CanonicalActionRecord.encode) y el canal
+     * cifrado + HMAC descarta cualquier frame alterado en tránsito, así que otra
+     * longitud solo puede venir de un cliente modificado. Darla por buena saltaba
+     * ENTERA la verificación (firma, binding y synth) mientras la decisión y el importe
+     * en claro movían el dinero igual.
+     */
+    static boolean isVerifiableWireRecord(byte[] wireRecord) {
+        return wireRecord != null && wireRecord.length == CanonicalActionRecord.RECORD_BYTES;
+    }
+
+    /**
+     * Identity §4.9 (PURA y testeable): ¿este ACTION trae record + firma? Los dos
+     * últimos campos del wire son fijos y llevan "*" cuando no hay nada que verificar
+     * (peer sin cadena, o el fold pelado que emite el host tras un synth). Un wire más
+     * corto es de una versión pre-identity.
+     */
+    static boolean wireCarriesRecordAndSig(String[] partes) {
+        return partes != null && partes.length >= 9
+                && !"*".equals(partes[7]) && !"*".equals(partes[8]);
+    }
+
+    /**
+     * Identity §4.9 (PURA y testeable): arma el subcomando ACTION que sale al wire.
+     *
+     *   ACTION#nick_b64#decision#bet#cinematic_or_*#record_or_*#sig_or_*
+     *
+     * El importe en claro solo viaja en un BET (el resto de tipos lo derivan de las
+     * reglas y del estado, y en un all-in ese slot lo ocupa la cinemática, que va en
+     * su propio campo). record y sig viajan en base64, o "*" cuando no hay: eso último
+     * es lo que ve el receptor de un fold sintético y lo que le hace sintetizar el suyo.
+     */
+    static String buildActionWireCommand(String nick, int decision, Object bet,
+            String cinematicField, byte[] record, byte[] sig) {
+        return "ACTION#"
+                + Base64.getEncoder().encodeToString(nick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                + "#" + decision
+                + "#" + (decision == Player.BET ? String.valueOf((double) bet) : "0")
+                + "#" + cinematicField
+                + "#" + (record != null ? Base64.getEncoder().encodeToString(record) : "*")
+                + "#" + (sig != null ? Base64.getEncoder().encodeToString(sig) : "*");
     }
 
     public static final boolean ALLIN_BOT_TEST = false; // TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
@@ -10621,8 +10709,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         //   [2] cinematic       (String|null — separate slot; [1] is overloaded)
         //   [3] record          (byte[92]|null — canonical record from the wire)
         //   [4] sig             (byte[64]|null — Ed25519 signature from the wire)
-        //   [5] isVoluntary     (Boolean — false only for host-issued auto-fold §4.5)
-        Object[] action = new Object[6];
+        //   [5] isVoluntary     (Boolean — FALSE marca un FOLD sintetizado localmente:
+        //                        ni se construye record ni se absorbe nada en H_t)
+        //   [6] unverifiedSynth (Boolean — TRUE solo en el synth por un wire que no
+        //                        supera la verificación, el ÚNICO que el host DEBE
+        //                        emitir para que la mesa no se quede esperando el
+        //                        asiento; el synth del peer que se fue va sin marcar
+        //                        porque su EXIT ya viajó)
+        Object[] action = new Object[7];
 
         // Deadline de PROGRESO gated en el think-time del cliente (Cluster B anti-DoS). Con
         // THINK_TIME_ENABLED cada cliente tiene su contador de tiempo de pensar
@@ -10630,7 +10724,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // ACTION, así que un peer legítimo SIEMPRE responde dentro de THINK_TIME + un margen amplio (red, GC,
         // skew de reloj). Un peer que contesta PING pero RETIENE su ACTION más allá de eso, con la timba EN
         // MARCHA, congelaría la ronda: se le expulsa y la mesa sigue (al quedar isExit el bucle sale y
-        // synthesizeFoldAction lo foldea; el broadcast de EXIT hace converger al resto por omisión mutua).
+        // synthesizeExitFoldAction lo foldea; el broadcast de EXIT hace converger al resto por omisión mutua).
         // PAUSE-AWARE: el tiempo en pausa NO cuenta (checkPause bloquea y refrescamos el deadline al volver).
         // Con THINK_TIME_ENABLED=false NO hay deadline: el juego permite pensar indefinidamente por diseño y
         // ahí el kick es MANUAL. Antes NO había timeout de ningún tipo y un peer podía congelar la ronda para
@@ -10685,8 +10779,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         action[3] = null;
                                         action[4] = null;
                                         action[5] = Boolean.TRUE; // genuine player decision
-                                        if (partes.length >= 9
-                                                && !"*".equals(partes[7]) && !"*".equals(partes[8])) {
+                                        if (wireCarriesRecordAndSig(partes)) {
                                             try {
                                                 byte[] wireRecord = java.util.Base64.getDecoder().decode(partes[7]);
                                                 byte[] wireSig = java.util.Base64.getDecoder().decode(partes[8]);
@@ -10697,8 +10790,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 // record so action[5] reflects what the sender claimed (§4.5
                                                 // host auto-folds use voluntary=0). The §10 receiver rule
                                                 // picks the signer pubkey from this bit + Participant.isCpu().
-                                                if (wireRecord != null
-                                                        && wireRecord.length == CanonicalActionRecord.RECORD_BYTES) {
+                                                if (isVerifiableWireRecord(wireRecord)) {
                                                     int flags = ((wireRecord[CanonicalActionRecord.OFFSET_FLAGS] & 0xff) << 8)
                                                             | (wireRecord[CanonicalActionRecord.OFFSET_FLAGS + 1] & 0xff);
                                                     boolean wireVoluntary = ((flags >> CanonicalActionRecord.FLAG_BIT_VOLUNTARY) & 1) != 0;
@@ -10721,15 +10813,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         // Sprint deferred 🟠-2: NO aplicar la decision/bet
                                                         // falsificados al state del juego (cambio vs
                                                         // comportamiento anterior "absorbed anyway"). En su lugar
-                                                        // sintetizamos fold voluntary=FALSE simétrico al exit-synth
-                                                        // existente más abajo. Todos los peers que reciben este
-                                                        // mismo ACTION wire verán el mismo sig inválido (Ed25519
-                                                        // es determinista) y harán el mismo synth → chain converge
-                                                        // por omisión mutua. El receipt mantiene el bit
-                                                        // saw_invalid_action_sig, así que el consensus de cierre
-                                                        // de mano DIVERGENT detectará el incidente offline para
-                                                        // forenses, pero el dinero NO se mueve por la falsificación.
-                                                        synthesizeFoldAction(action);
+                                                        // sintetizamos fold. OJO: este wire lo ha visto SOLO este
+                                                        // receptor (el host es quien relaya, y lo que relaya es el
+                                                        // comando RECONSTRUIDO, no los bytes forjados), así que el
+                                                        // synth NO se propaga por sí solo: va marcado para que el
+                                                        // host emita el fold pelado y todos los peers sinteticen el
+                                                        // mismo (ver synthesizeUnverifiedFoldAction). Ninguno absorbe
+                                                        // record → la cadena converge por omisión mutua, y el bit
+                                                        // saw_invalid_action_sig viaja en el receipt para que el
+                                                        // consenso de cierre de mano marque el incidente en vez de
+                                                        // reportar OK. El dinero NO se mueve por la falsificación.
+                                                        synthesizeUnverifiedFoldAction(action);
                                                     } else {
                                                         // Firma OK. ZERO-TRUST (🟠-HIGH cerrado): ATAR el record
                                                         // FIRMADO (TIPO de accion + IMPORTE) a la accion realmente
@@ -10774,14 +10868,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         if (recordForged) {
                                                             printInvalidActionSigToRegistro(jugador.getNickname());
                                                             this.saw_invalid_action_sig = true;
-                                                            synthesizeFoldAction(action);
+                                                            synthesizeUnverifiedFoldAction(action);
                                                         }
                                                     }
+                                                } else {
+                                                    // ZERO-TRUST: record MALFORMADO. Sin este else, un record
+                                                    // que no midiera RECORD_BYTES se saltaba ENTERA la
+                                                    // verificación (pubkey, firma, binding y synth) mientras la
+                                                    // decisión y el importe, ya leídos en claro más arriba,
+                                                    // movían el dinero igual: justo el ataque que el comentario
+                                                    // del strip de aquí abajo dice impedir. Ningún record
+                                                    // legítimo tiene otra longitud (el firmante siempre emite
+                                                    // RECORD_BYTES y el canal cifrado + HMAC descarta lo
+                                                    // alterado en tránsito), así que esto NUNCA salta en juego
+                                                    // sano y solo puede venir de un cliente modificado.
+                                                    LOGGER.log(Level.SEVERE,
+                                                            "ZERO-TRUST: ACTION by {0} carries a malformed record ({1} bytes, expected {2}) — SYNTHESIZING FOLD instead of applying an unverifiable decision",
+                                                            new Object[]{jugador.getNickname(),
+                                                                wireRecord != null ? wireRecord.length : -1,
+                                                                CanonicalActionRecord.RECORD_BYTES});
+                                                    printInvalidActionSigToRegistro(jugador.getNickname());
+                                                    this.saw_invalid_action_sig = true;
+                                                    synthesizeUnverifiedFoldAction(action);
                                                 }
                                             } catch (Exception parseEx) {
-                                                LOGGER.log(Level.WARNING, "Failed to decode/verify record/sig from ACTION wire", parseEx);
-                                                action[3] = null;
-                                                action[4] = null;
+                                                // Mismo agujero que el else de arriba: hasta ahora esto solo
+                                                // anulaba record/sig y dejaba correr la decisión en claro sin
+                                                // haber verificado nada. Un base64 que no decodifica no lo
+                                                // produce un peer honesto (el canal ya descarta lo corrupto).
+                                                LOGGER.log(Level.SEVERE,
+                                                        "ZERO-TRUST: failed to decode/verify record/sig from ACTION wire by "
+                                                        + jugador.getNickname() + " — SYNTHESIZING FOLD", parseEx);
+                                                printInvalidActionSigToRegistro(jugador.getNickname());
+                                                this.saw_invalid_action_sig = true;
+                                                synthesizeUnverifiedFoldAction(action);
                                             }
                                         } else if (this.hand_state_chain != null) {
                                             // ZERO-TRUST: with the hand-state chain active EVERY action must
@@ -10801,7 +10921,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     jugador.getNickname());
                                             printInvalidActionSigToRegistro(jugador.getNickname());
                                             this.saw_invalid_action_sig = true;
-                                            synthesizeFoldAction(action);
+                                            synthesizeUnverifiedFoldAction(action);
                                         }
                                     }
                                 }
@@ -10832,7 +10952,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (thinkTimeEnforced && System.currentTimeMillis() >= actionDeadlineMs) {
                         // Peer vivo (contesta PING) que retiene su ACTION con la timba EN MARCHA más allá del
                         // think-time + margen amplio. Se le expulsa: al quedar isExit, el bucle sale y
-                        // synthesizeFoldAction lo foldea; el broadcast de EXIT hace converger al resto.
+                        // synthesizeExitFoldAction lo foldea; el broadcast de EXIT hace converger al resto.
                         LOGGER.log(Level.SEVERE,
                                 "ZERO-TRUST DoS: peer {0} withheld ACTION past think-time + margin ({1}ms, game running, answering PING) — expelling, table continues",
                                 new Object[]{jugador.getNickname(), actionBudgetMs});
@@ -10870,9 +10990,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // rondaApuestas keys off action[5]==FALSE to skip both the wire
             // broadcast and the absorb call.
             //
-            // Sprint deferred 🟠-2: extraído al helper synthesizeFoldAction
-            // (mismo patrón que el branch invalid-sig en el switch ACTION arriba).
-            synthesizeFoldAction(action);
+            // Sprint deferred 🟠-2: extraído al helper synthesizeExitFoldAction
+            // (mismo contrato que el synth por wire no verificable de arriba, salvo
+            // que aquel SÍ hay que emitirlo: aquí el EXIT ya viajó).
+            synthesizeExitFoldAction(action);
         } else {
             jugador.setTimeout(false);
         }
@@ -13554,11 +13675,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         isVoluntary = (Boolean) action[5];
                     }
                 }
-                // Exit synth: action[5]==FALSE marks a local FOLD synthesised because
-                // the peer left. No fallback record build (host doesn't speak for
-                // departed peers anymore), no wire broadcast, no chain absorb.
-                final boolean exitSynth = !isVoluntary;
-                if (!exitSynth && (localRecord == null || localSig == null)) {
+                // action[5]==FALSE marca un FOLD sintetizado localmente. Hay DOS, y solo
+                // se distinguen por action[6]:
+                //   - el peer se fue: su EXIT ya viajó y cada receptor sintetiza el suyo
+                //     al llegar a ese asiento, así que NO se emite (exitSynth).
+                //   - el wire no superó la verificación (firma, binding, record ausente
+                //     o malformado): ese wire lo ha visto SOLO este receptor, así que el
+                //     host DEBE emitir el fold sintético o el resto de la mesa se queda
+                //     esperando ese asiento para siempre.
+                // En lo demás son iguales: ninguno construye record local ni absorbe nada
+                // en H_t, y la cadena converge por omisión mutua.
+                final boolean synthFold = !isVoluntary;
+                final boolean exitSynth = synthFold && !isUnverifiedSynthFold(action);
+                if (!synthFold && (localRecord == null || localSig == null)) {
                     // Only the §10-correct signer should build:
                     //   - LocalPlayer's own turn → we sign with our own privkey.
                     //   - Host (partida_local) → bot actions (§10: bot ⇒ host key).
@@ -13599,13 +13728,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 // Action wire:
                 //   ACTION#nickB64#decision#bet#cinematic_or_*#record_or_*#sig_or_*
-                String comando = "ACTION#"
-                        + java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                        + "#" + decision
-                        + "#" + (decision == Player.BET ? String.valueOf((double) action[1]) : "0")
-                        + "#" + cinematicField
-                        + "#" + (localRecord != null ? java.util.Base64.getEncoder().encodeToString(localRecord) : "*")
-                        + "#" + (localSig != null ? java.util.Base64.getEncoder().encodeToString(localSig) : "*");
+                String comando = buildActionWireCommand(current_player.getNickname(), decision,
+                        action[1], cinematicField, localRecord, localSig);
 
                 if (current_player == GameFrame.getInstance().getLocalPlayer()) {
                     if (GameFrame.getInstance().isPartida_local()) {
@@ -13619,6 +13743,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // out immediately when the peer left, and no peer has a record to
                     // absorb for this slot. Every receiver hits its own readActionFromRemotePlayer's
                     // isExit branch and synthesises the same local FOLD without absorb.
+                    //
+                    // El synth por wire NO verificable es el caso contrario y SÍ sale: sin
+                    // record ni firma (nadie puede firmar por el actor), de modo que cada
+                    // cliente lo recibe como acción sin firmar con la cadena activa y
+                    // sintetiza el MISMO fold. Callárselo dejaba a la mesa esperando ese
+                    // asiento para siempre.
                     if (GameFrame.getInstance().isPartida_local() && !exitSynth) {
                         broadcastGAMECommandFromServer(comando, current_player.getNickname());
                     }
@@ -13636,10 +13766,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Identity: absorb the (record || sig) bytes into H_t.
                 // Same call on host and every client, so the chain stays byte-identical
                 // across the table. Failed-verify sigs are absorbed too so divergence
-                // remains detectable at hand close (§4.5). Exit-synth skips: localRecord
-                // is null anyway and absorbActionIntoChain is a no-op for null, but the
-                // explicit guard documents the rule.
-                if (!exitSynth) {
+                // remains detectable at hand close (§4.5). Los DOS synths se saltan esto:
+                // localRecord es null de todos modos y absorbActionIntoChain es no-op para
+                // null, pero la guarda explícita documenta la regla (ningún peer aporta
+                // record para ese asiento → omisión mutua).
+                if (!synthFold) {
                     absorbActionIntoChain(current_player.getNickname(), localRecord, localSig);
                 }
 

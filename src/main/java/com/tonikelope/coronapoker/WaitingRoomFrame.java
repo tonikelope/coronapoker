@@ -5982,6 +5982,11 @@ public class WaitingRoomFrame extends JFrame {
         }
 
         if (server) {
+            // El socket puede no existir todavia (o no haberse podido abrir el puerto):
+            // desde que se publica DESPUES de atarlo, aqui hay que comprobarlo.
+            if (net_server.getServer_socket() == null) {
+                return;
+            }
             int port = net_server.getServer_socket().getLocalPort();
             Helpers.copyTextToClipboard("[CoronaPoker] INTERNET -> " + Helpers.getMyPublicIP() + ":"
                     + String.valueOf(port) + "\n\nLAN -> " + Helpers.getMyLocalIP() + ":"

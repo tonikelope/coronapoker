@@ -13306,12 +13306,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             } else {
-                if (nick2player.containsKey(this.small_blind_nick) && nick2player.get(this.small_blind_nick).isActivo()) {
-                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.small_blind_nick)) {
+                // Quien ABRE postflop: la ciega pequeña multiway, la GRANDE en cara a cara.
+                // En heads-up el boton ES la ciega pequeña (calcularPosiciones lo fija asi),
+                // y por regla abre preflop pero habla el ULTIMO en flop, turn y river.
+                // Arrancar siempre en la pequeña le daba la primera palabra tambien
+                // postflop, invirtiendo la ventaja de posicion durante toda la fase heads-up
+                // (o sea, el final de cualquier partida) y contradiciendo al pivote del
+                // showdown de este mismo fichero, que si la calcula bien.
+                // El cara a cara se decide con el dato CANONICO de esta mano, no con un
+                // recuento en vivo: calcularPosiciones iguala el boton a la ciega pequeña
+                // SOLO en heads-up, y dealer_nick viaja a todos los peers en POSITIONS.
+                // Contar activos aqui seria estado local y mutable: cambiaria de respuesta
+                // entre calles si alguien abandona a mitad de mano, y dos peers que aun no
+                // hubieran procesado el mismo EXIT arrancarian la ronda en asientos
+                // distintos, esperando cada uno a un jugador diferente.
+                boolean heads_up = this.dealer_nick != null && this.dealer_nick.equals(this.small_blind_nick);
+                String primero_postflop = BetRules.firstToActPostflop(heads_up, this.small_blind_nick, this.big_blind_nick);
+                // Si el que abre no esta activo se arranca en el OTRO ciego. En cara a cara
+                // ese es la pequeña: dejar aqui la grande repetia el nick que se acaba de
+                // descartar, o sea que en heads-up no habia fallback ninguno.
+                String fallback_postflop = heads_up ? this.small_blind_nick : this.big_blind_nick;
+
+                if (nick2player.containsKey(primero_postflop) && nick2player.get(primero_postflop).isActivo()) {
+                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(primero_postflop)) {
                         conta_pos++;
                     }
                 } else {
-                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.big_blind_nick)) {
+                    while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(fallback_postflop)) {
                         conta_pos++;
                     }
                 }

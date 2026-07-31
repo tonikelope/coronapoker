@@ -95,7 +95,16 @@ public class Participant implements Runnable {
     private final Object participant_socket_lock = new Object();
     private final HashMap<String, Integer> last_received = new HashMap<>();
     private final ConcurrentLinkedQueue<String> pre_game_socket_writer_queue = new ConcurrentLinkedQueue<>();
-    private final LinkedBlockingQueue<String> socket_reader_queue = new LinkedBlockingQueue<>();
+    // Cola ACOTADA. Sin tope crece hasta donde llegue la memoria, y el anti-abuso que
+    // deberia frenar una inundacion corre al CONSUMIR, o sea, por detras: un peer que
+    // vomite comandos mas rapido de lo que se procesan tumba el proceso por memoria
+    // antes de que nadie le pare los pies. Llena, el lector de ESE peer se queda
+    // esperando sitio, deja de vaciar su socket y la contrapresion de TCP hace el
+    // resto. El tope es holgadisimo para el juego, donde las rafagas legitimas son de
+    // decenas de mensajes.
+    public static final int SOCKET_READER_QUEUE_CAPACITY = 10000;
+
+    private final LinkedBlockingQueue<String> socket_reader_queue = new LinkedBlockingQueue<>(SOCKET_READER_QUEUE_CAPACITY);
     private final WaitingRoomFrame sala_espera;
     private final String nick;
     private final File avatar;
@@ -124,6 +133,10 @@ public class Participant implements Runnable {
     private volatile int latency;
     private volatile int latency2;
     private volatile int pong_timeout_counter = 0;
+    // Veces SEGUIDAS que la escritura del latido no ha vuelto dentro del plazo. Se exige
+    // mas de una por lo mismo que con los PONGs: una sola puede ser un envio binario
+    // largo en curso, que retiene el turno de salida del socket con todo el mundo sano.
+    private volatile int ping_write_stall_counter = 0;
     private volatile int pong2_timeout_counter = 0;
     // Telemetría: cuenta de reconexiones exitosas del peer al server.
     // Incrementado en resetSocket() tras setear reset_socket=true. Cubre tanto
@@ -312,15 +325,65 @@ public class Participant implements Runnable {
         Helpers.threadRun(() -> {
             try {
             while (!exit && WaitingRoomFrame.getInstance() != null) {
-                int ping = Helpers.CSPRNG_GENERATOR.nextInt();
+                final int ping = Helpers.CSPRNG_GENERATOR.nextInt();
                 pong = null;
                 pong2 = null;
                 latency = -1;
                 latency2 = -1;
                 long pingStartNs = System.nanoTime();
 
+                // El PING se manda con TOPE. Escribir a un socket cuyo peer no lee acaba
+                // llenando el buffer del sistema y ahi el write se queda quieto, sin fecha
+                // de caducidad y RETENIENDO el monitor de salida del socket: el vigilante
+                // que tiene que cazar precisamente a ese peer se quedaba clavado dentro
+                // del write que iba a vigilar, y de paso bloqueaba a cualquiera que
+                // quisiera escribirle.
+                //
+                // OJO con el tope: ese monitor lo comparten los envios BINARIOS (una nota de
+                // voz, un avatar, los datos de recuperacion, un lote de estadisticas), que
+                // con varios peers y poca subida tardan lo suyo con todo el mundo sano; y
+                // mientras hay una reconexion en marcha la escritura espera POR DISENO. Por
+                // eso el plazo es holgado, no cuenta si el peer esta reconectando o en su
+                // periodo de gracia, y hacen falta VARIAS seguidas, exactamente el mismo
+                // criterio que el cierre por PONGs perdidos de aqui abajo.
+                java.util.concurrent.Future<?> ping_write;
+
                 try {
-                    writeCommandFromServer("PING#" + String.valueOf(ping));
+                    ping_write = Helpers.THREAD_POOL.submit(
+                            () -> writeCommandFromServer("PING#" + String.valueOf(ping)));
+                } catch (Exception ex) {
+                    break;
+                }
+
+                try {
+                    ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    ping_write_stall_counter = 0;
+                } catch (java.util.concurrent.TimeoutException ex) {
+                    if (!exit && !resetting_socket && !force_reset_socket
+                            && ++ping_write_stall_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES) {
+                        LOGGER.log(Level.SEVERE,
+                                "PING write to {0} stalled {1} times in a row ({2} ms each) — peer is not reading; closing its socket",
+                                new Object[]{nick, ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
+                        // SOLO se cierra el socket, NO se da al peer por ido: exactamente
+                        // lo que hace el gemelo de los latidos sin respuesta de aqui abajo.
+                        // Cerrar despierta al lector, que es quien abre el periodo de gracia
+                        // y le da su ventana para volver. Marcarlo como ido saltaba esa
+                        // ventana (el bucle de gracia lleva esa condicion), asi que un
+                        // portatil que se suspende un rato ya no volvia a la partida.
+                        ping_pong_thread_alive = false;
+                        try {
+                            socketClose();
+                        } catch (Exception ignored) {
+                        }
+                        break;
+                    }
+
+                    // La escritura sigue su curso (cancelarla no desbloquea un write parado,
+                    // y el socket puede estar reinstalandose). No se toca el contador de
+                    // PONGs: sin PING no puede haber PONG, y apuntarlo como perdido echaria
+                    // al peer por la otra via. Se espera el intervalo normal y se reintenta.
+                    Helpers.pausar(WaitingRoomFrame.PING_INTERVAL_MS);
+                    continue;
                 } catch (Exception ex) {
                     break;
                 }
@@ -432,7 +495,7 @@ public class Participant implements Runnable {
                     String[] partes_comando = mensaje_recibido.split("#");
                     if (null == partes_comando[0]) {
                         try {
-                            socket_reader_queue.put(mensaje_recibido);
+                            encolarLeido(mensaje_recibido);
                         } catch (Exception ex) {
                         }
                     } else {
@@ -455,7 +518,7 @@ public class Participant implements Runnable {
                                     }
                                 }
                                 try {
-                                    socket_reader_queue.put(mensaje_recibido);
+                                    encolarLeido(mensaje_recibido);
                                 } catch (Exception ex) {
                                 }
                                 break;
@@ -483,7 +546,7 @@ public class Participant implements Runnable {
                                 break;
                             default:
                                 try {
-                                    socket_reader_queue.put(mensaje_recibido);
+                                    encolarLeido(mensaje_recibido);
                                 } catch (Exception ex) {
                                 }
                                 break;
@@ -492,7 +555,7 @@ public class Participant implements Runnable {
                 } else {
                     try {
                         if (!socket_reader_queue.contains(POISON_PILL)) {
-                            socket_reader_queue.put(POISON_PILL);
+                            encolarLeido(POISON_PILL);
                         }
                     } catch (Exception ex) {
                     }
@@ -710,6 +773,34 @@ public class Participant implements Runnable {
 
     public String getNick() {
         return nick;
+    }
+
+    /**
+     * Encola lo leido del socket respetando el tope de la cola.
+     *
+     * <p>Un {@code put} a secas espera indefinidamente con la cola llena, y eso es
+     * justo lo que pasa cuando a un peer se le corta el consumidor por abuso: nadie
+     * vuelve a vaciarla, su lector se queda ahi para siempre y ni siquiera llega a
+     * entregar la senal de cierre. Se espera con tope y mirando si al peer ya se le ha
+     * dado por ido; si no cabe, se descarta ese mensaje y se sigue (el peer que llena
+     * una cola de diez mil o esta siendo expulsado o esta roto).
+     *
+     * @return false si no se pudo encolar
+     */
+    private boolean encolarLeido(String mensaje) {
+        try {
+            while (!exit) {
+                if (socket_reader_queue.offer(mensaje, 1, java.util.concurrent.TimeUnit.SECONDS)) {
+                    return true;
+                }
+                LOGGER.log(Level.WARNING,
+                        "Socket reader queue for {0} is full ({1}) — waiting for the consumer",
+                        new Object[]{nick, SOCKET_READER_QUEUE_CAPACITY});
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+        return false;
     }
 
     public boolean writeCommandFromServer(String command) {

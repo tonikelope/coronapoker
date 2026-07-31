@@ -161,6 +161,14 @@ public class WaitingRoomFrame extends JFrame {
     // capturada en write (deteccion ~0ms en el siguiente PING saliente) y el SO_KEEPALIVE
     // del socket.
     public static final int MAX_CONSECUTIVE_PING_FAILURES = 3;
+
+    // Plazo de la ESCRITURA del latido (distinto del de espera del PONG). Holgado a
+    // proposito: ese turno de salida lo comparten los envios binarios (nota de voz de
+    // 320 KB, avatares, datos de recuperacion, lotes de estadisticas), que con varios
+    // peers y poca subida tardan decenas de segundos con todo el mundo sano. Solo se
+    // cierra tras MAX_CONSECUTIVE_PING_FAILURES seguidas, y nunca durante una
+    // reconexion ni en el periodo de gracia.
+    public static final int PING_WRITE_STALL_TIMEOUT = 60000;
     public static final int PRE_GAME_COMMANDS_LOCK = 15000;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 14;

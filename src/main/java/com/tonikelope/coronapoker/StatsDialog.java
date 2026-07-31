@@ -3319,7 +3319,7 @@ public class StatsDialog extends JFrame {
                         delete_game_button.setEnabled(true);
                         purge_games_button.setEnabled(true);
                     });
-                    Helpers.mostrarMensajeError(getContentPane(), Translator.translate("ui.error.error_generico"));
+                    Helpers.mostrarMensajeError(getContentPane(), Translator.translate("ui.error.borrado_timbas_fallido"));
                 }
             });
         } else {

@@ -1893,7 +1893,12 @@ public class WaitingRoomFrame extends JFrame {
                                 (String) null, ex);
                     }
 
-                    net_client.getCliente_last_received().clear();
+                    // La tabla anti-repeticion NO se vacia aqui. Justo despues de esto viene
+                    // la reconexion, y lo primero que hace el anfitrion al volver es reenviar
+                    // lo que quedo sin confirmar CON EL MISMO identificador: vaciarla dejaba
+                    // pasar esos comandos por segunda vez, ya aplicados. Es precisamente el
+                    // momento en el que hace falta. Su crecimiento lo acota el tope de nombres
+                    // distintos, igual que en el lado del anfitrion.
                 }
 
                 if (mensaje_recibido == null) {
@@ -2375,6 +2380,22 @@ public class WaitingRoomFrame extends JFrame {
                                             mostrarMensajeInformativo(THIS, Translator.translate("ui.error.kicked_out"));
                                             break;
 
+                                        case "NEWPASS":
+                                            // El anfitrion ha cambiado la contrasena de la sala (al expulsar a
+                                            // alguien) y nos manda la nueva. Sin esto nos quedabamos con la
+                                            // vieja, y como el canal se deriva de ella, una caida de red
+                                            // significaba no poder volver a entrar. Llega por el canal ya
+                                            // cifrado con las claves de esta sesion, que no dependen de que la
+                                            // contrasena cambie.
+                                            if (partes_comando.length > 1) {
+                                                try {
+                                                    password = new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8");
+                                                } catch (Exception ex) {
+                                                    LOGGER.log(Level.WARNING, "Could not read the new room password", ex);
+                                                }
+                                            }
+                                            break;
+
                                         case "GAME":
                                             String subcomando = partes_comando[2];
                                             int id = Integer.parseInt(partes_comando[1]);
@@ -2386,6 +2407,15 @@ public class WaitingRoomFrame extends JFrame {
                                             }
 
                                             if (!net_client.getCliente_last_received().containsKey(subcomando) || !net_client.getCliente_last_received().get(subcomando).equals(id)) {
+                                                // Mismo tope que en el lado del anfitrion: la clave es el
+                                                // nombre del subcomando, que lo elige quien manda, asi que
+                                                // sin cota un anfitrion hostil hace crecer esta tabla sin fin.
+                                                if (net_client.getCliente_last_received().size() >= Participant.MAX_DEDUP_SUBCOMMANDS) {
+                                                    LOGGER.log(Level.WARNING,
+                                                            "Client de-dup table hit {0} distinct subcommands — clearing it",
+                                                            Participant.MAX_DEDUP_SUBCOMMANDS);
+                                                    net_client.getCliente_last_received().clear();
+                                                }
                                                 net_client.getCliente_last_received().put(subcomando, id);
                                                 if (isPartida_empezada()) {
                                                     switch (subcomando) {
@@ -4260,6 +4290,16 @@ public class WaitingRoomFrame extends JFrame {
                                         // Avatar slot uses "*" placeholder for a fixed 5-field layout
                                         // (nick|flag|avatar|pubkey|sig).
                                         Participant newPar = participantes.get(client_nick);
+                                        if (newPar == null) {
+                                            // El recien llegado ya no esta (se cayo entre su alta y este
+                                            // anuncio). Sin esta comprobacion aqui saltaba un fallo que se
+                                            // tragaba el catch de mas abajo SIN DECIR NADA, y el alta se
+                                            // quedaba a medias: dentro de la lista pero sin anunciar al resto.
+                                            LOGGER.log(Level.WARNING,
+                                                    "{0} vanished before its join could be announced — skipping the announcement",
+                                                    client_nick);
+                                            return;
+                                        }
                                         String avatarB64 = "*";
                                         if (client_avatar != null) {
                                             byte[] avatar_b;
@@ -4292,6 +4332,10 @@ public class WaitingRoomFrame extends JFrame {
                                     }
                                 }
                             } catch (Exception ex) {
+                                // Este catch estaba MUDO. Un alta que se rompiera por el medio dejaba
+                                // al recien llegado a medias (dentro de la lista, sin anunciar al
+                                // resto) y no habia ni rastro de por que.
+                                LOGGER.log(Level.SEVERE, "Failed to complete the join of " + client_nick, ex);
                             } finally {
                                 Helpers.GUIRun(() -> {
                                     empezar_timba.setEnabled((participantes.size() > 1));
@@ -5540,6 +5584,32 @@ public class WaitingRoomFrame extends JFrame {
                     } catch (IOException ex) {
                         LOGGER.log(Level.SEVERE, null, ex);
                     }
+                    // La contrasena nueva se le pasa a QUIEN SIGUE DENTRO. Rotarla solo aqui
+                    // dejaba a los demas con la vieja, y como el canal se deriva de ella, al
+                    // primero que se le cortara la red se quedaba fuera sin poder volver. El
+                    // expulsado ya no esta en la lista, asi que no se entera.
+                    if (password != null) {
+                        String nueva_pass_b64;
+                        try {
+                            nueva_pass_b64 = Base64.getEncoder().encodeToString(password.getBytes("UTF-8"));
+                        } catch (UnsupportedEncodingException ex) {
+                            nueva_pass_b64 = null;
+                            LOGGER.log(Level.SEVERE, null, ex);
+                        }
+                        if (nueva_pass_b64 != null) {
+                            for (Participant resto : participantes.values()) {
+                                if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
+                                    try {
+                                        resto.writeCommandFromServer(Helpers.encryptCommand(
+                                                "NEWPASS#" + nueva_pass_b64, resto.getAes_key(), resto.getHmac_key()));
+                                    } catch (Exception ex) {
+                                        LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     Helpers.GUIRun(() -> {
                         kick_user.setEnabled(participantes.size() > 1);
 

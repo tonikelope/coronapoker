@@ -92,6 +92,11 @@ public class Participant implements Runnable {
 
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
+    // Tope de nombres de subcomando distintos en la tabla anti-repeticion. Los que
+    // existen de verdad son unas pocas decenas; este numero solo lo alcanza quien se
+    // los invente para hacerla crecer.
+    public static final int MAX_DEDUP_SUBCOMMANDS = 256;
+
     private final HashMap<String, Integer> last_received = new HashMap<>();
     private final ConcurrentLinkedQueue<String> pre_game_socket_writer_queue = new ConcurrentLinkedQueue<>();
     private final LinkedBlockingQueue<String> socket_reader_queue = new LinkedBlockingQueue<>();
@@ -115,6 +120,12 @@ public class Participant implements Runnable {
     private volatile String avatar_chat_src;
     private volatile boolean async_wait = false;
     private volatile boolean force_reset_socket = false;
+
+    // ¿este peer esta en su PERIODO DE GRACIA? Lo enciende el lector al detectar la
+    // caida y lo apaga cuando el peer vuelve a hablar. Era una variable suelta dentro
+    // del lector, asi que nadie mas podia consultarlo: los escritores no se enteraban
+    // de que habia una gracia en curso y echaban al peer en cuanto una escritura fallaba.
+    private volatile boolean timeout = false;
     // Generación del "force reconnect": cada forceSocketReconnectWithWatchdog la
     // incrementa (bajo lock). El watchdog captura la suya al arrancar y solo actúa si
     // sigue vigente -> un watchdog viejo no expulsa un peer por un force MÁS NUEVO
@@ -732,7 +743,13 @@ public class Participant implements Runnable {
             // Crupier sobre received_commands. Sin propagar a Player.exit, el
             // do-while que espera DECISION (Crupier.java ~5476) queda colgado
             // porque chequea jugador.isExit() = Player, no Participant.
-            if (!exit && !resetting_socket && !force_reset_socket) {
+            //
+            // Con el peer en su PERIODO DE GRACIA (timeout) no se le echa: el lector ya
+            // esta gestionando su caida y esperando a que vuelva, y sera el quien decida
+            // cuando venza el plazo. Sin mirar eso, cualquier escritura al socket ya
+            // cerrado se cargaba la gracia antes de tiempo y el peer perdia su ventana
+            // para reconectar.
+            if (!exit && !timeout && !resetting_socket && !force_reset_socket) {
                 markExitAndNotify("write failed (socket closed)");
             }
         }
@@ -760,7 +777,9 @@ public class Participant implements Runnable {
                 return false;
             }
         } catch (IOException ex) {
-            if (!exit && !resetting_socket && !force_reset_socket) {
+            // Mismo criterio que el gemelo de texto: en periodo de gracia no se echa a
+            // nadie, que de eso ya se ocupa el lector.
+            if (!exit && !timeout && !resetting_socket && !force_reset_socket) {
                 markExitAndNotify("binary write failed (socket closed)");
             }
         }
@@ -1282,6 +1301,18 @@ public class Participant implements Runnable {
                                 }
 
                                 if (!last_received.containsKey(subcomando) || !last_received.get(subcomando).equals(command_id)) {
+                                    // La clave es el NOMBRE del subcomando, que lo elige quien
+                                    // manda: inventandose nombres distintos se hace crecer esta
+                                    // tabla sin fin, y no se vacia nunca. El tope va muy por encima
+                                    // de los subcomandos que existen de verdad, asi que solo puede
+                                    // alcanzarlo alguien inventandoselos; al llegar se vacia, que
+                                    // esta tabla solo sirve para no repetir lo que acaba de llegar.
+                                    if (last_received.size() >= MAX_DEDUP_SUBCOMMANDS) {
+                                        LOGGER.log(Level.WARNING,
+                                                "De-dup table for {0} hit {1} distinct subcommands — clearing it (peer sending made-up names?)",
+                                                new Object[]{nick, MAX_DEDUP_SUBCOMMANDS});
+                                        last_received.clear();
+                                    }
                                     last_received.put(subcomando, command_id);
 
                                     switch (subcomando) {

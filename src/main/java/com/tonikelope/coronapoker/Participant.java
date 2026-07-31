@@ -492,6 +492,14 @@ public class Participant implements Runnable {
                     // chequeo veía alive=true y se saltaba la resurrección. El finally lo
                     // vuelve a poner false (idempotente).
                     ping_pong_thread_alive = false;
+                    // Este cierre tambien es NUESTRO, igual que el de la escritura atascada
+                    // de aqui arriba, y por el mismo motivo hay que marcarlo: al cerrar,
+                    // cualquier escritura que estuviera en curso a este peer despierta con
+                    // error, y su captura lo daria por ido antes de que al lector le diera
+                    // tiempo a abrirle la ventana. Se blindaron las tres puertas que miran
+                    // la marca y se dejo sin marcar este segundo autocierre, que es el que
+                    // mas se usa: basta una congelacion de cuarenta segundos del peer.
+                    stall_close_ns = System.nanoTime();
                     socketClose();
                     break;
                 }
@@ -889,16 +897,19 @@ public class Participant implements Runnable {
                 return;
             }
 
+            // Se apunta el numero SIEMPRE, haya salido la escritura o no, y es lo correcto
+            // aunque parezca lo contrario. Se probo a apuntarlo solo cuando salia bien, para
+            // no dar por servida una contrasena que no habia llegado, y eso reabria el
+            // agujero que este metodo existe para tapar: si falla la escritura de la nueva,
+            // el numero no sube, y un reparto viejo que venga detras se encuentra la puerta
+            // abierta y le mete la contrasena ANTIGUA encima. Ademas no se ganaba nada,
+            // porque nadie reintenta un envio fallido: el proximo cambio traera un numero
+            // mayor y escribira igual.
+            last_password_version = version;
+
             try {
-                // Solo se apunta si la escritura ha ido bien. Apuntarlo antes daba por
-                // servida una contrasena que no habia salido (un peer en su ventana de
-                // gracia tiene el socket cerrado y la escritura falla ahi mismo), y con el
-                // numero ya subido nadie se la volvia a mandar: se quedaba con la vieja y a
-                // la siguiente caida no podia volver a entrar.
-                if (!writeCommandFromServer(Helpers.encryptCommand(
+                if (writeCommandFromServer(Helpers.encryptCommand(
                         "NEWPASS#" + payload, getAes_key(), getHmac_key()))) {
-                    last_password_version = version;
-                } else {
                     LOGGER.log(Level.WARNING,
                             "The new room password did not reach {0}: it still has the old one", nick);
                 }
@@ -929,13 +940,10 @@ public class Participant implements Runnable {
      * valerlo dejaba la senal sin encolar y al consumidor dormido para siempre, con su
      * hilo y su socket colgados el resto de la partida.
      *
-     * <p>OJO con lo que esto NO arregla: el aviso al resto de la mesa de que el jugador se
-     * ha ido no sale de aqui. Lo emite {@code remotePlayerQuit}, que esta guardado por "si
-     * el jugador no estaba ya marcado como salido", y marcarlo es lo primero que hace
-     * {@link #markExitAndNotify}, asi que cuando se llega por ese camino el cuerpo entero
-     * se salta y el aviso no llega a difundirse. Viene de largo, no de aqui, y merece
-     * arreglarse aparte: tocar la gestion de salidas con la partida en marcha no es cosa
-     * de una linea.
+     * <p>Y de ese teardown sale tambien el aviso al resto de la mesa de que este jugador se
+     * ha ido, que es hoy lo mas importante de todo esto: sin la senal, el consumidor no
+     * despierta, no se llama a {@code remotePlayerQuit} y nadie difunde nada, con lo que la
+     * mesa se queda esperando el turno de alguien que ya no esta.
      *
      * <p>Si la cola estuviera llena se hace hueco tirando lo mas viejo: son comandos de un
      * peer que ya se ha ido y ninguno importa mas que la propia senal.

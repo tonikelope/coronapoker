@@ -5319,14 +5319,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
     }
 
-    public synchronized void remotePlayerQuit(String nick, String testamento) {
+    public void remotePlayerQuit(String nick, String testamento) {
+        // El anuncio se PREPARA aqui dentro y se emite al final, ya fuera del cerrojo. Ese
+        // envio espera la confirmacion de todos los peers, y quien las despacha es el hilo
+        // consumidor de cada uno; emitiendolo aqui dentro, cualquier otro peer que se fuera
+        // a la vez se quedaba esperando este mismo cerrojo, con lo que su confirmacion no
+        // la despachaba nadie: el anfitrion se quedaba tres minutos colgado, acusaba por el
+        // registro a ese inocente de estar reteniendola y acababa echandolo. Y con la mesa
+        // en pausa, que es cuando la gente se va, la espera no tenia fin.
+        String anuncio = null;
+
+        synchronized (this) {
+            anuncio = prepararSalidaRemota(nick, testamento);
+        }
+
+        if (anuncio != null) {
+            broadcastGAMECommandFromServer(anuncio, nick);
+        }
+    }
+
+    /**
+     * Da por ido a un peer y devuelve el anuncio que hay que difundir, o null si no hay
+     * nada que anunciar. Se llama SIEMPRE con el cerrojo del Crupier tomado, y no emite
+     * nada al wire: eso lo hace el llamador al soltarlo.
+     */
+    private String prepararSalidaRemota(String nick, String testamento) {
+        String anuncio = null;
         Player jugador = nick2player.get(nick);
         // Se lleva la cuenta de a quien se ha anunciado ya, en vez de mirar si el jugador
-        // esta marcado como salido. Mirar la marca dejaba esto sin hacer NADA en todas las
-        // salidas que no son voluntarias: el camino de expulsion marca al jugador antes de
-        // llegar aqui, asi que el cuerpo entero se saltaba y el aviso al resto de la mesa,
-        // que sale de aqui abajo y de ningun otro sitio, no se emitia jamas. La mesa se
-        // quedaba esperando el turno de alguien a quien acababa de echar ella misma.
+        // esta marcado como salido. Mirar la marca dejaba esto sin hacer NADA en las
+        // salidas que pasan por markExitAndNotify, que son todas las expulsiones: ahi al
+        // jugador se le marca antes de llegar aqui, asi que el cuerpo entero se saltaba y
+        // el aviso al resto de la mesa, que sale de aqui y de ningun otro sitio, no se
+        // emitia jamas. La mesa se quedaba esperando el turno de alguien a quien acababa de
+        // echar ella misma. (Las otras salidas involuntarias, el kick a mano y la retirada
+        // de los bots espectadores, no pasan por ahi y siempre funcionaron.)
         //
         // El efecto de no repetirse se mantiene, que es lo unico que la marca aportaba: la
         // segunda llamada con el mismo nick sigue sin hacer nada.
@@ -5345,15 +5372,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (testamento != null && !testamento.isEmpty() && !testamento.equals("*")) {
                         cmd += "#" + testamento;
                     }
-                    // EXIT goes out NOW. The previous "defer until autofold ACTION
-                    // is broadcast" pattern existed to keep wire order ACTION→EXIT
-                    // so receivers could absorb a host-signed autofold record into
-                    // their chain before marking the peer as out. That whole
-                    // mechanism is gone: a departed peer contributes no record to
-                    // the slot it would have played, every receiver synths the
-                    // local FOLD on EXIT, and the chain converges by mutual
-                    // omission. So no buffering, no flush — just send.
-                    broadcastGAMECommandFromServer(cmd, nick);
+                    // No se emite aqui: se devuelve para que el llamador lo mande al soltar
+                    // el cerrojo (ver remotePlayerQuit). No hay que retenerlo ni encolarlo
+                    // por orden: el que se va no aporta ninguna accion al hueco que le
+                    // tocaba, cada receptor sintetiza su retirada al ver este aviso, y la
+                    // cadena converge por omision mutua.
+                    anuncio = cmd;
                 } catch (UnsupportedEncodingException ex) {
                 }
 
@@ -5385,10 +5409,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
             }
         }
+
+        return anuncio;
     }
 
     // Sobrecarga de compatibilidad
-    public synchronized void remotePlayerQuit(String nick) {
+    public void remotePlayerQuit(String nick) {
         remotePlayerQuit(nick, null);
     }
 

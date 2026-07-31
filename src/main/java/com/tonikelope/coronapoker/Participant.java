@@ -161,6 +161,9 @@ public class Participant implements Runnable {
     // para siempre y entonces NADIE podria dar por ido a este peer nunca, ni por escritura
     // fallida ni por nada: quedaria de zombi el resto de la partida. Caducando, lo peor que
     // pasa es que se vuelva al comportamiento de siempre unos segundos despues.
+    // Lo que se espera antes de reintentar un comando de pre-partida cuya escritura ha
+    // fallado. Ver el bucle de runPreGameSocketWriterQueueThread.
+    private static final int PRE_GAME_WRITE_RETRY_MS = 1000;
     private static final long NO_STALL_CLOSE = Long.MIN_VALUE;
     private volatile long stall_close_ns = NO_STALL_CLOSE;
     // Lo que se le concede al lector para tomar el relevo tras ese cierre. De sobra: solo
@@ -728,6 +731,17 @@ public class Participant implements Runnable {
                     do {
                         if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
                             waitPreGameCommandConfirmations(id, pendientes);
+                        } else {
+                            // La escritura ha fallado, tipicamente porque el socket esta
+                            // cerrado mientras al peer se le da su ventana para volver. La
+                            // unica espera del bucle es la de las confirmaciones, y esa se
+                            // salta justo cuando falla, asi que sin esta pausa se reintentaba
+                            // a pelo, cifrando en cada vuelta, durante los cuarenta y cinco
+                            // segundos que dura la ventana: un nucleo al maximo sin avanzar
+                            // nada. Con ella se reintenta a un ritmo razonable, que es lo que
+                            // se quiere: cuando el peer vuelva, el comando sigue pendiente y
+                            // se le entrega.
+                            Helpers.pausar(PRE_GAME_WRITE_RETRY_MS);
                         }
                     } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
 

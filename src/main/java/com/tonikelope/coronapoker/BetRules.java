@@ -106,4 +106,19 @@ public final class BetRules {
     public static boolean isFullRaise(double raiseIncrement, double minRaiseIncrement) {
         return Math.round(raiseIncrement * 100.0) >= Math.round(minRaiseIncrement * 100.0);
     }
+
+    /**
+     * Nick of the first player to act POSTFLOP (flop, turn and river).
+     *
+     * Multiway the small blind opens. Heads-up rule 4.3 takes over: the button IS the
+     * small blind, opens preflop and acts LAST postflop, so the big blind is the one who
+     * opens the later streets. Opening always with the small blind inverts the positional
+     * advantage for the whole heads-up phase, which is how every game ends.
+     *
+     * @param activePlayers players still in the game, the same count used to hand out the
+     * button and the blinds
+     */
+    public static String firstToActPostflop(int activePlayers, String smallBlindNick, String bigBlindNick) {
+        return (activePlayers == 2) ? bigBlindNick : smallBlindNick;
+    }
 }

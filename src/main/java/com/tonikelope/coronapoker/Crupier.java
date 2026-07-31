@@ -480,6 +480,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // velocidad/precisión
     public static final int RABBIT_LABEL_TIMEOUT = 3000;
 
+    // Tope defensivo de la espera a que se procesen las peticiones de rabbit hunting.
+    // Holgado a proposito: cada peticion pinta su aviso durante RABBIT_LABEL_TIMEOUT y
+    // varias pueden encadenarse, asi que solo salta si algo se ha quedado colgado.
+    public static final int RABBIT_PROCESSING_TIMEOUT = 60000;
+
     public static volatile boolean SECURITY_LOCKDOWN = false;
 
     // Aviso suave UNA vez por anomalia DISTINTA y por partida (no one-shot global: si no, un aviso
@@ -2565,19 +2570,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isFin_de_la_transmision()) {
                     break;
                 }
-                // Patrón estándar del Crupier (15+ receive* loops lo usan):
-                // espera sobre received_commands para que un notifyAll de
-                // los productores (Participant reader, WaitingRoomFrame.cliente)
-                // nos despierte inmediatamente al llegar el próximo comando.
-                // El timeout WAIT_QUEUES es safety net consistente con el resto
-                // del fichero — sustituye el Helpers.pausar(100) anterior que
-                // polleaba sin escuchar al notifier real.
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.getReceived_commands().wait(WAIT_QUEUES);
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                        break;
+                // Deadline PAUSE-AWARE, el mismo patrón que sus quince hermanas: el tiempo
+                // en pausa no cuenta. start_time se declaraba desde el principio y no lo
+                // leía nadie, así que un cliente al que no le llegaran nunca sus cartas se
+                // quedaba aquí para siempre, y esta es la barrera en la que espera ANTES de
+                // que se mueva una sola ficha. Al vencer se devuelve null, que es el mismo
+                // resultado que ya produce el fin de la transmisión y el llamador contempla.
+                if (GameFrame.getInstance().checkPause()) {
+                    start_time = System.currentTimeMillis();
+                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                    LOGGER.log(Level.SEVERE,
+                            "recibirMisCartas timeout — MEGAPACKET never arrived from the host. Giving up the wait.");
+                    break;
+                } else {
+                    // Patrón estándar del Crupier (15+ receive* loops lo usan):
+                    // espera sobre received_commands para que un notifyAll de
+                    // los productores (Participant reader, WaitingRoomFrame.cliente)
+                    // nos despierte inmediatamente al llegar el próximo comando.
+                    // El timeout WAIT_QUEUES es safety net consistente con el resto
+                    // del fichero — sustituye el Helpers.pausar(100) anterior que
+                    // polleaba sin escuchar al notifier real.
+                    synchronized (this.getReceived_commands()) {
+                        try {
+                            this.getReceived_commands().wait(WAIT_QUEUES);
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
                     }
                 }
             }
@@ -7477,57 +7496,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 rabbit_players.put(nick, true); // Lo ponemos en PENDING (para que el server pueda llevar la cuenta de
                 // todos los que fueron procesados).
+                try {
 
-                if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                    destaparRabbitCards();
-                }
+                    if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                        destaparRabbitCards();
+                    }
 
-                Player jugador = nick2player.get(nick);
+                    Player jugador = nick2player.get(nick);
 
-                if (jugador != null) {
+                    if (jugador != null) {
 
-                    if (jugador instanceof RemotePlayer) {
-                        RemotePlayer rp = (RemotePlayer) jugador;
+                        if (jugador instanceof RemotePlayer) {
+                            RemotePlayer rp = (RemotePlayer) jugador;
 
-                        Helpers.threadRun(() -> {
+                            Helpers.threadRun(() -> {
 
-                            Helpers.GUIRunAndWait(() -> {
+                                Helpers.GUIRunAndWait(() -> {
 
-                                rp.setNotifyRabbitLabel();
-                                rp.getChat_notify_label().setVisible(true);
-
-                            });
-
-                            synchronized (rp.getChat_notify_label()) {
-                                Helpers.pausar(RABBIT_LABEL_TIMEOUT);
-
-                                Helpers.GUIRun(() -> {
-
-                                    rp.getChat_notify_label().setVisible(false);
+                                    rp.setNotifyRabbitLabel();
+                                    rp.getChat_notify_label().setVisible(true);
 
                                 });
 
-                                rp.getChat_notify_label().notifyAll();
-                            }
+                                synchronized (rp.getChat_notify_label()) {
+                                    Helpers.pausar(RABBIT_LABEL_TIMEOUT);
 
-                        });
+                                    Helpers.GUIRun(() -> {
 
-                    }
+                                        rp.getChat_notify_label().setVisible(false);
 
-                    double stack = jugador.getStack();
-                    double coste_rabbit = 0;
+                                    });
 
-                    synchronized (getLock_contabilidad()) {
-                        if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit > 1) {
-                            coste_rabbit = ciega_pequeña;
-                            if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
-                                bote_sobrante += coste_rabbit;
-                                jugador.setStack(stack - coste_rabbit);
-                            } else {
-                                coste_rabbit = 0f;
-                            }
-                        } else if (GameFrame.RABBIT_HUNTING == 3) {
-                            if (conta_rabbit == 2) {
+                                    rp.getChat_notify_label().notifyAll();
+                                }
+
+                            });
+
+                        }
+
+                        double stack = jugador.getStack();
+                        double coste_rabbit = 0;
+
+                        synchronized (getLock_contabilidad()) {
+                            if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit > 1) {
                                 coste_rabbit = ciega_pequeña;
                                 if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
                                     bote_sobrante += coste_rabbit;
@@ -7535,84 +7546,100 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 } else {
                                     coste_rabbit = 0f;
                                 }
-                            } else if (conta_rabbit > 2) {
-                                coste_rabbit = ciega_grande;
-                                if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
-                                    bote_sobrante += coste_rabbit;
-                                    jugador.setStack(stack - coste_rabbit);
-                                } else {
-                                    coste_rabbit = 0f;
+                            } else if (GameFrame.RABBIT_HUNTING == 3) {
+                                if (conta_rabbit == 2) {
+                                    coste_rabbit = ciega_pequeña;
+                                    if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
+                                        bote_sobrante += coste_rabbit;
+                                        jugador.setStack(stack - coste_rabbit);
+                                    } else {
+                                        coste_rabbit = 0f;
+                                    }
+                                } else if (conta_rabbit > 2) {
+                                    coste_rabbit = ciega_grande;
+                                    if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
+                                        bote_sobrante += coste_rabbit;
+                                        jugador.setStack(stack - coste_rabbit);
+                                    } else {
+                                        coste_rabbit = 0f;
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    GameFrame.getInstance().getRegistro().print(nick + " " + Translator.translate("rabbit.solicito_rabbit_hunting")
-                            + " (" + Helpers.money2String(coste_rabbit) + ")");
+                        GameFrame.getInstance().getRegistro().print(nick + " " + Translator.translate("rabbit.solicito_rabbit_hunting")
+                                + " (" + Helpers.money2String(coste_rabbit) + ")");
 
-                    if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                        // Si es una petición local calculamos mejor mano hipotética
-                        ArrayList<Card> cartas = new ArrayList<>();
+                        if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                            // Si es una petición local calculamos mejor mano hipotética
+                            ArrayList<Card> cartas = new ArrayList<>();
 
-                        for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+                            for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
-                            if (!carta_comun.isTapada()) {
-                                cartas.add(carta_comun);
+                                if (!carta_comun.isTapada()) {
+                                    cartas.add(carta_comun);
+                                }
                             }
-                        }
 
-                        GameFrame.getInstance().getRegistro()
-                                .print(Translator.translate("rabbit.rabbit_hunting_cartas_comunitarias")
-                                        + " " + Card.collection2String(cartas));
+                            GameFrame.getInstance().getRegistro()
+                                    .print(Translator.translate("rabbit.rabbit_hunting_cartas_comunitarias")
+                                            + " " + Card.collection2String(cartas));
 
-                        cartas = GameFrame.getInstance().getLocalPlayer().getHoleCards();
+                            cartas = GameFrame.getInstance().getLocalPlayer().getHoleCards();
 
-                        GameFrame.getInstance().getRegistro()
-                                .print(Translator.translate("rabbit.rabbit_hunting_tu_mano_repartida")
-                                        + " " + Card.collection2String(cartas));
+                            GameFrame.getInstance().getRegistro()
+                                    .print(Translator.translate("rabbit.rabbit_hunting_tu_mano_repartida")
+                                            + " " + Card.collection2String(cartas));
 
-                        for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
+                            for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
-                            if (!carta_comun.isTapada()) {
-                                cartas.add(carta_comun);
+                                if (!carta_comun.isTapada()) {
+                                    cartas.add(carta_comun);
+                                }
                             }
+
+                            Hand jugada = new Hand(cartas);
+
+                            GameFrame.getInstance().getLocalPlayer().setRabbitJugada(jugada.getName());
+
+                            GameFrame.getInstance().getRegistro()
+                                    .print(Translator.translate("rabbit.rabbit_hunting_mejor_hipotetica_jugada")
+                                            + " " + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
+
                         }
 
-                        Hand jugada = new Hand(cartas);
+                        // Avisamos al server o al resto de jugadores si procede
+                        String comando;
+                        try {
+                            comando = "RABBIT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                                    + String.valueOf(conta_rabbit);
 
-                        GameFrame.getInstance().getLocalPlayer().setRabbitJugada(jugada.getName());
+                            if (GameFrame.getInstance().isPartida_local()) {
+                                // Si somos el sevidor re-enviamos el comando a todo el mundo.
+                                broadcastGAMECommandFromServer(comando, nick);
 
-                        GameFrame.getInstance().getRegistro()
-                                .print(Translator.translate("rabbit.rabbit_hunting_mejor_hipotetica_jugada")
-                                        + " " + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
+                            } else if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                                // Si somos cliente enviamos comando al server en caso de que fuéramos nosotros
+                                // los que pedimos las RABIT.
+                                sendGAMECommandToServer(comando);
+                            }
 
-                    }
-
-                    // Avisamos al server o al resto de jugadores si procede
-                    String comando;
-                    try {
-                        comando = "RABBIT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                                + String.valueOf(conta_rabbit);
-
-                        if (GameFrame.getInstance().isPartida_local()) {
-                            // Si somos el sevidor re-enviamos el comando a todo el mundo.
-                            broadcastGAMECommandFromServer(comando, nick);
-
-                        } else if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                            // Si somos cliente enviamos comando al server en caso de que fuéramos nosotros
-                            // los que pedimos las RABIT.
-                            sendGAMECommandToServer(comando);
+                        } catch (Exception ex) {
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
-
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
                     }
+
+                } catch (Exception ex) {
+                    // El PENDING de abajo lo suelta el finally pase lo que pase: si un fallo
+                    // por el medio dejaba el nick colgado, quien espera a que se procesen las
+                    // peticiones lo hacia sin tope y la mano no avanzaba nunca.
+                    LOGGER.log(Level.SEVERE, "Rabbit hunting request failed for " + nick, ex);
+                } finally {
+                    rabbit_players.put(nick, false); // Petición Rabbit procesada
+
+                    lock_rabbit.notifyAll();
+
                 }
-
-                rabbit_players.put(nick, false); // Petición Rabbit procesada
-
-                lock_rabbit.notifyAll();
-
             }
 
         });
@@ -9482,11 +9509,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!trigger_seen) {
-                GameFrame.getInstance().checkPause();
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.received_commands.wait(WAIT_QUEUES);
-                    } catch (InterruptedException ex) {
+                // Deadline PAUSE-AWARE que el javadoc de aquí arriba ya prometía ("or the
+                // per-call deadline elapsed and we give up") y que no existía: start_time se
+                // declaraba y no lo leía nadie. Sin él, un anfitrión que no mande nunca el
+                // disparo deja al cliente esperando para siempre en el cierre de la mano.
+                if (GameFrame.getInstance().checkPause()) {
+                    start_time = System.currentTimeMillis();
+                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                    LOGGER.log(Level.SEVERE,
+                            "waitForHandverifyTrigger timeout — the host never sent the trigger. Giving up the wait.");
+                    break;
+                } else {
+                    synchronized (this.getReceived_commands()) {
+                        try {
+                            this.received_commands.wait(WAIT_QUEUES);
+                        } catch (InterruptedException ex) {
+                        }
                     }
                 }
             }
@@ -14490,6 +14528,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void waitRabbitProcessing() {
 
+        // Tope DEFENSIVO. Con el PENDING liberado en un finally ya no deberia quedarse
+        // nadie colgado, pero esta espera esta en el camino de cierre de la mano: si
+        // alguna vez volviera a quedarse un nick a medias, la mano no avanzaria nunca y
+        // la mesa entera se queda ahi. Vencer el tope no rompe nada, solo sigue.
+        long deadline = System.currentTimeMillis() + RABBIT_PROCESSING_TIMEOUT;
+
         synchronized (lock_rabbit) {
 
             boolean pending = true;
@@ -14506,8 +14550,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (pending) {
+                    long remaining = deadline - System.currentTimeMillis();
+
+                    if (remaining <= 0) {
+                        LOGGER.log(Level.SEVERE,
+                                "Rabbit hunting still pending after {0} ms — giving up the wait so the hand can close",
+                                RABBIT_PROCESSING_TIMEOUT);
+                        break;
+                    }
+
                     try {
-                        lock_rabbit.wait(1000);
+                        lock_rabbit.wait(Math.min(1000, remaining));
                     } catch (InterruptedException ex) {
                         Helpers.logCooperativeCancellation(LOGGER, "rabbit hunting wait", ex);
                         break;

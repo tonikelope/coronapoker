@@ -16177,9 +16177,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // victima: se sintetiza un FOLD y se marca el incidente para el consenso de
                             // cierre. Cierra el HIGH: antes se anulaba record+sig pero se mantenia res[0]/res[1],
                             // que el cliente re-firmaba con su clave -> forja LIMPIA en H_t.
-                            // Es el MISMO synth del camino vivo (wire que no se puede verificar), asi que
-                            // usa su helper: sale al wire para que la mesa converja en vez de quedarse
-                            // esperando este asiento.
+                            // Es el MISMO synth del camino vivo (wire que no se puede verificar), asi
+                            // que usa su helper. Para los bots del anfitrion eso hace ademas que el
+                            // fold salga al wire en vez de dejar a los clientes esperando ese asiento;
+                            // para el jugador local la marca da igual, porque su accion se rearma
+                            // desde el clic y lo que sale es su propio FOLD firmado.
                             warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
                             synthesizeUnverifiedFoldAction(res);
                             this.saw_invalid_action_sig = true;

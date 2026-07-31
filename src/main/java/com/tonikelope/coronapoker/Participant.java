@@ -363,13 +363,16 @@ public class Participant implements Runnable {
                         LOGGER.log(Level.SEVERE,
                                 "PING write to {0} stalled {1} times in a row ({2} ms each) — peer is not reading; closing its socket",
                                 new Object[]{nick, ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
+                        // SOLO se cierra el socket, NO se da al peer por ido: exactamente
+                        // lo que hace el gemelo de los latidos sin respuesta de aqui abajo.
+                        // Cerrar despierta al lector, que es quien abre el periodo de gracia
+                        // y le da su ventana para volver. Marcarlo como ido saltaba esa
+                        // ventana (el bucle de gracia lleva esa condicion), asi que un
+                        // portatil que se suspende un rato ya no volvia a la partida.
                         ping_pong_thread_alive = false;
                         try {
                             socketClose();
                         } catch (Exception ignored) {
-                        }
-                        if (!exit) {
-                            markExitAndNotify("PING write stalled (peer not reading)");
                         }
                         break;
                     }
@@ -491,7 +494,7 @@ public class Participant implements Runnable {
                     String[] partes_comando = mensaje_recibido.split("#");
                     if (null == partes_comando[0]) {
                         try {
-                            socket_reader_queue.put(mensaje_recibido);
+                            encolarLeido(mensaje_recibido);
                         } catch (Exception ex) {
                         }
                     } else {
@@ -514,7 +517,7 @@ public class Participant implements Runnable {
                                     }
                                 }
                                 try {
-                                    socket_reader_queue.put(mensaje_recibido);
+                                    encolarLeido(mensaje_recibido);
                                 } catch (Exception ex) {
                                 }
                                 break;
@@ -542,7 +545,7 @@ public class Participant implements Runnable {
                                 break;
                             default:
                                 try {
-                                    socket_reader_queue.put(mensaje_recibido);
+                                    encolarLeido(mensaje_recibido);
                                 } catch (Exception ex) {
                                 }
                                 break;
@@ -551,7 +554,7 @@ public class Participant implements Runnable {
                 } else {
                     try {
                         if (!socket_reader_queue.contains(POISON_PILL)) {
-                            socket_reader_queue.put(POISON_PILL);
+                            encolarLeido(POISON_PILL);
                         }
                     } catch (Exception ex) {
                     }
@@ -769,6 +772,34 @@ public class Participant implements Runnable {
 
     public String getNick() {
         return nick;
+    }
+
+    /**
+     * Encola lo leido del socket respetando el tope de la cola.
+     *
+     * <p>Un {@code put} a secas espera indefinidamente con la cola llena, y eso es
+     * justo lo que pasa cuando a un peer se le corta el consumidor por abuso: nadie
+     * vuelve a vaciarla, su lector se queda ahi para siempre y ni siquiera llega a
+     * entregar la senal de cierre. Se espera con tope y mirando si al peer ya se le ha
+     * dado por ido; si no cabe, se descarta ese mensaje y se sigue (el peer que llena
+     * una cola de diez mil o esta siendo expulsado o esta roto).
+     *
+     * @return false si no se pudo encolar
+     */
+    private boolean encolarLeido(String mensaje) {
+        try {
+            while (!exit) {
+                if (socket_reader_queue.offer(mensaje, 1, java.util.concurrent.TimeUnit.SECONDS)) {
+                    return true;
+                }
+                LOGGER.log(Level.WARNING,
+                        "Socket reader queue for {0} is full ({1}) — waiting for the consumer",
+                        new Object[]{nick, SOCKET_READER_QUEUE_CAPACITY});
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+        return false;
     }
 
     public boolean writeCommandFromServer(String command) {

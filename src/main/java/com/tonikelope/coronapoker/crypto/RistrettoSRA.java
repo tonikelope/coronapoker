@@ -58,8 +58,34 @@ public final class RistrettoSRA {
         }
     }
 
-    /** Multiplicative inverse mod L of a lock scalar — the matching unlock. */
+    /**
+     * Is this a usable SRA scalar? 32 bytes encoding a value in [1, L). Anything
+     * else has no inverse, so it can never be half of a lock/unlock pair.
+     *
+     * <p>Scalars that arrive from the wire (a leaving peer's testament, a revealed
+     * showdown key) MUST pass this before being stored: a length check alone lets
+     * through 32 zero bytes, and inverting that blows up in the dealer thread,
+     * which takes the whole process down with it.
+     */
+    public static boolean isValidScalar(byte[] scalar) {
+        if (scalar == null || scalar.length != POINT_BYTES) {
+            return false;
+        }
+        BigInteger s = bytesToScalar(scalar);
+        return s.signum() != 0 && s.compareTo(L) < 0;
+    }
+
+    /**
+     * Multiplicative inverse mod L of a lock scalar — the matching unlock.
+     *
+     * <p>The scalar must satisfy {@link #isValidScalar}; callers that take it from
+     * the wire validate on arrival. Anything else is a local bug, and it is
+     * reported as such instead of as a bare arithmetic failure.
+     */
     public static byte[] getUnlockScalar(byte[] lockScalar) {
+        if (!isValidScalar(lockScalar)) {
+            throw new IllegalArgumentException("SRA scalar is not invertible mod L (must be 32 bytes in [1, L))");
+        }
         BigInteger s = bytesToScalar(lockScalar);
         return scalarToBytes(s.modInverse(L));
     }

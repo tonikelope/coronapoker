@@ -491,15 +491,21 @@ public class Participant implements Runnable {
                     // thread muerto y lo relanza. Sin esto, en la ventana break->finally el
                     // chequeo veía alive=true y se saltaba la resurrección. El finally lo
                     // vuelve a poner false (idempotente).
+                    // OJO: este cierre NO se marca como propio, al contrario que el de la
+                    // escritura atascada de aqui arriba, y es a proposito aunque parezca una
+                    // inconsistencia. Marcarlo se probo y era peor: la ventana que abre iza
+                    // el timeout del jugador, y TODOS los plazos de progreso del crupier
+                    // (arranque de mano, accion, cascada, confirmaciones) se congelan con
+                    // eso y encima reinician su reloj entero en cada vuelta. Con la ventana
+                    // abierta cada cuarenta segundos y reconexiones que la renuevan, ninguno
+                    // llegaba a vencer nunca: un peer que retiene a la mesa se volvia
+                    // literalmente inexpulsable y el reparto se quedaba esperandolo para
+                    // siempre. Sin marcar, la escritura que despierta al cerrar sigue siendo
+                    // el unico cierre real de ese lazo.
+                    //
+                    // El arreglo bueno pasa por que esa congelacion pause el reloj en vez de
+                    // reiniciarlo, y sea por peer y no global. Sprint aparte.
                     ping_pong_thread_alive = false;
-                    // Este cierre tambien es NUESTRO, igual que el de la escritura atascada
-                    // de aqui arriba, y por el mismo motivo hay que marcarlo: al cerrar,
-                    // cualquier escritura que estuviera en curso a este peer despierta con
-                    // error, y su captura lo daria por ido antes de que al lector le diera
-                    // tiempo a abrirle la ventana. Se blindaron las tres puertas que miran
-                    // la marca y se dejo sin marcar este segundo autocierre, que es el que
-                    // mas se usa: basta una congelacion de cuarenta segundos del peer.
-                    stall_close_ns = System.nanoTime();
                     socketClose();
                     break;
                 }

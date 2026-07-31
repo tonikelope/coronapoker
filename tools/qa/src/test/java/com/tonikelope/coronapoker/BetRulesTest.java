@@ -102,4 +102,16 @@ public class BetRulesTest {
         assertTrue(BetRules.isFullRaise(150.00, 150.00));
         assertFalse(BetRules.isFullRaise(149.99, 150.00));
     }
+
+    @Test
+    void headsUpTheBigBlindOpensPostflop() {
+        // Rule 4.3: heads-up the button IS the small blind, so it opens preflop and acts
+        // LAST postflop. The big blind is therefore the one who opens flop, turn and river.
+        assertEquals("bb", BetRules.firstToActPostflop(true, "sb", "bb"));
+    }
+
+    @Test
+    void multiwayTheSmallBlindOpensPostflop() {
+        assertEquals("sb", BetRules.firstToActPostflop(false, "sb", "bb"));
+    }
 }

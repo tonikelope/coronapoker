@@ -25,9 +25,8 @@ un reparto la mesa se queda esperándole indefinidamente.
 
 **Por dónde ir**: que la congelación **pause** el reloj (guardar lo consumido y reanudar) en
 vez de reiniciarlo, y que sea **por jugador** en vez de global. Hace falta también algún tope
-de reconexiones: hay un comentario que afirma que existe un control de "tormenta de
-reconexiones" y **no está implementado** (el contador que se lleva por peer es sólo
-telemetría).
+de reconexiones: **no existe ninguno**. El contador que se lleva por peer es sólo
+telemetría (alimenta el indicador de enlace) y no echa a nadie.
 
 ---
 
@@ -75,7 +74,7 @@ que construirla. Y el candado hay que soltarlo antes de escribir.
 **Qué pasa**: el anfitrión limita a diez mil mensajes por peer; el cliente no tiene límite. Un
 anfitrión hostil puede tumbar a sus clientes por memoria.
 
-**Cuidado al hacerlo**: los cuatro sitios que encolan usan una operación que **bloquea** si la
+**Cuidado al hacerlo**: los cinco sitios que encolan usan una operación que **bloquea** si la
 cola está llena, y dos de ellos encolan la **señal de cierre**. Poner el tope sin más
 reproduce el fallo que costó tres rondas arreglar en el anfitrión: la señal no entra, el
 consumidor se queda dormido y la mesa espera a alguien que ya se fue. Hay que replicar el

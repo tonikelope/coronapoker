@@ -148,6 +148,11 @@ public class Participant implements Runnable {
     // mas de una por lo mismo que con los PONGs: una sola puede ser un envio binario
     // largo en curso, que retiene el turno de salida del socket con todo el mundo sano.
     private volatile int ping_write_stall_counter = 0;
+
+    // Lo que se espera antes de reintentar un comando de pre-partida cuya escritura ha
+    // fallado. Ver el bucle de runPreGameSocketWriterQueueThread.
+    private static final int PRE_GAME_WRITE_RETRY_MS = 1000;
+
     // Instante en que cerramos NOSOTROS el socket por escritura atascada. Ese cierre no es
     // motivo para echar a nadie: un peer que no lee no estorba a los demas, y al que si
     // estorba ya lo echan los plazos de progreso (arranque de mano y reparto), que expulsan
@@ -161,9 +166,6 @@ public class Participant implements Runnable {
     // para siempre y entonces NADIE podria dar por ido a este peer nunca, ni por escritura
     // fallida ni por nada: quedaria de zombi el resto de la partida. Caducando, lo peor que
     // pasa es que se vuelva al comportamiento de siempre unos segundos despues.
-    // Lo que se espera antes de reintentar un comando de pre-partida cuya escritura ha
-    // fallado. Ver el bucle de runPreGameSocketWriterQueueThread.
-    private static final int PRE_GAME_WRITE_RETRY_MS = 1000;
     private static final long NO_STALL_CLOSE = Long.MIN_VALUE;
     private volatile long stall_close_ns = NO_STALL_CLOSE;
     // Lo que se le concede al lector para tomar el relevo tras ese cierre. De sobra: solo

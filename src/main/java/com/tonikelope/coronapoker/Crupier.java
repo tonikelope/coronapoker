@@ -2764,8 +2764,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // cliente seguia a repartir sin megapaquete y sin identificador de mano, o
                 // sea, jugando la mano con cartas que no son las suyas y con la cadena de
                 // firmas apagada, sin verificar ni una accion en toda la mano. Y ademas
-                // cualquier plazo razonable se queda corto: el anfitrion se concede sesenta
-                // segundos POR PEER Y POR PASO del barajado, y reinicia la cascada entera si
+                // cualquier plazo razonable se queda corto: el anfitrion se concede dos
+                // minutos POR PEER para su paso del barajado, y reinicia la cascada entera si
                 // alguien se cae por el camino. Quedarse esperando es ruidoso, pero no
                 // corrompe la mano. Ponerle plazo exige antes que el llamador sepa que
                 // hacer cuando no hay cartas.

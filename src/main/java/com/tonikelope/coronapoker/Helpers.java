@@ -2313,7 +2313,7 @@ public class Helpers {
      * Verbos que el keepalive escribe SIN cifrar, por diseño: los escritores de transporte
      * vuelcan la cadena cruda y el cifrado lo pone cada llamador, cosa que los emisores de
      * PING/PONG no hacen, a diferencia de los de juego, que sí pasan por encryptCommand.
-     * Son cinco: en el anfitrión los tres de {@code Participant} (el PING del latido, y el
+     * Son seis: en el anfitrión los tres de {@code Participant} (el PING del latido, y el
      * PONG y el PONG2 con que responde al del cliente), y en el cliente los de
      * {@code WaitingRoomFrame} (su propio PING y las respuestas al del anfitrión), que
      * salen por {@code writeCommandToServer}. WireFrame lo documenta en su cabecera.

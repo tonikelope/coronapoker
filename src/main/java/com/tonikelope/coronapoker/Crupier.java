@@ -11533,12 +11533,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (result != null) {
                     return result;
                 }
-                // El plazo se congela con la timba en PAUSA o con algun peer reconectando,
-                // el mismo criterio que el resto de esperas del fichero. Asumir NO al vencer
-                // solo converge si el anfitrion tambien lo asumio; si lo que pasa es que su
-                // aviso viene de camino (o esta esperando a que vuelva alguien), asumirlo
-                // aqui deja a este cliente jugando una mano distinta a la de la mesa.
-                if (GameFrame.getInstance().checkPause() || isSomePlayerTimeout()) {
+                // El plazo se congela con la timba en PAUSA, que es simetrico entre todos y
+                // se levanta solo. Asumir NO al vencer solo converge si el anfitrion tambien
+                // lo asumio; si su aviso viene de camino, asumirlo aqui deja a este cliente
+                // jugando una mano distinta a la de la mesa.
+                //
+                // Lo que NO se mira aqui es si hay algun peer reconectando: en un cliente esa
+                // marca la enciende un aviso del anfitrion y NO la apaga nadie hasta que
+                // arranca la ronda de apuestas, o sea, despues de esta espera. Mirarla
+                // convertia el plazo en eterno y dejaba al cliente colgado antes del preflop
+                // con la mesa entera esperandole. Es la misma trampa que ya advierte por
+                // escrito el reparto de comandos con confirmacion.
+                if (GameFrame.getInstance().checkPause()) {
                     deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
                 }
                 try {

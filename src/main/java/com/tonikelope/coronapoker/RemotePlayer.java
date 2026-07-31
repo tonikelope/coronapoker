@@ -1367,9 +1367,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/fold" + String.valueOf(r) + ".gif"));
 
-            if (getChat_notify_label().getGif_barrier() != null) {
+            // Barrera capturada en una local, igual que en check(). Leer el campo dos veces
+            // (una para el null-check y otra para el await) permitia que un notify de chat
+            // colado entre ambas lecturas reemplazara la barrera, y este hilo entraba como
+            // parte EXTRA en la nueva, que para una imagen de chat es de solo dos partes:
+            // la hacia saltar antes de tiempo y cortaba esa animacion en seco. fold() se
+            // dispara con tres GIFs distintos y mucho mas a menudo que el check puro.
+            java.util.concurrent.CyclicBarrier fold_barrier = getChat_notify_label().getGif_barrier();
+
+            if (fold_barrier != null) {
                 try {
-                    getChat_notify_label().getGif_barrier().await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+                    fold_barrier.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
                 } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
                     Thread.currentThread().interrupt();
                     // Expected during pool shutdown — fold animation barrier

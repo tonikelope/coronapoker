@@ -7790,13 +7790,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 coste_rabbit = ciega_pequeña;
                                 if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
                                     bote_sobrante += coste_rabbit;
-                                    // Y al bote en curso. Esto se cobra en un hilo aparte y puede
-                                    // aterrizar cuando la mano siguiente ya arranco: el bote se
-                                    // siembra copiando el sobrante, asi que sumar solo alli dejaba
-                                    // la tarifa fuera de esta mano y el cierre la pisaba al volver
-                                    // a copiar. Si la mano aun no ha arrancado, la siembra pisa
-                                    // esto con el sobrante ya actualizado y no molesta.
-                                    bote_total += coste_rabbit;
                                     jugador.setStack(stack - coste_rabbit);
                                 } else {
                                     coste_rabbit = 0f;
@@ -7806,13 +7799,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     coste_rabbit = ciega_pequeña;
                                     if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
                                         bote_sobrante += coste_rabbit;
-                                    // Y al bote en curso. Esto se cobra en un hilo aparte y puede
-                                    // aterrizar cuando la mano siguiente ya arranco: el bote se
-                                    // siembra copiando el sobrante, asi que sumar solo alli dejaba
-                                    // la tarifa fuera de esta mano y el cierre la pisaba al volver
-                                    // a copiar. Si la mano aun no ha arrancado, la siembra pisa
-                                    // esto con el sobrante ya actualizado y no molesta.
-                                    bote_total += coste_rabbit;
                                         jugador.setStack(stack - coste_rabbit);
                                     } else {
                                         coste_rabbit = 0f;
@@ -7821,13 +7807,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     coste_rabbit = ciega_grande;
                                     if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {
                                         bote_sobrante += coste_rabbit;
-                                    // Y al bote en curso. Esto se cobra en un hilo aparte y puede
-                                    // aterrizar cuando la mano siguiente ya arranco: el bote se
-                                    // siembra copiando el sobrante, asi que sumar solo alli dejaba
-                                    // la tarifa fuera de esta mano y el cierre la pisaba al volver
-                                    // a copiar. Si la mano aun no ha arrancado, la siembra pisa
-                                    // esto con el sobrante ya actualizado y no molesta.
-                                    bote_total += coste_rabbit;
                                         jugador.setStack(stack - coste_rabbit);
                                     } else {
                                         coste_rabbit = 0f;
@@ -12905,10 +12884,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // como bote_sobrante a la mano siguiente (conservación exacta del dinero).
         if (dealt) {
             this.bote_sobrante = Math.max(0, Helpers.doubleClean(ritPotTotal - paidA - paidB));
-        } else if (!this.mano_anulada) {
-            // La segunda cara no se repartio y la mano NO se anulo: pasa cuando el aborto
-            // viene por otro lado, tipicamente porque el jugador local se va. Aqui el
-            // sobrante hay que ponerlo igual, descontando solo lo que pago la primera cara.
+        } else if (!this.apuestas_devueltas) {
+            // La segunda cara no se repartio y las apuestas NO se han devuelto: pasa cuando
+            // el aborto viene por otro lado, tipicamente porque el jugador local se va. Aqui
+            // el sobrante hay que ponerlo igual, descontando solo lo que pago la primera
+            // cara.
+            //
+            // Se pregunta si el dinero ya volvio a los stacks, NO si la mano esta anulada,
+            // por el mismo motivo que su gemelo de la liquidacion normal: la marca de
+            // anulada se iza FUERA del cerrojo de contabilidad y la devolucion va dentro,
+            // asi que entre una y otra cabe pasar por aqui. Mirando la marca, en esa ventana
+            // se salta la asignacion esperando que la devolucion se ocupe, y cuando esta por
+            // fin entra ya no encuentra nada que devolver: faltan las fichas que pago la
+            // primera cara.
             //
             // Sin esto se quedaba con el valor de la mano ANTERIOR, y lo pagado en la
             // primera cara desaparecia de las cuentas: con un bote de 30, un pico heredado

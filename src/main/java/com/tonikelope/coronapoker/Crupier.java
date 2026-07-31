@@ -10959,6 +10959,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                             } catch (Exception ex) {
                                 LOGGER.log(Level.SEVERE, "Error parsing remote action", ex);
+                                if (ok) {
+                                    // El comando ya se dio por consumido (el nick coincidia) y
+                                    // action[] puede haber quedado A MEDIAS: basta con que el
+                                    // campo de la decision no sea un numero para que se quede
+                                    // sin decision, y aguas abajo eso ya no es un frame que se
+                                    // ignora, es un NPE que se lleva por delante el proceso
+                                    // ENTERO. Un ACTION que no se puede ni leer se trata como
+                                    // cualquier otro que no se puede verificar: fold sintetico
+                                    // que sale al wire para que la mesa converja.
+                                    printInvalidActionSigToRegistro(jugador.getNickname());
+                                    this.saw_invalid_action_sig = true;
+                                    synthesizeUnverifiedFoldAction(action);
+                                }
                             }
                         }
                         if (!ok) {
@@ -13658,7 +13671,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                if (action == null || action.length < 2) {
+                // Red de seguridad de la rueda de apuestas: sin una decision utilizable, el
+                // desempaquetado de aqui abajo revienta y el fallo NO queda contenido (acaba
+                // cerrando el proceso). La guarda de longitud no bastaba: un array del ancho
+                // correcto pero con la decision sin rellenar la pasaba de largo.
+                if (action == null || action.length < 2 || !(action[0] instanceof Integer)) {
                     action = new Object[]{Player.FOLD, 0d, null};
                 } else if (action.length < 3) {
                     action = new Object[]{action[0], action[1], null};

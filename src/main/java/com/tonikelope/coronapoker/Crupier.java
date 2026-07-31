@@ -14334,6 +14334,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             HashMap<Player, Integer[]> multiverse = monteCarlo(resisten, MONTECARLO_ITERATIONS);
 
+            // Board para la columna de fuerza, armado con las comunitarias que estan a la
+            // vista. El de los bots NO vale: solo se rellena en el anfitrion (los bots son
+            // suyos), asi que en los clientes esta VACIO y esa columna salia calculada como
+            // si no hubiera flop. En el anfitrion sale exactamente lo mismo que antes.
+            org.alberta.poker.Hand board_loki = new org.alberta.poker.Hand();
+
+            for (Card comun : GameFrame.getInstance().getCartas_comunes()) {
+                if (comun != null && !comun.isTapada() && comun.getValor() != null && !comun.getValor().isEmpty()) {
+                    org.alberta.poker.Card loki_card = Bot.coronaIntegerCard2LokiCard(comun.getCartaComoEntero());
+                    if (loki_card != null) {
+                        board_loki.addCard(loki_card);
+                    }
+                }
+            }
+
             for (Player p : resisten) {
                 // Solo simulamos los que confesaron sus cartas
                 if (!jugadas.containsKey(p)) {
@@ -14347,9 +14362,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     continue;
                 }
 
-                double strength = Bot.HANDEVALUATOR.handRank(card1, card2, Bot.BOT_COMMUNITY_CARDS,
+                double strength = Bot.HANDEVALUATOR.handRank(card1, card2, board_loki,
                         resisten.size() - 1);
-                double ppot = Bot.HANDPOTENTIAL.ppot_raw(card1, card2, Bot.BOT_COMMUNITY_CARDS, false);
+                double ppot = Bot.HANDPOTENTIAL.ppot_raw(card1, card2, board_loki, false);
                 double npot = Bot.HANDPOTENTIAL.getLastNPot();
                 double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
 

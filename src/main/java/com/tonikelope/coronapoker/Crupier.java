@@ -15639,12 +15639,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-            // Nunca se devuelve nada: los cuatro sitios que consultan los asientos parten
-            // el resultado por el separador sin comprobarlo, asi que un fallo de la base
-            // de datos (o una fila sin asientos) reventaba justo al recolocar las
-            // posiciones de la mesa. Con la cadena vacia, el bucle que los recorre
-            // simplemente no encuentra a nadie, que es lo que ya pasaba si venia vacia.
-            return ret != null ? ret : "";
+            // OJO: devolver la cadena VACIA en vez de nada NO vale, y por poco se cuela.
+            // Partirla por el separador no da una lista vacia, da una lista con UN
+            // elemento vacio, y los bucles que recorren los asientos avanzan con el resto
+            // de la division entre su tamano: con un solo elemento, el indice se queda
+            // clavado en cero y el bucle no termina JAMAS, quemando un nucleo con la mesa
+            // parada y sin una linea en el registro. Se devuelve nada, como siempre, que
+            // al menos falla de forma ruidosa; protegerlo de verdad es reestructurar los
+            // cuatro bloques que recolocan las posiciones, y eso no toca aqui.
+            return ret;
 
         }
     }
@@ -17351,12 +17354,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.setTiempo_pausa(tiempo);
 
-        // Vueltas seguidas en las que la cuenta atras no ha bajado por estar alguien
-        // mirando una mano (isIwtsthing). Esa mirada tiene su propio tope, asi que
-        // aguantar bastante mas que ese tope solo puede significar que se ha quedado
-        // encendida: sin esta cuenta, la barra no bajaba nunca y la mano no seguia.
+        // Vueltas seguidas (de un segundo) en las que la cuenta atras no ha bajado por
+        // estar alguien mirando una mano (isIwtsthing).
+        //
+        // El tope es DELIBERADAMENTE enorme porque quien levanta esa marca en los
+        // clientes no es un reloj: es el anfitrion contestando un si/no en un dialogo,
+        // o sea una persona, que puede tardar lo que le de la gana. Un tope corto
+        // rompia la pausa mientras el anfitrion se lo pensaba y dejaba escrita en el
+        // registro la mano del perdedor como oculta, sin volver a corregirla nunca.
+        // Esto es solo la red para que la mano no se quede parada de por vida.
         int vueltas_sin_bajar = 0;
-        final int MAX_VUELTAS_SIN_BAJAR = (IWTSTH_TIMEOUT / 1000) + 15;
+        final int MAX_VUELTAS_SIN_BAJAR = 600;
 
         while (getTiempoPausa() > 0) {
 

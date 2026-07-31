@@ -302,7 +302,10 @@ public class HandGeneratorDialog extends JDialog {
         do {
             escalera = new ArrayList<>();
 
-            int valor = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - Crupier.CARTAS_ESCALERA - 1) + 1;
+            // Arranque de la escalera: TODOS los posibles, del as bajo (A-2-3-4-5) al as
+            // alto (10-J-Q-K-A). El rango de antes se dejaba fuera los dos extremos, asi
+            // que la rueda no salia nunca por mucho que se pulsara el boton.
+            int valor = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - Crupier.CARTAS_ESCALERA + 1);
 
             for (int i = 0; i < Crupier.CARTAS_ESCALERA; i++) {
 
@@ -460,7 +463,10 @@ public class HandGeneratorDialog extends JDialog {
 
         int palo = Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length);
 
-        int valor = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - Crupier.CARTAS_ESCALERA - 1) + 1;
+        // Arranque de la escalera de color: desde el as bajo (la rueda de color, que antes
+        // no salia nunca) hasta la que empieza en 9. La que arranca en 10 queda fuera a
+        // proposito, que esa ya es la escalera real y tiene su propio boton.
+        int valor = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - Crupier.CARTAS_ESCALERA);
 
         for (int i = 0; i < Crupier.CARTAS_ESCALERA; i++, valor++) {
 

@@ -15624,7 +15624,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-            return ret;
+            // Nunca se devuelve nada: los cuatro sitios que consultan los asientos parten
+            // el resultado por el separador sin comprobarlo, asi que un fallo de la base
+            // de datos (o una fila sin asientos) reventaba justo al recolocar las
+            // posiciones de la mesa. Con la cadena vacia, el bucle que los recorre
+            // simplemente no encuentra a nadie, que es lo que ya pasaba si venia vacia.
+            return ret != null ? ret : "";
 
         }
     }
@@ -17331,6 +17336,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.setTiempo_pausa(tiempo);
 
+        // Vueltas seguidas en las que la cuenta atras no ha bajado por estar alguien
+        // mirando una mano (isIwtsthing). Esa mirada tiene su propio tope, asi que
+        // aguantar bastante mas que ese tope solo puede significar que se ha quedado
+        // encendida: sin esta cuenta, la barra no bajaba nunca y la mano no seguia.
+        int vueltas_sin_bajar = 0;
+        final int MAX_VUELTAS_SIN_BAJAR = (IWTSTH_TIMEOUT / 1000) + 15;
+
         while (getTiempoPausa() > 0) {
 
             // El jugador local ha salido de la timba: la pausa es puro tiempo
@@ -17348,8 +17360,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     lock_pausa_barra.wait(1000);
 
+                    if (isIwtsthing() && !GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()
+                            && ++vueltas_sin_bajar > MAX_VUELTAS_SIN_BAJAR) {
+                        LOGGER.log(Level.SEVERE,
+                                "Pause bar stuck: someone has been reviewing a hand for {0}s — resuming so the table can move on",
+                                vueltas_sin_bajar);
+                        break;
+                    }
+
                     if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision() && !isIwtsthing()) {
 
+                        vueltas_sin_bajar = 0;
                         tiempo_pausa--;
 
                         // setValue(tiempo_pausa) redundante: el Timer interno de
@@ -18031,7 +18052,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
                                             Player perdedor = entry.getKey();
-                                            badbeat = badbeat(perdedor, unganador);
+                                            badbeat |= badbeat(perdedor, unganador);
                                             perdedores.put(perdedor, entry.getValue());
                                             GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
                                         }
@@ -18094,7 +18115,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
                                             Player perdedor = entry.getKey();
-                                            badbeat = badbeat(perdedor, unganador);
+                                            badbeat |= badbeat(perdedor, unganador);
                                             perdedores.put(perdedor, entry.getValue());
                                             GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
                                         }

@@ -7489,10 +7489,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     }
 
-                    double stack = jugador.getStack();
                     double coste_rabbit = 0;
 
                     synchronized (getLock_contabilidad()) {
+                        // El stack se lee DENTRO del lock, como el gemelo del misdeal: leerlo
+                        // fuera y escribirlo dentro abre una ventana en la que el showdown
+                        // paga las ganancias y esta resta las PISA con el valor viejo, que se
+                        // lleva por delante el bote que el jugador acaba de cobrar.
+                        double stack = jugador.getStack();
+
                         if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit > 1) {
                             coste_rabbit = ciega_pequeña;
                             if (Helpers.doubleSecureCompare(stack, coste_rabbit) >= 0) {

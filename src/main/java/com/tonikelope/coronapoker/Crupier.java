@@ -2422,7 +2422,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private ArrayList<String> recibirMisCartas() {
-        long start_time = System.currentTimeMillis();
         boolean ok = false;
         String[] cartas = new String[2];
 
@@ -2580,9 +2579,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // alguien se cae por el camino. Quedarse esperando es ruidoso, pero no
                 // corrompe la mano. Ponerle plazo exige antes que el llamador sepa que
                 // hacer cuando no hay cartas.
-                if (GameFrame.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else {
+                GameFrame.getInstance().checkPause();
+                {
                     // Patrón estándar del Crupier (15+ receive* loops lo usan):
                     // espera sobre received_commands para que un notifyAll de
                     // los productores (Participant reader, WaitingRoomFrame.cliente)
@@ -9480,7 +9478,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private boolean waitForHandverifyTrigger() {
         boolean trigger_seen = false;
-        long start_time = System.currentTimeMillis();
 
         do {
             synchronized (this.getReceived_commands()) {
@@ -9509,22 +9506,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!trigger_seen) {
-                // Deadline PAUSE-AWARE que el javadoc de aquí arriba ya prometía ("or the
-                // per-call deadline elapsed and we give up") y que no existía: start_time se
-                // declaraba y no lo leía nadie. Sin él, un anfitrión que no mande nunca el
-                // disparo deja al cliente esperando para siempre en el cierre de la mano.
-                if (GameFrame.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    LOGGER.log(Level.SEVERE,
-                            "waitForHandverifyTrigger timeout — the host never sent the trigger. Giving up the wait.");
-                    break;
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
+                // AQUI NO HAY PLAZO, y es a proposito. Se probo a ponerle uno y era mucho
+                // peor: esta barrera es, como dice el javadoc de arriba, el UNICO punto
+                // donde una mano anulada tardia se corta limpiamente ANTES DE QUE SE MUEVA
+                // UNA FICHA. Al vencer se devolvia "el disparo llego" (nadie mira el
+                // retorno) y el cliente liquidaba la mano por su cuenta, saltandose esa
+                // ventana. Y cualquier plazo razonable se queda corto: el anfitrion puede
+                // estar esperando la confirmacion de un peer lento hasta tres minutos,
+                // segun sus propias constantes. Quedarse esperando es ruidoso, pero no
+                // liquida nada a destiempo.
+                GameFrame.getInstance().checkPause();
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.received_commands.wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
                     }
                 }
             }

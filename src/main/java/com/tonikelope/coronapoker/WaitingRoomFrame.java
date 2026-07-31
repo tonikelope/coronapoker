@@ -2814,7 +2814,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                             return;
                                                                         }
                                                                         if (commRange != null) {
-                                                                            int reqLast = it.offsetBase + it.chains.size() - 1;
+                                                                            // long por el mismo motivo que el bucle de abajo: offsetBase
+                                                                    // viene del wire y en int la suma se desborda a negativo,
+                                                                    // con lo que este guard de ventana daria por bueno un
+                                                                    // offset enorme. UnlockChainWire ya lo acota al parsear;
+                                                                    // esta era la ultima aritmetica del handler que seguia
+                                                                    // dependiendo de aquello.
+                                                                    long reqLast = (long) it.offsetBase + it.chains.size() - 1;
                                                                             if (it.chains.isEmpty() || it.offsetBase < commRange[0] || reqLast >= commRange[0] + commRange[1]) {
                                                                                 LOGGER.log(Level.SEVERE,
                                                                                         "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset {0}(+{1}) outside phase {2} community slots [{3},{4}) — host reading the future board, refusing",
@@ -2825,8 +2831,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                         }
                                                                         java.util.List<String> outChains = new java.util.ArrayList<>();
                                                                         for (int j = 0; j < it.chains.size(); j++) {
-                                                                            int pointIdx = it.offsetBase + j;
-                                                                            if (pointIdx < 0 || (pointIdx + 1) * 32 > megapacket.length) {
+                                                                            // Aritmetica en long a proposito: offsetBase viene del wire y
+                                                                            // pointIdx * 32 en int se desborda con 2^27 puntos (= 2^32
+                                                                            // bytes), cayendo de nuevo dentro del rango valido y burlando
+                                                                            // a la vez este guard y las igualdades de slot de mas abajo.
+                                                                            // UnlockChainWire ya acota offsetBase al parsear; esto lo cierra
+                                                                            // tambien aqui, sin depender de aquello.
+                                                                            long pointIdx = (long) it.offsetBase + j;
+                                                                            if (pointIdx < 0 || (pointIdx + 1) * 32L > megapacket.length) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset out of range — refusing");
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                                 return;
@@ -2858,7 +2870,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                                 return;
                                                                             }
-                                                                            byte[] point = java.util.Arrays.copyOfRange(megapacket, pointIdx * 32, (pointIdx + 1) * 32);
+                                                                            byte[] point = java.util.Arrays.copyOfRange(megapacket, (int) (pointIdx * 32L), (int) ((pointIdx + 1) * 32L));
                                                                             DealChain.Extended ext = DealChain.extend(point, it.chains.get(j), commitments, local_nick, myLock);
                                                                             if (ext == null) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN chain not anchored/invalid (offset {0}) — extraction or tampering, refusing", pointIdx);

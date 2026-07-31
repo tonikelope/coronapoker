@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class PocketSelfStripAttackTest {
@@ -100,5 +101,40 @@ public class PocketSelfStripAttackTest {
         int honestOffset = 0; // host's pocket (slot 0), points 0/1
         boolean guardOnHonest = (honestOffset == mySlot * 2 || honestOffset == mySlot * 2 + 1);
         assertFalse(guardOnHonest, "guard must allow stripping points outside my own pocket");
+    }
+
+    /**
+     * Same attack, smuggled past the guard through INT OVERFLOW instead of a direct hit.
+     *
+     * The handler derives the byte offset as pointIdx * 32, in int arithmetic. Since
+     * 2^27 points are exactly 2^32 bytes, offsetBase = mySlot*2 + 2^27 wraps around to
+     * the very same byte as mySlot*2, while the guard's equality checks
+     * (pointIdx == mySlot*2) no longer recognise it — and the range check overflows too,
+     * so it does not fire either. The wire layer must reject the offset outright, before
+     * the handler gets a chance to compute anything with it.
+     */
+    @Test
+    public void pocketSelfStripViaIntOverflowOffset_isRejectedByTheWire() {
+        int mySlot = 1;
+        int honestOffset = mySlot * 2;                  // the one the guard does catch
+        int overflowOffset = honestOffset + (1 << 27);  // 2^27 points = 2^32 bytes
+
+        // It addresses the very same point: the byte offset is identical after wraparound.
+        assertEquals(honestOffset * 32, overflowOffset * 32,
+                "the overflowed offset must land on the same megapacket point");
+
+        // ...yet the slot-identity guard, written as int equalities, does not see it.
+        boolean guardWouldRefuse = (overflowOffset == mySlot * 2 || overflowOffset == mySlot * 2 + 1);
+        assertFalse(guardWouldRefuse,
+                "equality guard cannot catch the overflowed offset — the wire must cut it first");
+
+        // The defence: the parser refuses the whole REQ, so the handler never sees it.
+        List<UnlockChainWire.ReqItem> honest = UnlockChainWire.parseReq(
+                UnlockChainWire.serializeReq(List.of(new UnlockChainWire.ReqItem(0, honestOffset, List.of("")))));
+        assertNotNull(honest, "a legitimate offset must still parse");
+
+        List<UnlockChainWire.ReqItem> attack = UnlockChainWire.parseReq(
+                UnlockChainWire.serializeReq(List.of(new UnlockChainWire.ReqItem(0, overflowOffset, List.of("")))));
+        assertNull(attack, "an out-of-range offset must reject the whole REQ");
     }
 }

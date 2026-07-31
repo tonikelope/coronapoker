@@ -476,10 +476,21 @@ public final class StatsSync {
     // Import helpers
     // =========================================================================
 
+    // Cotas de cordura al importar lo que manda otro peer, en la linea de las que ya
+    // tiene el manifiesto (MAX_MANIFEST_UGIS): estos dos bucles leen "hay otra mas"
+    // hasta que el flujo diga que no, asi que uno preparado para decir siempre que si
+    // hace crecer las listas hasta tumbar el proceso por memoria. Una timba real no se
+    // acerca ni de lejos a estos numeros.
+    private static final int MAX_HANDS_PER_GAME = 200_000;
+    private static final int MAX_ROWS_PER_LIST = 100_000;
+
     private static GameData readGame(DataInputStream in) throws IOException {
         GameData g = new GameData();
         g.game = readRow(in, GAME);
         while (in.readBoolean()) {
+            if (g.hands.size() >= MAX_HANDS_PER_GAME) {
+                throw new IOException("hand count out of bounds: more than " + MAX_HANDS_PER_GAME);
+            }
             HandData h = new HandData();
             h.hand = readRow(in, HAND);
             h.actions = readRowList(in, ACTION);
@@ -494,6 +505,9 @@ public final class StatsSync {
     private static List<Object[]> readRowList(DataInputStream in, Cols cols) throws IOException {
         List<Object[]> rows = new ArrayList<>();
         while (in.readBoolean()) {
+            if (rows.size() >= MAX_ROWS_PER_LIST) {
+                throw new IOException("row count out of bounds: more than " + MAX_ROWS_PER_LIST);
+            }
             rows.add(readRow(in, cols));
         }
         return rows;

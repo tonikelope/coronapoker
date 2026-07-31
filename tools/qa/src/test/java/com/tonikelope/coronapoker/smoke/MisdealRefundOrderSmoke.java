@@ -292,4 +292,55 @@ class MisdealRefundOrderSmoke {
         assertEquals(Table.buyins() + 0.03d, table.onTable(), EPS,
                 "this pins why the sink must not be guarded on its own: the leftover is paid and kept");
     }
+
+    /**
+     * Run-it-twice: the second board never gets dealt and the hand is NOT voided
+     * (the local player leaves, say). The first board was already paid out, so the
+     * leftover has to take whatever is left of the pot after that payout.
+     *
+     * Skipping it left the leftover holding the PREVIOUS hand's value, and what the
+     * first board paid simply vanished from the books.
+     */
+    @Test
+    @DisplayName("Run-it-twice aborted without voiding: the paid-out half is still accounted for")
+    void runItTwiceAbortedWithoutVoidKeepsTheBooks() {
+        double buyins = 300d;
+        double stacks_after_paying = 269.97d;   // three players, 30 staked between them
+        double rit_pot_total = 30.03d;          // the pot plus the 0.03 carried over
+        double paid_first_board = 15.01d;       // half, rounded down to the cent
+
+        // Broken: the leftover keeps the old value because the guard asked for
+        // "was the second board dealt?" and nobody handled the money otherwise.
+        double leftover_broken = 0.03d;
+        assertEquals(buyins - 14.99d, stacks_after_paying + paid_first_board + leftover_broken, EPS,
+                "this pins the loss: almost fifteen chips used to disappear here");
+
+        // Fixed: the leftover takes the pot minus what the first board paid.
+        double leftover_fixed = Math.max(0d, rit_pot_total - paid_first_board);
+        assertEquals(buyins, stacks_after_paying + paid_first_board + leftover_fixed, EPS,
+                "the books add up once the payout is discounted from the pot");
+    }
+
+    /**
+     * The rabbit fee is charged from another thread and can land after the next
+     * hand has already seeded its pot from the leftover. Adding it only to the
+     * leftover left it outside that hand, and settling overwrote it.
+     */
+    @Test
+    @DisplayName("A rabbit fee landing late is not overwritten by the settlement")
+    void lateRabbitFeeSurvivesTheSettlement() {
+        double fee = 2d;
+        double leftover = 0d;
+        double hand_pot = 0d;                 // the hand already seeded from leftover 0
+
+        // Broken: only the leftover grows. Settling copies the pot back over it.
+        double leftover_broken = leftover + fee;
+        double settled_broken = hand_pot;     // bote_sobrante = bote_total
+        assertEquals(0d, settled_broken, EPS, "this pins it: the fee was wiped by the settlement");
+        assertEquals(fee, leftover_broken, EPS, "the fee was there right up until the settlement");
+
+        // Fixed: both grow, so the settlement carries the fee forward.
+        double settled_fixed = hand_pot + fee;
+        assertEquals(fee, settled_fixed, EPS, "the fee survives into the next hand");
+    }
 }

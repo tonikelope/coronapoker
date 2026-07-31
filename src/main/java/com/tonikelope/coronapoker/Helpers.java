@@ -3927,18 +3927,49 @@ public class Helpers {
             }
         }
 
+        Properties prop = new Properties();
+
         try (FileInputStream input = new FileInputStream(PROPERTIES_FILE)) {
 
-            Properties prop = new Properties();
-
-            if (input != null) {
-                prop.load(input);
-            }
+            prop.load(input);
 
             return prop;
 
-        } catch (IOException ex) {
-            return null;
+        } catch (Exception ex) {
+            // Se recoge CUALQUIER fallo, no solo el de lectura: un escape unicode roto en
+            // el fichero lanza IllegalArgumentException, que no es de lectura y se
+            // escapaba. Y esto corre en un inicializador estatico, asi que lo que se
+            // escapa de aqui no es un aviso, es un arranque que no llega a producirse.
+            // Devolver nada tampoco valia: nadie comprueba que las preferencias existan,
+            // asi que el primer acceso reventaba igual.
+            //
+            // ANTES DE SEGUIR se guarda una copia del fichero ilegible. Sin ella, arrancar
+            // con lo que se haya podido leer condena el resto: el primer guardado (basta
+            // con cerrar la ventana de inicio, que persiste el volumen) reescribe el
+            // fichero ENTERO y se lleva por delante lo que no se pudo leer, incluidas las
+            // estructuras de ciegas del usuario, sin vuelta atras. Con la copia, siempre
+            // se pueden recuperar a mano.
+            //
+            // Se devuelve lo que SI se haya parseado (Properties.load va poblando hasta
+            // que falla), no un objeto vacio: de una linea rota al final se salva todo lo
+            // anterior.
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE,
+                    "Could not read the preferences file — keeping a copy and starting with what could be read", ex);
+
+            try {
+                java.nio.file.Path origen = Paths.get(PROPERTIES_FILE);
+                if (Files.exists(origen)) {
+                    java.nio.file.Path copia = Paths.get(PROPERTIES_FILE + ".corrupto");
+                    Files.copy(origen, copia, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE,
+                            "A copy of the unreadable preferences file was kept at {0}", copia);
+                }
+            } catch (Exception copyEx) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE,
+                        "Could not keep a copy of the unreadable preferences file", copyEx);
+            }
+
+            return prop;
         }
     }
 
@@ -4093,12 +4124,23 @@ public class Helpers {
             // el fichero, incluido lo que dejó el control continuo.
             PROPERTIES_FLUSH_TIMER.stop();
 
-            try (FileOutputStream fos = new FileOutputStream(PROPERTIES_FILE)) {
+            // Escritura ATOMICA: se vuelca a un temporal y se mueve encima. Escribir en
+            // sitio TRUNCA primero, asi que un corte a mitad (y esto corre tambien desde
+            // el cierre del proceso) dejaba el fichero a medias o vacio. Dentro van las
+            // estructuras de ciegas y los ajustes guardados, o sea, el trabajo del autor
+            // de la timba. El helper atomico ya existia en este mismo fichero.
+            try (java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream()) {
                 // Properties.store NO cierra el OutputStream que recibe (contrato JDK).
                 // Sin try-with-resources, cada cambio de preferencia (volumen, zoom,
                 // sonidos, etc.) filtraba un FD. En partidas largas con muchos cambios
                 // acumulativos llegaba a ser visible en lsof.
-                PROPERTIES.store(fos, null);
+                PROPERTIES.store(buffer, null);
+
+                // store() escribe en ISO-8859-1 y escapa todo lo que no sea ASCII (contrato
+                // JDK), asi que el texto que se vuelca es exactamente el mismo que
+                // escribiria el store directo al fichero.
+                writeStringAtomic(java.nio.file.Paths.get(PROPERTIES_FILE),
+                        buffer.toString(java.nio.charset.StandardCharsets.ISO_8859_1));
 
                 // Solo cuando de verdad se ha escrito: si el volcado falla, lo pendiente sigue
                 // pendiente y el hook de cierre volverá a intentarlo.

@@ -34,6 +34,18 @@ import java.util.List;
  */
 public final class UnlockChainWire {
 
+    /**
+     * Tope defensivo del indice de punto que admite el wire. El MEGAPACKET lleva un punto
+     * por carta del mazo, asi que cualquier valor por encima de esto es basura o un intento
+     * de desbordar la aritmetica de offsets aguas abajo: el handler calcula el
+     * desplazamiento como pointIdx * 32 en int, y 2^27 puntos son exactamente 2^32 bytes,
+     * de modo que un offsetBase = slot + 2^27 vuelve a caer sobre el MISMO punto tras el
+     * wraparound mientras burla tanto el guard de rango como las igualdades que protegen
+     * el pocket propio. Cortarlo aqui deja esos guards operando siempre sobre valores
+     * pequenos, donde su aritmetica es exacta.
+     */
+    public static final int MAX_POINT_INDEX = 4095;
+
     private UnlockChainWire() {
     }
 
@@ -101,6 +113,10 @@ public final class UnlockChainWire {
                 int offsetBase = Integer.parseInt(f[1]);
                 int numChains = Integer.parseInt(f[2]);
                 if (f.length != 3 + numChains) {
+                    return null;
+                }
+                if (offsetBase < 0 || offsetBase > MAX_POINT_INDEX
+                        || offsetBase + numChains > MAX_POINT_INDEX + 1) {
                     return null;
                 }
                 List<String> chains = new ArrayList<>(numChains);

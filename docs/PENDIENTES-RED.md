@@ -1,6 +1,6 @@
 # Pendientes de red
 
-Seis fallos **preexistentes** encontrados durante la auditoría de julio de 2026. Ninguno lo
+Siete fallos **preexistentes** encontrados durante la auditoría de julio de 2026. Ninguno lo
 introdujo esa sesión: todos estaban ya en el juego. Se dejaron fuera a propósito porque los
 seis tocan el hilo lector o la sincronización de red, y esa zona necesita trabajarse en frío
 y validarse jugando, no sólo leyendo.
@@ -115,6 +115,35 @@ todo el mundo menos ese caso.
 
 **Por dónde ir**: reenviar el estado de la mesa al aceptar una reconexión (quién está fuera).
 Es el arreglo limpio y además cierra otros huecos parecidos.
+
+---
+
+## 7. Un alta con la identidad mal formada se acepta con un simple aviso
+
+**Dónde**: el manejo de `NEWUSER` y `USERSLIST` en el cliente.
+
+**Qué pasa**: si la identidad que llega de otro jugador viene con la clave mal formada, con
+la firma que no cuadra o directamente vacía, se registra un aviso y **se acepta el alta
+igual**, dejando a ese jugador sin identidad conocida en esa máquina.
+
+**Consecuencia**: cuando ese jugador actúe, esta máquina no podrá comprobar su firma y
+convertirá sus acciones en retiradas, mientras el resto de la mesa las aplica. Esa máquina se
+descuelga: bote, turnos y fichas divergiendo el resto de la mano. Y quien reparte los mensajes
+puede provocarlo a voluntad, eligiendo a qué cliente le manda la identidad mal.
+
+**Por dónde ir**: rechazar el alta, o pedirla de nuevo, en vez de aceptarla sin identidad.
+Ahí es donde está el fallo.
+
+**POR DÓNDE NO IR** (probado y revertido): *no* apagar la cadena de firmas cuando falte alguna
+identidad. Suena razonable y es peor:
+
+- La decisión de encenderla pasa a tomarla cada máquina con datos que **no comparte** (las
+  identidades se acumulan peer a peer), y cada una excluye además un nick distinto, el suyo.
+- Al que le falte una identidad, sus **propias** acciones salen sin firma, y todos los demás
+  se las convierten en retiradas **sin avisarle**. Antes al menos veía el aviso en rojo.
+- Con la cadena apagada, esa máquina deja de verificar **nada** en toda la partida y tampoco
+  exige la revelación firmada de las comunitarias. Se cambia fallar cerrado y ruidoso por
+  fallar abierto y en silencio.
 
 ---
 

@@ -159,6 +159,44 @@ class UnverifiedActionSynthTest {
         assertFalse(Crupier.isVerifiableWireRecord(new byte[2 * CanonicalActionRecord.RECORD_BYTES]));
     }
 
+    // ---- the is_voluntary bit an action may claim -------------------------
+
+    /** A canonical record carrying a chosen is_voluntary bit. */
+    private static byte[] recordWithVoluntary(boolean voluntary) {
+        byte[] prevH = new byte[32];
+        byte[] handId = new byte[16];
+        byte[] playerId = new byte[32];
+        Arrays.fill(prevH, (byte) 0x11);
+        Arrays.fill(handId, (byte) 0x22);
+        Arrays.fill(playerId, (byte) 0x33);
+        return CanonicalActionRecord.encode(prevH, handId, playerId,
+                CanonicalActionRecord.STREET_PREFLOP, CanonicalActionRecord.ACTION_BET,
+                5000L, false, voluntary);
+    }
+
+    @Test
+    @DisplayName("The is_voluntary bit is read back exactly as the signer wrote it")
+    void voluntaryFlagRoundTrips() {
+        assertTrue(Crupier.readWireVoluntaryFlag(recordWithVoluntary(true)));
+        assertFalse(Crupier.readWireVoluntaryFlag(recordWithVoluntary(false)));
+    }
+
+    @Test
+    @DisplayName("An action claiming is_voluntary=0 is not a legitimate wire (§4.5)")
+    void anActionMayNeverClaimNonVoluntary() {
+        // Every action on the wire is signed by whoever played it: a human with its
+        // own key, a bot with the host's (§10), both with is_voluntary=1. The only
+        // is_voluntary=0 record in the protocol is the community reveal, which
+        // travels on its own command, and the departed-peer fold never reaches the
+        // wire at all. So a zero here can only come from a modified client trying to
+        // make the receiver verify against the host key, and it gets the same
+        // treatment as any other unverifiable action.
+        byte[] forged = recordWithVoluntary(false);
+        assertTrue(Crupier.isVerifiableWireRecord(forged),
+                "the record is well formed: what disqualifies it is the flag, not its shape");
+        assertFalse(Crupier.readWireVoluntaryFlag(forged));
+    }
+
     // ---- round trip: what the host emits is what the receiver rejects -----
 
     /** Splits the wire the way the receiving loop does, envelope included. */

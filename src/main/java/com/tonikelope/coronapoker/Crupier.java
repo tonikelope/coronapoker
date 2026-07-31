@@ -234,6 +234,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Identity §4.5 (PURA y testeable): lee el bit FLAGS.is_voluntary de un record
+     * canónico. Es lo que decide contra qué clave se verifica la firma (§4.6), así que
+     * el camino vivo y el replay de recover deben leerlo EXACTAMENTE igual.
+     *
+     * Exige un record de longitud canónica (isVerifiableWireRecord).
+     */
+    static boolean readWireVoluntaryFlag(byte[] wireRecord) {
+        int flags = ((wireRecord[CanonicalActionRecord.OFFSET_FLAGS] & 0xff) << 8)
+                | (wireRecord[CanonicalActionRecord.OFFSET_FLAGS + 1] & 0xff);
+        return ((flags >> CanonicalActionRecord.FLAG_BIT_VOLUNTARY) & 1) != 0;
+    }
+
+    /**
      * Identity §4.9 (PURA y testeable): ¿este ACTION trae record + firma? Los dos
      * últimos campos del wire son fijos y llevan "*" cuando no hay nada que verificar
      * (peer sin cadena, o el fold pelado que emite el host tras un synth). Un wire más
@@ -10787,17 +10800,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 action[4] = wireSig;
 
                                                 // Identity: decode the FLAGS.is_voluntary bit from the
-                                                // record so action[5] reflects what the sender claimed (§4.5
-                                                // host auto-folds use voluntary=0). The §10 receiver rule
-                                                // picks the signer pubkey from this bit + Participant.isCpu().
+                                                // record so action[5] reflects what the sender claimed. The §10
+                                                // receiver rule picks the signer pubkey from this bit +
+                                                // Participant.isCpu().
                                                 if (isVerifiableWireRecord(wireRecord)) {
-                                                    int flags = ((wireRecord[CanonicalActionRecord.OFFSET_FLAGS] & 0xff) << 8)
-                                                            | (wireRecord[CanonicalActionRecord.OFFSET_FLAGS + 1] & 0xff);
-                                                    boolean wireVoluntary = ((flags >> CanonicalActionRecord.FLAG_BIT_VOLUNTARY) & 1) != 0;
+                                                    boolean wireVoluntary = readWireVoluntaryFlag(wireRecord);
                                                     action[5] = wireVoluntary;
 
-                                                    byte[] signerPubkey = resolveActionSignerPubkey(jugador.getNickname(), wireVoluntary);
-                                                    if (signerPubkey == null) {
+                                                    // §4.5: NINGUNA accion viaja con is_voluntary=0. Toda accion
+                                                    // la firma quien la juega (el humano con su clave, el bot con
+                                                    // la del host por §10) y siempre con el bit a 1; el unico
+                                                    // record is_voluntary=0 del protocolo es el reveal de
+                                                    // comunitarias, que va por su propio comando, y el fold del
+                                                    // peer que se fue jamas llega al wire. Un cero aqui solo lo
+                                                    // pone un cliente modificado para que el receptor verifique
+                                                    // contra la clave del HOST en vez de contra la suya: si la
+                                                    // clave del host no esta resuelta todavia (carrera TOFU) la
+                                                    // verificacion se saltaba y la decision en claro movia el
+                                                    // dinero igual. Mismo trato que cualquier otra accion no
+                                                    // verificable.
+                                                    byte[] signerPubkey = wireVoluntary
+                                                            ? resolveActionSignerPubkey(jugador.getNickname(), true)
+                                                            : null;
+                                                    if (!wireVoluntary) {
+                                                        LOGGER.log(Level.SEVERE,
+                                                                "ZERO-TRUST: ACTION by {0} claims is_voluntary=0, which no genuine action ever does — SYNTHESIZING FOLD",
+                                                                jugador.getNickname());
+                                                        printInvalidActionSigToRegistro(jugador.getNickname());
+                                                        this.saw_invalid_action_sig = true;
+                                                        synthesizeUnverifiedFoldAction(action);
+                                                    } else if (signerPubkey == null) {
                                                         LOGGER.log(Level.WARNING,
                                                                 "Cannot resolve signer pubkey for action by {0} (voluntary={1}) — verification skipped",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
@@ -16058,10 +16090,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             byte[] sigBytes = Base64.getDecoder().decode(accion_partes[4]);
                             res[3] = recordBytes;
                             res[4] = sigBytes;
-                            if (recordBytes != null && recordBytes.length == CanonicalActionRecord.RECORD_BYTES) {
-                                int flags = ((recordBytes[CanonicalActionRecord.OFFSET_FLAGS] & 0xff) << 8)
-                                        | (recordBytes[CanonicalActionRecord.OFFSET_FLAGS + 1] & 0xff);
-                                res[5] = ((flags >> CanonicalActionRecord.FLAG_BIT_VOLUNTARY) & 1) != 0;
+                            if (isVerifiableWireRecord(recordBytes)) {
+                                res[5] = readWireVoluntaryFlag(recordBytes);
                             }
                             // ZERO-TRUST RECOVER (HIGH cerrado): (1) verificar la FIRMA Ed25519 (el host sirve el
                             // record por wire; pubkey null en carrera TOFU -> se salta la firma, no es evidencia de

@@ -102,6 +102,35 @@ class SocketFramingIntegrationTest {
         return Helpers.decryptCommand(r.text(), AES, HMAC);
     }
 
+    /**
+     * Mirrors the production reader loop (Participant.readCommandFromClient and
+     * NetClient.readCommand): binary frames are handled inline, a frame that fails the
+     * channel is dropped and reading continues, and only a real EOF returns null.
+     */
+    private String readLikeProduction() throws Exception {
+        while (true) {
+            WireFrame.Result r = WireFrame.read(in, CAP);
+            if (r == null) {
+                return null;
+            }
+            if (r.isBinary()) {
+                continue;
+            }
+            try {
+                return Helpers.decryptCommand(r.text(), AES, HMAC);
+            } catch (KeyException dropped) {
+                continue;
+            }
+        }
+    }
+
+    /** Writes a raw line exactly as the plaintext keepalive senders do. */
+    private void writeRaw(String line) throws Exception {
+        OutputStream os = writerSide.getOutputStream();
+        os.write((line + "\n").getBytes(StandardCharsets.UTF_8));
+        os.flush();
+    }
+
     @Test
     @DisplayName("encrypted text commands round-trip in order over a real socket")
     void textCommandsRoundTrip() throws Exception {
@@ -244,6 +273,48 @@ class SocketFramingIntegrationTest {
             assertEquals(c, Helpers.decryptCommand(r.text(), AES, HMAC),
                     "the keepalive must survive the authenticated-channel check");
         }
+    }
+
+    @Test
+    @DisplayName("a full session (plaintext keepalive + encrypted game traffic) survives end to end")
+    void fullSessionSurvivesTheChannelCheck() throws Exception {
+        // This is the automated stand-in for "connect two instances and leave them idle":
+        // six PING cycles is thirty seconds of table time at the real 5 s interval. The
+        // keepalive goes out in the clear and the game commands encrypted, interleaved
+        // exactly as production writes them. If the channel check got this wrong, the
+        // reader would return null here and a real session would drop into a reconnect
+        // loop instead of playing.
+        for (int i = 0; i < 6; i++) {
+            writeRaw("PING#" + i);
+            writeText("GAME#" + i + "#ACTION#x");
+            writeRaw("PONG#" + (i + 1));
+            writeRaw("PONG2#" + (i + 2));
+        }
+
+        for (int i = 0; i < 6; i++) {
+            assertEquals("PING#" + i, readLikeProduction(), "keepalive PING lost on cycle " + i);
+            assertEquals("GAME#" + i + "#ACTION#x", readLikeProduction(), "game command lost on cycle " + i);
+            assertEquals("PONG#" + (i + 1), readLikeProduction(), "keepalive PONG lost on cycle " + i);
+            assertEquals("PONG2#" + (i + 2), readLikeProduction(), "keepalive PONG2 lost on cycle " + i);
+        }
+    }
+
+    @Test
+    @DisplayName("an injected frame is dropped without breaking the session around it")
+    void injectedFrameDoesNotBreakTheSession() throws Exception {
+        // The whole point of dropping the frame instead of closing: an on-path attacker
+        // injecting a line must lose that line, not the connection. The commands before
+        // and after it have to arrive untouched and in order.
+        writeText("GAME#1#ACTION#before");
+        writeRaw("GAME#666#ACTION#injected");
+        writeRaw("PING#7");
+        writeText("GAME#2#ACTION#after");
+
+        assertEquals("GAME#1#ACTION#before", readLikeProduction());
+        // The injected line is swallowed by the reader, so the next thing that surfaces is
+        // the legitimate keepalive, never the attacker's command.
+        assertEquals("PING#7", readLikeProduction(), "the injected command must not surface");
+        assertEquals("GAME#2#ACTION#after", readLikeProduction(), "the session must continue after the drop");
     }
 
     @Test

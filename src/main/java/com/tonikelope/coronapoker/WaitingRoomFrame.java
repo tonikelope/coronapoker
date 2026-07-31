@@ -166,8 +166,7 @@ public class WaitingRoomFrame extends JFrame {
     // proposito: ese turno de salida lo comparten los envios binarios (nota de voz de
     // 320 KB, avatares, datos de recuperacion, lotes de estadisticas), que con varios
     // peers y poca subida tardan decenas de segundos con todo el mundo sano. Solo se
-    // cierra tras MAX_CONSECUTIVE_PING_FAILURES seguidas, y nunca durante una
-    // reconexion ni en el periodo de gracia.
+    // cierra tras MAX_CONSECUTIVE_PING_FAILURES seguidas, y nunca durante una reconexion.
     public static final int PING_WRITE_STALL_TIMEOUT = 60000;
     public static final int PRE_GAME_COMMANDS_LOCK = 15000;
     public static final int EC_KEY_LENGTH = 256;
@@ -220,6 +219,8 @@ public class WaitingRoomFrame extends JFrame {
     private volatile Helpers.TelemetryFrame latest_telemetry = null;
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
+    private final Object password_broadcast_lock = new Object();
+    private final java.util.concurrent.atomic.AtomicLong password_version = new java.util.concurrent.atomic.AtomicLong();
     private volatile boolean exit = false;
     private volatile StringBuffer chat_text = new StringBuffer();
     private final String background_chat_src;
@@ -6082,31 +6083,51 @@ public class WaitingRoomFrame extends JFrame {
      */
     private void difundirNuevaPassword() {
 
-        final String actual = password;
-        final String payload;
-
-        if (actual == null) {
-            payload = "*";
-        } else {
-            try {
-                payload = Base64.getEncoder().encodeToString(actual.getBytes("UTF-8"));
-            } catch (UnsupportedEncodingException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-                return;
-            }
-        }
+        final long version = password_version.incrementAndGet();
 
         // Copia de la lista: se recorre fuera del hilo grafico y el mapa puede mutar.
-        final java.util.ArrayList<Participant> destinatarios = new java.util.ArrayList<>(participantes.values());
+        final java.util.ArrayList<Participant> destinatarios;
+
+        synchronized (participantes) {
+            destinatarios = new java.util.ArrayList<>(participantes.values());
+        }
 
         Helpers.threadRun(() -> {
-            for (Participant resto : destinatarios) {
-                if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
+            // Dos cambios seguidos pueden acabar entregandose al reves: escribir a un peer
+            // espera mientras ESE peer este reconectando, asi que el reparto del primero
+            // puede quedarse parado ahi lo que dure la reconexion y salir DESPUES del
+            // segundo, dejando al peer con una contrasena que ya no es la de la sala y,
+            // como el canal se deriva de ella, sin poder volver a entrar nunca. Un cerrojo
+            // a secas no basta: el monitor no se concede por orden de llegada. Reparte solo
+            // el ultimo cambio, y lee la contrasena vigente al repartir, no la de cuando se
+            // pidio.
+            synchronized (password_broadcast_lock) {
+                if (version != password_version.get()) {
+                    return;
+                }
+
+                final String actual = password;
+                final String payload;
+
+                if (actual == null) {
+                    payload = "*";
+                } else {
                     try {
-                        resto.writeCommandFromServer(Helpers.encryptCommand(
-                                "NEWPASS#" + payload, resto.getAes_key(), resto.getHmac_key()));
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
+                        payload = Base64.getEncoder().encodeToString(actual.getBytes("UTF-8"));
+                    } catch (UnsupportedEncodingException ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
+                        return;
+                    }
+                }
+
+                for (Participant resto : destinatarios) {
+                    if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
+                        try {
+                            resto.writeCommandFromServer(Helpers.encryptCommand(
+                                    "NEWPASS#" + payload, resto.getAes_key(), resto.getHmac_key()));
+                        } catch (Exception ex) {
+                            LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
+                        }
                     }
                 }
             }

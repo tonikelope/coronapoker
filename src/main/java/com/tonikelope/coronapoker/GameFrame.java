@@ -4612,15 +4612,34 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         final BalanceScreen[] balance_ref = new BalanceScreen[1];
 
                         Helpers.GUIRun(() -> {
-                            BalanceScreen balance = new BalanceScreen(GameFrame.getInstance(), balance_latch::countDown);
+                            BalanceScreen balance = new BalanceScreen(GameFrame.getInstance(), () -> {
+                                balance_latch.countDown();
+                                // Despierta la espera de abajo, que duerme sobre el propio SQL_LOCK.
+                                synchronized (GameFrame.SQL_LOCK) {
+                                    GameFrame.SQL_LOCK.notifyAll();
+                                }
+                            });
                             balance_ref[0] = balance;
                             showBalanceOverlay(balance);
                         });
 
-                        try {
-                            balance_latch.await();
-                        } catch (InterruptedException ex) {
-                            Thread.currentThread().interrupt();
+                        // Esta espera es a que el JUGADOR pulse, o sea, indefinida, y estamos
+                        // DENTRO del SQL_LOCK. Esperar aqui con un latch retiene el lock todo
+                        // ese rato, y el hilo grafico se queda clavado en el mismo lock en cuanto
+                        // alguien le da a GUARDAR en los ajustes: la partida se congela entera y
+                        // ya nadie puede ni pulsar el boton que desbloquearia esto.
+                        // Dormir sobre el propio SQL_LOCK SUELTA el monitor mientras esperamos,
+                        // asi que los ajustes se guardan con normalidad; el aviso de arriba nos
+                        // despierta al instante y el tope es la red de siempre por si se cruzan.
+                        synchronized (GameFrame.SQL_LOCK) {
+                            while (balance_latch.getCount() > 0) {
+                                try {
+                                    GameFrame.SQL_LOCK.wait(WAIT_QUEUES);
+                                } catch (InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                    break;
+                                }
+                            }
                         }
 
                         recover = balance_ref[0] != null && balance_ref[0].isRecover();

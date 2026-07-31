@@ -991,6 +991,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> rabbit_players = new ConcurrentHashMap<>();
+
+    // Peticiones de rabbit hunting contadas AQUI, una entrada por nick y por mano. El
+    // numero que viaja en el wire lo elige el propio solicitante, asi que decidir con el
+    // la tarifa era regalarle el precio: mandando siempre "la primera" no pagaba nunca.
+    // Todos los peers reciben los mismos avisos en el mismo orden, asi que todos llegan
+    // al mismo numero y el dinero no diverge.
+    private final ConcurrentHashMap<String, Integer> rabbit_conta = new ConcurrentHashMap<>();
     // ConcurrentHashMap (no HashMap): se escribe bajo lock_contabilidad
     // (auditorCuentas, updateExitPlayers) pero se ITERA fuera de ese lock,
     // bajo SQL_LOCK, en sqlNewHand/sqlUpdateHandEnd. Como el orden global es
@@ -7444,7 +7451,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    public void RABBIT_HANDLER(String nick, int conta_rabbit) {
+    public void RABBIT_HANDLER(String nick, int conta_rabbit_wire) {
 
         Helpers.threadRun(() -> {
 
@@ -7452,6 +7459,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 rabbit_players.put(nick, true); // Lo ponemos en PENDING (para que el server pueda llevar la cuenta de
                 // todos los que fueron procesados).
+
+                // La cuenta de peticiones la lleva CADA PEER por su lado. La que viaja en el
+                // wire la elige el propio solicitante, y con ella se decidia la tarifa: quien
+                // mandara siempre "esta es la primera" no pagaba nunca. Como todos los peers
+                // reciben los mismos avisos en el mismo orden, todos llegan al mismo numero y
+                // el dinero sigue cuadrando en la mesa entera.
+                final int conta_rabbit = rabbit_conta.merge(nick, 1, Integer::sum);
+
+                if (conta_rabbit != conta_rabbit_wire) {
+                    LOGGER.log(Level.WARNING,
+                            "Rabbit hunting request count mismatch for {0}: wire says {1}, we counted {2} — charging by ours",
+                            new Object[]{nick, conta_rabbit_wire, conta_rabbit});
+                }
 
                 if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
                     destaparRabbitCards();
@@ -7900,6 +7920,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         rabbit_players.clear();
+        rabbit_conta.clear();
         this.iwtsth = false;
         this.iwtsthing = false;
         this.iwtsthing_request = false;
@@ -11941,6 +11962,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.straddle_cards_pending = false;
                     return true;
                 }
+                // PAUSE-AWARE: el tiempo en pausa no cuenta contra el plazo. Sin esto, una
+                // pausa mas larga que el tope hacia que el straddler volviera sin cartas en
+                // el mismo instante de reanudar, y quedarse sin ellas aqui significa anular
+                // la mano. El resto de esperas del fichero refrescan igual.
+                if (GameFrame.getInstance().checkPause()) {
+                    deadline = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
+                }
+
                 try {
                     this.getReceived_commands().wait(Math.min(WAIT_QUEUES, Math.max(1, deadline - System.currentTimeMillis())));
                 } catch (InterruptedException ex) {
@@ -13284,6 +13313,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.ultimo_raise = 0f;
                 this.conta_raise = 0;
                 this.conta_bet = 0;
+                // El resto de una subida incompleta (un all-in que no llega a subida
+                // entera) es de la calle que se acaba de cerrar y muere con ella, igual
+                // que la apuesta en curso y el ultimo raise de aqui arriba. Arrastrarlo
+                // hinchaba la cuenta en la calle siguiente y hacia pasar por subida
+                // entera algo que no lo era, con lo que a los demas se les reabria el
+                // turno cuando no tocaba.
+                this.partial_raise_cum = 0f;
                 for (Player jugador : resisten) {
                     jugador.setBet(0f);
                 }
@@ -13713,6 +13749,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else if (GameFrame.getInstance().isPartida_local()) {
                     if (this.sqlCheckGenuineRecoverAction(current_player)) {
                         LOGGER.log(Level.INFO, "Recover action OK");
+                    } else {
+                        // La comprobacion existia pero no servia de nada: si la accion que se
+                        // esta reproduciendo NO coincide con la que quedo guardada de esa mano,
+                        // no se decia ni una palabra. Sigue sin abortar la recuperacion (una
+                        // base de datos incompleta no es prueba de nada), pero deja rastro con
+                        // el detalle suficiente para poder mirarlo despues.
+                        LOGGER.log(Level.SEVERE,
+                                "Recover action MISMATCH: {0} action #{1} replayed as decision={2} bet={3}, which does not match the stored one",
+                                new Object[]{current_player.getNickname(), this.conta_accion,
+                                    current_player.getDecision(), current_player.getBet()});
                     }
                 }
 
@@ -14167,8 +14213,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!pendientes.isEmpty()) {
-                    GameFrame.getInstance().checkPause();
-                    if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                    // El tiempo en PAUSA no cuenta contra el tope, como en el resto de esperas
+                    // del fichero: aqui no se refrescaba, asi que una pausa mas larga que el
+                    // tope vencia el plazo en el mismo instante de reanudar y dejaba con las
+                    // cartas tapadas a rivales que estaban perfectamente vivos.
+                    if (GameFrame.getInstance().checkPause()) {
+                        start_time = System.currentTimeMillis();
+                    } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
                         LOGGER.log(Level.WARNING,
                                 "REQ_SHOWDOWN_KEY timeout — {0} peers did not respond. Their cards stay face-down; the host resolves the pot from the action log.",
                                 pendientes);

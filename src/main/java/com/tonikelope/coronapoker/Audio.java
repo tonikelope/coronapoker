@@ -942,6 +942,16 @@ public class Audio {
                             Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error deleting TTS temp file: {0}", ex.getMessage());
                         }
 
+                    } else {
+                        // El temporal solo se borraba si la voz habia salido bien. Cuando el
+                        // servicio falla, lo que queda a medias en el disco se quedaba ahi
+                        // para siempre, y de esos hay uno por cada mensaje que no cuaje.
+                        try {
+                            Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
+
+                        } catch (IOException ex) {
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error deleting the leftover TTS temp file: {0}", ex.getMessage());
+                        }
                     }
 
                 }

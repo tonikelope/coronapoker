@@ -16,11 +16,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Money conservation when a hand is voided while it is being settled.
  *
- * The real settlement lives inside the Crupier state machine, which these tests
- * cannot instantiate (see GameFlowSmoke: the state machine is out of scope on
- * purpose). What is pinned here is the RULE the settlement follows, modelled
- * with the same operations in the same order, because the rule is what can
- * silently regress.
+ * READ THIS FIRST: these tests do NOT touch a single line of production code.
+ * They exercise a model written inside this file, so THEY WILL NOT CATCH a
+ * regression in the settlement. Breaking the real guards leaves them green.
+ * They are here as executable documentation of the rule and of the exact
+ * numbers that were lost when it was wrong, not as a safety net. Do not treat
+ * a green run as evidence that the settlement is correct.
+ *
+ * The real settlement lives inside the Crupier state machine, which cannot be
+ * instantiated from here (see GameFlowSmoke: the state machine is out of scope
+ * on purpose). Covering it for real needs that machine to be reachable from a
+ * test, which is a job of its own.
  *
  * The invariant across the whole game is:
  *

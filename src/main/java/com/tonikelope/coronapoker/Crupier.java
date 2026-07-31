@@ -10934,10 +10934,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void broadcastRitClose(int result) {
-        // confirmation=false por la misma razón; una CLOSE perdida la cubre el
-        // safety self-dispose del propio diálogo cliente.
+        // CON confirmación, al reves que el recuento en vivo. El recuento es solo pintura y
+        // perderlo no cuesta nada, pero esto es el resultado CANONICO: decide si la mano se
+        // reparte con un board o con dos. Al cliente que no le llegara, su dialogo se cerraba
+        // solo asumiendo que no, y entonces liquidaba un board mientras el resto de la mesa
+        // liquidaba dos, con el dinero saliendo distinto en cada sitio. Se entrega como
+        // cualquier otro dato canonico: con reintento hasta que confirmen.
         try {
-            broadcastGAMECommandFromServer("RIT_VOTE_CLOSE#" + result, null, false);
+            broadcastGAMECommandFromServer("RIT_VOTE_CLOSE#" + result, null, true);
         } catch (RuntimeException e) {
             LOGGER.log(Level.WARNING, "Failed to broadcast RIT_VOTE_CLOSE", e);
         }
@@ -11528,6 +11532,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 if (result != null) {
                     return result;
+                }
+                // El plazo se congela con la timba en PAUSA o con algun peer reconectando,
+                // el mismo criterio que el resto de esperas del fichero. Asumir NO al vencer
+                // solo converge si el anfitrion tambien lo asumio; si lo que pasa es que su
+                // aviso viene de camino (o esta esperando a que vuelva alguien), asumirlo
+                // aqui deja a este cliente jugando una mano distinta a la de la mesa.
+                if (GameFrame.getInstance().checkPause() || isSomePlayerTimeout()) {
+                    deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
                 }
                 try {
                     this.getReceived_commands().wait(200);

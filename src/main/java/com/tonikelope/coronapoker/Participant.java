@@ -426,7 +426,6 @@ public class Participant implements Runnable {
 
     private void runSocketReaderThread() {
         Helpers.threadRun(() -> {
-            boolean timeout = false;
             while (!exit) {
                 String mensaje_recibido = null;
                 try {
@@ -1124,10 +1123,10 @@ public class Participant implements Runnable {
 
     public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending) {
         long start_time = System.currentTimeMillis();
-        boolean timeout = false;
+        boolean plazo_vencido = false;
         ArrayList<Object[]> rejected = new ArrayList<>();
 
-        while (!exit && !pending.isEmpty() && !timeout) {
+        while (!exit && !pending.isEmpty() && !plazo_vencido) {
             Object[] confirmation;
             synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
                 while (!exit && !WaitingRoomFrame.getInstance().getReceived_confirmations().isEmpty()) {
@@ -1148,7 +1147,7 @@ public class Participant implements Runnable {
                     }
 
                     if (System.currentTimeMillis() - start_time > GameFrame.CONFIRMATION_TIMEOUT) {
-                        timeout = true;
+                        plazo_vencido = true;
                     } else if (!pending.isEmpty()) {
                         try {
                             WaitingRoomFrame.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);

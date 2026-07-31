@@ -115,10 +115,12 @@ public final class BetRules {
      * opens the later streets. Opening always with the small blind inverts the positional
      * advantage for the whole heads-up phase, which is how every game ends.
      *
-     * @param activePlayers players still in the game, the same count used to hand out the
-     * button and the blinds
+     * Takes the heads-up condition as a boolean on purpose, so the caller has to decide it
+     * from the hand's own dealt positions. Recomputing it from a live player count would
+     * make the answer drift between streets when somebody leaves mid-hand, and could differ
+     * between peers that have not yet processed the same exit.
      */
-    public static String firstToActPostflop(int activePlayers, String smallBlindNick, String bigBlindNick) {
-        return (activePlayers == 2) ? bigBlindNick : smallBlindNick;
+    public static String firstToActPostflop(boolean headsUp, String smallBlindNick, String bigBlindNick) {
+        return headsUp ? bigBlindNick : smallBlindNick;
     }
 }

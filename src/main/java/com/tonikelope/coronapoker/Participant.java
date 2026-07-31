@@ -132,6 +132,10 @@ public class Participant implements Runnable {
     private volatile int latency;
     private volatile int latency2;
     private volatile int pong_timeout_counter = 0;
+    // Veces SEGUIDAS que la escritura del latido no ha vuelto dentro del plazo. Se exige
+    // mas de una por lo mismo que con los PONGs: una sola puede ser un envio binario
+    // largo en curso, que retiene el turno de salida del socket con todo el mundo sano.
+    private volatile int ping_write_stall_counter = 0;
     private volatile int pong2_timeout_counter = 0;
     // Telemetría: cuenta de reconexiones exitosas del peer al server.
     // Incrementado en resetSocket() tras setear reset_socket=true. Cubre tanto
@@ -332,8 +336,15 @@ public class Participant implements Runnable {
                 // de caducidad y RETENIENDO el monitor de salida del socket: el vigilante
                 // que tiene que cazar precisamente a ese peer se quedaba clavado dentro
                 // del write que iba a vigilar, y de paso bloqueaba a cualquiera que
-                // quisiera escribirle. Si el write no vuelve a tiempo se le cierra el
-                // socket, que es lo que lo desatasca, y se le da por ido.
+                // quisiera escribirle.
+                //
+                // OJO con el tope: ese monitor lo comparten los envios BINARIOS (una nota de
+                // voz, un avatar, los datos de recuperacion, un lote de estadisticas), que
+                // con varios peers y poca subida tardan lo suyo con todo el mundo sano; y
+                // mientras hay una reconexion en marcha la escritura espera POR DISENO. Por
+                // eso el plazo es holgado, no cuenta si el peer esta reconectando o en su
+                // periodo de gracia, y hacen falta VARIAS seguidas, exactamente el mismo
+                // criterio que el cierre por PONGs perdidos de aqui abajo.
                 java.util.concurrent.Future<?> ping_write;
 
                 try {
@@ -344,20 +355,31 @@ public class Participant implements Runnable {
                 }
 
                 try {
-                    ping_write.get(WaitingRoomFrame.PING_PONG_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    ping_write_stall_counter = 0;
                 } catch (java.util.concurrent.TimeoutException ex) {
-                    LOGGER.log(Level.SEVERE,
-                            "PING write to {0} did not return within {1} ms — peer is not reading; closing its socket",
-                            new Object[]{nick, WaitingRoomFrame.PING_PONG_TIMEOUT});
-                    ping_write.cancel(true);
-                    try {
-                        socketClose();
-                    } catch (Exception ignored) {
+                    if (!exit && !resetting_socket && !force_reset_socket
+                            && ++ping_write_stall_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES) {
+                        LOGGER.log(Level.SEVERE,
+                                "PING write to {0} stalled {1} times in a row ({2} ms each) — peer is not reading; closing its socket",
+                                new Object[]{nick, ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
+                        ping_pong_thread_alive = false;
+                        try {
+                            socketClose();
+                        } catch (Exception ignored) {
+                        }
+                        if (!exit) {
+                            markExitAndNotify("PING write stalled (peer not reading)");
+                        }
+                        break;
                     }
-                    if (!exit) {
-                        markExitAndNotify("PING write stalled (peer not reading)");
-                    }
-                    break;
+
+                    // La escritura sigue su curso (cancelarla no desbloquea un write parado,
+                    // y el socket puede estar reinstalandose). No se toca el contador de
+                    // PONGs: sin PING no puede haber PONG, y apuntarlo como perdido echaria
+                    // al peer por la otra via. Se espera el intervalo normal y se reintenta.
+                    Helpers.pausar(WaitingRoomFrame.PING_INTERVAL_MS);
+                    continue;
                 } catch (Exception ex) {
                     break;
                 }

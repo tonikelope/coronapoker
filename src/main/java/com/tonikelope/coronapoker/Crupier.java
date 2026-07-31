@@ -11144,10 +11144,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void broadcastRitClose(int result) {
-        // confirmation=false por la misma razón; una CLOSE perdida la cubre el
-        // safety self-dispose del propio diálogo cliente.
+        // CON confirmación, al reves que el recuento en vivo. El recuento es solo pintura y
+        // perderlo no cuesta nada, pero esto es el resultado CANONICO: decide si la mano se
+        // reparte con un board o con dos. Al cliente que no le llegara, su dialogo se cerraba
+        // solo asumiendo que no, y entonces liquidaba un board mientras el resto de la mesa
+        // liquidaba dos, con el dinero saliendo distinto en cada sitio. Se entrega como
+        // cualquier otro dato canonico: con reintento hasta que confirmen.
         try {
-            broadcastGAMECommandFromServer("RIT_VOTE_CLOSE#" + result, null, false);
+            broadcastGAMECommandFromServer("RIT_VOTE_CLOSE#" + result, null, true);
         } catch (RuntimeException e) {
             LOGGER.log(Level.WARNING, "Failed to broadcast RIT_VOTE_CLOSE", e);
         }
@@ -11746,6 +11750,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     break;
                 }
             }
+
+            // La comprobacion de PAUSA va FUERA del monitor de la cola, que es como lo hacen
+            // las quince esperas hermanas de este fichero. checkPause() DUERME mientras la
+            // timba esta pausada y NO suelta ese monitor: dejarla dentro clavaba al hilo que
+            // reparte los comandos entrantes, y como la orden de reanudar llega por esa misma
+            // cola, no se procesaba nunca. Abrazo mortal permanente con solo pulsar pausa.
+            //
+            // Congelar el plazo mientras dura la pausa es lo correcto: asumir que no hay
+            // straddle al vencer solo converge si el anfitrion tambien lo asumio; si su aviso
+            // viene de camino, este cliente se queda jugando una mano distinta a la de la
+            // mesa. Lo que NO se mira es si hay peers reconectando: en un cliente esa marca
+            // no la apaga nadie hasta que arranca la ronda, o sea, despues de esta espera, y
+            // mirarla volvia el plazo eterno.
+            if (GameFrame.getInstance().checkPause()) {
+                deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
+            }
         }
         return VoluntaryStraddleDialog.NO_STRADDLE;
     }
@@ -11764,9 +11784,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void broadcastStraddleResult(int v) {
-        // confirmation=false (fire-and-forget) como RIT_VOTE_CLOSE: TCP ya garantiza
-        // la entrega y el cliente lo drena en waitStraddleResult; evita que el handshake
-        // de confirmación se trague comandos pendientes.
+        // confirmation=false (fire-and-forget): TCP ya garantiza la entrega y el cliente lo
+        // drena en waitStraddleResult; evita que el handshake de confirmación se trague
+        // comandos pendientes. (El cierre de la votación de correr dos veces SÍ pasó a
+        // confirmado, porque ahí lo que se pierde es cómo se reparte el bote.)
         try {
             broadcastGAMECommandFromServer("STRADDLE_RESULT#" + v, null, false);
         } catch (RuntimeException e) {

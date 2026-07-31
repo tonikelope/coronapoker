@@ -94,7 +94,16 @@ public class Participant implements Runnable {
     private final Object participant_socket_lock = new Object();
     private final HashMap<String, Integer> last_received = new HashMap<>();
     private final ConcurrentLinkedQueue<String> pre_game_socket_writer_queue = new ConcurrentLinkedQueue<>();
-    private final LinkedBlockingQueue<String> socket_reader_queue = new LinkedBlockingQueue<>();
+    // Cola ACOTADA. Sin tope crece hasta donde llegue la memoria, y el anti-abuso que
+    // deberia frenar una inundacion corre al CONSUMIR, o sea, por detras: un peer que
+    // vomite comandos mas rapido de lo que se procesan tumba el proceso por memoria
+    // antes de que nadie le pare los pies. Llena, el lector de ESE peer se queda
+    // esperando sitio, deja de vaciar su socket y la contrapresion de TCP hace el
+    // resto. El tope es holgadisimo para el juego, donde las rafagas legitimas son de
+    // decenas de mensajes.
+    public static final int SOCKET_READER_QUEUE_CAPACITY = 10000;
+
+    private final LinkedBlockingQueue<String> socket_reader_queue = new LinkedBlockingQueue<>(SOCKET_READER_QUEUE_CAPACITY);
     private final WaitingRoomFrame sala_espera;
     private final String nick;
     private final File avatar;
@@ -311,15 +320,44 @@ public class Participant implements Runnable {
         Helpers.threadRun(() -> {
             try {
             while (!exit && WaitingRoomFrame.getInstance() != null) {
-                int ping = Helpers.CSPRNG_GENERATOR.nextInt();
+                final int ping = Helpers.CSPRNG_GENERATOR.nextInt();
                 pong = null;
                 pong2 = null;
                 latency = -1;
                 latency2 = -1;
                 long pingStartNs = System.nanoTime();
 
+                // El PING se manda con TOPE. Escribir a un socket cuyo peer no lee acaba
+                // llenando el buffer del sistema y ahi el write se queda quieto, sin fecha
+                // de caducidad y RETENIENDO el monitor de salida del socket: el vigilante
+                // que tiene que cazar precisamente a ese peer se quedaba clavado dentro
+                // del write que iba a vigilar, y de paso bloqueaba a cualquiera que
+                // quisiera escribirle. Si el write no vuelve a tiempo se le cierra el
+                // socket, que es lo que lo desatasca, y se le da por ido.
+                java.util.concurrent.Future<?> ping_write;
+
                 try {
-                    writeCommandFromServer("PING#" + String.valueOf(ping));
+                    ping_write = Helpers.THREAD_POOL.submit(
+                            () -> writeCommandFromServer("PING#" + String.valueOf(ping)));
+                } catch (Exception ex) {
+                    break;
+                }
+
+                try {
+                    ping_write.get(WaitingRoomFrame.PING_PONG_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
+                } catch (java.util.concurrent.TimeoutException ex) {
+                    LOGGER.log(Level.SEVERE,
+                            "PING write to {0} did not return within {1} ms — peer is not reading; closing its socket",
+                            new Object[]{nick, WaitingRoomFrame.PING_PONG_TIMEOUT});
+                    ping_write.cancel(true);
+                    try {
+                        socketClose();
+                    } catch (Exception ignored) {
+                    }
+                    if (!exit) {
+                        markExitAndNotify("PING write stalled (peer not reading)");
+                    }
+                    break;
                 } catch (Exception ex) {
                     break;
                 }

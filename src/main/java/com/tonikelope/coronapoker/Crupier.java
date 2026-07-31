@@ -580,6 +580,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // siempre (congelaba MEGAPACKET / POCKET_CARDS / START_SRA_CASCADE / MISDEAL / HANDVERIFY). Muy generoso
     // para cubrir clientes lentos procesando una baraja SRA grande. Al vencer se expulsa SOLO al que retiene.
     public static final int BROADCAST_PROGRESS_TIMEOUT_MS = 180000;
+    // La mesa del cliente puede quedarse esperando al anfitrion sin fecha de caducidad:
+    // recibir las cartas, el disparo de verificacion y el arranque de la mano siguiente no
+    // llevan plazo A PROPOSITO (ver waitForHandverifyTrigger). Si el anfitrion se cae del
+    // todo, el socket muere y se sale por ahi; pero si su proceso sigue vivo y lo que se
+    // atasca es su hilo repartidor, no corta nadie y la mesa se queda parada en silencio,
+    // sin mas salida que cerrar a lo bruto. Aqui NO se corta (decidir que hacer al vencer
+    // es lo dificil, y ponerle plazo a secas ya resulto ser peor que no tenerlo: seguia la
+    // mano a ciegas y se saltaba el unico punto donde un MISDEAL tardio la corta), pero al
+    // menos se avisa, que el jugador pueda salir y continuar la timba mas tarde. El umbral
+    // va MUY por encima de lo que el anfitrion puede tardar legitimamente (el deadline de
+    // progreso de arriba son 180 s) para no dar sustos en falso.
+    public static final long MESA_PARADA_AVISO_MS = 240000;
+    private static final int MESA_PARADA_AVISO_TIMEOUT = 10000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
@@ -1265,6 +1278,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // revertir su parte (el refund fue ÍNTEGRO) y no escribir SQL de showdown
     // ni re-estampar la mano que el rollback dejó cerrada con pot=0.
     private volatile boolean mano_anulada = false;
+    // Testigo de que la devolucion de apuestas de una mano anulada YA ha corrido. Se
+    // escribe y se lee SIEMPRE bajo lock_contabilidad, que es lo que lo hace fiable:
+    // mano_anulada se iza FUERA del cerrojo, asi que entre la marca y la devolucion cabe
+    // una liquidacion entera. Quien liquida no necesita saber si la mano se anulo, sino
+    // si el dinero ya volvio a los stacks: si aun no ha vuelto, tiene que dejarlo donde
+    // se pueda encontrar, porque la devolucion que llegue detras no hallara nada que
+    // devolver.
+    private volatile boolean apuestas_devueltas = false;
     private volatile GameOverDialog gameover_dialog = null;
     private volatile String dealer_nick = null;
     private volatile String big_blind_nick = null;
@@ -2535,6 +2556,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private ArrayList<String> recibirMisCartas() {
         boolean ok = false;
         String[] cartas = new String[2];
+        final long espera_inicio = System.currentTimeMillis();
+        boolean aviso_parada = false;
 
         do {
             synchronized (this.getReceived_commands()) {
@@ -2691,6 +2714,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // corrompe la mano. Ponerle plazo exige antes que el llamador sepa que
                 // hacer cuando no hay cartas.
                 GameFrame.getInstance().checkPause();
+                aviso_parada = avisarMesaParada(espera_inicio, aviso_parada);
                 // Patrón estándar del Crupier (15+ receive* loops lo usan):
                 // espera sobre received_commands para que un notifyAll de
                 // los productores (Participant reader, WaitingRoomFrame.cliente)
@@ -7072,6 +7096,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // Note: bote_sobrante is kept intact by design (it belongs to the global game, not the aborted hand)
             this.bote = new HandPot(0f);
+
+            // Ultimo, y dentro del cerrojo: a partir de aqui el dinero de la mano esta de
+            // vuelta en los stacks y quien liquide despues no debe repartir nada.
+            this.apuestas_devueltas = true;
         }
 
         // Sonido del aviso de mano anulada. Solo las violaciones de seguridad reales (zero_trust.*,
@@ -7571,6 +7599,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.sendGAMECommandToServer("HAND_READY#" + String.valueOf(this.conta_mano + 1));
 
             boolean serverCommitted = false;
+            final long espera_inicio = System.currentTimeMillis();
+            boolean aviso_parada = false;
             do {
                 synchronized (this.getReceived_commands()) {
                     java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
@@ -7588,6 +7618,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!serverCommitted && !isFin_de_la_transmision()) {
+                    aviso_parada = avisarMesaParada(espera_inicio, aviso_parada);
                     synchronized (this.getReceived_commands()) {
                         try {
                             this.getReceived_commands().wait(WAIT_QUEUES);
@@ -8181,6 +8212,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // este Crupier (fin_de_la_transmision queda izado), pero si alguna vez
         // lo hubiera, una mano nueva nunca debe arrancar marcada como anulada.
         this.mano_anulada = false;
+        // Mismo motivo defensivo que la linea de arriba: una mano nueva nunca arranca con
+        // el dinero de la anterior dado por devuelto. No necesita cerrojo (aqui no hay
+        // liquidacion en curso) y es volatil, como su companiera.
+        this.apuestas_devueltas = false;
         this.ultimo_raise = 0f;
         this.partial_raise_cum = 0f;
         this.conta_raise = 0;
@@ -9593,6 +9628,43 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Avisa UNA sola vez de que la mesa lleva demasiado rato esperando al anfitrion.
+     *
+     * <p>No corta la espera ni cambia el curso de la mano: solo deja de ser un cuelgue
+     * mudo. Ver {@link #MESA_PARADA_AVISO_MS} para el porque de no cortar.
+     *
+     * @param espera_inicio instante en que empezo esta espera
+     * @param ya_avisado si ya se aviso de esta misma espera
+     * @return el nuevo estado de "ya avisado", para volver a pasarlo en la vuelta siguiente
+     */
+    private boolean avisarMesaParada(long espera_inicio, boolean ya_avisado) {
+        if (ya_avisado || System.currentTimeMillis() - espera_inicio < MESA_PARADA_AVISO_MS) {
+            return ya_avisado;
+        }
+
+        LOGGER.log(Level.WARNING,
+                "The table has been waiting for the host for over {0} ms with no deadline to cut it",
+                MESA_PARADA_AVISO_MS);
+
+        final String aviso = Translator.translate("conn.mesa_parada_aviso");
+
+        try {
+            GameFrame.getInstance().getRegistro().print(aviso);
+        } catch (Exception ex) {
+        }
+
+        Helpers.GUIRun(() -> {
+            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, aviso,
+                    Color.YELLOW, Color.BLACK, getClass().getResource("/images/stop.png"),
+                    MESA_PARADA_AVISO_TIMEOUT, true);
+            dialog.setLocationRelativeTo(dialog.getParent());
+            dialog.setVisible(true);
+        });
+
+        return true;
+    }
+
+    /**
      * Consensus: on the client, waits for the host's bare
      * {@code HANDVERIFY} trigger (no payload). There is NO deadline here on
      * purpose: see the comment inside the loop. Returns true when the trigger
@@ -9605,6 +9677,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private boolean waitForHandverifyTrigger() {
         boolean trigger_seen = false;
+        final long espera_inicio = System.currentTimeMillis();
+        boolean aviso_parada = false;
 
         do {
             synchronized (this.getReceived_commands()) {
@@ -9643,6 +9717,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // segun sus propias constantes. Quedarse esperando es ruidoso, pero no
                 // liquida nada a destiempo.
                 GameFrame.getInstance().checkPause();
+                aviso_parada = avisarMesaParada(espera_inicio, aviso_parada);
                 synchronized (this.getReceived_commands()) {
                     try {
                         this.received_commands.wait(WAIT_QUEUES);
@@ -18340,6 +18415,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         HashMap<Player, Hand> ganadores;
 
                         synchronized (getLock_contabilidad()) {
+                            // Se lee UNA vez y aqui dentro, bajo el mismo cerrojo con el que
+                            // la anulacion lo escribe: mientras se liquida no puede cambiar,
+                            // asi que las tres ramas de abajo deciden todas lo mismo. Si el
+                            // dinero ya volvio a los stacks no hay bote que repartir ni
+                            // sobrante que apuntar; repartirlo ahora seria entregarlo dos
+                            // veces, y apuntar un bote ya vaciado se llevaria por delante el
+                            // pico heredado de la mano anterior.
+                            final boolean ya_devuelto = this.apuestas_devueltas;
+
                             java.util.Iterator<Player> iterator = resisten.iterator();
                             while (iterator.hasNext()) {
                                 Player jugador = iterator.next();
@@ -18386,11 +18470,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     // invariante de conservacion (suma de stacks + sobrante == suma de
                                     // compras) que se comprueba al arrancar cada mano.
                                     //
-                                    // Con la mano ANULADA no se toca: ese es el unico camino que pone el
-                                    // bote a cero conservando el sobrante a proposito (las apuestas ya se
-                                    // han devuelto), asi que asignar ahi se llevaria por delante el pico
-                                    // heredado de la mano anterior.
-                                    if (!this.mano_anulada) {
+                                    // Con las apuestas YA DEVUELTAS no se toca: ese es el unico camino que
+                                    // pone el bote a cero conservando el sobrante a proposito, asi que
+                                    // asignar ahi se llevaria por delante el pico heredado de la mano
+                                    // anterior. Se mira eso y no si la mano esta anulada porque la marca de
+                                    // anulada se iza FUERA del cerrojo: entre la marca y la devolucion cabe
+                                    // esta liquidacion entera, y saltarla ahi dejaba el bote sin repartir Y
+                                    // sin apuntar, con la devolucion llegando despues a un bote ya vaciado.
+                                    if (!ya_devuelto) {
                                         this.bote_sobrante = this.bote_total;
                                     }
                                     ganadores = new HashMap<>();
@@ -18407,7 +18494,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         resisten.get(0).getHoleCard1().desenfocar();
                                         resisten.get(0).getHoleCard2().desenfocar();
                                     }
-                                    resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
+                                    // Con el dinero ya devuelto no se paga: el bote esta vacio y lo unico
+                                    // que quedaria por entregar seria el pico heredado, que no es de esta
+                                    // mano. Pagarlo ademas de conservarlo abajo CREARIA fichas.
+                                    if (!ya_devuelto) {
+                                        resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
+                                    }
                                     this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
                                     GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + " " + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
                                     Helpers.GUIRun(() -> {
@@ -18416,7 +18508,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     });
                                     GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
                                     this.bote_total = 0f;
-                                    this.bote_sobrante = 0f;
+                                    // El sobrante se lo acaba de llevar el unico que resistia, salvo que el
+                                    // dinero ya hubiera vuelto a los stacks: entonces no se le ha pagado
+                                    // nada y ponerlo a cero destruiria el pico heredado.
+                                    if (!ya_devuelto) {
+                                        this.bote_sobrante = 0f;
+                                    }
                                     for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                                         carta.desenfocar();
                                     }
@@ -18633,7 +18730,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         });
                                         GameFrame.getInstance().setTapeteBote(bote_tapete);
                                     }
-                                    this.bote_sobrante = this.bote_total;
+                                    // Lo que no se haya podido repartir (picos indivisibles) pasa a la mano
+                                    // siguiente, salvo que el dinero ya hubiera vuelto a los stacks: ahi el
+                                    // bote vale cero y asignarlo destruiria el pico heredado.
+                                    if (!ya_devuelto) {
+                                        this.bote_sobrante = this.bote_total;
+                                    }
                                     break;
                             }
                             }

@@ -2835,44 +2835,13 @@ public class Helpers {
         // directorios ya creados, antes de que nadie la use.
         ImageCacheManager.purgeCache();
 
-        purgeOrphanAvatarTempFiles();
-    }
-
-    /**
-     * Barre los avatares que el juego deja en el directorio temporal del sistema (uno
-     * por participante y timba, mas su miniatura para el chat). Se borran al cerrar,
-     * pero solo si el cierre es limpio: tras un cuelgue o un cierre a lo bruto se
-     * quedan ahi, y en una maquina que juega a diario se acumulan sin fin.
-     *
-     * <p>Solo se tocan los de MAS DE UN DIA, que es lo que garantiza no pisarle los
-     * suyos a otra instancia del juego abierta a la vez.
-     */
-    private static void purgeOrphanAvatarTempFiles() {
-        try {
-            File tmp = new File(System.getProperty("java.io.tmpdir"));
-            File[] restos = tmp.listFiles((dir, name) -> name.startsWith("corona_") && name.contains("_avatar"));
-
-            if (restos == null) {
-                return;
-            }
-
-            long corte = System.currentTimeMillis() - 24L * 60L * 60L * 1000L;
-            int borrados = 0;
-
-            for (File f : restos) {
-                if (f.isFile() && f.lastModified() < corte && f.delete()) {
-                    borrados++;
-                }
-            }
-
-            if (borrados > 0) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.INFO,
-                        "Removed {0} leftover avatar temp files from previous sessions", borrados);
-            }
-        } catch (Exception ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.WARNING,
-                    "Could not sweep leftover avatar temp files", ex);
-        }
+        // Los avatares que el juego deja en el temporal del sistema NO se barren. Se probo
+        // a borrar los de mas de un dia y es peligroso: esos ficheros se releen POR RUTA
+        // mientras la timba vive (al cambiar el zoom, al reenviarselos a alguien que entra
+        // o reconecta, al montar la timba siguiente), y una segunda instancia abierta mas
+        // de un dia se quedaria sin ellos. Se siguen borrando al cerrar el juego, como
+        // siempre. Acumular unos kilobytes es mucho menos malo que quedarse sin avatares
+        // en plena partida.
     }
 
     public static void copyTextToClipboard(String text) {

@@ -53,12 +53,19 @@ public final class FastChatDialog extends JDialog {
     // ademas los mensajes de una timba seguian ahi en la siguiente.
     private static final int MAX_HISTORIAL = 200;
 
-    /** Vacia el historial. Se llama al terminar una timba. */
+    /**
+     * Vacia el historial. Se llama al terminar una timba.
+     *
+     * <p>Se hace EN EL HILO GRAFICO, que es el unico que toca esta lista (al escribir un
+     * mensaje y al recorrerla con las flechas). Vaciarla desde otro hilo, aunque fuera
+     * bajo su propio cerrojo, podia pillar al hilo grafico entre el "queda sitio" y el
+     * "dame ese", con el consiguiente fallo en plena interfaz.
+     */
     public static void resetHistorial() {
-        synchronized (HISTORIAL) {
+        Helpers.GUIRun(() -> {
             HISTORIAL.clear();
             HISTORIAL_INDEX = 0;
-        }
+        });
     }
     private volatile boolean focusing = false;
     private volatile String current_message = null;

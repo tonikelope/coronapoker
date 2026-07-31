@@ -5818,7 +5818,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                 } else {
                                     Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                                    if (p != null) {
+                                    // Solo se guarda un escalar USABLE: uno inservible (32 ceros)
+                                    // no descifra nada y ademas revienta en cuanto alguien lo
+                                    // invierte. Si no vale, el destape falla por el camino de
+                                    // siempre ("el SRA no resuelve"), que ya esta contemplado.
+                                    if (p != null && RistrettoSRA.isValidScalar(sraKey)) {
                                         p.setSra_unlock(sraKey);
                                     }
                                     decrypted = unlockPlayerCardsWithSRAKey(jugador);
@@ -14302,8 +14306,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             // Persistir la key verificada en el Participant + actualizar UI local del host.
+            // Solo si es un escalar USABLE: uno inservible reventaria al invertirlo.
             Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-            if (p != null) {
+            if (p != null && RistrettoSRA.isValidScalar(key)) {
                 p.setSra_unlock(key);
             }
             Player jugador = nick2player.get(nick);
@@ -15040,8 +15045,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         cmdHead});
                         }
                         for (String nick : pendientes) {
-                            nick2player.get(nick).setTimeout(true);
-                            if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_reset_socket()) {
+                            // Un nick pendiente de confirmar NO tiene por que estar sentado a la
+                            // mesa (un espectador, o alguien que entro con la mano ya empezada),
+                            // asi que los dos mapas se consultan con la misma guarda que su
+                            // gemelo de veinte lineas mas arriba. Sin ella el aviso de timeout
+                            // reventaba en el hilo del crupier y se llevaba el proceso del
+                            // anfitrion, es decir, la timba entera.
+                            Player pendiente_jugador = nick2player.get(nick);
+                            if (pendiente_jugador != null) {
+                                pendiente_jugador.setTimeout(true);
+                            }
+                            Participant pendiente_participante = GameFrame.getInstance().getParticipantes().get(nick);
+                            if (pendiente_participante != null && !pendiente_participante.isForce_reset_socket()) {
                                 try {
                                     this.broadcastGAMECommandFromServer(
                                             "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")),
@@ -16969,8 +16984,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             // El SRA-decrypt es la ÚNICA fuente de verdad para peers
                                             // con cipher local (activos). El plaintext se compara como
                                             // Set (no tupla) para tolerar reordenamiento UI del host.
+                                            // Solo se guarda un escalar USABLE (ver el gemelo del
+                                            // SHOWCARDS): uno inservible revienta al invertirlo.
                                             Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
-                                            if (pp != null) {
+                                            if (pp != null && RistrettoSRA.isValidScalar(sraKey)) {
                                                 pp.setSra_unlock(sraKey);
                                             }
                                             byte[] pocketCards = this.single_locked_pocket_cards.get(nick);

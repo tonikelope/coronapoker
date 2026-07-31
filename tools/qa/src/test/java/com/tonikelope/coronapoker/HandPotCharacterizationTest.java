@@ -165,6 +165,22 @@ public class HandPotCharacterizationTest {
     }
 
     @Test
+    void noLiveContenderAboveTheCapMeansNoSidePotAtAll() {
+        // The pot layer that has NOBODY to contest it: a lives for 600, b and c both
+        // folded holding 1500. A side pot here would have an empty player list, so no
+        // one could ever collect it — and any dead money routed into it would simply
+        // vanish from the hand. Every chip must stay in the one pot a can win.
+        HandPot pot = topPot(
+                p("a", 600.0, Player.ALLIN, true),
+                p("b", 1500.0, Player.FOLD, false),
+                p("c", 1500.0, Player.FOLD, false));
+
+        assertEquals(0, pot.getSide_pot_count(), "nobody left to contest a second layer");
+        assertEquals(3600.0, pot.getTotal(), EPS, "the whole 600 + 1500 + 1500 stays claimable");
+        assertEquals(3600.0, sumAllPots(pot), EPS, "conservation");
+    }
+
+    @Test
     void deadMoneyBelowTheCapStillCountsWhole() {
         // A folder who committed LESS than the cap contributes everything it put in
         // and nothing more: the cap must not inflate a small dead contribution.

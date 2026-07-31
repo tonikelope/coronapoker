@@ -114,6 +114,87 @@ public class HandPotCharacterizationTest {
         assertEquals(22.0, sumAllPots(pot), EPS, "conservation: 2 + 10 + 10");
     }
 
+    // ----- dead money above the main pot cap ----------------------------------
+    // The case the benign scenarios above never reach: a folder who committed MORE
+    // than the short all-in that caps the main pot. Its chips must NOT all land in
+    // the main pot, or the short all-in collects money it never matched.
+
+    @Test
+    void deadMoneyAboveTheCapDoesNotFeedTheShortAllIn() {
+        // a is all-in for 5; b bet 35 and folded to c's 40. The main pot may only
+        // hold 5 per head (a can win no more than it risked); b's remaining 30 and
+        // c's excess belong to the side pot, where only c is left to claim them.
+        HandPot pot = topPot(
+                p("a", 5.0, Player.ALLIN, true),
+                p("b", 35.0, Player.FOLD, false),
+                p("c", 40.0, Player.BET, true));
+
+        assertEquals(1, pot.getSide_pot_count(), "the short all-in caps the main pot");
+        assertEquals(5.0, pot.getBet(), EPS, "main pot capped at a's all-in");
+        assertEquals(15.0, pot.getTotal(), EPS,
+                "main pot = 5 from a + 5 from c + 5 of b's dead money, NOT b's whole 35");
+
+        HandPot side = pot.getSidePot();
+        assertEquals(65.0, side.getTotal(), EPS,
+                "side pot = c's 35 above the cap + b's 30 of dead money above the cap");
+
+        assertEquals(80.0, sumAllPots(pot), EPS, "conservation: 5 + 35 + 40");
+    }
+
+    @Test
+    void deadMoneyIsLayeredAcrossEverySidePot() {
+        // Two live all-ins stack the layers: a 5, b 10, d 20 live; c folded at 20.
+        // c's dead money must be sliced 5 / 5 / 10 across the three layers instead
+        // of dropping whole into the main pot.
+        HandPot pot = topPot(
+                p("a", 5.0, Player.ALLIN, true),
+                p("b", 10.0, Player.ALLIN, true),
+                p("c", 20.0, Player.FOLD, false),
+                p("d", 20.0, Player.BET, true));
+
+        assertEquals(2, pot.getSide_pot_count(), "two distinct live all-ins -> two side pots");
+        assertEquals(20.0, pot.getTotal(), EPS, "main pot = 5 x 4 (a, b, d live + c's first 5)");
+
+        HandPot side1 = pot.getSidePot();
+        assertEquals(15.0, side1.getTotal(), EPS, "5 more from b, d and c's dead money");
+
+        HandPot side2 = side1.getSidePot();
+        assertEquals(20.0, side2.getTotal(), EPS, "d's last 10 + c's last 10 of dead money");
+
+        assertEquals(55.0, sumAllPots(pot), EPS, "conservation: 5 + 10 + 20 + 20");
+    }
+
+    @Test
+    void noLiveContenderAboveTheCapMeansNoSidePotAtAll() {
+        // The pot layer that has NOBODY to contest it: a lives for 600, b and c both
+        // folded holding 1500. A side pot here would have an empty player list, so no
+        // one could ever collect it — and any dead money routed into it would simply
+        // vanish from the hand. Every chip must stay in the one pot a can win.
+        HandPot pot = topPot(
+                p("a", 600.0, Player.ALLIN, true),
+                p("b", 1500.0, Player.FOLD, false),
+                p("c", 1500.0, Player.FOLD, false));
+
+        assertEquals(0, pot.getSide_pot_count(), "nobody left to contest a second layer");
+        assertEquals(3600.0, pot.getTotal(), EPS, "the whole 600 + 1500 + 1500 stays claimable");
+        assertEquals(3600.0, sumAllPots(pot), EPS, "conservation");
+    }
+
+    @Test
+    void deadMoneyBelowTheCapStillCountsWhole() {
+        // A folder who committed LESS than the cap contributes everything it put in
+        // and nothing more: the cap must not inflate a small dead contribution.
+        HandPot pot = topPot(
+                p("a", 5.0, Player.ALLIN, true),
+                p("b", 2.0, Player.FOLD, false),
+                p("c", 40.0, Player.BET, true));
+
+        assertEquals(1, pot.getSide_pot_count(), "the short all-in caps the main pot");
+        assertEquals(12.0, pot.getTotal(), EPS, "main pot = 5 from a + 5 from c + b's whole 2");
+        assertEquals(35.0, pot.getSidePot().getTotal(), EPS, "side pot = c's 35 above the cap");
+        assertEquals(47.0, sumAllPots(pot), EPS, "conservation: 5 + 2 + 40");
+    }
+
     // ----- ante (option A: traditional symmetric) -----------------------------
     // Antes are dead money folded into each player's getBote(); the existing
     // getBote()-keyed side-pot math must absorb them with no structural change.

@@ -5584,31 +5584,9 @@ public class WaitingRoomFrame extends JFrame {
                     } catch (IOException ex) {
                         LOGGER.log(Level.SEVERE, null, ex);
                     }
-                    // La contrasena nueva se le pasa a QUIEN SIGUE DENTRO. Rotarla solo aqui
-                    // dejaba a los demas con la vieja, y como el canal se deriva de ella, al
-                    // primero que se le cortara la red se quedaba fuera sin poder volver. El
-                    // expulsado ya no esta en la lista, asi que no se entera.
-                    if (password != null) {
-                        String nueva_pass_b64;
-                        try {
-                            nueva_pass_b64 = Base64.getEncoder().encodeToString(password.getBytes("UTF-8"));
-                        } catch (UnsupportedEncodingException ex) {
-                            nueva_pass_b64 = null;
-                            LOGGER.log(Level.SEVERE, null, ex);
-                        }
-                        if (nueva_pass_b64 != null) {
-                            for (Participant resto : participantes.values()) {
-                                if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
-                                    try {
-                                        resto.writeCommandFromServer(Helpers.encryptCommand(
-                                                "NEWPASS#" + nueva_pass_b64, resto.getAes_key(), resto.getHmac_key()));
-                                    } catch (Exception ex) {
-                                        LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // La contrasena nueva se le pasa a QUIEN SIGUE DENTRO (el expulsado ya
+                    // no esta en la lista, asi que no se entera).
+                    difundirNuevaPassword();
 
                     Helpers.GUIRun(() -> {
                         kick_user.setEnabled(participantes.size() > 1);
@@ -6000,6 +5978,7 @@ public class WaitingRoomFrame extends JFrame {
             return;
         }
         password = trimmed;
+        difundirNuevaPassword();
         pass_icon.setEnabled(true);
         pass_icon.setToolTipText(password);
         Helpers.copyTextToClipboard(password);
@@ -6016,8 +5995,45 @@ public class WaitingRoomFrame extends JFrame {
      * Item "Generar contraseña fuerte" del menú (y atajo si no hay
      * password). Usa CSPRNG + alphabet rico — ~86 bits con length=14.
      */
+    /**
+     * Reparte la contrasena ACTUAL de la sala a todos los que siguen dentro.
+     *
+     * <p>Se llama desde los TRES sitios que la cambian (expulsar a alguien, cambiarla a
+     * mano y generar una fuerte). Sin esto, los demas se quedaban con la vieja y, como
+     * el canal se deriva de ella, al primero que se le cortara la red se quedaba fuera
+     * sin poder volver a entrar. Viaja por el canal ya cifrado con las claves de cada
+     * sesion, que no dependen de que la contrasena cambie.
+     */
+    private void difundirNuevaPassword() {
+
+        if (password == null) {
+            return;
+        }
+
+        String nueva_pass_b64;
+
+        try {
+            nueva_pass_b64 = Base64.getEncoder().encodeToString(password.getBytes("UTF-8"));
+        } catch (UnsupportedEncodingException ex) {
+            LOGGER.log(Level.SEVERE, null, ex);
+            return;
+        }
+
+        for (Participant resto : participantes.values()) {
+            if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
+                try {
+                    resto.writeCommandFromServer(Helpers.encryptCommand(
+                            "NEWPASS#" + nueva_pass_b64, resto.getAes_key(), resto.getHmac_key()));
+                } catch (Exception ex) {
+                    LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
+                }
+            }
+        }
+    }
+
     private void generateAndShowStrongPassword() {
         password = Helpers.genStrongPassword(GEN_PASS_LENGTH);
+        difundirNuevaPassword();
         pass_icon.setEnabled(true);
         pass_icon.setToolTipText(password);
         Helpers.copyTextToClipboard(password);

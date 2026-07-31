@@ -4778,6 +4778,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameLogDialog.resetLOG();
 
+            // El historial del chat rapido (el que se recorre con las flechas) tampoco se
+            // vaciaba: los mensajes escritos en una timba seguian saliendo en la siguiente.
+            FastChatDialog.resetHistorial();
+
             //Reiniciamos
             Helpers.GUIRunAndWait(() -> {
                 WaitingRoomFrame.resetInstance();

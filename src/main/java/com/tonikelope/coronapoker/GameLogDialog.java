@@ -1101,6 +1101,13 @@ public final class GameLogDialog extends JDialog {
         synchronized (log_lock) {
 
             if (perdedores != null && !perdedores.isEmpty()) {
+
+                // Texto ANTES de las sustituciones: repintar el registro entero cuesta mas
+                // cuanto mas largo es, y se hacia al cerrar CADA mano aunque no hubiera
+                // nada que sustituir (nadie enseño cartas, o ya estaban puestas). Si el
+                // texto no cambia, el repintado daria exactamente lo mismo.
+                final String log_antes = GameLogDialog.LOG_TEXT;
+
                 for (Map.Entry<Player, Hand> entry : perdedores.entrySet()) {
 
                     Player perdedor = entry.getKey();
@@ -1120,6 +1127,10 @@ public final class GameLogDialog extends JDialog {
                         GameLogDialog.LOG_TEXT = GameLogDialog.LOG_TEXT.replaceAll(perdedor.getNickname().replace("$", "\\$") + " +[(]---[)]", perdedor.getNickname().replace("$", "\\$") + " (***)");
 
                     }
+                }
+
+                if (log_antes.equals(GameLogDialog.LOG_TEXT)) {
+                    return;
                 }
 
                 Helpers.GUIRunAndWait(() -> {

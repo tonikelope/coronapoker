@@ -1101,6 +1101,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> rabbit_players = new ConcurrentHashMap<>();
+
     // ConcurrentHashMap (no HashMap): se escribe bajo lock_contabilidad
     // (auditorCuentas, updateExitPlayers) pero se ITERA fuera de ese lock,
     // bajo SQL_LOCK, en sqlNewHand/sqlUpdateHandEnd. Como el orden global es
@@ -7567,6 +7568,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 rabbit_players.put(nick, true); // Lo ponemos en PENDING (para que el server pueda llevar la cuenta de
                 // todos los que fueron procesados).
 
+                // La tarifa se decide con el numero que viaja en el wire, que lo elige el
+                // solicitante. Se probo a que cada peer llevara su propia cuenta para que un
+                // cliente modificado no se regalara el precio, y era PEOR: quien entra o se
+                // recupera con la partida ya empezada arranca su cuenta a cero, cobra una
+                // tarifa distinta al resto y desde ahi el dinero y el consenso de cierre
+                // divergen cada mano. El numero del wire es el mismo para todos pase lo que
+                // pase, que es lo que de verdad importa aqui.
+
                 if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
                     destaparRabbitCards();
                 }
@@ -12149,6 +12158,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return false;
                 }
             }
+
+            // El tiempo en pausa no cuenta contra el plazo: sin esto, una pausa mas larga
+            // que el tope hacia que el straddler volviera sin cartas en el mismo instante de
+            // reanudar, y quedarse sin ellas aqui significa anular la mano.
+            //
+            // Y va FUERA del monitor de la cola, como las quince esperas hermanas del
+            // fichero: la comprobacion DUERME mientras dura la pausa y no suelta ese
+            // monitor, asi que dentro clavaba al hilo que reparte los comandos entrantes
+            // (incluida la orden de reanudar y las propias cartas que se esperan aqui).
+            if (GameFrame.getInstance().checkPause()) {
+                deadline = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
+            }
         }
         return false;
     }
@@ -13485,6 +13506,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.ultimo_raise = 0f;
                 this.conta_raise = 0;
                 this.conta_bet = 0;
+                // El resto de una subida incompleta (un all-in que no llega a subida
+                // entera) es de la calle que se acaba de cerrar y muere con ella, igual
+                // que la apuesta en curso y el ultimo raise de aqui arriba. Arrastrarlo
+                // hinchaba la cuenta en la calle siguiente y hacia pasar por subida
+                // entera algo que no lo era, con lo que a los demas se les reabria el
+                // turno cuando no tocaba.
+                this.partial_raise_cum = 0f;
                 for (Player jugador : resisten) {
                     jugador.setBet(0f);
                 }
@@ -13949,6 +13977,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else if (GameFrame.getInstance().isPartida_local()) {
                     if (this.sqlCheckGenuineRecoverAction(current_player)) {
                         LOGGER.log(Level.INFO, "Recover action OK");
+                    } else {
+                        // La comprobacion existia pero no servia de nada: si la accion que se
+                        // esta reproduciendo NO coincide con la que quedo guardada de esa mano,
+                        // no se decia ni una palabra. Sigue sin abortar la recuperacion (una
+                        // base de datos incompleta no es prueba de nada), pero deja rastro con
+                        // el detalle suficiente para poder mirarlo despues.
+                        LOGGER.log(Level.SEVERE,
+                                "Recover action MISMATCH: {0} action #{1} replayed as decision={2} bet={3}, which does not match the stored one",
+                                new Object[]{current_player.getNickname(), this.conta_accion,
+                                    current_player.getDecision(), current_player.getBet()});
                     }
                 }
 
@@ -14403,8 +14441,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!pendientes.isEmpty()) {
-                    GameFrame.getInstance().checkPause();
-                    if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                    // El tiempo en PAUSA no cuenta contra el tope, como en el resto de esperas
+                    // del fichero: aqui no se refrescaba, asi que una pausa mas larga que el
+                    // tope vencia el plazo en el mismo instante de reanudar y dejaba con las
+                    // cartas tapadas a rivales que estaban perfectamente vivos.
+                    if (GameFrame.getInstance().checkPause()) {
+                        start_time = System.currentTimeMillis();
+                    } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
                         LOGGER.log(Level.WARNING,
                                 "REQ_SHOWDOWN_KEY timeout — {0} peers did not respond. Their cards stay face-down; the host resolves the pot from the action log.",
                                 pendientes);
@@ -18369,7 +18412,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
                                         }
 
-                                        this.showdown(jugadas, ganadores, diferir_dim);
+                                        // Los ganadores de los botes DERIVADOS se calculan ANTES de
+                                        // pintar el veredicto. El showdown decide con la lista de
+                                        // ganadores quien enseña y quien no, y aqui solo llegaban los
+                                        // del bote principal: a quien ganaba unicamente un lateral se
+                                        // le pintaba como perdedor y, con la regla de ocultar cartas
+                                        // activada, se le muckeaba la mano que acababa de ganar. El
+                                        // calculo no toca el estado del juego (calcularGanadores solo
+                                        // vacia la copia que se le pasa), asi que adelantarlo es
+                                        // inofensivo y el bucle de pagos de abajo lo reutiliza.
+                                        HashMap<Player, Hand> ganadores_todos = new HashMap<>(ganadores);
+                                        java.util.ArrayList<HashMap<Player, Hand>> jugadas_por_lateral = new java.util.ArrayList<>();
+                                        java.util.ArrayList<HashMap<Player, Hand>> ganadores_por_lateral = new java.util.ArrayList<>();
+
+                                        for (HandPot lateral = this.bote.getSidePot(); lateral != null; lateral = lateral.getSidePot()) {
+                                            HashMap<Player, Hand> jugadas_lateral = this.calcularJugadas(lateral.getPlayers());
+                                            HashMap<Player, Hand> ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
+                                            jugadas_por_lateral.add(jugadas_lateral);
+                                            ganadores_por_lateral.add(ganadores_lateral);
+
+                                            // Un bote derivado con UN SOLO jugador no se gana: se
+                                            // RECUPERA, que es la parte de su apuesta que nadie llego a
+                                            // igualar (el bucle de pagos lo dice con esas palabras).
+                                            // Contarlo como victoria le pintaba el borde de ganador, le
+                                            // sumaba una mano ganada y lo guardaba como tal, aunque
+                                            // hubiera perdido todo lo demas. La ruta de correr dos veces
+                                            // ya lo trata asi.
+                                            if (lateral.getPlayers().size() > 1) {
+                                                ganadores_todos.putAll(ganadores_lateral);
+                                            }
+                                        }
+
+                                        this.showdown(jugadas, ganadores_todos, diferir_dim);
 
                                         // Franja "#1" del bote principal: se pinta AHORA, tras el
                                         // showdown (veredictos de la pasada 2), no en el pagar de
@@ -18381,6 +18455,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         HandPot current_pot = this.bote.getSidePot();
                                         int conta_bote_secundario = 2;
+                                        int indice_lateral = 0;
 
                                         while (current_pot != null) {
                                             if (current_pot.getPlayers().size() == 1) {
@@ -18390,8 +18465,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
                                                 this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
                                             } else {
-                                                jugadas = this.calcularJugadas(current_pot.getPlayers());
-                                                ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+                                                // Reutiliza lo ya calculado arriba: recalcularlo aqui
+                                                // volveria a recorrer las manos para nada.
+                                                jugadas = jugadas_por_lateral.get(indice_lateral);
+                                                ganadores = ganadores_por_lateral.get(indice_lateral);
                                                 cantidad_pagar_ganador = this.calcularBoteParaGanador(current_pot.getTotal(), ganadores.size());
                                                 bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
                                                 for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
@@ -18411,6 +18488,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             }
                                             current_pot = current_pot.getSidePot();
                                             conta_bote_secundario++;
+                                            indice_lateral++;
                                         }
                                         Helpers.GUIRun(() -> {
                                             setPotBackground(Color.BLACK);
@@ -18887,6 +18965,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
+    /**
+     * ¿esta carta privada llego a revelarse? Una que se quedo sin valor es la de quien
+     * se desconecto antes del showdown, y su mano no puede competir.
+     */
+    private static boolean holeCardRevelada(Card carta) {
+        return carta != null && carta.getValor() != null && !carta.getValor().isEmpty()
+                && !carta.getValor().equals("null");
+    }
+
     public HashMap<Player, Hand> calcularJugadas(ArrayList<Player> jugadores) {
         HashMap<Player, Hand> jugadas = new HashMap<>();
 
@@ -18894,7 +18981,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // If the player reaches winner calculation with null cards, it means
             // they disconnected before reaching showdown. Their hand is mucked.
-            if (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty() || jugador.getHoleCard1().getValor().equals("null")) {
+            // Se comprueban LAS DOS cartas: mirando solo la primera, una segunda sin
+            // valor colaba y la jugada se armaba con una carta de menos, que ademas
+            // reventaba mas abajo y se perdia en el catch.
+            if (!holeCardRevelada(jugador.getHoleCard1()) || !holeCardRevelada(jugador.getHoleCard2())) {
                 LOGGER.log(Level.WARNING, "MUCK: {0} could not reveal cards due to disconnection — pot lost", jugador.getNickname());
                 continue; // Al no meterlo en el mapa 'jugadas', el motor lo ignora para el premio.
             }
@@ -18911,6 +19001,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 jugadas.put(jugador, new Hand(cartas_utilizables));
             } catch (Exception e) {
+                // Quedarse fuera del mapa significa perder el bote, asi que un fallo
+                // aqui NO puede pasar en silencio: sin rastro, un jugador se quedaba sin
+                // cobrar y no habia forma de saber por que.
+                LOGGER.log(Level.SEVERE,
+                        "MUCK: could not build " + jugador.getNickname() + "'s hand — pot lost", e);
             }
         }
 

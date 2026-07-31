@@ -164,6 +164,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         action[3] = null;
         action[4] = null;
         action[5] = Boolean.FALSE;
+
+        // La marca de "esto hay que emitirlo" se BORRA aqui y la pone despues quien
+        // corresponda. Si no, un wire que no supera la verificacion la deja encendida y,
+        // si acto seguido ese peer queda como ido, el synth de salida la heredaba: se
+        // acababa emitiendo el fold de alguien que ya se habia marchado, que es justo lo
+        // que ese synth NO debe hacer.
+        if (action.length >= 7) {
+            action[6] = null;
+        }
     }
 
     /**

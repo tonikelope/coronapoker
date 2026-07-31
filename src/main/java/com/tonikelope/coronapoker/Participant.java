@@ -148,6 +148,15 @@ public class Participant implements Runnable {
     // mas de una por lo mismo que con los PONGs: una sola puede ser un envio binario
     // largo en curso, que retiene el turno de salida del socket con todo el mundo sano.
     private volatile int ping_write_stall_counter = 0;
+    // Marca de que el socket lo hemos cerrado NOSOTROS por escritura atascada, y de que
+    // ese cierre NO es motivo para echar a nadie: un peer que no lee no estorba a los
+    // demas, y al que si estorba ya lo echan los plazos de progreso (arranque de mano y
+    // reparto), que expulsan justo al que retiene a la mesa. Cerrar solo sirve para
+    // despertar al lector, que es quien abre el periodo de gracia. Sin esta marca, la
+    // escritura que estaba parada despierta con error al cerrar y SU captura da al peer
+    // por ido antes de que al lector le de tiempo a abrir nada, asi que la ventana para
+    // volver no llegaba a existir. La limpia el lector en cuanto toma el relevo.
+    private volatile boolean stall_close = false;
     private volatile int pong2_timeout_counter = 0;
     // Telemetría: cuenta de reconexiones exitosas del peer al server.
     // Incrementado en resetSocket() tras setear reset_socket=true. Cubre tanto
@@ -357,7 +366,8 @@ public class Participant implements Runnable {
                 // eso el plazo es holgado, no cuenta si el peer esta reconectando y hacen
                 // falta VARIAS seguidas, con el mismo umbral que el cierre por PONGs
                 // perdidos de aqui abajo. La cuenta se pone a cero al reconectar, para que
-                // los atascos del socket viejo no se hereden al nuevo.
+                // los atascos del socket viejo no se hereden al nuevo. Y al agotarse NO se
+                // echa a nadie: solo se cierra el socket para que el lector abra la gracia.
                 java.util.concurrent.Future<?> ping_write;
 
                 try {
@@ -376,16 +386,19 @@ public class Participant implements Runnable {
                         LOGGER.log(Level.SEVERE,
                                 "PING write to {0} stalled {1} times in a row ({2} ms each) — peer is not reading; closing its socket",
                                 new Object[]{nick, ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
-                        // Se le da por ido AQUI, a proposito. El gemelo de los latidos sin
-                        // respuesta de aqui abajo se limita a cerrar el socket y deja que el
-                        // lector abra el periodo de gracia, pero alli la escritura del PING
-                        // volvio bien y no hay nadie parado en el socket. Aqui si lo hay: es
-                        // justo la escritura que acaba de agotar el plazo, y cerrar la
-                        // despierta con IOException, cuyo catch da al peer por ido antes de
-                        // que al lector le de tiempo a abrir la gracia. Dejarlo a esa carrera
-                        // era prometer una ventana que casi nunca se abria.
+                        // NO se le da por ido: esto solo cierra el socket, igual que el gemelo
+                        // de los latidos sin respuesta de aqui abajo. Cerrar despierta al
+                        // lector, que es quien abre el periodo de gracia y le da su ventana
+                        // para volver; a un portatil que se suspende un rato no se le echa por
+                        // dejar de leer. Y si ademas estuviera reteniendo a la mesa, de eso ya
+                        // se encargan los plazos de progreso, que expulsan al que retiene.
+                        //
+                        // La marca es imprescindible: la escritura que acaba de agotar el
+                        // plazo sigue parada en este socket y cerrar la despierta con
+                        // IOException, cuya captura daria al peer por ido antes de que al
+                        // lector le diera tiempo a abrir la gracia.
                         ping_pong_thread_alive = false;
-                        markExitAndNotify("PING write stalled");
+                        stall_close = true;
                         try {
                             socketClose();
                         } catch (Exception ignored) {
@@ -592,6 +605,11 @@ public class Participant implements Runnable {
                     if (!timeout) {
                         timeout = true;
                         setPlayerTimeoutSafe(true);
+                        // El lector ya ha tomado el relevo: a partir de aqui es timeout
+                        // quien protege la gracia, asi que la marca del cierre por atasco
+                        // deja de hacer falta y no debe quedarse puesta tapando una salida
+                        // legitima mas adelante.
+                        stall_close = false;
 
                         long graceMs = (resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT;
                         LOGGER.log(Level.INFO, "PEER: Participant {0} entered TIMEOUT state — waiting {1}ms for reconnect", new Object[]{nick, graceMs});
@@ -865,7 +883,13 @@ public class Participant implements Runnable {
             // cuando venza el plazo. Sin mirar eso, cualquier escritura al socket ya
             // cerrado se cargaba la gracia antes de tiempo y el peer perdia su ventana
             // para reconectar.
-            if (!exit && !timeout && !resetting_socket && !force_reset_socket) {
+            //
+            // Y con stall_close pasa lo mismo un instante ANTES: el socket lo acabamos de
+            // cerrar nosotros para que el lector abra esa gracia, y esta excepcion es
+            // consecuencia de ese cierre, no de un peer que se haya ido. El lector todavia
+            // no ha podido izar timeout, asi que sin mirar esto le ganabamos la carrera y
+            // lo echabamos justo cuando le ibamos a dar su ventana.
+            if (!exit && !timeout && !stall_close && !resetting_socket && !force_reset_socket) {
                 markExitAndNotify("write failed (socket closed)");
             }
         }
@@ -963,6 +987,16 @@ public class Participant implements Runnable {
             synchronized (ping_pong_lock) {
                 ping_pong_lock.notifyAll();
             }
+        } catch (Exception ignored) {
+        }
+        // Y se despierta al consumidor, que es el unico que no se entera por ninguno de
+        // los avisos de arriba: espera en su cola y solo la senal de cierre lo saca de
+        // ahi. Sin esto, el camino de la gracia vencida sin reconexion lo dejaba dormido
+        // para siempre (el lector marca la salida y su bucle termina en esa misma vuelta,
+        // asi que ya no vuelve a encolar nada), y con el se quedaban sin correr el aviso
+        // de que el jugador se ha ido, el cierre del descriptor y su propio hilo.
+        try {
+            encolarSenalCierre();
         } catch (Exception ignored) {
         }
     }
@@ -1227,6 +1261,7 @@ public class Participant implements Runnable {
                 this.pong_timeout_counter = 0;
                 this.pong2_timeout_counter = 0;
                 this.ping_write_stall_counter = 0;
+                this.stall_close = false;
                 LOGGER.log(Level.INFO, "PEER: Participant {0} resetSocket OK — reconnect succeeded within grace period (exit stays false)", nick);
             } catch (Exception ex) {
                 this.reset_socket = false;

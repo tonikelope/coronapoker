@@ -2570,18 +2570,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isFin_de_la_transmision()) {
                     break;
                 }
-                // Deadline PAUSE-AWARE, el mismo patrón que sus quince hermanas: el tiempo
-                // en pausa no cuenta. start_time se declaraba desde el principio y no lo
-                // leía nadie, así que un cliente al que no le llegaran nunca sus cartas se
-                // quedaba aquí para siempre, y esta es la barrera en la que espera ANTES de
-                // que se mueva una sola ficha. Al vencer se devuelve null, que es el mismo
-                // resultado que ya produce el fin de la transmisión y el llamador contempla.
+                // AQUI NO HAY PLAZO, y es a proposito. Se probo a ponerle uno y era mucho
+                // peor: lo que devuelve este metodo NO LO MIRA NADIE, asi que al vencer el
+                // cliente seguia a repartir sin megapaquete y sin identificador de mano, o
+                // sea, jugando la mano con cartas que no son las suyas y con la cadena de
+                // firmas apagada, sin verificar ni una accion en toda la mano. Y ademas
+                // cualquier plazo razonable se queda corto: el anfitrion se concede sesenta
+                // segundos POR PEER Y POR PASO del barajado, y reinicia la cascada entera si
+                // alguien se cae por el camino. Quedarse esperando es ruidoso, pero no
+                // corrompe la mano. Ponerle plazo exige antes que el llamador sepa que
+                // hacer cuando no hay cartas.
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    LOGGER.log(Level.SEVERE,
-                            "recibirMisCartas timeout — MEGAPACKET never arrived from the host. Giving up the wait.");
-                    break;
                 } else {
                     // Patrón estándar del Crupier (15+ receive* loops lo usan):
                     // espera sobre received_commands para que un notifyAll de

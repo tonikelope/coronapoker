@@ -77,16 +77,15 @@ class MisdealRefundOrderSmoke {
         }
 
         /**
-         * A negative leftover is money nobody holds: every read clamps it at zero
-         * (the hand seeds at max(0, leftover) and the displays compare against 0).
+         * Measured the way the game's own book-keeping check measures it: RAW.
+         *
+         * Clamping here would be wrong and it hid a real bug for a while. Some
+         * reads do clamp (seeding the next hand, the displays), but the check
+         * that decides whether the books add up sums the stored value as it is,
+         * so a negative leftover is money reported as destroyed.
          */
-        double effectiveLeftover() {
-            return Math.max(0d, leftover);
-        }
-
-        /** Money that can be accounted for right now. */
         double onTable() {
-            double sum = effectiveLeftover();
+            double sum = leftover;
 
             for (int seat = 0; seat < SEATS; seat++) {
                 sum += stack[seat] + bet[seat];
@@ -119,7 +118,10 @@ class MisdealRefundOrderSmoke {
 
             stack[winner] += payout;
             pot_total -= payout;
-            leftover = pot_total;
+            // Never below zero: with the hand voided from inside, the pot is empty
+            // but the inherited leftover is still paid out, which drives this
+            // subtraction negative.
+            leftover = Math.max(0d, pot_total);
             hand_pot = 0d;
             clearBets();
         }
@@ -278,8 +280,10 @@ class MisdealRefundOrderSmoke {
 
         table.refund();
 
-        // Payout unguarded (as it really was), sink guarded (the mistake).
-        double payout = table.pot_total > 0d ? table.pot_total : table.effectiveLeftover();
+        // Payout unguarded (as it really was), sink guarded (the mistake). The
+        // payout is the SUM, same as the real one: modelling it as a choice is
+        // what hid this in the first place.
+        double payout = table.hand_pot + table.leftover;
         table.stack[0] += payout;
         table.pot_total -= payout;
         // if (!refunded) { leftover = pot_total; }  <-- skipped, so leftover stays

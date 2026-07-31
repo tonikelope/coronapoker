@@ -2311,10 +2311,12 @@ public class Helpers {
 
     /**
      * Verbos que el keepalive escribe SIN cifrar, por diseño: los escritores de transporte
-     * (Participant.writeCommandFromServer y NetClient.writeCommand) vuelcan la cadena cruda
-     * y el cifrado lo pone cada llamador, cosa que los emisores de PING/PONG no hacen
-     * (Participant 322/452/1243 y WaitingRoomFrame 1955/2361, frente a los de juego, que sí
-     * pasan por encryptCommand). WireFrame lo documenta en su cabecera.
+     * vuelcan la cadena cruda y el cifrado lo pone cada llamador, cosa que los emisores de
+     * PING/PONG no hacen, a diferencia de los de juego, que sí pasan por encryptCommand.
+     * Son cinco: en el anfitrión los tres de {@code Participant} (el PING del latido, y el
+     * PONG y el PONG2 con que responde al del cliente), y en el cliente los de
+     * {@code WaitingRoomFrame} (su propio PING y las respuestas al del anfitrión), que
+     * salen por {@code writeCommandToServer}. WireFrame lo documenta en su cabecera.
      */
     private static final String[] PLAINTEXT_CONTROL_VERBS = {"PING", "PONG", "PONG2"};
 
@@ -2914,7 +2916,9 @@ public class Helpers {
         }
 
         // La cache de imagenes del chat no se limpiaba nunca: cada imagen que alguien
-        // pegue se queda ahi para siempre. Se poda aqui, una vez al arrancar y con los
+        // pegue se queda ahi para siempre. Se poda al arrancar (dos veces, en realidad: el
+        // inicializador de esta clase y el arranque llaman los dos aqui, y la segunda no
+        // encuentra nada que hacer) y con los
         // directorios ya creados, antes de que nadie la use.
         ImageCacheManager.purgeCache();
 

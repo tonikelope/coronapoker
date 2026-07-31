@@ -222,7 +222,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     /**
      * ¿este action[] es el FOLD sintetizado por un wire que no superó la verificación?
      * Es lo ÚNICO que distingue los dos synths, idénticos en todo lo demás. Un array
-     * sin ese slot (los 3 del bot, los 6 del replay de recover) NUNCA lo es: el
+     * sin ese slot (los 3 del bot) NUNCA lo es: el
      * defecto seguro es "no emitir".
      */
     static boolean isUnverifiedSynthFold(Object[] action) {
@@ -588,9 +588,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // sin mas salida que cerrar a lo bruto. Aqui NO se corta (decidir que hacer al vencer
     // es lo dificil, y ponerle plazo a secas ya resulto ser peor que no tenerlo: seguia la
     // mano a ciegas y se saltaba el unico punto donde un MISDEAL tardio la corta), pero al
-    // menos se avisa de que la mesa lleva parada, sin aconsejar nada: cuando esto salta, el
-    // menu de salir suele estar deshabilitado (NUEVA_MANO lo apaga mientras reparte), asi
-    // que sugerir que se vaya seria mandarle a una puerta cerrada.
+    // menos se avisa de que la mesa lleva parada, sin aconsejar nada. No se le sugiere que
+    // salga porque no siempre puede: en la espera de las cartas el menu de salir esta
+    // apagado (NUEVA_MANO lo apaga mientras reparte), asi que en ese caso seria mandarle a
+    // una puerta cerrada. En las otras dos esperas si esta abierto, pero mas vale un aviso
+    // que valga para las tres que uno que mienta en una.
     //
     // El umbral tiene que ir MUY holgado, bastante mas de lo que parece: el deadline de
     // progreso de un broadcast son 180 s, pero el arranque de una mano encadena mucho mas
@@ -1158,6 +1160,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // ningún waiter pierde una transición.
     private final Object protocol_state_lock = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
+    // Nicks cuya salida ya se ha anunciado al resto de la mesa. Ver remotePlayerQuit: hace
+    // falta porque la marca de "este jugador ya esta fuera" la pone antes el camino de
+    // expulsion, asi que no sirve para saber si el aviso llego a emitirse.
+    private final java.util.Set<String> quit_anunciado = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<Player> flop_players = new ConcurrentLinkedQueue<>();
 
@@ -1286,8 +1292,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // revertir su parte (el refund fue ÍNTEGRO) y no escribir SQL de showdown
     // ni re-estampar la mano que el rollback dejó cerrada con pot=0.
     private volatile boolean mano_anulada = false;
-    // Testigo de que la devolucion de apuestas de una mano anulada YA ha corrido. Se
-    // escribe y se lee SIEMPRE bajo lock_contabilidad, que es lo que lo hace fiable:
+    // Testigo de que la devolucion de apuestas de una mano anulada YA ha corrido. Lo que lo
+    // hace fiable es ser volatil y no bajar nunca dentro de una mano; la escritura que
+    // importa (la que lo iza) va bajo lock_contabilidad y es la ultima del bloque, asi que
+    // verlo a true implica que el bote ya esta a cero. El reset de NUEVA_MANO va sin cerrojo
+    // porque ahi no hay liquidacion en curso:
     // mano_anulada se iza FUERA del cerrojo, asi que entre la marca y la devolucion cabe
     // una liquidacion entera. Quien liquida no necesita saber si la mano se anulo, sino
     // si el dinero ya volvio a los stacks: si aun no ha vuelto, tiene que dejarlo donde
@@ -5312,8 +5321,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public synchronized void remotePlayerQuit(String nick, String testamento) {
         Player jugador = nick2player.get(nick);
-        if (jugador != null && !jugador.isExit()) {
-            jugador.setExit();
+        // Se lleva la cuenta de a quien se ha anunciado ya, en vez de mirar si el jugador
+        // esta marcado como salido. Mirar la marca dejaba esto sin hacer NADA en todas las
+        // salidas que no son voluntarias: el camino de expulsion marca al jugador antes de
+        // llegar aqui, asi que el cuerpo entero se saltaba y el aviso al resto de la mesa,
+        // que sale de aqui abajo y de ningun otro sitio, no se emitia jamas. La mesa se
+        // quedaba esperando el turno de alguien a quien acababa de echar ella misma.
+        //
+        // El efecto de no repetirse se mantiene, que es lo unico que la marca aportaba: la
+        // segunda llamada con el mismo nick sigue sin hacer nada.
+        if (jugador != null && quit_anunciado.add(nick)) {
+            if (!jugador.isExit()) {
+                jugador.setExit();
+            }
             if (GameFrame.getInstance().isPartida_local()) {
                 Participant participante = GameFrame.getInstance().getParticipantes().get(nick);
                 if (participante != null) {
@@ -18746,7 +18766,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         });
                                         GameFrame.getInstance().setTapeteBote(bote_tapete);
                                     }
-                                    this.bote_sobrante = this.bote_total;
+                                    // Nunca por debajo de cero. Si la mano se anulo desde la
+                                    // barrera de aqui arriba, el bote queda vacio pero el pico
+                                    // heredado sigue ahi y se paga igual, con lo que esta resta
+                                    // deja el contador en NEGATIVO. El auditor de cuentas lo suma
+                                    // en crudo (no clampa), asi que un sobrante negativo le hace
+                                    // cantar un descuadre y da por destruido ese dinero.
+                                    this.bote_sobrante = Math.max(0f, this.bote_total);
                                     break;
                             }
                             }

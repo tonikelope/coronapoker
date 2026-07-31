@@ -161,10 +161,14 @@ public class Participant implements Runnable {
     // para siempre y entonces NADIE podria dar por ido a este peer nunca, ni por escritura
     // fallida ni por nada: quedaria de zombi el resto de la partida. Caducando, lo peor que
     // pasa es que se vuelva al comportamiento de siempre unos segundos despues.
-    private volatile long stall_close_at = 0;
+    private static final long NO_STALL_CLOSE = Long.MIN_VALUE;
+    private volatile long stall_close_ns = NO_STALL_CLOSE;
     // Lo que se le concede al lector para tomar el relevo tras ese cierre. De sobra: solo
     // tiene que despertar de su lectura y abrir el periodo de gracia, cosa de milisegundos.
-    private static final long STALL_CLOSE_GRACE_MS = 10000;
+    // Se mide con reloj MONOTONO, como las latencias de aqui abajo: con el de pared, un
+    // ajuste de hora hacia atras (NTP, volver de suspension) dejaba la resta en negativo y
+    // la marca se quedaba puesta justo lo que la caducidad venia a evitar.
+    private static final long STALL_CLOSE_GRACE_NS = 10_000_000_000L;
     // Ultimo cambio de contrasena de la sala que se le ha llegado a escribir a ESTE peer, y
     // su cerrojo. Ver writeRoomPassword.
     private final Object password_write_lock = new Object();
@@ -410,7 +414,7 @@ public class Participant implements Runnable {
                         // IOException, cuya captura daria al peer por ido antes de que al
                         // lector le diera tiempo a abrir la gracia.
                         ping_pong_thread_alive = false;
-                        stall_close_at = System.currentTimeMillis();
+                        stall_close_ns = System.nanoTime();
                         try {
                             socketClose();
                         } catch (Exception ignored) {
@@ -614,6 +618,17 @@ public class Participant implements Runnable {
                         && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null
                         || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
 
+                    // Este cierre lo hemos hecho NOSOTROS por escritura atascada, asi que no
+                    // es que a este peer se le haya acabado la ventana: es que se la estamos
+                    // abriendo ahora. Sin esto se iba en el acto, porque la marca de ventana
+                    // abierta sobrevive a una reconexion (solo la baja LEER un frame, y el
+                    // que no lee no lee), asi que un peer que ya la tuviera puesta caia
+                    // directo en el else de mas abajo y se le echaba con el mismo cierre con
+                    // el que se le iba a dar su oportunidad.
+                    if (isStallClose()) {
+                        timeout = false;
+                    }
+
                     if (!timeout) {
                         timeout = true;
                         setPlayerTimeoutSafe(true);
@@ -621,7 +636,7 @@ public class Participant implements Runnable {
                         // quien protege la gracia, asi que la marca del cierre por atasco
                         // deja de hacer falta y no debe quedarse puesta tapando una salida
                         // legitima mas adelante.
-                        stall_close_at = 0;
+                        stall_close_ns = NO_STALL_CLOSE;
 
                         long graceMs = (resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT;
                         LOGGER.log(Level.INFO, "PEER: Participant {0} entered TIMEOUT state — waiting {1}ms for reconnect", new Object[]{nick, graceMs});
@@ -822,22 +837,20 @@ public class Participant implements Runnable {
     /**
      * Encola lo leido del socket respetando el tope de la cola.
      *
-     * <p>Un {@code put} a secas espera indefinidamente con la cola llena, y eso es
-     * justo lo que pasa cuando a un peer se le corta el consumidor por abuso: nadie
-     * vuelve a vaciarla, su lector se queda ahi para siempre y ni siquiera llega a
-     * entregar la senal de cierre. Se espera con tope y mirando si al peer ya se le ha
-     * dado por ido; si no cabe, se descarta ese mensaje y se sigue (el peer que llena
-     * una cola de diez mil o esta siendo expulsado o esta roto).
+     * <p>NO descarta nada mientras el peer siga en la partida: reintenta cada segundo
+     * mientras la cola este llena, y la contrapresion de TCP hace el resto (dejamos de
+     * leer del socket, su ventana se cierra y el emisor frena). Un {@code put} a secas
+     * haria lo mismo pero en silencio y sin salida: con el peer ya dado por ido, aquel se
+     * quedaba esperando sitio para siempre en una cola que nadie iba a vaciar. El unico
+     * mensaje que se pierde es el de un peer al que ya se le ha dado por ido.
      *
      * <p>Para la senal de cierre NO vale esto: usar {@link #encolarSenalCierre()}.
-     *
-     * @return false si no se pudo encolar
      */
-    private boolean encolarLeido(String mensaje) {
+    private void encolarLeido(String mensaje) {
         try {
             while (!exit) {
                 if (socket_reader_queue.offer(mensaje, 1, java.util.concurrent.TimeUnit.SECONDS)) {
-                    return true;
+                    return;
                 }
                 LOGGER.log(Level.WARNING,
                         "Socket reader queue for {0} is full ({1}) — waiting for the consumer",
@@ -846,19 +859,19 @@ public class Participant implements Runnable {
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
-        return false;
     }
 
     /**
      * Entrega a ESTE peer la contrasena nueva de la sala, descartando las que lleguen
      * tarde.
      *
-     * <p>El cerrojo es por peer, no de toda la sala, y ahi esta la gracia. Escribir a un
-     * peer puede quedarse parado un buen rato (mientras el este reconectando, o detras de
-     * una nota de voz que retiene el turno de salida del socket), asi que un cerrojo global
-     * dejaba a TODOS los demas sin la contrasena nueva durante ese rato, y cualquiera que
-     * se cayera en esa ventana ya no podia volver a entrar. Con uno por peer, el atascado
-     * no retiene a nadie mas.
+     * <p>El cerrojo es por peer, no de toda la sala. Escribir a un peer puede quedarse
+     * parado un buen rato (mientras el este reconectando, o detras de una nota de voz que
+     * retiene el turno de salida del socket), asi que un cerrojo global dejaba a TODOS los
+     * demas sin la contrasena nueva durante ese rato, y cualquiera que se cayera en esa
+     * ventana ya no podia volver a entrar. Quien reparte lanza ademas un hilo por peer, que
+     * es lo que de verdad impide que el atascado retenga a los demas: el cerrojo por si solo
+     * no bastaba, porque el bucle iba de uno en uno.
      *
      * <p>Y el orden queda garantizado donde importa, que es en cada socket: el numero se
      * apunta DENTRO del cerrojo, asi que da igual quien lo consiga primero. Si entra antes
@@ -876,11 +889,19 @@ public class Participant implements Runnable {
                 return;
             }
 
-            last_password_version = version;
-
             try {
-                writeCommandFromServer(Helpers.encryptCommand(
-                        "NEWPASS#" + payload, getAes_key(), getHmac_key()));
+                // Solo se apunta si la escritura ha ido bien. Apuntarlo antes daba por
+                // servida una contrasena que no habia salido (un peer en su ventana de
+                // gracia tiene el socket cerrado y la escritura falla ahi mismo), y con el
+                // numero ya subido nadie se la volvia a mandar: se quedaba con la vieja y a
+                // la siguiente caida no podia volver a entrar.
+                if (!writeCommandFromServer(Helpers.encryptCommand(
+                        "NEWPASS#" + payload, getAes_key(), getHmac_key()))) {
+                    last_password_version = version;
+                } else {
+                    LOGGER.log(Level.WARNING,
+                            "The new room password did not reach {0}: it still has the old one", nick);
+                }
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Could not send the new room password to " + nick, ex);
             }
@@ -890,12 +911,12 @@ public class Participant implements Runnable {
     /**
      * Si el socket lo acabamos de cerrar nosotros por escritura atascada, y por tanto el
      * error que eso provoque en las escrituras que estaban paradas no cuenta como que el
-     * peer se haya ido. Ver {@link #stall_close_at}.
+     * peer se haya ido. Ver {@link #stall_close_ns}.
      */
     private boolean isStallClose() {
-        long cerrado = stall_close_at;
+        long cerrado = stall_close_ns;
 
-        return cerrado != 0 && System.currentTimeMillis() - cerrado < STALL_CLOSE_GRACE_MS;
+        return cerrado != NO_STALL_CLOSE && System.nanoTime() - cerrado < STALL_CLOSE_GRACE_NS;
     }
 
     /**
@@ -1343,7 +1364,7 @@ public class Participant implements Runnable {
                 this.pong_timeout_counter = 0;
                 this.pong2_timeout_counter = 0;
                 this.ping_write_stall_counter = 0;
-                this.stall_close_at = 0;
+                this.stall_close_ns = NO_STALL_CLOSE;
                 LOGGER.log(Level.INFO, "PEER: Participant {0} resetSocket OK — reconnect succeeded within grace period (exit stays false)", nick);
             } catch (Exception ex) {
                 this.reset_socket = false;

@@ -147,7 +147,9 @@ public class ImageCacheManager {
      * viejo a lo mas nuevo. El directorio no se limpiaba NUNCA: cada imagen que alguien
      * pegara en el chat se quedaba ahi para siempre.
      *
-     * <p>Se llama una vez al arrancar, antes de que nadie use la cache.
+     * <p>Se llama al arrancar, antes de que nadie use la cache. Puede correr dos veces
+     * (el inicializador de Helpers y el arranque llaman los dos), y la segunda no
+     * encuentra nada que podar.
      */
     public static void purgeCache() {
         try {

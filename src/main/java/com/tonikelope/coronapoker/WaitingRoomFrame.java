@@ -6062,10 +6062,6 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Item "Generar contraseña fuerte" del menú (y atajo si no hay
-     * password). Usa CSPRNG + alphabet rico — ~86 bits con length=14.
-     */
-    /**
      * Reparte la contrasena ACTUAL de la sala (o el aviso de que ya no hay) a todos los
      * que siguen dentro.
      *
@@ -6078,7 +6074,7 @@ public class WaitingRoomFrame extends JFrame {
      * <p>Va SIEMPRE en un hilo aparte: escribir a un peer espera mientras ese peer este
      * reconectando, y tres de los cuatro llamadores vienen del hilo grafico (el menu del
      * candado), asi que hacerlo ahi congelaba la sala entera. Es el mismo motivo por el
-     * que el identicon de sesion se saco del hilo grafico unas lineas mas arriba.
+     * que el identicon de sesion se saco del hilo grafico al principio de esta clase.
      */
     private void difundirNuevaPassword() {
 
@@ -6122,14 +6118,25 @@ public class WaitingRoomFrame extends JFrame {
                 }
             }
 
+            // Cada peer en su propio hilo. Escribir a uno puede quedarse parado un buen rato
+            // (mientras el este reconectando, o detras de una nota de voz que retiene el
+            // turno de salida de su socket), y en un bucle de uno en uno ese atascado
+            // retenia a todos los que fueran detras: se quedaban sin la contrasena nueva
+            // justo durante esas decenas de segundos, y quien se cayera ahi ya no podia
+            // volver a entrar. El orden no se pierde por repartir en paralelo: lo garantiza
+            // cada Participant con su propio cerrojo (ver writeRoomPassword).
             for (Participant resto : destinatarios) {
                 if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
-                    resto.writeRoomPassword(version, payload);
+                    Helpers.threadRun(() -> resto.writeRoomPassword(version, payload));
                 }
             }
         });
     }
 
+    /**
+     * Item "Generar contraseña fuerte" del menú (y atajo si no hay
+     * password). Usa CSPRNG + alphabet rico — ~86 bits con length=14.
+     */
     private void generateAndShowStrongPassword() {
         password = Helpers.genStrongPassword(GEN_PASS_LENGTH);
         difundirNuevaPassword();

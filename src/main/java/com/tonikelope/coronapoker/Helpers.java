@@ -264,6 +264,9 @@ public class Helpers {
     // basta para la seguridad de hilos.
     public static final Map<Component, Integer> ORIGINAL_FONT_SIZE = Collections.synchronizedMap(new WeakHashMap<>());
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
+    // Ruta de la copia de rescate si el fichero de preferencias vino ilegible, para que el
+    // arranque pueda avisar cuando ya exista el registro. null = no hubo incidente.
+    public static volatile String PROPERTIES_RESCUE_COPY = null;
     // Tope superior de tamaño de una línea de comando (post-Base64 + cifrado + HMAC).
     // Cubre con margen el mensaje más grande que el protocolo legítimo puede generar
     // (MEGAPACKET SRA con 52*32 = 1664 bytes + AES padding + IV + HMAC + Base64 ronda
@@ -3988,10 +3991,18 @@ public class Helpers {
             try {
                 java.nio.file.Path origen = Paths.get(PROPERTIES_FILE);
                 if (Files.exists(origen)) {
-                    java.nio.file.Path copia = Paths.get(PROPERTIES_FILE + ".corrupto");
-                    Files.copy(origen, copia, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    // Con nombre fijo la segunda copia se comia a la primera, y es la
+                    // primera la que vale: para cuando hay un segundo incidente el fichero
+                    // ya arranca mutilado por el guardado que vino detras del primero.
+                    java.nio.file.Path copia = Paths.get(PROPERTIES_FILE + "_" + System.currentTimeMillis() + ".corrupto");
+                    Files.copy(origen, copia);
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE,
                             "A copy of the unreadable preferences file was kept at {0}", copia);
+                    // Todo esto pasa en un inicializador estatico que corre ANTES de que
+                    // exista el fichero de registro, asi que estos avisos no quedan en
+                    // ninguna parte. Se apunta la ruta para que el arranque la vuelva a
+                    // sacar cuando ya haya donde escribirla.
+                    PROPERTIES_RESCUE_COPY = copia.toString();
                 }
             } catch (Exception copyEx) {
                 Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE,

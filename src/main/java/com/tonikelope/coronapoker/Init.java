@@ -238,6 +238,15 @@ public class Init extends JFrame {
             // Print a header to mark a new session in the log file
             LOGGER.log(Level.INFO, "{0}=== NEW CORONAPOKER SESSION STARTED: {1} ==={2}", new Object[]{"\n============================================================================\n", java.time.LocalDateTime.now(), "\n============================================================================\n"});
 
+            // El rescate del fichero de preferencias ilegible ocurre en un inicializador
+            // estatico, mucho antes de que exista este registro, asi que su aviso se
+            // perdia entero. Se repite aqui, que ya hay donde dejarlo.
+            if (Helpers.PROPERTIES_RESCUE_COPY != null) {
+                LOGGER.log(Level.SEVERE,
+                        "The preferences file could not be read at startup — a copy of it was kept at {0} and the game started with what could be read",
+                        Helpers.PROPERTIES_RESCUE_COPY);
+            }
+
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Could not initialize file logger!", e);
         }

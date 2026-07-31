@@ -4028,7 +4028,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return _cinematicAllin(new String(Base64.getDecoder().decode(partes[0]), "UTF-8"),
                         Long.parseLong(partes[1]));
 
-            } catch (UnsupportedEncodingException ex) {
+            } catch (Exception ex) {
+                // Se captura CUALQUIER fallo, como hace el gemelo de la cinematica propia:
+                // un campo malformado no solo produce un problema de codificacion, tambien
+                // un base64 invalido, una separacion que no cuadra o un numero que no lo es.
+                // Cualquiera de esos se escapaba dejando la marca de cinematica ENCENDIDA, y
+                // quien espera a que termine la animacion lo hace sin tope: mesa parada.
                 LOGGER.log(Level.SEVERE, null, ex);
                 cinematicOff();
                 setCurrent_remote_cinematic_b64(null);
@@ -4117,53 +4122,73 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                 long now = System.currentTimeMillis();
 
-                                Helpers.GUIRun(() -> {
+                                // El dialogo se CONSTRUYE esperando al hilo gráfico, porque justo
+                                // debajo se consulta. Encargarlo y seguir de largo dejaba mirar un
+                                // dialogo que aun no existia, y ese fallo se entierra en el hilo de
+                                // fondo: la marca de cinematica se quedaba encendida y quien espera
+                                // a que termine la animacion se quedaba esperando. Mostrarlo va
+                                // aparte y sin esperar, que es modal y no volveria hasta cerrarse.
+                                Helpers.GUIRunAndWait(() -> {
                                     try {
                                         gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, icon,
                                                 Helpers.getGIFFramesCount(f_url_icon));
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                                        gif_dialog.setVisible(true);
                                     } catch (IOException | ImageProcessingException ex) {
                                         LOGGER.log(Level.SEVERE, null, ex);
                                     }
                                 });
 
-                                synchronized (Init.LOCK_CINEMATICS) {
-                                    while (Init.PLAYING_CINEMATIC && !gif_dialog.isForce_exit()) {
+                                final GifAnimationDialog dialogo = gif_dialog;
 
-                                        try {
-                                            Init.LOCK_CINEMATICS.wait(1000);
+                                if (dialogo == null) {
+                                    // No se pudo abrir la animacion: se apaga la marca igual, o la
+                                    // mesa se queda esperando un final que no va a llegar nunca.
+                                    LOGGER.log(Level.SEVERE,
+                                            "All-in cinematic dialog could not be created — skipping the animation");
+                                    cinematicOff();
+                                } else {
 
-                                        } catch (InterruptedException ex) {
-                                            Helpers.logCooperativeCancellation(LOGGER, "cinematic playback wait", ex);
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (gif_dialog.isForce_exit()) {
-
-                                    long pause = now + pausa - System.currentTimeMillis();
-
-                                    if (pause > 0) {
-                                        Helpers.pausar(pause);
-                                    }
-
-                                    Init.PLAYING_CINEMATIC = false;
+                                    Helpers.GUIRun(() -> dialogo.setVisible(true));
 
                                     synchronized (Init.LOCK_CINEMATICS) {
+                                        while (Init.PLAYING_CINEMATIC && !dialogo.isForce_exit()) {
 
-                                        Init.LOCK_CINEMATICS.notifyAll();
+                                            try {
+                                                Init.LOCK_CINEMATICS.wait(1000);
 
+                                            } catch (InterruptedException ex) {
+                                                Helpers.logCooperativeCancellation(LOGGER, "cinematic playback wait", ex);
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (dialogo.isForce_exit()) {
+
+                                        long pause = now + pausa - System.currentTimeMillis();
+
+                                        if (pause > 0) {
+                                            Helpers.pausar(pause);
+                                        }
+
+                                        Init.PLAYING_CINEMATIC = false;
+
+                                        synchronized (Init.LOCK_CINEMATICS) {
+
+                                            Init.LOCK_CINEMATICS.notifyAll();
+
+                                        }
                                     }
                                 }
                             }
 
                             current_remote_cinematic_b64 = null;
 
+                            final GifAnimationDialog dialogo_cerrar = gif_dialog;
+
                             Helpers.GUIRun(() -> {
-                                if (gif_dialog.isVisible()) {
-                                    gif_dialog.dispose();
+                                if (dialogo_cerrar != null && dialogo_cerrar.isVisible()) {
+                                    dialogo_cerrar.dispose();
                                 }
 
                                 Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);

@@ -219,7 +219,6 @@ public class WaitingRoomFrame extends JFrame {
     private volatile Helpers.TelemetryFrame latest_telemetry = null;
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
-    private final Object password_broadcast_lock = new Object();
     private final java.util.concurrent.atomic.AtomicLong password_version = new java.util.concurrent.atomic.AtomicLong();
     private volatile boolean exit = false;
     private volatile StringBuffer chat_text = new StringBuffer();
@@ -6083,51 +6082,61 @@ public class WaitingRoomFrame extends JFrame {
      */
     private void difundirNuevaPassword() {
 
-        final long version = password_version.incrementAndGet();
-
-        // Copia de la lista: se recorre fuera del hilo grafico y el mapa puede mutar.
+        // La version y la copia de la lista se toman JUNTAS, bajo el monitor del mapa (que
+        // es el suyo propio, por ser un mapa sincronizado). Separarlas dejaba colarse el
+        // orden contrario: que la version mas alta llevara la lista mas vieja, y entonces
+        // el reparto que gana es el que menos gente conoce.
+        final long version;
         final java.util.ArrayList<Participant> destinatarios;
 
         synchronized (participantes) {
+            version = password_version.incrementAndGet();
             destinatarios = new java.util.ArrayList<>(participantes.values());
         }
 
         Helpers.threadRun(() -> {
-            // Dos cambios seguidos pueden acabar entregandose al reves: escribir a un peer
-            // espera mientras ESE peer este reconectando, asi que el reparto del primero
-            // puede quedarse parado ahi lo que dure la reconexion y salir DESPUES del
-            // segundo, dejando al peer con una contrasena que ya no es la de la sala y,
-            // como el canal se deriva de ella, sin poder volver a entrar nunca. Un cerrojo
-            // a secas no basta: el monitor no se concede por orden de llegada. Reparte solo
-            // el ultimo cambio, y lee la contrasena vigente al repartir, no la de cuando se
-            // pidio.
-            synchronized (password_broadcast_lock) {
+            // Dos cambios seguidos pueden acabar entregandose al reves, y quien se quede con
+            // la vieja no puede volver a entrar cuando se le corte la red, porque el canal se
+            // deriva de ella. Se resuelve descartando los cambios pasados: se mira la version
+            // ANTES DE CADA PEER y el que ve una mas nueva se retira, porque el que la puso
+            // reparte a todos, no solo a los que faltaban.
+            //
+            // Y NO se hace bajo un cerrojo global, aunque el orden saldria mas redondo: el
+            // turno de salida de un socket lo comparten los envios binarios (una nota de voz,
+            // un avatar), que con poca subida tardan decenas de segundos, asi que retener el
+            // reparto entero mientras se escribe a UN peer atascado dejaba a los demas sin la
+            // contrasena nueva justo durante esas decenas de segundos. Cualquiera que se
+            // cayera en esa ventana quedaba fuera para siempre: el mismo fallo que esto viene
+            // a evitar, servido por la propia cura.
+            if (version != password_version.get()) {
+                return;
+            }
+
+            final String actual = password;
+            final String payload;
+
+            if (actual == null) {
+                payload = "*";
+            } else {
+                try {
+                    payload = Base64.getEncoder().encodeToString(actual.getBytes("UTF-8"));
+                } catch (UnsupportedEncodingException ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                    return;
+                }
+            }
+
+            for (Participant resto : destinatarios) {
                 if (version != password_version.get()) {
                     return;
                 }
 
-                final String actual = password;
-                final String payload;
-
-                if (actual == null) {
-                    payload = "*";
-                } else {
+                if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
                     try {
-                        payload = Base64.getEncoder().encodeToString(actual.getBytes("UTF-8"));
-                    } catch (UnsupportedEncodingException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
-                        return;
-                    }
-                }
-
-                for (Participant resto : destinatarios) {
-                    if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
-                        try {
-                            resto.writeCommandFromServer(Helpers.encryptCommand(
-                                    "NEWPASS#" + payload, resto.getAes_key(), resto.getHmac_key()));
-                        } catch (Exception ex) {
-                            LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
-                        }
+                        resto.writeCommandFromServer(Helpers.encryptCommand(
+                                "NEWPASS#" + payload, resto.getAes_key(), resto.getHmac_key()));
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Could not send the new room password to " + resto.getNick(), ex);
                     }
                 }
             }

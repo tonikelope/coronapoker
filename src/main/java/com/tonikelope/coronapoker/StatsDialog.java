@@ -3308,6 +3308,18 @@ public class StatsDialog extends JFrame {
 
                         delete_game_button.setEnabled(true);
                     });
+                } else {
+                    // El borrado ha fallado, pero el desplegable ya se vacio antes de
+                    // intentarlo: sin esto el usuario se queda mirando una lista vacia,
+                    // sin ningun aviso y con las timbas intactas en el disco. Se repuebla
+                    // con lo que de verdad hay y se avisa.
+                    loadGames();
+                    Helpers.GUIRun(() -> {
+                        game_combo.setSelectedIndex(0);
+                        delete_game_button.setEnabled(true);
+                        purge_games_button.setEnabled(true);
+                    });
+                    Helpers.mostrarMensajeError(getContentPane(), Translator.translate("ui.error.error_generico"));
                 }
             });
         } else {

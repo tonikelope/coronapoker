@@ -54,7 +54,13 @@ public class NetClient {
 
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
-    private final LinkedBlockingQueue<String> local_client_socket_reader_queue = new LinkedBlockingQueue<>();
+    // Gemelo cliente del tope de Participant.SOCKET_READER_QUEUE_CAPACITY: sin el, un host
+    // hostil que vomite comandos mas rapido de lo que el cliente los procesa lo tumba por
+    // memoria. Llena, el lector deja de vaciar el socket y la contrapresion de TCP frena al
+    // emisor. Holgadisimo para el juego, donde las rafagas legitimas son de decenas.
+    public static final int SOCKET_READER_QUEUE_CAPACITY = 10000;
+
+    private final LinkedBlockingQueue<String> local_client_socket_reader_queue = new LinkedBlockingQueue<>(SOCKET_READER_QUEUE_CAPACITY);
     // Concurrent: written/read by the consumer thread (containsKey/get/put for GAME
     // command dedup) and clear()-ed by the reader thread on a null-read. A plain
     // HashMap raced across those two threads could corrupt the table during a resize.
@@ -112,6 +118,46 @@ public class NetClient {
 
     public LinkedBlockingQueue<String> getLocal_client_socket_reader_queue() {
         return local_client_socket_reader_queue;
+    }
+
+    /**
+     * Encola lo leido del socket respetando el tope de la cola. Gemelo cliente de
+     * Participant.encolarLeido.
+     *
+     * <p>NO descarta nada mientras la sala siga viva: reintenta cada segundo mientras la cola
+     * este llena, y la contrapresion de TCP hace el resto (el lector deja de vaciar el socket,
+     * su ventana se cierra y el host frena). Un {@code put} a secas hacia lo mismo pero en
+     * silencio y sin salida. Para la senal de cierre NO vale esto: usar {@link #encolarSenalCierre()}.
+     */
+    public void encolarLeido(String mensaje) {
+        try {
+            while (!waiting_room.isExit()) {
+                if (local_client_socket_reader_queue.offer(mensaje, 1, java.util.concurrent.TimeUnit.SECONDS)) {
+                    return;
+                }
+                LOGGER.log(Level.WARNING,
+                        "Client socket reader queue is full ({0}) — waiting for the consumer",
+                        SOCKET_READER_QUEUE_CAPACITY);
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Encola la senal de cierre pase lo que pase. Gemelo cliente de
+     * Participant.encolarSenalCierre.
+     *
+     * <p>Es lo unico que saca al consumidor de su {@code take()}, de donde salen el cierre del
+     * socket y la reconexion. Por eso aqui no se mira la salida de la sala. Si la cola estuviera
+     * llena se hace hueco tirando lo mas viejo: son comandos de una conexion que ya cae y
+     * ninguno importa mas que la propia senal.
+     */
+    public void encolarSenalCierre() {
+        for (int intentos = 0; intentos < SOCKET_READER_QUEUE_CAPACITY
+                && !local_client_socket_reader_queue.offer(WaitingRoomFrame.POISON_PILL); intentos++) {
+            local_client_socket_reader_queue.poll();
+        }
     }
 
     public Map<String, Integer> getCliente_last_received() {

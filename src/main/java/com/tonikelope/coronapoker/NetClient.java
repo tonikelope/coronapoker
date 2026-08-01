@@ -325,6 +325,24 @@ public class NetClient {
         }
     }
 
+    /**
+     * Cierra un socket CONCRETO cuyo write se ha atascado porque el servidor dejo de leer. A
+     * proposito NO toma local_client_socket_lock: ese candado lo retiene justamente el write
+     * bloqueado (writeCommand escribe bajo el), asi que closeClientSocket, que lo necesita, no
+     * podria desatascarlo. close() es thread-safe y despierta el write parado con IOException,
+     * cuya captura fuerza la reconexion. Se cierra la referencia recibida, no
+     * local_client_socket, para no tumbar un socket nuevo que una reconexion instalara entretanto.
+     */
+    public void closeStalledSocket(Socket s) {
+        if (s != null) {
+            try {
+                s.close();
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "closeStalledSocket failed", ex);
+            }
+        }
+    }
+
     // --- Transporte: lectura/escritura cifrada al servidor ---
     // La clase representa el lado cliente, así que el destino/origen es siempre el servidor.
     public void writeCommand(String command) {

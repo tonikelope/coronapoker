@@ -2079,7 +2079,16 @@ public class Helpers {
 
                 Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
-                byte[] full_msg = Base64.getDecoder().decode(cadena);
+                byte[] full_msg;
+
+                try {
+                    full_msg = Base64.getDecoder().decode(cadena);
+                } catch (IllegalArgumentException bad_base64) {
+                    // Cuerpo no descodificable: es un frame que no supera el canal, igual que un
+                    // HMAC malo. Se lanza KeyException para que el lector lo DESCARTE y siga, no
+                    // la RuntimeException, que escaparia hasta el return null (fin de lectura).
+                    throw new KeyException("Undecodable frame body");
+                }
 
                 byte[] hmac = new byte[32];
 
@@ -2088,6 +2097,12 @@ public class Helpers {
                 byte[] cmsg;
 
                 if (hmac_key != null) {
+
+                    if (full_msg.length < hmac.length + iv.length) {
+                        // Frame mas corto que HMAC+IV: mismo criterio, KeyException (descartar el
+                        // frame) en vez de la NegativeArraySizeException del new byte[negativo].
+                        throw new KeyException("Frame shorter than HMAC and IV");
+                    }
 
                     cmsg = new byte[full_msg.length - hmac.length - iv.length];
 
@@ -2112,6 +2127,10 @@ public class Helpers {
                         throw new KeyException("BAD HMAC or BAD KEY");
                     }
                 } else {
+
+                    if (full_msg.length < iv.length) {
+                        throw new KeyException("Frame shorter than IV");
+                    }
 
                     cmsg = new byte[full_msg.length - iv.length];
 
@@ -2226,6 +2245,13 @@ public class Helpers {
 
                 if (hmac_key != null) {
 
+                    if (full_msg.length < hmac.length + iv.length) {
+                        // Frame binario mas corto que HMAC+IV: KeyException (descartar) en vez de
+                        // la NegativeArraySizeException del new byte[negativo]. El gemelo de texto
+                        // hace lo mismo; ver decryptString.
+                        throw new KeyException("Binary frame shorter than HMAC and IV");
+                    }
+
                     cmsg = new byte[full_msg.length - hmac.length - iv.length];
 
                     System.arraycopy(full_msg, 0, hmac, 0, hmac.length);
@@ -2247,6 +2273,10 @@ public class Helpers {
                         throw new KeyException("BAD HMAC or BAD KEY");
                     }
                 } else {
+
+                    if (full_msg.length < iv.length) {
+                        throw new KeyException("Binary frame shorter than IV");
+                    }
 
                     cmsg = new byte[full_msg.length - iv.length];
 

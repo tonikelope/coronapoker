@@ -1928,6 +1928,7 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.threadRun(() -> {
 
             int consecutive_ping_failures = 0;
+            int ping_write_stall_counter = 0;
 
             try {
             while (!exit && WaitingRoomFrame.getInstance() != null) {
@@ -1937,6 +1938,7 @@ public class WaitingRoomFrame extends JFrame {
                 // aplican. Reseteamos antes de enviar el primer PING al socket nuevo.
                 if (net_client.isReset_ping_counters()) {
                     consecutive_ping_failures = 0;
+                    ping_write_stall_counter = 0;
                     net_client.setReset_ping_counters(false);
                 }
 
@@ -1949,8 +1951,39 @@ public class WaitingRoomFrame extends JFrame {
 
                 long pingStartNs = System.nanoTime();
 
+                // El write del PING va a un hilo del pool con plazo, como el gemelo del
+                // anfitrion (Participant.runPingPongThread). writeCommandToServer es SINCRONO y
+                // retiene local_client_socket_lock durante el os.write, asi que si el servidor
+                // deja de leer, ese write cuelga el hilo del latido para siempre y, con el
+                // candado tomado, tambien todo envio y el propio cierre defensivo. Al agotarse
+                // el plazo varias veces seguidas se cierra el socket para que el reader detecte
+                // el null y arranque la reconexion. El socket se captura ANTES y se cierra por
+                // referencia directa (closeStalledSocket), porque closeClientSocket tomaria el
+                // candado que el write atascado retiene; solo se cierra si sigue siendo el socket
+                // vivo, por si una reconexion lo cambio entretanto.
+                java.net.Socket ping_socket = net_client.getLocal_client_socket();
+                java.util.concurrent.Future<?> ping_write;
                 try {
-                    writeCommandToServer("PING#" + ping);
+                    ping_write = Helpers.THREAD_POOL.submit(() -> writeCommandToServer("PING#" + ping));
+                } catch (Exception ex) {
+                    LOGGER.log(Level.SEVERE,
+                            "Error dispatching PING", ex);
+                    break;
+                }
+                try {
+                    ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    ping_write_stall_counter = 0;
+                } catch (java.util.concurrent.TimeoutException ex) {
+                    if (!exit && !net_client.isReconnecting()
+                            && ping_socket != null && ping_socket == net_client.getLocal_client_socket()
+                            && ++ping_write_stall_counter >= MAX_CONSECUTIVE_PING_FAILURES) {
+                        LOGGER.log(Level.SEVERE,
+                                "PING write to server stalled {0} times in a row ({1} ms each) — server not reading; closing socket to force reconnect",
+                                new Object[]{ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
+                        net_client.setPingPongThreadAlive(false);
+                        net_client.closeStalledSocket(ping_socket);
+                        break;
+                    }
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE,
                             "Error dispatching PING", ex);

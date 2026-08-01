@@ -603,6 +603,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // reanudar, que es cuando menos sentido tiene.
     public static final long MESA_PARADA_AVISO_MS = 600000;
     private static final int MESA_PARADA_AVISO_TIMEOUT = 10000;
+    // Techo de reconexion para los deadlines de progreso. Los cinco plazos se REINICIAN mientras
+    // haya reconexion, asi que un peer que reconecta en bucle los mantiene sin vencer y no se le
+    // puede expulsar aunque retenga la mesa. Este techo acota el tiempo NO PAUSADO que la
+    // reconexion puede congelar un plazo: pasado el, el reloj corre y el deadline vence. La pausa
+    // a proposito sigue congelando indefinidamente (empuja el techo, para que no cuente). Holgado
+    // a proposito: una reconexion legitima dura segundos, no diez minutos.
+    public static final long RECON_CHURN_HARD_CAP_MS = 600000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
@@ -1486,6 +1493,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // legítimo lento; al vencer devolvemos null (el peer sigue vivo) y el llamador lo
         // trata como REFUSAL zero-trust -> MISDEAL, igual que la rotación.
         long deadlineMs = System.currentTimeMillis() + REMOTE_CASCADE_RESP_TIMEOUT_MS;
+        long hardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
         boolean ok = false;
         boolean fatalError = false;
         byte[] newDeck = null;
@@ -1586,9 +1594,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return null;
             }
             if (!ok) {
-                // Congela el deadline mientras la timba esté PAUSADA o haya CUALQUIER peer en timeout
-                // (reconexión): ese tiempo no cuenta contra el peer (evita un MISDEAL espurio).
-                if (GameFrame.getInstance().isTimba_pausada() || isSomePlayerTimeout()) {
+                // La pausa a proposito congela indefinidamente (y empuja el techo). La reconexion congela
+                // solo hasta el techo (evita un MISDEAL espurio, pero sin que un peer que reconecta en bucle
+                // mantenga el deadline reiniciado sin que venza nunca).
+                if (GameFrame.getInstance().isTimba_pausada()) {
+                    deadlineMs = System.currentTimeMillis() + REMOTE_CASCADE_RESP_TIMEOUT_MS;
+                    hardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
+                } else if (isSomePlayerTimeout() && System.currentTimeMillis() < hardCapMs) {
                     deadlineMs = System.currentTimeMillis() + REMOTE_CASCADE_RESP_TIMEOUT_MS;
                 }
                 long remainingMs = deadlineMs - System.currentTimeMillis();
@@ -7624,16 +7636,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Participant expel = null;
                 synchronized (lock_nueva_mano) {
                     long deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
+                    long hardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
                     while (!isFin_de_la_transmision()) {
-                        boolean holdDeadline = false;
+                        boolean paused = false;
+                        boolean someTimeout = false;
                         try {
                             // Congela el deadline mientras la timba esté PAUSADA o haya CUALQUIER peer en
                             // timeout (reconexión). Un peer legítimo puede tardar en confirmar HAND_READY
                             // porque está reconectando o rehaciendo un RECOVER, no por retener nada.
-                            holdDeadline = GameFrame.getInstance().isTimba_pausada() || isSomePlayerTimeout();
+                            paused = GameFrame.getInstance().isTimba_pausada();
+                            someTimeout = isSomePlayerTimeout();
                         } catch (Exception ignored) {
                         }
-                        if (holdDeadline) {
+                        // La pausa a proposito congela indefinidamente (y empuja el techo, para que no
+                        // cuente hacia el). La reconexion congela solo hasta el techo: sin el, un peer que
+                        // reconecta en bucle mantendria el deadline reiniciado sin que venza nunca.
+                        if (paused) {
+                            deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
+                            hardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
+                        } else if (someTimeout && System.currentTimeMillis() < hardCapMs) {
                             deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
                         }
                         Participant stalling = null;
@@ -10712,10 +10733,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // waitSyncConfirmations los saque de pendientes y el reparto de recuperación avance. La mesa sigue.
     // NO usa isSomePlayerTimeout(): los llamadores marcan timeout=true a los pendientes justo antes, así que
     // estaría siempre true y el deadline no vencería nunca (mismo bug de interacción que el broadcast).
-    private long expelStalledRecoveryPeers(ArrayList<String> pendientes, long recoverDeadlineMs) {
-        boolean hold;
+    private long[] expelStalledRecoveryPeers(ArrayList<String> pendientes, long recoverDeadlineMs, long recoverHardCapMs) {
+        boolean paused = false;
+        boolean anyPendingReconnecting = false;
         try {
-            boolean anyPendingReconnecting = false;
             for (String pnick : pendientes) {
                 Participant pep = GameFrame.getInstance().getParticipantes().get(pnick);
                 if (pep != null && pep.isSocketDownOrReconnecting()) {
@@ -10723,14 +10744,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     break;
                 }
             }
-            hold = GameFrame.getInstance().isTimba_pausada() || anyPendingReconnecting;
+            paused = GameFrame.getInstance().isTimba_pausada();
         } catch (Exception ignored) {
-            hold = true;
+            // Ante fallo al leer el estado, tratar como reconexion (congelar hasta el techo, no expulsar por error).
+            anyPendingReconnecting = true;
         }
-        if (hold) {
-            return System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
+        long now = System.currentTimeMillis();
+        // La pausa a proposito congela indefinidamente (y empuja el techo). La reconexion de un
+        // pendiente congela solo hasta el techo: sin el, un peer que reconecta en bucle mantendria el
+        // deadline reiniciado y no se le podria expulsar aunque retenga la mesa.
+        if (paused) {
+            return new long[]{now + BROADCAST_PROGRESS_TIMEOUT_MS, now + RECON_CHURN_HARD_CAP_MS};
         }
-        if (System.currentTimeMillis() >= recoverDeadlineMs) {
+        if (anyPendingReconnecting && now < recoverHardCapMs) {
+            return new long[]{now + BROADCAST_PROGRESS_TIMEOUT_MS, recoverHardCapMs};
+        }
+        if (now >= recoverDeadlineMs) {
             for (String nick : new ArrayList<>(pendientes)) {
                 Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
                 if (pp != null && !pp.isExit() && !pp.isCpu()) {
@@ -10746,7 +10775,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         }
-        return recoverDeadlineMs;
+        return new long[]{recoverDeadlineMs, recoverHardCapMs};
     }
 
     public void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
@@ -10756,6 +10785,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
         long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
+        long recoverHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
         do {
             ObjectOutputStream out = null;
             try {
@@ -10791,7 +10821,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
                     }
-                    recoverDeadlineMs = expelStalledRecoveryPeers(pendientes, recoverDeadlineMs);
+                    long[] recoverDl = expelStalledRecoveryPeers(pendientes, recoverDeadlineMs, recoverHardCapMs);
+                    recoverDeadlineMs = recoverDl[0];
+                    recoverHardCapMs = recoverDl[1];
                 }
             } catch (IOException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -10814,6 +10846,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
         long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
+        long recoverHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
         do {
             try {
                 String command = "GAME#" + String.valueOf(id) + "#ACTIONDATA#"
@@ -10844,7 +10877,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
                     }
-                    recoverDeadlineMs = expelStalledRecoveryPeers(pendientes, recoverDeadlineMs);
+                    long[] recoverDl = expelStalledRecoveryPeers(pendientes, recoverDeadlineMs, recoverHardCapMs);
+                    recoverDeadlineMs = recoverDl[0];
+                    recoverHardCapMs = recoverDl[1];
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -11005,6 +11040,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean thinkTimeEnforced = GameFrame.THINK_TIME_ENABLED && actor != null && !actor.isCpu();
         long actionBudgetMs = (long) GameFrame.THINK_TIME * 1000L + 60000L;
         long actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
+        long actionHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
         do {
             ok = false;
 
@@ -11269,7 +11305,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // MISMAS condiciones o expulsaría a un jugador HONESTO que legítimamente espera con su
                     // barra parada (p.ej. otro peer sufre un corte de red durante su turno). Ese tiempo no
                     // cuenta contra el think-time.
-                    if (pausedNow || isSomePlayerTimeout()) {
+                    if (pausedNow) {
+                        actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
+                        actionHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
+                    } else if (isSomePlayerTimeout() && System.currentTimeMillis() < actionHardCapMs) {
                         actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
                     }
                     if (thinkTimeEnforced && System.currentTimeMillis() >= actionDeadlineMs) {
@@ -15596,6 +15635,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // dispara timeouts: el flujo sigue dependiendo de TCP/isExit.
             long broadcastStartMs = System.currentTimeMillis();
             long broadcastDeadlineMs = broadcastStartMs + BROADCAST_PROGRESS_TIMEOUT_MS;
+            long broadcastHardCapMs = broadcastStartMs + RECON_CHURN_HARD_CAP_MS;
             int slowIterCount = 0;
             do {
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
@@ -15659,7 +15699,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // más allá del tope se le EXPULSA (la mesa sigue: al quedar exit se le saca de
                         // pendientes en la siguiente vuelta y el broadcast completa). Un peer caído de verdad
                         // ya sale por isExit (socket muerto). Antes el host reintentaba para siempre.
-                        boolean holdDeadline = false;
+                        boolean paused = false;
+                        boolean anyPendingReconnecting = false;
                         try {
                             // Congela el deadline mientras la timba esté PAUSADA o mientras ALGÚN peer
                             // PENDIENTE esté genuinamente reconectando (socket caído/en reset). NO se usa
@@ -15668,7 +15709,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // SIEMPRE true y el deadline no vencería jamás (bug de interacción con f2db6f7c). El
                             // socket VIVO distingue al que RETIENE (contesta PING, se le expulsa) del que
                             // reconecta (socket muerto, se le respeta su grace).
-                            boolean anyPendingReconnecting = false;
                             for (String pnick : pendientes) {
                                 Participant pep = GameFrame.getInstance().getParticipantes().get(pnick);
                                 if (pep != null && pep.isSocketDownOrReconnecting()) {
@@ -15676,10 +15716,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     break;
                                 }
                             }
-                            holdDeadline = GameFrame.getInstance().isTimba_pausada() || anyPendingReconnecting;
+                            paused = GameFrame.getInstance().isTimba_pausada();
                         } catch (Exception ignored) {
                         }
-                        if (holdDeadline) {
+                        // La pausa a proposito congela indefinidamente (y empuja el techo). La reconexion de un
+                        // pendiente congela solo hasta el techo: sin el, un peer que reconecta en bucle mantendria
+                        // el deadline reiniciado y no se le podria expulsar aunque retenga la mesa.
+                        if (paused) {
+                            broadcastDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
+                            broadcastHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
+                        } else if (anyPendingReconnecting && System.currentTimeMillis() < broadcastHardCapMs) {
                             broadcastDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
                         } else if (System.currentTimeMillis() >= broadcastDeadlineMs) {
                             for (String nick : new ArrayList<>(pendientes)) {

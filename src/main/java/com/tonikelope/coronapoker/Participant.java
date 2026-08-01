@@ -641,62 +641,84 @@ public class Participant implements Runnable {
                     }
 
                     if (!timeout) {
-                        timeout = true;
-                        setPlayerTimeoutSafe(true);
-                        // El lector ya ha tomado el relevo: a partir de aqui es timeout
-                        // quien protege la gracia, asi que la marca del cierre por atasco
-                        // deja de hacer falta y no debe quedarse puesta tapando una salida
-                        // legitima mas adelante.
-                        stall_close_ns = NO_STALL_CLOSE;
-
-                        long graceMs = (resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT;
-                        LOGGER.log(Level.INFO, "PEER: Participant {0} entered TIMEOUT state — waiting {1}ms for reconnect", new Object[]{nick, graceMs});
-
-                        if (!this.force_reset_socket) {
-                            try {
-                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
-                            } catch (Exception ex) {
+                        // El marcado de la caida se hace bajo el MISMO candado con el que
+                        // resetSocket instala el socket nuevo (baja reset_socket y timeout y
+                        // llama setPlayerTimeoutSafe(false), todo bajo este lock). Sin esto el
+                        // lector podia leer reset_socket=false arriba, correr resetSocket entero
+                        // por medio, y marcar la caida (borde magenta + sonido de error) de un
+                        // peer que ya habia vuelto. Comprobar y marcar juntos bajo el lock lo
+                        // hace atomico frente a la reconexion: si esta ya entro, no se marca nada.
+                        boolean reconecto;
+                        synchronized (getParticipant_socket_lock()) {
+                            reconecto = reset_socket;
+                            if (reconecto) {
+                                reset_socket = false;
+                            } else {
+                                timeout = true;
+                                setPlayerTimeoutSafe(true);
+                                // El lector ya ha tomado el relevo: a partir de aqui es timeout
+                                // quien protege la gracia, asi que la marca del cierre por atasco
+                                // deja de hacer falta y no debe quedarse puesta tapando una salida
+                                // legitima mas adelante.
+                                stall_close_ns = NO_STALL_CLOSE;
                             }
                         }
 
-                        // Wait con deadline rearmable: signalReconnectIntent() puede
-                        // elevar grace_deadline_floor durante este wait y el bucle
-                        // recogera la extension en la siguiente iteracion. Asi un
-                        // peer con red lenta que tarda mas que el grace base en
-                        // completar el handshake no es expulsado mientras siga
-                        // demostrando criptograficamente su identidad.
-                        if (!reset_socket) {
-                            long deadline = System.currentTimeMillis() + graceMs;
-                            synchronized (getParticipant_socket_lock()) {
-                                while (!reset_socket && !exit
-                                        && !WaitingRoomFrame.getInstance().isExit()
-                                        && System.currentTimeMillis() < deadline) {
-                                    if (grace_deadline_floor > deadline) {
-                                        LOGGER.log(Level.INFO,
-                                                "PEER: Participant {0} grace extended by authenticated reconnect intent (+{1}ms)",
-                                                new Object[]{nick, grace_deadline_floor - deadline});
-                                        deadline = grace_deadline_floor;
-                                    }
-                                    long remaining = deadline - System.currentTimeMillis();
-                                    if (remaining <= 0) {
-                                        break;
-                                    }
-                                    try {
-                                        getParticipant_socket_lock().wait(remaining);
-                                    } catch (Exception ex) {
-                                    }
+                        if (!reconecto) {
+                            long graceMs = (resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT;
+                            LOGGER.log(Level.INFO, "PEER: Participant {0} entered TIMEOUT state — waiting {1}ms for reconnect", new Object[]{nick, graceMs});
+
+                            // La difusion va FUERA del candado: difundir toma el candado de socket
+                            // de los demas peers, y hacerlo dentro trabaria dos caidas simultaneas
+                            // (cada lector esperando el candado del otro). El re-chequeo de
+                            // reset_socket estrecha la ventana restante: si la reconexion entra
+                            // aqui, no se difunde una caida ya superada (y el latido la curaria).
+                            if (!this.force_reset_socket && !this.reset_socket) {
+                                try {
+                                    GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
+                                } catch (Exception ex) {
                                 }
-                                // Si salimos del grace porque LLEGÓ el reconnect
-                                // (reset_socket=true), consumimos la señal aquí: ya
-                                // cumplió su función (sacarnos de la espera). Si no se
-                                // consume, persiste y el one-shot de arriba se comería
-                                // el primer null del SIGUIENTE drop real como si fuera
-                                // el cierre del socket viejo —retrasando la detección
-                                // de esa caída una iteración del reader—. resetSocket ya
-                                // no depende de reset_socket (usa su 'ok' local), así
-                                // que limpiarlo aquí no afecta a su resultado.
-                                if (reset_socket) {
-                                    reset_socket = false;
+                            }
+
+                            // Wait con deadline rearmable: signalReconnectIntent() puede
+                            // elevar grace_deadline_floor durante este wait y el bucle
+                            // recogera la extension en la siguiente iteracion. Asi un
+                            // peer con red lenta que tarda mas que el grace base en
+                            // completar el handshake no es expulsado mientras siga
+                            // demostrando criptograficamente su identidad.
+                            if (!reset_socket) {
+                                long deadline = System.currentTimeMillis() + graceMs;
+                                synchronized (getParticipant_socket_lock()) {
+                                    while (!reset_socket && !exit
+                                            && !WaitingRoomFrame.getInstance().isExit()
+                                            && System.currentTimeMillis() < deadline) {
+                                        if (grace_deadline_floor > deadline) {
+                                            LOGGER.log(Level.INFO,
+                                                    "PEER: Participant {0} grace extended by authenticated reconnect intent (+{1}ms)",
+                                                    new Object[]{nick, grace_deadline_floor - deadline});
+                                            deadline = grace_deadline_floor;
+                                        }
+                                        long remaining = deadline - System.currentTimeMillis();
+                                        if (remaining <= 0) {
+                                            break;
+                                        }
+                                        try {
+                                            getParticipant_socket_lock().wait(remaining);
+                                        } catch (Exception ex) {
+                                        }
+                                    }
+                                    // Si salimos del grace porque LLEGÓ el reconnect
+                                    // (reset_socket=true), consumimos la señal aquí: ya
+                                    // cumplió su función (sacarnos de la espera). Si no se
+                                    // consume, persiste y el one-shot de arriba se comería
+                                    // el primer null del SIGUIENTE drop real como si fuera
+                                    // el cierre del socket viejo —retrasando la detección
+                                    // de esa caída una iteración del reader—. resetSocket ya
+                                    // no depende de reset_socket (usa su 'ok' local), así
+                                    // que limpiarlo aquí no afecta a su resultado.
+                                    if (reset_socket) {
+                                        reset_socket = false;
+                                    }
                                 }
                             }
                         }

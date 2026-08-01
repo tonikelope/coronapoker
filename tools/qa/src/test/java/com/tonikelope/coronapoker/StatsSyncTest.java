@@ -171,6 +171,29 @@ public class StatsSyncTest {
     }
 
     @Test
+    void import_rejectsOversizedUgi_soManifestNeverBreaks() throws Exception {
+        try (Connection src = mem(); Connection dst = mem()) {
+            // A hostile peer serves a game with a huge ugi (66 KB): it fits the games
+            // codec (writeStr, 8 MB cap) but would blow up every manifestMessage
+            // (out.writeUTF, hard 65535 cap) with UTFDataFormatException, breaking stats
+            // sync persistently. The legitimate ugi is exactly 50 chars (UGI_LENGTH).
+            String bigUgi = "a".repeat(66000);
+            String okUgi = "a".repeat(50);
+            ins(src, "game", "ugi", bigUgi, "local", 0, "start", 1000L, "end", 2000L);
+            ins(src, "game", "ugi", okUgi, "local", 0, "start", 3000L, "end", 4000L);
+
+            byte[] blob = StatsSync.exportGames(src, List.of(bigUgi, okUgi));
+            // Only the canonical game lands; the oversized one is rejected at import.
+            assertEquals(1, StatsSync.importGames(dst, blob));
+            assertEquals(1, count(dst, "game"));
+            assertEquals(okUgi, scalarStr(dst, "SELECT ugi FROM game"));
+
+            // The receiver's manifest builds without throwing (the poison never entered).
+            assertFalse(StatsSync.listShareableUgis(dst, true, java.util.Collections.emptySet()).contains(bigUgi));
+        }
+    }
+
+    @Test
     void manifestDifference_isSetMinus() {
         assertEquals(List.of("b", "c"), StatsSync.difference(List.of("a", "b", "c"), List.of("a", "x")));
         assertEquals(List.of(), StatsSync.difference(List.of("a"), List.of("a", "b")));

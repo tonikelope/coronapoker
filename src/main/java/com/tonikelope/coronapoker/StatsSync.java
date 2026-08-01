@@ -547,6 +547,18 @@ public final class StatsSync {
             LOGGER.log(Level.FINE, "StatsSync: game without ugi skipped (no merge key)");
             return false; // cannot deduplicate without a key
         }
+        // Zero-trust import: el ugi legitimo es exactamente UGI_LENGTH chars
+        // (Crupier lo genera con genRandomString(UGI_LENGTH)). Un peer hostil puede
+        // servir un ugi sobredimensionado: entra por el codec de games (writeStr, tope
+        // 8 MB) pero luego revienta cada manifestMessage (out.writeUTF, tope duro 65535)
+        // con UTFDataFormatException -> rompe el sync de stats de forma persistente
+        // (la fila envenenada sobrevive a reinicios) y se propaga a otros peers por el
+        // host (exportGames tambien usa writeStr). Se rechaza cualquier ugi mas largo
+        // que el canonico antes de que toque la BD.
+        if (ugi.length() > GameFrame.UGI_LENGTH) {
+            LOGGER.log(Level.WARNING, "StatsSync: game with oversized ugi rejected ({0} chars)", ugi.length());
+            return false;
+        }
         if (selectId(conn, "SELECT id FROM game WHERE ugi = ?", ugi) != null) {
             LOGGER.log(Level.FINE, "StatsSync: game already present, skipped (ugi={0})", ugi);
             return false; // idempotent: already have it

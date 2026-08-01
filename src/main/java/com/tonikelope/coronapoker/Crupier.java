@@ -11040,7 +11040,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean thinkTimeEnforced = GameFrame.THINK_TIME_ENABLED && actor != null && !actor.isCpu();
         long actionBudgetMs = (long) GameFrame.THINK_TIME * 1000L + 60000L;
         long actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
-        long actionHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
         do {
             ok = false;
 
@@ -11305,10 +11304,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // MISMAS condiciones o expulsaría a un jugador HONESTO que legítimamente espera con su
                     // barra parada (p.ej. otro peer sufre un corte de red durante su turno). Ese tiempo no
                     // cuenta contra el think-time.
-                    if (pausedNow) {
-                        actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
-                        actionHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
-                    } else if (isSomePlayerTimeout() && System.currentTimeMillis() < actionHardCapMs) {
+                    // ESTE plazo, a diferencia de los otros cuatro, NO lleva techo de reconexion a
+                    // proposito: el cliente del actor congela su reloj de think-time (LocalPlayer.auto_action)
+                    // en las MISMAS condiciones (!isSomePlayerTimeout() && !pausa) y SIN techo, asi que
+                    // ponerle uno aqui rompe la simetria host/cliente que este comentario exige y podria
+                    // expulsar a un actor honesto que espera con la barra parada mientras un tercero reconecta.
+                    if (pausedNow || isSomePlayerTimeout()) {
                         actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
                     }
                     if (thinkTimeEnforced && System.currentTimeMillis() >= actionDeadlineMs) {

@@ -336,4 +336,41 @@ class SocketFramingIntegrationTest {
                     "must not accept a lookalike: " + c);
         }
     }
+
+    @Test
+    @DisplayName("a malformed encrypted ('*') frame is rejected with KeyException, never a RuntimeException")
+    void malformedStarFrameThrowsKeyException() {
+        // A '*' frame routes into decryptString. If its body is not valid Base64, or decodes
+        // to fewer than HMAC(32)+IV(16) bytes, the decrypt used to escape as an
+        // IllegalArgumentException / NegativeArraySizeException instead of KeyException. The
+        // reader only treats KeyException as "drop this frame"; anything else falls through to
+        // its EOF path and tears the connection down, so these must surface as KeyException.
+        String[] malformed = {
+            "*",              // empty body -> 0 bytes < HMAC+IV
+            "*AA==",          // valid Base64 but 1 byte < HMAC+IV
+            "*@@@@",          // characters outside the Base64 alphabet
+            "*ABC",           // length not a multiple of 4, no padding
+        };
+        for (String frame : malformed) {
+            assertThrows(KeyException.class, () -> Helpers.decryptCommand(frame, AES, HMAC),
+                    "malformed '*' frame must be a droppable KeyException: " + frame);
+        }
+    }
+
+    @Test
+    @DisplayName("an injected malformed '*' frame is dropped without breaking the session")
+    void injectedMalformedStarFrameDoesNotBreakTheSession() throws Exception {
+        // The on-path attacker the release cites: inject a single crafted '*' frame. It must
+        // cost that frame, not the connection. The legitimate commands around it have to arrive
+        // untouched and in order, read through the exact production loop (readLikeProduction),
+        // which only swallows KeyException — a RuntimeException here would break the read.
+        writeText("GAME#1#ACTION#before");
+        writeRaw("*@@@notbase64");   // '*' frame with a non-Base64 body
+        writeRaw("*AA==");           // '*' frame whose body decodes shorter than HMAC+IV
+        writeText("GAME#2#ACTION#after");
+
+        assertEquals("GAME#1#ACTION#before", readLikeProduction());
+        assertEquals("GAME#2#ACTION#after", readLikeProduction(),
+                "the session must continue after dropping the malformed frames");
+    }
 }

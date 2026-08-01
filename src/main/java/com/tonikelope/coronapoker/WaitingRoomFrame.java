@@ -1835,12 +1835,7 @@ public class WaitingRoomFrame extends JFrame {
 
                     if (null == partes_comando[0]) {
 
-                        try {
-                            net_client.getLocal_client_socket_reader_queue().put(mensaje_recibido);
-                        } catch (Exception ex) {
-                            LOGGER.log(Level.SEVERE,
-                                    (String) null, ex);
-                        }
+                        net_client.encolarLeido(mensaje_recibido);
                     } else {
                         switch (partes_comando[0]) {
                             // A malformed control frame (PING/PONG/PONG2 without its
@@ -1858,12 +1853,7 @@ public class WaitingRoomFrame extends JFrame {
                                     } catch (NumberFormatException nfe) {
                                     }
                                 }
-                                try {
-                                    net_client.getLocal_client_socket_reader_queue().put(mensaje_recibido);
-                                } catch (InterruptedException ex) {
-                                    System.getLogger(Participant.class.getName())
-                                            .log(System.Logger.Level.ERROR, (String) null, ex);
-                                }
+                                net_client.encolarLeido(mensaje_recibido);
                                 break;
 
                             case "PONG":
@@ -1889,24 +1879,14 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                                 break;
                             default:
-                                try {
-                                    net_client.getLocal_client_socket_reader_queue().put(mensaje_recibido);
-                                } catch (Exception ex) {
-                                    LOGGER.log(Level.SEVERE,
-                                            (String) null, ex);
-                                }
+                                net_client.encolarLeido(mensaje_recibido);
                                 break;
                         }
                     }
 
                 } else {
-                    try {
-                        if (!net_client.getLocal_client_socket_reader_queue().contains(POISON_PILL)) {
-                            net_client.getLocal_client_socket_reader_queue().put(POISON_PILL);
-                        }
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.SEVERE,
-                                (String) null, ex);
+                    if (!net_client.getLocal_client_socket_reader_queue().contains(POISON_PILL)) {
+                        net_client.encolarSenalCierre();
                     }
 
                     // La tabla anti-repeticion NO se vacia aqui. Justo despues de esto viene
@@ -1933,10 +1913,7 @@ public class WaitingRoomFrame extends JFrame {
                     // largo, así que sin este pill el hilo consumidor quedaría colgado
                     // (zombie de teardown).
                     if (exit) {
-                        try {
-                            net_client.getLocal_client_socket_reader_queue().put(POISON_PILL);
-                        } catch (Exception ex) {
-                        }
+                        net_client.encolarSenalCierre();
                     }
                 }
             }

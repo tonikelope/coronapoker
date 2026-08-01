@@ -6750,14 +6750,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // el onLand del vuelo. Destaparlas aqui las mostraba boca
                         // arriba antes de la animacion (solo afectaba al local).
 
-                        // Recovery: symmetric with host branch —
-                        // restore HAND_ID from the map (sent by host) and re-init
-                        // HandStateChain so replay re-absorbs actions with the
-                        // persisted record/sig from the wire.
+                        // ZERO-TRUST RECOVER: el HAND_ID ancla la cadena H_t y es un dato de
+                        // INTEGRIDAD. El cliente lo persistio en su PROPIA SQLite durante la mano
+                        // viva (sqlUpdateHandHandId; el valor vino del MEGAPACKET del host, no del
+                        // host en recover). Se restaura del fosil LOCAL, NO del map que sirve el
+                        // host: un host hostil podia OMITIR hand_id_b64 del map para dejar la cadena
+                        // null y, con la cadena null, la verificacion de la accion propia reproducida
+                        // (firma + binding en siguienteAccionLocalRecuperada) se saltaba y la
+                        // decision/importe que sirve el host se aplicaba en crudo -> forja de la
+                        // accion de la victima. Con el HAND_ID propio, una mano identity SIEMPRE
+                        // reconstruye la cadena y un record ausente/"*" se sintetiza como FOLD. Una
+                        // mano legacy (sin identidad) no tiene HAND_ID persistido -> cadena null
+                        // legitima (modo degradado, igual que antes).
                         try {
-                            Object handIdObj = (map != null) ? map.get("hand_id_b64") : null;
-                            if (handIdObj instanceof String) {
-                                byte[] hid = Base64.getDecoder().decode((String) handIdObj);
+                            String localHandIdB64 = sqlRecoverLocalHandIdB64();
+                            if (localHandIdB64 != null) {
+                                byte[] hid = Base64.getDecoder().decode(localHandIdB64);
                                 if (hid.length == CanonicalActionRecord.HAND_ID_BYTES) {
                                     this.current_hand_id = hid;
                                     initHandStateChain();
@@ -15200,6 +15208,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (java.sql.SQLException ex) {
                 LOGGER.log(Level.SEVERE, "Failed to persist hand_id_b64 for hand " + this.sqlite_id_hand, ex);
             }
+        }
+    }
+
+    /**
+     * ZERO-TRUST RECOVER: reads the base64 HAND_ID of this game's most recent hand
+     * from the LOCAL SQLite. The client persisted this value during the live hand
+     * (sqlUpdateHandHandId; it originally came from the host's MEGAPACKET), so it is
+     * a self-owned integrity value used to re-anchor the H_t chain on recovery
+     * WITHOUT trusting the map the host serves. A hostile host could otherwise omit
+     * hand_id_b64 to leave the chain null and skip verification of the client's own
+     * replayed action. Returns null when the hand carries no HAND_ID (legacy, no
+     * identity) or on error, in which case the chain stays null (degraded legacy mode).
+     */
+    private String sqlRecoverLocalHandIdB64() {
+        synchronized (GameFrame.SQL_LOCK) {
+            String sql = "SELECT hand_id_b64 FROM hand WHERE id=(SELECT max(id) FROM hand WHERE id_game=?)";
+            try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                statement.setQueryTimeout(30);
+                statement.setInt(1, this.sqlite_id_game);
+                try (java.sql.ResultSet rs = statement.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getString("hand_id_b64");
+                    }
+                }
+            } catch (java.sql.SQLException ex) {
+                LOGGER.log(Level.SEVERE, "Failed to read local hand_id_b64 for recovery", ex);
+            }
+            return null;
         }
     }
 

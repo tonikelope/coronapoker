@@ -2153,10 +2153,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // El peer se CAYO o esta RECONECTANDO durante la rotacion (al reconectar mid-cascade
                         // pierde sus scalars SRA efimeros y no puede responder, issue#9). NO es una negativa
                         // maliciosa: MISDEAL SIN acusar ni dar strike, igual que la rama de peer-exit de abajo.
-                        // OJO: no hay ningun control de abuso de reconexiones. El contador que
-                        // se lleva por peer es solo para la telemetria y el indicador de
-                        // enlace, nadie lo usa para echar a nadie, asi que un peer que se
-                        // caiga y vuelva una y otra vez puede repetir esto sin tope.
+                        // El contador de reconexiones que se lleva por peer es solo para la
+                        // telemetria y el indicador de enlace: no interviene en esta decision.
                         LOGGER.log(Level.WARNING,
                                 "Peer {0} unavailable for rotation (drop/reconnect), aborting hand without strike, game continues",
                                 currNick);
@@ -11102,21 +11100,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         // partida, que es el agujero por el que entra una decision
                                                         // falsificada. Mismo trato que una firma que no cuadra.
                                                         //
-                                                        // OJO, LIMITACION CONOCIDA: si a esta maquina no le llego
-                                                        // bien la identidad de ese jugador (un alta con la clave
-                                                        // mal formada se acepta con un simple aviso en el registro),
-                                                        // sus acciones honestas se convierten aqui en retiradas y
-                                                        // esta mesa deja de ir a la par que las demas. Se probo a
-                                                        // apagar la cadena cuando faltara alguna identidad y salio
-                                                        // PEOR: la decision de encenderla pasa a tomarla cada uno
-                                                        // con datos que no comparte, y al que le falte una deja de
-                                                        // verificar NADA en toda la partida, ademas de que sus
-                                                        // propias acciones salen sin firma y se las foldean todos
-                                                        // sin que el se entere. Fallar cerrado y ruidoso es mejor
-                                                        // que fallar abierto y en silencio.
-                                                        //
-                                                        // Lo que hay que arreglar no es esto: es no dar por buena
-                                                        // un alta cuya identidad no cuadra.
+                                                        // Se probo a condicionar el arranque de la cadena a tener
+                                                        // todas las identidades y se revirtio: esa decision se
+                                                        // tomaria con datos que cada peer acumula por su cuenta, no
+                                                        // con los del reparto, y dejaria de ser la misma en todas
+                                                        // las maquinas. Aqui se prefiere el criterio estricto.
                                                         LOGGER.log(Level.SEVERE,
                                                                 "ZERO-TRUST: cannot resolve the signer pubkey for action by {0} while the chain is active — SYNTHESIZING FOLD",
                                                                 jugador.getNickname());

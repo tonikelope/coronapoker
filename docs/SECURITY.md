@@ -154,7 +154,7 @@ Every game command on the wire is wrapped as:
 Base64( HMAC-SHA256(IV || ciphertext, key_hmac)(32) || IV(16) || AES-256-CBC(plaintext, key_aes, IV) )
 ```
 
-PKCS5 padding for the CBC layer. The MAC covers `IV || ciphertext` (encrypt-then-MAC) and is prepended to the frame. On receipt the HMAC is verified **first**. A bad HMAC raises `KeyException` and the receiver drops the frame ([`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java), `decryptCommand`). This blocks ciphertext tampering and replay of frames with mutated IVs.
+PKCS5 padding for the CBC layer. The MAC covers `IV || ciphertext` (encrypt-then-MAC) and is prepended to the frame. On receipt the HMAC is verified **first**. A frame that does not survive the channel raises `KeyException`, whether its HMAC does not match, its body is not valid Base64, or it is too short to hold the MAC and IV. The socket readers treat that `KeyException` as a droppable frame and keep reading, so an on-path attacker who injects a crafted line loses that one line, not the connection ([`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java), `decryptCommand`/`decryptString`). This blocks ciphertext tampering and replay of frames with mutated IVs.
 
 ### 3.3 Session-key identicon
 

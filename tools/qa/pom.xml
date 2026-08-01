@@ -67,6 +67,19 @@
                     <forkCount>0.6C</forkCount>
                     <reuseForks>false</reuseForks>
                     <runOrder>balanced</runOrder>
+                    <!-- Los ficheros *Smoke NO los recoge el patron por defecto, que solo
+                         mira *Test/*Tests/*TestCase, asi que un `mvn test` a secas se
+                         saltaba los dieciocho que hay: no corrian NUNCA salvo que se
+                         invocaran a mano con -Dtest. Se anaden aqui junto a los patrones
+                         de siempre, que hay que repetir porque declarar includes los
+                         sustituye en vez de sumarse. -->
+                    <includes>
+                        <include>**/Test*.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*TestCase.java</include>
+                        <include>**/*Smoke.java</include>
+                    </includes>
                     <!-- Forward the iteration-volume knobs into each fork. When
                          not supplied on the command line these arrive as the
                          literal "${qa.sessions}", which QaConfig parses as

@@ -1209,6 +1209,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile String deferred_straddle_nick = null;   // host: nick del straddler cuyos 2 slots se retuvieron en el reparto (para la cascada diferida); null si no hay
     private volatile int deferred_straddle_slot = -1;        // índice de anillo (active_crypto_ring) del slot del straddler diferido; -1 si no hay
     private volatile String straddle_decision_verified_nick = null; // responder (cada peer): nick del straddler cuya decisión FIRMADA verificó esta mano; el gate de UNLOCK_PHASE_POCKET_STRADDLE exige que el slot pelado sea el suyo
+    private volatile int straddle_decision_verified_value = -1; // valor (NO/POST) de esa decisión FIRMADA; gobierna el importe del straddle en todos los peers (no el STRADDLE_RESULT no firmado del host)
     private volatile byte[] pending_remote_straddle_sig = null; // host: firma de la decisión que el cliente straddler mandó en STRADDLE_RESP (para difundirla como STRADDLE_DECISION y correr la cascada diferida)
     private volatile java.util.List<Player> forced_bet_chip_contributors = null; // jugadores cuyas fichas de forzadas (ciegas/straddle/ante) vuelan al bote al arrancar la mano
     private volatile double bote_sobrante = 0;
@@ -5945,15 +5946,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // protocol_state_lock + notifyAll para despertar a awaitStreetForUnlockPhase (igual que
     // setStreetLocal con la calle). A partir de aquí servirá el UNLOCK_PHASE_POCKET_STRADDLE
     // de ESE straddler (y solo su slot). Idempotente.
-    public void recordVerifiedStraddleDecision(String straddlerNick) {
+    public void recordVerifiedStraddleDecision(String straddlerNick, int decision) {
         synchronized (protocol_state_lock) {
             this.straddle_decision_verified_nick = straddlerNick;
+            this.straddle_decision_verified_value = decision;
             protocol_state_lock.notifyAll();
         }
     }
 
     public String getStraddleDecisionVerifiedNick() {
         return this.straddle_decision_verified_nick;
+    }
+
+    // ZERO-TRUST STRADDLE: espera (sobre protocol_state_lock, despertado por el hilo LECTOR que
+    // procesa STRADDLE_DECISION de forma inmediata) hasta que ESTE peer haya verificado la decisión
+    // FIRMADA del straddler dado, y devuelve su valor (NO/POST). Devuelve null si expira el plazo,
+    // la mano se cierra o hay lockdown. Se usa para que el importe del straddle lo gobierne la firma
+    // del straddler (única y verificable, idéntica en todos los peers) y no el STRADDLE_RESULT no
+    // firmado del host, que un host hostil podría falsear para mover fichas del straddler honesto.
+    private Integer awaitVerifiedStraddleDecisionValue(String straddlerNick, long timeoutMs) {
+        if (straddlerNick == null) {
+            return null;
+        }
+        synchronized (protocol_state_lock) {
+            long deadline = System.currentTimeMillis() + timeoutMs;
+            while (true) {
+                if (isFin_de_la_transmision() || Crupier.SECURITY_LOCKDOWN) {
+                    return null;
+                }
+                if (straddlerNick.equals(this.straddle_decision_verified_nick)) {
+                    return this.straddle_decision_verified_value;
+                }
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    return null;
+                }
+                try {
+                    protocol_state_lock.wait(remaining);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
+        }
     }
 
     public void setRunItTwiceSideB(boolean v) {
@@ -8353,6 +8388,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.deferred_straddle_nick = null;
         this.deferred_straddle_slot = -1;
         this.straddle_decision_verified_nick = null;
+        this.straddle_decision_verified_value = -1;
 
         synchronized (getLock_contabilidad()) {
             if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
@@ -11720,7 +11756,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int decision = Integer.parseInt(partes[4]);
             byte[] sig = Base64.getDecoder().decode(partes[5]);
             if (verifyStraddleDecisionWire(nick, decision, sig)) {
-                recordVerifiedStraddleDecision(nick);
+                recordVerifiedStraddleDecision(nick, decision);
             } else {
                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: invalid STRADDLE_DECISION signature for {0} — not enabling deferred unlock", nick);
             }
@@ -11821,6 +11857,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.deferred_straddle_slot, decision, straddler_sig);
                 } else if (!host && this.straddle_cards_pending && local_is_straddler) {
                     released_ok = awaitDeferredStraddlerCardsClient();
+                }
+            }
+
+            // ZERO-TRUST STRADDLE: para un straddler HUMANO cegado el importe lo gobierna su decisión
+            // FIRMADA (verificada por todos los peers a partir del STRADDLE_DECISION difundido), NO el
+            // STRADDLE_RESULT no firmado del host. Todos los peers convergen en el valor firmado (único
+            // y verificable), así que un host hostil no puede difundir un RESULT que contradiga la firma
+            // para forzar o suprimir el straddle de un jugador honesto y mover 2x la ciega grande de su
+            // stack. Para bots (sin firma) o en recover (repuesto del fósil) blindStraddlerNickThisHand
+            // devuelve null y sigue rigiendo el RESULT.
+            if (fresh && !isFin_de_la_transmision()) {
+                String signedStraddler = blindStraddlerNickThisHand();
+                if (signedStraddler != null) {
+                    Integer signedDecision = awaitVerifiedStraddleDecisionValue(signedStraddler,
+                            STRADDLE_RESULT_WAIT_TIMEOUT * 1000L);
+                    if (signedDecision != null && signedDecision != decision) {
+                        LOGGER.log(Level.SEVERE,
+                                "ZERO-TRUST STRADDLE: el STRADDLE_RESULT ({0}) no coincide con la decisión FIRMADA ({1}) de {2} — se aplica la firmada",
+                                new Object[]{decision, signedDecision, signedStraddler});
+                        decision = signedDecision;
+                    }
+                    // signedDecision == null: no llegó la decisión firmada; las cartas del straddler
+                    // tampoco se desbloquearon -> el guard straddlerStuck del finally hará MISDEAL.
                 }
             }
 
@@ -12361,7 +12420,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE, "Failed to broadcast STRADDLE_DECISION", e);
             return false;
         }
-        recordVerifiedStraddleDecision(straddlerNick);
+        recordVerifiedStraddleDecision(straddlerNick, decision);
         // Cascada diferida (bloquea; los clientes ya vieron STRADDLE_DECISION y sirven el unlock).
         byte[] residue = resolveDeferredStraddlerResidue(straddlerSlot);
         if (residue == null) {

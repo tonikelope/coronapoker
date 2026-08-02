@@ -491,6 +491,49 @@ public final class IdentityManager {
         }
     }
 
+    // ===== SEAT_DRAW commit helpers =====
+
+    private static final byte[] SEATDRAW_DOMAIN = "SEATDRAW\0".getBytes(StandardCharsets.UTF_8);
+
+    /**
+     * Canonical payload signed for a seat-draw commitment: {@code nonce || nick_utf8 || commit(32)}.
+     * The signature proves that THIS peer authored the commitment for THIS draw round (nonce), so
+     * a host relaying the commit set cannot forge or reattribute anyone's commitment. The seed that
+     * decides the seating is a fixed function of every reveal, so the signature — together with the
+     * hash-commit binding — is what stops the host from hand-picking the seats. The domain
+     * "SEATDRAW\0" is applied in sign/verify, not embedded here.
+     */
+    public static byte[] seatCommitPayload(byte[] nonce, String nick, byte[] commit) {
+        if (nonce == null || nonce.length != SeatDraw.NONCE_BYTES) {
+            throw new IllegalArgumentException("nonce must be " + SeatDraw.NONCE_BYTES + " bytes");
+        }
+        if (nick == null || nick.isEmpty()) {
+            throw new IllegalArgumentException("nick must be non-empty");
+        }
+        if (commit == null || commit.length != SeatDraw.COMMIT_BYTES) {
+            throw new IllegalArgumentException("commit must be " + SeatDraw.COMMIT_BYTES + " bytes");
+        }
+        byte[] nickBytes = nick.getBytes(StandardCharsets.UTF_8);
+        byte[] payload = new byte[nonce.length + nickBytes.length + commit.length];
+        System.arraycopy(nonce, 0, payload, 0, nonce.length);
+        System.arraycopy(nickBytes, 0, payload, nonce.length, nickBytes.length);
+        System.arraycopy(commit, 0, payload, nonce.length + nickBytes.length, commit.length);
+        return payload;
+    }
+
+    public byte[] signSeatCommit(byte[] nonce, String nick, byte[] commit) {
+        return sign(SEATDRAW_DOMAIN, seatCommitPayload(nonce, nick, commit));
+    }
+
+    public static boolean verifySeatCommit(byte[] rawPubKey, byte[] nonce, String nick, byte[] commit, byte[] sig) {
+        try {
+            return verify(rawPubKey, SEATDRAW_DOMAIN, seatCommitPayload(nonce, nick, commit), sig);
+        } catch (IllegalArgumentException ex) {
+            LOGGER.log(Level.WARNING, "verifySeatCommit rejected by argument validation: {0}", ex.getMessage());
+            return false;
+        }
+    }
+
     // ===== JOIN_IDENTITY helpers =====
 
     private static final byte[] JOIN_DOMAIN = "JOIN\0".getBytes(StandardCharsets.UTF_8);

@@ -1210,6 +1210,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile int deferred_straddle_slot = -1;        // índice de anillo (active_crypto_ring) del slot del straddler diferido; -1 si no hay
     private volatile String straddle_decision_verified_nick = null; // responder (cada peer): nick del straddler cuya decisión FIRMADA verificó esta mano; el gate de UNLOCK_PHASE_POCKET_STRADDLE exige que el slot pelado sea el suyo
     private volatile int straddle_decision_verified_value = -1; // valor (NO/POST) de esa decisión FIRMADA; gobierna el importe del straddle en todos los peers (no el STRADDLE_RESULT no firmado del host)
+    private volatile int local_signed_straddle_decision = -1; // la decisión que el peer LOCAL firmó esta mano cuando es el straddler; gobierna su propio importe sin depender de que el host difunda el STRADDLE_DECISION
     private volatile byte[] pending_remote_straddle_sig = null; // host: firma de la decisión que el cliente straddler mandó en STRADDLE_RESP (para difundirla como STRADDLE_DECISION y correr la cascada diferida)
     private volatile java.util.List<Player> forced_bet_chip_contributors = null; // jugadores cuyas fichas de forzadas (ciegas/straddle/ante) vuelan al bote al arrancar la mano
     private volatile double bote_sobrante = 0;
@@ -8389,6 +8390,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.deferred_straddle_slot = -1;
         this.straddle_decision_verified_nick = null;
         this.straddle_decision_verified_value = -1;
+        this.local_signed_straddle_decision = -1;
 
         synchronized (getLock_contabilidad()) {
             if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
@@ -11818,6 +11820,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (fresh) {
                     if (local_is_straddler) {
                         decision = promptStraddleLocal(straddler_f);
+                        this.local_signed_straddle_decision = decision; // el host straddler gobierna su propio importe por su firma
                         straddler_sig = signLocalStraddleDecision(decision); // el host firma su propia decisión
                     } else if (straddler instanceof RemotePlayer && ((RemotePlayer) straddler).getBot() != null) {
                         decision = botStraddleDecision(straddler_f); // bot: sin cegado (no hay slot diferido)
@@ -11834,6 +11837,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // en todo caso (y siempre en recover) espero el resultado canónico del host.
                 if (fresh && local_is_straddler) {
                     int myDecision = promptStraddleLocal(straddler_f);
+                    this.local_signed_straddle_decision = myDecision; // gobierna mi propio importe por mi firma, no por el RESULT del host
                     sendStraddleResp(myDecision, signLocalStraddleDecision(myDecision));
                 }
                 decision = waitStraddleResult();
@@ -11870,16 +11874,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (fresh && !isFin_de_la_transmision()) {
                 String signedStraddler = blindStraddlerNickThisHand();
                 if (signedStraddler != null) {
-                    Integer signedDecision = awaitVerifiedStraddleDecisionValue(signedStraddler,
-                            STRADDLE_RESULT_WAIT_TIMEOUT * 1000L);
+                    Integer signedDecision;
+                    if (local_is_straddler) {
+                        // El straddler LOCAL gobierna su importe con la decisión que EL MISMO firmó, sin
+                        // depender de que el host difunda el STRADDLE_DECISION: cuando el straddler es el
+                        // único humano vivo, un host hostil puede desbloquearle las cartas sin difundir esa
+                        // firma (resuelve el residuo con los locks de los bots que controla) y colar un
+                        // STRADDLE_RESULT falso; usar la firma propia cierra ese hueco.
+                        signedDecision = (this.local_signed_straddle_decision >= 0)
+                                ? this.local_signed_straddle_decision : null;
+                    } else {
+                        // Los demás peers aplican la decisión FIRMADA verificada del straddler, difundida en
+                        // STRADDLE_DECISION (única y verificable), no el RESULT no firmado del host.
+                        signedDecision = awaitVerifiedStraddleDecisionValue(signedStraddler,
+                                STRADDLE_RESULT_WAIT_TIMEOUT * 1000L);
+                    }
                     if (signedDecision != null && signedDecision != decision) {
                         LOGGER.log(Level.SEVERE,
                                 "ZERO-TRUST STRADDLE: el STRADDLE_RESULT ({0}) no coincide con la decisión FIRMADA ({1}) de {2} — se aplica la firmada",
                                 new Object[]{decision, signedDecision, signedStraddler});
                         decision = signedDecision;
                     }
-                    // signedDecision == null: no llegó la decisión firmada; las cartas del straddler
-                    // tampoco se desbloquearon -> el guard straddlerStuck del finally hará MISDEAL.
+                    // signedDecision == null: no llegó/registró la decisión firmada; las cartas del
+                    // straddler tampoco se desbloquearon -> el guard straddlerStuck del finally hará MISDEAL.
                 }
             }
 

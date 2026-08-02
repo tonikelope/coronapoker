@@ -59,6 +59,23 @@ public class Init extends javax.swing.JFrame {
                 logo_mod.setVisible(false);
                 Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
                 Helpers.updateFonts(getContentPane(), Helpers.GUI_FONT, null);
+
+                // Esquinas redondeadas de la ventana sin bordes. Se reaplica en
+                // cada resize porque el frame se empaqueta dos veces (aqui y de
+                // nuevo tras fijar el texto del estado), y cada pack cambia el
+                // tamano al que hay que recortar la forma.
+                addComponentListener(new java.awt.event.ComponentAdapter() {
+                    @Override
+                    public void componentResized(java.awt.event.ComponentEvent e) {
+                        // Puramente cosmetico: si la plataforma no admite recortar
+                        // la forma de la ventana, se queda con esquinas rectas pero
+                        // la actualizacion nunca debe verse afectada.
+                        try {
+                            setShape(new java.awt.geom.RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 30, 30));
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                });
             }
         });
     }

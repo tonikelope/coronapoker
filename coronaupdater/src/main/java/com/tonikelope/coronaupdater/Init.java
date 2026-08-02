@@ -66,6 +66,12 @@ public class Init extends javax.swing.JFrame {
                 // se ve dentado de cerca). Debe intentarse ANTES de initComponents:
                 // setBackground translucido exige la ventana aun sin desplegar, e
                 // initComponents anade los componentes a este contentPane.
+                //
+                // setUndecorated se adelanta aqui (initComponents lo repite, y es
+                // idempotente mientras la ventana no este desplegada): setBackground con
+                // alpha exige la ventana ya SIN decorar; si aun estuviera decorada
+                // lanzaria y caeriamos al fallback con el borde dentado.
+                setUndecorated(true);
                 boolean soft_rounded = trySoftRoundedCorners();
 
                 initComponents();
@@ -102,8 +108,12 @@ public class Init extends javax.swing.JFrame {
                     .isWindowTranslucencySupported(java.awt.GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
                 return false;
             }
-            setContentPane(new RoundedContentPane());
+            // setBackground (lo que puede lanzar) va primero: si falla, NO dejamos
+            // instalado el contentPane que enmascara, para que el fallback de setShape
+            // opere sobre el contenido normal (opaco) y no sobre un buffer translucido
+            // pintado en una ventana sin translucidez (eso dejaba el borde negro).
             setBackground(new java.awt.Color(0, 0, 0, 0));
+            setContentPane(new RoundedContentPane());
             return true;
         } catch (Throwable ex) {
             return false;
@@ -132,10 +142,16 @@ public class Init extends javax.swing.JFrame {
                 return;
             }
 
-            // 1. El arbol de componentes, pintado normal (respeta su doble buffer).
+            // 1. El arbol de componentes sobre fondo BLANCO opaco (el updater es una
+            //    tarjeta blanca): asi el pintado antialiased de Nimbus alrededor del
+            //    progress bar se funde con blanco en vez de dejar un halo oscuro al
+            //    componerse sobre pixeles transparentes. Respeta el doble buffer de
+            //    los hijos.
             java.awt.image.BufferedImage content = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
             java.awt.Graphics2D cg = content.createGraphics();
             try {
+                cg.setColor(java.awt.Color.WHITE);
+                cg.fillRect(0, 0, w, h);
                 super.paint(cg);
             } finally {
                 cg.dispose();

@@ -1308,14 +1308,42 @@ public class Participant implements Runnable {
             myGen = ++force_reset_generation;
         }
         Thread wd = new Thread(() -> {
-            Helpers.pausar(GameFrame.CLIENT_RECON_TIMEOUT);
             boolean giveUp = false;
+            // Espera rearmable que honra grace_deadline_floor EXACTAMENTE como el reader
+            // (runSocketReaderThread, la espera de gracia): dormir un plazo FIJO expulsaba a
+            // un peer que, reconectando con su identidad de sesion valida, extendia su gracia
+            // via signalReconnectIntent justo en el borde del plazo — el reader le daba mas
+            // tiempo pero este watchdog lo daba por perdido igual. Ahora ambos comparten el
+            // mismo suelo autenticado. grace_deadline_floor es monotonico, asi que un suelo de
+            // un ciclo anterior nunca extiende este (la base ahora+CLIENT_RECON_TIMEOUT ya lo
+            // supera): solo un intento de reconexion NUEVO de este ciclo puede ampliarlo.
+            //
             // Decisión BAJO el lock: si hay una reconexión en curso, resetSocket tiene el
             // lock y esperamos a que acabe; si tuvo éxito, force_reset_socket ya es false
             // -> no damos el peer por perdido (cierra el boundary race con resetSocket).
             // force_reset_generation==myGen evita que este watchdog actúe sobre un force
             // MÁS NUEVO (doble clic del menú dentro del grace, reconectando ya).
             synchronized (getParticipant_socket_lock()) {
+                long deadline = System.currentTimeMillis() + GameFrame.CLIENT_RECON_TIMEOUT;
+                while (force_reset_socket && !reset_socket && !exit && force_reset_generation == myGen
+                        && System.currentTimeMillis() < deadline) {
+                    if (grace_deadline_floor > deadline) {
+                        deadline = grace_deadline_floor;
+                    }
+                    long remaining = deadline - System.currentTimeMillis();
+                    if (remaining <= 0) {
+                        break;
+                    }
+                    try {
+                        getParticipant_socket_lock().wait(remaining);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+                // Se da por perdido SOLO si el plazo (con sus extensiones autenticadas) venció
+                // y el peer sigue forzado, sin reconectar, sin salir y en la misma generación
+                // de force. Misma condición de siempre, ahora tras respetar el suelo de gracia.
                 if (force_reset_socket && !reset_socket && !exit && force_reset_generation == myGen) {
                     giveUp = true;
                 }

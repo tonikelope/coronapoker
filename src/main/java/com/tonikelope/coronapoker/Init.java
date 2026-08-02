@@ -100,6 +100,7 @@ public class Init extends JFrame {
     private static final int SPLASH_STEP_BAND_HEIGHT = 26;
     private static final int SPLASH_STEP_BOTTOM_MARGIN = 40;
     private static final int SPLASH_STEP_PILL_PADDING = 14;
+    private static final int SPLASH_STEP_FONT_SIZE = 15;
     // Pastilla del naranja del contorno del logo (muestreado del propio gif) con
     // letra blanca: sobre el blanco de la carta, una pastilla clara no se
     // distinguía del fondo.
@@ -1679,7 +1680,12 @@ public class Init extends JFrame {
 
                 g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
                 g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
+
+                // La fuente del juego (McLaren) se carga durante el paso "recursos":
+                // los pasos anteriores caen al SANS_SERIF de siempre, que está
+                // disponible desde el arranque, y los posteriores ya lucen la del juego.
+                Font base_font = (Helpers.GUI_FONT != null) ? Helpers.GUI_FONT : new Font(Font.SANS_SERIF, Font.PLAIN, SPLASH_STEP_FONT_SIZE);
+                g.setFont(base_font.deriveFont(Font.BOLD, (float) SPLASH_STEP_FONT_SIZE));
 
                 java.awt.FontMetrics fm = g.getFontMetrics();
                 int max_text_width = size.width - 2 * SPLASH_STEP_PILL_PADDING - 20;

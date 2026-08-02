@@ -8282,19 +8282,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // nicks_permutados tiene que reflejar a los jugadores recién integrados.
-        ArrayList<String> nicksList = new ArrayList<>(Arrays.asList(this.nicks_permutados));
-        boolean nicksChanged = false;
+        // nicks_permutados tiene que reflejar a los jugadores recién integrados. Se añaden a la COLA,
+        // pero su orden relativo (cuando entran varios a la vez) NO lo decide el host ni el orden de
+        // getJugadores(): se deriva determinísticamente del anillo verificado vigente
+        // (SeatDraw.orderNewcomers), así que todos los peers calculan la misma cola y nadie puede
+        // sesgar el orden de las incorporaciones. La mesa puede parar y entrar/salir gente varias
+        // veces: cada lote se ordena contra el anillo de ese momento, siempre igual en todos los peers.
+        ArrayList<String> currentRing = new ArrayList<>(Arrays.asList(this.nicks_permutados));
+        ArrayList<String> newcomers = new ArrayList<>();
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
-            if (!jugador.isCalentando() && !nicksList.contains(jugador.getNickname())) {
-                nicksList.add(jugador.getNickname());
-                nicksChanged = true;
+            if (!jugador.isCalentando() && !currentRing.contains(jugador.getNickname())) {
+                newcomers.add(jugador.getNickname());
             }
         }
-        if (nicksChanged) {
+        if (!newcomers.isEmpty()) {
+            ArrayList<String> nicksList = new ArrayList<>(currentRing);
+            nicksList.addAll(SeatDraw.orderNewcomers(currentRing, newcomers));
             this.nicks_permutados = nicksList.toArray(new String[0]);
             this.update_game_seats = true;
-            LOGGER.log(Level.INFO, "Updated seating permutations to inject warm-up players into the crypto ring.");
+            LOGGER.log(Level.INFO, "Injected {0} warm-up player(s) into the crypto ring in verifiable order.",
+                    newcomers.size());
         }
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {

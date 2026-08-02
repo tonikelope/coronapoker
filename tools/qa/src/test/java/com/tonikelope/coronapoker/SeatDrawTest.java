@@ -168,6 +168,52 @@ public class SeatDrawTest {
     }
 
     @Test
+    public void newcomerOrderIsDeterministicAndHostIndependent() {
+        List<String> ring = Arrays.asList("alice", "bob", "carol");
+        List<String> batch1 = Arrays.asList("zoe", "yan", "xena");
+        List<String> batch2 = Arrays.asList("xena", "zoe", "yan"); // same set, different input order
+
+        List<String> o1 = SeatDraw.orderNewcomers(ring, batch1);
+        List<String> o2 = SeatDraw.orderNewcomers(ring, batch2);
+
+        // The input order (which the host influences via getJugadores()) must NOT change the result.
+        assertEquals(o1, o2);
+        // Nobody lost, no duplicates.
+        assertEquals(new java.util.HashSet<>(batch1), new java.util.HashSet<>(o1));
+        assertEquals(3, o1.size());
+    }
+
+    @Test
+    public void newcomerOrderIsInvariantToRingRotation() {
+        // Each peer holds the ring rotated to its own pivot; the anchor is canonical, so all peers
+        // derive the SAME tail order for the same newcomers (crypto-ring consistency).
+        List<String> batch = Arrays.asList("zoe", "yan", "xena");
+        List<String> fromPeerA = SeatDraw.orderNewcomers(Arrays.asList("alice", "bob", "carol", "dave"), batch);
+        List<String> fromPeerB = SeatDraw.orderNewcomers(Arrays.asList("carol", "dave", "alice", "bob"), batch);
+        List<String> fromPeerC = SeatDraw.orderNewcomers(Arrays.asList("dave", "alice", "bob", "carol"), batch);
+        assertEquals(fromPeerA, fromPeerB);
+        assertEquals(fromPeerA, fromPeerC);
+
+        // A single newcomer (or none) is trivially stable.
+        assertEquals(Arrays.asList("solo"), SeatDraw.orderNewcomers(Arrays.asList("alice", "bob"), Arrays.asList("solo")));
+        assertTrue(SeatDraw.orderNewcomers(Arrays.asList("alice"), java.util.Collections.emptyList()).isEmpty());
+    }
+
+    @Test
+    public void recoverToleratesBustedPlayerWhoLeft() {
+        // alice, bob, carol, dave sat down; bob busted out and left mid-game. On recover the host's
+        // table no longer has bob, but the client's persisted ring still lists him — and the recovered
+        // order arrives rotated and with a fresh joiner (eve). No reorder of the survivors => consistent.
+        List<String> localRing = Arrays.asList("dave", "alice", "bob", "carol"); // client's own rotation, still has bob
+        List<String> recovered = Arrays.asList("carol", "dave", "alice", "eve"); // bob gone, eve joined, rotated
+        assertTrue(SeatDraw.recoveredSeatingConsistent(localRing, recovered));
+
+        // But if the host ALSO swaps two survivors while bob is gone, that must still be caught.
+        List<String> tampered = Arrays.asList("carol", "alice", "dave", "eve"); // dave/alice cyclic order broken
+        assertFalse(SeatDraw.recoveredSeatingConsistent(localRing, tampered));
+    }
+
+    @Test
     public void recoverSeatingCatchesReordering() {
         List<String> ring = Arrays.asList("alice", "bob", "carol", "dave");
 

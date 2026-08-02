@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -61,6 +62,7 @@ public class SeatDraw {
     // convention already used by the Ed25519 signing domains in IdentityManager.
     private static final byte[] COMMIT_DOMAIN = "SEATCOMMIT\0".getBytes(StandardCharsets.UTF_8);
     private static final byte[] SEED_DOMAIN = "SEATSEED\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] NEWCOMER_DOMAIN = "SEATJOIN\0".getBytes(StandardCharsets.UTF_8);
 
     public static final int NONCE_BYTES = 32;
     public static final int REVEAL_BYTES = 32;
@@ -236,6 +238,60 @@ public class SeatDraw {
             }
         }
         return false;
+    }
+
+    /**
+     * Deterministic, host-independent order for players appended to the TAIL of the ring when they
+     * join mid-game — which can happen many times, in separate batches, as the table pauses and
+     * players come and go. Within a batch the newcomers are sorted by {@code H(anchor || nick)}, where
+     * {@code anchor} is a hash of the CANONICAL (sorted) membership of the current ring. So every peer,
+     * holding the same ring set and the same set of newcomers, computes the same tail order: the host
+     * cannot bias the relative order of who joins, and it is not gameable by choosing a nick (the key
+     * rides on the evolving verified ring). Canonicalizing the anchor makes it invariant to each peer's
+     * private rotation of the ring, and the ring is itself transitively anchored to the commit-reveal
+     * draw. Batches are independent, so a bust-out/leave that shrank the ring earlier simply yields a
+     * different (still unanimous) anchor for the next batch. Returns a fresh list; inputs untouched.
+     */
+    public static List<String> orderNewcomers(List<String> currentRing, List<String> newcomers) {
+        if (newcomers == null) {
+            return new ArrayList<>();
+        }
+        List<String> out = new ArrayList<>(newcomers);
+        if (out.size() <= 1) {
+            return out;
+        }
+        final byte[] anchor = ringAnchor(currentRing);
+        out.sort((a, b) -> {
+            int c = Arrays.compareUnsigned(newcomerKey(anchor, a), newcomerKey(anchor, b));
+            return c != 0 ? c : a.compareTo(b); // tie-break by nick (keys collide only on a hash collision)
+        });
+        return out;
+    }
+
+    private static byte[] ringAnchor(List<String> currentRing) {
+        List<String> canonical = new ArrayList<>(currentRing == null ? Collections.emptyList() : currentRing);
+        Collections.sort(canonical);
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(NEWCOMER_DOMAIN);
+            for (String nick : canonical) {
+                writeLenPrefixed(md, nick.getBytes(StandardCharsets.UTF_8));
+            }
+            return md.digest();
+        } catch (Exception e) {
+            throw new RuntimeException("Newcomer anchor hashing failed", e);
+        }
+    }
+
+    private static byte[] newcomerKey(byte[] anchor, String nick) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(anchor);
+            writeLenPrefixed(md, nick.getBytes(StandardCharsets.UTF_8));
+            return md.digest();
+        } catch (Exception e) {
+            throw new RuntimeException("Newcomer key hashing failed", e);
+        }
     }
 
     private static void writeLenPrefixed(MessageDigest md, byte[] data) {

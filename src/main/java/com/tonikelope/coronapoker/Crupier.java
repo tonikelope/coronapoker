@@ -17252,7 +17252,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     switch (p[2]) {
                         case "SEATS": {
-                            // Legacy / RECOVER path: accept the host's order verbatim.
+                            // Legacy wire — ONLY legitimate on the host's RECOVER path (a fresh game
+                            // always runs commit-reveal via SEAT_DRAW_BEGIN). Accepting a bare SEATS on
+                            // a fresh game would let a hostile host skip commit-reveal entirely and
+                            // dictate the seating (verifyRecoveredSeatsAgainstLocal is a no-op on a
+                            // brand-new client with no persisted ring), so refuse it there and fail fast.
+                            if (!GameFrame.isRECOVER()) {
+                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: received a bare SEATS on a fresh (non-recover) game — a legitimate draw uses SEAT_DRAW_BEGIN; refusing the seating (possible commit-reveal bypass by the host). The game will fail to start rather than accept an unverified seating.");
+                                return null;
+                            }
+                            // RECOVER path: accept the host's order verbatim, cross-checked below.
                             if (p.length >= 4) {
                                 int tot = Integer.valueOf(p[3]);
                                 if (tot >= 0 && (long) p.length >= 4L + tot) {
@@ -17281,17 +17290,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (n < 0 || (long) p.length < 5L + n) {
                                 break;
                             }
+                            ArrayList<String> newRoster = new ArrayList<>();
+                            for (int i = 0; i < n; i++) {
+                                newRoster.add(new String(Base64.getDecoder().decode(p[i + 5]), "UTF-8"));
+                            }
                             if (nonceB64 != null && !newNonceB64.equals(nonceB64)) {
-                                // The host started a NEW draw round after one was already in flight.
-                                warnSeatRedraw(GameFrame.getInstance().getSala_espera().getServer_nick());
+                                // A NEW round after one was already in flight. A restart because a
+                                // contributor left (the roster STRICTLY shrank) is a normal, protocol-
+                                // mandated reaction and must NOT accuse the host — otherwise a single
+                                // hostile client could drop out to defame an honest host. Only a restart
+                                // with the same-or-larger roster is a possible re-roll to bias the seating.
+                                boolean benignShrink = roster != null
+                                        && new HashSet<>(roster).containsAll(newRoster)
+                                        && newRoster.size() < roster.size();
+                                if (benignShrink) {
+                                    LOGGER.log(Level.INFO, "Seat draw restarted with a smaller roster (a contributor left) — re-participating.");
+                                } else {
+                                    warnSeatRedraw(GameFrame.getInstance().getSala_espera().getServer_nick());
+                                }
                             }
                             if (!newNonceB64.equals(nonceB64)) {
                                 nonceB64 = newNonceB64;
                                 nonce = Base64.getDecoder().decode(nonceB64);
-                                roster = new ArrayList<>();
-                                for (int i = 0; i < n; i++) {
-                                    roster.add(new String(Base64.getDecoder().decode(p[i + 5]), "UTF-8"));
-                                }
+                                roster = newRoster;
                                 myReveal = new byte[SeatDraw.REVEAL_BYTES];
                                 Helpers.CSPRNG_GENERATOR.nextBytes(myReveal);
                                 myCommit = SeatDraw.commit(nonce, myNick, myReveal);
@@ -17308,6 +17329,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         case "SEAT_COMMITS": {
                             // p = [GAME, id, SEAT_COMMITS, nonceB64, k, (nickB64, commitB64, sigB64)...]
                             if (nonceB64 == null || p.length < 5 || !p[3].equals(nonceB64)) {
+                                break;
+                            }
+                            // ONE-SHOT per nonce. Once the commit table is pinned (and we have revealed),
+                            // any further SEAT_COMMITS for the SAME nonce is refused: otherwise the host
+                            // could re-pin an ADAPTED commit table after learning every client's reveal,
+                            // then reveal a ground value — defeating the very point of the commit phase.
+                            // The host is now locked to the first table; any reveal not matching it makes
+                            // the SEAT_REVEALS check below abort. commitTable resets only on a new nonce.
+                            if (commitTable != null) {
                                 break;
                             }
                             int k = Integer.valueOf(p[4]);

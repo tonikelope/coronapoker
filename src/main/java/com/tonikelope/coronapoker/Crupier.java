@@ -17220,8 +17220,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ArrayList<String> roster = null;
         LinkedHashMap<String, byte[]> commitTable = null;
 
-        long start_time = System.currentTimeMillis();
-
         while (!isFin_de_la_transmision()) {
 
             ArrayList<String[]> mine = new ArrayList<>();
@@ -17250,7 +17248,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // Legacy / RECOVER path: accept the host's order verbatim.
                             if (p.length >= 4) {
                                 int tot = Integer.valueOf(p[3]);
-                                if (p.length >= 4 + tot) {
+                                if (tot >= 0 && (long) p.length >= 4L + tot) {
                                     String[] permutados = new String[tot];
                                     for (int i = 0; i < tot; i++) {
                                         permutados[i] = new String(Base64.getDecoder().decode(p[i + 4]), "UTF-8");
@@ -17269,7 +17267,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             String newNonceB64 = p[3];
                             int n = Integer.valueOf(p[4]);
-                            if (p.length < 5 + n) {
+                            if (n < 0 || (long) p.length < 5L + n) {
                                 break;
                             }
                             if (nonceB64 != null && !newNonceB64.equals(nonceB64)) {
@@ -17294,7 +17292,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     + "#" + nonceB64
                                     + "#" + Base64.getEncoder().encodeToString(myCommit)
                                     + "#" + encodeSeatSig(mySig));
-                            start_time = System.currentTimeMillis();
                             break;
                         }
                         case "SEAT_COMMITS": {
@@ -17303,7 +17300,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 break;
                             }
                             int k = Integer.valueOf(p[4]);
-                            if (p.length < 5 + 3 * k) {
+                            if (k < 0 || (long) p.length < 5L + 3L * k) {
                                 break;
                             }
                             LinkedHashMap<String, byte[]> table = new LinkedHashMap<>();
@@ -17340,7 +17337,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     + Base64.getEncoder().encodeToString(myNick.getBytes("UTF-8"))
                                     + "#" + nonceB64
                                     + "#" + Base64.getEncoder().encodeToString(myReveal));
-                            start_time = System.currentTimeMillis();
                             break;
                         }
                         case "SEAT_REVEALS": {
@@ -17349,7 +17345,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 break;
                             }
                             int k = Integer.valueOf(p[4]);
-                            if (p.length < 5 + 2 * k) {
+                            if (k < 0 || (long) p.length < 5L + 2L * k) {
                                 break;
                             }
                             LinkedHashMap<String, byte[]> reveals = new LinkedHashMap<>();
@@ -17390,22 +17386,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // Nothing terminal yet — wait, honoring pause and the reception timeout (same shape as the
-            // legacy SEATS wait): if the host never drives the draw the client bails to null and the
-            // caller fails fast rather than hanging forever.
-            if (GameFrame.getInstance().checkPause()) {
-                start_time = System.currentTimeMillis();
-            } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                LOGGER.log(Level.WARNING, "clientSeatDraw timeout — no seat-draw progress from host; bailing (caller fails fast).");
-                return null;
-            } else {
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.received_commands.wait(WAIT_QUEUES);
-                    } catch (InterruptedException ex) {
-                        Helpers.logCooperativeCancellation(LOGGER, "seat draw client wait", ex);
-                        return null;
-                    }
+            // Multi-phase collective wait: NO hard reception timeout. The gap between phases depends
+            // on the slowest peer's contribution, which the host collects with its own generous,
+            // pause-aware deadline — a short client timeout here would tear the whole table down
+            // whenever a single peer was slow to commit/reveal. We wait as long as the transmission is
+            // alive (same shape as the SRA cascade client wait); host death is caught by
+            // isFin_de_la_transmision in the outer condition, and the host's own deadlines guarantee
+            // the draw either advances (fresh SEAT_* wave) or the game cannot start.
+            synchronized (this.getReceived_commands()) {
+                try {
+                    this.received_commands.wait(WAIT_QUEUES);
+                } catch (InterruptedException ex) {
+                    Helpers.logCooperativeCancellation(LOGGER, "seat draw client wait", ex);
+                    return null;
                 }
             }
         }

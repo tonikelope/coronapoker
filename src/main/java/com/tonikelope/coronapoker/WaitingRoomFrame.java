@@ -221,6 +221,15 @@ public class WaitingRoomFrame extends JFrame {
     private volatile String password = null;
     private final java.util.concurrent.atomic.AtomicLong password_version = new java.util.concurrent.atomic.AtomicLong();
     private volatile boolean exit = false;
+    // El host ha iniciado una salida LIMPIA (game over o "detener timba" con
+    // force_recover): llega como GAME#<id>#SERVEREXIT[RECOVER] y el host cierra el
+    // socket justo despues (confirmation=false), asi que el reader ve un null-read
+    // casi de inmediato. Se marca en cuanto el reader LEE ese frame, antes del
+    // null-read, para que este NO lo confunda con una caida de red y dispare una
+    // reconexion espuria: el consumidor conduce el cierre ordenado (finTransmision
+    // -> sala de espera) al desencolar el frame. La reconexion automatica queda solo
+    // para las caidas de red de verdad.
+    private volatile boolean server_graceful_exit = false;
     private volatile StringBuffer chat_text = new StringBuffer();
     private final String background_chat_src;
     private volatile String local_avatar_chat_src;
@@ -1833,6 +1842,16 @@ public class WaitingRoomFrame extends JFrame {
 
                     String[] partes_comando = mensaje_recibido.split("#");
 
+                    // Salida LIMPIA iniciada por el host (game over o "detener timba" con
+                    // force_recover). Llega como GAME#<id>#SERVEREXIT[RECOVER]; el host la
+                    // dispara sin esperar ACK y cierra el socket a continuacion. Marcamos ANTES
+                    // del null-read para que este no la tome por una caida y reconecte: el
+                    // consumidor ya tiene el frame encolado y hara el cierre ordenado.
+                    if ("GAME".equals(partes_comando[0]) && partes_comando.length > 2
+                            && ("SERVEREXIT".equals(partes_comando[2]) || "SERVEREXITRECOVER".equals(partes_comando[2]))) {
+                        server_graceful_exit = true;
+                    }
+
                     if (null == partes_comando[0]) {
 
                         net_client.encolarLeido(mensaje_recibido);
@@ -1898,7 +1917,7 @@ public class WaitingRoomFrame extends JFrame {
                 }
 
                 if (mensaje_recibido == null) {
-                    if (!exit && !timbaTerminada() && ((WaitingRoomFrame.getInstance() != null && !isPartida_empezada())
+                    if (!exit && !server_graceful_exit && !timbaTerminada() && ((WaitingRoomFrame.getInstance() != null && !isPartida_empezada())
                             || (GameFrame.getInstance() != null && !GameFrame.getInstance().getLocalPlayer().isExit()))) {
 
                         if (!reconectarCliente()) {

@@ -61,6 +61,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -16885,132 +16886,661 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private String[] sortearSitios() {
 
-        ArrayList<String> nicks = null;
-
-        String[] permutados = null;
-
         if (GameFrame.getInstance().isPartida_local()) {
 
-            if (!GameFrame.isRECOVER() || (nicks = this.recuperarSorteoSitios()) == null) {
-
-                nicks = new ArrayList<>();
-
-                // Safe iteration over map keys to avoid CME during player drop
-                synchronized (GameFrame.getInstance().getParticipantes()) {
-                    for (String key : GameFrame.getInstance().getParticipantes().keySet()) {
-                        nicks.add(key);
-                    }
-                }
-
-                Collections.shuffle(nicks, Helpers.CSPRNG_GENERATOR);
-            }
-
-            // Comunicamos a todos los participantes el sorteo
-            String command = "SEATS#" + String.valueOf(nicks.size());
-
-            for (String nick : nicks) {
-
-                try {
-                    command += "#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
-                } catch (UnsupportedEncodingException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+            // HOST. On RECOVER with a stored order, reproduce that exact seating (it was already
+            // drawn — and for a fresh game verified — when the table first started): broadcast it
+            // over the legacy SEATS wire and return it verbatim. Otherwise run the verifiable
+            // commit-reveal draw so no peer, host included, can bias the seating.
+            if (GameFrame.isRECOVER()) {
+                ArrayList<String> recovered = this.recuperarSorteoSitios();
+                if (recovered != null) {
+                    broadcastLegacySeats(recovered);
+                    return recovered.toArray(new String[0]);
                 }
             }
 
-            this.broadcastGAMECommandFromServer(command, null);
-
-            permutados = nicks.toArray(new String[0]);
+            return hostSeatDrawCommitReveal();
 
         } else {
 
-            boolean ok;
+            return clientSeatDraw();
+        }
+    }
 
-            long start_time = System.currentTimeMillis();
+    // Legacy one-shot seat broadcast (host -> clients). Kept ONLY for the RECOVER path, where the
+    // seating is reproduced from SQLite rather than drawn afresh. A fresh game never uses this: it
+    // runs the commit-reveal draw whose result every peer derives and verifies independently.
+    private void broadcastLegacySeats(java.util.List<String> order) {
+        String command = "SEATS#" + String.valueOf(order.size());
+        for (String nick : order) {
+            try {
+                command += "#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        }
+        this.broadcastGAMECommandFromServer(command, null);
+    }
 
-            do {
+    // Result codes for the host-side seat-draw response collector below.
+    private static final int SEAT_COLLECT_DONE = 0;
+    private static final int SEAT_COLLECT_ABORT = 1;          // transmission ended — bail to the fatal path
+    private static final int SEAT_COLLECT_ROSTER_CHANGED = 2; // a contributor left/was expelled — restart the draw
 
-                ok = false;
+    /**
+     * HOST side of the verifiable seat draw (commit-reveal randomness beacon). Every human peer
+     * (remote clients + the host itself) contributes a secret reveal; all commitments are fixed
+     * before any reveal is exchanged, and the seating is a deterministic function of the combined
+     * reveals ({@link SeatDraw}). The host cannot hand-pick the seats: its own reveal is locked in
+     * the commit phase and every client re-derives the identical order from the same reveals. Bots
+     * hold no identity key, so they contribute no entropy — they are simply placed by the resulting
+     * permutation, which also fixes the first dealer/blinds (derived from its head).
+     *
+     * <p>If a contributor drops or withholds mid-draw it is pruned/expelled and the round restarts
+     * with a fresh nonce over the reduced roster (bounded). On unrecoverable failure returns null,
+     * which the caller treats as a fatal start error, exactly like a never-arriving legacy SEATS.
+     */
+    private String[] hostSeatDrawCommitReveal() {
 
-                synchronized (this.getReceived_commands()) {
+        final String localNick = GameFrame.getInstance().getNick_local();
+        int restartsLeft = 8;
 
-                    ArrayList<String> rejected = new ArrayList<>();
+        while (true) {
 
-                    while (!ok && !this.getReceived_commands().isEmpty()) {
+            if (isFin_de_la_transmision()) {
+                return null;
+            }
 
-                        String comando = this.received_commands.poll();
-                        try {
-                            String[] partes = comando.split("#");
-
-                            if (partes.length >= 4 && partes[2].equals("SEATS")) {
-
-                                int tot = Integer.valueOf(partes[3]);
-
-                                if (partes.length < 4 + tot) {
-                                    LOGGER.log(Level.WARNING, "SEATS malformed (tot={0} but len={1}): {2}",
-                                            new Object[]{tot, partes.length, comando});
-                                    continue;
-                                }
-
-                                ok = true;
-                                permutados = new String[tot];
-
-                                for (int i = 0; i < tot; i++) {
-
-                                    try {
-                                        permutados[i] = new String(Base64.getDecoder().decode(partes[i + 4]), "UTF-8");
-                                    } catch (UnsupportedEncodingException ex) {
-                                        LOGGER.log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            } else if (partes.length >= 3 && partes[2].equals("SEATS")) {
-                                LOGGER.log(Level.WARNING, "SEATS malformed dropped: {0}", comando);
-                            } else {
-                                rejected.add(comando);
-                            }
-                        } catch (Exception ex) {
-                            LOGGER.log(Level.WARNING, "Exception while processing command in receiveSEATS: " + comando, ex);
-                        }
-
-                    }
-
-                    if (!rejected.isEmpty()) {
-                        this.getReceived_commands().addAll(rejected);
-                        rejected.clear();
-                    }
-
+            // Roster = every current participant (humans + bots). Contributors = live remote humans + host.
+            ArrayList<String> roster = new ArrayList<>();
+            synchronized (GameFrame.getInstance().getParticipantes()) {
+                for (String key : GameFrame.getInstance().getParticipantes().keySet()) {
+                    roster.add(key);
                 }
+            }
+            if (roster.isEmpty()) {
+                LOGGER.log(Level.SEVERE, "hostSeatDrawCommitReveal: empty roster — aborting seat draw");
+                return null;
+            }
 
-                if (!ok) {
+            final ArrayList<String> remoteHumans = liveRemoteHumanNicks();
 
-                    if (GameFrame.getInstance().checkPause()) {
-                        start_time = System.currentTimeMillis();
-                    } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+            final byte[] nonce = new byte[SeatDraw.NONCE_BYTES];
+            Helpers.CSPRNG_GENERATOR.nextBytes(nonce);
+            final String nonceB64 = Base64.getEncoder().encodeToString(nonce);
 
-                        LOGGER.log(Level.WARNING, "sortearSitios timeout — SEATS never arrived from host. Breaking wait; permutados stays null and the caller's iteration will fail fast via the existing fatal-error catch in Crupier.run() instead of hanging indefinitely.");
-                        break;
-                    } else {
-                        synchronized (this.getReceived_commands()) {
+            // Host's own contribution — its reveal is fixed HERE, before any reveal is exchanged.
+            byte[] localReveal = new byte[SeatDraw.REVEAL_BYTES];
+            Helpers.CSPRNG_GENERATOR.nextBytes(localReveal);
+            byte[] localCommit = SeatDraw.commit(nonce, localNick, localReveal);
+            byte[] localSig = signSeatCommitLocal(nonce, localNick, localCommit);
 
-                            try {
-                                this.received_commands.wait(WAIT_QUEUES);
-                            } catch (InterruptedException ex) {
-                                Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
-                                break;
-                            }
-                        }
-                    }
+            final LinkedHashMap<String, byte[]> commits = new LinkedHashMap<>();
+            final HashMap<String, byte[]> sigs = new HashMap<>();
+            commits.put(localNick, localCommit);
+            if (localSig != null) {
+                sigs.put(localNick, localSig);
+            }
+
+            // ---- BEGIN: announce nonce + roster ----
+            broadcastGAMECommandFromServer(buildSeatBeginCmd(nonceB64, roster), null, true);
+
+            // ---- collect commits from remote humans ----
+            final HashSet<String> pendingCommits = new HashSet<>(remoteHumans);
+            int rc = collectSeatResponses("SEAT_COMMIT", pendingCommits, (p) -> {
+                // p = [GAME, id, SEAT_COMMIT, nickB64, nonceB64, commitB64, sigB64]
+                if (p.length < 7) {
+                    return "";
                 }
+                String nick;
+                try {
+                    nick = new String(Base64.getDecoder().decode(p[3]), "UTF-8");
+                } catch (Exception ex) {
+                    return "";
+                }
+                if (!p[4].equals(nonceB64) || !pendingCommits.contains(nick)) {
+                    return "";
+                }
+                byte[] commit;
+                try {
+                    commit = Base64.getDecoder().decode(p[5]);
+                } catch (Exception ex) {
+                    return "";
+                }
+                if (commit.length != SeatDraw.COMMIT_BYTES) {
+                    return "";
+                }
+                byte[] sig = decodeSeatSig(p[6]);
+                byte[] pub = seatContributorPubkey(nick);
+                if (pub != null && sig != null && !IdentityManager.verifySeatCommit(pub, nonce, nick, commit, sig)) {
+                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: invalid seat-commit signature from {0} — dropping", nick);
+                    return "";
+                }
+                commits.put(nick, commit);
+                if (sig != null) {
+                    sigs.put(nick, sig);
+                }
+                return nick;
+            });
+            if (rc == SEAT_COLLECT_ABORT) {
+                return null;
+            }
+            if (rc == SEAT_COLLECT_ROSTER_CHANGED) {
+                if (--restartsLeft < 0) {
+                    LOGGER.log(Level.SEVERE, "hostSeatDrawCommitReveal: too many restarts — aborting seat draw");
+                    return null;
+                }
+                continue;
+            }
 
-            // Guard de salida (ver nota en recibirPosiciones). Si la
-            // transmisión muere el cliente abandona el wait de SEATS
-            // y permutados queda null — el caller debe ser robusto a eso
-            // o el flujo terminar por isFin_de_la_transmision al mirar
-            // el retorno.
-            } while (!ok && !isFin_de_la_transmision());
+            // ---- publish the fixed commit table ----
+            broadcastGAMECommandFromServer(buildSeatCommitsCmd(nonceB64, commits, sigs), null, true);
 
+            // ---- collect reveals ----
+            final LinkedHashMap<String, byte[]> reveals = new LinkedHashMap<>();
+            reveals.put(localNick, localReveal);
+            final HashSet<String> pendingReveals = new HashSet<>(remoteHumans);
+            int rr = collectSeatResponses("SEAT_REVEAL", pendingReveals, (p) -> {
+                // p = [GAME, id, SEAT_REVEAL, nickB64, nonceB64, revealB64]
+                if (p.length < 6) {
+                    return "";
+                }
+                String nick;
+                try {
+                    nick = new String(Base64.getDecoder().decode(p[3]), "UTF-8");
+                } catch (Exception ex) {
+                    return "";
+                }
+                if (!p[4].equals(nonceB64) || !pendingReveals.contains(nick)) {
+                    return "";
+                }
+                byte[] reveal;
+                try {
+                    reveal = Base64.getDecoder().decode(p[5]);
+                } catch (Exception ex) {
+                    return "";
+                }
+                byte[] expected = commits.get(nick);
+                if (expected == null || !SeatDraw.verifyCommit(nonce, nick, reveal, expected)) {
+                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: seat reveal from {0} does not match its commitment — dropping", nick);
+                    return "";
+                }
+                reveals.put(nick, reveal);
+                return nick;
+            });
+            if (rr == SEAT_COLLECT_ABORT) {
+                return null;
+            }
+            if (rr == SEAT_COLLECT_ROSTER_CHANGED) {
+                if (--restartsLeft < 0) {
+                    LOGGER.log(Level.SEVERE, "hostSeatDrawCommitReveal: too many restarts — aborting seat draw");
+                    return null;
+                }
+                continue;
+            }
+
+            // ---- publish reveals + derive the seating (identical on every peer) ----
+            broadcastGAMECommandFromServer(buildSeatRevealsCmd(nonceB64, reveals), null, true);
+
+            byte[] seed = SeatDraw.deriveSeed(nonce, reveals);
+            String[] seated = SeatDraw.deriveOrder(roster, seed);
+            LOGGER.log(Level.INFO, "Seat draw completed via commit-reveal ({0} contributor(s), {1} seat(s))",
+                    new Object[]{reveals.size(), seated.length});
+            return seated;
+        }
+    }
+
+    /**
+     * HOST helper: drains {@code received_commands} collecting {@code cmdName} responses for the
+     * current draw, one per still-pending nick, until every pending nick has answered. {@code accept}
+     * parses/verifies one matching command and returns the nick it consumed (removed from
+     * {@code pending}), or "" to drop it (malformed, stale nonce, unexpected nick, failed
+     * verification — never re-queued, so a bad message can't livelock the loop). Commands of other
+     * types are re-queued untouched.
+     *
+     * <p>Pause-aware progress deadline: while the table is paused the clock freezes. A pending peer
+     * that genuinely left (isExit) prunes the roster; one that stays alive but withholds past the
+     * deadline is expelled. Either way the method returns ROSTER_CHANGED so the caller restarts the
+     * draw over the reduced roster. Returns ABORT if the transmission dies, DONE when pending empties.
+     */
+    private int collectSeatResponses(String cmdName, HashSet<String> pending,
+            java.util.function.Function<String[], String> accept) {
+
+        if (pending.isEmpty()) {
+            return SEAT_COLLECT_DONE;
         }
 
-        return permutados;
+        long deadline = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
+
+        while (!pending.isEmpty()) {
+
+            if (isFin_de_la_transmision()) {
+                return SEAT_COLLECT_ABORT;
+            }
+
+            boolean progressed = false;
+
+            synchronized (this.getReceived_commands()) {
+                ArrayList<String> rejected = new ArrayList<>();
+                while (!this.getReceived_commands().isEmpty()) {
+                    String comando = this.received_commands.poll();
+                    String[] p = comando.split("#");
+                    if (p.length >= 3 && p[2].equals(cmdName)) {
+                        String consumed;
+                        try {
+                            consumed = accept.apply(p);
+                        } catch (Exception ex) {
+                            LOGGER.log(Level.WARNING, "Malformed " + cmdName + " during seat draw", ex);
+                            consumed = "";
+                        }
+                        if (consumed != null && !consumed.isEmpty() && pending.remove(consumed)) {
+                            progressed = true;
+                        }
+                        // consumed=="" (or a non-pending nick) -> dropped, never re-queued.
+                    } else {
+                        rejected.add(comando);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+
+            if (pending.isEmpty()) {
+                break;
+            }
+
+            if (progressed || GameFrame.getInstance().isTimba_pausada()) {
+                deadline = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
+            }
+
+            // A pending contributor that genuinely left prunes the roster -> restart.
+            boolean rosterChanged = false;
+            for (String nick : new ArrayList<>(pending)) {
+                Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
+                if (pp == null || pp.isExit()) {
+                    pending.remove(nick);
+                    rosterChanged = true;
+                }
+            }
+            if (rosterChanged) {
+                return SEAT_COLLECT_ROSTER_CHANGED;
+            }
+
+            if (System.currentTimeMillis() >= deadline) {
+                // Alive but withholding past the deadline -> expel, then restart over the reduced roster.
+                for (String nick : new ArrayList<>(pending)) {
+                    Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
+                    if (pp != null && !pp.isExit() && !pp.isCpu()) {
+                        LOGGER.log(Level.SEVERE,
+                                "ZERO-TRUST DoS: peer {0} withheld {1} past {2}ms during the seat draw — expelling, restarting draw",
+                                new Object[]{nick, cmdName, BROADCAST_PROGRESS_TIMEOUT_MS});
+                        warnMaliciousPeer(nick, "zero_trust.peer_conf_withheld");
+                        pp.markExitAndNotify("withheld seat-draw " + cmdName);
+                        try {
+                            pp.socketClose();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+                return SEAT_COLLECT_ROSTER_CHANGED;
+            }
+
+            synchronized (this.getReceived_commands()) {
+                try {
+                    this.getReceived_commands().wait(WAIT_QUEUES);
+                } catch (InterruptedException ex) {
+                    Helpers.logCooperativeCancellation(LOGGER, "seat draw collect wait", ex);
+                    return SEAT_COLLECT_ABORT;
+                }
+            }
+        }
+
+        return SEAT_COLLECT_DONE;
+    }
+
+    /**
+     * CLIENT side of the seat draw. Waits for either the verifiable commit-reveal round
+     * (SEAT_DRAW_BEGIN -> SEAT_COMMITS -> SEAT_REVEALS) or, on the host's RECOVER path, a legacy
+     * SEATS broadcast. In the commit-reveal round this client contributes its own secret, checks its
+     * commit and reveal survive untouched in the host's relayed bundles, verifies every contributor's
+     * reveal against its commitment, and derives the seating locally — never trusting the host's word
+     * for the order. Returns null (fatal start error) if the transmission dies or the host is caught
+     * tampering.
+     */
+    private String[] clientSeatDraw() {
+
+        final String myNick = GameFrame.getInstance().getNick_local();
+
+        byte[] nonce = null;
+        String nonceB64 = null;
+        byte[] myReveal = null;
+        byte[] myCommit = null;
+        ArrayList<String> roster = null;
+        LinkedHashMap<String, byte[]> commitTable = null;
+
+        long start_time = System.currentTimeMillis();
+
+        while (!isFin_de_la_transmision()) {
+
+            ArrayList<String[]> mine = new ArrayList<>();
+
+            synchronized (this.getReceived_commands()) {
+                ArrayList<String> rejected = new ArrayList<>();
+                while (!this.getReceived_commands().isEmpty()) {
+                    String comando = this.received_commands.poll();
+                    String[] p = comando.split("#");
+                    if (p.length >= 3 && (p[2].equals("SEAT_DRAW_BEGIN") || p[2].equals("SEAT_COMMITS")
+                            || p[2].equals("SEAT_REVEALS") || p[2].equals("SEATS"))) {
+                        mine.add(p);
+                    } else {
+                        rejected.add(comando);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+
+            for (String[] p : mine) {
+                try {
+                    switch (p[2]) {
+                        case "SEATS": {
+                            // Legacy / RECOVER path: accept the host's order verbatim.
+                            if (p.length >= 4) {
+                                int tot = Integer.valueOf(p[3]);
+                                if (p.length >= 4 + tot) {
+                                    String[] permutados = new String[tot];
+                                    for (int i = 0; i < tot; i++) {
+                                        permutados[i] = new String(Base64.getDecoder().decode(p[i + 4]), "UTF-8");
+                                    }
+                                    return permutados;
+                                }
+                                LOGGER.log(Level.WARNING, "SEATS malformed (tot={0} but len={1})",
+                                        new Object[]{tot, p.length});
+                            }
+                            break;
+                        }
+                        case "SEAT_DRAW_BEGIN": {
+                            // p = [GAME, id, SEAT_DRAW_BEGIN, nonceB64, n, rosterNickB64...]
+                            if (p.length < 5) {
+                                break;
+                            }
+                            String newNonceB64 = p[3];
+                            int n = Integer.valueOf(p[4]);
+                            if (p.length < 5 + n) {
+                                break;
+                            }
+                            if (nonceB64 != null && !newNonceB64.equals(nonceB64)) {
+                                // The host started a NEW draw round after one was already in flight.
+                                warnSeatRedraw(GameFrame.getInstance().getSala_espera().getServer_nick());
+                            }
+                            if (!newNonceB64.equals(nonceB64)) {
+                                nonceB64 = newNonceB64;
+                                nonce = Base64.getDecoder().decode(nonceB64);
+                                roster = new ArrayList<>();
+                                for (int i = 0; i < n; i++) {
+                                    roster.add(new String(Base64.getDecoder().decode(p[i + 5]), "UTF-8"));
+                                }
+                                myReveal = new byte[SeatDraw.REVEAL_BYTES];
+                                Helpers.CSPRNG_GENERATOR.nextBytes(myReveal);
+                                myCommit = SeatDraw.commit(nonce, myNick, myReveal);
+                                commitTable = null;
+                            }
+                            byte[] mySig = signSeatCommitLocal(nonce, myNick, myCommit);
+                            sendGAMECommandToServer("SEAT_COMMIT#"
+                                    + Base64.getEncoder().encodeToString(myNick.getBytes("UTF-8"))
+                                    + "#" + nonceB64
+                                    + "#" + Base64.getEncoder().encodeToString(myCommit)
+                                    + "#" + encodeSeatSig(mySig));
+                            start_time = System.currentTimeMillis();
+                            break;
+                        }
+                        case "SEAT_COMMITS": {
+                            // p = [GAME, id, SEAT_COMMITS, nonceB64, k, (nickB64, commitB64, sigB64)...]
+                            if (nonceB64 == null || p.length < 5 || !p[3].equals(nonceB64)) {
+                                break;
+                            }
+                            int k = Integer.valueOf(p[4]);
+                            if (p.length < 5 + 3 * k) {
+                                break;
+                            }
+                            LinkedHashMap<String, byte[]> table = new LinkedHashMap<>();
+                            boolean ok = true;
+                            for (int i = 0; i < k; i++) {
+                                String nick = new String(Base64.getDecoder().decode(p[5 + 3 * i]), "UTF-8");
+                                byte[] commit = Base64.getDecoder().decode(p[5 + 3 * i + 1]);
+                                byte[] sig = decodeSeatSig(p[5 + 3 * i + 2]);
+                                if (commit.length != SeatDraw.COMMIT_BYTES) {
+                                    ok = false;
+                                    break;
+                                }
+                                if (!nick.equals(myNick)) {
+                                    byte[] pub = seatContributorPubkey(nick);
+                                    if (pub != null && sig != null
+                                            && !IdentityManager.verifySeatCommit(pub, nonce, nick, commit, sig)) {
+                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: host relayed an invalid seat-commit signature for {0}", nick);
+                                        ok = false;
+                                        break;
+                                    }
+                                }
+                                table.put(nick, commit);
+                            }
+                            if (!ok) {
+                                return null;
+                            }
+                            byte[] mineInTable = table.get(myNick);
+                            if (mineInTable == null || !Arrays.equals(mineInTable, myCommit)) {
+                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: my seat commitment is missing/altered in the host's commit table — aborting draw");
+                                return null;
+                            }
+                            commitTable = table;
+                            sendGAMECommandToServer("SEAT_REVEAL#"
+                                    + Base64.getEncoder().encodeToString(myNick.getBytes("UTF-8"))
+                                    + "#" + nonceB64
+                                    + "#" + Base64.getEncoder().encodeToString(myReveal));
+                            start_time = System.currentTimeMillis();
+                            break;
+                        }
+                        case "SEAT_REVEALS": {
+                            // p = [GAME, id, SEAT_REVEALS, nonceB64, k, (nickB64, revealB64)...]
+                            if (nonceB64 == null || commitTable == null || p.length < 5 || !p[3].equals(nonceB64)) {
+                                break;
+                            }
+                            int k = Integer.valueOf(p[4]);
+                            if (p.length < 5 + 2 * k) {
+                                break;
+                            }
+                            LinkedHashMap<String, byte[]> reveals = new LinkedHashMap<>();
+                            boolean ok = true;
+                            for (int i = 0; i < k; i++) {
+                                String nick = new String(Base64.getDecoder().decode(p[5 + 2 * i]), "UTF-8");
+                                byte[] reveal = Base64.getDecoder().decode(p[5 + 2 * i + 1]);
+                                byte[] commit = commitTable.get(nick);
+                                if (commit == null || !SeatDraw.verifyCommit(nonce, nick, reveal, commit)) {
+                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: host relayed a seat reveal that does not match its commitment ({0})", nick);
+                                    ok = false;
+                                    break;
+                                }
+                                reveals.put(nick, reveal);
+                            }
+                            if (!ok) {
+                                return null;
+                            }
+                            // Reveals must cover EXACTLY the committed set — a dropped reveal would
+                            // silently shrink the entropy pool that seeds the seating.
+                            if (reveals.size() != commitTable.size() || !reveals.keySet().containsAll(commitTable.keySet())) {
+                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: seat reveal set does not match the commit set — aborting draw");
+                                return null;
+                            }
+                            byte[] mineReveal = reveals.get(myNick);
+                            if (mineReveal == null || !Arrays.equals(mineReveal, myReveal)) {
+                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: my seat reveal is missing/altered in the host's reveal set — aborting draw");
+                                return null;
+                            }
+                            byte[] seed = SeatDraw.deriveSeed(nonce, reveals);
+                            return SeatDraw.deriveOrder(roster, seed);
+                        }
+                        default:
+                            break;
+                    }
+                } catch (Exception ex) {
+                    LOGGER.log(Level.WARNING, "Exception processing seat-draw command " + (p.length > 2 ? p[2] : "?"), ex);
+                }
+            }
+
+            // Nothing terminal yet — wait, honoring pause and the reception timeout (same shape as the
+            // legacy SEATS wait): if the host never drives the draw the client bails to null and the
+            // caller fails fast rather than hanging forever.
+            if (GameFrame.getInstance().checkPause()) {
+                start_time = System.currentTimeMillis();
+            } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                LOGGER.log(Level.WARNING, "clientSeatDraw timeout — no seat-draw progress from host; bailing (caller fails fast).");
+                return null;
+            } else {
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.received_commands.wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
+                        Helpers.logCooperativeCancellation(LOGGER, "seat draw client wait", ex);
+                        return null;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // Live remote human contributors (mirrors the broadcast target set): non-cpu, non-exit peers
+    // other than the host itself. These are the nicks the host waits on for commits and reveals.
+    private ArrayList<String> liveRemoteHumanNicks() {
+        ArrayList<String> out = new ArrayList<>();
+        String localNick = GameFrame.getInstance().getNick_local();
+        Map<String, Participant> map = GameFrame.getInstance().getParticipantes();
+        synchronized (map) {
+            for (Map.Entry<String, Participant> e : map.entrySet()) {
+                Participant pp = e.getValue();
+                if (pp != null && !pp.isCpu() && !pp.isExit() && !pp.getNick().equals(localNick)) {
+                    out.add(pp.getNick());
+                }
+            }
+        }
+        return out;
+    }
+
+    // Ed25519 pubkey to verify a seat contributor's commit signature. Local player -> our own
+    // identity; remote peer -> the pubkey pinned when it joined (TOFU). null if unavailable, in which
+    // case the signature check is skipped and the commit stands on its hash binding + each peer's
+    // self-check (the load-bearing guarantees), mirroring the codebase's graceful-degradation rule.
+    private byte[] seatContributorPubkey(String nick) {
+        if (nick != null && nick.equals(GameFrame.getInstance().getNick_local())) {
+            IdentityManager im = IdentityManager.getInstance();
+            return im.isReady() ? im.getPublicKey() : null;
+        }
+        Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
+        return pp != null ? pp.getIdentity_pubkey() : null;
+    }
+
+    // Signs the local player's seat commitment, or null when identity is not ready (the commit still
+    // stands on its hash binding + each peer's self-check; the signature is defense in depth).
+    private byte[] signSeatCommitLocal(byte[] nonce, String nick, byte[] commit) {
+        try {
+            IdentityManager im = IdentityManager.getInstance();
+            return im.isReady() ? im.signSeatCommit(nonce, nick, commit) : null;
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "signSeatCommit failed", ex);
+            return null;
+        }
+    }
+
+    // A missing signature travels as "-" (Base64 never emits '-'), so a trailing empty field can't be
+    // swallowed by String.split and mistaken for a shorter command.
+    private static String encodeSeatSig(byte[] sig) {
+        return (sig == null || sig.length == 0) ? "-" : Base64.getEncoder().encodeToString(sig);
+    }
+
+    private static byte[] decodeSeatSig(String field) {
+        if (field == null || field.equals("-") || field.isEmpty()) {
+            return null;
+        }
+        try {
+            return Base64.getDecoder().decode(field);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private String buildSeatBeginCmd(String nonceB64, java.util.List<String> roster) {
+        StringBuilder sb = new StringBuilder("SEAT_DRAW_BEGIN#").append(nonceB64).append('#').append(roster.size());
+        for (String nick : roster) {
+            try {
+                sb.append('#').append(Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")));
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        }
+        return sb.toString();
+    }
+
+    private String buildSeatCommitsCmd(String nonceB64, LinkedHashMap<String, byte[]> commits, HashMap<String, byte[]> sigs) {
+        StringBuilder sb = new StringBuilder("SEAT_COMMITS#").append(nonceB64).append('#').append(commits.size());
+        for (Map.Entry<String, byte[]> e : commits.entrySet()) {
+            try {
+                sb.append('#').append(Base64.getEncoder().encodeToString(e.getKey().getBytes("UTF-8")));
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+            sb.append('#').append(Base64.getEncoder().encodeToString(e.getValue()));
+            sb.append('#').append(encodeSeatSig(sigs.get(e.getKey())));
+        }
+        return sb.toString();
+    }
+
+    private String buildSeatRevealsCmd(String nonceB64, LinkedHashMap<String, byte[]> reveals) {
+        StringBuilder sb = new StringBuilder("SEAT_REVEALS#").append(nonceB64).append('#').append(reveals.size());
+        for (Map.Entry<String, byte[]> e : reveals.entrySet()) {
+            try {
+                sb.append('#').append(Base64.getEncoder().encodeToString(e.getKey().getBytes("UTF-8")));
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+            sb.append('#').append(Base64.getEncoder().encodeToString(e.getValue()));
+        }
+        return sb.toString();
+    }
+
+    // CLIENT: the host started a NEW seat-draw round after one was already under way. Commit-reveal
+    // removes the host's ability to silently pick the seating, but it can't stop a host from
+    // re-rolling (aborting a round it dislikes and starting another), so we surface it: a one-time
+    // popup + a red registro line, and a JUL line on EVERY occurrence for the Debug console trail.
+    // Never throws (called from the crupier thread mid-startup).
+    private volatile boolean seat_redraw_warned = false;
+
+    public void warnSeatRedraw(String hostNick) {
+        final String host = (hostNick != null && !hostNick.isEmpty()) ? hostNick : "?";
+        LOGGER.log(Level.WARNING,
+                "ZERO-TRUST: host {0} forced a NEW seat-draw round (commit-reveal restart) — possible re-roll to bias the seating",
+                host);
+        if (seat_redraw_warned) {
+            return;
+        }
+        seat_redraw_warned = true;
+        try {
+            GameFrame.getInstance().getRegistro().print(
+                    Translator.translate("zero_trust.suspicious_alert") + " "
+                    + MessageFormat.format(Translator.translate("zero_trust.seat_redraw"), host));
+        } catch (Exception ignored) {
+        }
+        Helpers.threadRun(() -> {
+            try {
+                Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                        MessageFormat.format(Translator.translate("zero_trust.seat_redraw"), host)
+                        + "\n\n" + Translator.translate("zero_trust.seat_redraw_body"));
+            } catch (Exception ignored) {
+            }
+        });
     }
 
     public double getCiega_grande() {

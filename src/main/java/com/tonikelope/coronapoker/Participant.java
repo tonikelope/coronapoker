@@ -60,7 +60,8 @@ public class Participant implements Runnable {
     // HANDVERIFY y STRADDLE_RESP ya llevaban este guard con case propio; aquí se generaliza.
     private static final java.util.Set<String> NICK_BOUND_SUBCOMMANDS = java.util.Set.of(
             "ACTION", "REBUY", "BUYIN", "RESP_SHOWDOWN_KEY",
-            "DECK_CASCADE_RESP", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP");
+            "DECK_CASCADE_RESP", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP",
+            "SEAT_COMMIT", "SEAT_REVEAL");
 
     // F2 ANTI-DoS: cota de tamaño por comando de texto + token-bucket de frecuencia POR PEER. Los
     // umbrales son ENORMES respecto al tráfico legítimo (un comando de juego real pesa < 10 KB y un

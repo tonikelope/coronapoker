@@ -1681,11 +1681,9 @@ public class Init extends JFrame {
                 g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
                 g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-                // La fuente del juego (McLaren) se carga durante el paso "recursos":
-                // los pasos anteriores caen al SANS_SERIF de siempre, que está
-                // disponible desde el arranque, y los posteriores ya lucen la del juego.
-                Font base_font = (Helpers.GUI_FONT != null) ? Helpers.GUI_FONT : new Font(Font.SANS_SERIF, Font.PLAIN, SPLASH_STEP_FONT_SIZE);
-                g.setFont(base_font.deriveFont(Font.BOLD, (float) SPLASH_STEP_FONT_SIZE));
+                // La fuente del juego se registra al principio del arranque (antes
+                // del primer paso), así que todos los pasos la lucen por igual.
+                g.setFont(Helpers.GUI_FONT.deriveFont(Font.BOLD, (float) SPLASH_STEP_FONT_SIZE));
 
                 java.awt.FontMetrics fm = g.getFontMetrics();
                 int max_text_width = size.width - 2 * SPLASH_STEP_PILL_PADDING - 20;
@@ -1812,6 +1810,11 @@ public class Init extends JFrame {
         EmojiPanel.initClass();
         Helpers.setCoronaLocale();
 
+        // La fuente del juego se registra antes de cantar el primer paso para que
+        // todos los pasos del splash luzcan ya con ella (solo lee un recurso del
+        // jar y lo registra: no depende de la BD ni del CSPRNG que vienen después).
+        Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
+
         splashStep(Translator.translate("splash.base_datos"));
 
         LOGGER.log(Level.INFO, "Loading SQLITE DB...");
@@ -1836,7 +1839,6 @@ public class Init extends JFrame {
 
         splashStep(Translator.translate("splash.recursos"));
 
-        Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
         Helpers.updateCoronaDialogsFont();
 
         Init.MOD = Helpers.loadMOD();

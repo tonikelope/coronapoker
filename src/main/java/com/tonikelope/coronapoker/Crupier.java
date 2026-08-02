@@ -17253,6 +17253,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     for (int i = 0; i < tot; i++) {
                                         permutados[i] = new String(Base64.getDecoder().decode(p[i + 4]), "UTF-8");
                                     }
+                                    // RECOVER: SEATS only ever arrives on the host's recover path (fresh
+                                    // games use commit-reveal). Cross-check it against our own persisted
+                                    // seat ring so a host cannot silently reorder the seating on recover.
+                                    verifyRecoveredSeatsAgainstLocal(permutados);
                                     return permutados;
                                 }
                                 LOGGER.log(Level.WARNING, "SEATS malformed (tot={0} but len={1})",
@@ -17531,6 +17535,64 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Helpers.mostrarMensajeError(GameFrame.getInstance(),
                         MessageFormat.format(Translator.translate("zero_trust.seat_redraw"), host)
                         + "\n\n" + Translator.translate("zero_trust.seat_redraw_body"));
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    // CLIENT (recover): the seating the host reproduces over the legacy SEATS wire on recover must be
+    // consistent with the order THIS client itself derived and persisted when the game started
+    // (game.players in its own SQLite, which for a fresh game came from the verified commit-reveal draw
+    // — not the host's word). Same spirit as the anti-chip-theft balance reconciliation. The check
+    // ignores players who joined or left in between and only flags a reordering of the shared seats
+    // ({@link SeatDraw#recoveredSeatingConsistent}). ADVISORY + fail-safe: never blocks, never throws,
+    // never changes the seating actually used — on a detected reorder it only warns. When there is no
+    // local ring to compare against (brand-new client, unreadable DB) it is a silent no-op.
+    private void verifyRecoveredSeatsAgainstLocal(String[] hostOrder) {
+        try {
+            String stored = this.sqlRecoverGameSeats();
+            if (stored == null || stored.isEmpty()) {
+                return;
+            }
+            ArrayList<String> localRing = new ArrayList<>();
+            for (String b64 : stored.split("#")) {
+                if (b64.isEmpty()) {
+                    continue;
+                }
+                localRing.add(new String(Base64.getDecoder().decode(b64), "UTF-8"));
+            }
+            if (!SeatDraw.recoveredSeatingConsistent(localRing, java.util.Arrays.asList(hostOrder))) {
+                warnSeatTampered(GameFrame.getInstance().getSala_espera().getServer_nick());
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    // CLIENT: the recovered seating from the host reorders players this client already knew — possible
+    // seat tampering on recover. One-time popup + red registro line, and a JUL line on EVERY occurrence
+    // for the Debug console trail. Never throws.
+    private volatile boolean seat_recover_mismatch_warned = false;
+
+    public void warnSeatTampered(String hostNick) {
+        final String host = (hostNick != null && !hostNick.isEmpty()) ? hostNick : "?";
+        LOGGER.log(Level.SEVERE,
+                "ZERO-TRUST: recovered seating from host {0} reorders players I already had — possible seat tampering on recover",
+                host);
+        if (seat_recover_mismatch_warned) {
+            return;
+        }
+        seat_recover_mismatch_warned = true;
+        try {
+            GameFrame.getInstance().getRegistro().print(
+                    Translator.translate("zero_trust.suspicious_alert") + " "
+                    + MessageFormat.format(Translator.translate("zero_trust.seat_recover_mismatch"), host));
+        } catch (Exception ignored) {
+        }
+        Helpers.threadRun(() -> {
+            try {
+                Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                        MessageFormat.format(Translator.translate("zero_trust.seat_recover_mismatch"), host)
+                        + "\n\n" + Translator.translate("zero_trust.seat_recover_mismatch_body"));
             } catch (Exception ignored) {
             }
         });

@@ -47,6 +47,9 @@ public class Init extends javax.swing.JFrame {
     // sin esperar al READ_TIMEOUT.
     public static volatile HttpURLConnection DOWNLOAD_CONNECTION = null;
 
+    // Radio de las esquinas redondeadas de la ventana (px).
+    private static final int CORNER_ARC = 30;
+
     /**
      * Creates new form Init
      */
@@ -55,29 +58,105 @@ public class Init extends javax.swing.JFrame {
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
+
+                // Esquinas redondeadas SUAVES: la ventana se hace translucida
+                // per-pixel y su contenido se recorta a un rectangulo redondeado con
+                // antialiasing (ver RoundedContentPane), de modo que el borde curvo
+                // tenga alpha degradado en vez del recorte de 1 bit de setShape (que
+                // se ve dentado de cerca). Debe intentarse ANTES de initComponents:
+                // setBackground translucido exige la ventana aun sin desplegar, e
+                // initComponents anade los componentes a este contentPane.
+                boolean soft_rounded = trySoftRoundedCorners();
+
                 initComponents();
                 logo_mod.setVisible(false);
                 Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
                 Helpers.updateFonts(getContentPane(), Helpers.GUI_FONT, null);
 
-                // Esquinas redondeadas de la ventana sin bordes. Se reaplica en
-                // cada resize porque el frame se empaqueta dos veces (aqui y de
-                // nuevo tras fijar el texto del estado), y cada pack cambia el
-                // tamano al que hay que recortar la forma.
-                addComponentListener(new java.awt.event.ComponentAdapter() {
-                    @Override
-                    public void componentResized(java.awt.event.ComponentEvent e) {
-                        // Puramente cosmetico: si la plataforma no admite recortar
-                        // la forma de la ventana, se queda con esquinas rectas pero
-                        // la actualizacion nunca debe verse afectada.
-                        try {
-                            setShape(new java.awt.geom.RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 30, 30));
-                        } catch (Throwable ignored) {
+                if (!soft_rounded) {
+                    // Fallback si la plataforma no admite translucidez per-pixel:
+                    // recorte DURO de la forma (borde dentado), reaplicado en cada
+                    // resize porque el frame se empaqueta dos veces (aqui y tras fijar
+                    // el texto de estado). Puramente cosmetico: si tambien falla, se
+                    // queda con esquinas rectas, pero la actualizacion nunca se afecta.
+                    addComponentListener(new java.awt.event.ComponentAdapter() {
+                        @Override
+                        public void componentResized(java.awt.event.ComponentEvent e) {
+                            try {
+                                setShape(new java.awt.geom.RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), CORNER_ARC, CORNER_ARC));
+                            } catch (Throwable ignored) {
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
         });
+    }
+
+    // Activa la ventana translucida per-pixel con el contentPane que enmascara el
+    // contenido a la forma redondeada antialiased. Devuelve false (sin tocar nada) si
+    // la plataforma no admite translucidez per-pixel, para caer al fallback de setShape.
+    private boolean trySoftRoundedCorners() {
+        try {
+            if (!java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
+                    .isWindowTranslucencySupported(java.awt.GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
+                return false;
+            }
+            setContentPane(new RoundedContentPane());
+            setBackground(new java.awt.Color(0, 0, 0, 0));
+            return true;
+        } catch (Throwable ex) {
+            return false;
+        }
+    }
+
+    // ContentPane que pinta su contenido recortado a un rectangulo redondeado con
+    // antialiasing. Se pinta el arbol normal a un buffer (respetando el doble buffer
+    // de los hijos) y luego se compone sobre la forma redondeada con SrcIn: el borde
+    // hereda el alpha suavizado de la forma. Sobre la ventana translucida ese borde
+    // se funde con el fondo = esquinas lisas, sin el dentado de 1 bit de setShape.
+    private static class RoundedContentPane extends javax.swing.JPanel {
+
+        RoundedContentPane() {
+            setOpaque(false);
+        }
+
+        @Override
+        public void paint(java.awt.Graphics g) {
+
+            int w = getWidth();
+            int h = getHeight();
+
+            if (w <= 0 || h <= 0) {
+                super.paint(g);
+                return;
+            }
+
+            // 1. El arbol de componentes, pintado normal (respeta su doble buffer).
+            java.awt.image.BufferedImage content = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            java.awt.Graphics2D cg = content.createGraphics();
+            try {
+                super.paint(cg);
+            } finally {
+                cg.dispose();
+            }
+
+            // 2. La forma redondeada (antialiased) y encima el contenido recortado a
+            //    ella con SrcIn: el borde queda con el alpha suave de la forma.
+            java.awt.image.BufferedImage rounded = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            java.awt.Graphics2D rg = rounded.createGraphics();
+            try {
+                rg.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                rg.setColor(java.awt.Color.WHITE);
+                rg.fill(new java.awt.geom.RoundRectangle2D.Float(0f, 0f, w, h, CORNER_ARC, CORNER_ARC));
+                rg.setComposite(java.awt.AlphaComposite.SrcIn);
+                rg.drawImage(content, 0, 0, null);
+            } finally {
+                rg.dispose();
+            }
+
+            g.drawImage(rounded, 0, 0, null);
+        }
     }
 
     public JProgressBar getProgress_bar() {

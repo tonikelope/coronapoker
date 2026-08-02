@@ -245,9 +245,11 @@ public class SeatDraw {
      * join mid-game — which can happen many times, in separate batches, as the table pauses and
      * players come and go. Within a batch the newcomers are sorted by {@code H(anchor || nick)}, where
      * {@code anchor} is a hash of the CANONICAL (sorted) membership of the current ring. So every peer,
-     * holding the same ring set and the same set of newcomers, computes the same tail order: the host
-     * cannot bias the relative order of who joins, and it is not gameable by choosing a nick (the key
-     * rides on the evolving verified ring). Canonicalizing the anchor makes it invariant to each peer's
+     * holding the same ring set and the same set of newcomers, computes the same tail order and the
+     * host cannot bias the relative order of who joins. The key rides on the evolving verified ring, so
+     * it resists casual gaming; it is not a hard commitment, though — a joiner able to mint arbitrary
+     * identities could grind a nick to shift its own slot AMONG simultaneous co-joiners (never the
+     * existing seats, and never with a single joiner). Canonicalizing the anchor makes it invariant to each peer's
      * private rotation of the ring, and the ring is itself transitively anchored to the commit-reveal
      * draw. Batches are independent, so a bust-out/leave that shrank the ring earlier simply yields a
      * different (still unanimous) anchor for the next batch. Returns a fresh list; inputs untouched.

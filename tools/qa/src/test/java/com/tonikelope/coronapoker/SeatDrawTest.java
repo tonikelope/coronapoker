@@ -152,6 +152,45 @@ public class SeatDrawTest {
     }
 
     @Test
+    public void recoverSeatingAcceptsRotationJoinsAndLeaves() {
+        List<String> ring = Arrays.asList("alice", "bob", "carol", "dave");
+
+        // Identical order -> consistent.
+        assertTrue(SeatDraw.recoveredSeatingConsistent(ring, Arrays.asList("alice", "bob", "carol", "dave")));
+        // Cyclic rotation (each peer stores the ring rotated to its own pivot) -> consistent.
+        assertTrue(SeatDraw.recoveredSeatingConsistent(ring, Arrays.asList("carol", "dave", "alice", "bob")));
+        // A player left (bob) -> tolerated, the rest keep their cyclic order.
+        assertTrue(SeatDraw.recoveredSeatingConsistent(ring, Arrays.asList("carol", "dave", "alice")));
+        // A new player joined (eve) appended -> tolerated (their legitimacy is a join concern).
+        assertTrue(SeatDraw.recoveredSeatingConsistent(ring, Arrays.asList("alice", "bob", "carol", "dave", "eve")));
+        // Joins AND leaves at once, shared players keep cyclic order -> consistent.
+        assertTrue(SeatDraw.recoveredSeatingConsistent(ring, Arrays.asList("carol", "dave", "eve", "alice")));
+    }
+
+    @Test
+    public void recoverSeatingCatchesReordering() {
+        List<String> ring = Arrays.asList("alice", "bob", "carol", "dave");
+
+        // bob and carol swapped -> the shared players' cyclic order is broken -> caught.
+        assertFalse(SeatDraw.recoveredSeatingConsistent(ring, Arrays.asList("alice", "carol", "bob", "dave")));
+        // dave moved next to alice out of cyclic order -> caught.
+        assertFalse(SeatDraw.recoveredSeatingConsistent(ring, Arrays.asList("alice", "dave", "bob", "carol")));
+        // Reordering that survives a join must still be caught (eve joined, but bob/carol swapped).
+        assertFalse(SeatDraw.recoveredSeatingConsistent(ring, Arrays.asList("alice", "carol", "bob", "dave", "eve")));
+    }
+
+    @Test
+    public void recoverSeatingNoOpsWithoutEnoughOverlap() {
+        List<String> ring = Arrays.asList("alice", "bob", "carol");
+        // Not enough local history / empty inputs -> treated as consistent (nothing to judge).
+        assertTrue(SeatDraw.recoveredSeatingConsistent(null, Arrays.asList("alice", "bob")));
+        assertTrue(SeatDraw.recoveredSeatingConsistent(ring, java.util.Collections.emptyList()));
+        assertTrue(SeatDraw.recoveredSeatingConsistent(Arrays.asList("solo"), Arrays.asList("solo", "x")));
+        // Only one shared player -> no relative order to violate -> consistent.
+        assertTrue(SeatDraw.recoveredSeatingConsistent(ring, Arrays.asList("carol", "x", "y")));
+    }
+
+    @Test
     public void nickIsBoundInTheCommit() {
         // The length-prefixed framing binds the nick: "ab" and "a" can never share a commit, so a
         // contributor can't repurpose another's commitment by claiming a differently-split nick.

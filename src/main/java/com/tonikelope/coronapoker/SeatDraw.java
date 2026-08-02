@@ -32,8 +32,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -167,6 +169,73 @@ public class SeatDraw {
             seated[i] = canonical.get(perm[i]);
         }
         return seated;
+    }
+
+    /**
+     * RECOVER tamper check. On recover the host reproduces the seating over the legacy wire and each
+     * client used to accept it blindly. This lets a client cross-check it against its OWN persisted
+     * seat ring (which, for a fresh game, came from this same verified draw — not the host's word), the
+     * way the anti-chip-theft path already reconciles balances.
+     *
+     * <p>The only thing checked is that the players present in BOTH the client's ring and the host's
+     * recovered order keep their <em>cyclic relative order</em> — the host must not swap who sits next
+     * to whom among the seats the client already knew. The comparison is rotation-invariant (each peer
+     * stores the ring rotated to its own pivot, and the recovered order may start at a different seat).
+     * Players who joined after the recover (present only in hostOrder) and players who left (present
+     * only in localRing) are both legitimate and ignored — their legitimacy is a join/identity concern,
+     * not a seating-order one. Returns true when consistent — or when there is not enough overlap to
+     * judge — and false only on a concrete reordering of the shared players.
+     */
+    public static boolean recoveredSeatingConsistent(List<String> localRing, List<String> hostOrder) {
+        if (localRing == null || hostOrder == null || hostOrder.isEmpty() || localRing.size() < 2) {
+            return true;
+        }
+        Set<String> hostSet = new HashSet<>(hostOrder);
+        Set<String> localSet = new HashSet<>(localRing);
+        List<String> localCommon = new ArrayList<>();
+        for (String nick : localRing) {
+            if (hostSet.contains(nick)) {
+                localCommon.add(nick);
+            }
+        }
+        List<String> hostCommon = new ArrayList<>();
+        for (String nick : hostOrder) {
+            if (localSet.contains(nick)) {
+                hostCommon.add(nick);
+            }
+        }
+        if (localCommon.size() < 2) {
+            return true; // not enough overlap to judge relative order
+        }
+        return isCyclicRotation(localCommon, hostCommon);
+    }
+
+    // true iff b is a cyclic rotation of a (same length, same cyclic sequence). Nicks are unique so a
+    // single aligning start is conclusive, but every matching start is tried for safety.
+    private static boolean isCyclicRotation(List<String> a, List<String> b) {
+        int n = a.size();
+        if (n != b.size()) {
+            return false;
+        }
+        if (n == 0) {
+            return true;
+        }
+        for (int start = 0; start < n; start++) {
+            if (!a.get(start).equals(b.get(0))) {
+                continue;
+            }
+            boolean ok = true;
+            for (int i = 0; i < n; i++) {
+                if (!a.get((start + i) % n).equals(b.get(i))) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (ok) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void writeLenPrefixed(MessageDigest md, byte[] data) {

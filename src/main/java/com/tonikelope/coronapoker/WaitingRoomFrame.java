@@ -1666,6 +1666,21 @@ public class WaitingRoomFrame extends JFrame {
                                     start = System.currentTimeMillis();
                                     server_ip_port = net_client.getReconnect_dialog().getIp_port().getText().trim();
 
+                                } else if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT
+                                        && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+
+                                    // En la SALA DE ESPERA (aun sin partida) el bucle de reconexion
+                                    // no tenia estado terminal: el dialogo manual esta gateado por
+                                    // isPartida_empezada (arriba) y aqui no hay estado de juego que
+                                    // preservar ni tiene sentido ese dialogo (sus botones asumen un
+                                    // GameFrame vivo), asi que ante un host caido de forma permanente
+                                    // el cliente giraba sin fin. Pasado el mismo plazo que en partida
+                                    // nos rendimos limpio: exit corta el do-while, el reader encola la
+                                    // senal de cierre y el consumidor vuelve al menu por la via normal
+                                    // (dispose + Init.VENTANA_INICIO), sin System.exit. El toast
+                                    // persistente lo cierra el finally de este metodo.
+                                    exit = true;
+
                                 } else {
 
                                     Helpers.pausar(GameFrame.CLIENT_RECON_ERROR_PAUSE);
@@ -1842,13 +1857,16 @@ public class WaitingRoomFrame extends JFrame {
 
                     String[] partes_comando = mensaje_recibido.split("#");
 
-                    // Salida LIMPIA iniciada por el host (game over o "detener timba" con
-                    // force_recover). Llega como GAME#<id>#SERVEREXIT[RECOVER]; el host la
-                    // dispara sin esperar ACK y cierra el socket a continuacion. Marcamos ANTES
-                    // del null-read para que este no la tome por una caida y reconecte: el
-                    // consumidor ya tiene el frame encolado y hara el cierre ordenado.
-                    if ("GAME".equals(partes_comando[0]) && partes_comando.length > 2
-                            && ("SERVEREXIT".equals(partes_comando[2]) || "SERVEREXITRECOVER".equals(partes_comando[2]))) {
+                    // Salida LIMPIA iniciada por el host: game over o "detener timba" con
+                    // force_recover llegan como GAME#<id>#SERVEREXIT[RECOVER]; la cancelacion de
+                    // la timba (EXIT) y la expulsion de este cliente (KICKED) llegan como comando
+                    // de nivel superior. En los cuatro casos el host cierra el socket sin esperar
+                    // ACK, asi que marcamos ANTES del null-read para que este no lo tome por una
+                    // caida de red y reconecte: el consumidor ya tiene el frame encolado y hara el
+                    // cierre ordenado.
+                    if (("GAME".equals(partes_comando[0]) && partes_comando.length > 2
+                            && ("SERVEREXIT".equals(partes_comando[2]) || "SERVEREXITRECOVER".equals(partes_comando[2])))
+                            || "KICKED".equals(partes_comando[0]) || "EXIT".equals(partes_comando[0])) {
                         server_graceful_exit = true;
                     }
 

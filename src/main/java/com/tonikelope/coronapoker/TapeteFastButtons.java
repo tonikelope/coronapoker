@@ -323,11 +323,24 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
             // para que se detectara la salida y arrancara el plegado.
             menu.setVisible(false);
 
-            if (getPref_size() != getPreferredSize()) {
-                pref_size = getPreferredSize();
+            // El tamano preferido se compara por VALOR (antes con !=, que compara
+            // referencias y por tanto era SIEMPRE distinto). Solo redimensiona/reubica
+            // cuando de verdad cambia.
+            Dimension pref = getPreferredSize();
+            if (!pref.equals(getPref_size())) {
+                pref_size = pref;
                 setSize(pref_size);
                 setLocation(0, (int) (GameFrame.getInstance().getTapete().getHeight() - getSize().getHeight()));
             }
+
+            // Los botones acaban de pasar de invisibles a visibles: hay que relayoutar
+            // (FlowLayout) y repintar SIEMPRE, aunque el tamano preferido no cambie. Sin
+            // esto, el ULTIMO boton del FlowLayout (fullscreen, el mas a la derecha, es el
+            // ultimo add()) podia quedarse sin colocar o a medias hasta un repintado
+            // posterior: aparecia tarde, pintado raro, o no aparecia. Mas visible en modo
+            // ventana, donde el borde derecho de la barra es lo primero que sufre.
+            revalidate();
+            repaint();
         });
 
     }

@@ -3434,16 +3434,32 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.TTS_SERVER = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "PAUSE":
-                                                            // El host avisa al resto de clientes de que alguien pulsó pausa
-                                                            // (o reanudó). Aplicamos el toggle local.
+                                                            // El host es AUTORITATIVO en la coordinacion de pausa: "0" reanuda,
+                                                            // "1" pausa, sin comparar nicks (el asiento de consenso los hace
+                                                            // identicos y atarlo a eso era fragil).
+                                                            //
+                                                            // CLAVE (deadlock): esto se procesa en un hilo APARTE (Helpers.threadRun)
+                                                            // como el manejador del host (Participant), NO en linea en este hilo
+                                                            // consumidor. pauseTimba, cuando lo aplica el PROPIO pausador al recibir
+                                                            // el resume, hace un sendGAMECommandToServer SINCRONO que espera el CONF
+                                                            // del host, y ese CONF lo lee este MISMO hilo consumidor (case "CONF"):
+                                                            // hacerlo en linea autobloqueaba al consumidor esperando un CONF que
+                                                            // solo el podia procesar, y el pausador se quedaba colgado. El threadRun
+                                                            // libera al consumidor para leer el CONF. El check-then-act va bajo
+                                                            // lock_pause, igual que el host.
                                                             try {
-                                                                String pauserNick = (partes_comando.length >= 5)
+                                                                final String[] partes_pause = partes_comando;
+                                                                final String pauser = (partes_comando.length >= 5)
                                                                         ? new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8")
                                                                         : server_nick;
-                                                                if (("0".equals(partes_comando[3]) && GameFrame.getInstance().isTimba_pausada() && pauserNick.equals(GameFrame.getInstance().getNick_pause()))
-                                                                        || ("1".equals(partes_comando[3]) && !GameFrame.getInstance().isTimba_pausada())) {
-                                                                    GameFrame.getInstance().pauseTimba(pauserNick);
-                                                                }
+                                                                Helpers.threadRun(() -> {
+                                                                    synchronized (GameFrame.getInstance().getLock_pause()) {
+                                                                        if (("0".equals(partes_pause[3]) && GameFrame.getInstance().isTimba_pausada())
+                                                                                || ("1".equals(partes_pause[3]) && !GameFrame.getInstance().isTimba_pausada())) {
+                                                                            GameFrame.getInstance().pauseTimba(pauser);
+                                                                        }
+                                                                    }
+                                                                });
                                                             } catch (Exception ex) {
                                                                 LOGGER.log(Level.SEVERE, "Error processing PAUSE", ex);
                                                             }

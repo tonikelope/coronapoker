@@ -298,10 +298,7 @@ mechanisms enforce it:
    `EASY 0%`, EASY plays its river face-up), and HARD-only refinements such as a
    lower value-raise threshold and the MDF bluff-catch.
 
-> Note: earlier releases shipped four levels including a separate `EXPERT`. It was
-> collapsed into three (today's `HARD` *is* the former `EXPERT`) because
-> `EXPERT` and `HARD` were statistically indistinguishable over 10k hands. A
-> legacy `EXPERT` setting in an old saved game maps to `HARD` on recovery.
+> Note: an `EXPERT` difficulty found in a saved game is loaded as `HARD`.
 
 ---
 

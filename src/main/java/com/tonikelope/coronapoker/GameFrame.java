@@ -326,9 +326,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean ANIMACION_REPARTO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
     public static volatile boolean ANIMACION_CIEGAS_DEALER_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_ciegas_dealer", "true"));
     public static volatile boolean ANIMACION_APUESTAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_apuestas", "true"));
-    // Rodaje animado de los contadores numéricos. La pantalla final (BalanceScreen)
-    // NO depende de este flag: su contador se da SIEMPRE.
+    // Rodaje animado de los contadores numéricos VIVOS del juego (stack / bote). La pantalla
+    // final (BalanceScreen) NO depende de este flag: tiene el suyo propio (ANIMACION_CONTADOR_FINAL_PREF).
     public static volatile boolean ANIMACION_CONTADORES_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contadores", "true"));
+    // Recuento animado de la pantalla de FIN DE TIMBA (BalanceScreen). Opcional, ON por defecto. Su
+    // SFX (balance_count.wav) cuelga ademas de este flag, asi que apagar el recuento lo silencia.
+    public static volatile boolean ANIMACION_CONTADOR_FINAL_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contador_final", "true"));
     // Overlay del GIF de barajado (pequeño, MUDO, en bucle) sobre cada RemotePlayer humano
     // mientras procesa SU paso de la cascada SRA — desaparece al pasar al siguiente. Como la
     // cascada es secuencial y su paso remoto es una llamada bloqueante, el overlay dura EXACTO
@@ -531,6 +534,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean contadoresAnimOn() {
         return ANIMACIONES && ANIMACION_CONTADORES_PREF;
+    }
+
+    // Recuento animado de la pantalla de fin de timba. Su SFX (balance_count.wav) cuelga de este
+    // gate ADEMAS de conteoSonidoOn, asi que apagar el recuento silencia tambien su sonido.
+    public static boolean contadorFinalAnimOn() {
+        return ANIMACIONES && ANIMACION_CONTADOR_FINAL_PREF;
     }
 
     // La cascada SRA es un subajuste del BARAJADO: solo aplica si el barajado está activo.

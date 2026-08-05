@@ -104,7 +104,10 @@ public class RollingCounter {
                 : Math.max(min_ms, Math.min(max_ms, Math.round(dist / speed * 1000.0)));
 
         if (timer == null) {
-            timer = new javax.swing.Timer(16, (e) -> tick());
+            // Mismo tick fijo que el resto de animaciones del juego (GameFrame.getTickMs,
+            // 2 ms): la interpolacion es por TIEMPO (p = elapsed/leg_dur_ms), asi que un
+            // tick mas fino solo suaviza, no acelera ni cambia la duracion del tramo.
+            timer = new javax.swing.Timer(GameFrame.getTickMs(), (e) -> tick());
         }
         if (!timer.isRunning()) {
             timer.start();

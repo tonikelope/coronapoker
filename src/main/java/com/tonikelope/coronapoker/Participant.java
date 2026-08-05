@@ -1687,7 +1687,17 @@ public class Participant implements Runnable {
                                             GameFrame.getInstance().getCrupier().RABBIT_HANDLER(nick, Integer.parseInt(partes_comando[4]));
                                             break;
                                         case "REBUYNOW":
-                                            GameFrame.getInstance().getCrupier().rebuyNow(nick, Integer.parseInt(partes_comando[3]));
+                                            // En hilo aparte, como PAUSE/SHOWCARDS: rebuyNow (rama host) hace un
+                                            // broadcastGAMECommandFromServer CON confirmacion, que BLOQUEA a ESTE
+                                            // hilo lector esperando los CONF de los clientes; y esos CONF los lee
+                                            // este MISMO hilo (case "CONF" arriba). Ademas rebuyNow retiene
+                                            // lock_rebuynow durante todo el broadcast. En linea, dos rebuys casi a
+                                            // la vez se autobloquean en cruz: el lector de X, dentro del broadcast
+                                            // de X con el lock tomado, espera el CONF de Y; el lector de Y esta
+                                            // bloqueado en lock_rebuynow y nunca lee ese CONF -> deadlock que cuelga
+                                            // la timba (misma clase que la pausa). Sacarlo del lector lo cierra.
+                                            final int rebuy_buyin = Integer.parseInt(partes_comando[3]);
+                                            Helpers.threadRun(() -> GameFrame.getInstance().getCrupier().rebuyNow(nick, rebuy_buyin));
                                             break;
                                         case "SHOWCARDS":
                                             Helpers.threadRun(() -> {

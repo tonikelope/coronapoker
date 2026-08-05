@@ -60,7 +60,7 @@ const phases = [
   ]},
 
   { title:'PHASE 0b · Verifiable seat draw — commit-reveal randomness beacon  (ONCE at game start, before the first hand)', c:P.p0, items:[
-    note('all','The host USED to shuffle the seats locally and broadcast SEATS, which everyone accepted blindly, so a hostile host could hand-pick the seating and with it the first dealer + blinds (both derived from the permutation head). Replaced by a commit-reveal beacon: every human (clients + HOST) contributes a secret, ALL are committed before ANY is revealed, and the seated order is a fixed function of the combined reveals. No one, host included, can bias it; each peer derives the same order and verifies it. Bots do not contribute.'),
+    note('all','Seating — and with it the first dealer + blinds, both taken from the head of the permutation — is fixed by a commit-reveal beacon: every human (clients + HOST) contributes a 32 B secret, ALL committed before ANY is revealed, and the seated order is a fixed function of the combined reveals. No participant, host included, can bias it; each peer derives the same order and verifies it. Bots do not contribute.'),
     bc('SEAT_DRAW_BEGIN','nonce (32 B) ‖ N ‖ roster · opens the draw (with confirmation)'),
     m('C1','H','SEAT_COMMIT','nick ‖ nonce ‖ commit ‖ Ed25519 sig «SEATDRAW» · commit = SHA-256(«SEATCOMMIT\\0» ‖ nonce ‖ len(nick) ‖ nick ‖ r): hides r, binds it'),
     m('C2','H','SEAT_COMMIT','nick ‖ nonce ‖ commit ‖ sig   (the HOST commits its own secret too)'),
@@ -69,7 +69,7 @@ const phases = [
     m('C2','H','SEAT_REVEAL','nick ‖ nonce ‖ r'),
     bc('SEAT_REVEALS','bundle of EVERY reveal'),
     note('all','Each peer INDEPENDENTLY: (1) verifyCommit every reveal against its commit + checks its OWN commit and reveal survived intact in the bundles; (2) seed = SHA-512(«SEATSEED\\0» ‖ nonce ‖ per nick ASC: len(nick) ‖ nick ‖ r)[0..48]; (3) seated order = DeterministicShuffle over the CANONICALLY sorted roster with that seed. Same reveals ⇒ byte-identical order everywhere. First dealer + blinds = head of the permutation.'),
-    note('all','RECOVER: the host replays the seating over the legacy SEATS# — accepted ONLY when isRECOVER (a fresh game REFUSES it, forcing the commit-reveal). Each client cross-checks it against its OWN persisted seat ring (recoveredSeatingConsistent: the shared players must keep their cyclic order) → warnSeatTampered on a real reorder. Mid-game joiners are appended host-independently by orderNewcomers = sort by H(«SEATJOIN\\0» ‖ canonical ring ‖ nick).'),
+    note('all','RECOVER: the host replays the seating over SEATS# — accepted ONLY when isRECOVER (a fresh game REFUSES it, forcing the commit-reveal). Each client cross-checks it against its OWN persisted seat ring (recoveredSeatingConsistent: the shared players must keep their cyclic order) → warnSeatTampered on a real reorder. Mid-game joiners are appended host-independently by orderNewcomers = sort by H(«SEATJOIN\\0» ‖ canonical ring ‖ nick).'),
     note('all','Residual (accepted but DETECTED): the host may abort a round and re-roll; a new nonce over an equal/larger roster raises warnSeatRedraw (popup + registro + Debug).'),
   ]},
 

@@ -3236,9 +3236,17 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "REBUYNOW":
+                                                            // En hilo aparte, espejo del lado host: rebuyNow retiene
+                                                            // lock_rebuynow, y el rebuy PROPIO (rama cliente, EDT) lo
+                                                            // retiene durante un envio SINCRONO que espera el CONF del
+                                                            // host, CONF que lee ESTE hilo consumidor. Si el consumidor
+                                                            // atendiera en linea un REBUYNOW entrante de otro jugador,
+                                                            // se bloquearia en lock_rebuynow y no leeria el CONF del
+                                                            // rebuy propio -> autobloqueo (misma clase que la pausa).
                                                             try {
                                                                 String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                GameFrame.getInstance().getCrupier().rebuyNow(rbNick, Integer.parseInt(partes_comando[4]));
+                                                                int rbBuyin = Integer.parseInt(partes_comando[4]);
+                                                                Helpers.threadRun(() -> GameFrame.getInstance().getCrupier().rebuyNow(rbNick, rbBuyin));
                                                             } catch (Exception e) {
                                                             }
                                                             break;

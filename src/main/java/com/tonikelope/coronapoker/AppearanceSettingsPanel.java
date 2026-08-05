@@ -129,6 +129,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final int snap_card_flip_zoom;
     private final int snap_reparto_velocidad;
     private final boolean snap_anim_calidad;
+    private final boolean snap_animacion_contador_final;
     private final boolean snap_anim_swap;
     private final int snap_swap_duration;
     private final boolean snap_swap_arc;
@@ -180,6 +181,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_card_flip_zoom = GameFrame.CARD_FLIP_ZOOM;
         snap_reparto_velocidad = GameFrame.REPARTO_VELOCIDAD;
         snap_anim_calidad = GameFrame.ANIM_CALIDAD;
+        snap_animacion_contador_final = prefBool("animacion_contador_final", true);
         snap_anim_swap = GameFrame.ANIMACION_SWAP_PREF;
         snap_swap_duration = GameFrame.SWAP_ANIM_DURATION;
         snap_swap_arc = GameFrame.SWAP_ANIM_ARC;
@@ -1092,6 +1094,12 @@ public class AppearanceSettingsPanel extends JPanel {
                 gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v), 28));
         addLeft(anim, indent(animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
                 gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v), 28));
+        // Recuento de la pantalla de FIN DE TIMBA, justo debajo de "Contadores" y con su mismo estilo
+        // (animCheckbox: negrita + indent 28 + gateado por el maestro vía anim_sub_cb). menu=null porque
+        // es settings-only (no hay item de menú in-game). Su SFX cuelga del propio recuento
+        // (contadorFinalAnimOn), así que apagarlo lo silencia también.
+        addLeft(anim, indent(animCheckbox("/images/menu/meter.png", "settings.animacion_contador_final",
+                null, "animacion_contador_final", v -> GameFrame.ANIMACION_CONTADOR_FINAL_PREF = v), 28));
 
         // Fila Animaciones | (Mesa sobre Pantalla) a su ALTO NATURAL en el NORTE, alineadas arriba
         // a la izquierda. Animaciones (la columna más alta desde que agrupa Barajado/Reparto/Destapar)
@@ -1238,6 +1246,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("resaltar_jugada_showdown", true) != snap_resaltar_jugada_showdown
                 || prefBool("resaltar_avatares", false) != snap_resaltar_avatares
                 || prefBool("screenshot_fin_timba", false) != snap_screenshot_fin_timba
+                || prefBool("animacion_contador_final", true) != snap_animacion_contador_final
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen
@@ -1405,6 +1414,13 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("screenshot_fin_timba", String.valueOf(snap_screenshot_fin_timba));
             Helpers.savePropertiesFile();
         }
+        // Recuento de fin de timba: persist-only, sin efecto en vivo (solo aplica al abrir la
+        // pantalla final). Se revierte fijando el flag + re-persistiendo el snapshot.
+        if (GameFrame.ANIMACION_CONTADOR_FINAL_PREF != snap_animacion_contador_final) {
+            GameFrame.ANIMACION_CONTADOR_FINAL_PREF = snap_animacion_contador_final;
+            Helpers.PROPERTIES.setProperty("animacion_contador_final", String.valueOf(snap_animacion_contador_final));
+            Helpers.savePropertiesFile();
+        }
         // Barajado y destape tampoco tienen item de menú: se revierten fijando el flag +
         // persistiendo, como el overlay de cascada. Al restaurar el barajado a ON se recalienta
         // la caché del shuffle.gif por si el warm-up se saltó mientras estuvo desactivado.
@@ -1540,6 +1556,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.RESALTAR_JUGADA_SHOWDOWN = snap_resaltar_jugada_showdown;
         GameFrame.RESALTAR_AVATARES = snap_resaltar_avatares;
         GameFrame.SCREENSHOT_FIN_TIMBA = snap_screenshot_fin_timba;
+        GameFrame.ANIMACION_CONTADOR_FINAL_PREF = snap_animacion_contador_final;
         GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
         GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
         GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
@@ -1577,6 +1594,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("resaltar_jugada_showdown", String.valueOf(snap_resaltar_jugada_showdown));
         Helpers.PROPERTIES.setProperty("resaltar_avatares", String.valueOf(snap_resaltar_avatares));
         Helpers.PROPERTIES.setProperty("screenshot_fin_timba", String.valueOf(snap_screenshot_fin_timba));
+        Helpers.PROPERTIES.setProperty("animacion_contador_final", String.valueOf(snap_animacion_contador_final));
         Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
         Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
         Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));

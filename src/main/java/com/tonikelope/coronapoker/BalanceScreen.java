@@ -659,7 +659,23 @@ public class BalanceScreen extends JPanel {
                 ? "+" + Helpers.money2String(anim_ganancia)
                 : "-" + Helpers.money2String(anim_ganancia * -1);
 
-        final javax.swing.Timer roll = new javax.swing.Timer(16, null);
+        // Recuento de fin de timba OPCIONAL (Ajustes de animaciones, ON por defecto). Si esta
+        // apagado (o el maestro de animaciones), no se anima: se revela el neto +/- directo, sin
+        // roll, sin parpadeo y sin SFX (el sonido cuelga del propio recuento, ver mas abajo), y se
+        // hace la captura igual que al terminar el recuento normal.
+        if (!GameFrame.contadorFinalAnimOn()) {
+            amount_label.setFill(anim_ganancia > 0 ? WIN : LOSE);
+            amount_label.setText(reveal_text);
+            takeBalanceScreenshot();
+            return;
+        }
+
+        // Tick fijo del juego (GameFrame.getTickMs, 2 ms) en vez de 16 ms (60 Hz): la
+        // interpolacion es por TIEMPO (p = elapsed/duration_ms), asi que a 2 ms el recuento
+        // sale MUCHO mas fluido sin cambiar la duracion (1.5 s). El coste real por frame del
+        // OutlinedLabel esta muy por debajo de un tick de 16 ms, asi que a 2 ms el limite lo
+        // pone el render, no el timer, y se ve fluido en vez de aliaseado a 60 Hz.
+        final javax.swing.Timer roll = new javax.swing.Timer(GameFrame.getTickMs(), null);
         amount_roll_timer = roll;
         roll.addActionListener((e) -> {
             double p = Math.min(1.0, (System.currentTimeMillis() - start_ms) / (double) duration_ms);
@@ -767,7 +783,7 @@ public class BalanceScreen extends JPanel {
     // Corta en seco la animación del importe (recuento + parpadeo) y su SFX. La llaman los
     // botones de salida (menú principal / continuar) ANTES de dispose(): mientras el contador
     // rueda, sus repintados por frame (TextLayout.getOutline recalcula el contorno del texto
-    // a pantalla completa, ~16 ms) acaparan el EDT; si se dejan vivos, el teardown de la timba
+    // a pantalla completa, coste no despreciable, y ahora a 2 ms de tick aun mas) acaparan el EDT; si se dejan vivos, el teardown de la timba
     // (RESET_GAME, que descarta el tablero y abre el menú principal vía invokeAndWait) queda
     // famélico detrás de ellos y el menú no aparece hasta que la animación termina sola. Al
     // pararlos, la salida es instantánea igual que si se pulsa con el recuento ya terminado.

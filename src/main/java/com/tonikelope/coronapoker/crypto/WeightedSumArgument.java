@@ -126,29 +126,29 @@ public final class WeightedSumArgument {
             return false;
         }
         BigInteger e = challenge(cf, b, q, proof.t, proof.tq);
-        // Per-element: z_i·G_0 + zs_i·H == T_i ⊕ e·C_f[i], folded to a single shared-ladder
-        // multi-scalar per element ("− e·C_f[i] == T_i", free negation) with the native Ristretto
-        // equality — same coset relation as the byte comparison, no per-element encode round trips.
+        // Las n comprobaciones por-elemento + la agregada comparten UN solo shared-ladder via
+        // batch-verify (pesos rho_j independientes, ligados por Fiat-Shamir a todas). Ecuaciones
+        // idénticas a antes:
+        //   por-elemento i: z_i·G_0 + zs_i·H − e·C_f[i] == T_i
+        //   agregada:       Σ z_i·B_i − e·Q            == T_Q
         EdwardsPoint g0 = PedersenVectorCommit.generator(0);
         EdwardsPoint h = PedersenVectorCommit.H;
+        BatchVerifier bv = new BatchVerifier("SRA/WSumArg/batch/v1");
         for (int i = 0; i < cf.length; i++) {
             EdwardsPoint ti = Ristretto255.decode(proof.t[i]);
             EdwardsPoint cfi = Ristretto255.decode(cf[i]);
             if (ti == null || cfi == null) {
                 return false;
             }
-            EdwardsPoint lhs = EdwardsPoint.multiscalarMul(
-                    new BigInteger[]{proof.z[i], proof.zs[i], e}, new EdwardsPoint[]{g0, h, cfi.negate()});
-            if (!Ristretto255.equalPoints(lhs, ti)) {
-                return false;
-            }
+            bv.addEquation(new BigInteger[]{proof.z[i], proof.zs[i], e},
+                    new EdwardsPoint[]{g0, h, cfi.negate()}, ti);
         }
-        // Aggregate: Σ z_i·B_i == T_Q ⊕ e·Q, folded the same way (Σ z_i·B_i − e·Q == T_Q).
         int n = b.length;
         BigInteger[] zAgg = Arrays.copyOf(proof.z, n + 1);
         zAgg[n] = e;
         EdwardsPoint[] bAgg = Arrays.copyOf(b, n + 1);
         bAgg[n] = q.negate();
-        return Ristretto255.equalPoints(EdwardsPoint.multiscalarMul(zAgg, bAgg), tqPoint);
+        bv.addEquation(zAgg, bAgg, tqPoint);
+        return bv.allHold();
     }
 }

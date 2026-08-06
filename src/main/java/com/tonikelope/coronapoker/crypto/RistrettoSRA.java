@@ -121,6 +121,30 @@ public final class RistrettoSRA {
         return out;
     }
 
+    /**
+     * Points-based twin of {@link #applyCommutativeLock}: scalar-multiplies an ALREADY-DECODED array of
+     * points by {@code scalar}. The caller must have obtained {@code in} through a validating decode
+     * ({@link Ristretto255#decode} / {@link ShuffleCascade#decodeDeck}) — that decode IS the group-
+     * membership gate (see class javadoc); this method assumes it already passed and does not re-decode.
+     * Returns null if {@code in} is null or holds a null element (defensive). By construction,
+     * {@code ShuffleCascade.encodeDeck(lockPoints(ShuffleCascade.decodeDeck(deck), scalar))} is
+     * byte-identical to {@code applyCommutativeLock(deck, scalar)} (pinned in DecodeOnceLockTest).
+     */
+    public static EdwardsPoint[] lockPoints(EdwardsPoint[] in, byte[] scalar) {
+        if (in == null) {
+            return null;
+        }
+        BigInteger s = bytesToScalar(scalar);
+        EdwardsPoint[] out = new EdwardsPoint[in.length];
+        for (int i = 0; i < in.length; i++) {
+            if (in[i] == null) {
+                return null;
+            }
+            out[i] = in[i].scalarMul(s);
+        }
+        return out;
+    }
+
     /** The 52-card genesis deck as a flat 52*32-byte array of canonical encodings. */
     public static byte[] getGenesisDeck() {
         byte[][] cache = genesisDeckCache;

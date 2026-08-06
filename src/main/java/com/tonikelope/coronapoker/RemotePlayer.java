@@ -1148,6 +1148,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
+    public void markFoldedOnRecover() {
+        // setDecision (privado) fija decision=FOLD y pinta gris (renderDecisionVisual), SIN sonido ni
+        // cinematica (a diferencia de fold()/setDecisionFromRemotePlayer). Respeta la guarda de exit:
+        // si el peer sigue marcado como ido, deja el naranja "SE PIRA" y no lo pisa. Lo llama el skip
+        // del recover para que el asiento del que se fue quede foldeado (gris) esa mano.
+        setDecision(Player.FOLD);
+    }
+
     private void setDecision(int dec) {
 
         this.decision = dec;

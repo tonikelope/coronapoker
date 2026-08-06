@@ -65,6 +65,10 @@ public class SettingsDialog extends JDialog {
     // Pestaña "Atajos": reasigna los atajos de teclado globales. Edita el registro
     // (KeyboardShortcuts) de forma transaccional, igual que Apariencia/Audio.
     private final ShortcutsSettingsPanel shortcuts_panel;
+    // Panel de pestañas y el índice de la pestaña "Atajos", para poder abrir el diálogo
+    // directamente en ella (botón "Personalizar" del diálogo de atajos).
+    private final JTabbedPane tabs = new JTabbedPane();
+    private int shortcuts_tab_index = -1;
     // Diálogo transaccional: true solo si se pulsó GUARDAR (entonces NO se revierte).
     private boolean committed = false;
 
@@ -78,6 +82,24 @@ public class SettingsDialog extends JDialog {
             dialog.setLocationRelativeTo(parent);
             dialog.setVisible(true);
         });
+    }
+
+    // Abre el diálogo directamente en la pestaña "Atajos" (lo usa el botón "Personalizar" del
+    // diálogo de atajos independiente).
+    public static void openOnShortcuts(java.awt.Frame parent) {
+        Helpers.GUIRun(() -> {
+            SettingsDialog dialog = new SettingsDialog(parent, true);
+            dialog.selectShortcutsTab();
+            dialog.setLocationRelativeTo(parent);
+            dialog.setVisible(true);
+        });
+    }
+
+    // Selecciona la pestaña "Atajos" si existe.
+    public void selectShortcutsTab() {
+        if (shortcuts_tab_index >= 0) {
+            tabs.setSelectedIndex(shortcuts_tab_index);
+        }
     }
 
     public SettingsDialog(java.awt.Frame parent, boolean modal) {
@@ -119,7 +141,6 @@ public class SettingsDialog extends JDialog {
         // del viewport (sin barra horizontal espuria) y rellena el alto cuando cabe, pero
         // muestra barra vertical cuando el contenido no entra. Así el diálogo se encoge y
         // scrollea en resoluciones bajas en vez de salirse de la pantalla.
-        JTabbedPane tabs = new JTabbedPane();
         // Apariencia y Audio llevan su propio botón "Restaurar predeterminados" en un pie fijo de
         // la pestaña (siempre visible, no se va con el scroll): cada uno restaura SOLO lo suyo, con
         // la misma semántica transaccional (aplica en vivo; GUARDAR conserva, Cancelar revierte).
@@ -128,6 +149,7 @@ public class SettingsDialog extends JDialog {
         // Atajos de teclado (global, en todos los contextos): reasignables, con su propio pie de
         // restaurar predeterminados.
         tabs.addTab(Translator.translate("settings.tab_atajos"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/keyboard.png")), tabWithRestore(shortcuts_panel, shortcuts_panel::restoreDefaults));
+        shortcuts_tab_index = tabs.getTabCount() - 1;
         if (in_game) {
             tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(game_panel));
         } else if (in_waiting) {

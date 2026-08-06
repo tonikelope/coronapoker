@@ -2615,10 +2615,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        // El chat rápido 'º' es una tecla "typed" (dead-key), frágil entre distribuciones, así que
-        // NO es reasignable: se queda fija y se resuelve por su KeyStroke, no por el registro.
-        final KeyStroke fastchat_keystroke = KeyStroke.getKeyStroke('º');
-        final Action fastchat_action = new AbstractAction("FASTCHAT") {
+        // El chat rápido usa por defecto la tecla "typed" 'º' (dead-key): su combinación por defecto
+        // es un KeyStroke de carácter, pero la acción se resuelve por id como las demás.
+        gameActions.put(KeyboardShortcuts.FASTCHAT, new AbstractAction("FASTCHAT") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2626,7 +2625,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 showFastChatDialog();
 
             }
-        };
+        });
 
         gameActions.put(KeyboardShortcuts.FASTCHAT_IMAGE, new AbstractAction("FASTCHAT-IMAGE") {
             @Override
@@ -2810,13 +2809,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
             JFrame frame = GameFrame.getInstance();
-            // Resolver la acción por id del registro (atajos reasignables) o, si no, por la tecla
-            // fija del chat rápido 'º'. Las combinaciones que son de Init (silenciar, volumen,
-            // captura, forzar salida) resuelven a un id que NO está en gameActions -> a = null ->
-            // este dispatcher las deja pasar y las atiende el de Init.
+            // Resolver la acción por id del registro (incluido el chat rápido 'º', cuya combinación
+            // por defecto es un KeyStroke "typed"). Las combinaciones que son de Init (silenciar,
+            // volumen, captura, forzar salida) resuelven a un id que NO está en gameActions ->
+            // a = null -> este dispatcher las deja pasar y las atiende el de Init.
             String id = KeyboardShortcuts.idFor(keyStroke);
-            final Action a = id != null ? gameActions.get(id)
-                    : (keyStroke.equals(fastchat_keystroke) ? fastchat_action : null);
+            final Action a = id != null ? gameActions.get(id) : null;
             if (a != null && !file_menu.isSelected() && !apariencia_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && ((frame.isActive() && !balance_overlay_active) || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && KeyboardShortcuts.MUTE.equals(id)))) {
                 final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
                 Helpers.GUIRun(() -> {

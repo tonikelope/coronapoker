@@ -3374,7 +3374,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
-                if (GameFrame.TEST_MODE || Helpers.doubleSecureCompare(0f, call_required) < 0 || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("ui.perder_mano_confirmacion"), new ImageIcon(getClass().getResource("/images/action/down.png"))) == 0) {
+                if (GameFrame.TEST_MODE || click_recuperacion || Helpers.doubleSecureCompare(0f, call_required) < 0 || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("ui.perder_mano_confirmacion"), new ImageIcon(getClass().getResource("/images/action/down.png"))) == 0) {
 
                     if (GameFrame.foldSonidoOn()) {
                         Audio.playWavResource("misc/fold.wav");

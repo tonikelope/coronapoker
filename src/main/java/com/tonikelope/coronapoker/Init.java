@@ -542,6 +542,12 @@ public class Init extends JFrame {
 
         kfm.addKeyEventDispatcher((KeyEvent e) -> {
 
+            // Mientras la pestaña de Atajos captura una tecla, este dispatcher (y con él el hook de
+            // voz) se aparta para que la combinación pulsada llegue al capturador.
+            if (KeyboardShortcuts.isCapturing()) {
+                return false;
+            }
+
             // Configurable push-to-record key (voice messages, in game only)
             if (VoiceMessageManager.handleKeyEvent(e)) {
                 return true;

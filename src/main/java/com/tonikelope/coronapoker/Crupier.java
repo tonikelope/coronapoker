@@ -11444,12 +11444,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             // records the incident. Genuine v1 actions always carry record+sig
                                             // (see the broadcast path) and exit-synths never hit the wire, so
                                             // this never fires on a healthy hand.
-                                            LOGGER.log(Level.SEVERE,
-                                                    "ZERO-TRUST: ACTION by {0} carries no record/sig while the chain is active — SYNTHESIZING FOLD instead of applying an unsigned decision",
-                                                    jugador.getNickname());
-                                            printInvalidActionSigToRegistro(jugador.getNickname());
-                                            this.saw_invalid_action_sig = true;
-                                            synthesizeUnverifiedFoldAction(action);
+                                            if (this.conta_accion < this.tot_acciones_recuperadas) {
+                                                // RECOVER: un fold PELADO recibido aqui es el exit-fold LEGITIMO de un
+                                                // jugador que se fue a mitad de mano y ahora reconecta (se reproduce sin
+                                                // firma porque nadie puede firmar por el ausente, §4.5). Es OMISION MUTUA
+                                                // como en vivo, NO una firma invalida: synth-fold para no aplicar la
+                                                // decision en claro, pero SIN marcar la mano ni imprimir alerta. Si un host
+                                                // hostil estuviera estripando una accion PRESENCIADA, lo caza la VICTIMA en
+                                                // su propio cliente (contra su BD local: rama benigna/dura + el guard del
+                                                // skip) y la cadena diverge; la marca del receptor aqui seria redundante y
+                                                // ademas un FALSO positivo en el caso benigno (que es el comun).
+                                                LOGGER.log(Level.INFO,
+                                                        "RECOVER: exit-fold pelado de {0} — omision mutua, sin marca de firma invalida",
+                                                        jugador.getNickname());
+                                                synthesizeUnverifiedFoldAction(action);
+                                            } else {
+                                                LOGGER.log(Level.SEVERE,
+                                                        "ZERO-TRUST: ACTION by {0} carries no record/sig while the chain is active — SYNTHESIZING FOLD instead of applying an unsigned decision",
+                                                        jugador.getNickname());
+                                                printInvalidActionSigToRegistro(jugador.getNickname());
+                                                this.saw_invalid_action_sig = true;
+                                                synthesizeUnverifiedFoldAction(action);
+                                            }
                                         }
                                     }
                                 }
@@ -16986,13 +17002,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         //       FOLD sintetico es justo el resultado correcto) y se avisa SUAVE en el registro
                         //       (amarillo), sin acusar al host ni empujar a salir.
                         //   (b) FORJA: el host quito la firma de una accion que yo SI presencie (indice <=
-                        //       persisted) o me atribuye algo que no es un FOLD -> aviso DURO como siempre.
-                        // El FOLD sintetico protege el dinero en ambos casos; el flag de mano-no-verificada
-                        // se conserva igual (la mano queda liquidada pero sin verificacion completa).
+                        //       persisted) o me atribuye algo que no es un FOLD -> aviso DURO + marca.
+                        // El FOLD sintetico protege el dinero en AMBOS casos. La MARCA de mano-no-verificada
+                        // (saw_invalid_action_sig) solo se pone en (b): un exit-fold legitimo por ausencia es
+                        // omision mutua sin firma, NO una firma invalida, y con la cadena ya convergiendo la
+                        // mano debe VERIFICAR LIMPIO (si no, saldria un popup de "firma invalida" en un caso
+                        // benigno). En (a) solo queda el aviso SUAVE en el registro.
                         int persisted = this.recover_persisted_count.computeIfAbsent(name, this::sqlCountLocalHandActions);
                         if (isBenignPostAbsenceRecover((int) res[0], replayedIndex, persisted)) {
                             LOGGER.log(Level.WARNING,
-                                    "ZERO-TRUST RECOVER: recovered action #{0} for {1} is later than the {2} action(s) this peer stored locally — it happened while out of the hand; trusting the host''s replay, cannot verify",
+                                    "ZERO-TRUST RECOVER: recovered action #{0} for {1} is later than the {2} action(s) this peer stored locally — it happened while out of the hand; benign exit-fold, mutual omission",
                                     new Object[]{replayedIndex, name, persisted});
                             warnRecoverActionDuringAbsence();
                         } else {
@@ -17000,9 +17019,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     "ZERO-TRUST RECOVER: recovered action for {0} carries no signed record while the chain is active — host forging",
                                     name);
                             warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
+                            this.saw_invalid_action_sig = true;
                         }
                         synthesizeUnverifiedFoldAction(res);
-                        this.saw_invalid_action_sig = true;
                     }
 
                     break;

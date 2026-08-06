@@ -110,13 +110,15 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     private final BufferedImage image;
     private final int pad;
 
-    // Stack del jugador (al lado de la foto) y nick (debajo), los dos con la fuente
-    // y el color del asiento escalados por el mismo factor que la imagen. Se leen
-    // de sus JLabel en cada pintada (no una copia al abrir): el stack cambia
-    // durante la mano y la lupa puede estar puesta mientras cambia.
+    // Stack del jugador (al lado de la foto) y nick (debajo). El stack se pinta con
+    // la fuente del asiento escalada por el mismo factor que la imagen; su texto,
+    // color de letra y píldora de resaltado (verde/cyan/amarillo/gris) se leen VIVOS
+    // del asiento en cada pintada (no una copia al abrir): el stack y su estado
+    // pueden cambiar con la lupa puesta (una apuesta, una recompra). El factor se
+    // guarda para redondear la píldora igual que el asiento.
     private final JLabel stack;
     private final java.awt.Font stack_font;
-    private final Color stack_color;
+    private final float factor;
     private String painted_stack = null;
 
     private final JLabel name;
@@ -128,9 +130,9 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         this.image = image;
         this.pad = pad;
         this.stack = stack;
+        this.factor = factor;
         this.stack_font = stack != null && stack.getFont() != null
                 ? stack.getFont().deriveFont(stack.getFont().getSize2D() * factor) : null;
-        this.stack_color = stack != null ? stack.getForeground() : null;
         this.painted_stack = stackText();
         this.name = name;
         this.name_color = name != null ? name.getForeground() : null;
@@ -197,6 +199,26 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return text != null && !text.trim().isEmpty() ? text.trim() : null;
     }
 
+    // Color de la píldora de resaltado del stack (verde normal, cyan recompra,
+    // amarillo pendiente, gris eliminado) tal y como lo luce el asiento AHORA. Lo
+    // pinta el RoundedPanel que envuelve al label del stack: su fondo es el color y
+    // el label es no-opaco, así que se lee del panel (el padre del label), no del
+    // propio label. null si ese panel no está pintando relleno.
+    private Color stackPillColor() {
+
+        if (stack == null) {
+            return null;
+        }
+
+        java.awt.Container parent = stack.getParent();
+
+        if (parent instanceof RoundedPanel && ((RoundedPanel) parent).isRoundedFill()) {
+            return parent.getBackground();
+        }
+
+        return null;
+    }
+
     // Nick tal y como lo muestra el asiento, o null si no hay.
     private String nameText() {
 
@@ -227,8 +249,11 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return pad + Math.max(0, (image.getWidth() - nameWidth()) / 2);
     }
 
+    // El stack arranca a 2*pad de la foto: un pad de hueco negro y otro que es el
+    // relleno izquierdo de su píldora de resaltado, para que la píldora despegue de
+    // la foto con el mismo margen que la enmarca a ella.
     private int stackOffsetX() {
-        return pad + image.getWidth() + pad;
+        return pad + image.getWidth() + 2 * pad;
     }
 
     // Caja que ocupa la lupa: la foto con el stack al lado y el nick debajo.
@@ -239,7 +264,8 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
         if (painted_stack != null) {
             java.awt.FontMetrics fm = getFontMetrics(stack_font);
-            w = Math.max(w, stackOffsetX() + fm.stringWidth(painted_stack) + pad);
+            // +2*pad: el relleno derecho de la píldora y el hueco negro tras ella.
+            w = Math.max(w, stackOffsetX() + fm.stringWidth(painted_stack) + 2 * pad);
             h = Math.max(h, fm.getHeight() + 2 * pad);
         }
 
@@ -304,12 +330,36 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
             if (painted_stack != null) {
                 g2.setFont(stack_font);
-                g2.setColor(stack_color != null ? stack_color : Color.WHITE);
                 java.awt.FontMetrics fm = g2.getFontMetrics();
                 // Centrado en vertical respecto a la FOTO, no al componente: el
                 // nick de debajo no debe descolgar el número.
-                int baseline = pad + (image.getHeight() - fm.getHeight()) / 2 + fm.getAscent();
-                g2.drawString(painted_stack, stackOffsetX(), baseline);
+                int text_top = pad + (image.getHeight() - fm.getHeight()) / 2;
+                int baseline = text_top + fm.getAscent();
+                int text_x = stackOffsetX();
+                int text_w = fm.stringWidth(painted_stack);
+
+                // Misma píldora de resaltado que el asiento, detrás del número. El
+                // hueco a la derecha (stackOffsetX = foto + 2*pad) deja sitio al
+                // borde izquierdo sin pisar la foto, y preferredBox ya reserva el
+                // margen derecho, así que la píldora entra entera en la caja.
+                Color pill = stackPillColor();
+
+                if (pill != null) {
+                    int hpad = pad;
+                    int vpad = Math.max(2, pad / 2);
+                    int pill_arc = Math.min(fm.getHeight() + 2 * vpad,
+                            Math.round(RoundedPanel.DEFAULT_ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * factor));
+                    g2.setColor(pill);
+                    g2.fill(new RoundRectangle2D.Float(text_x - hpad, text_top - vpad,
+                            text_w + 2 * hpad, fm.getHeight() + 2 * vpad, pill_arc, pill_arc));
+                }
+
+                // Color de letra VIVO del asiento: blanco sobre verde, negro sobre
+                // cyan/amarillo. Leerlo aquí (no cachearlo) lo mantiene legible si la
+                // píldora cambia de color con la lupa puesta.
+                Color fg = stack.getForeground();
+                g2.setColor(fg != null ? fg : Color.WHITE);
+                g2.drawString(painted_stack, text_x, baseline);
             }
         } finally {
             g2.dispose();

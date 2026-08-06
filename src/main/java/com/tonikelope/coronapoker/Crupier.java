@@ -14177,6 +14177,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             "RECOVER: asiento {0} SALTADO por omision mutua (se desconecto antes de actuar; la accion guardada #{1} es de {2})",
                             new Object[]{current_player.getNickname(), this.conta_accion,
                                 this.recover_action_order.get(this.conta_accion)});
+                    // Este asiento se fue a mitad de mano y en vivo quedo FOLDEADO (fuera de resisten via
+                    // isActivo/exit). Al reconectar vuelve activo, asi que hay que RETIRARLO de resisten aqui
+                    // igual que hace la rama de fold (mismo efecto de estado que synthesizeExitFoldAction en el
+                    // camino del exit-fold pelado): si no, reentraria en ESTA mano al alcanzar el frente en vivo
+                    // (turn/river + showdown) y podria cobrar un bote que ya habia forfeiteado. Reentra en la
+                    // SIGUIENTE mano. No toca H_t (la omision mutua se mantiene); host y cliente lo retiran
+                    // simetricamente, asi que el estado de la mesa sigue consistente entre peers.
+                    resisten.remove(current_player);
                     conta_pos++;
                     if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {
                         conta_pos %= GameFrame.getInstance().getJugadores().size();

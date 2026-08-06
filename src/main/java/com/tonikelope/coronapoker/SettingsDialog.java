@@ -255,6 +255,10 @@ public class SettingsDialog extends JDialog {
         // acaba de pisar con la GUI_FONT). Se repone antes del pack.
         debug_panel.reapplyConsoleFont();
 
+        // Los botones de combinación de la pestaña Atajos van en fuente "Dialog" (la de la interfaz,
+        // McLaren, no trae los glifos de las flechas ↑↓←→); se repone tras setUniformFont.
+        shortcuts_panel.applyKeyFont();
+
         // Botones de acción un pelín más grandes que el resto del diálogo.
         java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f * Helpers.DIALOG_ZOOM);
         save_button.setFont(buttons_font);

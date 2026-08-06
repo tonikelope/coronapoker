@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.AWTEvent;
 import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
@@ -23,9 +24,13 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
+import java.awt.Toolkit;
+import java.awt.event.AWTEventListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.util.HashMap;
 import java.util.Map;
+import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -35,12 +40,17 @@ import javax.swing.KeyStroke;
  * Pestaña "Atajos" del diálogo de Ajustes: lista las acciones reasignables (de
  * {@link KeyboardShortcuts}) agrupadas por sección, y por cada una un botón que muestra su
  * combinación actual. Al pulsarlo, el botón entra en modo captura ("Pulsa la combinación...") y la
- * siguiente combinación de teclas pasa a ser el nuevo atajo, salvo que ESC (cancela) o que esa
- * combinación ya esté en uso por otra acción (se ignora, como pidió el diseño).
+ * siguiente combinación de teclas pasa a ser el nuevo atajo, salvo que esa combinación ya esté en
+ * uso por otra acción (se ignora, como pidió el diseño). Para CANCELAR una captura basta con hacer
+ * clic fuera (o en otro sitio); no se usa ninguna tecla, para que cualquier tecla —incluida ESC—
+ * pueda asignarse.
  *
  * Los cambios se aplican EN VIVO sobre el registro (transacción abierta por el diálogo) y solo
  * persisten al GUARDAR; Cancelar los revierte. La captura pone {@link KeyboardShortcuts#setCapturing}
  * para que los dispatchers globales se aparten y la tecla no dispare el atajo que tuviera.
+ *
+ * Los botones muestran la combinación con la fuente "Dialog" (ver {@link #applyKeyFont()}): la fuente
+ * de la interfaz (McLaren) no trae los glifos de las flechas (↑ ↓ ← →) y saldrían en blanco.
  *
  * @author tonikelope
  */
@@ -51,6 +61,7 @@ public class ShortcutsSettingsPanel extends JPanel {
 
     // Captura en curso (solo una a la vez). Todo se toca en el EDT.
     private KeyEventDispatcher capture_dispatcher = null;
+    private AWTEventListener mouse_cancel_listener = null;
     private String capturing_id = null;
 
     public ShortcutsSettingsPanel() {
@@ -66,7 +77,7 @@ public class ShortcutsSettingsPanel extends JPanel {
         JLabel hint = new JLabel("<html>" + Translator.translate("shortcuts.pista_editar") + "</html>");
         gbc.gridx = 0;
         gbc.gridy = row++;
-        gbc.gridwidth = 2;
+        gbc.gridwidth = 3;
         gbc.weightx = 1;
         gbc.anchor = GridBagConstraints.WEST;
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -85,7 +96,7 @@ public class ShortcutsSettingsPanel extends JPanel {
                 section.setFont(section.getFont().deriveFont(Font.BOLD));
                 gbc.gridx = 0;
                 gbc.gridy = row++;
-                gbc.gridwidth = 2;
+                gbc.gridwidth = 3;
                 gbc.weightx = 1;
                 gbc.anchor = GridBagConstraints.WEST;
                 gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -94,14 +105,17 @@ public class ShortcutsSettingsPanel extends JPanel {
                 first_section = false;
             }
 
+            // Fila en 3 columnas: etiqueta (izquierda) + botón (columna alineada, pegada a la
+            // etiqueta) + relleno elástico que se traga el ancho sobrante. Así las dos columnas van
+            // JUNTAS a la izquierda en vez de separarse de lado a lado (cuesta seguir la fila).
             JLabel action = new JLabel(Translator.translate(d.label_key));
             gbc.gridx = 0;
             gbc.gridy = row;
             gbc.gridwidth = 1;
-            gbc.weightx = 1;
+            gbc.weightx = 0;
             gbc.anchor = GridBagConstraints.WEST;
-            gbc.fill = GridBagConstraints.HORIZONTAL;
-            gbc.insets = new Insets(3, 26, 3, 16);
+            gbc.fill = GridBagConstraints.NONE;
+            gbc.insets = new Insets(3, 26, 3, 14);
             add(action, gbc);
 
             final String id = d.id;
@@ -112,10 +126,16 @@ public class ShortcutsSettingsPanel extends JPanel {
 
             gbc.gridx = 1;
             gbc.weightx = 0;
-            gbc.anchor = GridBagConstraints.EAST;
+            gbc.anchor = GridBagConstraints.WEST;
             gbc.fill = GridBagConstraints.HORIZONTAL;
-            gbc.insets = new Insets(3, 0, 3, 12);
+            gbc.insets = new Insets(3, 0, 3, 0);
             add(button, gbc);
+
+            gbc.gridx = 2;
+            gbc.weightx = 1;
+            gbc.fill = GridBagConstraints.HORIZONTAL;
+            gbc.insets = new Insets(0, 0, 0, 0);
+            add(Box.createHorizontalGlue(), gbc);
 
             row++;
         }
@@ -130,6 +150,17 @@ public class ShortcutsSettingsPanel extends JPanel {
         JButton b = buttons.get(id);
         if (b != null) {
             b.setText(keyText(id));
+        }
+    }
+
+    /**
+     * Pone los botones de combinación en fuente "Dialog" (conservando el tamaño ya unificado por el
+     * diálogo). La fuente de la interfaz no trae los glifos de las flechas y dejaría en blanco los
+     * atajos de subir/bajar apuesta. Lo llama el diálogo TRAS unificar fuentes.
+     */
+    public void applyKeyFont() {
+        for (JButton b : buttons.values()) {
+            b.setFont(new Font("Dialog", Font.PLAIN, b.getFont().getSize()));
         }
     }
 
@@ -164,12 +195,6 @@ public class ShortcutsSettingsPanel extends JPanel {
                 return true;
             }
 
-            // ESC a secas cancela (deja el atajo como estaba).
-            if (e.getKeyCode() == KeyEvent.VK_ESCAPE && (e.getModifiersEx() & (KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK | KeyEvent.SHIFT_DOWN_MASK | KeyEvent.META_DOWN_MASK)) == 0) {
-                cancelToBinding();
-                return true;
-            }
-
             KeyStroke ks = KeyboardShortcuts.fromKeyEvent(e);
 
             if (ks == null) {
@@ -189,6 +214,16 @@ public class ShortcutsSettingsPanel extends JPanel {
         };
 
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(capture_dispatcher);
+
+        // Cancelar = clic fuera (o en cualquier sitio). No se usa ninguna tecla para cancelar, para
+        // que cualquiera —incluida ESC— pueda asignarse. El clic que inició la captura ya pasó
+        // (actionPerformed salta al soltar), así que el listener solo verá el SIGUIENTE clic.
+        mouse_cancel_listener = (AWTEvent ev) -> {
+            if (ev.getID() == MouseEvent.MOUSE_PRESSED) {
+                cancelToBinding();
+            }
+        };
+        Toolkit.getDefaultToolkit().addAWTEventListener(mouse_cancel_listener, AWTEvent.MOUSE_EVENT_MASK);
     }
 
     // Cierra la captura y deja el botón mostrando la combinación ACTUAL de la acción (la nueva si se
@@ -213,14 +248,29 @@ public class ShortcutsSettingsPanel extends JPanel {
         }
     }
 
-    // Quita el dispatcher de captura y reactiva los atajos globales. Idempotente.
+    // Quita el dispatcher de captura y el listener de ratón, y reactiva los atajos globales.
+    // Idempotente.
     private void stopCapture() {
         if (capture_dispatcher != null) {
             KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(capture_dispatcher);
             capture_dispatcher = null;
         }
+        if (mouse_cancel_listener != null) {
+            Toolkit.getDefaultToolkit().removeAWTEventListener(mouse_cancel_listener);
+            mouse_cancel_listener = null;
+        }
         KeyboardShortcuts.setCapturing(false);
         capturing_id = null;
+    }
+
+    /**
+     * Cancela una captura en curso (si la hay) devolviendo al botón su combinación actual. Lo llama
+     * el diálogo al cambiar de pestaña.
+     */
+    public void cancelCapture() {
+        if (capture_dispatcher != null) {
+            cancelToBinding();
+        }
     }
 
     /**
@@ -232,21 +282,6 @@ public class ShortcutsSettingsPanel extends JPanel {
         KeyboardShortcuts.resetAll();
         for (String id : buttons.keySet()) {
             refreshButton(id);
-        }
-    }
-
-    /**
-     * Cancela una captura en curso (si la hay) devolviendo al botón su combinación actual. Lo llama
-     * el diálogo al cambiar de pestaña: si no, una captura armada seguiría viva fuera de la pestaña
-     * Atajos y se comería la siguiente tecla pulsada en cualquier sitio.
-     */
-    public void cancelCapture() {
-        if (capture_dispatcher != null) {
-            String id = capturing_id;
-            stopCapture();
-            if (id != null) {
-                refreshButton(id);
-            }
         }
     }
 

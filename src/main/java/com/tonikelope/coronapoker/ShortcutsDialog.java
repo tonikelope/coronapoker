@@ -44,6 +44,7 @@ import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import javax.swing.BorderFactory;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -153,10 +154,31 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         Helpers.setTranslatedText(header, "shortcuts.title");
         header.setForeground(Color.WHITE);
         header.setFont(HEADER_FONT);
-        header.setOpaque(true);
-        header.setBackground(HEADER_BG);
         header.setBorder(BorderFactory.createEmptyBorder(14, 20, 12, 20));
-        getContentPane().add(header, BorderLayout.NORTH);
+
+        // Botón "Personalizar": cierra esta ayuda y abre Ajustes directamente en la pestaña Atajos,
+        // donde se reasignan las teclas. La ayuda es de solo lectura; la edición vive en Ajustes.
+        JButton customize = new JButton(Translator.translate("shortcuts.personalizar"));
+        customize.setFocusable(false);
+        customize.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        customize.addActionListener(e -> {
+            java.awt.Window owner = getOwner();
+            // Ocultar (no dispose): este diálogo está cacheado y se reutiliza.
+            setVisible(false);
+            if (owner instanceof java.awt.Frame) {
+                SettingsDialog.openOnShortcuts((java.awt.Frame) owner);
+            }
+        });
+
+        JPanel customize_wrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 12));
+        customize_wrap.setOpaque(false);
+        customize_wrap.add(customize);
+
+        JPanel header_panel = new JPanel(new BorderLayout());
+        header_panel.setBackground(HEADER_BG);
+        header_panel.add(header, BorderLayout.CENTER);
+        header_panel.add(customize_wrap, BorderLayout.EAST);
+        getContentPane().add(header_panel, BorderLayout.NORTH);
 
         JPanel content = new JPanel(new GridBagLayout());
         content.setBackground(BG);

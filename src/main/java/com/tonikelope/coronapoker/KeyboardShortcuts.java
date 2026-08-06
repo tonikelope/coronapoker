@@ -87,7 +87,12 @@ public final class KeyboardShortcuts {
     public static final String MUTE = "SOUND-SWITCH";
     public static final String VOLUME_UP = "VOLUME-UP";
     public static final String VOLUME_DOWN = "VOLUME-DOWN";
+    // La nota de voz es "push-to-record" (mantener pulsada): NO se despacha por actionMap, la atiende
+    // VoiceMessageManager, que lee la tecla de aquí. Solo modela su combinación para poder reasignarla.
+    public static final String VOICE_RECORD = "VOICE-RECORD";
 
+    // El chat rápido usa una tecla "typed" (dead-key 'º'): su cuerpo vive en GameFrame (gameActions).
+    public static final String FASTCHAT = "FASTCHAT";
     public static final String FASTCHAT_IMAGE = "FASTCHAT-IMAGE";
 
     /**
@@ -153,6 +158,9 @@ public final class KeyboardShortcuts {
         DEFS.add(new Def(MUTE, "shortcuts.sec_audio", "shortcuts.act_mute", ks(KeyEvent.VK_S, InputEvent.ALT_DOWN_MASK)));
         DEFS.add(new Def(VOLUME_UP, "shortcuts.sec_audio", "shortcuts.act_volup", ks(KeyEvent.VK_UP, InputEvent.SHIFT_DOWN_MASK)));
         DEFS.add(new Def(VOLUME_DOWN, "shortcuts.sec_audio", "shortcuts.act_voldown", ks(KeyEvent.VK_DOWN, InputEvent.SHIFT_DOWN_MASK)));
+        DEFS.add(new Def(VOICE_RECORD, "shortcuts.sec_audio", "shortcuts.act_voice", ks(KeyEvent.VK_F9, 0)));
+
+        DEFS.add(new Def(FASTCHAT, "shortcuts.sec_chat", "shortcuts.act_fastchat", KeyStroke.getKeyStroke('º')));
 
         DEFS.add(new Def(FASTCHAT_IMAGE, "shortcuts.sec_img", "shortcuts.act_images", ks(KeyEvent.VK_1, 0)));
     }
@@ -186,6 +194,22 @@ public final class KeyboardShortcuts {
         for (Def d : DEFS) {
             KeyStroke override = deserialize(Helpers.PROPERTIES.getProperty(PROPERTY_PREFIX + d.id));
             cur.put(d.id, override != null ? override : d.def);
+        }
+
+        // Migración de la antigua clave de la tecla de nota de voz ("voice_message_key", un keyCode
+        // suelto que gestionaba VoiceMessageManager) al registro, si el usuario la tenía cambiada y
+        // aún no hay override nuevo.
+        if (Helpers.PROPERTIES.getProperty(PROPERTY_PREFIX + VOICE_RECORD) == null) {
+            String legacy = Helpers.PROPERTIES.getProperty("voice_message_key");
+            if (legacy != null) {
+                try {
+                    int code = Integer.parseInt(legacy.trim());
+                    if (code != KeyEvent.VK_UNDEFINED) {
+                        cur.put(VOICE_RECORD, ks(code, 0));
+                    }
+                } catch (NumberFormatException ignore) {
+                }
+            }
         }
 
         current = cur;
@@ -464,7 +488,12 @@ public final class KeyboardShortcuts {
             parts.add("ALT GR");
         }
 
-        parts.add(keyName(ks.getKeyCode()));
+        // Teclas "typed" (dead-key como 'º', sin keyCode): se muestran por su carácter.
+        if (ks.getKeyCode() == KeyEvent.VK_UNDEFINED && ks.getKeyChar() != KeyEvent.CHAR_UNDEFINED) {
+            parts.add(String.valueOf(ks.getKeyChar()).toUpperCase());
+        } else {
+            parts.add(keyName(ks.getKeyCode()));
+        }
 
         return parts.toArray(new String[0]);
     }

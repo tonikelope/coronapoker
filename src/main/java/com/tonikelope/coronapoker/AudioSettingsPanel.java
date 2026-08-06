@@ -30,9 +30,6 @@ package com.tonikelope.coronapoker;
 
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
-import java.awt.KeyEventDispatcher;
-import java.awt.KeyboardFocusManager;
-import java.awt.event.KeyEvent;
 import java.util.List;
 import javax.sound.sampled.Mixer;
 import javax.swing.BorderFactory;
@@ -130,7 +127,6 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox play_own_checkbox;
     private final JCheckBox notes_local_checkbox;
     private final JCheckBox tts_local_checkbox;
-    private final JButton voice_key_button;
     private final JComboBox<String> retention_combo;
     private final JButton purge_button;
     private final List<Mixer.Info> output_devices;
@@ -144,7 +140,6 @@ public class AudioSettingsPanel extends JPanel {
     private final JPanel mic_panel;
     private final JPanel notes_panel;
     private final JPanel tts_panel;
-    private final JPanel voice_key_panel;
     private final JPanel retention_panel;
     private final JPanel purge_panel;
 
@@ -203,10 +198,8 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_play_own;
     private final int snap_retention_days;
     private final boolean snap_block_tts_local;
-    private final int snap_voice_key;
 
     private volatile boolean loading = true;
-    private volatile KeyEventDispatcher key_capture_dispatcher = null;
 
     // Sincroniza el slider cuando el volumen cambia por el atajo global mientras
     // hay un panel de audio abierto (en cualquier host).
@@ -282,7 +275,6 @@ public class AudioSettingsPanel extends JPanel {
         snap_play_own = AudioDeviceManager.isPlayOwnVoiceMessages();
         snap_retention_days = AudioDeviceManager.getVoiceNoteRetentionDays();
         snap_block_tts_local = AudioDeviceManager.isBlockTtsLocal();
-        snap_voice_key = VoiceMessageManager.getVoiceKey();
 
         output_devices = AudioDeviceManager.getOutputDevices();
 
@@ -699,15 +691,6 @@ public class AudioSettingsPanel extends JPanel {
             }
         });
 
-        voice_key_button = new JButton(KeyEvent.getKeyText(VoiceMessageManager.getVoiceKey()));
-        Helpers.setTranslatedToolTip(voice_key_button, "tooltip.cfg.voice_key");
-
-        voice_key_button.addActionListener(e -> startVoiceKeyCapture());
-
-        voice_key_panel = new JPanel(new BorderLayout(10, 0));
-        voice_key_panel.add(new JLabel(Translator.translate("audio.tecla_nota_voz")), BorderLayout.CENTER);
-        voice_key_panel.add(voice_key_button, BorderLayout.EAST);
-
         mic_panel = new JPanel(new BorderLayout(0, 5));
         mic_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.dispositivo_entrada")));
         mic_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), mic_checkbox), BorderLayout.NORTH);
@@ -802,7 +785,6 @@ public class AudioSettingsPanel extends JPanel {
         notes_panel.setLayout(new BoxLayout(notes_panel, BoxLayout.Y_AXIS));
         notes_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.notas_de_voz")));
 
-        voice_key_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         play_own_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         retention_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         purge_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
@@ -812,18 +794,14 @@ public class AudioSettingsPanel extends JPanel {
         // topa a su alto preferido en applyFontsAndSizing para no estirarse. Arriba la regla
         // GLOBAL de la timba (server); debajo el interruptor maestro LOCAL que gobierna el resto
         // de controles de notas de voz (ambos en positivo, ambos con el icono de micrófono).
-        // Los hijos gateados por el maestro LOCAL (tecla de captura + reproducir mis notas) van
-        // SANGRADOS 22px bajo el, como el resto de sub-opciones del panel; antes se anadian a ras
-        // (menos sangrados que su propio maestro = sangria invertida). voice_key_panel usa
-        // indentFill para que su boton siga pegado a la derecha de la columna. Retencion y purga
-        // NO estan gateadas por el maestro (gestionan las notas ya guardadas), asi que se quedan a
-        // nivel base. Ritmo vertical uniforme: 6px entre sub-filas, 8px de separador maestro.
+        // El hijo gateado por el maestro LOCAL (reproducir mis notas) va SANGRADO 22px bajo el, como
+        // el resto de sub-opciones del panel. Retencion y purga NO estan gateadas por el maestro
+        // (gestionan las notas ya guardadas), asi que se quedan a nivel base. Ritmo vertical
+        // uniforme: 6px entre sub-filas, 8px de separador maestro.
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
         notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), notes_local_checkbox));
         notes_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        notes_panel.add(indentFill(voice_key_panel));
-        notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(indent(play_own_checkbox));
         notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(retention_panel);
@@ -944,9 +922,8 @@ public class AudioSettingsPanel extends JPanel {
         ((TitledBorder) notes_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) tts_panel.getBorder()).setTitleFont(volume_value_label.getFont());
 
-        // En el BoxLayout vertical, la fila de tecla y la de retención deben
+        // En el BoxLayout vertical, la fila de retención y la de purga deben
         // conservar su alto natural en vez de estirarse hasta llenar el hueco.
-        voice_key_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, voice_key_panel.getPreferredSize().height));
         retention_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, retention_panel.getPreferredSize().height));
         purge_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, purge_panel.getPreferredSize().height));
 
@@ -961,11 +938,8 @@ public class AudioSettingsPanel extends JPanel {
         notes_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, notes_panel.getPreferredSize().height));
     }
 
-    // El host DEBE llamarlo al cerrarse: no filtrar el dispatcher de captura de
-    // tecla, persistir el volumen maestro y soltar la referencia viva.
+    // El host DEBE llamarlo al cerrarse: persistir el volumen maestro y soltar la referencia viva.
     public void cleanup() {
-
-        stopVoiceKeyCapture();
 
         // Corta cualquier audición en curso (el botón play de una pista o efecto) al cerrar.
         Audio.stopPreview();
@@ -1035,8 +1009,7 @@ public class AudioSettingsPanel extends JPanel {
                 || AudioDeviceManager.isBlockVoiceMessages() != snap_block_voice
                 || AudioDeviceManager.isPlayOwnVoiceMessages() != snap_play_own
                 || AudioDeviceManager.getVoiceNoteRetentionDays() != snap_retention_days
-                || AudioDeviceManager.isBlockTtsLocal() != snap_block_tts_local
-                || VoiceMessageManager.getVoiceKey() != snap_voice_key;
+                || AudioDeviceManager.isBlockTtsLocal() != snap_block_tts_local;
     }
 
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de audio al estado
@@ -1206,9 +1179,6 @@ public class AudioSettingsPanel extends JPanel {
         if (AudioDeviceManager.isBlockTtsLocal() != snap_block_tts_local) {
             AudioDeviceManager.setBlockTtsLocal(snap_block_tts_local);
         }
-        if (VoiceMessageManager.getVoiceKey() != snap_voice_key) {
-            VoiceMessageManager.setVoiceKey(snap_voice_key);
-        }
     }
 
     // Restaura TODOS los ajustes de audio a sus valores de fábrica, aplicándolos EN VIVO como una
@@ -1288,9 +1258,6 @@ public class AudioSettingsPanel extends JPanel {
         // Voz TTS local activa (bloqueo=false → casilla marcada).
         AudioDeviceManager.setBlockTtsLocal(false);
         tts_local_checkbox.setSelected(true);
-        // Tecla de grabar nota de voz → F9 (por defecto).
-        VoiceMessageManager.setVoiceKey(VoiceMessageManager.DEFAULT_KEY);
-        voice_key_button.setText(KeyEvent.getKeyText(VoiceMessageManager.DEFAULT_KEY));
         // Reglas GLOBALES de la timba (TTS y notas de voz): solo si NO eres cliente (a un cliente
         // se las manda el servidor y resetearlas lo desincronizaría), igual que en revert/isDirty.
         if (!global_rules_locked) {
@@ -1386,54 +1353,6 @@ public class AudioSettingsPanel extends JPanel {
         mic_checkbox.setEnabled(local_on);
         capture_list.setEnabled(local_on && mic_checkbox.isSelected());
         play_own_checkbox.setEnabled(local_on);
-        voice_key_button.setEnabled(local_on);
-
-        if (!local_on) {
-            stopVoiceKeyCapture();
-        }
-    }
-
-    private void startVoiceKeyCapture() {
-
-        if (key_capture_dispatcher != null) {
-            return;
-        }
-
-        // While capturing, the global hook must not react to the current key
-        VoiceMessageManager.setCapturingKey(true);
-
-        voice_key_button.setText(Translator.translate("audio.pulsa_una_tecla"));
-
-        key_capture_dispatcher = (KeyEvent e) -> {
-
-            if (e.getID() == KeyEvent.KEY_PRESSED) {
-
-                // ESC cancels, anything else becomes the new key
-                if (e.getKeyCode() != KeyEvent.VK_ESCAPE) {
-                    VoiceMessageManager.setVoiceKey(e.getKeyCode());
-                }
-
-                stopVoiceKeyCapture();
-
-                return true;
-            }
-
-            return false;
-        };
-
-        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(key_capture_dispatcher);
-    }
-
-    private void stopVoiceKeyCapture() {
-
-        if (key_capture_dispatcher != null) {
-            KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(key_capture_dispatcher);
-            key_capture_dispatcher = null;
-        }
-
-        voice_key_button.setText(KeyEvent.getKeyText(VoiceMessageManager.getVoiceKey()));
-
-        VoiceMessageManager.setCapturingKey(false);
     }
 
     // List index 0 is the system default entry; devices start at index 1.

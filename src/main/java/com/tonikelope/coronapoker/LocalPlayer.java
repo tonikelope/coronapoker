@@ -4098,6 +4098,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         renderDecisionVisual(dec);
     }
 
+    @Override
+    public void markFoldedOnRecover() {
+        // setDecision ya fija decision=FOLD y pinta gris (renderDecisionVisual), sin sonido ni
+        // cinematica (esos van en el handler del boton, no aqui). Justo lo que necesita el skip.
+        setDecision(Player.FOLD);
+    }
+
     // Render visual de una decisión (sin efectos), extraído de setDecision para
     // poder RE-PINTAR la última acción en el rewind de run-it-twice.
     private void renderDecisionVisual(int dec) {

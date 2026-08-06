@@ -93,6 +93,23 @@ public final class ShuffleCascade {
         return d;
     }
 
+    /** Encode points back to a flat deck (n×32 bytes), or null if the array or any element is null.
+     *  Inverse of {@link #decodeDeck} on valid points (canonical Ristretto encoding). */
+    public static byte[] encodeDeck(EdwardsPoint[] points) {
+        if (points == null || points.length == 0) {
+            return null;
+        }
+        byte[] out = new byte[points.length * 32];
+        for (int i = 0; i < points.length; i++) {
+            if (points[i] == null) {
+                return null;
+            }
+            byte[] enc = Ristretto255.encode(points[i]);
+            System.arraycopy(enc, 0, out, i * 32, 32);
+        }
+        return out;
+    }
+
     /**
      * Prove a cascade step from flat byte decks: {@code deckOut[i] = kScalar·deckIn[perm[i]]}. Returns the
      * serialized proof, or null on any failure (so a network-handler caller never throws).

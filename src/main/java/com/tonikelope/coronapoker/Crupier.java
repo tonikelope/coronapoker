@@ -252,6 +252,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Recover / convergencia de cadena (PURA y testeable): ¿el asiento cuyo turno toca durante el replay
+     * fue SALTADO por OMISION MUTUA en vivo (se desconecto antes de actuar en esta calle)?
+     *
+     * La lista {@code order} es la secuencia ORDENADA (por counter) de nicks de TODAS las acciones que se
+     * PROCESARON en vivo — la verdad de lo que paso. {@code contaAccion} es cuantas se han reproducido ya,
+     * asi que {@code order.get(contaAccion)} es de quien toca la siguiente accion guardada. Si el asiento
+     * cuyo turno estamos a punto de procesar NO es ese, es que en vivo su turno se salto (los asientos
+     * saltados no dejan accion en la lista), asi que hay que saltarlo aqui tambien; reproducirlo mete en
+     * H_t un record que en vivo no existio y el siguiente record ORIGINAL rompe su PREV_H. Solo aplica
+     * mientras quedan acciones por reproducir ({@code contaAccion < order.size()}); una vez alcanzado el
+     * frente, el resto de la mano se juega en vivo con normalidad.
+     */
+    static boolean isSkippedSeatDuringRecover(String seatNick, int contaAccion, java.util.List<String> order) {
+        return order != null && contaAccion >= 0 && contaAccion < order.size()
+                && seatNick != null && !seatNick.equals(order.get(contaAccion));
+    }
+
+    /**
+     * Recover / seguridad anti host-hostil (PURA y testeable): al ir a SALTAR mi PROPIO asiento durante el
+     * replay (porque la lista que sirve el host dice que no me toca), ¿está el host OMITIENDO una acción que
+     * yo sí jugué? Lo está SII el asiento es el MÍO ({@code ownSeat}) y todavía me quedan acciones propias sin
+     * reproducir: reproducidas ({@code ownReplayed}) &lt; las que tengo en mi SQLite local ({@code ownPersisted}),
+     * base que el host NO controla. Un hueco LEGÍTIMO (me desconecté antes de actuar en esa calle) tiene
+     * {@code ownReplayed == ownPersisted}, así que no salta. Solo aplica a mi asiento: para los demás, la
+     * cadena (PREV_H) ya delata cualquier omisión inconsistente y los bots los controla el host de todas formas.
+     */
+    static boolean isHostOmittingOwnActionOnSkip(boolean ownSeat, int ownReplayed, int ownPersisted) {
+        // ownPersisted == Integer.MAX_VALUE es el centinela de FALLO al leer MI SQLite local
+        // (sqlCountLocalHandActions): es un problema LOCAL, no del host. NO se puede determinar si el
+        // host omite nada, asi que NO se acusa (si no, un fallo local de SQL en un skip legitimo
+        // dispararia una acusacion FALSA al host y el empuje a abandonar la mesa). El llamador
+        // registra aparte el "no se pudo verificar".
+        return ownSeat && ownPersisted != Integer.MAX_VALUE && ownReplayed < ownPersisted;
+    }
+
+    /**
      * Identity / anti-forgery (PURA y testeable): ¿el record que trae el wire es
      * ESTRUCTURALMENTE apto para verificar? Solo lo es con la longitud canónica EXACTA:
      * el firmante siempre emite RECORD_BYTES (CanonicalActionRecord.encode) y el canal
@@ -1193,6 +1229,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final java.util.HashMap<String, Integer> recover_replay_index = new java.util.HashMap<>();
     private final java.util.HashMap<String, Integer> recover_persisted_count = new java.util.HashMap<>();
     private boolean recover_absence_warned = false;
+    // Recover: la SECUENCIA ORDENADA (por counter) de nicks de las acciones guardadas de la mano
+    // (TODAS, no solo las propias). Es la verdad de lo que paso en vivo. Durante el replay, si el
+    // asiento cuyo turno toca NO coincide con recover_action_order.get(conta_accion), ese asiento se
+    // salto en vivo por OMISION MUTUA (se desconecto antes de actuar en esa calle) y hay que saltarlo
+    // igual, o el recover mete en H_t una accion que en vivo no existio y la cadena diverge. Simetrico
+    // en host y cliente (ambos reciben la lista completa). Se reconstruye en recuperarAccionesLocales.
+    private java.util.List<String> recover_action_order = null;
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
@@ -8329,6 +8372,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.conta_accion = 0;
         this.tot_acciones_recuperadas = 0;
         this.acciones_locales_recuperadas.clear();
+        this.recover_action_order = null;
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
             if (!jugador.isExit() && jugador.isSpectator() && (Helpers.doubleSecureCompare(0f, jugador.getStack()) < 0
@@ -11400,12 +11444,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             // records the incident. Genuine v1 actions always carry record+sig
                                             // (see the broadcast path) and exit-synths never hit the wire, so
                                             // this never fires on a healthy hand.
-                                            LOGGER.log(Level.SEVERE,
-                                                    "ZERO-TRUST: ACTION by {0} carries no record/sig while the chain is active — SYNTHESIZING FOLD instead of applying an unsigned decision",
-                                                    jugador.getNickname());
-                                            printInvalidActionSigToRegistro(jugador.getNickname());
-                                            this.saw_invalid_action_sig = true;
-                                            synthesizeUnverifiedFoldAction(action);
+                                            if (this.conta_accion < this.tot_acciones_recuperadas) {
+                                                // RECOVER: un fold PELADO recibido aqui es el exit-fold LEGITIMO de un
+                                                // jugador que se fue a mitad de mano y ahora reconecta (se reproduce sin
+                                                // firma porque nadie puede firmar por el ausente, §4.5). Es OMISION MUTUA
+                                                // como en vivo, NO una firma invalida: synth-fold para no aplicar la
+                                                // decision en claro, pero SIN marcar la mano ni imprimir alerta. Si un host
+                                                // hostil estuviera estripando una accion PRESENCIADA, lo caza la VICTIMA en
+                                                // su propio cliente (contra su BD local: rama benigna/dura + el guard del
+                                                // skip) y la cadena diverge; la marca del receptor aqui seria redundante y
+                                                // ademas un FALSO positivo en el caso benigno (que es el comun).
+                                                LOGGER.log(Level.INFO,
+                                                        "RECOVER: exit-fold pelado de {0} — omision mutua, sin marca de firma invalida",
+                                                        jugador.getNickname());
+                                                synthesizeUnverifiedFoldAction(action);
+                                            } else {
+                                                LOGGER.log(Level.SEVERE,
+                                                        "ZERO-TRUST: ACTION by {0} carries no record/sig while the chain is active — SYNTHESIZING FOLD instead of applying an unsigned decision",
+                                                        jugador.getNickname());
+                                                printInvalidActionSigToRegistro(jugador.getNickname());
+                                                this.saw_invalid_action_sig = true;
+                                                synthesizeUnverifiedFoldAction(action);
+                                            }
                                         }
                                     }
                                 }
@@ -14094,6 +14154,60 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 boolean isCryptoReplay = this.conta_accion < this.tot_acciones_recuperadas;
                 boolean eraSincronizacion = this.isSincronizando_mano();
 
+                // RECOVER robusto (convergencia de H_t): si estamos reproduciendo y el asiento cuyo turno
+                // toca NO coincide con la siguiente accion guardada, ese asiento se salto en vivo por
+                // OMISION MUTUA (se desconecto antes de actuar en esta calle: no dejo accion, y la cadena
+                // fue directa del anterior al siguiente). Reproducirlo (jugando en vivo ahora que ha
+                // reconectado) meteria en H_t un record que en vivo no existio y el siguiente record
+                // ORIGINAL romperia su PREV_H. Se salta igual, sin absorber, sin contar y sin wire, con el
+                // MISMO patron que los asientos ya retirados de arriba. Simetrico en host y cliente (ambos
+                // tienen recover_action_order), asi que la cadena converge byte a byte con la de vivo.
+                if (isCryptoReplay && isSkippedSeatDuringRecover(current_player.getNickname(),
+                        this.conta_accion, this.recover_action_order)) {
+                    // SEGURIDAD (host hostil): la lista recover_action_order la sirve el HOST. Para MI PROPIO
+                    // asiento no me fio de ella a ciegas: si el host quiere que salte mi turno pero mi SQLite
+                    // local (que el host NO controla) todavia tiene acciones mias sin reproducir, el host esta
+                    // OMITIENDO una accion que yo SI jugue para borrarla en silencio. Se detecta y se avisa
+                    // (duro) + se marca la mano como no verificada; NO se traga. Un hueco LEGITIMO (me
+                    // desconecte antes de actuar) tiene replayIndex == persistido, asi que no salta este aviso.
+                    boolean ownSeat = (current_player == GameFrame.getInstance().getLocalPlayer());
+                    if (ownSeat) {
+                        int persisted = this.recover_persisted_count.computeIfAbsent(
+                                current_player.getNickname(), this::sqlCountLocalHandActions);
+                        int replayed = this.recover_replay_index.getOrDefault(current_player.getNickname(), 0);
+                        if (isHostOmittingOwnActionOnSkip(true, replayed, persisted)) {
+                            LOGGER.log(Level.SEVERE,
+                                    "ZERO-TRUST RECOVER: host wants to skip MY seat but only {0}/{1} of my own actions were replayed — host omitting a recorded action",
+                                    new Object[]{replayed, persisted});
+                            warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_omitted"));
+                            this.saw_invalid_action_sig = true;
+                        } else if (persisted == Integer.MAX_VALUE) {
+                            // Fallo LOCAL al leer mi SQLite: no puedo verificar si el host omite algo. NO acuso
+                            // al host por un problema mio; solo lo dejo en el log. La cadena sigue siendo la red
+                            // de seguridad (una omision inconsistente con un record firmado por un humano diverge).
+                            LOGGER.log(Level.WARNING,
+                                    "RECOVER: cannot verify my own actions on skip (local SQLite read failed) — proceeding without accusing the host");
+                        }
+                    }
+                    LOGGER.log(Level.INFO,
+                            "RECOVER: asiento {0} SALTADO por omision mutua (se desconecto antes de actuar; la accion guardada #{1} es de {2})",
+                            new Object[]{current_player.getNickname(), this.conta_accion,
+                                this.recover_action_order.get(this.conta_accion)});
+                    // Este asiento se fue a mitad de mano y en vivo quedo FOLDEADO (fuera de resisten via
+                    // isActivo/exit). Al reconectar vuelve activo, asi que hay que RETIRARLO de resisten aqui
+                    // igual que hace la rama de fold (mismo efecto de estado que synthesizeExitFoldAction en el
+                    // camino del exit-fold pelado): si no, reentraria en ESTA mano al alcanzar el frente en vivo
+                    // (turn/river + showdown) y podria cobrar un bote que ya habia forfeiteado. Reentra en la
+                    // SIGUIENTE mano. No toca H_t (la omision mutua se mantiene); host y cliente lo retiran
+                    // simetricamente, asi que el estado de la mesa sigue consistente entre peers.
+                    resisten.remove(current_player);
+                    conta_pos++;
+                    if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {
+                        conta_pos %= GameFrame.getInstance().getJugadores().size();
+                    }
+                    continue;
+                }
+
                 // Dead branch: the two reads above are consecutive and never disagree
                 // in single-threaded execution, so (!era && now) cannot fire. Kept here
                 // for archaeology only; the real dragon-close after the replay ends
@@ -14175,7 +14289,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                     decision = current_player.getDecision();
-                    action = new Object[]{decision, current_player.getBet(), null};
+                    if (accion_recuperada != null && accion_recuperada.length >= 6
+                            && Boolean.FALSE.equals(accion_recuperada[5])) {
+                        // RECOVER (fix divergencia de cadena): la accion recuperada es un SYNTH-FOLD
+                        // pelado (sin record firmado): el exit-fold de un jugador que se fue a mitad de
+                        // mano y ahora ha reconectado. En VIVO ese hueco se resolvio por OMISION MUTUA
+                        // (ningun peer absorbio record en H_t). Colapsarlo a un fold VOLUNTARIO hacia que
+                        // el jugador local lo re-firmara y lo ABSORBIERA (canBuild mas abajo), anadiendo a
+                        // la cadena un record que en vivo NUNCA existio -> H_t se desvia justo ahi y el
+                        // siguiente record ORIGINAL (un bot, con su PREV_H de vivo) rompe el absorb. Se
+                        // reproduce como synth-fold (isVoluntary=FALSE) para que synthFold=true aguas abajo
+                        // salte el rebuild y el absorb (misma omision mutua que en vivo) y emita el fold
+                        // pelado al wire, que el resto recibe y tambien omite. Conserva la marca [6].
+                        action = new Object[]{Player.FOLD, 0d, null, null, null, Boolean.FALSE,
+                            accion_recuperada.length >= 7 ? accion_recuperada[6] : Boolean.TRUE};
+                        LOGGER.log(Level.INFO,
+                                "RECOVER: {0} exit-fold reproducido por OMISION MUTUA (sin absorb en H_t), igual que en vivo",
+                                current_player.getNickname());
+                    } else {
+                        action = new Object[]{decision, current_player.getBet(), null};
+                    }
 
                 } else {
                     // Misma condición de siempre del branch del bot, izada para poder
@@ -15485,8 +15618,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         } catch (RuntimeException ex) {
+            String diag = "";
+            try {
+                if (record.length == CanonicalActionRecord.RECORD_BYTES) {
+                    diag = " [street=" + CanonicalActionRecord.readStreet(record)
+                            + " type=" + CanonicalActionRecord.readActionType(record)
+                            + " amount=" + CanonicalActionRecord.readAmountCents(record)
+                            + " record.PREV_H=" + Base64.getEncoder().encodeToString(java.util.Arrays.copyOfRange(record, 0, 32))
+                            + " chain.H=" + Base64.getEncoder().encodeToString(chain.getCurrentHash()) + "]";
+                }
+            } catch (RuntimeException ignore) {
+            }
             LOGGER.log(Level.SEVERE,
-                    "Failed to absorb signed action into hand state chain (nick=" + playerNick + ")", ex);
+                    "Failed to absorb signed action into hand state chain (nick=" + playerNick + ")" + diag, ex);
         }
     }
 
@@ -16858,13 +17002,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         //       FOLD sintetico es justo el resultado correcto) y se avisa SUAVE en el registro
                         //       (amarillo), sin acusar al host ni empujar a salir.
                         //   (b) FORJA: el host quito la firma de una accion que yo SI presencie (indice <=
-                        //       persisted) o me atribuye algo que no es un FOLD -> aviso DURO como siempre.
-                        // El FOLD sintetico protege el dinero en ambos casos; el flag de mano-no-verificada
-                        // se conserva igual (la mano queda liquidada pero sin verificacion completa).
+                        //       persisted) o me atribuye algo que no es un FOLD -> aviso DURO + marca.
+                        // El FOLD sintetico protege el dinero en AMBOS casos. La MARCA de mano-no-verificada
+                        // (saw_invalid_action_sig) solo se pone en (b): un exit-fold legitimo por ausencia es
+                        // omision mutua sin firma, NO una firma invalida, y con la cadena ya convergiendo la
+                        // mano debe VERIFICAR LIMPIO (si no, saldria un popup de "firma invalida" en un caso
+                        // benigno). En (a) solo queda el aviso SUAVE en el registro.
                         int persisted = this.recover_persisted_count.computeIfAbsent(name, this::sqlCountLocalHandActions);
                         if (isBenignPostAbsenceRecover((int) res[0], replayedIndex, persisted)) {
                             LOGGER.log(Level.WARNING,
-                                    "ZERO-TRUST RECOVER: recovered action #{0} for {1} is later than the {2} action(s) this peer stored locally — it happened while out of the hand; trusting the host''s replay, cannot verify",
+                                    "ZERO-TRUST RECOVER: recovered action #{0} for {1} is later than the {2} action(s) this peer stored locally — it happened while out of the hand; benign exit-fold, mutual omission",
                                     new Object[]{replayedIndex, name, persisted});
                             warnRecoverActionDuringAbsence();
                         } else {
@@ -16872,9 +17019,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     "ZERO-TRUST RECOVER: recovered action for {0} carries no signed record while the chain is active — host forging",
                                     name);
                             warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
+                            this.saw_invalid_action_sig = true;
                         }
                         synthesizeUnverifiedFoldAction(res);
-                        this.saw_invalid_action_sig = true;
                     }
 
                     break;
@@ -16928,6 +17075,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.recover_replay_index.clear();
             this.recover_persisted_count.clear();
             this.recover_absence_warned = false;
+            this.recover_action_order = new java.util.ArrayList<>();
 
             if (GameFrame.getInstance().isPartida_local()) {
                 datos = sqlRecoverHandActions();
@@ -16948,9 +17096,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 String[] rec = datos.split("@");
                 for (String r : rec) {
                     if (!"".equals(r)) {
-                        this.tot_acciones_recuperadas++;
                         String[] parts = r.split("#");
                         String nick = new String(Base64.getDecoder().decode(parts[0]), "UTF-8");
+
+                        // Secuencia ordenada (por counter, tal cual la sirve sqlRecoverHandActions) de
+                        // TODOS los nicks: la referencia para detectar asientos saltados por omision mutua.
+                        // El contador y la lista se incrementan JUNTOS y DESPUES del decode, para que
+                        // tot_acciones_recuperadas == recover_action_order.size() SIEMPRE (una entrada
+                        // malformada que reviente el decode no infla el contador respecto a la lista).
+                        this.recover_action_order.add(nick);
+                        this.tot_acciones_recuperadas++;
 
                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)
                                 || (GameFrame.getInstance().isPartida_local()

@@ -144,11 +144,11 @@ public class SettingsDialog extends JDialog {
         // Apariencia y Audio llevan su propio botón "Restaurar predeterminados" en un pie fijo de
         // la pestaña (siempre visible, no se va con el scroll): cada uno restaura SOLO lo suyo, con
         // la misma semántica transaccional (aplica en vivo; GUARDAR conserva, Cancelar revierte).
-        tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), tabWithRestore(appearance_panel, appearance_panel::restoreDefaults));
-        tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), tabWithRestore(audio_panel, audio_panel::restoreDefaults));
+        tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), tabWithRestore(appearance_panel, appearance_panel::restoreDefaults, Translator.translate("settings.tab_apariencia")));
+        tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), tabWithRestore(audio_panel, audio_panel::restoreDefaults, Translator.translate("settings.tab_audio")));
         // Atajos de teclado (global, en todos los contextos): reasignables, con su propio pie de
         // restaurar predeterminados.
-        tabs.addTab(Translator.translate("settings.tab_atajos"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/keyboard.png")), tabWithRestore(shortcuts_panel, shortcuts_panel::restoreDefaults));
+        tabs.addTab(Translator.translate("settings.tab_atajos"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/keyboard.png")), tabWithRestore(shortcuts_panel, shortcuts_panel::restoreDefaults, Translator.translate("settings.tab_atajos")));
         shortcuts_tab_index = tabs.getTabCount() - 1;
         if (in_game) {
             tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(game_panel));
@@ -384,13 +384,13 @@ public class SettingsDialog extends JDialog {
     // (restore, aplicado en vivo) y avisa de que hay que GUARDAR para conservarlo (el diálogo es
     // transaccional: Cancelar lo revierte). El botón hereda la fuente/escala del diálogo con el
     // resto del contenido (setUniformFont / scaleIcons sobre 'content').
-    private JPanel tabWithRestore(Component panel, Runnable restore) {
+    private JPanel tabWithRestore(Component panel, Runnable restore, String section_name) {
 
         JButton restore_button = new JButton(Translator.translate("settings.restaurar_predeterminados"));
         restore_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/undo.png")));
         restore_button.addActionListener(e -> {
             restore.run();
-            Helpers.mostrarMensajeInformativo(this, Translator.translate("settings.predeterminados_restaurados"));
+            Helpers.mostrarMensajeInformativo(this, Translator.translate("settings.predeterminados_restaurados_seccion", section_name));
         });
 
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.LEFT));

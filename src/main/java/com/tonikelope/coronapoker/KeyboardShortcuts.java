@@ -89,10 +89,9 @@ public final class KeyboardShortcuts {
     public static final String VOLUME_DOWN = "VOLUME-DOWN";
     // La nota de voz es "push-to-record" (mantener pulsada): NO se despacha por actionMap, la atiende
     // VoiceMessageManager, que lee la tecla de aquí. Solo modela su combinación para poder reasignarla.
+    // Es "solo tecla base" (sin modificadores): mantener CTRL+F9 no tiene sentido para grabar.
     public static final String VOICE_RECORD = "VOICE-RECORD";
 
-    // El chat rápido usa una tecla "typed" (dead-key 'º'): su cuerpo vive en GameFrame (gameActions).
-    public static final String FASTCHAT = "FASTCHAT";
     public static final String FASTCHAT_IMAGE = "FASTCHAT-IMAGE";
 
     /**
@@ -109,6 +108,9 @@ public final class KeyboardShortcuts {
         public final String label_key;
         public final KeyStroke def;
         public final KeyStroke[] aliases;
+        // true = SOLO tecla base, sin modificadores (nota de voz push-to-record): la captura ignora
+        // ALT/CTRL/SHIFT.
+        public boolean keycode_only = false;
 
         Def(String id, String section_key, String label_key, KeyStroke def, KeyStroke... aliases) {
             this.id = id;
@@ -116,6 +118,11 @@ public final class KeyboardShortcuts {
             this.label_key = label_key;
             this.def = def;
             this.aliases = aliases;
+        }
+
+        Def keycodeOnly() {
+            this.keycode_only = true;
+            return this;
         }
     }
 
@@ -158,9 +165,7 @@ public final class KeyboardShortcuts {
         DEFS.add(new Def(MUTE, "shortcuts.sec_audio", "shortcuts.act_mute", ks(KeyEvent.VK_S, InputEvent.ALT_DOWN_MASK)));
         DEFS.add(new Def(VOLUME_UP, "shortcuts.sec_audio", "shortcuts.act_volup", ks(KeyEvent.VK_UP, InputEvent.SHIFT_DOWN_MASK)));
         DEFS.add(new Def(VOLUME_DOWN, "shortcuts.sec_audio", "shortcuts.act_voldown", ks(KeyEvent.VK_DOWN, InputEvent.SHIFT_DOWN_MASK)));
-        DEFS.add(new Def(VOICE_RECORD, "shortcuts.sec_audio", "shortcuts.act_voice", ks(KeyEvent.VK_F9, 0)));
-
-        DEFS.add(new Def(FASTCHAT, "shortcuts.sec_chat", "shortcuts.act_fastchat", KeyStroke.getKeyStroke('º')));
+        DEFS.add(new Def(VOICE_RECORD, "shortcuts.sec_audio", "shortcuts.act_voice", ks(KeyEvent.VK_F9, 0)).keycodeOnly());
 
         DEFS.add(new Def(FASTCHAT_IMAGE, "shortcuts.sec_img", "shortcuts.act_images", ks(KeyEvent.VK_1, 0)));
     }
@@ -251,6 +256,14 @@ public final class KeyboardShortcuts {
      */
     public static KeyStroke get(String id) {
         return current.get(id);
+    }
+
+    /**
+     * ¿La acción es de SOLO tecla base (sin modificadores)? (nota de voz push-to-record).
+     */
+    public static boolean isKeycodeOnly(String id) {
+        Def d = BY_ID.get(id);
+        return d != null && d.keycode_only;
     }
 
     /**
@@ -443,6 +456,14 @@ public final class KeyboardShortcuts {
      * que por sí sola no es un atajo.
      */
     public static KeyStroke fromKeyEvent(KeyEvent e) {
+        return fromKeyEvent(e, false);
+    }
+
+    /**
+     * Igual que {@link #fromKeyEvent(KeyEvent)} pero si {@code keycode_only} descarta los
+     * modificadores (para acciones de SOLO tecla base, como la nota de voz).
+     */
+    public static KeyStroke fromKeyEvent(KeyEvent e, boolean keycode_only) {
 
         int key_code = e.getKeyCode();
 
@@ -450,7 +471,7 @@ public final class KeyboardShortcuts {
             return null;
         }
 
-        return ks(key_code, e.getModifiersEx() & MOD_MASK);
+        return ks(key_code, keycode_only ? 0 : (e.getModifiersEx() & MOD_MASK));
     }
 
     private static boolean isModifierKey(int key_code) {
@@ -488,12 +509,7 @@ public final class KeyboardShortcuts {
             parts.add("ALT GR");
         }
 
-        // Teclas "typed" (dead-key como 'º', sin keyCode): se muestran por su carácter.
-        if (ks.getKeyCode() == KeyEvent.VK_UNDEFINED && ks.getKeyChar() != KeyEvent.CHAR_UNDEFINED) {
-            parts.add(String.valueOf(ks.getKeyChar()).toUpperCase());
-        } else {
-            parts.add(keyName(ks.getKeyCode()));
-        }
+        parts.add(keyName(ks.getKeyCode()));
 
         return parts.toArray(new String[0]);
     }

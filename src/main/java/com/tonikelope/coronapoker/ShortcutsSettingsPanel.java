@@ -73,6 +73,9 @@ public class ShortcutsSettingsPanel extends JPanel {
     // acción está personalizada.
     private final Map<String, JButton> reset_buttons = new HashMap<>();
 
+    // Etiqueta del nombre de cada acción, para ponerla en negrita cuando el atajo está personalizado.
+    private final Map<String, JLabel> action_labels = new HashMap<>();
+
     // Bordes de las cajas de sección, para poner sus títulos en negrita TRAS la unificación de
     // fuentes del diálogo (fixTitledBorderFonts los pisaría a plano antes).
     private final List<javax.swing.border.TitledBorder> section_borders = new ArrayList<>();
@@ -169,6 +172,7 @@ public class ShortcutsSettingsPanel extends JPanel {
             gbc.fill = GridBagConstraints.NONE;
             gbc.insets = new Insets(3, 10, 3, 14);
             box.add(action, gbc);
+            action_labels.put(d.id, action);
 
             final String id = d.id;
             JButton button = new JButton(keyText(id));
@@ -267,6 +271,12 @@ public class ShortcutsSettingsPanel extends JPanel {
             b.setFont(new Font("Dialog", customized ? Font.BOLD : Font.PLAIN, b.getFont().getSize()));
         }
 
+        // La etiqueta del nombre también va en negrita si el atajo está personalizado.
+        JLabel label = action_labels.get(id);
+        if (label != null) {
+            label.setFont(label.getFont().deriveFont(customized ? Font.BOLD : Font.PLAIN));
+        }
+
         // El botón "deshacer" SOLO aparece si el atajo está personalizado.
         JButton reset = reset_buttons.get(id);
         if (reset != null) {
@@ -330,7 +340,8 @@ public class ShortcutsSettingsPanel extends JPanel {
                 return true;
             }
 
-            KeyStroke ks = KeyboardShortcuts.fromKeyEvent(e);
+            // Acciones de solo tecla base (nota de voz): se ignoran los modificadores.
+            KeyStroke ks = KeyboardShortcuts.fromKeyEvent(e, KeyboardShortcuts.isKeycodeOnly(id));
 
             if (ks == null) {
                 // Modificador suelto: seguir esperando la tecla de verdad.

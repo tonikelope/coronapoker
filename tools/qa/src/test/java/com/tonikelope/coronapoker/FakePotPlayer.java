@@ -52,6 +52,11 @@ public final class FakePotPlayer implements Player {
     }
 
     @Override
+    public void markFoldedOnRecover() {
+        // no-op: pot-math fake, decision is fixed at construction
+    }
+
+    @Override
     public boolean isActivo() {
         return activo;
     }

@@ -150,6 +150,12 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public int getDecision();
 
+    // Recover: marca este asiento como FOLDEADO (decision=FOLD + pinta gris) de forma SILENCIOSA
+    // (sin sonido ni cinematica). Lo usa el skip por omision mutua: un jugador que se fue a mitad de
+    // mano y reconecta queda foldeado esa mano, y sin esto se quedaba "como si no hubiera hablado"
+    // (fuera de resisten pero sin pintar gris) porque el skip no pasa por el handler de la accion.
+    public void markFoldedOnRecover();
+
     public void setStack(double stack);
 
     // Pinta SOLO el label del stack con 'value' (sin tocar el modelo): lo usa la

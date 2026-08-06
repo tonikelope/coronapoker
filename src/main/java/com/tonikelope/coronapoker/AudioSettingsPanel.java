@@ -1184,7 +1184,7 @@ public class AudioSettingsPanel extends JPanel {
     // Restaura TODOS los ajustes de audio a sus valores de fábrica, aplicándolos EN VIVO como una
     // edición más (diálogo transaccional: GUARDAR los conserva, Cancelar los revierte al estado de
     // apertura). Incluye volumen maestro, todos los toggles de sonido/música/coña, dispositivos,
-    // micrófono, notas de voz, retención, voz TTS local y la tecla de grabación. Las reglas
+    // micrófono, notas de voz, retención y voz TTS local. Las reglas
     // GLOBALES de la timba (TTS y notas de voz) solo se resetean si NO eres cliente (a un cliente
     // se las manda el servidor). Lo invoca el botón "Restaurar predeterminados" del diálogo.
     public void restoreDefaults() {

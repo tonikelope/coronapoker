@@ -401,6 +401,11 @@ public final class KeyboardShortcuts {
             }
         }
 
+        // Purga la propiedad legacy de la tecla de voz una vez migrada al registro: si no, resetear
+        // VOICE_RECORD a fábrica desde Atajos se revertiria a la tecla antigua al reiniciar (load la
+        // reaplicaria al ver ausente shortcut.VOICE-RECORD).
+        Helpers.PROPERTIES.remove("voice_message_key");
+
         Helpers.savePropertiesFile();
         snapshot = null;
     }

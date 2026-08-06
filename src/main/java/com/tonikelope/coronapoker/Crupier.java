@@ -279,7 +279,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * cadena (PREV_H) ya delata cualquier omisión inconsistente y los bots los controla el host de todas formas.
      */
     static boolean isHostOmittingOwnActionOnSkip(boolean ownSeat, int ownReplayed, int ownPersisted) {
-        return ownSeat && ownReplayed < ownPersisted;
+        // ownPersisted == Integer.MAX_VALUE es el centinela de FALLO al leer MI SQLite local
+        // (sqlCountLocalHandActions): es un problema LOCAL, no del host. NO se puede determinar si el
+        // host omite nada, asi que NO se acusa (si no, un fallo local de SQL en un skip legitimo
+        // dispararia una acusacion FALSA al host y el empuje a abandonar la mesa). El llamador
+        // registra aparte el "no se pudo verificar".
+        return ownSeat && ownPersisted != Integer.MAX_VALUE && ownReplayed < ownPersisted;
     }
 
     /**
@@ -14160,6 +14165,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     new Object[]{replayed, persisted});
                             warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_omitted"));
                             this.saw_invalid_action_sig = true;
+                        } else if (persisted == Integer.MAX_VALUE) {
+                            // Fallo LOCAL al leer mi SQLite: no puedo verificar si el host omite algo. NO acuso
+                            // al host por un problema mio; solo lo dejo en el log. La cadena sigue siendo la red
+                            // de seguridad (una omision inconsistente con un record firmado por un humano diverge).
+                            LOGGER.log(Level.WARNING,
+                                    "RECOVER: cannot verify my own actions on skip (local SQLite read failed) — proceeding without accusing the host");
                         }
                     }
                     LOGGER.log(Level.INFO,
@@ -17058,13 +17069,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 String[] rec = datos.split("@");
                 for (String r : rec) {
                     if (!"".equals(r)) {
-                        this.tot_acciones_recuperadas++;
                         String[] parts = r.split("#");
                         String nick = new String(Base64.getDecoder().decode(parts[0]), "UTF-8");
 
                         // Secuencia ordenada (por counter, tal cual la sirve sqlRecoverHandActions) de
                         // TODOS los nicks: la referencia para detectar asientos saltados por omision mutua.
+                        // El contador y la lista se incrementan JUNTOS y DESPUES del decode, para que
+                        // tot_acciones_recuperadas == recover_action_order.size() SIEMPRE (una entrada
+                        // malformada que reviente el decode no infla el contador respecto a la lista).
                         this.recover_action_order.add(nick);
+                        this.tot_acciones_recuperadas++;
 
                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)
                                 || (GameFrame.getInstance().isPartida_local()

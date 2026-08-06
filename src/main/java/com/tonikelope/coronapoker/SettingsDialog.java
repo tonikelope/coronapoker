@@ -386,7 +386,7 @@ public class SettingsDialog extends JDialog {
     // resto del contenido (setUniformFont / scaleIcons sobre 'content').
     private JPanel tabWithRestore(Component panel, Runnable restore, String section_name) {
 
-        JButton restore_button = new JButton(Translator.translate("settings.restaurar_predeterminados"));
+        JButton restore_button = new JButton(Translator.translate("settings.restaurar_predeterminados_seccion", section_name));
         restore_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/undo.png")));
         restore_button.addActionListener(e -> {
             restore.run();

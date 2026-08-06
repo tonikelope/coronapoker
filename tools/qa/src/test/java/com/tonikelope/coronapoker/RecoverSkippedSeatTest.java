@@ -99,4 +99,13 @@ class RecoverSkippedSeatTest {
         assertFalse(Crupier.isHostOmittingOwnActionOnSkip(false, 0, 5));
         assertFalse(Crupier.isHostOmittingOwnActionOnSkip(false, 3, 9));
     }
+
+    @Test
+    @DisplayName("A local SQLite read failure (MAX_VALUE sentinel) never accuses the host")
+    void localCountFailureDoesNotAccuseHost() {
+        // sqlCountLocalHandActions returns Integer.MAX_VALUE when it cannot read the local DB — a LOCAL
+        // failure, not host malice. The guard must NOT fire (no false hard accusation / leave-the-table).
+        assertFalse(Crupier.isHostOmittingOwnActionOnSkip(true, 0, Integer.MAX_VALUE));
+        assertFalse(Crupier.isHostOmittingOwnActionOnSkip(true, 5, Integer.MAX_VALUE));
+    }
 }

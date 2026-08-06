@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.AWTEvent;
+import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
@@ -28,8 +29,12 @@ import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -38,12 +43,13 @@ import javax.swing.KeyStroke;
 
 /**
  * Pestaña "Atajos" del diálogo de Ajustes: lista las acciones reasignables (de
- * {@link KeyboardShortcuts}) agrupadas por sección, y por cada una un botón que muestra su
- * combinación actual. Al pulsarlo, el botón entra en modo captura ("Pulsa la combinación...") y la
- * siguiente combinación de teclas pasa a ser el nuevo atajo, salvo que esa combinación ya esté en
- * uso por otra acción (se ignora, como pidió el diseño). Para CANCELAR una captura basta con hacer
- * clic fuera (o en otro sitio); no se usa ninguna tecla, para que cualquier tecla —incluida ESC—
- * pueda asignarse.
+ * {@link KeyboardShortcuts}) agrupadas por sección, cada sección en su propia caja con borde negro
+ * fino, y las cajas repartidas en DOS columnas (equilibradas por número de filas) para no ser un
+ * único bloque vertical larguísimo. Cada acción lleva un botón con su combinación actual; al
+ * pulsarlo, el botón entra en modo captura ("Pulsa la combinación...") y la siguiente combinación de
+ * teclas pasa a ser el nuevo atajo, salvo que ya esté en uso por otra acción (se ignora). Para
+ * CANCELAR una captura basta con hacer clic fuera; no se usa ninguna tecla, para que cualquier
+ * tecla —incluida ESC— pueda asignarse.
  *
  * Los cambios se aplican EN VIVO sobre el registro (transacción abierta por el diálogo) y solo
  * persisten al GUARDAR; Cancelar los revierte. La captura pone {@link KeyboardShortcuts#setCapturing}
@@ -72,42 +78,70 @@ public class ShortcutsSettingsPanel extends JPanel {
     private void buildUI() {
 
         GridBagConstraints gbc = new GridBagConstraints();
-        int row = 0;
 
         JLabel hint = new JLabel("<html>" + Translator.translate("shortcuts.pista_editar") + "</html>");
         gbc.gridx = 0;
-        gbc.gridy = row++;
-        gbc.gridwidth = 3;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
         gbc.weightx = 1;
         gbc.anchor = GridBagConstraints.WEST;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(10, 12, 12, 12);
         add(hint, gbc);
 
-        String current_section = null;
-        boolean first_section = true;
-
+        // Agrupa las acciones por sección conservando el orden del catálogo.
+        LinkedHashMap<String, List<KeyboardShortcuts.Def>> by_section = new LinkedHashMap<>();
         for (KeyboardShortcuts.Def d : KeyboardShortcuts.defs()) {
+            by_section.computeIfAbsent(d.section_key, k -> new ArrayList<>()).add(d);
+        }
 
-            if (!d.section_key.equals(current_section)) {
-                current_section = d.section_key;
+        // Reparte las cajas de sección en dos columnas, metiendo cada sección en la columna que
+        // MENOS filas lleve acumuladas, para que las dos columnas queden parejas de alto.
+        List<JPanel> left = new ArrayList<>();
+        List<JPanel> right = new ArrayList<>();
+        int left_rows = 0;
+        int right_rows = 0;
 
-                JLabel section = new JLabel(Translator.translate(d.section_key));
-                section.setFont(section.getFont().deriveFont(Font.BOLD));
-                gbc.gridx = 0;
-                gbc.gridy = row++;
-                gbc.gridwidth = 3;
-                gbc.weightx = 1;
-                gbc.anchor = GridBagConstraints.WEST;
-                gbc.fill = GridBagConstraints.HORIZONTAL;
-                gbc.insets = new Insets(first_section ? 4 : 18, 12, 4, 12);
-                add(section, gbc);
-                first_section = false;
+        for (Map.Entry<String, List<KeyboardShortcuts.Def>> e : by_section.entrySet()) {
+            int rows = e.getValue().size();
+            if (left_rows <= right_rows) {
+                left.add(sectionBox(e.getKey(), e.getValue()));
+                left_rows += rows;
+            } else {
+                right.add(sectionBox(e.getKey(), e.getValue()));
+                right_rows += rows;
             }
+        }
 
-            // Fila en 3 columnas: etiqueta (izquierda) + botón (columna alineada, pegada a la
-            // etiqueta) + relleno elástico que se traga el ancho sobrante. Así las dos columnas van
-            // JUNTAS a la izquierda en vez de separarse de lado a lado (cuesta seguir la fila).
+        gbc.gridy = 1;
+        gbc.gridwidth = 1;
+        gbc.weightx = 0.5;
+        gbc.weighty = 1;
+        gbc.anchor = GridBagConstraints.NORTH;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        gbc.gridx = 0;
+        gbc.insets = new Insets(0, 10, 8, 5);
+        add(column(left), gbc);
+
+        gbc.gridx = 1;
+        gbc.insets = new Insets(0, 5, 8, 10);
+        add(column(right), gbc);
+    }
+
+    // Caja de una sección: borde negro fino con el nombre de la sección como título, y dentro las
+    // filas (etiqueta + botón alineado + relleno elástico).
+    private JPanel sectionBox(String section_key, List<KeyboardShortcuts.Def> defs) {
+
+        JPanel box = new JPanel(new GridBagLayout());
+        box.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.BLACK, 1),
+                Translator.translate(section_key)));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        int row = 0;
+
+        for (KeyboardShortcuts.Def d : defs) {
+
             JLabel action = new JLabel(Translator.translate(d.label_key));
             gbc.gridx = 0;
             gbc.gridy = row;
@@ -115,8 +149,8 @@ public class ShortcutsSettingsPanel extends JPanel {
             gbc.weightx = 0;
             gbc.anchor = GridBagConstraints.WEST;
             gbc.fill = GridBagConstraints.NONE;
-            gbc.insets = new Insets(3, 26, 3, 14);
-            add(action, gbc);
+            gbc.insets = new Insets(3, 10, 3, 14);
+            box.add(action, gbc);
 
             final String id = d.id;
             JButton button = new JButton(keyText(id));
@@ -128,17 +162,46 @@ public class ShortcutsSettingsPanel extends JPanel {
             gbc.weightx = 0;
             gbc.anchor = GridBagConstraints.WEST;
             gbc.fill = GridBagConstraints.HORIZONTAL;
-            gbc.insets = new Insets(3, 0, 3, 0);
-            add(button, gbc);
+            gbc.insets = new Insets(3, 0, 3, 8);
+            box.add(button, gbc);
 
             gbc.gridx = 2;
             gbc.weightx = 1;
             gbc.fill = GridBagConstraints.HORIZONTAL;
             gbc.insets = new Insets(0, 0, 0, 0);
-            add(Box.createHorizontalGlue(), gbc);
+            box.add(Box.createHorizontalGlue(), gbc);
 
             row++;
         }
+
+        return box;
+    }
+
+    // Apila verticalmente las cajas de una columna (borde a borde, separadas por un hueco), con un
+    // muelle abajo para que se peguen arriba y no se estiren.
+    private static JPanel column(List<JPanel> boxes) {
+
+        JPanel col = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.weightx = 1;
+        gbc.anchor = GridBagConstraints.NORTH;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        int row = 0;
+        for (JPanel box : boxes) {
+            gbc.gridy = row++;
+            gbc.insets = new Insets(0, 0, 10, 0);
+            col.add(box, gbc);
+        }
+
+        gbc.gridy = row;
+        gbc.weighty = 1;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        col.add(Box.createVerticalGlue(), gbc);
+
+        return col;
     }
 
     // Texto de la combinación actual de una acción ("ALT + P", "CTRL + ALT + ESC").

@@ -70,6 +70,15 @@ public final class EdwardsPoint {
     private volatile EdwardsPoint[] windowTable;
 
     /**
+     * Lazily-memoized odd-multiple table ({@code 1,3,5,…,15 · this}) for {@link #scalarMul}'s width-5
+     * signed-window (wNAF) ladder. Eight points, built with one doubling and seven additions — lighter
+     * than {@link #windowTable}'s fifteen — and, like it, memoized so a reused point (the constant
+     * {@link #BASE}, {@code k·B} commitments, DLEQ bases) builds it once, not per call. {@code volatile}
+     * for safe publication across the background SRA verifier threads.
+     */
+    private volatile EdwardsPoint[] nafTable;
+
+    /**
      * Lazily-memoized canonical Ristretto255 encoding of this point (see {@link Ristretto255#encode}).
      * Same pure-cache pattern as {@link #windowTable}: the instance is immutable, so its canonical
      * encoding is a constant — computed at most once, and seeded for free by
@@ -146,24 +155,43 @@ public final class EdwardsPoint {
         return new EdwardsPoint(X.negate(), Y, Z, T.negate());
     }
 
-    /** Scalar multiplication s*P via double-and-add (MSB to LSB). s must be >= 0. */
+    /**
+     * Scalar multiplication s*P via a width-5 signed-window (wNAF) double-and-add, MSB to LSB. s must
+     * be >= 0. The result is the same group element as any correct s*P (bit-identical once encoded),
+     * validated against a naive double-and-add over random inputs in ScalarMulWnafDiffTest.
+     */
     public EdwardsPoint scalarMul(BigInteger s) {
         if (s.signum() < 0) {
             throw new IllegalArgumentException("scalar must be non-negative");
         }
-        // Fixed 4-bit window: precompute 0..15 multiples once, then process 4 scalar bits per step
-        // (4 doublings + 1 addition) instead of one bit at a time. Same result; ~40% fewer additions.
-        // The table depends only on `this`, so it is memoized (windowTable) — a point reused across many
-        // scalarMuls (the constant BASE above all) builds its 15-addition table once, not per call.
-        EdwardsPoint[] table = windowTable();
-        int bits = s.bitLength();
+        // Width-5 NAF: each nonzero digit is odd in [-15, 15] and is followed by at least four zeros, so
+        // the ladder averages ~1 addition per 6 bits (vs the fixed 4-bit window's 1 per 4) and needs only
+        // the 8 odd multiples 1,3,…,15·P. The table depends only on `this`, so it is memoized (nafTable):
+        // a point reused across many scalarMuls (BASE above all) builds it once, not per call.
+        EdwardsPoint[] odd = nafTable();
+        int[] naf = new int[s.bitLength() + 2];
+        int len = 0;
+        BigInteger k = s;
+        while (k.signum() > 0) {
+            int digit = 0;
+            if (k.testBit(0)) {
+                digit = k.intValue() & 31; // low 5 bits; k odd -> digit odd in [1, 31]
+                if (digit >= 16) {
+                    digit -= 32; // fold to the signed odd digit in [-15, -1]
+                }
+                k = k.subtract(BigInteger.valueOf(digit)); // clears the low 5 bits
+            }
+            naf[len++] = digit;
+            k = k.shiftRight(1);
+        }
         EdwardsPoint result = IDENTITY;
-        for (int i = ((bits + 3) / 4) * 4 - 4; i >= 0; i -= 4) {
-            result = result.dbl().dbl().dbl().dbl();
-            int window = (s.testBit(i + 3) ? 8 : 0) | (s.testBit(i + 2) ? 4 : 0)
-                    | (s.testBit(i + 1) ? 2 : 0) | (s.testBit(i) ? 1 : 0);
-            if (window != 0) {
-                result = result.add(table[window]);
+        for (int i = len - 1; i >= 0; i--) {
+            result = result.dbl();
+            int d = naf[i];
+            if (d > 0) {
+                result = result.add(odd[(d - 1) >> 1]);
+            } else if (d < 0) {
+                result = result.add(odd[(-d - 1) >> 1].negate());
             }
         }
         return result;
@@ -179,6 +207,25 @@ public final class EdwardsPoint {
                 t[w] = t[w - 1].add(this);
             }
             windowTable = t;
+        }
+        return t;
+    }
+
+    /**
+     * Memoized width-5 odd-multiple table for {@link #scalarMul}'s wNAF ladder: {@code table[j] =
+     * (2j+1)·this} for {@code j = 0..7}, i.e. {@code 1,3,5,…,15 · this}. Built with one doubling
+     * ({@code 2·this}) and seven additions.
+     */
+    private EdwardsPoint[] nafTable() {
+        EdwardsPoint[] t = nafTable;
+        if (t == null) {
+            t = new EdwardsPoint[8];
+            t[0] = this;
+            EdwardsPoint twoThis = this.dbl();
+            for (int j = 1; j < 8; j++) {
+                t[j] = t[j - 1].add(twoThis);
+            }
+            nafTable = t;
         }
         return t;
     }

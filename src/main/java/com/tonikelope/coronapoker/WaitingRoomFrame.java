@@ -2519,6 +2519,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                         return;
                                                                     }
 
+                                                                    // ZERO-TRUST: wire con menos campos de los que leemos (partes_cascade[3])
+                                                                    // -> rechazar limpio en vez de AIOOBE, igual que el hermano DECK_ROTATION_REQ.
+                                                                    if (partes_cascade.length < 4) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ malformed wire (parts={0}) — refusing", partes_cascade.length);
+                                                                        return;
+                                                                    }
+
                                                                     byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
 
                                                                     // Dual-lock (Opción G): el cliente necesita el Crupier para guardar
@@ -2535,7 +2542,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // (downgrade del host: enviarnos bytes inválidos para que gastemos
                                                                     // nuestro shuffle/lock sobre datos no recuperables, o smuggling).
                                                                     // Rechazar antes de comprometer nuestro sra_unlock recién generado.
-                                                                    if (incomingDeck == null || incomingDeck.length != 1664 || !RistrettoSRA.arePointsValid(incomingDeck)) {
+                                                                    // decodeDeck valida (52 puntos exactos + cada uno en curva/canónico) en UN
+                                                                    // decode y nos deja los puntos (incomingPoints) para reutilizarlos en el
+                                                                    // lock. Se mantiene AQUÍ, antes de generar/guardar los scalars, para
+                                                                    // rechazar un deck basura sin comprometer el sra_unlock recién generado.
+                                                                    com.tonikelope.coronapoker.crypto.EdwardsPoint[] incomingPoints =
+                                                                            (incomingDeck != null && incomingDeck.length == 1664)
+                                                                                    ? com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingDeck) : null;
+                                                                    if (incomingPoints == null) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ payload is not a valid 52-point curve deck (len={0}) — refusing",
                                                                                 incomingDeck == null ? -1 : incomingDeck.length);
                                                                         crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
@@ -2559,7 +2573,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // rotación. Una segunda rotación sin pasar por aquí será rechazada.
                                                                     crupierCheck.rotation_served_this_cascade = false;
 
-                                                                    byte[] locked = RistrettoSRA.applyCommutativeLock(incomingDeck, lockScalar);
+                                                                    // Lock sobre los puntos ya decodificados y validados arriba (incomingPoints):
+                                                                    // bytes idénticos a applyCommutativeLock(incomingDeck, lockScalar), sin re-decodificar.
+                                                                    byte[] locked = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(
+                                                                            RistrettoSRA.lockPoints(incomingPoints, lockScalar));
 
                                                                     // Generate fresh local entropy for THIS shuffle on the spot.
                                                                     // The handler runs on an async thread that may fire before the
@@ -2665,32 +2682,29 @@ public class WaitingRoomFrame extends JFrame {
                                                                         return;
                                                                     }
                                                                     byte[] incomingPieces = Base64.getDecoder().decode(partes_rotation[3]);
-                                                                    // ZERO-TRUST: payload debe ser un múltiplo de 32 bytes (32-byte points)
-                                                                    // y todos los chunks deben estar en la curva. La longitud exacta
-                                                                    // depende del número de jugadores del ring del host; no la
-                                                                    // re-derivamos aquí porque el cliente no la conoce, pero un payload
-                                                                    // no-curve es siempre rechazado.
-                                                                    if (incomingPieces == null
-                                                                            || incomingPieces.length == 0
-                                                                            || incomingPieces.length % 32 != 0
-                                                                            || !RistrettoSRA.arePointsValid(incomingPieces)) {
+                                                                    // ZERO-TRUST: decodeDeck valida en UN solo decode que el payload es un
+                                                                    // múltiplo de 32 bytes y que cada punto está en la curva / es canónico
+                                                                    // (null si no); reutilizamos esos puntos (inR) para el lock y la prueba
+                                                                    // sin re-decodificar. La longitud exacta depende del ring del host; no
+                                                                    // la re-derivamos, pero un payload no-curve es siempre rechazado.
+                                                                    com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR =
+                                                                            com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingPieces);
+                                                                    if (inR == null) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ payload not a valid curve-point block (len={0}) — refusing",
                                                                                 incomingPieces == null ? -1 : incomingPieces.length);
                                                                         crupierRot.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                         return;
                                                                     }
-                                                                    // Rotación: aplicar uPocket + kCommunity en ese orden. El resultado
-                                                                    // mantiene la longitud y sigue siendo válido en la curva (el output
-                                                                    // de scalar mult sobre puntos en la curva permanece en la curva).
                                                                     // Rotación en UN solo lock: uPocket luego kCommunity = multiplicar por
-                                                                    // s = uPocket*kCommunity (mod L), el MISMO escalar que la prueba de
-                                                                    // rotación de más abajo. Un pase en vez de dos => mitad de scalarMul,
-                                                                    // bytes idénticos.
-                                                                    byte[] rotated = RistrettoSRA.applyCommutativeLock(incomingPieces,
-                                                                            RistrettoSRA.scalarToBytes(
-                                                                                    RistrettoSRA.bytesToScalar(myPocketUnlock)
-                                                                                            .multiply(RistrettoSRA.bytesToScalar(crupierRot.local_sra_lock_community))
-                                                                                            .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L)));
+                                                                    // s = uPocket*kCommunity (mod L). Trabajamos sobre los puntos ya
+                                                                    // decodificados (inR); el resultado permanece en la curva y sus bytes
+                                                                    // son idénticos a applyCommutativeLock. El mismo s firma la prueba.
+                                                                    java.math.BigInteger sRot = RistrettoSRA.bytesToScalar(myPocketUnlock)
+                                                                            .multiply(RistrettoSRA.bytesToScalar(crupierRot.local_sra_lock_community))
+                                                                            .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
+                                                                    com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR =
+                                                                            RistrettoSRA.lockPoints(inR, RistrettoSRA.scalarToBytes(sRot));
+                                                                    byte[] rotated = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(outR);
                                                                     // Rotación servida: cualquier otra esta cascada se rechaza (anti-replay).
                                                                     crupierRot.rotation_served_this_cascade = true;
 
@@ -2699,17 +2713,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // lo anexa al bundle para que todos verifiquen la cadena genesis->MEGAPACKET.
                                                                     String rotProofB64 = "";
                                                                     try {
-                                                                        java.math.BigInteger sRot = com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(myPocketUnlock)
-                                                                                .multiply(com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(crupierRot.local_sra_lock_community))
-                                                                                .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
-                                                                        com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingPieces);
-                                                                        com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(rotated);
-                                                                        if (inR != null && outR != null) {
-                                                                            byte[] rp = com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
-                                                                                    com.tonikelope.coronapoker.crypto.RotationProof.prove(sRot, inR, outR));
-                                                                            if (rp != null) {
-                                                                                rotProofB64 = Base64.getEncoder().encodeToString(rp);
-                                                                            }
+                                                                        byte[] rp = com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
+                                                                                com.tonikelope.coronapoker.crypto.RotationProof.prove(sRot, inR, outR));
+                                                                        if (rp != null) {
+                                                                            rotProofB64 = Base64.getEncoder().encodeToString(rp);
                                                                         }
                                                                     } catch (Exception rotProofEx) {
                                                                         rotProofB64 = ""; // sin prueba -> el host marca el paso como remoto-pendiente, no rompe nada
@@ -3294,6 +3301,10 @@ public class WaitingRoomFrame extends JFrame {
                                                             final String cmdName = partes_comando[2];
                                                             Helpers.threadRun(() -> {
                                                                 try {
+                                                                    if (partes_rp.length < 5) {
+                                                                        LOGGER.log(Level.WARNING, "rabbit piece malformed wire (parts={0}) — refusing (cosmetic, not shown)", partes_rp.length);
+                                                                        return;
+                                                                    }
                                                                     String targetNick = new String(Base64.getDecoder().decode(partes_rp[3]), "UTF-8");
                                                                     if (!targetNick.equals(local_nick)) {
                                                                         return; // pieza ajena, drop silencioso

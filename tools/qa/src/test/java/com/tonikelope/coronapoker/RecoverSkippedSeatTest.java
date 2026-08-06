@@ -72,4 +72,31 @@ class RecoverSkippedSeatTest {
         assertFalse(Crupier.isSkippedSeatDuringRecover("cliente", 3, null));
         assertFalse(Crupier.isSkippedSeatDuringRecover("cliente", 0, Arrays.asList()));
     }
+
+    // ---- security: a hostile host cannot silently drop MY OWN action via the skip ----
+
+    @Test
+    @DisplayName("Skipping MY seat while I still have un-replayed local actions = host omitting -> alert")
+    void hostOmittingMyOwnActionIsDetected() {
+        // The host's order asks to skip my seat, but my local DB still has actions I have not replayed:
+        // the host is dropping an action I actually made. Detected against my own (host-uncontrolled) DB.
+        assertTrue(Crupier.isHostOmittingOwnActionOnSkip(true, 0, 1));
+        assertTrue(Crupier.isHostOmittingOwnActionOnSkip(true, 1, 2));
+    }
+
+    @Test
+    @DisplayName("A genuine missed slot (all my actions replayed) is not flagged")
+    void legitMissedSlotNotFlagged() {
+        // I disconnected before acting on this street: I replayed every action I had stored, so skipping
+        // my seat here is legitimate mutual omission, not an omission attack.
+        assertFalse(Crupier.isHostOmittingOwnActionOnSkip(true, 2, 2));
+        assertFalse(Crupier.isHostOmittingOwnActionOnSkip(true, 0, 0));
+    }
+
+    @Test
+    @DisplayName("Skipping someone else's seat is never an own-action omission (the chain guards it)")
+    void otherSeatSkipIsNotOwnOmission() {
+        assertFalse(Crupier.isHostOmittingOwnActionOnSkip(false, 0, 5));
+        assertFalse(Crupier.isHostOmittingOwnActionOnSkip(false, 3, 9));
+    }
 }

@@ -270,6 +270,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Recover / seguridad anti host-hostil (PURA y testeable): al ir a SALTAR mi PROPIO asiento durante el
+     * replay (porque la lista que sirve el host dice que no me toca), ¿está el host OMITIENDO una acción que
+     * yo sí jugué? Lo está SII el asiento es el MÍO ({@code ownSeat}) y todavía me quedan acciones propias sin
+     * reproducir: reproducidas ({@code ownReplayed}) &lt; las que tengo en mi SQLite local ({@code ownPersisted}),
+     * base que el host NO controla. Un hueco LEGÍTIMO (me desconecté antes de actuar en esa calle) tiene
+     * {@code ownReplayed == ownPersisted}, así que no salta. Solo aplica a mi asiento: para los demás, la
+     * cadena (PREV_H) ya delata cualquier omisión inconsistente y los bots los controla el host de todas formas.
+     */
+    static boolean isHostOmittingOwnActionOnSkip(boolean ownSeat, int ownReplayed, int ownPersisted) {
+        return ownSeat && ownReplayed < ownPersisted;
+    }
+
+    /**
      * Identity / anti-forgery (PURA y testeable): ¿el record que trae el wire es
      * ESTRUCTURALMENTE apto para verificar? Solo lo es con la longitud canónica EXACTA:
      * el firmante siempre emite RECORD_BYTES (CanonicalActionRecord.encode) y el canal
@@ -14130,6 +14143,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // tienen recover_action_order), asi que la cadena converge byte a byte con la de vivo.
                 if (isCryptoReplay && isSkippedSeatDuringRecover(current_player.getNickname(),
                         this.conta_accion, this.recover_action_order)) {
+                    // SEGURIDAD (host hostil): la lista recover_action_order la sirve el HOST. Para MI PROPIO
+                    // asiento no me fio de ella a ciegas: si el host quiere que salte mi turno pero mi SQLite
+                    // local (que el host NO controla) todavia tiene acciones mias sin reproducir, el host esta
+                    // OMITIENDO una accion que yo SI jugue para borrarla en silencio. Se detecta y se avisa
+                    // (duro) + se marca la mano como no verificada; NO se traga. Un hueco LEGITIMO (me
+                    // desconecte antes de actuar) tiene replayIndex == persistido, asi que no salta este aviso.
+                    boolean ownSeat = (current_player == GameFrame.getInstance().getLocalPlayer());
+                    if (ownSeat) {
+                        int persisted = this.recover_persisted_count.computeIfAbsent(
+                                current_player.getNickname(), this::sqlCountLocalHandActions);
+                        int replayed = this.recover_replay_index.getOrDefault(current_player.getNickname(), 0);
+                        if (isHostOmittingOwnActionOnSkip(true, replayed, persisted)) {
+                            LOGGER.log(Level.SEVERE,
+                                    "ZERO-TRUST RECOVER: host wants to skip MY seat but only {0}/{1} of my own actions were replayed — host omitting a recorded action",
+                                    new Object[]{replayed, persisted});
+                            warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_omitted"));
+                            this.saw_invalid_action_sig = true;
+                        }
+                    }
                     LOGGER.log(Level.INFO,
                             "RECOVER: asiento {0} SALTADO por omision mutua (se desconecto antes de actuar; la accion guardada #{1} es de {2})",
                             new Object[]{current_player.getNickname(), this.conta_accion,

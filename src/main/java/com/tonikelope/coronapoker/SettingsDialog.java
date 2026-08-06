@@ -137,6 +137,10 @@ public class SettingsDialog extends JDialog {
         // scrollableTab: la consola ya trae su propio JScrollPane y debe rellenar la pestaña.
         tabs.addTab(Translator.translate("settings.tab_debug"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/log.png")), debug_panel);
 
+        // Al cambiar de pestaña se cancela cualquier captura de tecla armada en la pestaña Atajos
+        // (si no, seguiría viva fuera de ella y se comería la siguiente tecla pulsada).
+        tabs.addChangeListener(e -> shortcuts_panel.cancelCapture());
+
         // Diálogo TRANSACCIONAL: Apariencia y Audio se aplican en vivo como
         // previsualización, pero GUARDAR es lo que los CONFIRMA y además aplica el modo
         // de pantalla pendiente y la pestaña Partida (ciegas + reglas, solo si eres host:

@@ -14187,6 +14187,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // de seguridad (una omision inconsistente con un record firmado por un humano diverge).
                             LOGGER.log(Level.WARNING,
                                     "RECOVER: cannot verify my own actions on skip (local SQLite read failed) — proceeding without accusing the host");
+                        } else {
+                            // BENIGNO: me desconecte antes de actuar en esta calle (replayed == persisted). El
+                            // host reprodujo acciones de otros durante mi ausencia que no puedo verificar. Mismo
+                            // aviso SUAVE (rojo) que el camino del exit-fold pelado, que aqui no salia porque el
+                            // skip no pasa por la rama 2. Dedup por recuperacion (recover_absence_warned).
+                            warnRecoverActionDuringAbsence();
                         }
                     }
                     LOGGER.log(Level.INFO,
@@ -14200,6 +14206,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // (turn/river + showdown) y podria cobrar un bote que ya habia forfeiteado. Reentra en la
                     // SIGUIENTE mano. No toca H_t (la omision mutua se mantiene); host y cliente lo retiran
                     // simetricamente, asi que el estado de la mesa sigue consistente entre peers.
+                    // Ademas se PINTA como foldeado (gris) de forma silenciosa: sin esto el asiento quedaba
+                    // fuera de resisten (ignorado) pero sin marca visual de fold, "como si no hubiera hablado".
+                    current_player.markFoldedOnRecover();
                     resisten.remove(current_player);
                     conta_pos++;
                     if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {

@@ -120,8 +120,9 @@ final class BatchVerifier {
         return Ristretto255.isIdentity(combined);
     }
 
-    /** Two-byte big-endian frame for a small count, so absorbed positions/lengths are unambiguous. */
+    /** Four-byte big-endian frame for a count, so absorbed positions/lengths are unambiguous even
+     *  past 2^16 equations (a latent bound an auditor flagged; unreachable here at <= 53 per deck). */
     private static byte[] frame(int v) {
-        return new byte[]{(byte) (v >>> 8), (byte) v};
+        return new byte[]{(byte) (v >>> 24), (byte) (v >>> 16), (byte) (v >>> 8), (byte) v};
     }
 }

@@ -14175,7 +14175,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                     decision = current_player.getDecision();
-                    action = new Object[]{decision, current_player.getBet(), null};
+                    if (accion_recuperada != null && accion_recuperada.length >= 6
+                            && Boolean.FALSE.equals(accion_recuperada[5])) {
+                        // RECOVER (fix divergencia de cadena): la accion recuperada es un SYNTH-FOLD
+                        // pelado (sin record firmado): el exit-fold de un jugador que se fue a mitad de
+                        // mano y ahora ha reconectado. En VIVO ese hueco se resolvio por OMISION MUTUA
+                        // (ningun peer absorbio record en H_t). Colapsarlo a un fold VOLUNTARIO hacia que
+                        // el jugador local lo re-firmara y lo ABSORBIERA (canBuild mas abajo), anadiendo a
+                        // la cadena un record que en vivo NUNCA existio -> H_t se desvia justo ahi y el
+                        // siguiente record ORIGINAL (un bot, con su PREV_H de vivo) rompe el absorb. Se
+                        // reproduce como synth-fold (isVoluntary=FALSE) para que synthFold=true aguas abajo
+                        // salte el rebuild y el absorb (misma omision mutua que en vivo) y emita el fold
+                        // pelado al wire, que el resto recibe y tambien omite. Conserva la marca [6].
+                        action = new Object[]{Player.FOLD, 0d, null, null, null, Boolean.FALSE,
+                            accion_recuperada.length >= 7 ? accion_recuperada[6] : Boolean.TRUE};
+                        LOGGER.log(Level.INFO,
+                                "RECOVER: {0} exit-fold reproducido por OMISION MUTUA (sin absorb en H_t), igual que en vivo",
+                                current_player.getNickname());
+                    } else {
+                        action = new Object[]{decision, current_player.getBet(), null};
+                    }
 
                 } else {
                     // Misma condición de siempre del branch del bot, izada para poder
@@ -15485,8 +15504,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         } catch (RuntimeException ex) {
+            String diag = "";
+            try {
+                if (record.length == CanonicalActionRecord.RECORD_BYTES) {
+                    diag = " [street=" + CanonicalActionRecord.readStreet(record)
+                            + " type=" + CanonicalActionRecord.readActionType(record)
+                            + " amount=" + CanonicalActionRecord.readAmountCents(record)
+                            + " record.PREV_H=" + Base64.getEncoder().encodeToString(java.util.Arrays.copyOfRange(record, 0, 32))
+                            + " chain.H=" + Base64.getEncoder().encodeToString(chain.getCurrentHash()) + "]";
+                }
+            } catch (RuntimeException ignore) {
+            }
             LOGGER.log(Level.SEVERE,
-                    "Failed to absorb signed action into hand state chain (nick=" + playerNick + ")", ex);
+                    "Failed to absorb signed action into hand state chain (nick=" + playerNick + ")" + diag, ex);
         }
     }
 

@@ -2518,11 +2518,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         proofs.add(stepProof);
                     }
-                    boolean ok = com.tonikelope.coronapoker.crypto.ShuffleCascade
-                            .verifyChainWire(bgGenesis, bgDecks, proofs);
-                    LOGGER.log(ok ? Level.INFO : Level.SEVERE,
-                            "SHUFFLE-VERIFY: background cascade-chain self-check = {0} ({1} steps)",
-                            new Object[]{ok, proofs.size()});
+                    // La cascada la reverifica DualLockWire.verifyFullChainWire mas abajo por dentro
+                    // (DualLockCascade.verifyFullChain -> ShuffleCascade.verifyChain), que ademas es
+                    // quien gatea la difusion (fullOk); no la verificamos aparte solo para un log.
                     // Cadena COMPLETA (cascada + rotacion). Generamos AQUI (background) las pruebas
                     // batch-DLEQ de host/bot a partir del escalar registrado; las remotas ya vienen del
                     // cliente. Cero crypto de esto en el path de reparto.

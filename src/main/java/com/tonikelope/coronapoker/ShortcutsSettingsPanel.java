@@ -18,6 +18,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.AWTEvent;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -61,6 +62,9 @@ import javax.swing.KeyStroke;
  * @author tonikelope
  */
 public class ShortcutsSettingsPanel extends JPanel {
+
+    // Separación MÍNIMA entre cajas de una columna (crece elásticamente para alinear los fondos).
+    private static final int BOX_GAP = 10;
 
     // Botón de captura por id de acción, para refrescar su texto tras un cambio o un restaurar.
     private final Map<String, JButton> buttons = new HashMap<>();
@@ -123,12 +127,13 @@ public class ShortcutsSettingsPanel extends JPanel {
             }
         }
 
+        // fill BOTH + weighty: las dos columnas se estiran a la misma altura (la de la más larga),
+        // para que la columna corta reparta su hueco sobrante entre sus cajas y ambas casen abajo.
         gbc.gridy = 1;
         gbc.gridwidth = 1;
         gbc.weightx = 0.5;
         gbc.weighty = 1;
-        gbc.anchor = GridBagConstraints.NORTH;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.fill = GridBagConstraints.BOTH;
 
         gbc.gridx = 0;
         gbc.insets = new Insets(0, 10, 8, 5);
@@ -212,29 +217,35 @@ public class ShortcutsSettingsPanel extends JPanel {
         return box;
     }
 
-    // Apila verticalmente las cajas de una columna (borde a borde, separadas por un hueco), con un
-    // muelle abajo para que se peguen arriba y no se estiren.
+    // Apila las cajas de una columna con separadores ELÁSTICOS entre ellas: al menos BOX_GAP px, y
+    // crecen para repartir el hueco sobrante. Como las dos columnas se estiran a la misma altura (la
+    // de la más larga, ver buildUI con fill BOTH), la columna corta separa sus cajas hasta que su
+    // última caja queda alineada por abajo con la de la otra columna. No hay muelle tras la última
+    // caja: así esa caja se pega al fondo.
     private static JPanel column(List<JPanel> boxes) {
 
         JPanel col = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
         gbc.weightx = 1;
-        gbc.anchor = GridBagConstraints.NORTH;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
 
         int row = 0;
-        for (JPanel box : boxes) {
-            gbc.gridy = row++;
-            gbc.insets = new Insets(0, 0, 10, 0);
-            col.add(box, gbc);
-        }
+        for (int i = 0; i < boxes.size(); i++) {
 
-        gbc.gridy = row;
-        gbc.weighty = 1;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.insets = new Insets(0, 0, 0, 0);
-        col.add(Box.createVerticalGlue(), gbc);
+            if (i > 0) {
+                gbc.gridy = row++;
+                gbc.weighty = 1;
+                gbc.fill = GridBagConstraints.VERTICAL;
+                col.add(new Box.Filler(new Dimension(0, BOX_GAP), new Dimension(0, BOX_GAP),
+                        new Dimension(0, Short.MAX_VALUE)), gbc);
+            }
+
+            gbc.gridy = row++;
+            gbc.weighty = 0;
+            gbc.fill = GridBagConstraints.HORIZONTAL;
+            gbc.anchor = GridBagConstraints.NORTH;
+            col.add(boxes.get(i), gbc);
+        }
 
         return col;
     }

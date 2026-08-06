@@ -160,6 +160,8 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         // donde se reasignan las teclas. La ayuda es de solo lectura; la edición vive en Ajustes.
         JButton customize = new JButton(Translator.translate("shortcuts.personalizar"));
         customize.setFocusable(false);
+        // Un poco más grande que el botón por defecto (updateFonts conserva este tamaño relativo).
+        customize.setFont(customize.getFont().deriveFont(java.awt.Font.BOLD, 18f));
         customize.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         customize.addActionListener(e -> {
             java.awt.Window owner = getOwner();

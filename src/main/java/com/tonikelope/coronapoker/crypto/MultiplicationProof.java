@@ -99,6 +99,18 @@ public final class MultiplicationProof {
      * (a cheating prover that passes {@code c != a·b} produces a proof the verifier rejects — check (3)).
      */
     public static Proof prove(BigInteger a, BigInteger ra, BigInteger b, BigInteger rb, BigInteger c, BigInteger rc, byte[] cb) {
+        return prove(a, ra, b, rb, rc, cb, scalarG0PlusRH(a, ra), scalarG0PlusRH(c.mod(L), rc));
+    }
+
+    /**
+     * As {@link #prove(BigInteger, BigInteger, BigInteger, BigInteger, BigInteger, BigInteger, byte[])}
+     * but with the commitments {@code ca == Comm([a], ra)} and {@code cc == Comm([c], rc)} supplied by
+     * the caller. The grand-product argument already holds both (as {@code C_p[i-1]} and {@code C_p[i]}),
+     * so recomputing them here would repeat two Pedersen combs and two encodes per gate. The product
+     * {@code c = a·b} is implicit in {@code cc} and is not needed numerically. Byte-identical proof.
+     */
+    public static Proof prove(BigInteger a, BigInteger ra, BigInteger b, BigInteger rb, BigInteger rc,
+            byte[] cb, byte[] ca, byte[] cc) {
         BigInteger x1 = scalar();
         BigInteger x2 = scalar();
         BigInteger x3 = scalar();
@@ -114,8 +126,6 @@ public final class MultiplicationProof {
                 : Ristretto255.encode(EdwardsPoint.multiscalarMul(
                         new BigInteger[]{x1, x5}, new EdwardsPoint[]{cbp, PedersenVectorCommit.H}));
 
-        byte[] ca = scalarG0PlusRH(a, ra);
-        byte[] cc = scalarG0PlusRH(c.mod(L), rc);
         BigInteger e = challenge(ca, cb, cc, m1, m2, m3);
 
         BigInteger z1 = x1.add(e.multiply(a)).mod(L);

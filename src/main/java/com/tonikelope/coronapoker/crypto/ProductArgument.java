@@ -101,7 +101,8 @@ public final class ProductArgument {
             rho[i] = scalar();
             cpFull[i] = MultiplicationProof.commitScalar(p[i], rho[i]);
             // C_p[i] commits p[i-1]·a[i]: product of C_p[i-1] and C_a[i].
-            steps[i - 1] = MultiplicationProof.prove(p[i - 1], rho[i - 1], a[i], ra[i], p[i], rho[i], ca[i]);
+            // C_p[i-1] y C_p[i] ya calculados (cpFull); se pasan para no recomputar dos commits por puerta.
+            steps[i - 1] = MultiplicationProof.prove(p[i - 1], rho[i - 1], a[i], ra[i], rho[i], ca[i], cpFull[i - 1], cpFull[i]);
             cp[i - 1] = cpFull[i];
         }
 

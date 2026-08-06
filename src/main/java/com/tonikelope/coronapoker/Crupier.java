@@ -252,6 +252,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Recover / convergencia de cadena (PURA y testeable): ¿el asiento cuyo turno toca durante el replay
+     * fue SALTADO por OMISION MUTUA en vivo (se desconecto antes de actuar en esta calle)?
+     *
+     * La lista {@code order} es la secuencia ORDENADA (por counter) de nicks de TODAS las acciones que se
+     * PROCESARON en vivo — la verdad de lo que paso. {@code contaAccion} es cuantas se han reproducido ya,
+     * asi que {@code order.get(contaAccion)} es de quien toca la siguiente accion guardada. Si el asiento
+     * cuyo turno estamos a punto de procesar NO es ese, es que en vivo su turno se salto (los asientos
+     * saltados no dejan accion en la lista), asi que hay que saltarlo aqui tambien; reproducirlo mete en
+     * H_t un record que en vivo no existio y el siguiente record ORIGINAL rompe su PREV_H. Solo aplica
+     * mientras quedan acciones por reproducir ({@code contaAccion < order.size()}); una vez alcanzado el
+     * frente, el resto de la mano se juega en vivo con normalidad.
+     */
+    static boolean isSkippedSeatDuringRecover(String seatNick, int contaAccion, java.util.List<String> order) {
+        return order != null && contaAccion >= 0 && contaAccion < order.size()
+                && seatNick != null && !seatNick.equals(order.get(contaAccion));
+    }
+
+    /**
      * Identity / anti-forgery (PURA y testeable): ¿el record que trae el wire es
      * ESTRUCTURALMENTE apto para verificar? Solo lo es con la longitud canónica EXACTA:
      * el firmante siempre emite RECORD_BYTES (CanonicalActionRecord.encode) y el canal
@@ -1193,6 +1211,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final java.util.HashMap<String, Integer> recover_replay_index = new java.util.HashMap<>();
     private final java.util.HashMap<String, Integer> recover_persisted_count = new java.util.HashMap<>();
     private boolean recover_absence_warned = false;
+    // Recover: la SECUENCIA ORDENADA (por counter) de nicks de las acciones guardadas de la mano
+    // (TODAS, no solo las propias). Es la verdad de lo que paso en vivo. Durante el replay, si el
+    // asiento cuyo turno toca NO coincide con recover_action_order.get(conta_accion), ese asiento se
+    // salto en vivo por OMISION MUTUA (se desconecto antes de actuar en esa calle) y hay que saltarlo
+    // igual, o el recover mete en H_t una accion que en vivo no existio y la cadena diverge. Simetrico
+    // en host y cliente (ambos reciben la lista completa). Se reconstruye en recuperarAccionesLocales.
+    private java.util.List<String> recover_action_order = null;
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
@@ -8329,6 +8354,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.conta_accion = 0;
         this.tot_acciones_recuperadas = 0;
         this.acciones_locales_recuperadas.clear();
+        this.recover_action_order = null;
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
             if (!jugador.isExit() && jugador.isSpectator() && (Helpers.doubleSecureCompare(0f, jugador.getStack()) < 0
@@ -14094,6 +14120,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 boolean isCryptoReplay = this.conta_accion < this.tot_acciones_recuperadas;
                 boolean eraSincronizacion = this.isSincronizando_mano();
 
+                // RECOVER robusto (convergencia de H_t): si estamos reproduciendo y el asiento cuyo turno
+                // toca NO coincide con la siguiente accion guardada, ese asiento se salto en vivo por
+                // OMISION MUTUA (se desconecto antes de actuar en esta calle: no dejo accion, y la cadena
+                // fue directa del anterior al siguiente). Reproducirlo (jugando en vivo ahora que ha
+                // reconectado) meteria en H_t un record que en vivo no existio y el siguiente record
+                // ORIGINAL romperia su PREV_H. Se salta igual, sin absorber, sin contar y sin wire, con el
+                // MISMO patron que los asientos ya retirados de arriba. Simetrico en host y cliente (ambos
+                // tienen recover_action_order), asi que la cadena converge byte a byte con la de vivo.
+                if (isCryptoReplay && isSkippedSeatDuringRecover(current_player.getNickname(),
+                        this.conta_accion, this.recover_action_order)) {
+                    LOGGER.log(Level.INFO,
+                            "RECOVER: asiento {0} SALTADO por omision mutua (se desconecto antes de actuar; la accion guardada #{1} es de {2})",
+                            new Object[]{current_player.getNickname(), this.conta_accion,
+                                this.recover_action_order.get(this.conta_accion)});
+                    conta_pos++;
+                    if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {
+                        conta_pos %= GameFrame.getInstance().getJugadores().size();
+                    }
+                    continue;
+                }
+
                 // Dead branch: the two reads above are consecutive and never disagree
                 // in single-threaded execution, so (!era && now) cannot fire. Kept here
                 // for archaeology only; the real dragon-close after the replay ends
@@ -16958,6 +17005,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.recover_replay_index.clear();
             this.recover_persisted_count.clear();
             this.recover_absence_warned = false;
+            this.recover_action_order = new java.util.ArrayList<>();
 
             if (GameFrame.getInstance().isPartida_local()) {
                 datos = sqlRecoverHandActions();
@@ -16981,6 +17029,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.tot_acciones_recuperadas++;
                         String[] parts = r.split("#");
                         String nick = new String(Base64.getDecoder().decode(parts[0]), "UTF-8");
+
+                        // Secuencia ordenada (por counter, tal cual la sirve sqlRecoverHandActions) de
+                        // TODOS los nicks: la referencia para detectar asientos saltados por omision mutua.
+                        this.recover_action_order.add(nick);
 
                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)
                                 || (GameFrame.getInstance().isPartida_local()

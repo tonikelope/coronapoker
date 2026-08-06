@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.AWTEvent;
-import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
@@ -65,6 +64,10 @@ public class ShortcutsSettingsPanel extends JPanel {
     // Botón de captura por id de acción, para refrescar su texto tras un cambio o un restaurar.
     private final Map<String, JButton> buttons = new HashMap<>();
 
+    // Bordes de las cajas de sección, para poner sus títulos en negrita TRAS la unificación de
+    // fuentes del diálogo (fixTitledBorderFonts los pisaría a plano antes).
+    private final List<javax.swing.border.TitledBorder> section_borders = new ArrayList<>();
+
     // Captura en curso (solo una a la vez). Todo se toca en el EDT.
     private KeyEventDispatcher capture_dispatcher = null;
     private AWTEventListener mouse_cancel_listener = null;
@@ -103,13 +106,15 @@ public class ShortcutsSettingsPanel extends JPanel {
         int right_rows = 0;
 
         for (Map.Entry<String, List<KeyboardShortcuts.Def>> e : by_section.entrySet()) {
-            int rows = e.getValue().size();
+            // Peso ~ alto de la caja: filas + un extra por el título y los bordes, para que las dos
+            // columnas queden parejas de alto (no solo de número de filas) y sus fondos casen abajo.
+            int weight = e.getValue().size() + 2;
             if (left_rows <= right_rows) {
                 left.add(sectionBox(e.getKey(), e.getValue()));
-                left_rows += rows;
+                left_rows += weight;
             } else {
                 right.add(sectionBox(e.getKey(), e.getValue()));
-                right_rows += rows;
+                right_rows += weight;
             }
         }
 
@@ -134,8 +139,11 @@ public class ShortcutsSettingsPanel extends JPanel {
     private JPanel sectionBox(String section_key, List<KeyboardShortcuts.Def> defs) {
 
         JPanel box = new JPanel(new GridBagLayout());
-        box.setBorder(BorderFactory.createTitledBorder(BorderFactory.createLineBorder(Color.BLACK, 1),
-                Translator.translate(section_key)));
+        // Borde por defecto (esquinas redondeadas, igual que las cajas de las otras pestañas). El
+        // título se pone en negrita en applyKeyFont (tras la unificación de fuentes del diálogo).
+        javax.swing.border.TitledBorder border = BorderFactory.createTitledBorder(Translator.translate(section_key));
+        section_borders.add(border);
+        box.setBorder(border);
 
         GridBagConstraints gbc = new GridBagConstraints();
         int row = 0;
@@ -155,6 +163,8 @@ public class ShortcutsSettingsPanel extends JPanel {
             final String id = d.id;
             JButton button = new JButton(keyText(id));
             button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            // Cajetines más anchos (margen horizontal generoso) para que la combinación respire.
+            button.setMargin(new Insets(3, 24, 3, 24));
             button.addActionListener(e -> startCapture(id));
             buttons.put(id, button);
 
@@ -213,18 +223,32 @@ public class ShortcutsSettingsPanel extends JPanel {
         JButton b = buttons.get(id);
         if (b != null) {
             b.setText(keyText(id));
+            // Fuente "Dialog" siempre (la de la interfaz no trae los glifos de flecha); en NEGRITA
+            // si el usuario ha personalizado la combinación (difiere de la de fábrica).
+            int style = KeyboardShortcuts.isCustomized(id) ? Font.BOLD : Font.PLAIN;
+            b.setFont(new Font("Dialog", style, b.getFont().getSize()));
         }
     }
 
     /**
-     * Pone los botones de combinación en fuente "Dialog" (conservando el tamaño ya unificado por el
-     * diálogo). La fuente de la interfaz no trae los glifos de las flechas y dejaría en blanco los
-     * atajos de subir/bajar apuesta. Lo llama el diálogo TRAS unificar fuentes.
+     * Repone las fuentes de la pestaña TRAS la unificación del diálogo: los botones de combinación en
+     * "Dialog" (la de la interfaz no trae los glifos de flecha ↑↓←→) con negrita si están
+     * personalizados, y los títulos de las cajas de sección en negrita.
      */
     public void applyKeyFont() {
-        for (JButton b : buttons.values()) {
-            b.setFont(new Font("Dialog", Font.PLAIN, b.getFont().getSize()));
+
+        for (String id : buttons.keySet()) {
+            refreshButton(id);
         }
+
+        for (javax.swing.border.TitledBorder border : section_borders) {
+            java.awt.Font f = border.getTitleFont();
+            if (f != null) {
+                border.setTitleFont(f.deriveFont(Font.BOLD));
+            }
+        }
+
+        repaint();
     }
 
     // Arranca la captura de una acción: aparta los dispatchers globales y espera la próxima

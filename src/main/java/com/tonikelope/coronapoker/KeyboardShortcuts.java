@@ -230,6 +230,15 @@ public final class KeyboardShortcuts {
     }
 
     /**
+     * ¿La acción tiene una combinación DISTINTA de la de fábrica (la ha personalizado el usuario)?
+     */
+    public static boolean isCustomized(String id) {
+        Def d = BY_ID.get(id);
+        KeyStroke k = current.get(id);
+        return d != null && k != null && !k.equals(d.def);
+    }
+
+    /**
      * keyCode de la combinación actual de una acción, o {@link KeyEvent#VK_UNDEFINED} si no aplica.
      * Para los dispatchers que comparan por keyCode (guardas de ESC/ESPACIO, beep de volumen).
      */

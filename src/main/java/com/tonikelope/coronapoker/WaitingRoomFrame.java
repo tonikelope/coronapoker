@@ -2519,6 +2519,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                         return;
                                                                     }
 
+                                                                    // ZERO-TRUST: wire con menos campos de los que leemos (partes_cascade[3])
+                                                                    // -> rechazar limpio en vez de AIOOBE, igual que el hermano DECK_ROTATION_REQ.
+                                                                    if (partes_cascade.length < 4) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ malformed wire (parts={0}) — refusing", partes_cascade.length);
+                                                                        return;
+                                                                    }
+
                                                                     byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
 
                                                                     // Dual-lock (Opción G): el cliente necesita el Crupier para guardar
@@ -3294,6 +3301,10 @@ public class WaitingRoomFrame extends JFrame {
                                                             final String cmdName = partes_comando[2];
                                                             Helpers.threadRun(() -> {
                                                                 try {
+                                                                    if (partes_rp.length < 5) {
+                                                                        LOGGER.log(Level.WARNING, "rabbit piece malformed wire (parts={0}) — refusing (cosmetic, not shown)", partes_rp.length);
+                                                                        return;
+                                                                    }
                                                                     String targetNick = new String(Base64.getDecoder().decode(partes_rp[3]), "UTF-8");
                                                                     if (!targetNick.equals(local_nick)) {
                                                                         return; // pieza ajena, drop silencioso

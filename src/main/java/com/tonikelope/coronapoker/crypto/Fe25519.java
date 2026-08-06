@@ -377,6 +377,60 @@ public final class Fe25519 {
         return new Fe25519(v.modPow(e, P), true); // modPow result already in [0, P)
     }
 
+    /**
+     * {@code this^((p-5)/8) == this^(2^252 - 3)} via the standard ref10 pow22523 addition chain,
+     * run entirely in the radix-2^51 kernel ({@code sqr}/{@code mul}) instead of {@link #pow} /
+     * {@code BigInteger.modPow}. This is the exponent inside {@link #sqrtRatioM1}, hit on every
+     * Ristretto encode and decode. Byte-identical to {@code pow(P_MINUS_5_DIV_8)} — pinned by
+     * {@code Fe25519Pow22523DiffTest} (differential fuzz vs modPow). Package-private for that test.
+     */
+    Fe25519 pow22523() {
+        final Fe25519 z = this;
+        Fe25519 t0 = z.sqr();               // z^2
+        Fe25519 t1 = t0.sqr().sqr();         // z^8
+        t1 = z.mul(t1);                      // z^9
+        t0 = t0.mul(t1);                     // z^11
+        t0 = t0.sqr();                       // z^22
+        t0 = t1.mul(t0);                     // z^(2^5 - 1)
+        t1 = t0.sqr();
+        for (int i = 1; i < 5; i++) {
+            t1 = t1.sqr();
+        }
+        t0 = t1.mul(t0);                     // z^(2^10 - 1)
+        t1 = t0.sqr();
+        for (int i = 1; i < 10; i++) {
+            t1 = t1.sqr();
+        }
+        t1 = t1.mul(t0);                     // z^(2^20 - 1)
+        Fe25519 t2 = t1.sqr();
+        for (int i = 1; i < 20; i++) {
+            t2 = t2.sqr();
+        }
+        t1 = t2.mul(t1);                     // z^(2^40 - 1)
+        t1 = t1.sqr();
+        for (int i = 1; i < 10; i++) {
+            t1 = t1.sqr();
+        }
+        t0 = t1.mul(t0);                     // z^(2^50 - 1)
+        t1 = t0.sqr();
+        for (int i = 1; i < 50; i++) {
+            t1 = t1.sqr();
+        }
+        t1 = t1.mul(t0);                     // z^(2^100 - 1)
+        t2 = t1.sqr();
+        for (int i = 1; i < 100; i++) {
+            t2 = t2.sqr();
+        }
+        t1 = t2.mul(t1);                     // z^(2^200 - 1)
+        t1 = t1.sqr();
+        for (int i = 1; i < 50; i++) {
+            t1 = t1.sqr();
+        }
+        t0 = t1.mul(t0);                     // z^(2^250 - 1)
+        t0 = t0.sqr().sqr();                 // z^(2^252 - 4)
+        return t0.mul(z);                    // z^(2^252 - 3)
+    }
+
     /** Multiplicative inverse via Fermat's little theorem (a^(p-2)). */
     public Fe25519 inv() {
         return new Fe25519(v.modPow(P_MINUS_2, P), true);
@@ -434,7 +488,7 @@ public final class Fe25519 {
     public static SqrtRatioResult sqrtRatioM1(Fe25519 u, Fe25519 v) {
         Fe25519 v3 = v.sqr().mul(v);          // v^3
         Fe25519 v7 = v3.sqr().mul(v);         // v^7
-        Fe25519 r = u.mul(v3).mul(u.mul(v7).pow(P_MINUS_5_DIV_8));
+        Fe25519 r = u.mul(v3).mul(u.mul(v7).pow22523());
         Fe25519 check = v.mul(r.sqr());       // v * r^2
 
         Fe25519 uNeg = u.negate();

@@ -53,11 +53,8 @@ import javax.swing.JProgressBar;
  */
 public class VoiceMessageManager {
 
-    public static final int DEFAULT_KEY = KeyEvent.VK_F9;
     public static final float DIALOG_OPACITY = 0.95f;
 
-    private static volatile int VOICE_KEY;
-    private static volatile boolean CAPTURING_KEY = false;
     private static volatile VoiceRecorder RECORDER = null;
     private static volatile JDialog RECORD_DIALOG = null;
     private static volatile JProgressBar RECORD_BAR = null;
@@ -67,44 +64,15 @@ public class VoiceMessageManager {
     private static volatile long KEY_PRESS_NANOS = 0L;
     private static final AtomicBoolean WARNING_SHOWING = new AtomicBoolean(false);
 
-    static {
-
-        int key = DEFAULT_KEY;
-
-        try {
-            key = Integer.parseInt(Helpers.PROPERTIES.getProperty("voice_message_key", String.valueOf(DEFAULT_KEY)));
-        } catch (NumberFormatException ex) {
-        }
-
-        VOICE_KEY = key;
-    }
-
-    public static int getVoiceKey() {
-        return VOICE_KEY;
-    }
-
-    public static void setVoiceKey(int key_code) {
-
-        VOICE_KEY = key_code;
-
-        Helpers.PROPERTIES.setProperty("voice_message_key", String.valueOf(key_code));
-
-        Helpers.savePropertiesFile();
-    }
-
-    // The audio settings dialog raises this while it captures a new key, so
-    // pressing the current one does not start a recording.
-    public static void setCapturingKey(boolean capturing) {
-        CAPTURING_KEY = capturing;
-    }
-
     /**
      * Global hook (EDT): reacts to the configured key only in game. Returns
-     * true when the event has been consumed.
+     * true when the event has been consumed. The key is read live from the central
+     * shortcut registry (see {@link KeyboardShortcuts#VOICE_RECORD}); while the shortcuts tab is
+     * capturing, the Init dispatcher already bails before calling this, so nothing to guard here.
      */
     public static boolean handleKeyEvent(KeyEvent e) {
 
-        if (CAPTURING_KEY || GameFrame.getInstance() == null || WaitingRoomFrame.getInstance() == null) {
+        if (GameFrame.getInstance() == null || WaitingRoomFrame.getInstance() == null) {
             return false;
         }
 
@@ -116,7 +84,7 @@ public class VoiceMessageManager {
             return true;
         }
 
-        if (e.getKeyCode() != VOICE_KEY) {
+        if (e.getKeyCode() != KeyboardShortcuts.keyCode(KeyboardShortcuts.VOICE_RECORD)) {
             return false;
         }
 
@@ -146,7 +114,7 @@ public class VoiceMessageManager {
      */
     public static void buttonPressed() {
 
-        if (CAPTURING_KEY || GameFrame.getInstance() == null || WaitingRoomFrame.getInstance() == null) {
+        if (GameFrame.getInstance() == null || WaitingRoomFrame.getInstance() == null) {
             return;
         }
 

@@ -57,8 +57,6 @@ public final class Fe25519 {
     private static final Fe25519 SQRT_M1_FE = of(SQRT_M1);
 
     private static final BigInteger P_MINUS_2 = P.subtract(BigInteger.TWO);
-    private static final BigInteger P_MINUS_5_DIV_8 =
-            P.subtract(BigInteger.valueOf(5)).divide(BigInteger.valueOf(8));
 
     /** Canonical representative in [0, P). */
     private final BigInteger v;
@@ -381,8 +379,9 @@ public final class Fe25519 {
      * {@code this^((p-5)/8) == this^(2^252 - 3)} via the standard ref10 pow22523 addition chain,
      * run entirely in the radix-2^51 kernel ({@code sqr}/{@code mul}) instead of {@link #pow} /
      * {@code BigInteger.modPow}. This is the exponent inside {@link #sqrtRatioM1}, hit on every
-     * Ristretto encode and decode. Byte-identical to {@code pow(P_MINUS_5_DIV_8)} — pinned by
-     * {@code Fe25519Pow22523DiffTest} (differential fuzz vs modPow). Package-private for that test.
+     * Ristretto encode and decode. Byte-identical to the generic {@code pow((p-5)/8)} /
+     * {@code BigInteger.modPow} — pinned by {@code Fe25519Pow22523DiffTest} (100k differential fuzz
+     * vs modPow). Package-private for that test.
      */
     Fe25519 pow22523() {
         final Fe25519 z = this;

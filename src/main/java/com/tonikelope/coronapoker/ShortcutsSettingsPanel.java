@@ -137,8 +137,14 @@ public class ShortcutsSettingsPanel extends JPanel {
     // combinación. Si ya había una captura en curso (otro botón), la cancela antes.
     private void startCapture(final String id) {
 
+        // Si ya había una captura en curso en OTRO botón, la cancela y le devuelve su texto (si no,
+        // ese botón se quedaría con "Pulsa la combinación..." pegado).
         if (capture_dispatcher != null) {
+            String prev = capturing_id;
             stopCapture();
+            if (prev != null) {
+                refreshButton(prev);
+            }
         }
 
         capturing_id = id;
@@ -226,6 +232,21 @@ public class ShortcutsSettingsPanel extends JPanel {
         KeyboardShortcuts.resetAll();
         for (String id : buttons.keySet()) {
             refreshButton(id);
+        }
+    }
+
+    /**
+     * Cancela una captura en curso (si la hay) devolviendo al botón su combinación actual. Lo llama
+     * el diálogo al cambiar de pestaña: si no, una captura armada seguiría viva fuera de la pestaña
+     * Atajos y se comería la siguiente tecla pulsada en cualquier sitio.
+     */
+    public void cancelCapture() {
+        if (capture_dispatcher != null) {
+            String id = capturing_id;
+            stopCapture();
+            if (id != null) {
+                refreshButton(id);
+            }
         }
     }
 

@@ -2475,9 +2475,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void setupGlobalShortcuts() {
 
-        HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+        // Cuerpos de acción indexados por id ESTABLE del registro de atajos. El dispatcher resuelve
+        // el id de la combinación pulsada (KeyboardShortcuts.idFor) y ejecuta el cuerpo, así
+        // reasignar una tecla surte efecto EN VIVO sin reconstruir este mapa.
+        HashMap<String, Action> gameActions = new HashMap<>();
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F7, 0), new AbstractAction("LATENCY_STATS") {
+        gameActions.put(KeyboardShortcuts.LATENCY, new AbstractAction("LATENCY_STATS") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
@@ -2492,7 +2495,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         });
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), new AbstractAction("REFRESH") {
+        gameActions.put(KeyboardShortcuts.REFRESH, new AbstractAction("REFRESH") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2507,7 +2510,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Q, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("QUIT") {
+        gameActions.put(KeyboardShortcuts.QUIT, new AbstractAction("QUIT") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2516,7 +2519,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0), new AbstractAction("BUYIN") {
+        gameActions.put(KeyboardShortcuts.BUYIN, new AbstractAction("BUYIN") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2525,7 +2528,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_H, KeyEvent.ALT_DOWN_MASK), new AbstractAction("HALT") {
+        gameActions.put(KeyboardShortcuts.HALT, new AbstractAction("HALT") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2534,7 +2537,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.ALT_DOWN_MASK), new AbstractAction("PAUSE") {
+        gameActions.put(KeyboardShortcuts.PAUSE, new AbstractAction("PAUSE") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2543,7 +2546,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.ALT_DOWN_MASK), new AbstractAction("LIGHTS") {
+        gameActions.put(KeyboardShortcuts.LIGHTS, new AbstractAction("LIGHTS") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2552,7 +2555,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, KeyEvent.ALT_DOWN_MASK), new AbstractAction("FULL-SCREEN") {
+        gameActions.put(KeyboardShortcuts.FULLSCREEN, new AbstractAction("FULL-SCREEN") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2561,7 +2564,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, KeyEvent.ALT_DOWN_MASK), new AbstractAction("COMPACT-CARDS") {
+        gameActions.put(KeyboardShortcuts.COMPACT, new AbstractAction("COMPACT-CARDS") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2570,7 +2573,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_PLUS, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("ZOOM-IN") {
+        gameActions.put(KeyboardShortcuts.ZOOM_IN, new AbstractAction("ZOOM-IN") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2581,7 +2584,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("ZOOM-OUT") {
+        gameActions.put(KeyboardShortcuts.ZOOM_OUT, new AbstractAction("ZOOM-OUT") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2592,7 +2595,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_0, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("ZOOM-RESET") {
+        gameActions.put(KeyboardShortcuts.ZOOM_RESET, new AbstractAction("ZOOM-RESET") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2603,7 +2606,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.ALT_DOWN_MASK), new AbstractAction("CHAT") {
+        gameActions.put(KeyboardShortcuts.CHAT, new AbstractAction("CHAT") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2612,7 +2615,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke('º'), new AbstractAction("FASTCHAT") {
+        // El chat rápido 'º' es una tecla "typed" (dead-key), frágil entre distribuciones, así que
+        // NO es reasignable: se queda fija y se resuelve por su KeyStroke, no por el registro.
+        final KeyStroke fastchat_keystroke = KeyStroke.getKeyStroke('º');
+        final Action fastchat_action = new AbstractAction("FASTCHAT") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2620,10 +2626,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 showFastChatDialog();
 
             }
-        }
-        );
+        };
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_1, 0), new AbstractAction("FASTCHAT-IMAGE") {
+        gameActions.put(KeyboardShortcuts.FASTCHAT_IMAGE, new AbstractAction("FASTCHAT-IMAGE") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2634,7 +2639,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.ALT_DOWN_MASK), new AbstractAction("REGISTRO") {
+        gameActions.put(KeyboardShortcuts.LOG_REGISTRO, new AbstractAction("REGISTRO") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2643,7 +2648,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, KeyEvent.ALT_DOWN_MASK), new AbstractAction("RELOJ") {
+        gameActions.put(KeyboardShortcuts.CLOCK, new AbstractAction("RELOJ") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2652,7 +2657,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), new AbstractAction("FOLD-BUTTON") {
+        gameActions.put(KeyboardShortcuts.FOLD, new AbstractAction("FOLD-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2683,7 +2688,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), new AbstractAction("CHECK-BUTTON") {
+        gameActions.put(KeyboardShortcuts.CHECK, new AbstractAction("CHECK-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2718,7 +2723,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), new AbstractAction("BET-BUTTON") {
+        gameActions.put(KeyboardShortcuts.BET, new AbstractAction("BET-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2729,7 +2734,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("ALLIN-BUTTON") {
+        gameActions.put(KeyboardShortcuts.ALLIN, new AbstractAction("ALLIN-BUTTON") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2740,26 +2745,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), new AbstractAction("BET-LEFT") {
-            @Override
-            public void actionPerformed(ActionEvent e
-            ) {
-                if (!getCrupier().isSincronizando_mano()) {
-                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
-
-                        SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
-
-                        if (model.getPreviousValue() != null) {
-
-                            getLocalPlayer().getBet_spinner().setValue(model.getPreviousValue());
-                        }
-                    }
-                }
-            }
-        }
-        );
-
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), new AbstractAction("BET-DOWN") {
+        // BET_DOWN cubre BAJAR: su tecla primaria (↓) más el alias fijo IZQUIERDA (←), definidos en
+        // el registro. Antes había dos acciones gemelas (BET-DOWN y BET-LEFT) con el mismo cuerpo.
+        gameActions.put(KeyboardShortcuts.BET_DOWN, new AbstractAction("BET-DOWN") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2777,23 +2765,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), new AbstractAction("BET-RIGHT") {
-            @Override
-            public void actionPerformed(ActionEvent e
-            ) {
-                if (!getCrupier().isSincronizando_mano()) {
-                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
-                        SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
-                        if (model.getNextValue() != null) {
-                            getLocalPlayer().getBet_spinner().setValue(model.getNextValue());
-                        }
-                    }
-                }
-            }
-        }
-        );
-
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), new AbstractAction("BET-UP") {
+        // BET_UP cubre SUBIR: su tecla primaria (↑) más el alias fijo DERECHA (→). Antes había dos
+        // acciones gemelas (BET-UP y BET-RIGHT) con el mismo cuerpo.
+        gameActions.put(KeyboardShortcuts.BET_UP, new AbstractAction("BET-UP") {
             @Override
             public void actionPerformed(ActionEvent e
             ) {
@@ -2818,20 +2792,27 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         GameFrame.key_event_dispatcher = (KeyEvent e) -> {
-            // Al SOLTAR ESC/ESPACIO se limpia la guarda anti-doble-acción de los overlays (ver las
-            // acciones FOLD/CHECK): así una pulsación nueva (no una repetición de la mantenida)
-            // vuelve a comportarse con normalidad.
+            // Al SOLTAR la tecla de RETIRARSE/PASAR se limpia la guarda anti-doble-acción de los
+            // overlays (ver las acciones FOLD/CHECK): así una pulsación nueva (no una repetición de
+            // la mantenida) vuelve a comportarse con normalidad. Se compara por keyCode contra la
+            // asignación ACTUAL de esas acciones (el usuario puede haberlas reasignado).
             if (e.getID() == KeyEvent.KEY_RELEASED) {
-                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                if (e.getKeyCode() == KeyboardShortcuts.keyCode(KeyboardShortcuts.FOLD)) {
                     kbd_overlay_swallow_esc = false;
-                } else if (e.getKeyCode() == KeyEvent.VK_SPACE) {
+                } else if (e.getKeyCode() == KeyboardShortcuts.keyCode(KeyboardShortcuts.CHECK)) {
                     kbd_overlay_swallow_space = false;
                 }
             }
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
             JFrame frame = GameFrame.getInstance();
-            if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !apariencia_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && ((frame.isActive() && !balance_overlay_active) || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {
-                final Action a = actionMap.get(keyStroke);
+            // Resolver la acción por id del registro (atajos reasignables) o, si no, por la tecla
+            // fija del chat rápido 'º'. Las combinaciones que son de Init (silenciar, volumen,
+            // captura, forzar salida) resuelven a un id que NO está en gameActions -> a = null ->
+            // este dispatcher las deja pasar y las atiende el de Init.
+            String id = KeyboardShortcuts.idFor(keyStroke);
+            final Action a = id != null ? gameActions.get(id)
+                    : (keyStroke.equals(fastchat_keystroke) ? fastchat_action : null);
+            if (a != null && !file_menu.isSelected() && !apariencia_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && ((frame.isActive() && !balance_overlay_active) || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && KeyboardShortcuts.MUTE.equals(id)))) {
                 final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
                 Helpers.GUIRun(() -> {
                     a.actionPerformed(ae);

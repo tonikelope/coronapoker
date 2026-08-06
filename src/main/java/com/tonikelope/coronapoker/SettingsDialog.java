@@ -62,6 +62,13 @@ public class SettingsDialog extends JDialog {
     // Pestaña "Debug": consola de logs (java.util.logging) de solo lectura. Global (en todos
     // los contextos), sin ajustes que confirmar/revertir.
     private final DebugSettingsPanel debug_panel;
+    // Pestaña "Atajos": reasigna los atajos de teclado globales. Edita el registro
+    // (KeyboardShortcuts) de forma transaccional, igual que Apariencia/Audio.
+    private final ShortcutsSettingsPanel shortcuts_panel;
+    // Panel de pestañas y el índice de la pestaña "Atajos", para poder abrir el diálogo
+    // directamente en ella (botón "Personalizar" del diálogo de atajos).
+    private final JTabbedPane tabs = new JTabbedPane();
+    private int shortcuts_tab_index = -1;
     // Diálogo transaccional: true solo si se pulsó GUARDAR (entonces NO se revierte).
     private boolean committed = false;
 
@@ -75,6 +82,24 @@ public class SettingsDialog extends JDialog {
             dialog.setLocationRelativeTo(parent);
             dialog.setVisible(true);
         });
+    }
+
+    // Abre el diálogo directamente en la pestaña "Atajos" (lo usa el botón "Personalizar" del
+    // diálogo de atajos independiente).
+    public static void openOnShortcuts(java.awt.Frame parent) {
+        Helpers.GUIRun(() -> {
+            SettingsDialog dialog = new SettingsDialog(parent, true);
+            dialog.selectShortcutsTab();
+            dialog.setLocationRelativeTo(parent);
+            dialog.setVisible(true);
+        });
+    }
+
+    // Selecciona la pestaña "Atajos" si existe.
+    public void selectShortcutsTab() {
+        if (shortcuts_tab_index >= 0) {
+            tabs.setSelectedIndex(shortcuts_tab_index);
+        }
     }
 
     public SettingsDialog(java.awt.Frame parent, boolean modal) {
@@ -107,14 +132,24 @@ public class SettingsDialog extends JDialog {
         game_panel = in_game ? new GameSettingsPanel(read_only_game) : null;
         waiting_panel = in_waiting ? new WaitingGameSettingsPanel(read_only_wait, recover_wait) : null;
         debug_panel = new DebugSettingsPanel();
+        shortcuts_panel = new ShortcutsSettingsPanel();
+        // La pestaña Atajos edita el registro de atajos de forma transaccional: aplica en vivo,
+        // GUARDAR persiste y Cancelar revierte (igual que Apariencia y Audio).
+        KeyboardShortcuts.beginTransaction();
 
         // Cada pestaña va dentro de un JScrollPane (ScrollableTabPanel): sigue el ancho
         // del viewport (sin barra horizontal espuria) y rellena el alto cuando cabe, pero
         // muestra barra vertical cuando el contenido no entra. Así el diálogo se encoge y
         // scrollea en resoluciones bajas en vez de salirse de la pantalla.
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), scrollableTab(appearance_panel));
-        tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), scrollableTab(audio_panel));
+        // Apariencia y Audio llevan su propio botón "Restaurar predeterminados" en un pie fijo de
+        // la pestaña (siempre visible, no se va con el scroll): cada uno restaura SOLO lo suyo, con
+        // la misma semántica transaccional (aplica en vivo; GUARDAR conserva, Cancelar revierte).
+        tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), tabWithRestore(appearance_panel, appearance_panel::restoreDefaults, Translator.translate("settings.tab_apariencia")));
+        tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), tabWithRestore(audio_panel, audio_panel::restoreDefaults, Translator.translate("settings.tab_audio")));
+        // Atajos de teclado (global, en todos los contextos): reasignables, con su propio pie de
+        // restaurar predeterminados.
+        tabs.addTab(Translator.translate("settings.tab_atajos"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/keyboard.png")), tabWithRestore(shortcuts_panel, shortcuts_panel::restoreDefaults, Translator.translate("settings.tab_atajos")));
+        shortcuts_tab_index = tabs.getTabCount() - 1;
         if (in_game) {
             tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(game_panel));
         } else if (in_waiting) {
@@ -123,6 +158,10 @@ public class SettingsDialog extends JDialog {
         // Consola de Debug (logs java.util.logging). Global, va la última. NO se envuelve en
         // scrollableTab: la consola ya trae su propio JScrollPane y debe rellenar la pestaña.
         tabs.addTab(Translator.translate("settings.tab_debug"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/log.png")), debug_panel);
+
+        // Al cambiar de pestaña se cancela cualquier captura de tecla armada en la pestaña Atajos
+        // (si no, seguiría viva fuera de ella y se comería la siguiente tecla pulsada).
+        tabs.addChangeListener(e -> shortcuts_panel.cancelCapture());
 
         // Diálogo TRANSACCIONAL: Apariencia y Audio se aplican en vivo como
         // previsualización, pero GUARDAR es lo que los CONFIRMA y además aplica el modo
@@ -143,34 +182,19 @@ public class SettingsDialog extends JDialog {
             }
             appearance_panel.applyPendingDisplayMode();
             appearance_panel.applyPendingDialogZoom();
+            // Confirma (persiste) las reasignaciones de atajos.
+            KeyboardShortcuts.commit();
             dispose();
         });
 
         JButton cancel_button = new JButton(Translator.translate("ui.cancelar_2"));
         cancel_button.addActionListener(e -> cancelWithConfirm());
 
-        // Restaura los ajustes de PREFERENCIA (Apariencia + Audio) a sus valores de fábrica. NO
-        // pregunta antes (el diálogo es transaccional: los cambios se aplican en vivo como una
-        // edición más, y solo persisten al GUARDAR; Cancelar los revierte). Tras restaurar avisa
-        // de que hay que Guardar para conservarlos. Va abajo a la IZQUIERDA, separado de
-        // Guardar/Cancelar (derecha). No toca la pestaña Partida (config de timba, no preferencias).
-        JButton restore_button = new JButton(Translator.translate("settings.restaurar_predeterminados"));
-        restore_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/undo.png")));
-        restore_button.addActionListener(e -> {
-            appearance_panel.restoreDefaults();
-            audio_panel.restoreDefaults();
-            Helpers.mostrarMensajeInformativo(this, Translator.translate("settings.predeterminados_restaurados"));
-        });
-
         JPanel right_buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         right_buttons.add(save_button);
         right_buttons.add(cancel_button);
 
-        JPanel left_buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        left_buttons.add(restore_button);
-
         JPanel buttons = new JPanel(new BorderLayout());
-        buttons.add(left_buttons, BorderLayout.WEST);
         buttons.add(right_buttons, BorderLayout.EAST);
 
         JPanel content = new JPanel(new BorderLayout());
@@ -219,9 +243,13 @@ public class SettingsDialog extends JDialog {
                 if (!committed) {
                     appearance_panel.revert();
                     audio_panel.revert();
+                    // Descarta las reasignaciones de atajos (vuelve al estado de apertura).
+                    KeyboardShortcuts.revert();
                 }
                 // Cierra la captura de tecla del panel de audio + persiste el volumen.
                 audio_panel.cleanup();
+                // Cierra cualquier captura de tecla pendiente de la pestaña Atajos.
+                shortcuts_panel.cleanup();
                 // Libera la suscripción de la consola de Debug a DebugLog.
                 debug_panel.cleanup();
                 if (INSTANCE == SettingsDialog.this) {
@@ -249,13 +277,14 @@ public class SettingsDialog extends JDialog {
         // acaba de pisar con la GUI_FONT). Se repone antes del pack.
         debug_panel.reapplyConsoleFont();
 
+        // Los botones de combinación de la pestaña Atajos van en fuente "Dialog" (la de la interfaz,
+        // McLaren, no trae los glifos de las flechas ↑↓←→); se repone tras setUniformFont.
+        shortcuts_panel.applyKeyFont();
+
         // Botones de acción un pelín más grandes que el resto del diálogo.
         java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f * Helpers.DIALOG_ZOOM);
         save_button.setFont(buttons_font);
         cancel_button.setFont(buttons_font);
-        // El botón de restaurar (acción secundaria) va al mismo tamaño pero SIN negrita, para no
-        // competir visualmente con Guardar/Cancelar.
-        restore_button.setFont(Helpers.GUI_FONT.deriveFont(18f * Helpers.DIALOG_ZOOM));
 
         pack();
 
@@ -300,7 +329,7 @@ public class SettingsDialog extends JDialog {
     // aplican en vivo; Partida es apply-on-save.) Se usa para preguntar antes de
     // descartar al cancelar.
     private boolean isDirty() {
-        return appearance_panel.isDirty() || audio_panel.isDirty()
+        return appearance_panel.isDirty() || audio_panel.isDirty() || KeyboardShortcuts.isDirty()
                 || (game_panel != null && game_panel.isDirty())
                 || (waiting_panel != null && waiting_panel.isDirty());
     }
@@ -348,6 +377,29 @@ public class SettingsDialog extends JDialog {
                 fixTitledBorderFonts((Container) child, font);
             }
         }
+    }
+
+    // Pestaña con su propio pie fijo "Restaurar predeterminados": el contenido scrollea en el
+    // CENTRO y el botón queda abajo, siempre visible. Al pulsarlo restaura SOLO esta pestaña
+    // (restore, aplicado en vivo) y avisa de que hay que GUARDAR para conservarlo (el diálogo es
+    // transaccional: Cancelar lo revierte). El botón hereda la fuente/escala del diálogo con el
+    // resto del contenido (setUniformFont / scaleIcons sobre 'content').
+    private JPanel tabWithRestore(Component panel, Runnable restore, String section_name) {
+
+        JButton restore_button = new JButton(Translator.translate("settings.restaurar_predeterminados_seccion", section_name));
+        restore_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/undo.png")));
+        restore_button.addActionListener(e -> {
+            restore.run();
+            Helpers.mostrarMensajeInformativo(this, Translator.translate("settings.predeterminados_restaurados_seccion", section_name));
+        });
+
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        footer.add(restore_button);
+
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.add(scrollableTab(panel), BorderLayout.CENTER);
+        wrap.add(footer, BorderLayout.SOUTH);
+        return wrap;
     }
 
     // Envuelve el contenido de una pestaña en un JScrollPane sin borde, con barras

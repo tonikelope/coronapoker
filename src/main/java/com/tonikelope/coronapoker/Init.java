@@ -387,9 +387,12 @@ public class Init extends JFrame {
 
         update_label.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
 
-        HashMap<KeyStroke, Action> actionMap = new HashMap<>();
+        // Cuerpos de acción globales (lanzador + sala + juego) indexados por id ESTABLE del registro
+        // de atajos. El dispatcher resuelve el id de la combinación pulsada y ejecuta el cuerpo, así
+        // reasignar la tecla surte efecto EN VIVO.
+        HashMap<String, Action> initActions = new HashMap<>();
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK), new AbstractAction("SOUND-SWITCH") {
+        initActions.put(KeyboardShortcuts.MUTE, new AbstractAction("SOUND-SWITCH") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
@@ -403,7 +406,7 @@ public class Init extends JFrame {
             }
         });
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-DOWN") {
+        initActions.put(KeyboardShortcuts.VOLUME_DOWN, new AbstractAction("VOLUME-DOWN") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (Audio.MASTER_VOLUME > 0f) {
@@ -444,7 +447,7 @@ public class Init extends JFrame {
             }
         });
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-UP") {
+        initActions.put(KeyboardShortcuts.VOLUME_UP, new AbstractAction("VOLUME-UP") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
@@ -487,7 +490,7 @@ public class Init extends JFrame {
             }
         });
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK), new AbstractAction("FORCE_EXIT") {
+        initActions.put(KeyboardShortcuts.FORCE_EXIT, new AbstractAction("FORCE_EXIT") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
@@ -505,7 +508,7 @@ public class Init extends JFrame {
             }
         });
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("SCREENSHOT") {
+        initActions.put(KeyboardShortcuts.SCREENSHOT, new AbstractAction("SCREENSHOT") {
             @Override
             public void actionPerformed(ActionEvent e) {
 
@@ -539,6 +542,12 @@ public class Init extends JFrame {
 
         kfm.addKeyEventDispatcher((KeyEvent e) -> {
 
+            // Mientras la pestaña de Atajos captura una tecla, este dispatcher (y con él el hook de
+            // voz) se aparta para que la combinación pulsada llegue al capturador.
+            if (KeyboardShortcuts.isCapturing()) {
+                return false;
+            }
+
             // Configurable push-to-record key (voice messages, in game only)
             if (VoiceMessageManager.handleKeyEvent(e)) {
                 return true;
@@ -549,14 +558,17 @@ public class Init extends JFrame {
             // podía sonar dos veces (una en el hueco previo al autorepeat y otra
             // al final). refreshALLVolumes(true) fuerza además el refresco final
             // autoritativo. No consumimos el evento (otros usan las flechas).
-            if (e.getID() == KeyEvent.KEY_RELEASED && (e.getKeyCode() == KeyEvent.VK_UP || e.getKeyCode() == KeyEvent.VK_DOWN) && VOLUME_BEEP_PENDING) {
+            if (e.getID() == KeyEvent.KEY_RELEASED && (e.getKeyCode() == KeyboardShortcuts.keyCode(KeyboardShortcuts.VOLUME_UP) || e.getKeyCode() == KeyboardShortcuts.keyCode(KeyboardShortcuts.VOLUME_DOWN)) && VOLUME_BEEP_PENDING) {
                 VOLUME_BEEP_PENDING = false;
                 Audio.refreshALLVolumes(true);
             }
 
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-            if (actionMap.containsKey(keyStroke)) {
-                final Action a = actionMap.get(keyStroke);
+            // Resolver por id del registro. Las combinaciones que son de GameFrame resuelven a un id
+            // que NO está en initActions -> a = null -> este dispatcher las deja pasar.
+            String id = KeyboardShortcuts.idFor(keyStroke);
+            final Action a = id != null ? initActions.get(id) : null;
+            if (a != null) {
                 final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
                 Helpers.GUIRun(() -> {
                     a.actionPerformed(ae);

@@ -39,6 +39,19 @@ public final class Dleq {
     private static final BigInteger L = EdwardsPoint.L;
     public static final int PROOF_BYTES = 64;
 
+    /**
+     * Per-thread SHA-512 instance for {@link #challenge}: the provider lookup and SPI construction of
+     * {@code MessageDigest.getInstance} outweigh the hash itself, and challenge runs once per point per
+     * de-locking step across the background verifiers. Reused via {@code reset()} — identical output.
+     */
+    private static final ThreadLocal<MessageDigest> SHA512 = ThreadLocal.withInitial(() -> {
+        try {
+            return MessageDigest.getInstance("SHA-512");
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-512 unavailable", e);
+        }
+    });
+
     private Dleq() {
     }
 
@@ -93,20 +106,17 @@ public final class Dleq {
 
     private static BigInteger challenge(EdwardsPoint g1, EdwardsPoint h1, EdwardsPoint g2,
                                         EdwardsPoint h2, EdwardsPoint t1, EdwardsPoint t2) {
-        try {
-            MessageDigest sha512 = MessageDigest.getInstance("SHA-512");
-            sha512.update(DOMAIN);
-            sha512.update(Ristretto255.encode(g1));
-            sha512.update(Ristretto255.encode(h1));
-            sha512.update(Ristretto255.encode(g2));
-            sha512.update(Ristretto255.encode(h2));
-            sha512.update(Ristretto255.encode(t1));
-            sha512.update(Ristretto255.encode(t2));
-            byte[] digest = sha512.digest();
-            return new BigInteger(1, digest).mod(L);
-        } catch (Exception e) {
-            throw new RuntimeException("DLEQ challenge hash failed", e);
-        }
+        MessageDigest sha512 = SHA512.get();
+        sha512.reset();
+        sha512.update(DOMAIN);
+        sha512.update(Ristretto255.encode(g1));
+        sha512.update(Ristretto255.encode(h1));
+        sha512.update(Ristretto255.encode(g2));
+        sha512.update(Ristretto255.encode(h2));
+        sha512.update(Ristretto255.encode(t1));
+        sha512.update(Ristretto255.encode(t2));
+        byte[] digest = sha512.digest();
+        return new BigInteger(1, digest).mod(L);
     }
 
     private static BigInteger randomScalar() {

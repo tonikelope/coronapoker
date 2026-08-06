@@ -6,7 +6,15 @@
 package com.tonikelope.coronapoker.crypto;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,6 +67,40 @@ public class ScalarMulWnafDiffTest {
         for (BigInteger s : scalars) {
             assertArrayEquals(Ristretto255.encode(EdwardsPoint.BASE.scalarMul(s)),
                     Ristretto255.encode(naive(EdwardsPoint.BASE, s)), "encode mismatch, s=" + s);
+        }
+    }
+
+    /**
+     * N hilos multiplican a la vez el MISMO punto recien creado (su nafTable aun sin construir): fuerza
+     * la carrera de construccion perezosa de la tabla de impares wNAF (volatile). Todos deben devolver el
+     * mismo s*P que el oraculo doble-y-suma (que no toca nafTable). Barrera sin sleeps, timeout defensivo.
+     */
+    @Test
+    public void scalarMulNafTableConcurrent() throws Exception {
+        final int threads = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        try {
+            Random r = new Random(0xC0C0A11L);
+            for (int iter = 0; iter < 150; iter++) {
+                final BigInteger k = new BigInteger(252, r).add(BigInteger.ONE);
+                final BigInteger s = new BigInteger(252, r).add(BigInteger.ONE);
+                final EdwardsPoint fresh = naive(EdwardsPoint.BASE, k); // nafTable propia SIN construir
+                final EdwardsPoint expected = naive(fresh, s);          // oraculo: no llama a scalarMul
+                final CyclicBarrier barrier = new CyclicBarrier(threads);
+                List<Future<EdwardsPoint>> futs = new ArrayList<>();
+                for (int t = 0; t < threads; t++) {
+                    futs.add(pool.submit((Callable<EdwardsPoint>) () -> {
+                        barrier.await();
+                        return fresh.scalarMul(s);
+                    }));
+                }
+                for (Future<EdwardsPoint> f : futs) {
+                    assertTrue(f.get(60, TimeUnit.SECONDS).equalsPoint(expected),
+                            "scalarMul wNAF concurrente incorrecto en iter " + iter);
+                }
+            }
+        } finally {
+            pool.shutdownNow();
         }
     }
 }

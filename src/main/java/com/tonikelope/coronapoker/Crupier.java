@@ -231,6 +231,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Recover / anti-forgery (PURA y testeable): al reproducir una acción PROPIA que el host
+     * sirve sin record verificable (pelada), ¿es un caso BENIGNO de ausencia en vez de una forja?
+     *
+     * Lo es SII se cumplen las dos condiciones:
+     *   - la decisión reproducida es FOLD — un jugador que salió de la mano solo puede acabar
+     *     tumbado; que el host me atribuya una apuesta que movería mi dinero mientras yo no estaba
+     *     NUNCA es benigno; y
+     *   - el índice 1-based de esta acción propia en el replay ({@code replayedIndex}) es POSTERIOR
+     *     al número de acciones propias que este peer llegó a persistir en su SQLite local antes de
+     *     reconectar ({@code locallyPersistedCount}): es decir, ocurrió mientras yo estaba fuera de
+     *     la mano, así que no tengo registro contra el que confrontarla.
+     *
+     * Si el índice es ≤ lo persistido, el host me sirvió pelada una acción que yo SÍ presencié
+     * (me borró la firma): eso es una forja y se mantiene el aviso duro. El FOLD sintético protege
+     * el dinero en ambos casos; esto solo decide si el aviso es una precaución suave o una alerta.
+     */
+    static boolean isBenignPostAbsenceRecover(int decision, int replayedIndex, int locallyPersistedCount) {
+        return decision == Player.FOLD && replayedIndex > locallyPersistedCount;
+    }
+
+    /**
      * Identity / anti-forgery (PURA y testeable): ¿el record que trae el wire es
      * ESTRUCTURALMENTE apto para verificar? Solo lo es con la longitud canónica EXACTA:
      * el firmante siempre emite RECORD_BYTES (CanonicalActionRecord.encode) y el canal
@@ -709,7 +730,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.mostrarMensajeError(GameFrame.getInstance(),
                     Translator.translate("zero_trust.suspicious_header")
                     + fullReason + "\n\n"
-                    + Translator.translate("zero_trust.suspicious_body"));
+                    + Translator.translate("zero_trust.suspicious_body"),
+                    "justify", zeroTrustPopupWidth());
             // El aviso recomienda abandonar la mesa: tras cerrarlo se lo ponemos a un click
             // abriendo el flujo de salida ya existente (mismo camino que el menu Salir /
             // Ctrl+Q). Si prefiere seguir jugando, cancela el dialogo y no pasa nada.
@@ -724,6 +746,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         });
+    }
+
+    // Ancho (px) acotado para los popups zero-trust: sus textos son parrafos largos de una sola
+    // linea, y sin restriccion de ancho el JLabel HTML los pinta en una unica linea que desborda la
+    // pantalla. Escala con el zoom de dialogo para conservar la misma proporcion a cualquier zoom.
+    private int zeroTrustPopupWidth() {
+        return Math.round(600f * Helpers.DIALOG_ZOOM);
+    }
+
+    /**
+     * Recover: aviso SUAVE (no acusatorio) de que el host ha reproducido acciones POSTERIORES a la
+     * ultima que este cliente registro en local. Pasaron mientras estaba fuera de la mano (salio y la
+     * mano siguio sin el), asi que no las puede verificar y las acepta tal cual las sirve el host. A
+     * diferencia de warnSuspiciousHost, NO abre popup modal ni empuja a abandonar la mesa: solo deja
+     * una linea SUAVE en el REGISTRO del juego (en amarillo, via categoryRule de GameLogDialog) y el
+     * detalle en el log de debug (lo emite el llamador). Dedup por recuperacion (recover_absence_warned).
+     */
+    private void warnRecoverActionDuringAbsence() {
+        if (this.recover_absence_warned) {
+            return;
+        }
+        this.recover_absence_warned = true;
+        try {
+            GameFrame.getInstance().getRegistro().print(Translator.translate("game.recover_accion_ausencia"));
+        } catch (Exception ignored) {
+        }
     }
 
     // Simetrico HOST-side de warnSuspiciousHost: el host ha detectado comportamiento anomalo o abusivo de
@@ -754,7 +802,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Helpers.mostrarMensajeError(GameFrame.getInstance(),
                             Translator.translate("zero_trust.peer_suspicious_header")
                             + line + "\n\n"
-                            + Translator.translate("zero_trust.peer_suspicious_body"));
+                            + Translator.translate("zero_trust.peer_suspicious_body"),
+                            "justify", zeroTrustPopupWidth());
                 } catch (Exception ignored) {
                 }
             });
@@ -825,7 +874,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.mostrarMensajeError(GameFrame.getInstance(),
                     Translator.translate("zero_trust.suspicious_header")
                     + MessageFormat.format(Translator.translate("zero_trust.deck_unverified"), hostNick) + "\n\n"
-                    + Translator.translate("zero_trust.deck_unverified_body"));
+                    + Translator.translate("zero_trust.deck_unverified_body"),
+                    "justify", zeroTrustPopupWidth());
         });
     }
 
@@ -951,7 +1001,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Helpers.mostrarMensajeError(GameFrame.getInstance(),
                         Translator.translate("zero_trust.critical_alert_header")
                         + fullReason + "\n\n"
-                        + Translator.translate("zero_trust.critical_alert_body"));
+                        + Translator.translate("zero_trust.critical_alert_body"),
+                        "justify", zeroTrustPopupWidth());
                 // Tras el popup del lockdown la timba se da por acabada para
                 // este peer. El HOST se entera por socket caido + cascade
                 // fail -> abortAndExit broadcast SERVEREXIT al resto. Pero
@@ -1133,6 +1184,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones_locales_recuperadas = new ConcurrentLinkedQueue<>();
+    // Recover: indice 1-based de la accion PROPIA que se esta reproduciendo (por nick) y numero de
+    // acciones propias que este peer alcanzo a persistir en su SQLite local antes de reconectar. Si
+    // el indice supera al persistido, la accion es POSTERIOR a la ultima que este cliente registro:
+    // paso mientras estaba fuera de la mano (salio y la mano siguio sin el). No la puede verificar,
+    // asi que la ACEPTA tal cual la sirve el host y solo avisa en el registro (amarillo), sin acusar.
+    // Se reinician al arrancar cada recuperacion (recuperarAccionesLocales).
+    private final java.util.HashMap<String, Integer> recover_replay_index = new java.util.HashMap<>();
+    private final java.util.HashMap<String, Integer> recover_persisted_count = new java.util.HashMap<>();
+    private boolean recover_absence_warned = false;
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
@@ -9005,6 +9065,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /**
+     * Recover: número de acciones de {@code nick} que este peer llegó a persistir en su SQLite local
+     * para la mano en curso (cada acción presenciada se guarda con {@link #sqlNewAction}, y el recover
+     * NO borra esas filas). Es la referencia contra la que {@link #isBenignPostAbsenceRecover} decide si
+     * una acción reproducida es posterior a la ausencia del jugador. Ante un fallo de SQL devuelve
+     * {@code Integer.MAX_VALUE} (conservador: ningún índice lo supera ⇒ nunca degrada un aviso a suave).
+     */
+    private int sqlCountLocalHandActions(String nick) {
+        synchronized (GameFrame.SQL_LOCK) {
+            int ret = Integer.MAX_VALUE;
+            String sql = "SELECT COUNT(*) FROM action WHERE id_hand=? AND player=?";
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                statement.setQueryTimeout(30);
+                statement.setInt(1, this.sqlite_id_hand);
+                statement.setString(2, nick);
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (rs.next()) {
+                        ret = rs.getInt(1);
+                    }
+                }
+            } catch (SQLException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+            return ret;
+        }
+    }
+
     private void sqlNewShowcards(String jugador, boolean parguela) {
 
         synchronized (GameFrame.SQL_LOCK) {
@@ -10591,7 +10678,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 java.awt.Container container = GameFrame.getInstance();
                 String composed = (title != null ? title + "\n\n" : "") + body;
-                Helpers.mostrarMensajeInformativo(container, composed);
+                Helpers.mostrarMensajeInformativo(container, composed, "justify", zeroTrustPopupWidth(), null);
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Failed to show consensus popup", ex);
             }
@@ -16674,6 +16761,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (name.equals(nick)) {
 
+                    // Indice 1-based de ESTA accion propia en el replay: sirve para distinguir una
+                    // accion posterior a la ausencia del jugador (indice > lo que persistio en local)
+                    // de una forja sobre una accion que si presencio (ver rama sin record de abajo).
+                    final int replayedIndex = this.recover_replay_index.merge(name, 1, Integer::sum);
+
                     // Recovery: return a full-width action so the
                     // rondaApuestas absorb path picks up the persisted record + sig
                     // bytes and ratchets H_t exactly as before the crash. Shorter
@@ -16757,15 +16849,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.saw_invalid_action_sig = true;
                         }
                     } else if (this.hand_state_chain != null) {
-                        // Record ausente/"*" con la CADENA ACTIVA. En una mano identity-mode TODAS las acciones
-                        // propias llevan record firmado (chain!=null <=> la mano tenia records), asi que un "*"
-                        // aqui = el host quito la firma para forjar la decision/importe (que el cliente re-firmaria
-                        // con SU clave). Mismo trato que el path en vivo (no-record + chain activa -> synth-fold).
-                        // En modo legacy sin cadena (chain==null) se deja pasar (recovery de manos viejas).
-                        LOGGER.log(Level.SEVERE,
-                                "ZERO-TRUST RECOVER: recovered action for {0} carries no signed record while the chain is active — host forging",
-                                name);
-                        warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
+                        // Record ausente/"*" con la CADENA ACTIVA. Dos causas posibles, y se distinguen por
+                        // el indice de replay contra lo que este peer alcanzo a persistir en local:
+                        //   (a) BENIGNA (ausencia): el jugador salio de la mano y esta accion es POSTERIOR a
+                        //       la ultima que registro (replayedIndex > persisted) y es un FOLD. El host la
+                        //       sirve pelada legitimamente (§4.5: exit-fold sin firma, nadie puede firmar por
+                        //       un jugador que no estaba). No hay con que verificarla -> se ACEPTA tal cual (el
+                        //       FOLD sintetico es justo el resultado correcto) y se avisa SUAVE en el registro
+                        //       (amarillo), sin acusar al host ni empujar a salir.
+                        //   (b) FORJA: el host quito la firma de una accion que yo SI presencie (indice <=
+                        //       persisted) o me atribuye algo que no es un FOLD -> aviso DURO como siempre.
+                        // El FOLD sintetico protege el dinero en ambos casos; el flag de mano-no-verificada
+                        // se conserva igual (la mano queda liquidada pero sin verificacion completa).
+                        int persisted = this.recover_persisted_count.computeIfAbsent(name, this::sqlCountLocalHandActions);
+                        if (isBenignPostAbsenceRecover((int) res[0], replayedIndex, persisted)) {
+                            LOGGER.log(Level.WARNING,
+                                    "ZERO-TRUST RECOVER: recovered action #{0} for {1} is later than the {2} action(s) this peer stored locally — it happened while out of the hand; trusting the host''s replay, cannot verify",
+                                    new Object[]{replayedIndex, name, persisted});
+                            warnRecoverActionDuringAbsence();
+                        } else {
+                            LOGGER.log(Level.SEVERE,
+                                    "ZERO-TRUST RECOVER: recovered action for {0} carries no signed record while the chain is active — host forging",
+                                    name);
+                            warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
+                        }
                         synthesizeUnverifiedFoldAction(res);
                         this.saw_invalid_action_sig = true;
                     }
@@ -16816,6 +16923,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void recuperarAccionesLocales() {
         try {
             String datos;
+
+            // Estado del discriminador de acciones-durante-ausencia: fresco por recuperacion.
+            this.recover_replay_index.clear();
+            this.recover_persisted_count.clear();
+            this.recover_absence_warned = false;
 
             if (GameFrame.getInstance().isPartida_local()) {
                 datos = sqlRecoverHandActions();
@@ -17569,7 +17681,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 Helpers.mostrarMensajeError(GameFrame.getInstance(),
                         MessageFormat.format(Translator.translate("zero_trust.seat_redraw"), host)
-                        + "\n\n" + Translator.translate("zero_trust.seat_redraw_body"));
+                        + "\n\n" + Translator.translate("zero_trust.seat_redraw_body"),
+                        "justify", zeroTrustPopupWidth());
             } catch (Exception ignored) {
             }
         });
@@ -17627,7 +17740,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 Helpers.mostrarMensajeError(GameFrame.getInstance(),
                         MessageFormat.format(Translator.translate("zero_trust.seat_recover_mismatch"), host)
-                        + "\n\n" + Translator.translate("zero_trust.seat_recover_mismatch_body"));
+                        + "\n\n" + Translator.translate("zero_trust.seat_recover_mismatch_body"),
+                        "justify", zeroTrustPopupWidth());
             } catch (Exception ignored) {
             }
         });

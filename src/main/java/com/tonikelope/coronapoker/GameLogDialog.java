@@ -552,6 +552,10 @@ public final class GameLogDialog extends JDialog {
             addCategoryRule(rules, "game.mano_verificada_consenso", ST_WIN);
             addCategoryRule(rules, "game.barajado_verificado", ST_WIN);
             addCategoryRule(rules, "game.barajado_pendiente", ST_BLIND);
+            // Recover: acciones reproducidas por el host que ocurrieron durante la ausencia del jugador
+            // (posteriores a su ultima accion registrada). Aviso SUAVE de precaucion -> amarillo, NO el
+            // rojo ST_CRITICAL de las anomalias zero-trust: no se acusa a nadie, la mano continua.
+            addCategoryRule(rules, "game.recover_accion_ausencia", ST_BLIND);
             for (String k : new String[]{"game.gana_bote_2", "game.gana_bote_principal", "game.gana_bote_secundario", "game.gana_bote"}) {
                 addCategoryRule(rules, k, ST_WIN);
             }

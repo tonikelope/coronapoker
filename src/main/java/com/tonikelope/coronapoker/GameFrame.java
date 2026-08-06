@@ -2792,6 +2792,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         GameFrame.key_event_dispatcher = (KeyEvent e) -> {
+            // Mientras la pestaña de Atajos captura una tecla, este dispatcher se aparta para que la
+            // combinación pulsada llegue al capturador y no dispare el atajo que tuviera asignado.
+            if (KeyboardShortcuts.isCapturing()) {
+                return false;
+            }
             // Al SOLTAR la tecla de RETIRARSE/PASAR se limpia la guarda anti-doble-acción de los
             // overlays (ver las acciones FOLD/CHECK): así una pulsación nueva (no una repetición de
             // la mantenida) vuelve a comportarse con normalidad. Se compara por keyCode contra la

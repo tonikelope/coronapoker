@@ -100,7 +100,8 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         {"shortcuts.sec_bet", new Object[][]{
             {"shortcuts.act_check", new String[][]{{"SPACE"}}},
             {"shortcuts.act_fold", new String[][]{{"ESC"}}},
-            {"shortcuts.act_bet", new String[][]{{"↑"}, {"↓"}, {"←"}, {"→"}}},
+            {"shortcuts.act_bet_up", new String[][]{{"↑"}, {"→"}}},
+            {"shortcuts.act_bet_down", new String[][]{{"↓"}, {"←"}}},
             {"shortcuts.act_confirm", new String[][]{{"ENTER"}}},
             {"shortcuts.act_allin", new String[][]{{"SHIFT", "ENTER"}}}
         }},
@@ -197,7 +198,7 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
                 gbc.anchor = GridBagConstraints.EAST;
                 gbc.fill = GridBagConstraints.NONE;
                 gbc.insets = new Insets(3, 0, 3, 18);
-                content.add(keysPanel((String[][]) r[1]), gbc);
+                content.add(keysPanel(resolveKeys((String) r[0], (String[][]) r[1])), gbc);
                 row++;
             }
         }
@@ -208,6 +209,26 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         sp.getViewport().setBackground(BG);
         sp.getVerticalScrollBar().setUnitIncrement(16);
         getContentPane().add(sp, BorderLayout.CENTER);
+    }
+
+    // Teclas a mostrar de una fila: si su acción es reasignable (está en KeyboardShortcuts), su
+    // combinación ACTUAL —primaria más los alias fijos—, para que la ayuda refleje lo que el usuario
+    // tenga puesto; si no (rueda de zoom, nota de voz, teclas internas de chat/imágenes), las fijas
+    // de la tabla SECTIONS.
+    private static String[][] resolveKeys(String label_key, String[][] fallback) {
+
+        for (KeyboardShortcuts.Def d : KeyboardShortcuts.defs()) {
+            if (d.label_key.equals(label_key)) {
+                java.util.List<String[]> groups = new java.util.ArrayList<>();
+                groups.add(KeyboardShortcuts.keyCapStrings(KeyboardShortcuts.get(d.id)));
+                for (javax.swing.KeyStroke alias : d.aliases) {
+                    groups.add(KeyboardShortcuts.keyCapStrings(alias));
+                }
+                return groups.toArray(new String[0][]);
+            }
+        }
+
+        return fallback;
     }
 
     // Panel de teclas alineado a la derecha: teclas del mismo grupo separadas por "+"; grupos

@@ -259,8 +259,9 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Reasigna una acción a una combinación nueva, persiste y republica el mapa inverso (efecto en
-     * vivo). No valida conflictos: el llamador debe haber comprobado {@link #isAssignable} antes.
+     * Reasigna una acción a una combinación nueva EN VIVO (los dispatchers la ven al instante). No
+     * persiste: la edición es transaccional y solo se escribe a disco en {@link #commit()}. No
+     * valida conflictos: el llamador debe haber comprobado {@link #isAssignable} antes.
      */
     public static synchronized void set(String id, KeyStroke ks) {
 
@@ -272,13 +273,10 @@ public final class KeyboardShortcuts {
         cur.put(id, ks);
         current = cur;
         reverse = buildReverse(cur);
-
-        Helpers.PROPERTIES.setProperty(PROPERTY_PREFIX + id, serialize(ks));
-        Helpers.savePropertiesFile();
     }
 
     /**
-     * Devuelve una acción a su combinación de fábrica (borra el override) y republica.
+     * Devuelve una acción a su combinación de fábrica EN VIVO (no persiste; ver {@link #commit()}).
      */
     public static synchronized void reset(String id) {
 
@@ -292,13 +290,10 @@ public final class KeyboardShortcuts {
         cur.put(id, d.def);
         current = cur;
         reverse = buildReverse(cur);
-
-        Helpers.PROPERTIES.remove(PROPERTY_PREFIX + id);
-        Helpers.savePropertiesFile();
     }
 
     /**
-     * Restaura TODAS las acciones a sus combinaciones de fábrica de una vez (una sola escritura).
+     * Restaura TODAS las acciones a sus combinaciones de fábrica EN VIVO (no persiste hasta commit).
      */
     public static synchronized void resetAll() {
 
@@ -306,12 +301,74 @@ public final class KeyboardShortcuts {
 
         for (Def d : DEFS) {
             cur.put(d.id, d.def);
-            Helpers.PROPERTIES.remove(PROPERTY_PREFIX + d.id);
         }
 
         current = cur;
         reverse = buildReverse(cur);
+    }
+
+    // Mientras la pestaña de Atajos está capturando una tecla, los dispatchers globales se apartan
+    // (devuelven false a la primera) para que la combinación pulsada llegue al capturador y no
+    // dispare el atajo que tuviera asignado.
+    private static volatile boolean capturing = false;
+
+    public static boolean isCapturing() {
+        return capturing;
+    }
+
+    public static void setCapturing(boolean c) {
+        capturing = c;
+    }
+
+    // --- Edición transaccional (coherente con el diálogo de Ajustes: aplica en vivo, GUARDAR
+    // persiste, Cancelar revierte). ---
+    private static volatile Map<String, KeyStroke> snapshot = null;
+
+    /**
+     * Abre una edición transaccional guardando una foto del estado actual. Los cambios se aplican en
+     * vivo pero no se persisten hasta {@link #commit()}; {@link #revert()} restaura esta foto.
+     */
+    public static synchronized void beginTransaction() {
+        snapshot = new HashMap<>(current);
+    }
+
+    /**
+     * ¿Hay cambios sin confirmar respecto a la foto de apertura?
+     */
+    public static boolean isDirty() {
+        Map<String, KeyStroke> snap = snapshot;
+        return snap != null && !snap.equals(current);
+    }
+
+    /**
+     * Confirma la edición: persiste el estado actual (override por acción que difiera de su default,
+     * borrando la clave de las que estén de fábrica) y cierra la transacción.
+     */
+    public static synchronized void commit() {
+
+        for (Def d : DEFS) {
+            KeyStroke k = current.get(d.id);
+            if (k != null && !k.equals(d.def)) {
+                Helpers.PROPERTIES.setProperty(PROPERTY_PREFIX + d.id, serialize(k));
+            } else {
+                Helpers.PROPERTIES.remove(PROPERTY_PREFIX + d.id);
+            }
+        }
+
         Helpers.savePropertiesFile();
+        snapshot = null;
+    }
+
+    /**
+     * Descarta la edición: restaura el estado de apertura (en vivo) sin tocar el fichero.
+     */
+    public static synchronized void revert() {
+        Map<String, KeyStroke> snap = snapshot;
+        if (snap != null) {
+            current = snap;
+            reverse = buildReverse(snap);
+            snapshot = null;
+        }
     }
 
     /**

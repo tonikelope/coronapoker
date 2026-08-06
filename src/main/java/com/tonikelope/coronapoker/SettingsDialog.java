@@ -62,6 +62,9 @@ public class SettingsDialog extends JDialog {
     // Pestaña "Debug": consola de logs (java.util.logging) de solo lectura. Global (en todos
     // los contextos), sin ajustes que confirmar/revertir.
     private final DebugSettingsPanel debug_panel;
+    // Pestaña "Atajos": reasigna los atajos de teclado globales. Edita el registro
+    // (KeyboardShortcuts) de forma transaccional, igual que Apariencia/Audio.
+    private final ShortcutsSettingsPanel shortcuts_panel;
     // Diálogo transaccional: true solo si se pulsó GUARDAR (entonces NO se revierte).
     private boolean committed = false;
 
@@ -107,6 +110,10 @@ public class SettingsDialog extends JDialog {
         game_panel = in_game ? new GameSettingsPanel(read_only_game) : null;
         waiting_panel = in_waiting ? new WaitingGameSettingsPanel(read_only_wait, recover_wait) : null;
         debug_panel = new DebugSettingsPanel();
+        shortcuts_panel = new ShortcutsSettingsPanel();
+        // La pestaña Atajos edita el registro de atajos de forma transaccional: aplica en vivo,
+        // GUARDAR persiste y Cancelar revierte (igual que Apariencia y Audio).
+        KeyboardShortcuts.beginTransaction();
 
         // Cada pestaña va dentro de un JScrollPane (ScrollableTabPanel): sigue el ancho
         // del viewport (sin barra horizontal espuria) y rellena el alto cuando cabe, pero
@@ -118,6 +125,9 @@ public class SettingsDialog extends JDialog {
         // la misma semántica transaccional (aplica en vivo; GUARDAR conserva, Cancelar revierte).
         tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), tabWithRestore(appearance_panel, appearance_panel::restoreDefaults));
         tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), tabWithRestore(audio_panel, audio_panel::restoreDefaults));
+        // Atajos de teclado (global, en todos los contextos): reasignables, con su propio pie de
+        // restaurar predeterminados.
+        tabs.addTab(Translator.translate("settings.tab_atajos"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/keyboard.png")), tabWithRestore(shortcuts_panel, shortcuts_panel::restoreDefaults));
         if (in_game) {
             tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(game_panel));
         } else if (in_waiting) {
@@ -146,6 +156,8 @@ public class SettingsDialog extends JDialog {
             }
             appearance_panel.applyPendingDisplayMode();
             appearance_panel.applyPendingDialogZoom();
+            // Confirma (persiste) las reasignaciones de atajos.
+            KeyboardShortcuts.commit();
             dispose();
         });
 
@@ -205,9 +217,13 @@ public class SettingsDialog extends JDialog {
                 if (!committed) {
                     appearance_panel.revert();
                     audio_panel.revert();
+                    // Descarta las reasignaciones de atajos (vuelve al estado de apertura).
+                    KeyboardShortcuts.revert();
                 }
                 // Cierra la captura de tecla del panel de audio + persiste el volumen.
                 audio_panel.cleanup();
+                // Cierra cualquier captura de tecla pendiente de la pestaña Atajos.
+                shortcuts_panel.cleanup();
                 // Libera la suscripción de la consola de Debug a DebugLog.
                 debug_panel.cleanup();
                 if (INSTANCE == SettingsDialog.this) {
@@ -283,7 +299,7 @@ public class SettingsDialog extends JDialog {
     // aplican en vivo; Partida es apply-on-save.) Se usa para preguntar antes de
     // descartar al cancelar.
     private boolean isDirty() {
-        return appearance_panel.isDirty() || audio_panel.isDirty()
+        return appearance_panel.isDirty() || audio_panel.isDirty() || KeyboardShortcuts.isDirty()
                 || (game_panel != null && game_panel.isDirty())
                 || (waiting_panel != null && waiting_panel.isDirty());
     }

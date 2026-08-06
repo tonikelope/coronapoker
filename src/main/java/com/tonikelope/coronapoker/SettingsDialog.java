@@ -113,8 +113,11 @@ public class SettingsDialog extends JDialog {
         // muestra barra vertical cuando el contenido no entra. Así el diálogo se encoge y
         // scrollea en resoluciones bajas en vez de salirse de la pantalla.
         JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), scrollableTab(appearance_panel));
-        tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), scrollableTab(audio_panel));
+        // Apariencia y Audio llevan su propio botón "Restaurar predeterminados" en un pie fijo de
+        // la pestaña (siempre visible, no se va con el scroll): cada uno restaura SOLO lo suyo, con
+        // la misma semántica transaccional (aplica en vivo; GUARDAR conserva, Cancelar revierte).
+        tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), tabWithRestore(appearance_panel, appearance_panel::restoreDefaults));
+        tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), tabWithRestore(audio_panel, audio_panel::restoreDefaults));
         if (in_game) {
             tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(game_panel));
         } else if (in_waiting) {
@@ -149,28 +152,11 @@ public class SettingsDialog extends JDialog {
         JButton cancel_button = new JButton(Translator.translate("ui.cancelar_2"));
         cancel_button.addActionListener(e -> cancelWithConfirm());
 
-        // Restaura los ajustes de PREFERENCIA (Apariencia + Audio) a sus valores de fábrica. NO
-        // pregunta antes (el diálogo es transaccional: los cambios se aplican en vivo como una
-        // edición más, y solo persisten al GUARDAR; Cancelar los revierte). Tras restaurar avisa
-        // de que hay que Guardar para conservarlos. Va abajo a la IZQUIERDA, separado de
-        // Guardar/Cancelar (derecha). No toca la pestaña Partida (config de timba, no preferencias).
-        JButton restore_button = new JButton(Translator.translate("settings.restaurar_predeterminados"));
-        restore_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/undo.png")));
-        restore_button.addActionListener(e -> {
-            appearance_panel.restoreDefaults();
-            audio_panel.restoreDefaults();
-            Helpers.mostrarMensajeInformativo(this, Translator.translate("settings.predeterminados_restaurados"));
-        });
-
         JPanel right_buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         right_buttons.add(save_button);
         right_buttons.add(cancel_button);
 
-        JPanel left_buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        left_buttons.add(restore_button);
-
         JPanel buttons = new JPanel(new BorderLayout());
-        buttons.add(left_buttons, BorderLayout.WEST);
         buttons.add(right_buttons, BorderLayout.EAST);
 
         JPanel content = new JPanel(new BorderLayout());
@@ -253,9 +239,6 @@ public class SettingsDialog extends JDialog {
         java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f * Helpers.DIALOG_ZOOM);
         save_button.setFont(buttons_font);
         cancel_button.setFont(buttons_font);
-        // El botón de restaurar (acción secundaria) va al mismo tamaño pero SIN negrita, para no
-        // competir visualmente con Guardar/Cancelar.
-        restore_button.setFont(Helpers.GUI_FONT.deriveFont(18f * Helpers.DIALOG_ZOOM));
 
         pack();
 
@@ -348,6 +331,29 @@ public class SettingsDialog extends JDialog {
                 fixTitledBorderFonts((Container) child, font);
             }
         }
+    }
+
+    // Pestaña con su propio pie fijo "Restaurar predeterminados": el contenido scrollea en el
+    // CENTRO y el botón queda abajo, siempre visible. Al pulsarlo restaura SOLO esta pestaña
+    // (restore, aplicado en vivo) y avisa de que hay que GUARDAR para conservarlo (el diálogo es
+    // transaccional: Cancelar lo revierte). El botón hereda la fuente/escala del diálogo con el
+    // resto del contenido (setUniformFont / scaleIcons sobre 'content').
+    private JPanel tabWithRestore(Component panel, Runnable restore) {
+
+        JButton restore_button = new JButton(Translator.translate("settings.restaurar_predeterminados"));
+        restore_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/undo.png")));
+        restore_button.addActionListener(e -> {
+            restore.run();
+            Helpers.mostrarMensajeInformativo(this, Translator.translate("settings.predeterminados_restaurados"));
+        });
+
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        footer.add(restore_button);
+
+        JPanel wrap = new JPanel(new BorderLayout());
+        wrap.add(scrollableTab(panel), BorderLayout.CENTER);
+        wrap.add(footer, BorderLayout.SOUTH);
+        return wrap;
     }
 
     // Envuelve el contenido de una pestaña en un JScrollPane sin borde, con barras

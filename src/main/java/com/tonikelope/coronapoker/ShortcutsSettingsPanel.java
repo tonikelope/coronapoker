@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -63,6 +64,10 @@ public class ShortcutsSettingsPanel extends JPanel {
 
     // Botón de captura por id de acción, para refrescar su texto tras un cambio o un restaurar.
     private final Map<String, JButton> buttons = new HashMap<>();
+
+    // Botón "deshacer" por acción (deja ESE atajo en su valor de fábrica). Se habilita solo si la
+    // acción está personalizada.
+    private final Map<String, JButton> reset_buttons = new HashMap<>();
 
     // Bordes de las cajas de sección, para poner sus títulos en negrita TRAS la unificación de
     // fuentes del diálogo (fixTitledBorderFonts los pisaría a plano antes).
@@ -172,10 +177,30 @@ public class ShortcutsSettingsPanel extends JPanel {
             gbc.weightx = 0;
             gbc.anchor = GridBagConstraints.WEST;
             gbc.fill = GridBagConstraints.HORIZONTAL;
-            gbc.insets = new Insets(3, 0, 3, 8);
+            gbc.insets = new Insets(3, 0, 3, 6);
             box.add(button, gbc);
 
+            // Botón pequeño para devolver ESTE atajo a su valor de fábrica. Se habilita solo si la
+            // acción está personalizada (ver refreshButton).
+            JButton reset = new JButton(new ImageIcon(getClass().getResource("/images/menu/undo.png")));
+            reset.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            reset.setToolTipText(Translator.translate("shortcuts.restaurar_este"));
+            reset.setMargin(new Insets(2, 4, 2, 4));
+            reset.setFocusable(false);
+            reset.addActionListener(e -> {
+                KeyboardShortcuts.reset(id);
+                refreshButton(id);
+            });
+            reset_buttons.put(id, reset);
+
             gbc.gridx = 2;
+            gbc.weightx = 0;
+            gbc.anchor = GridBagConstraints.WEST;
+            gbc.fill = GridBagConstraints.NONE;
+            gbc.insets = new Insets(3, 0, 3, 8);
+            box.add(reset, gbc);
+
+            gbc.gridx = 3;
             gbc.weightx = 1;
             gbc.fill = GridBagConstraints.HORIZONTAL;
             gbc.insets = new Insets(0, 0, 0, 0);
@@ -220,14 +245,26 @@ public class ShortcutsSettingsPanel extends JPanel {
     }
 
     private void refreshButton(String id) {
+
+        boolean customized = KeyboardShortcuts.isCustomized(id);
+
         JButton b = buttons.get(id);
         if (b != null) {
             b.setText(keyText(id));
             // Fuente "Dialog" siempre (la de la interfaz no trae los glifos de flecha); en NEGRITA
             // si el usuario ha personalizado la combinación (difiere de la de fábrica).
-            int style = KeyboardShortcuts.isCustomized(id) ? Font.BOLD : Font.PLAIN;
-            b.setFont(new Font("Dialog", style, b.getFont().getSize()));
+            b.setFont(new Font("Dialog", customized ? Font.BOLD : Font.PLAIN, b.getFont().getSize()));
         }
+
+        // El botón "deshacer" SOLO aparece si el atajo está personalizado.
+        JButton reset = reset_buttons.get(id);
+        if (reset != null) {
+            reset.setVisible(customized);
+        }
+
+        // Al aparecer/desaparecer el botón deshacer o cambiar el ancho del texto, recolocar.
+        revalidate();
+        repaint();
     }
 
     /**

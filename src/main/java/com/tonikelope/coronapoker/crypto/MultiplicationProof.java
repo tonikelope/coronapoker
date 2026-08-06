@@ -160,22 +160,16 @@ public final class MultiplicationProof {
         EdwardsPoint h = PedersenVectorCommit.H;
         BigInteger e = challenge(ca, cb, cc, p.m1, p.m2, p.m3);
 
-        // (1) z1·G_0 + z2·H − e·C_a == M1
-        EdwardsPoint lhs1 = EdwardsPoint.multiscalarMul(
-                new BigInteger[]{p.z1, p.z2, e}, new EdwardsPoint[]{g0, h, cap.negate()});
-        if (!Ristretto255.equalPoints(lhs1, m1p)) {
-            return false;
-        }
-        // (2) z3·G_0 + z4·H − e·C_b == M2
-        EdwardsPoint lhs2 = EdwardsPoint.multiscalarMul(
-                new BigInteger[]{p.z3, p.z4, e}, new EdwardsPoint[]{g0, h, cbp.negate()});
-        if (!Ristretto255.equalPoints(lhs2, m2p)) {
-            return false;
-        }
-        // (3) z1·C_b + z5·H − e·C_c == M3
-        EdwardsPoint lhs3 = EdwardsPoint.multiscalarMul(
-                new BigInteger[]{p.z1, p.z5, e}, new EdwardsPoint[]{cbp, h, ccp.negate()});
-        return Ristretto255.equalPoints(lhs3, m3p);
+        // Las tres ecuaciones del gate se comprueban en UN solo shared-ladder via batch-verify (pesos
+        // rho_j independientes, ligados por Fiat-Shamir a todas ellas). Ecuaciones idénticas a antes:
+        //   (1) z1·G_0 + z2·H − e·C_a == M1
+        //   (2) z3·G_0 + z4·H − e·C_b == M2
+        //   (3) z1·C_b + z5·H − e·C_c == M3
+        BatchVerifier bv = new BatchVerifier("SRA/MulProof/batch/v1");
+        bv.addEquation(new BigInteger[]{p.z1, p.z2, e}, new EdwardsPoint[]{g0, h, cap.negate()}, m1p);
+        bv.addEquation(new BigInteger[]{p.z3, p.z4, e}, new EdwardsPoint[]{g0, h, cbp.negate()}, m2p);
+        bv.addEquation(new BigInteger[]{p.z1, p.z5, e}, new EdwardsPoint[]{cbp, h, ccp.negate()}, m3p);
+        return bv.allHold();
     }
 
     private static BigInteger scalar() {

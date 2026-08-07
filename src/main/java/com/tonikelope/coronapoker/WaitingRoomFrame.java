@@ -3181,12 +3181,22 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
                                                             break;
                                                         case "RABBIT":
-                                                            if (GameFrame.getInstance().getCrupier().isShow_time()) {
-                                                                try {
+                                                            try {
+                                                                // Gating por HAND_ID (no por show_time): aplicamos el
+                                                                // rabbit si es de la mano en curso, para que el
+                                                                // fee/revelado sea determinista con el host y el resto
+                                                                // de peers (evita divergencia de dinero -> DIVERGENT
+                                                                // falso). Fallback a show_time si el peer no manda
+                                                                // HAND_ID (version antigua).
+                                                                String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
+                                                                boolean acceptRabbit = (rabbitHid != null)
+                                                                        ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
+                                                                        : GameFrame.getInstance().getCrupier().isShow_time();
+                                                                if (acceptRabbit) {
                                                                     String rNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                     GameFrame.getInstance().getCrupier().RABBIT_HANDLER(rNick, Integer.parseInt(partes_comando[4]));
-                                                                } catch (Exception e) {
                                                                 }
+                                                            } catch (Exception e) {
                                                             }
                                                             break;
                                                         case "MEGAPACKET":

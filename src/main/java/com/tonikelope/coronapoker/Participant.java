@@ -1683,9 +1683,24 @@ public class Participant implements Runnable {
                                                 GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(nick);
                                             }
                                             break;
-                                        case "RABBIT":
-                                            GameFrame.getInstance().getCrupier().RABBIT_HANDLER(nick, Integer.parseInt(partes_comando[4]));
+                                        case "RABBIT": {
+                                            // Gating por HAND_ID en vez de por show_time: aplicamos el
+                                            // rabbit (fee + revelado) si pertenece a la mano en curso,
+                                            // para que sea determinista en TODOS los peers y no diverja
+                                            // el dinero (que provocaba un DIVERGENT falso en la mano
+                                            // siguiente). Antes el host lo aplicaba SIEMPRE (sin guard) y
+                                            // un cliente cuyo show_time ya cerro lo descartaba -> asimetria.
+                                            // Fallback a show_time solo si el peer no manda HAND_ID (version
+                                            // antigua). Ademas gatea contra una rabbit de una mano pasada.
+                                            String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
+                                            boolean acceptRabbit = (rabbitHid != null)
+                                                    ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
+                                                    : GameFrame.getInstance().getCrupier().isShow_time();
+                                            if (acceptRabbit) {
+                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(nick, Integer.parseInt(partes_comando[4]));
+                                            }
                                             break;
+                                        }
                                         case "REBUYNOW":
                                             // En hilo aparte, como PAUSE/SHOWCARDS: rebuyNow (rama host) hace un
                                             // broadcastGAMECommandFromServer CON confirmacion, que BLOQUEA a ESTE

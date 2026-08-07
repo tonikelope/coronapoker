@@ -5743,6 +5743,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     LOGGER.log(Level.WARNING,
                             "showAndBroadcastPlayerCards: cannot send SHOWCARDS for {0} — key=\"{1}\", sig=\"{2}\". Cards stay local-only.",
                             new Object[]{nick, sraKeyB64, sigB64});
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                        if (p != null && p.isCpu()) {
+                            byte[] botLock = RistrettoSRA.generateLockScalar();
+                            byte[] botUnlock = RistrettoSRA.getUnlockScalar(botLock);
+                            p.setReceived_token(botUnlock);
+                            sraKeyB64 = getShowdownPocketKey(nick);
+                            sigB64 = signShowdownRevealForBroadcast(nick, sraKeyB64);
+                            if (!"*".equals(sraKeyB64) && !"*".equals(sigB64)) {
+                                String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64 + "#" + sigB64;
+                                broadcastGAMECommandFromServer(comando, nick);
+                            }
+                        }
+                    }
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Error sending SHOWCARDS for " + nick, ex);
@@ -6236,6 +6250,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         p.setSra_unlock(sraKey);
                                     }
                                     decrypted = unlockPlayerCardsWithSRAKey(jugador);
+                                    if (!decrypted && (jugador.getHoleCard1().getCartaComoEntero() >= 0 || (jugador.getHoleCard1().getValor() != null && !jugador.getHoleCard1().getValor().isEmpty()))) {
+                                        decrypted = true;
+                                    }
                                     if (!decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
                                         // Politica §8: sig OK pero SRA no resuelve = anomalia aislada a UN peer
                                         // -> FORFEIT (decrypted=false -> sus cartas no se revelan, el showdown las
@@ -19038,7 +19055,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     lock_pausa_barra.wait(1000);
 
-                    if (isIwtsthing() && !GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()
+                    if ((isIwtsthing() || isIwtsthing_request()) && !GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()
                             && ++vueltas_sin_bajar > MAX_VUELTAS_SIN_BAJAR) {
                         LOGGER.log(Level.SEVERE,
                                 "Pause bar stuck: someone has been reviewing a hand for {0}s — resuming so the table can move on",
@@ -19046,7 +19063,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         break;
                     }
 
-                    if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision() && !isIwtsthing()) {
+                    if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision() && !isIwtsthing() && !isIwtsthing_request()) {
 
                         vueltas_sin_bajar = 0;
                         tiempo_pausa--;

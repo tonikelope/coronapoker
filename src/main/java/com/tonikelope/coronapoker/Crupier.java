@@ -1457,6 +1457,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] current_hand_id = null;
     public volatile HandStateChain hand_state_chain = null;
 
+    // Rabbit-fee acceptance window: el id de la mano recien terminada cuyo
+    // bote_sobrante (incluidos los fees de rabbit) AUN no se ha doblado en el bote de
+    // la siguiente. current_hand_id se anula pronto (readyForNextHand :7759), ANTES de
+    // la barrera HAND_READY, asi que sin este latch un rabbit que llega en ese hueco
+    // entre-manos se rechazaria y el fee divergiria entre peers (DIVERGENT falso). Se
+    // fija al capturar la mano que termina (readyForNextHand) y se cierra cuando su
+    // bote_sobrante se consume (NUEVA_MANO :8555). Ver rabbitBelongsToCurrentHand.
+    private volatile byte[] rabbit_fee_window_hand_id = null;
+
     // Identity: per-hand flag — set to true the first time this
     // peer rejects an Ed25519 signature on an incoming ACTION or COMM_REVEAL
     // wire during the hand. The flag is embedded into this peer's receipt (under
@@ -5740,23 +5749,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                 } else {
+                    // No hay clave de revelado utilizable para este nick (getShowdownPocketKey="*"):
+                    // caso de borde/defensivo, tipicamente una mano recuperada cuyo fosil BOTKEYS@
+                    // no traia el token de este bot. NO fabricamos un token: para un bot la clave es
+                    // botLock^-1 (el received_token real), y un escalar aleatorio nuevo NO reconstruye
+                    // ese inverso -> en los clientes resolveCardIndex daria -1, las cartas seguirian
+                    // tapadas y ademas saltaria un warnSuspiciousHost falso contra un host honesto.
+                    // Menos danino: no emitir (las cartas quedan solo en local; el host, que las tiene
+                    // en claro, si las pinta). El arreglo correcto de este borde seria recuperar el
+                    // botLock^-1 real del cascade/fosil, no inventarlo.
                     LOGGER.log(Level.WARNING,
                             "showAndBroadcastPlayerCards: cannot send SHOWCARDS for {0} — key=\"{1}\", sig=\"{2}\". Cards stay local-only.",
                             new Object[]{nick, sraKeyB64, sigB64});
-                    if (GameFrame.getInstance().isPartida_local()) {
-                        Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                        if (p != null && p.isCpu()) {
-                            byte[] botLock = RistrettoSRA.generateLockScalar();
-                            byte[] botUnlock = RistrettoSRA.getUnlockScalar(botLock);
-                            p.setReceived_token(botUnlock);
-                            sraKeyB64 = getShowdownPocketKey(nick);
-                            sigB64 = signShowdownRevealForBroadcast(nick, sraKeyB64);
-                            if (!"*".equals(sraKeyB64) && !"*".equals(sigB64)) {
-                                String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64 + "#" + sigB64;
-                                broadcastGAMECommandFromServer(comando, nick);
-                            }
-                        }
-                    }
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Error sending SHOWCARDS for " + nick, ex);
@@ -7754,6 +7758,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             received_commands.clear();
         }
 
+        // Rabbit-fee window: la mano que termina puede seguir aceptando rabbits
+        // legitimos hasta que su bote_sobrante se doble en el bote de la siguiente
+        // (NUEVA_MANO :8555). Guardamos su id ANTES de anular current_hand_id (que
+        // ocurre aqui, antes de la barrera HAND_READY) para cubrir ese hueco.
+        this.rabbit_fee_window_hand_id = this.current_hand_id;
+
         // Identity: the per-hand chain belongs to the hand that just ended. The
         // new hand seeds a fresh chain after its MEGAPACKET arrives.
         this.current_hand_id = null;
@@ -8041,8 +8051,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Avisamos al server o al resto de jugadores si procede
                         String comando;
                         try {
+                            // Adjuntamos el HAND_ID de la mano en curso: los receptores
+                            // aplican el fee/revelado si la rabbit es de SU mano actual
+                            // (no del transitorio show_time), lo que hace el cobro
+                            // determinista entre peers y elimina el DIVERGENT falso.
+                            // "*" solo en el borde de current_hand_id nulo (los
+                            // receptores caen entonces al guard show_time de siempre).
+                            String handIdField = (this.current_hand_id != null)
+                                    ? Base64.getEncoder().encodeToString(this.current_hand_id) : "*";
                             comando = "RABBIT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                                    + String.valueOf(conta_rabbit);
+                                    + String.valueOf(conta_rabbit) + "#" + handIdField;
 
                             if (GameFrame.getInstance().isPartida_local()) {
                                 // Si somos el sevidor re-enviamos el comando a todo el mundo.
@@ -8069,6 +8087,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     lock_rabbit.notifyAll();
 
+                    // Despertamos al bucle de pausaConBarra (dormido en
+                    // lock_pausa_barra.wait) para que reanude la cuenta atras en cuanto
+                    // el rabbit deja de estar en curso, sin esperar el timeout de 1s.
+                    // Orden de locks seguro: pausaConBarra nunca toma lock_rabbit.
+                    synchronized (lock_pausa_barra) {
+                        lock_pausa_barra.notifyAll();
+                    }
                 }
             }
 
@@ -8081,6 +8106,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void IWTSTH_HANDLER(String iwtsther) {
+        // Congela la cuenta atras de showdown en ESTA maquina en el instante en que
+        // se entera de la peticion, ANTES de que el worker de abajo se programe y
+        // tome lock_iwtsth. Sin esto, el host (cuando pide un cliente remoto) y los
+        // clientes no-solicitantes seguian drenando tiempo_pausa durante el
+        // round-trip y podian cerrar show_time a mitad. El solicitante ya lo puso en
+        // IWTSTH_REQUEST; volverlo a poner es idempotente. El guard !iwtsth evita
+        // congelar por un IWTSTH ya resuelto en esta mano (se soltaria solo por el
+        // timeout corto del bucle de pausa, pero mejor no encenderlo).
+        if (!iwtsth) {
+            this.iwtsthing_request = true;
+        }
         Helpers.threadRun(() -> {
             synchronized (lock_iwtsth) {
                 if (iwtsthing || iwtsth) {
@@ -8532,6 +8568,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             this.bote_total = Math.max(0f, this.bote_sobrante);
+
+            // El remanente de la mano anterior (incluidos sus fees de rabbit) ya se
+            // ha doblado en el bote de esta -> cerramos su ventana de aceptacion de
+            // rabbit. A partir de aqui un rabbit de aquella mano llega tarde y se
+            // rechaza (aplicarlo ya descuadraria el bote_sobrante de esta).
+            this.rabbit_fee_window_hand_id = null;
         }
         this.bote = new HandPot(0f);
         this.beneficio_bote_principal = null;
@@ -19022,21 +19064,118 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
+    // Accion para un tick (1s) de la cuenta atras de showdown.
+    public enum PauseTick {
+        IDLE, DECREMENT, HOLD, CLEAR_REQUEST, GIVE_UP
+    }
+
+    /**
+     * Decide, para un tick de la cuenta atras de showdown, que hacer con la barra.
+     * PURA y sin estado (no toca campos ni GUI ni red) para poder testearla sola.
+     *
+     * - IDLE:          timba pausada o fin de transmision -> ni se cuenta ni se baja.
+     * - DECREMENT:     nadie mira una mano -> baja la cuenta atras.
+     * - HOLD:          IWTSTH (peticion o handling) o rabbit en curso -> se congela.
+     * - CLEAR_REQUEST: una peticion IWTSTH lleva demasiado sin activarse (round-trip
+     *                  perdido) -> el caller suelta iwtsthing_request y sigue.
+     * - GIVE_UP:       congelado mas alla del tope absoluto -> reanudar a la fuerza.
+     *
+     * vueltasBefore es el contador ANTES de este tick; el tick en curso cuenta +1.
+     */
+    public static PauseTick decidePauseTick(boolean timbaPausada, boolean finTransmision,
+            boolean iwtsthing, boolean iwtsthingRequest, boolean rabbitProcessing,
+            int vueltasBefore, int maxVueltas, int maxRequestVueltas) {
+        if (timbaPausada || finTransmision) {
+            return PauseTick.IDLE;
+        }
+        boolean frozen = iwtsthing || iwtsthingRequest || rabbitProcessing;
+        if (!frozen) {
+            return PauseTick.DECREMENT;
+        }
+        int vueltas = vueltasBefore + 1;
+        if (vueltas > maxVueltas) {
+            return PauseTick.GIVE_UP;
+        }
+        // Una peticion pendiente que NO escalo a IWTSTH activo ni a rabbit es un
+        // round-trip perdido: tolerancia corta. Un IWTSTH activo (host decidiendo) o
+        // un rabbit procesandose conservan la tolerancia larga (MAX_VUELTAS).
+        if (iwtsthingRequest && !iwtsthing && !rabbitProcessing && vueltas > maxRequestVueltas) {
+            return PauseTick.CLEAR_REQUEST;
+        }
+        return PauseTick.HOLD;
+    }
+
+    // True si hay al menos una peticion de rabbit hunting procesandose en ESTA
+    // maquina (rabbit_players marca PENDING=true mientras corre RABBIT_HANDLER).
+    // La barra de pausa se congela mientras tanto para no cerrar el showdown a mitad
+    // del revelado/cobro y mantener a todos los peers en la misma mano.
+    public boolean isRabbitProcessing() {
+        for (Boolean pending : rabbit_players.values()) {
+            if (Boolean.TRUE.equals(pending)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Comparacion pura de hand ids (testeable): iguales y ambos presentes.
+    public static boolean handIdMatches(byte[] cmdHandId, byte[] currentHandId) {
+        return cmdHandId != null && currentHandId != null
+                && java.util.Arrays.equals(cmdHandId, currentHandId);
+    }
+
+    // True si un comando RABBIT (con su hand id en base64, que puede faltar en peers
+    // de version antigua) debe aplicarse en ESTE peer. Sustituye al guard isShow_time()
+    // en la recepcion de RABBIT: el cobro/revelado se aplica igual en todas las maquinas
+    // aunque la barra de una ya cerrara, para que el fee no diverja entre peers (lo que
+    // provocaba un DIVERGENT falso en la mano siguiente).
+    //
+    // Se acepta si el hand id es:
+    //   - el de la mano en curso (current_hand_id), o
+    //   - el de la mano recien terminada cuyo bote_sobrante AUN no se ha doblado en el
+    //     bote de la siguiente (rabbit_fee_window_hand_id). current_hand_id se anula
+    //     pronto (readyForNextHand :7759, antes de la barrera HAND_READY), asi que este
+    //     segundo termino cubre el hueco entre-manos en el que aplicar el fee sigue
+    //     siendo correcto.
+    // Se rechaza una rabbit de una mano ya cerrada del todo (su bote_sobrante ya
+    // consumido) — aplicarla descuadraria el bote.
+    public boolean rabbitBelongsToCurrentHand(String handIdB64) {
+        byte[] cmd = null;
+        if (handIdB64 != null && !handIdB64.isEmpty() && !"*".equals(handIdB64)) {
+            try {
+                cmd = Base64.getDecoder().decode(handIdB64);
+            } catch (Exception e) {
+                cmd = null;
+            }
+        }
+        return handIdMatches(cmd, this.current_hand_id)
+                || handIdMatches(cmd, this.rabbit_fee_window_hand_id);
+    }
+
     public void pausaConBarra(int tiempo) {
 
         this.setTiempo_pausa(tiempo);
 
         // Vueltas seguidas (de un segundo) en las que la cuenta atras no ha bajado por
-        // estar alguien mirando una mano (isIwtsthing).
+        // haber un IWTSTH (peticion o handling) o un rabbit en curso (ver decidePauseTick).
         //
-        // El tope es DELIBERADAMENTE enorme porque quien levanta esa marca en los
-        // clientes no es un reloj: es el anfitrion contestando un si/no en un dialogo,
-        // o sea una persona, que puede tardar lo que le de la gana. Un tope corto
-        // rompia la pausa mientras el anfitrion se lo pensaba y dejaba escrita en el
-        // registro la mano del perdedor como oculta, sin volver a corregirla nunca.
-        // Esto es solo la red para que la mano no se quede parada de por vida.
+        // El tope grande (MAX_VUELTAS_SIN_BAJAR) es DELIBERADO porque quien levanta la
+        // marca de IWTSTH ACTIVO no es un reloj: es el anfitrion contestando un si/no en
+        // un dialogo, o sea una persona, que puede tardar lo que le de la gana. Un tope
+        // corto rompia la pausa mientras se lo pensaba y dejaba la mano del perdedor
+        // escrita como oculta sin volver a corregirla. En cambio, una PETICION IWTSTH que
+        // se envio pero nunca escalo a activo (round-trip perdido: el host la descarto
+        // porque su show_time ya cerro) usa el tope corto MAX_REQUEST_VUELTAS_SIN_BAJAR y
+        // se suelta sola, para no congelar la mesa 10 min. Esto es solo la red de
+        // seguridad para que la mano no se quede parada de por vida.
         int vueltas_sin_bajar = 0;
         final int MAX_VUELTAS_SIN_BAJAR = 600;
+        // Tolerancia CORTA para una peticion IWTSTH que se envio pero nunca escalo a
+        // IWTSTH activo (el host la descarto porque su show_time ya habia cerrado):
+        // soltamos iwtsthing_request en ~15s en vez de congelar la mesa hasta
+        // MAX_VUELTAS_SIN_BAJAR (que existe para el caso legitimo de un humano
+        // pensandose el si/no del dialogo, donde iwtsthing SI esta activo).
+        final int MAX_REQUEST_VUELTAS_SIN_BAJAR = 15;
 
         while (getTiempoPausa() > 0) {
 
@@ -19055,25 +19194,47 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     lock_pausa_barra.wait(1000);
 
-                    if ((isIwtsthing() || isIwtsthing_request()) && !GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision()
-                            && ++vueltas_sin_bajar > MAX_VUELTAS_SIN_BAJAR) {
+                    // Congelamos la cuenta atras mientras haya un IWTSTH (peticion o
+                    // handling) o un rabbit procesandose, para que el round-trip no se
+                    // corte a mitad. La decision es pura y esta en decidePauseTick para
+                    // poder testearla sin GUI ni red.
+                    PauseTick action = decidePauseTick(
+                            GameFrame.getInstance().isTimba_pausada(),
+                            isFin_de_la_transmision(),
+                            isIwtsthing(), isIwtsthing_request(), isRabbitProcessing(),
+                            vueltas_sin_bajar, MAX_VUELTAS_SIN_BAJAR, MAX_REQUEST_VUELTAS_SIN_BAJAR);
+
+                    if (action == PauseTick.GIVE_UP) {
                         LOGGER.log(Level.SEVERE,
                                 "Pause bar stuck: someone has been reviewing a hand for {0}s — resuming so the table can move on",
-                                vueltas_sin_bajar);
+                                vueltas_sin_bajar + 1);
                         break;
-                    }
-
-                    if (!GameFrame.getInstance().isTimba_pausada() && !isFin_de_la_transmision() && !isIwtsthing() && !isIwtsthing_request()) {
-
+                    } else if (action == PauseTick.DECREMENT) {
                         vueltas_sin_bajar = 0;
                         tiempo_pausa--;
 
-                        // setValue(tiempo_pausa) redundante: el Timer interno de
-                        // smoothCountdown (lanzado por setTiempo_pausa) ya repinta
-                        // la barra cada 50ms en escala ms. Sin esta nota, el setValue
-                        // en escala segundos pisaba la barra (max=tiempo*1000) y
-                        // generaba parpadeo entre los dos repaints.
+                        // OJO (comentario corregido): la barra VISUAL la anima
+                        // Helpers.smoothCountdown por wall-clock y solo la congela
+                        // isTimba_pausada(); NO se congela con IWTSTH/rabbit. El que
+                        // MANDA para saber cuando acaba la pausa es este contador
+                        // logico (tiempo_pausa). Durante un IWTSTH/rabbit este contador
+                        // se congela (ver arriba) mientras la barra visual sigue
+                        // corriendo por reloj hasta que el siguiente setTiempo_pausa la
+                        // re-sincroniza.
+                    } else if (action == PauseTick.CLEAR_REQUEST) {
+                        // Round-trip IWTSTH perdido: soltamos el flag para que la cuenta
+                        // atras siga en vez de quedarse congelada 10 min. La peticion se
+                        // da por perdida (el host nunca autorizara: su show_time cerro).
+                        LOGGER.log(Level.WARNING,
+                                "IWTSTH request unresolved after {0}s — clearing so the countdown can resume",
+                                vueltas_sin_bajar + 1);
+                        iwtsthing_request = false;
+                        vueltas_sin_bajar = 0;
+                    } else if (action == PauseTick.HOLD) {
+                        vueltas_sin_bajar++;
                     }
+                    // PauseTick.IDLE: timba pausada o fin de transmision -> ni contamos
+                    // ni decrementamos (igual que antes).
 
                 } catch (InterruptedException ex) {
                     Helpers.logCooperativeCancellation(LOGGER, "pause progress bar loop", ex);

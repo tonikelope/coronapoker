@@ -18,59 +18,36 @@ import java.awt.RenderingHints;
 import javax.swing.JLabel;
 
 /**
- * Telemetría — componente UI standalone para mostrar latencia + nº
- * reconexiones de un peer remoto. Pinta una bolita coloreada (verde/amarillo
- * /naranja/rojo/gris) cuyo color depende del último valor de latencia recibido
- * del broadcast TELEMETRY del host.
+ * Standalone UI widget showing a remote peer's connection telemetry (latency + reconnection
+ * count) as a colored dot (green/yellow/orange/red/gray), driven by the host's TELEMETRY
+ * broadcast.
  *
- * Diseño:
- *   - JComponent puro (no JLabel) — pinta a bajo nivel para tener control
- *     total del antialiasing y la composición sin pelear con Look&Feel.
- *   - PreferredSize 16×16 por defecto. Se reescala con el zoom de la mesa.
- *   - Estado interno mínimo: latency_ms + reconnection_count + last_update_ms.
- *   - setLatency(...) puede llamarse desde cualquier thread (volatile), el
- *     repaint() siempre se posterga al EDT vía SwingUtilities.invokeLater.
- *   - Si tras STALE_THRESHOLD_MS no se ha refrescado, color pasa a gris
- *     "no data" — defensa contra mostrar valor obsoleto si el host cae.
- *
- * INTEGRACIÓN PENDIENTE (.form via NetBeans):
- *   1. Abrir RemotePlayer.form en NetBeans.
- *   2. Arrastrar un JComponent al lado del avatar.
- *   3. Cambiar su clase a com.tonikelope.coronapoker.LatencyDot.
- *   4. Asignarle nombre 'latency_dot'.
- *   5. En RemotePlayer.java añadir getter + un método de update que llame
- *      latency_dot.setLatency(...) leyendo del WaitingRoomFrame
- *      .getLatest_telemetry() para el nick correspondiente.
- *   6. Hookear el update desde el TELEMETRY case del cliente() switch
- *      (o desde Participant.runPingPongThread, donde ya se llama
- *      jugador.updateLatency para el F7 legacy label).
- *
- * La clase aquí está completamente funcional y testeable de forma aislada;
- * solo le falta el wiring visual y el dispatch desde el handler de
- * TELEMETRY entrante.
+ * <p>{@link #setLatency} is thread-safe and may be called off the EDT; the repaint is always
+ * deferred via {@code SwingUtilities.invokeLater}. If no update arrives within
+ * {@link #STALE_THRESHOLD_MS}, the dot turns gray ("no data") rather than showing a stale value.
  */
-// extends JLabel (no JComponent) para que NetBeans pueda asignarlo a un
-// campo declarado como JLabel en el .form sin error de tipos. Las pintadas
-// de texto/icon del JLabel base se sobrescriben en paintComponent (sin
-// llamar super.paintComponent), así que el JLabel actúa como contenedor.
+// Extends JLabel (not JComponent) so NetBeans can bind it to a field declared as JLabel in the
+// .form file without a type error. paintComponent() overrides the JLabel's own text/icon
+// painting (without calling super.paintComponent), so the JLabel here just acts as a container.
 public class LatencyDot extends JLabel {
 
-    /** Latencia mostrada (ms). -1 = unknown / timeout / sin medir. */
+    /** Displayed latency (ms). -1 = unknown / timeout / not yet measured. */
     private volatile int latency_ms = -1;
-    /** Contador de reconexiones acumulado del peer. */
+    /** Peer's cumulative reconnection count. */
     private volatile int reconnection_count = 0;
-    /** Timestamp local del último setLatency exitoso (System.currentTimeMillis). */
+    /** Local timestamp (System.currentTimeMillis) of the last successful setLatency call. */
     private volatile long last_update_ms = 0L;
 
-    /** Tras este umbral sin update, la bolita se pinta gris "sin datos". */
+    /** Past this threshold with no update, the dot paints gray ("no data"). */
     public static final long STALE_THRESHOLD_MS = 15_000;
 
-    /** Lado base (px) de la bolita a zoom 1.0. La escala de la mesa lo
-     *  multiplica vía applyZoom(...) para que la bola crezca/encoja con el
-     *  resto de la celda del jugador (avatar, iconos, fuentes). */
+    /**
+     * Base side (px) of the dot at zoom 1.0. {@link #applyZoom} multiplies it so the dot scales
+     * with the rest of the player cell (avatar, icons, fonts) as the table zoom changes.
+     */
     public static final int BASE_SIZE = 22;
 
-    /** Umbrales (ms) para clasificar latencia → color. */
+    /** Latency thresholds (ms) used to classify latency into a color. */
     public static final int THRESHOLD_GREEN_MS = 100;
     public static final int THRESHOLD_YELLOW_MS = 250;
     public static final int THRESHOLD_ORANGE_MS = 400;
@@ -82,26 +59,25 @@ public class LatencyDot extends JLabel {
     public static final Color COLOR_STALE = new Color(0x9E, 0x9E, 0x9E);
 
     public LatencyDot() {
-        // Tamaño base BASE_SIZE×BASE_SIZE (suficiente para ver la bola + un
-        // badge pequeño si hay reconexiones). Si el GroupLayout del .form pide
-        // otro tamaño, NetBeans lo aplica encima de estos defaults. Si no,
-        // este es el tamaño que se ve. applyZoom(...) lo reescala con la mesa.
+        // Base BASE_SIZE×BASE_SIZE size (room for the dot plus a small reconnection badge). If
+        // the .form's GroupLayout requests another size, NetBeans applies it on top of these
+        // defaults; otherwise this is what's shown. applyZoom(...) rescales it with the table.
         Dimension size = new Dimension(BASE_SIZE, BASE_SIZE);
         setPreferredSize(size);
         setMinimumSize(size);
         setMaximumSize(size);
         setSize(size);
         setOpaque(false);
-        setText(""); // sobrescribe cualquier text="" del JLabel base.
-        setToolTipText("---"); // placeholder hasta primer setLatency
+        setText(""); // override any text="" set on the underlying JLabel by the .form
+        setToolTipText("---"); // placeholder until the first setLatency call
     }
 
     /**
-     * Reescala la bolita a BASE_SIZE * factor para que acompañe al zoom de la
-     * mesa (igual que avatar/iconos/fuentes del jugador). Debe invocarse en el
-     * EDT; revalida el contenedor para que el GroupLayout reubique la celda.
+     * Rescales the dot to {@code BASE_SIZE * factor} to track the table zoom (like the player's
+     * avatar/icons/fonts). Must be called on the EDT; revalidates the container so GroupLayout
+     * repositions the cell.
      *
-     * @param factor escala absoluta de la mesa (1f == zoom neutro).
+     * @param factor absolute table scale (1f = neutral zoom)
      */
     public void applyZoom(float factor) {
         int side = Math.max(BASE_SIZE / 4, Math.round(BASE_SIZE * factor));
@@ -115,11 +91,11 @@ public class LatencyDot extends JLabel {
     }
 
     /**
-     * Actualiza latencia + contador reconexiones del peer. Thread-safe.
-     * Programa repaint en EDT automáticamente.
+     * Updates the peer's latency and reconnection count. Thread-safe; schedules a repaint on
+     * the EDT.
      *
-     * @param latencyMs latencia en ms. -1 = timeout/unknown.
-     * @param reconnectionCount contador acumulado de reconexiones del peer.
+     * @param latencyMs latency in ms, or -1 for timeout/unknown
+     * @param reconnectionCount peer's cumulative reconnection count
      */
     public void setLatency(int latencyMs, int reconnectionCount) {
         this.latency_ms = latencyMs;
@@ -144,8 +120,8 @@ public class LatencyDot extends JLabel {
     }
 
     /**
-     * Clasifica la latencia (y antigüedad) al color final. Estático para
-     * tests AAA del mapping sin instanciar Swing.
+     * Maps latency (and staleness) to the final dot color. Static so the mapping can be unit
+     * tested without instantiating Swing.
      */
     public static Color colorFor(int latencyMs, long ageMs) {
         if (ageMs > STALE_THRESHOLD_MS) {
@@ -172,8 +148,8 @@ public class LatencyDot extends JLabel {
 
     @Override
     protected void paintComponent(Graphics g) {
-        // NO llamamos super.paintComponent — JLabel pintaría su texto/icon
-        // y aquí queremos control total del rendering (bola + badge).
+        // Do NOT call super.paintComponent — JLabel would paint its own text/icon, and we want
+        // full control over rendering (dot + badge) here.
         Graphics2D g2 = (Graphics2D) g.create();
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -190,15 +166,15 @@ public class LatencyDot extends JLabel {
             long age = System.currentTimeMillis() - last_update_ms;
             Color dot = colorFor(latency_ms, last_update_ms == 0 ? Long.MAX_VALUE : age);
 
-            // Bolita
+            // Dot
             g2.setColor(dot);
             g2.fillOval(x, y, diameter, diameter);
 
-            // Borde sutil para contraste sobre fondos claros y oscuros
+            // Subtle outline for contrast against both light and dark backgrounds
             g2.setColor(new Color(0, 0, 0, 80));
             g2.drawOval(x, y, diameter, diameter);
 
-            // Badge numérico con reconnection_count si > 0
+            // Reconnection-count badge, shown only when reconnection_count > 0
             if (reconnection_count > 0) {
                 String txt = reconnection_count > 9 ? "9+" : String.valueOf(reconnection_count);
                 int badge_diam = Math.max(8, diameter / 2);

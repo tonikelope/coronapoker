@@ -104,7 +104,9 @@ public class DeterministicShuffle {
     }
 
     // =========================================================================
-    // DETERMINISTIC AES-256-CTR EXPANSION STREAM (Zero-State Collisions)
+    // Keystream generator: under AES-CTR, encrypting an all-zero block yields the
+    // raw keystream, so each cipher.update() call returns the next chunk without
+    // having to manage the counter by hand.
     // =========================================================================
     private static final class DeterministicStream {
         private final Cipher cipher;
@@ -141,7 +143,7 @@ public class DeterministicShuffle {
                     buffer = cipher.update(zeroBlock);
                     index = 0;
                 }
-                int val = buffer[index++] & 0xFF; // Unsigned byte representation
+                int val = buffer[index++] & 0xFF;
                 if (val < limit) {
                     return val % range;
                 }

@@ -31,34 +31,38 @@ import javax.swing.JComponent;
 import javax.swing.plaf.basic.BasicButtonUI;
 
 /**
- * ButtonUI "cristal" (glassmorphism) para la botonera de la pantalla de inicio: pinta un
- * fondo negro TRANSLÚCIDO redondeado (se ve el tapete a través), un brillo superior sutil,
- * un borde fino y, opcionalmente, un tinte/halo de acento. El estado de hover/pressed se lee
- * del propio ButtonModel (rollover), así que NO hace falta MouseListener externo.
+ * Glassmorphism ButtonUI for the start-screen button bar: paints a rounded, translucent black
+ * background (the felt shows through), a subtle top gloss highlight and, optionally, an accent
+ * tint/halo. Hover/pressed state is read straight from the ButtonModel (rollover), so no external
+ * MouseListener is needed.
  *
- * <p>No es invasivo: se aplica con {@code button.setUI(new GlassButtonUI(...))} sobre los
- * JButton existentes (sin tocar el código generado ni el .form); {@code installUI} deja el
- * botón no-opaco y sin borde/relleno propios para pintar solo lo nuestro.
+ * <p>Non-invasive: applied via {@code button.setUI(new GlassButtonUI(...))} on existing JButtons
+ * (no changes to generated code or the .form); {@code installUI} makes the button non-opaque with
+ * no border/fill of its own so only this UI's painting shows.
  *
  * @author tonikelope
  */
 public class GlassButtonUI extends BasicButtonUI {
 
-    // Acento tintado del relleno + borde/halo (null = cristal neutro, borde blanco tenue).
+    // Fill-tint and hover-halo color; null means a neutral, untinted glass button (no halo).
     private final Color accent;
-    // Relleno tintado con el acento (acción primaria destacada, p. ej. CREAR TIMBA).
+    // If true, fill with an accent-tinted gradient even at rest (highlighted primary action).
     private final boolean filled_accent;
-    // El acento SOLO aparece al pasar el ratón (borde/halo); en reposo el botón es neutro
-    // (p. ej. SALIR: cristal neutro que se tiñe de rojo al hover).
-    private final boolean hover_only_accent;
-    // Opacidad base del cristal en reposo (secundarios más transparentes).
+    // Base glass opacity at rest (secondary buttons use a lower value for more transparency).
     private final float base_alpha;
     private final int radius;
 
+    /**
+     * @param accent accent color for the fill tint and hover halo; {@code null} for a neutral,
+     * untinted button
+     * @param filled_accent paint the accent-tinted fill even at rest, not just on hover
+     * @param hover_only_accent currently unused, kept for constructor-signature compatibility
+     * @param base_alpha base glass opacity at rest
+     * @param radius corner radius in pixels
+     */
     public GlassButtonUI(Color accent, boolean filled_accent, boolean hover_only_accent, float base_alpha, int radius) {
         this.accent = accent;
         this.filled_accent = filled_accent;
-        this.hover_only_accent = hover_only_accent;
         this.base_alpha = base_alpha;
         this.radius = radius;
     }
@@ -73,7 +77,7 @@ public class GlassButtonUI extends BasicButtonUI {
         b.setFocusPainted(false);
         b.setRolloverEnabled(true);
         b.setForeground(Color.WHITE);
-        // Margen interior: el icono/texto no debe tocar el borde redondeado.
+        // Inner padding so the icon/text doesn't touch the rounded edge.
         b.setBorder(BorderFactory.createEmptyBorder(10, 22, 10, 22));
         b.setIconTextGap(14);
     }
@@ -92,8 +96,8 @@ public class GlassButtonUI extends BasicButtonUI {
         boolean pressed = m.isArmed() && m.isPressed();
         boolean hover = enabled && m.isRollover();
 
-        // Hover/pressed suben la opacidad RELATIVA a la base (así al subir base_alpha el realce
-        // se mantiene proporcional en vez de saturarse).
+        // Hover/pressed raise opacity relative to the base value, so the highlight stays
+        // proportional instead of saturating as base_alpha increases.
         float fill_alpha;
         if (!enabled) {
             fill_alpha = 0.30f;
@@ -107,11 +111,11 @@ public class GlassButtonUI extends BasicButtonUI {
 
         RoundRectangle2D rr = new RoundRectangle2D.Float(1.5f, 1.5f, w - 3f, h - 3f, radius, radius);
 
-        // 1. Cristal: negro translúcido.
+        // 1. Glass: translucent black.
         g2.setColor(new Color(0f, 0f, 0f, fill_alpha));
         g2.fill(rr);
 
-        // 2. Tinte de acento (solo primario relleno).
+        // 2. Accent tint (filled primary buttons only).
         if (filled_accent && accent != null && enabled) {
             int top = Math.round((hover ? 0.34f : 0.22f) * 255);
             int bot = Math.round((hover ? 0.14f : 0.08f) * 255);
@@ -122,15 +126,14 @@ public class GlassButtonUI extends BasicButtonUI {
             g2.fill(rr);
         }
 
-        // 3. Brillo superior (glass highlight) en la mitad de arriba.
+        // 3. Top gloss highlight, covering the upper half.
         GradientPaint gloss = new GradientPaint(
                 0, 1.5f, new Color(255, 255, 255, hover ? 60 : 42),
                 0, h * 0.55f, new Color(255, 255, 255, 0));
         g2.setPaint(gloss);
         g2.fill(new RoundRectangle2D.Float(1.5f, 1.5f, w - 3f, h * 0.55f, radius, radius));
 
-        // (Sin borde: los botones van sin línea de contorno, solo el cristal redondeado.)
-        // 5. Halo de acento al pasar el ratón (glow suave; SALIR se tiñe de rojo).
+        // 4. Accent halo on hover (soft glow; e.g. tints the exit button red).
         if (hover && accent != null) {
             g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 70));
             g2.setStroke(new BasicStroke(3.5f));
@@ -139,11 +142,11 @@ public class GlassButtonUI extends BasicButtonUI {
 
         g2.dispose();
 
-        // Etiqueta (icono + texto) encima, delegando en BasicButtonUI.
+        // Label (icon + text) painted on top via BasicButtonUI.
         super.paint(g, c);
     }
 
-    // Texto con una sombra sutil para asegurar legibilidad sobre el cristal + tapete.
+    // Subtle text shadow for legibility over the glass + felt background.
     @Override
     protected void paintText(Graphics g, AbstractButton b, Rectangle textRect, String text) {
         Graphics2D g2 = (Graphics2D) g.create();

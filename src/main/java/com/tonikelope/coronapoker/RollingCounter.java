@@ -19,32 +19,36 @@ package com.tonikelope.coronapoker;
 import java.util.function.DoubleConsumer;
 
 /**
- * Contador numérico que rueda hacia su objetivo a VELOCIDAD CONSTANTE (lineal),
- * para los contadores VIVOS del juego (stack / bote del jugador / bote general).
+ * Numeric counter that rolls toward a target value, used for the game's live counters
+ * (player stack / player pot / main pot).
  *
- * Es fire-and-forget (nunca bloquea ningún hilo) y COALESCENTE: si el objetivo
- * cambia a mitad del rodaje, recalcula el tramo desde el valor mostrado ACTUAL
- * hacia el nuevo objetivo, sin quedarse atrás ni dar saltos. La duración de cada
- * tramo = distancia / velocidad, acotada a [min, max] (un cambio minúsculo no es
- * instantáneo, uno enorme no se eterniza — los "casos extremos" se afinan con
- * estas palancas).
+ * Fire-and-forget (never blocks a thread) and coalescing: if the target changes mid-roll,
+ * the current leg is recalculated from the value currently shown toward the new target,
+ * without falling behind or jumping. Two modes:
+ * <ul>
+ * <li>constant SPEED (3-arg constructor below): leg duration = distance / speed, clamped
+ * to [min_ms, max_ms].</li>
+ * <li>constant TIME ({@link #RollingCounter(DoubleConsumer, long)}): every leg takes the
+ * same fixed duration regardless of distance, so several counters started together finish
+ * together (e.g. all-in probabilities).</li>
+ * </ul>
  *
- * CONFINADO AL EDT: roll/set/invalidate y el tick del Timer corren todos en el
- * Event Dispatch Thread, así que los campos no necesitan sincronización. El
- * pintado real lo hace el callback 'render' (escribe el texto del label con el
- * valor dado); este contador solo gobierna la interpolación.
+ * EDT-only: roll/set/invalidate and the Timer tick all run on the Event Dispatch Thread,
+ * so the fields need no synchronization. The actual painting is done by the {@code render}
+ * callback (writes the label's text for a given value); this class only drives the
+ * interpolation.
  */
 public class RollingCounter {
 
     private final DoubleConsumer render;
 
-    private double speed;   // unidades de dinero por segundo
+    private double speed;   // value units per second
     private long min_ms;
     private long max_ms;
-    private long fixed_ms;  // >0 => duración FIJA por tramo (tiempo constante); ignora speed/min/max
+    private long fixed_ms;  // >0 => fixed duration per leg (constant-time mode); ignores speed/min/max
 
-    private double shown;          // valor pintado ahora mismo
-    private boolean shown_valid;   // false si el label muestra algo no-numérico ("----", "ver buy-in"...)
+    private double shown;          // value currently painted
+    private boolean shown_valid;   // false when the label shows non-numeric text ("----", "see buy-in"...)
     private double target;
     private double leg_from;
     private long leg_start_ms;
@@ -61,11 +65,7 @@ public class RollingCounter {
     }
 
     /**
-     * Variante de TIEMPO CONSTANTE: cada tramo dura fixed_ms sin importar la
-     * distancia recorrida, así varios contadores que arrancan a la vez terminan
-     * a la vez (p.ej. las probabilidades del all-in, que deben alcanzar su valor
-     * todas en el mismo tiempo). El resto del comportamiento (coalescente, salto
-     * si !animate o valor no válido) es idéntico al de velocidad constante.
+     * Constant-time variant; see the class Javadoc.
      */
     public RollingCounter(DoubleConsumer render, long fixed_ms) {
         this.render = render;
@@ -74,8 +74,8 @@ public class RollingCounter {
     }
 
     /**
-     * Rueda hacia 'value'. Si animate es false o el valor mostrado no es válido
-     * (venía de un estado no-numérico), salta de golpe. EDT-only.
+     * Rolls toward {@code value}. Jumps instantly if {@code animate} is false or the
+     * displayed value isn't valid (came from a non-numeric state). EDT-only.
      */
     public void roll(double value, boolean animate) {
         value = Helpers.doubleClean(value);
@@ -85,7 +85,7 @@ public class RollingCounter {
             return;
         }
 
-        // Ya vamos justo hacia ese objetivo: no reiniciar el tramo.
+        // Already heading straight to this target: don't restart the leg.
         if (timer != null && timer.isRunning() && Helpers.doubleSecureCompare(value, target) == 0) {
             return;
         }
@@ -104,9 +104,9 @@ public class RollingCounter {
                 : Math.max(min_ms, Math.min(max_ms, Math.round(dist / speed * 1000.0)));
 
         if (timer == null) {
-            // Mismo tick fijo que el resto de animaciones del juego (GameFrame.getTickMs,
-            // 2 ms): la interpolacion es por TIEMPO (p = elapsed/leg_dur_ms), asi que un
-            // tick mas fino solo suaviza, no acelera ni cambia la duracion del tramo.
+            // Same fixed tick as the rest of the game's animations (GameFrame.getTickMs,
+            // 2 ms): interpolation is TIME-based (p = elapsed/leg_dur_ms), so a finer tick
+            // only smooths the animation — it doesn't speed it up or change leg duration.
             timer = new javax.swing.Timer(GameFrame.getTickMs(), (e) -> tick());
         }
         if (!timer.isRunning()) {
@@ -129,8 +129,9 @@ public class RollingCounter {
     }
 
     /**
-     * Fija 'value' de golpe (sin animar) y lo marca como válido. EDT-only. Lo usan
-     * los resets/recover y la cortinilla de llenado (que ya anima frame a frame).
+     * Sets {@code value} immediately (no animation) and marks it valid. EDT-only.
+     * Used by resets/recover and by the counting overlay (which already animates
+     * frame by frame on its own).
      */
     public void set(double value) {
         if (timer != null) {
@@ -144,8 +145,9 @@ public class RollingCounter {
     }
 
     /**
-     * El label pasa a mostrar un texto NO numérico (lo pinta el caller). El próximo
-     * roll saltará en vez de animar desde un valor que ya no se corresponde. EDT-only.
+     * Marks the label as now showing non-numeric text (painted by the caller). The
+     * next roll() will jump instead of animating from a value that no longer applies.
+     * EDT-only.
      */
     public void invalidate() {
         if (timer != null) {
@@ -155,8 +157,8 @@ public class RollingCounter {
     }
 
     /**
-     * true si el valor mostrado es numérico y válido (es decir, se puede animar
-     * DESDE él). false tras invalidate() o antes del primer set/roll. EDT-only.
+     * True if the displayed value is numeric and valid (i.e. can be animated FROM).
+     * False after invalidate() or before the first set/roll. EDT-only.
      */
     public boolean isValid() {
         return shown_valid;

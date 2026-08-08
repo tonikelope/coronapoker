@@ -35,6 +35,8 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
 /**
+ * A poker player at the table — local or remote — covering hand state, stack/bet, actions and the
+ * GUI hooks the table drives to render them.
  *
  * @author tonikelope
  */
@@ -51,7 +53,7 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     public static final int BIG_BLIND = 13;
     public static final int DEAD_DEALER = 14;
     public static final int STRADDLE = 15;
-    public static final int DEALER_STRADDLE = 16; // dealer que ademas straddlea (3-manos: el dealer es el UTG): ficha combinada mitad blanca (dealer) / mitad roja (straddle)
+    public static final int DEALER_STRADDLE = 16; // dealer who is also straddling (3-handed: dealer is UTG); combined chip, half white (dealer) / half red (straddle)
 
     public static final int BORDER = 12;
     public static final int ARC = 30;
@@ -108,21 +110,32 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public void setLoser(String msg);
 
-    // Showdown: registra las cartas que componen la jugada de este PERDEDOR (sin kickers, las
-    // mismas que se resaltarían de un ganador individual: jugada.getWinners()), para poder
-    // resaltarlas al pasar el ratón por su etiqueta de jugada (opción RESALTAR_JUGADA_SHOWDOWN).
-    // null = sin resaltado (mano oculta o no aplica). Se limpia entre manos.
+    /**
+     * Records the cards that make up this LOSER's hand at showdown (no kickers, same as
+     * {@code jugada.getWinners()} for a winner), so hovering the hand label can highlight them
+     * (RESALTAR_JUGADA_SHOWDOWN). {@code null} means no highlight (hidden hand or not
+     * applicable); cleared between hands.
+     *
+     * @param cartas the losing hand's cards, or {@code null}
+     */
     public void setShowdownHand(java.util.List<Card> cartas);
 
-    // Run-it-twice rewind: re-aplica el render de la última acción y limpia el
-    // estado ganador/perdedor de SIDE-A antes de correr SIDE-B.
+    /**
+     * Run-it-twice rewind: re-applies the last action's render and clears SIDE-A's
+     * winner/loser state before SIDE-B runs.
+     */
     public void repaintLastAction();
 
     public void pagar(double pasta, Integer sec_pot);
 
-    // Run-it-twice: marca (con dedup) que este jugador se lleva el pot 'sec_pot'
-    // (la "franja negra"), sin pagar — el dinero se paga aparte con pagar(.,null).
-    // Evita el indice duplicado al ganar el mismo pot en los dos boards.
+    /**
+     * Run-it-twice: flags (deduplicated) that this player wins side pot {@code sec_pot} (the
+     * "black stripe"), without paying it out — the money is paid separately via
+     * {@link #pagar(double, Integer)}. Avoids a duplicate index when the same pot is won on
+     * both boards.
+     *
+     * @param sec_pot side pot index
+     */
     public void marcarBotePot(int sec_pot);
 
     public double getBet();
@@ -133,15 +146,24 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     void refreshPos();
 
-    // Refresca el icono de ficha de posición (dealer/ciegas) y su visibilidad.
+    /**
+     * Refreshes the position chip icon (dealer/blinds) and its visibility.
+     */
     public void refreshPositionChipIcons();
 
-    // Etiqueta de la ficha de posición (dealer/ciega) sobre el asiento.
+    /**
+     * @return the position chip label (dealer/blind) shown over the seat
+     */
     public JLabel getChip_label();
 
-    // Centro en pantalla donde reposa la ficha de posición de este asiento para
-    // una ficha de tamaño (chip_w, chip_h); null si el asiento no está en
-    // pantalla. Debe llamarse en el EDT (lee la jerarquía Swing).
+    /**
+     * Screen-space center where this seat's position chip rests, for a chip of size
+     * ({@code chip_w}, {@code chip_h}). Must be called on the EDT (reads the Swing hierarchy).
+     *
+     * @param chip_w chip width in pixels
+     * @param chip_h chip height in pixels
+     * @return the screen center point, or {@code null} if the seat isn't showing
+     */
     public java.awt.geom.Point2D getPositionChipScreenCenter(int chip_w, int chip_h);
 
     public void nuevaMano();
@@ -150,40 +172,61 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public int getDecision();
 
-    // Recover: marca este asiento como FOLDEADO (decision=FOLD + pinta gris) de forma SILENCIOSA
-    // (sin sonido ni cinematica). Lo usa el skip por omision mutua: un jugador que se fue a mitad de
-    // mano y reconecta queda foldeado esa mano, y sin esto se quedaba "como si no hubiera hablado"
-    // (fuera de resisten pero sin pintar gris) porque el skip no pasa por el handler de la accion.
+    /**
+     * Recovery: silently marks this seat as FOLDED (decision=FOLD, painted gray, no sound or
+     * animation). Used by the mutual-timeout skip so a player who left mid-hand and reconnects
+     * shows as folded for that hand, instead of looking like they never acted.
+     */
     public void markFoldedOnRecover();
 
     public void setStack(double stack);
 
-    // Pinta SOLO el label del stack con 'value' (sin tocar el modelo): lo usa la
-    // animacion de llenado de stacks (apertura de timba / recompra) para rodar el
-    // contador frame a frame. El stack real lo fija el caller aparte.
+    /**
+     * Paints only the stack label with {@code value}, without touching the model. Used by the
+     * stack fill-in animation (table opening / rebuy) to roll the counter frame by frame; the
+     * caller sets the real stack separately.
+     *
+     * @param value the value to display
+     */
     public void setStackDisplay(double value);
 
-    // Marca que el rodaje vivo del stack y la apuesta NO debe dispararse en setStack/
-    // setBet (el label se queda en su valor previo): lo activa el handler de la acción
-    // cuando va a volar una ficha, para que los contadores no se adelanten a ella.
+    /**
+     * Marks that the live roll animation for stack and bet must NOT fire from setStack/setBet
+     * (labels stay at their previous value). Set by the action handler right before a chip
+     * flies, so the counters don't get ahead of it.
+     *
+     * @param deferred {@code true} to suppress rolling until {@link #rollCountersToModel()}
+     */
     public void setCounterRollDeferred(boolean deferred);
 
-    // Rueda el stack y la apuesta del jugador hasta su valor de modelo actual (a la vez
-    // que el bote sube y flasea, en el aterrizaje de la ficha). Limpia el aplazamiento.
+    /**
+     * Rolls the stack and bet counters to their current model value (in step with the pot
+     * bump/flash on chip landing). Clears the deferred flag.
+     */
     public void rollCountersToModel();
 
     public double getStack();
 
     public void setBet(double bet);
 
-    // Postea un ante (dinero muerto: del stack al bote, SIN tocar bet) por el
-    // importe dado, o todo el stack si no lo cubre (all-in por el ante). Devuelve
-    // lo realmente posteado. Solo se invoca cuando GameFrame.ANTE esta activo.
+    /**
+     * Posts an ante (dead money: stack to pot, without touching bet) for the given amount, or
+     * the whole stack if it doesn't cover it (all-in on the ante). Only called when
+     * {@code GameFrame.ANTE} is on.
+     *
+     * @param ante amount to post
+     * @return the amount actually posted
+     */
     public double postAnte(double ante);
 
-    // Postea un straddle (ciega VIVA: SI cuenta como apuesta a igualar, via bet)
-    // por el importe dado, o todo el stack si no lo cubre (all-in). Devuelve lo
-    // realmente posteado. Solo se invoca cuando GameFrame.STRADDLE esta activo.
+    /**
+     * Posts a straddle (a LIVE blind: it DOES count as a bet to call, via bet) for the given
+     * amount, or the whole stack if it doesn't cover it (all-in). Only called when
+     * {@code GameFrame.STRADDLE} is on.
+     *
+     * @param amount amount to post
+     * @return the amount actually posted
+     */
     public double postStraddle(double amount);
 
     public void resetBetDecision();
@@ -228,10 +271,12 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public boolean isMuestra();
 
-    // Overlay del GIF de barajado + borde blanco de resaltado mientras este jugador procesa su
-    // paso de la cascada SRA. Sincronizado en todos los peers vía el comando SHUFFLE_TURN; el
-    // controlador de GameFrame (onShuffleTurn) los invoca sobre el jugador de turno, sea local o
-    // remoto. showShuffleCascadeOverlay puede bloquear (carga del GIF): NO llamar desde el EDT.
+    /**
+     * Shows the shuffle GIF overlay and white highlight border while this player's step of the
+     * SRA shuffle cascade is running. Kept in sync across peers via the SHUFFLE_TURN command;
+     * GameFrame's controller ({@code onShuffleTurn}) invokes it on whichever player (local or
+     * remote) has the turn. May block loading the GIF — do not call from the EDT.
+     */
     public void showShuffleCascadeOverlay();
 
     public void hideShuffleCascadeOverlay();

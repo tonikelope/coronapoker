@@ -33,18 +33,21 @@ import java.util.Collections;
 import java.util.Comparator;
 
 /**
+ * One pot in a hand's pot/side-pot chain. Tracks who is contesting the pot and how
+ * much it takes to be in it; {@link #genSidePots()} splits off child pots for players
+ * who went all-in for less than everyone else.
  *
  * @author tonikelope
  */
 public final class HandPot {
 
     private final ArrayList<Player> players = new ArrayList<>();
-    // Dinero muerto que llega de un bote de nivel inferior: jugadores retirados que
-    // pusieron MÁS que el tope de aquel bote, así que su exceso sigue vivo en este.
-    // Van aparte de players porque APORTAN pero NO COMPITEN: getPlayers() decide quién
-    // cobra el bote (Crupier lo usa para pagar y para calcular jugadas) y ahí no pintan
-    // nada. En el bote principal esta lista está vacía: allí los retirados ya vienen en
-    // players, tal y como los mete el crupier.
+    // Dead money carried over from a lower-level pot: folded players who put in MORE
+    // than that pot's cap, so their excess is still live in this one. Kept separate
+    // from players because it CONTRIBUTES but does NOT COMPETE: getPlayers() decides
+    // who collects the pot (Crupier uses it both to pay out and to work out hands),
+    // and dead money has no say there. In the main pot this list is always empty:
+    // folded players already sit in players there, same as the dealer puts them.
     private final ArrayList<Player> dead_money = new ArrayList<>();
     private volatile double diff = 0;
     private volatile double bet = 0;
@@ -84,23 +87,23 @@ public final class HandPot {
     }
 
     /**
-     * ¿este jugador COMPITE por el bote? El que se retiró (o ya no está activo) deja
-     * su dinero, pero no puede cobrarlo.
+     * Does this player COMPETE for the pot? A folded (or otherwise inactive) player
+     * leaves their money in, but can't collect it.
      */
     private static boolean compite(Player jugador) {
         return jugador.getDecision() != Player.FOLD && jugador.isActivo();
     }
 
     /**
-     * Lo que aporta a ESTE bote un jugador que ya no compite. Se cuenta desde el suelo
-     * del bote (diff) y se capa a su tope (bet): lo que puso por encima NO es de este
-     * bote, sigue vivo en los derivados, donde solo pueden cobrarlo los que llegaron a
-     * ese nivel. Sin ese cap, todo el dinero muerto caía en el bote principal y se lo
-     * llevaba un all-in corto que jamás igualó esa cantidad.
+     * What a non-competing player contributes to THIS pot. Counted from the pot's
+     * floor ({@code diff}) and capped at its ceiling ({@code bet}): anything put in
+     * above that belongs to a deeper side pot, collectable only by players who reached
+     * that level. Without the cap, all dead money would fall into the main pot and get
+     * swept up by a short all-in that never matched it.
      *
-     * El bote más profundo (sin derivados) no capa: ahí ya no hay ningún nivel superior
-     * al que mandar el resto, así que lo absorbe y la suma de los botes sigue siendo
-     * exactamente lo que se apostó.
+     * The deepest pot (no side pot below it) doesn't cap: there's no higher level left
+     * to send the remainder to, so it absorbs it all and the pots still sum to exactly
+     * what was bet.
      */
     private double aportacionMuerta(Player jugador) {
 
@@ -137,8 +140,8 @@ public final class HandPot {
     }
 
     /**
-     * Añade dinero muerto heredado de un bote de nivel inferior. NO toca {@code bet}:
-     * un retirado no fija el tope de un bote, solo aporta lo que le corresponda.
+     * Adds dead money inherited from a lower-level pot. Does NOT touch {@code bet}:
+     * a folded player doesn't set a pot's ceiling, they only contribute their share.
      */
     void addDeadMoney(Player jugador) {
 
@@ -158,7 +161,10 @@ public final class HandPot {
         }
     }
 
-    //ALLIN SIDE POT(S) GENERATOR
+    /**
+     * Splits off a side pot when some player is contesting this pot with a smaller
+     * bet than the rest (i.e. went all-in short); recurses to build the full chain.
+     */
     public void genSidePots() {
 
         if (players.size() > 1 && sidePot == null) {
@@ -178,38 +184,40 @@ public final class HandPot {
 
             if (i < players.size()) {
 
-                //Apuesta_menor es la apuesta del jugador que participa en el bote con la menor cantidad.
+                // Bet of the player contesting this pot with the smallest contribution.
                 double lowest_player_bet = players.get(i).getBote() - this.diff;
 
                 if (Helpers.doubleSecureCompare(lowest_player_bet, bet) < 0) {
 
-                    bet = lowest_player_bet; // Actualizamos la apuesta del bote 
+                    bet = lowest_player_bet;
 
-                    // Sólo hay que generar sidePot si algún jugador está participando con una apuesta por debajo de la apuesta del bote
+                    // A side pot is only needed if some player is contesting with a bet
+                    // above this pot's bet.
                     ArrayList<Player> sidepot_players = new ArrayList<>();
 
                     for (var jugador : players) {
 
                         if (jugador.getDecision() != Player.FOLD && jugador.isActivo() && Helpers.doubleSecureCompare(bet, jugador.getBote() - this.diff) < 0) {
 
-                            //Si el jugador está participando en el bote con una apuesta MAYOR que la del bote lo añadimos al bote derivado hijo
+                            // Contesting this pot with MORE than its bet: goes into the child side pot.
                             sidepot_players.add(jugador);
                         }
                     }
 
-                    // SIN competidores por encima del suelo no se crea bote derivado. Uno
-                    // sin nadie que compita no lo puede cobrar NADIE (getPlayers vacio), y
-                    // llevarle dinero muerto seria hacerlo desaparecer del reparto. Al no
-                    // crearlo, este bote se queda como el mas profundo y absorbe ese dinero
-                    // entero, que es exactamente lo que pasaba antes de repartir por niveles.
+                    // No side pot is created without competitors above the floor. One
+                    // with nobody competing couldn't be collected by ANYONE (getPlayers
+                    // would be empty), and routing dead money to it would make that
+                    // money vanish from the payout. Skipping it leaves this pot as the
+                    // deepest one, so it absorbs that money whole — exactly what used
+                    // to happen before pots were split by level.
                     if (!sidepot_players.isEmpty()) {
 
                         sidePot = new HandPot(sidepot_players, bet + this.diff);
 
-                        // El dinero de los retirados que pasa del tope de este bote sigue
-                        // vivo en el derivado: viaja como dinero muerto (aporta, no compite).
-                        // Sin esto, capar la aportación en getTotal haría desaparecer ese
-                        // exceso del reparto.
+                        // Folded players' money above this pot's ceiling stays alive in
+                        // the side pot, carried over as dead money (contributes, doesn't
+                        // compete). Without this, capping the contribution in getTotal
+                        // would make that excess disappear from the payout.
                         double techo = bet + this.diff;
 
                         for (var jugador : players) {

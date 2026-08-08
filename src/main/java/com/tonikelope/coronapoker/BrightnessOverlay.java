@@ -33,46 +33,49 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.util.concurrent.atomic.AtomicInteger;
 
-// Estado del velo de "apagar las luces" de la mesa y su pintado. Lo pinta el tapete al final de su
-// paint(), y también el panel de GIFs, que es una ventana suelta y se oscurece por su cuenta (esa,
-// como no es la mesa, nunca ha forzado el repintado desde arriba). Antes el velo era el LayerUI de
-// un JLayer que envolvía la mesa entera, pero un JLayer obliga a que TODO repintado de cualquiera
-// de sus componentes arranque en él, también con las luces encendidas, que es el 99 % de la partida.
+/**
+ * State and painting of the table's "lights off" overlay. Painted by the table at the end of
+ * its {@code paint()}, and also by the GIF panel (a separate window that darkens on its own).
+ * Previously the overlay was the {@code LayerUI} of a {@code JLayer} wrapping the whole table,
+ * but a {@code JLayer} forces every repaint of any of its components to start there, even with
+ * the lights on, which is 99% of the game.
+ */
 public class BrightnessOverlay {
 
-    // El velo tiene DOS dueños y este es el único sitio donde se juntan:
+    // The overlay has TWO owners, reconciled only here:
     //
-    // 1) El interruptor del jugador (el del tapete y el atajo), que es una preferencia suya y dura
-    //    hasta que la cambie.
-    // 2) Los apagados TEMPORALES que impone la partida: la pausa y los diálogos que corren con la
-    //    mesa a oscuras (game over, recover, buy-in inicial). Se CUENTAN, porque pueden solaparse:
-    //    cada uno suma al entrar y resta al salir, y el velo aguanta mientras quede alguno vivo.
+    // 1) The player's switch (table button and shortcut): a preference that persists until they
+    //    change it.
+    // 2) TEMPORARY blackouts imposed by the game: pause, and dialogs that run with the table dark
+    //    (game over, recover, initial buy-in). These are COUNTED since they can overlap: each one
+    //    increments on entry and decrements on exit, and the overlay stays up while any is alive.
     //
-    // Antes no había tal separación: cada sitio se guardaba el brillo que había, lo forzaba y lo
-    // reponía al terminar, así que dos solapados se pisaban. Una pausa que entrase mientras estaba
-    // abierto el game over acababa con la mesa ILUMINADA en plena pausa, y con el interruptor
-    // diciendo lo contrario de lo que se veía.
+    // Previously there was no such separation: each call site saved the current brightness,
+    // forced it, and restored it on exit, so two overlapping callers would clobber each other
+    // (e.g. a pause starting while game-over was open could leave the table LIT during the pause,
+    // with the switch showing the opposite of what was on screen).
     private volatile boolean user_lights_off = false;
     private final AtomicInteger forced_lights_off = new AtomicInteger(0);
-    // Brillo EFECTIVO, el que se pinta: derivado de los dos de arriba, nunca se fija a mano. Hoy
-    // todo lo que lo escribe y lo lee corre en el EDT (el crupier toca el velo desde dentro de sus
-    // GUIRun), pero se deja volatile y el recálculo sincronizado para que llamarlo desde otro hilo
-    // no pueda dejarlo desfasado de forma permanente.
+    // Effective brightness actually painted, derived from the two fields above and never set
+    // directly. Everything that reads/writes it today runs on the EDT (the dealer touches the
+    // overlay from inside its GUIRun calls), but it's kept volatile with synchronized recompute
+    // so a call from another thread can't leave it permanently stale.
     private volatile float brightness = 0f;
-    // Color del velo, recreado solo cuando cambia el brillo. Lo comparten todas las superficies
-    // que se oscurecen, que siempre pintan al mismo brillo y desde el EDT.
+    // Overlay color, recreated only when brightness changes. Shared by every surface that
+    // darkens, all of which paint at the same brightness and from the EDT.
     private Color cached_color = null;
     private float cached_brightness = -1f;
 
-    // Opacidad del velo negro que corresponde a la luminosidad configurada: su complemento
-    // (50 % de luz -> 0,50 de velo). Se acota al rango del ajuste por si la clave del fichero de
-    // configuración se editó a mano fuera de él.
+    /**
+     * Black-overlay opacity for the configured light level: its complement (50% light -&gt; 0.50
+     * overlay). Clamped to the setting's range in case the config value was hand-edited outside it.
+     */
     private static float lightsOffBrightness() {
 
         return (100 - Math.max(GameFrame.NIVEL_LUZ_MIN, Math.min(GameFrame.NIVEL_LUZ, GameFrame.NIVEL_LUZ_MAX))) / 100f;
     }
 
-    // Interruptor del jugador.
+    /** Player-driven switch. */
     public void lightsOFF() {
 
         user_lights_off = true;
@@ -85,14 +88,18 @@ public class BrightnessOverlay {
         refreshBrightness();
     }
 
-    // Lo que pidió el jugador, INDEPENDIENTEMENTE de que la partida esté forzando el velo ahora
-    // mismo: es lo que decide si su siguiente clic enciende o apaga.
+    /**
+     * What the player asked for, REGARDLESS of any temporary blackout the game may currently be
+     * forcing: this is what decides whether their next click turns lights on or off.
+     */
     public boolean isUserLightsOff() {
         return user_lights_off;
     }
 
-    // Apagado temporal de la partida. SIEMPRE en pareja (el que suma, resta), preferiblemente con
-    // el pop en un finally: si alguien se deja un push suelto, la mesa se queda a oscuras.
+    /**
+     * Temporary blackout requested by the game. Always call in pairs (push/pop), preferably with
+     * the pop in a {@code finally}: a leaked push leaves the table dark forever.
+     */
     public void pushForcedLightsOFF() {
 
         forced_lights_off.incrementAndGet();
@@ -101,14 +108,16 @@ public class BrightnessOverlay {
 
     public void popForcedLightsOFF() {
 
-        // Nunca por debajo de cero: un pop de más (un camino de error que restara dos veces) no
-        // debe dejar el contador en negativo y que el siguiente push no encienda el velo.
+        // Never go below zero: an extra pop (e.g. an error path decrementing twice) must not
+        // leave the counter negative, which would make the next push fail to light the overlay.
         forced_lights_off.updateAndGet(pending -> pending > 0 ? pending - 1 : 0);
         refreshBrightness();
     }
 
-    // Recalcula el brillo efectivo. Público porque cambiar la luminosidad en Ajustes tiene que
-    // reflejarse en el velo que ya esté puesto.
+    /**
+     * Recomputes the effective brightness. Public because changing the light level in Settings
+     * must be reflected in an overlay that's already up.
+     */
     public synchronized void refreshBrightness() {
 
         brightness = (user_lights_off || forced_lights_off.get() > 0) ? BrightnessOverlay.lightsOffBrightness() : 0f;
@@ -118,8 +127,10 @@ public class BrightnessOverlay {
         return brightness;
     }
 
-    // Vuelca el velo sobre toda la superficie indicada. No-op con las luces encendidas. Se llama
-    // DESPUÉS de pintar el contenido (en paint(), no en paintComponent()), para que quede encima.
+    /**
+     * Paints the overlay over the given surface; no-op with the lights on. Must be called AFTER
+     * painting content (from {@code paint()}, not {@code paintComponent()}) so it ends up on top.
+     */
     public void paintOverlay(Graphics g, int width, int height) {
 
         float b = getBrightness();

@@ -57,11 +57,11 @@ public class RoundedBubbleView extends BlockView {
     private static final int CORNER_RADIUS = 12;
     private static final Color BUBBLE_MINE_BG = new Color(0xd9fdd3);
     private static final Color BUBBLE_OTHER_BG = Color.WHITE;
-    // El HTMLEditorKit puede dejar al final del body un view residual que hereda
-    // la class del ultimo bloque insertado: si se pinta, aparece como un punto de
-    // color bajo la ultima burbuja. Una burbuja real tiene siempre al menos el
-    // header (avatar + nick + hora), asi que su rango en el Document supera esta
-    // longitud minima; los phantom suelen tener 0-2 caracteres.
+    // HTMLEditorKit can leave a residual view at the end of the body that inherits
+    // the class of the last inserted block; painting it shows up as a stray colored
+    // dot under the last bubble. A real bubble always has at least a header (avatar
+    // + nick + time), so its Document range exceeds this minimum; phantom views are
+    // usually 0-2 characters.
     private static final int MIN_BUBBLE_TEXT_LEN = 5;
 
     public RoundedBubbleView(Element elem) {

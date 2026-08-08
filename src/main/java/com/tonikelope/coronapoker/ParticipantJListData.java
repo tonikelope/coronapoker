@@ -31,6 +31,8 @@ package com.tonikelope.coronapoker;
 import javax.swing.ImageIcon;
 
 /**
+ * Row data backing the "connected players" JList in the waiting room: nick,
+ * ping latency (two samples) and avatar icon.
  *
  * @author Antonio
  */
@@ -41,7 +43,7 @@ public class ParticipantJListData {
     private int latency2;
     private ImageIcon avatar;
 
-    // Convención: -1 = sin dato
+    /** Sentinel meaning "no latency sample yet". */
     public static final int NO_LATENCY = -2;
 
     public ParticipantJListData(String nick) {
@@ -86,7 +88,7 @@ public class ParticipantJListData {
     }
 
     /* =======================
-       Utilidad
+       Utility
        ======================= */
     public boolean hasLatency() {
         return latency != NO_LATENCY;

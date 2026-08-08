@@ -49,11 +49,10 @@ import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 
 /**
- * Diálogo modal de AUTO CALL: checkbox "Activado" (on/off), checkbox "Sin límite"
- * y un spinner EDITABLE con el importe MÁXIMO que el pre-pulsado de check/call
- * igualará automáticamente al hacer call. "Sin límite" mapea a AUTO_CALL_MAX = 0
- * (el motor lo interpreta como igualar cualquier importe) y desactiva el spinner;
- * "Activado" gobierna ambos.
+ * Modal AUTO CALL dialog: an "Enabled" checkbox (on/off), a "No limit" checkbox, and
+ * an editable spinner for the MAXIMUM amount that a pre-pressed check/call will match
+ * automatically. "No limit" maps to AUTO_CALL_MAX = 0 (the engine reads that as
+ * matching any amount) and disables the spinner; "Enabled" gates both.
  *
  * @author tonikelope
  */
@@ -67,22 +66,28 @@ public class AutoCallMaxDialog extends JDialog {
 
     private final JCheckBox no_limit_check = new JCheckBox();
 
-    // Paso/granularidad del umbral (0,05). En modo con límite el valor NUNCA baja
-    // de un paso: el 0 se reserva para "sin límite" en el motor (AUTO_CALL_MAX ==
-    // 0 = igualar cualquier importe).
+    // Threshold step/granularity (0.05). In limited mode the value never drops below
+    // one step: 0 is reserved for "no limit" in the engine (AUTO_CALL_MAX == 0 means
+    // match any amount).
     private static final BigDecimal STEP = new BigDecimal("0.05");
 
+    /**
+     * @return whether the user accepted the dialog (OK vs. Cancel/close).
+     */
     public boolean isAccepted() {
         return accepted;
     }
 
+    /**
+     * @return whether the "Enabled" checkbox is checked.
+     */
     public boolean isAutoCallEnabled() {
         return enabled_check.isSelected();
     }
 
-    // Coerce cualquier Number del modelo/edición a BigDecimal con 2 decimales, sin
-    // castear a ciegas: al teclear, el editor puede dejar un Double/Long en el
-    // modelo y un cast directo a BigDecimal reventaría en flechas/aceptar.
+    // Coerces any Number coming from the model/editor to a 2-decimal BigDecimal
+    // instead of blind-casting: while typing, the editor may leave a Double/Long in
+    // the model, and a direct cast to BigDecimal would blow up on arrows/accept.
     private static BigDecimal asBD(Object o) {
         if (o instanceof BigDecimal) {
             return ((BigDecimal) o).setScale(2, RoundingMode.HALF_UP);
@@ -90,10 +95,14 @@ public class AutoCallMaxDialog extends JDialog {
         return new BigDecimal(String.valueOf(((Number) o).doubleValue())).setScale(2, RoundingMode.HALF_UP);
     }
 
-    // "Sin límite" marcado => 0 (el motor lo interpreta como igualar cualquier
-    // importe). Con límite se lee el TEXTO del editor (editable) normalizando la
-    // coma a punto, sin depender del formatter de locale (grouping desactivado);
-    // nunca por debajo de un paso, para no colisionar con el 0 de "sin límite".
+    /**
+     * Reads the current threshold: 0 when "No limit" is checked; otherwise the
+     * editor's raw TEXT (comma normalized to dot, grouping disabled, locale
+     * formatter not trusted), clamped to at least one step so it can never collide
+     * with the 0 that means "no limit".
+     *
+     * @return the AUTO_CALL_MAX threshold, with 2-decimal precision.
+     */
     public double getValue() {
         if (no_limit_check.isSelected()) {
             return 0d;
@@ -115,6 +124,11 @@ public class AutoCallMaxDialog extends JDialog {
         return v.doubleValue();
     }
 
+    /**
+     * @param parent  owner frame
+     * @param enabled initial state of the "Enabled" checkbox
+     * @param current initial threshold; values &lt;= 0 start as "No limit"
+     */
     public AutoCallMaxDialog(Frame parent, boolean enabled, double current) {
 
         super(parent, true);
@@ -123,10 +137,9 @@ public class AutoCallMaxDialog extends JDialog {
         setResizable(false);
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 
-        // Pasos de 0,05 (la granularidad de ajuste de ciegas), redondeando a 2
-        // decimales (el motor trabaja en céntimos). Es un umbral de auto-igualar,
-        // no dinero en mesa. Mínimo un paso (el 0 se reserva para "sin límite") y
-        // sin tope por arriba (máximo = null).
+        // 0.05 steps (the blinds adjustment granularity), rounded to 2 decimals (the
+        // engine works in cents). This is an auto-match threshold, not table money.
+        // Minimum one step (0 is reserved for "no limit") and no upper cap (max = null).
         double cur = Math.max(current, 0d);
         boolean no_limit = cur <= 0d;
         BigDecimal bd_current = new BigDecimal(String.valueOf(no_limit ? STEP.doubleValue() : Math.max(cur, STEP.doubleValue()))).setScale(2, RoundingMode.HALF_UP);
@@ -149,8 +162,8 @@ public class AutoCallMaxDialog extends JDialog {
         title.setFocusable(false);
         panel.add(title, gbc);
 
-        // El spinner solo es usable con auto-call ON y sin "sin límite"; "sin
-        // límite" solo tiene sentido con auto-call ON.
+        // The spinner is only usable with auto-call ON and "no limit" unchecked;
+        // "no limit" only makes sense with auto-call ON.
         Runnable refreshEnablement = () -> {
             boolean on = enabled_check.isSelected();
             no_limit_check.setEnabled(on);
@@ -164,8 +177,8 @@ public class AutoCallMaxDialog extends JDialog {
         enabled_check.setHorizontalAlignment(SwingConstants.CENTER);
         enabled_check.setFocusable(false);
         enabled_check.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        // La etiqueta refleja el estado: ACTIVADO (verde) marcado, DESACTIVADO
-        // (rojo) sin marcar. El checkbox además gobierna sin-límite y el spinner.
+        // The label reflects the state: ENABLED (green) when checked, DISABLED (red)
+        // when not. The checkbox also gates "no limit" and the spinner.
         Runnable refreshLabel = () -> {
             boolean on = enabled_check.isSelected();
             String key = on ? "auto_call.activado" : "auto_call.desactivado";
@@ -180,8 +193,8 @@ public class AutoCallMaxDialog extends JDialog {
         refreshLabel.run();
         panel.add(enabled_check, gbc);
 
-        // Rótulo que aclara qué es el spinner: el importe MÁXIMO que se igualará
-        // automáticamente al hacer call (con all-in, el propio stack).
+        // Note clarifying what the spinner is: the MAXIMUM amount that will be
+        // matched automatically on call (with all-in, the stack itself).
         gbc.gridy++;
         JLabel note = new JLabel(Translator.translate("auto_call.nota"));
         note.putClientProperty("i18n.key", "auto_call.nota");
@@ -191,8 +204,8 @@ public class AutoCallMaxDialog extends JDialog {
         note.setFocusable(false);
         panel.add(note, gbc);
 
-        // "Sin límite" a la IZQUIERDA del spinner (misma fila). Marcada => iguala
-        // cualquier importe (mapea a AUTO_CALL_MAX = 0) y desactiva el spinner.
+        // "No limit" to the LEFT of the spinner (same row). Checked => matches any
+        // amount (maps to AUTO_CALL_MAX = 0) and disables the spinner.
         no_limit_check.setSelected(no_limit);
         no_limit_check.setText(Translator.translate("auto_call.sin_limite"));
         no_limit_check.putClientProperty("i18n.key", "auto_call.sin_limite");
@@ -206,7 +219,7 @@ public class AutoCallMaxDialog extends JDialog {
         spinner.setModel(new SpinnerNumberModel(bd_current, STEP, null, STEP) {
             @Override
             public Object getNextValue() {
-                // Sin tope por arriba: siempre se puede subir.
+                // No upper cap: always allowed to go up.
                 return asBD(super.getValue()).add((BigDecimal) super.getStepSize());
             }
 
@@ -217,14 +230,13 @@ public class AutoCallMaxDialog extends JDialog {
             }
         });
         spinner.setFont(new Font("Dialog", Font.BOLD, 24));
-        // Editable por teclado (decimales). getValue() lee el TEXTO crudo del
-        // editor (coma->punto), así que hay que blindar ese texto:
-        //  - grouping OFF: sin separador de millar que confunda al parsear.
-        //  - PERSIST + Enter desligado: el formatter NO recommitea al perder foco
-        //    ni con Enter (evita que malinterprete coma/punto según el locale y
-        //    corrompa lo tecleado).
-        //  - re-render inicial con el formato ya sin grouping (el editor por
-        //    defecto lo pintó con millares).
+        // Editable by keyboard (decimals). getValue() reads the editor's raw TEXT
+        // (comma->dot), so that text must be safeguarded:
+        //  - grouping OFF: no thousands separator to confuse the parser.
+        //  - PERSIST + Enter unbound: the formatter does NOT recommit on focus loss
+        //    or Enter (avoids misreading comma/dot per locale and corrupting input).
+        //  - initial re-render with the grouping-less format (the default editor
+        //    painted it with thousands separators).
         if (spinner.getEditor() instanceof JSpinner.NumberEditor) {
             JSpinner.NumberEditor ne = (JSpinner.NumberEditor) spinner.getEditor();
             ne.getFormat().setGroupingUsed(false);
@@ -236,7 +248,7 @@ public class AutoCallMaxDialog extends JDialog {
         Helpers.makeNumericSpinnerEditable(spinner, true);
         spinner.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Fila: "Sin límite" a la IZQUIERDA + spinner (editable) a la derecha.
+        // Row: "No limit" on the LEFT + editable spinner on the right.
         JPanel spinner_row = new JPanel(new java.awt.BorderLayout(12, 0));
         spinner_row.setOpaque(false);
         spinner_row.add(no_limit_check, java.awt.BorderLayout.WEST);

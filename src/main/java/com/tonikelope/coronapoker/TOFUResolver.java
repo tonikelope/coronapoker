@@ -160,22 +160,22 @@ public final class TOFUResolver {
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "TOFU: resolve failed for nick " + nick, ex);
-                // Defensa: si el SELECT inicial alcanzó a leer un pubkey existente
-                // y NO matchea con el presentado, propagamos CHANGED — no NEW —
-                // aunque el UPDATE/INSERT posterior haya fallado. Devolver NEW aquí
-                // ocultaría un MITM exitoso al usuario (su única señal visual de
-                // CHANGED es el identicon, que no se actualiza si el outcome es NEW).
+                // Defense: if the initial SELECT read an existing pubkey that does NOT
+                // match the presented one, propagate CHANGED — not NEW — even if the
+                // later UPDATE/INSERT failed. Returning NEW here would hide a successful
+                // MITM from the user (their only visual cue for CHANGED is the identicon,
+                // which isn't refreshed when the outcome is NEW).
                 if (found && existingPubkey != null
                         && !java.security.MessageDigest.isEqual(existingPubkey, pubkey)) {
                     return new Resolution(Outcome.CHANGED, false, existingSessionsCount + 1);
                 }
-                // SELECT vio el mismo pubkey y el UPDATE de last_seen falló: behave
-                // as MATCH para no resetear la confianza por un fallo I/O transitorio.
+                // SELECT saw the same pubkey and the last_seen UPDATE failed: behave as
+                // MATCH so a transient I/O failure doesn't reset trust.
                 if (found) {
                     return new Resolution(Outcome.MATCH, existingVerified, existingSessionsCount + 1);
                 }
-                // No alcanzamos a ver al peer (SELECT o INSERT falló): NEW es la única
-                // respuesta honesta — no tenemos info para decir otra cosa.
+                // We never got to see the peer (SELECT or INSERT failed): NEW is the
+                // only honest answer — we have no information to say otherwise.
                 return new Resolution(Outcome.NEW, false, 0);
             }
         }

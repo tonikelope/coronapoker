@@ -46,14 +46,15 @@ public final class PedersenVectorCommit {
 
     private static volatile EdwardsPoint[] gens = new EdwardsPoint[0];
 
-    // --- Comb de base fija para el caso r·H + v·G_0 (el commit de UN valor, ~360 por prove) ---
-    // H y G_0 son constantes: precomputamos una tabla comb (estilo Lim–Lee) por generador UNA vez y
-    // la reutilizamos en todas las manos. Procesa COMB_COLS(=32) columnas => ~32 doblados en vez de
-    // los ~256 del ladder Straus, con el MISMO resultado (mismo punto de grupo). Tablas de 2^h puntos
-    // por generador (h=COMB_TEETH=8), one-time sub-ms. La suma en curva es abeliana, así que el orden
-    // distinto de sumas no cambia el punto final ni su encoding canónico (ver PedersenCombTest).
-    private static final int COMB_TEETH = 8;   // h: bits del índice por columna
-    private static final int COMB_COLS = 32;   // b = 256 / h  (cubre escalares reducidos < 2^253 < 2^256)
+    // Fixed-base comb for the single-value case r·H + v·G_0 (the single-value commit, ~360 per
+    // prove): H and G_0 are constants, so we precompute a Lim-Lee-style comb table per generator
+    // once and reuse it across every hand. Processing COMB_COLS(=32) columns takes ~32 doublings
+    // instead of the ~256 a Straus ladder needs, with the SAME result (same group point). Tables
+    // hold 2^h points per generator (h=COMB_TEETH=8), a one-time sub-ms cost. Curve addition is
+    // abelian, so a different summation order can't change the final point or its canonical
+    // encoding (see PedersenCombTest).
+    private static final int COMB_TEETH = 8;   // h: index bits per column
+    private static final int COMB_COLS = 32;   // b = 256 / h (covers reduced scalars < 2^253 < 2^256)
     private static final EdwardsPoint[] COMB_H = buildCombTable(H);
     private static final EdwardsPoint[] COMB_G0 = buildCombTable(generator(0));
 
@@ -98,9 +99,9 @@ public final class PedersenVectorCommit {
 
     /** Commit to the vector {@code a} with blinding {@code r}: canonical encoding of {@code r·H + Σ a_i·G_i}. */
     public static byte[] commit(BigInteger[] a, BigInteger r) {
-        // Caso de UN solo valor (r·H + v·G_0), con diferencia el más frecuente en las pruebas
-        // (~360 por prove): combs de base fija sobre H y G_0 (constantes) en vez del ladder Straus
-        // de ~256 doblados. Mismo punto de grupo => encoding byte-idéntico (ver PedersenCombTest).
+        // Single-value case (r·H + v·G_0), by far the most frequent in proofs (~360 per prove):
+        // fixed-base combs over H and G_0 (constants) instead of the ~256-doubling Straus ladder.
+        // Same group point => byte-identical encoding (see PedersenCombTest).
         if (a.length == 1) {
             return Ristretto255.encode(combRHplusVG0(r, a[0]));
         }
@@ -117,7 +118,7 @@ public final class PedersenVectorCommit {
         return Ristretto255.encode(EdwardsPoint.multiscalarMul(scalars, points));
     }
 
-    // Tabla comb de base fija de p: base[row] = 2^(row·COMB_COLS)·p; t[j] = Σ_{row en j} base[row].
+    // Fixed-base comb table for p: base[row] = 2^(row·COMB_COLS)·p; t[j] = Σ_{row set in j} base[row].
     private static EdwardsPoint[] buildCombTable(EdwardsPoint p) {
         EdwardsPoint[] base = new EdwardsPoint[COMB_TEETH];
         base[0] = p;
@@ -137,7 +138,7 @@ public final class PedersenVectorCommit {
         return t;
     }
 
-    // Índice comb de la columna `col`: bit `row` puesto sii el bit (row·COMB_COLS + col) de s.
+    // Comb index for column `col`: bit `row` is set iff bit (row·COMB_COLS + col) of s is set.
     private static int combIndex(BigInteger s, int col) {
         int idx = 0;
         for (int row = 0; row < COMB_TEETH; row++) {
@@ -148,8 +149,8 @@ public final class PedersenVectorCommit {
         return idx;
     }
 
-    // r·H + v·G_0 con las combs de base fija (ladder de doblados compartido). Byte-idéntico a
-    // EdwardsPoint.multiscalarMul([r, v], [H, G_0]); reduce mod L igual que aquél.
+    // r·H + v·G_0 using the fixed-base combs (shared doubling ladder). Byte-identical to
+    // EdwardsPoint.multiscalarMul([r, v], [H, G_0]); reduces mod L the same way.
     private static EdwardsPoint combRHplusVG0(BigInteger r, BigInteger v) {
         BigInteger rr = r.mod(EdwardsPoint.L);
         BigInteger vv = v.mod(EdwardsPoint.L);
@@ -167,5 +168,4 @@ public final class PedersenVectorCommit {
         }
         return result;
     }
-
 }

@@ -49,8 +49,12 @@ import javax.swing.text.*;
 import javax.swing.text.html.HTML;
 
 /**
- *
- * T-H-A-N-K Y-O-U!!!!! --> https://stackoverflow.com/a/35012241
+ * {@link HTMLEditorKit} used for chat/log HTML rendering: wires in a
+ * {@link CoronaParserDelegator}-backed {@link CoronaHTMLDocument} and a view factory that renders
+ * "bubble-mine"/"bubble-other" DIVs as {@link RoundedBubbleView}s and the custom "tonimg" tag as
+ * an async-loaded, cached, zoom-scaled chat image. Companion to {@link CoronaHTMLDocument} and
+ * {@link CoronaParserDelegator}; all three apply the technique from
+ * https://stackoverflow.com/a/35012241.
  */
 class CoronaHTMLEditorKit extends HTMLEditorKit {
 
@@ -95,6 +99,14 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
             super();
         }
 
+        /**
+         * Renders "bubble-mine"/"bubble-other" DIVs as {@link RoundedBubbleView}, and the custom
+         * "tonimg" tag as a {@link JLabel} that resolves the embedded Base64 URL, serves it from
+         * the static/GIF image cache when available, and otherwise loads and caches it
+         * asynchronously (capped to {@code MAX_IMAGE_WIDTH}, then re-scaled for display at the
+         * current {@link Helpers#DIALOG_ZOOM}). Delegates every other tag to the default
+         * {@link HTMLFactory}.
+         */
         @Override
         public View create(Element element) {
             HTML.Tag kind = (HTML.Tag) (element.getAttributes().getAttribute(javax.swing.text.StyleConstants.NameAttribute));
@@ -150,7 +162,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                         tracker.waitForAll();
                                         if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
                                             isgif = isgif || Helpers.isImageGIF(new URL(url));
-                                            // Cap a MAX (INDEPENDIENTE del zoom) para el CACHÉ.
+                                            // Cache the image capped at MAX_IMAGE_WIDTH, independent of the current zoom.
                                             if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
                                                 image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                                             }
@@ -162,7 +174,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                                                 ChatImageDialog.STATIC_IMAGE_CACHE.putIfAbsent(url, image);
                                             }
-                                            // Copia PARA MOSTRAR escalada por el zoom (no se cachea; escala todas).
+                                            // Display copy scaled to the current zoom (not cached; applies to every image).
                                             ImageIcon display_image = image;
                                             int display_w = Math.round(image.getIconWidth() * Helpers.DIALOG_ZOOM);
                                             if (display_w > 0 && display_w != image.getIconWidth()) {
@@ -222,14 +234,11 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
         }
     }
 
-    // Tras cargar (async) la imagen/GIF de un <img> el JLabel cambia de tamaño y la
-    // burbuja crece DESPUÉS de pintada. Un revalidate/repaint normal del JEditorPane
-    // NO re-laya el árbol de vistas del HTMLDocument (su geometría queda stale y el
-    // fondo redondeado de RoundedBubbleView deja una franja). El único disparador
-    // fiable es el mismo que el usuario provocaba a mano clicando el chat
-    // (chatMouseClicked) y que formComponentShown ya automatiza: alternar la policy
-    // del JScrollPane (NEVER→AS_NEEDED→restaurar) fuerza al viewport a reentregar un
-    // setSize y el HTMLDocument recalcula las allocations. No-op si no está visible.
+    // After an async image/GIF load the JLabel resizes post-paint, but a plain revalidate/repaint
+    // of the JEditorPane does not re-layout the HTMLDocument's view tree, so RoundedBubbleView's
+    // rounded background is left stale. Toggling the JScrollPane's scrollbar policy (NEVER ->
+    // AS_NEEDED -> restore) is the only reliable way found to force the viewport to redeliver a
+    // setSize so the HTMLDocument recomputes its view allocations. No-op if not visible.
     private static void forceChatRelayout(JLabel label) {
         javax.swing.JScrollPane scroll = (javax.swing.JScrollPane) SwingUtilities.getAncestorOfClass(javax.swing.JScrollPane.class, label);
         if (scroll == null || !scroll.isShowing()) {

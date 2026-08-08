@@ -33,57 +33,63 @@ import javax.swing.JDialog;
 import javax.swing.Timer;
 
 /**
+ * Full-width banner dialog shown while the game is paused; it overlays the owning game
+ * window's content pane and follows it as it moves or resizes.
  *
  * @author tonikelope
  */
 public class PauseDialog extends JDialog {
 
     private volatile Timer timer = null;
-    // Listener sobre la ventana del juego: reancla el banner cuando el frame se mueve o cambia de
-    // tamaño (modo ventana). Sin esto el diálogo se quedaba fijo en la pantalla al mover la ventana.
-    // Se retira en windowClosed (los PauseDialog se crean/disponen en cada pausa; no debe acumularse).
+    // Listener on the game window: re-anchors the banner when the frame moves or resizes
+    // (windowed mode). Without it the dialog stayed fixed on screen while the window moved.
+    // Removed in windowClosed, since PauseDialog instances are created/disposed per pause and
+    // must not accumulate.
     private java.awt.event.ComponentListener parent_follow_listener = null;
-    // Fuente base del banner (family GUI_FONT + BOLD); el TAMAÑO lo fija applyBannerBounds según el
-    // tamaño de la ventana del juego, para que el texto escale al reducir/agrandar la ventana.
+    // Base banner font (GUI_FONT family + BOLD); applyBannerBounds sets the SIZE from the game
+    // window's size so the text scales as the window is resized.
     private java.awt.Font base_font = null;
 
-    // El diálogo de pausa es un BANNER a todo el ancho de la ventana del juego. Su alto y el tamaño
-    // del texto/icono escalan con la VENTANA (no con un tamaño fijo): al reducir la ventana el banner
-    // se reduce proporcionalmente.
-    private static final float BANNER_HEIGHT_FRACTION = 0.14f;  // alto del banner = 14% del alto de la ventana
-    private static final float FONT_HEIGHT_FRACTION = 0.5f;     // alto del texto ~= 50% del alto del banner
-    private static final float MAX_TEXT_WIDTH_FRACTION = 0.9f;  // el texto + icono no supera el 90% del ancho
+    // The pause dialog is a BANNER spanning the full width of the game window. Its height and
+    // the text/icon size scale with the WINDOW, not a fixed size, so shrinking the window
+    // shrinks the banner proportionally.
+    private static final float BANNER_HEIGHT_FRACTION = 0.14f;  // banner height = 14% of the window height
+    private static final float FONT_HEIGHT_FRACTION = 0.5f;     // text height ~= 50% of the banner height
+    private static final float MAX_TEXT_WIDTH_FRACTION = 0.9f;  // text + icon never exceed 90% of the width
 
     /**
-     * Creates new form Pausa
+     * Creates the pause banner dialog.
+     *
+     * @param parent owning game window
+     * @param modal whether the dialog blocks input to its owner
      */
     public PauseDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
         initComponents();
 
-        // El parpadeo oculta/muestra el texto (pausa_label). Por defecto GroupLayout HONRA la
-        // visibilidad y colapsaría el panel a altura ~0 con el label invisible. Con honorsVisibility
-        // = false el layout reserva su espacio pase lo que pase con la visibilidad, así el tamaño del
-        // banner no baila con el parpadeo.
+        // Blinking hides/shows pausa_label. GroupLayout honors visibility by default and would
+        // collapse the panel to ~0 height while the label is invisible; honorsVisibility = false
+        // keeps its space reserved so the banner size doesn't jitter while blinking.
         ((javax.swing.GroupLayout) panel.getLayout()).setHonorsVisibility(pausa_label, false);
 
-        // Family GUI_FONT (sin zoom: el TAMAÑO lo fija applyBannerBounds según la ventana).
+        // GUI_FONT family only, no zoom: applyBannerBounds sets the SIZE from the window.
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
 
-        // Fuente base: family ya aplicado + BOLD; applyBannerBounds deriva el tamaño en cada resize.
+        // Base font: family already applied, plus BOLD; applyBannerBounds derives the size on
+        // every resize.
         base_font = pausa_label.getFont().deriveFont(java.awt.Font.BOLD);
 
-        pack(); // realiza el diálogo (peer) para que setOpacity/applyBannerBounds operen sobre él
+        pack(); // realizes the dialog's peer so setOpacity/applyBannerBounds can operate on it
 
-        // Franja semitransparente (90% de opacidad) para dejar entrever el tapete. La ventana es
-        // undecorated, requisito de setOpacity; se protege por si la plataforma no lo soporta.
-        // OJO: SIN setAlwaysOnTop. Con always-on-top el banner quedaba ENCIMA de los diálogos modales
-        // (p. ej. "¿SALIR DE LA TIMBA?"), tapándolos y bloqueando su input (ni el diálogo ni el banner
-        // respondían). Como JDialog con owner, el banner ya se muestra sobre el tapete; y un modal
-        // puede aparecer sobre él y usarse con normalidad.
+        // Semi-transparent strip (95% opacity) so the felt still shows through. The window is
+        // undecorated, a requirement for setOpacity; guarded in case the platform doesn't support it.
+        // NOTE: no setAlwaysOnTop. With always-on-top the banner sat ON TOP of modal dialogs (e.g.
+        // "Leave the game?"), covering them and blocking their input (neither dialog nor banner
+        // responded). As a JDialog with an owner, the banner already shows above the felt, and a
+        // modal can appear over it and be used normally.
         try {
             setOpacity(0.95f);
         } catch (Exception | Error ex) {
@@ -91,8 +97,8 @@ public class PauseDialog extends JDialog {
 
         applyBannerBounds();
 
-        // El banner sigue a la ventana del juego: al mover el frame se recentra sobre él; al
-        // redimensionarlo, recalcula ancho, alto y tamaño de fuente/icono. Se retira en windowClosed.
+        // The banner follows the game window: moving the frame recenters it; resizing recalculates
+        // width, height and font/icon size. Removed in windowClosed.
         java.awt.Window owner = getOwner();
         if (owner != null) {
             parent_follow_listener = new java.awt.event.ComponentAdapter() {
@@ -109,8 +115,8 @@ public class PauseDialog extends JDialog {
             owner.addComponentListener(parent_follow_listener);
         }
 
-        // El Timer de Swing dispara en el EDT: solo parpadea el texto. Guard isShowing() para no
-        // tocar el diálogo tras el dispose al reanudar la partida.
+        // Swing Timer fires on the EDT; it only blinks the text. isShowing() guard avoids touching
+        // the dialog after it's disposed when the game resumes.
         timer = new Timer(1000, (ActionEvent ae) -> {
             if (!isShowing()) {
                 return;
@@ -119,11 +125,11 @@ public class PauseDialog extends JDialog {
         });
     }
 
-    // Tamaño/posición del banner: se dimensiona y coloca sobre el CONTENT PANE del frame (el área del
-    // tapete), NO sobre la ventana con decoración: así no sobresale por los bordes ni se descentra por
-    // la barra de título/menú. Ancho = ancho del content; alto = fracción de su alto; texto/icono con
-    // tamaño proporcional a ese alto (recortado si "TIMBA PAUSADA" no cupiera de ancho). Centrado
-    // verticalmente sobre el content. Sin pack() (lo manda la ventana, no el contenido).
+    // Banner size/position: sized and placed over the frame's CONTENT PANE (the felt area), not
+    // the decorated window, so it doesn't overhang the borders or get thrown off-center by the
+    // title bar/menu. Width = content width; height = a fraction of content height; text/icon
+    // scale with that height (shrunk if the text wouldn't fit the width). Centered vertically over
+    // the content. No pack() here, the window drives the size, not the content.
     private void applyBannerBounds() {
         java.awt.Window owner = getOwner();
         if (!(owner instanceof javax.swing.RootPaneContainer) || base_font == null) {
@@ -135,11 +141,11 @@ public class PauseDialog extends JDialog {
         }
         int cw = content.getWidth();
         int ch = content.getHeight();
-        // El alto del banner (y con él la fuente y el icono, que derivan de banner_h) sigue el zoom de
-        // diálogos: a 100 % es la fracción de diseño (idéntico). El ancho sigue siendo el de la ventana.
+        // Banner height (and with it the font and icon, both derived from banner_h) follows the
+        // dialog zoom: at 100% it equals the design fraction unchanged. Width still tracks the window.
         int banner_h = Math.max(1, Math.round(ch * BANNER_HEIGHT_FRACTION * Helpers.DIALOG_ZOOM));
 
-        // Fuente proporcional a la altura del banner, encogida si el texto + icono no cabe de ancho.
+        // Font size proportional to the banner height, shrunk if the text + icon don't fit the width.
         float font_size = banner_h * FONT_HEIGHT_FRACTION;
         java.awt.FontMetrics fm = pausa_label.getFontMetrics(base_font.deriveFont(font_size));
         int text_w = fm.stringWidth(pausa_label.getText()) + Math.round(font_size) + pausa_label.getIconTextGap();
@@ -149,7 +155,7 @@ public class PauseDialog extends JDialog {
         }
         pausa_label.setFont(base_font.deriveFont(font_size));
 
-        // Icono (cuadrado) al tamaño de la fuente.
+        // Square icon sized to match the font.
         int icon_px = Math.max(1, Math.round(font_size));
         Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), icon_px, icon_px);
 
@@ -158,8 +164,8 @@ public class PauseDialog extends JDialog {
         setLocation(origin.x, origin.y + (ch - banner_h) / 2);
     }
 
-    // Reposiciona el banner sobre el content pane sin recalcular tamaño/fuente/icono, para seguir a la
-    // ventana cuando solo se MUEVE (más barato que applyBannerBounds en cada píxel de arrastre).
+    // Repositions the banner over the content pane without recalculating size/font/icon, to follow
+    // the window on MOVE only (cheaper than applyBannerBounds on every drag pixel).
     private void repositionOverContent() {
         java.awt.Window owner = getOwner();
         if (!(owner instanceof javax.swing.RootPaneContainer)) {
@@ -260,8 +266,8 @@ public class PauseDialog extends JDialog {
         // TODO add your handling code here:
         this.timer.stop();
 
-        // Retira el seguidor de la ventana del juego (añadido en el constructor) para no dejarlo
-        // colgado en el frame persistente tras disponer este diálogo.
+        // Removes the game-window listener added in the constructor so it isn't left hanging on
+        // the persistent frame after this dialog is disposed.
         java.awt.Window owner = getOwner();
         if (parent_follow_listener != null && owner != null) {
             owner.removeComponentListener(parent_follow_listener);

@@ -35,22 +35,21 @@ import java.awt.RenderingHints;
 import javax.swing.JLabel;
 
 /**
- * Cuerpo de las notificaciones del juego: caja de esquinas redondeadas con el
- * color que pide cada aviso (el fondo es su background y la letra su
- * foreground) y una cuenta atrás opcional pintada dentro de la propia caja.
+ * Body of an in-game notification: a rounded-corner box in the color the
+ * alert requests (background = fill, foreground = text) with an optional
+ * countdown bar painted inside the box itself.
  *
  * @author tonikelope
  */
 public class InGameNotifyPanel extends javax.swing.JPanel {
 
-    // Radio de las esquinas, relativo al alto de la caja: la silueta acompaña al
-    // tamaño de la letra sea cual sea el zoom. La caja va SIN filo: el color de
-    // fondo ya la despega del tapete, y un contorno del color de la letra dibujaba
-    // un cerco blanco en las notificaciones de texto claro.
+    // Corner radius, relative to box height, so the silhouette scales with the
+    // text at any zoom level. No border: the background color already separates
+    // the box from the felt, and a foreground-colored outline used to draw a
+    // white halo around light-text notifications.
     private static final float ARC_RATIO = 0.6f;
 
-    // Franja de la cuenta atrás: alto y separación de los lados, también relativos
-    // al alto de la caja.
+    // Countdown bar: height and side inset, both relative to box height.
     private static final float COUNTDOWN_RATIO = 0.06f;
     private static final int COUNTDOWN_TRACK_ALPHA = 70;
 
@@ -58,12 +57,13 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
     private Color cached_overlay = null;
     private float cached_brightness = -1f;
 
-    // La silueta redondeada exige que la ventana sea transparente por píxel; donde
-    // el sistema no lo permita, la caja se pinta rectangular como siempre.
+    // The rounded silhouette needs a per-pixel-transparent window; where the
+    // platform doesn't support that, the box falls back to plain rectangular
+    // painting.
     private boolean rounded = false;
 
-    // Fracción pendiente de la cuenta atrás (1 = recién abierta, 0 = agotada), o
-    // negativo si esta notificación no lleva cuenta atrás.
+    // Remaining countdown fraction (1 = just opened, 0 = expired), or negative
+    // if this notification has no countdown.
     private float countdown = -1f;
 
     public void setRounded(boolean rounded) {
@@ -110,8 +110,8 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
         }
     }
 
-    // Cuenta atrás como una franja en la base de la caja, DENTRO de su silueta: una
-    // barra colgada por fuera rompería las esquinas redondeadas.
+    // Countdown drawn as a bar at the bottom of the box, INSIDE its silhouette:
+    // a bar hanging outside would break the rounded corners.
     private void paintCountdown(Graphics2D g, int arc) {
 
         if (countdown < 0f) {
@@ -157,8 +157,8 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
                 try {
                     g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     g2d.setColor(cached_overlay);
-                    // El velo de la capa de brillo se queda dentro de la silueta: fuera de
-                    // ella la ventana es transparente y una esquina oscura la delataría.
+                    // The brightness overlay stays within the silhouette: outside it the
+                    // window is transparent, and a dark corner there would give it away.
                     final int arc = arc();
                     g2d.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
                 } finally {
@@ -173,7 +173,7 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Creates new form ChatNotifyPanel
+     * Creates new form InGameNotifyPanel
      */
     public InGameNotifyPanel() {
         initComponents();

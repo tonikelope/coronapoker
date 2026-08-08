@@ -41,9 +41,18 @@ import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
-//Thanks to -> https://stackoverflow.com/a/42079313
+/**
+ * JLabel that plays an animated GIF via the AWT image-observer callback, with
+ * hardware-accelerated stretch scaling, optional frame-synced audio, an optional
+ * pre-decoded frame override (used for smooth catch-up during card-spin
+ * animations), and a {@link CyclicBarrier} rendezvous fired when the GIF (and
+ * its repeats) finishes.
+ *
+ * @see <a href="https://stackoverflow.com/a/42079313">Base painting technique source</a>
+ */
 public class GifLabel extends JLabel {
 
+    /** Seconds to wait for the GIF-completion barrier's rendezvous before giving up. */
     public final static long GIF_BARRIER_TIMEOUT = 5;
 
     private volatile int frames = 0;
@@ -58,9 +67,9 @@ public class GifLabel extends JLabel {
     private volatile boolean audio_playing = false;
     private volatile Runnable audio_on_start = null;
 
-    // Frame pre-decodificado servido por TablePanel.showCentralFrames (motor
-    // con catch-up de los giros de carta). Mientras no es null tiene prioridad
-    // sobre el icono y se pinta estirado a los bounds como el resto de GIFs.
+    // Pre-decoded frame supplied by TablePanel.showCentralFrames (the card-spin
+    // catch-up engine). While non-null it takes priority over the icon and is
+    // painted stretched to the bounds, like any other GIF frame.
     private volatile BufferedImage frame_override = null;
 
     public GifLabel() {
@@ -89,11 +98,22 @@ public class GifLabel extends JLabel {
         super.setIcon(icon);
     }
 
+    /**
+     * Like {@link #setIcon(Icon)}, additionally recording the GIF's total frame
+     * count so playback force-finishes at {@code frames} even if the image
+     * observer never reports {@code ALLBITS}/{@code ABORT}.
+     */
     public void setIcon(Icon icon, int frames) {
         this.frames = frames;
         setIcon(icon);
     }
 
+    /**
+     * Installs the barrier used to signal that this GIF (and its repeats) has
+     * finished playing.
+     *
+     * @param barrier new barrier, or {@code null} to stop signaling completion
+     */
     public void setBarrier(CyclicBarrier barrier) {
 
         CyclicBarrier previous = gif_barrier;
@@ -110,10 +130,12 @@ public class GifLabel extends JLabel {
         }
     }
 
+    /** @return the barrier installed via {@link #setBarrier}, or {@code null}. */
     public CyclicBarrier getGif_barrier() {
         return gif_barrier;
     }
 
+    /** Sets how many times the GIF should loop before finishing; ignored when {@code r} is less than 1. */
     public void setRepeat(int r) {
         if (r >= 1) {
             conta_repeat = 0;
@@ -121,18 +143,24 @@ public class GifLabel extends JLabel {
         }
     }
 
+    /** {@link #addAudio(String, int, int, Runnable)} without a frame-start callback. */
     public void addAudio(String aud, int start_frame, int end_frame) {
         addAudio(aud, start_frame, end_frame, null);
     }
 
-    // Variante con callback que se ejecuta en el MISMO frame en que arranca el
-    // audio (audio_frame_start), para sincronizar un efecto visual con el sonido
-    // (p.ej. lanzar la ficha voladora al bote cuando suena el chip de un GIF de
-    // acción en modo cinemática). El callback se dispara una sola vez.
+    /**
+     * Schedules a sound effect to play from {@code start_frame} to {@code end_frame},
+     * and/or a callback fired once on that same start frame — e.g. to launch a flying
+     * chip into the pot in sync with the chip sound of a cinematic action GIF.
+     * {@code aud} may be {@code null} when only the frame-synced callback is needed
+     * (sound disabled, but the associated gesture must still fire).
+     *
+     * @param aud sound resource name, or {@code null} for no sound
+     * @param start_frame frame at which playback/callback starts (must be {@code > 0})
+     * @param end_frame frame at which playback stops, or negative to play to the end
+     * @param on_audio_start callback fired once on {@code start_frame}, or {@code null}
+     */
     public void addAudio(String aud, int start_frame, int end_frame, Runnable on_audio_start) {
-        // aud puede ser null cuando solo interesa el callback sincronizado al frame (efecto de
-        // sonido desactivado, pero el gesto asociado —p.ej. lanzar la ficha al bote y soltar el
-        // hilo de la acción— DEBE dispararse igual). En ese caso se agenda solo el callback.
         if (!audio_playing && (aud != null || on_audio_start != null) && (start_frame < end_frame || end_frame < 0) && start_frame > 0) {
             this.audio = aud;
             this.audio_frame_start = start_frame;
@@ -141,6 +169,10 @@ public class GifLabel extends JLabel {
         }
     }
 
+    /**
+     * Paints {@code frame} instead of the current icon, stretched to the label's
+     * bounds, until cleared with {@code null}. Triggers a repaint.
+     */
     public void setFrameOverride(BufferedImage frame) {
         this.frame_override = frame;
         repaint();
@@ -185,15 +217,15 @@ public class GifLabel extends JLabel {
 
             if (audio != null || audio_on_start != null) {
                 if (!audio_playing && conta_frames == audio_frame_start) {
-                    // Solo hay estado que gestionar (parada en audio_frame_end) si de verdad
-                    // hay audio; con audio null se dispara únicamente el callback una vez.
+                    // There's only end-of-audio state to manage (stopping at audio_frame_end)
+                    // when there's actual audio; with audio null, only the callback fires.
                     if (audio != null && audio_frame_end > 0) {
                         audio_playing = true;
                     }
                     if (audio != null) {
                         Audio.playWavResource(audio);
                     }
-                    // Efecto visual sincronizado con el arranque del audio (una vez).
+                    // Visual effect synced to the audio start (fires once).
                     if (audio_on_start != null) {
                         Runnable r = audio_on_start;
                         audio_on_start = null;

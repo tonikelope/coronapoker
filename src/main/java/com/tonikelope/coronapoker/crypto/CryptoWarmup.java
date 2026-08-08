@@ -24,23 +24,21 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Calentamiento del JIT de la criptografía pesada (cascada SRA + prueba/verificación de
- * barajado) al ARRANQUE, en background.
+ * JIT warm-up for the heavy crypto path (SRA cascade + shuffle proof/verification), run in the
+ * background at startup.
  *
- * <p>En un PC lento las primeras manos corren con los métodos calientes todavía
- * interpretados / en C1 (3×–65× más lentos que ya compilados a C2), así que el primer
- * reparto se siente congelado varios segundos. Aquí se ejecuta un ciclo REALISTA —las
- * mismas rutas que un paso de cascada real: lock del deck, shuffle, {@code proveStepWire},
- * {@code verifyChainWire}, commitment y unlock— sobre datos DUMMY fijos, descartando el
- * resultado, hasta que el tiempo por ciclo deja de mejorar (el JIT ya compiló a C2) o se
- * alcanza un tope duro. Las ENTRADAS del warmup son fijas (escalar dummy), aunque el prover
- * sí saca escalares de blinding del CSPRNG — inofensivo: SecureRandom es thread-safe y el
- * juego no depende de una secuencia reproducible. Ningún efecto en el juego.
+ * <p>On a slow machine the first hands run through hot methods that are still interpreted / C1
+ * compiled (3x-65x slower than once JIT-compiled to C2), so the first deal can feel frozen for
+ * several seconds. This runs a REALISTIC cycle -the same path as a real cascade step: deck
+ * lock, shuffle, {@code proveStepWire}, {@code verifyChainWire}, commitment and unlock- over
+ * fixed DUMMY data, discarding the result, until per-cycle time stops improving (JIT already
+ * reached C2) or a hard cap is hit. Warm-up INPUTS are fixed (dummy scalar), though the prover
+ * still draws blinding scalars from the CSPRNG; harmless, since {@code SecureRandom} is
+ * thread-safe and the game does not depend on a reproducible sequence. No effect on gameplay.
  *
- * <p>Es el análogo cripto de {@code Crupier.warmShuffleAnimCache()} (que pre-decodifica el
- * GIF del barajado). Ejecutar el MISMO camino que el reparto real evita además que la
- * primera mano pague una desoptimización por trampa poco común (uncommon trap) al tomar
- * una rama que el calentamiento no hubiera recorrido.
+ * <p>Crypto analogue of {@code Crupier.warmShuffleAnimCache()} (which pre-decodes the shuffle
+ * GIF). Exercising the SAME path as a real deal also spares the first hand an uncommon-trap
+ * deoptimization from taking a branch the warm-up never walked.
  *
  * @author tonikelope
  */
@@ -50,21 +48,21 @@ public final class CryptoWarmup {
 
     private static final AtomicBoolean STARTED = new AtomicBoolean(false);
 
-    // Escalar de bloqueo DUMMY fijo (NO del CSPRNG): 32 bytes little-endian con el byte más
-    // significativo enmascarado para quedar < L (mismo criterio que generateLockScalar) y != 0.
-    // No sale del proceso; solo ejercita el camino caliente.
+    // Fixed DUMMY lock scalar (NOT from the CSPRNG): 32 little-endian bytes with the top byte
+    // masked so the value stays < L (same rule as generateLockScalar) and != 0. Never leaves
+    // this process; it only exercises the hot path.
     private static final byte[] DUMMY_SCALAR = buildDummyScalar();
     private static final byte[] DUMMY_SEED = buildDummySeed();
 
-    // Auto-parada por convergencia + topes duros (independientes del hardware): se para cuando
-    // el tiempo por ciclo deja de mejorar apreciablemente (el JIT ya compiló), o al llegar al
-    // tope de ciclos/tiempo. Exigir varios ciclos PLANOS (no uno solo) cubre que la compilación
-    // es asíncrona: el método sigue interpretado/C1 uno o dos ciclos tras cruzar el umbral.
+    // Stop on convergence plus hard caps (both hardware-independent): stop once per-cycle time
+    // stops improving appreciably (JIT already compiled), or the cycle/time cap is hit.
+    // Requiring several FLAT cycles in a row (not just one) accounts for compilation being
+    // async: a method can stay interpreted/C1 for a cycle or two after crossing the threshold.
     private static final int MIN_CYCLES = 3;
     private static final int MAX_CYCLES = 25;
-    private static final int STABLE_CYCLES = 2;           // ciclos planos consecutivos para parar
-    private static final double IMPROVE_RATIO = 0.90;     // "mejora apreciable" = >10% más rápido
-    private static final long MAX_NANOS = 4_000_000_000L; // 4 s de tope duro
+    private static final int STABLE_CYCLES = 2;           // consecutive flat cycles to stop
+    private static final double IMPROVE_RATIO = 0.90;     // "appreciable improvement" = >10% faster
+    private static final long MAX_NANOS = 4_000_000_000L; // 4 s hard cap
 
     private CryptoWarmup() {
     }
@@ -74,7 +72,7 @@ public final class CryptoWarmup {
         for (int i = 0; i < 32; i++) {
             k[i] = (byte) (0x37 + i);
         }
-        k[31] &= 0x0f; // byte más significativo -> valor < 2^252 < L, y distinto de cero
+        k[31] &= 0x0f; // top byte -> value < 2^252 < L, and nonzero
         return k;
     }
 
@@ -87,8 +85,8 @@ public final class CryptoWarmup {
     }
 
     /**
-     * Lanza el calentamiento UNA sola vez, en un hilo de fondo. Idempotente. Nunca lanza:
-     * cualquier fallo se traga (el warmup jamás debe romper el arranque).
+     * Launches the warm-up exactly once, on a background thread. Idempotent and never throws:
+     * any failure is swallowed (the warm-up must never break startup).
      */
     public static void warmup() {
         if (!STARTED.compareAndSet(false, true)) {
@@ -97,9 +95,9 @@ public final class CryptoWarmup {
         Helpers.threadRun(() -> {
             final Thread warmupThread = Thread.currentThread();
             final int warmupPrio = warmupThread.getPriority();
-            // Prioridad ligeramente rebajada: el warmup hace ciclos cripto completos que en un PC
-            // lento competirían con el EDT pintando la ventana de inicio. NORM-1 (no NORM-2) para
-            // que aún alcance C2 pronto. Restaurada en finally (hilo del pool cacheado, reutilizado).
+            // Slightly lowered priority: the warm-up runs full crypto cycles that would compete
+            // with the EDT painting the splash window on a slow machine. NORM-1 (not NORM-2) so
+            // it still reaches C2 soon. Restored in finally (cached pool thread, gets reused).
             warmupThread.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 1));
             try {
                 long best = Long.MAX_VALUE;
@@ -111,10 +109,10 @@ public final class CryptoWarmup {
                     runOneCycle();
                     long dt = System.nanoTime() - t0;
                     done++;
-                    if (dt < best * IMPROVE_RATIO) { // aún mejora apreciablemente -> seguir
+                    if (dt < best * IMPROVE_RATIO) { // still improving appreciably -> keep going
                         best = Math.min(best, dt);
                         stable = 0;
-                    } else {                         // ya no mejora (meseta)
+                    } else {                         // no longer improving (plateau)
                         best = Math.min(best, dt);
                         if (i >= MIN_CYCLES - 1 && ++stable >= STABLE_CYCLES) {
                             break;
@@ -127,7 +125,7 @@ public final class CryptoWarmup {
                 LOGGER.log(Level.INFO, "Crypto JIT warmup done ({0} cycles, best {1} ms)",
                         new Object[]{done, best == Long.MAX_VALUE ? -1 : (best / 1_000_000)});
             } catch (Throwable t) {
-                // El warmup nunca debe romper el arranque.
+                // The warm-up must never break startup.
                 LOGGER.log(Level.FINE, "Crypto JIT warmup skipped", t);
             } finally {
                 warmupThread.setPriority(warmupPrio);
@@ -136,22 +134,22 @@ public final class CryptoWarmup {
     }
 
     /**
-     * Un ciclo = las mismas operaciones caras que un paso de cascada real + su prueba y
-     * verificación (ejercita {@code Fe25519.mul}, {@code EdwardsPoint.add/dbl}, {@code scalarMul},
-     * {@code applyCommutativeLock} y el MSM de las pruebas), sobre datos dummy. Devuelve true si
-     * el prove+verify se completó (el camino caliente se recorrió entero). Package-private para el
-     * test que verifica que el ciclo hace trabajo REAL (no un no-op silencioso).
+     * One cycle = the same expensive operations as a real cascade step plus its proof and
+     * verification (exercises {@code Fe25519.mul}, {@code EdwardsPoint.add/dbl},
+     * {@code scalarMul}, {@code applyCommutativeLock} and the proofs' MSM), over dummy data.
+     * Returns true if prove+verify completed (the hot path ran end to end). Package-private so
+     * the test can check the cycle does REAL work, not a silent no-op.
      */
     static boolean runOneCycle() {
         byte[] genesis = RistrettoSRA.getGenesisDeck();
-        byte[] locked = RistrettoSRA.applyCommutativeLock(genesis, DUMMY_SCALAR); // 52 scalarMul (lock de cascada)
+        byte[] locked = RistrettoSRA.applyCommutativeLock(genesis, DUMMY_SCALAR); // 52 scalarMul (cascade lock)
         if (locked == null) {
             return false;
         }
         byte[] shuffled = DeterministicShuffle.shuffleDeck(locked, DUMMY_SEED);
         int[] perm = DeterministicShuffle.shufflePermutation(genesis.length / 32, DUMMY_SEED);
-        // shuffled[i] = DUMMY_SCALAR · genesis[perm[i]] (misma construcción que el peer real).
-        byte[] proof = ShuffleCascade.proveStepWire(genesis, shuffled, perm, DUMMY_SCALAR); // prove (~el caro)
+        // shuffled[i] = DUMMY_SCALAR . genesis[perm[i]] (same construction as the real peer).
+        byte[] proof = ShuffleCascade.proveStepWire(genesis, shuffled, perm, DUMMY_SCALAR); // prove (the costly part)
         boolean verified = false;
         if (proof != null) {
             verified = ShuffleCascade.verifyChainWire(genesis, List.of(genesis, shuffled), List.of(proof)); // verify

@@ -38,8 +38,8 @@ import java.util.logging.Logger;
  * <p>This queue fixes both: every {@link Job} carries an <b>immutable snapshot</b> of its own hand's deck
  * and bundle, and a <b>single</b> daemon worker drains them in FIFO order. A pathologically slow player
  * still finishes verifying past hands — and a smuggle in a past hand is still caught — even after the live
- * hand has moved on. Bounded capacity: a full queue drops the oldest-blocked enqueue with a log rather
- * than growing without limit (no silent cap).
+ * hand has moved on. Bounded capacity: a full queue drops the new job with a log rather than blocking
+ * the caller or growing without limit (no silent cap).
  *
  * <p>Scope: this verifies and dispatches a verdict to a {@link Sink}; it does not touch UI or game state
  * itself. The {@code Sink} (wired by {@code Crupier}) decides what a verdict means — update the live
@@ -127,8 +127,8 @@ public final class ShuffleVerificationQueue {
         running = true;
         worker = new Thread(this::runLoop, "shuffle-verify-queue");
         worker.setDaemon(true);
-        // Prioridad rebajada: el chequeo de honestidad del mazo va FUERA del camino crítico
-        // (drena el backlog en background); no debe robar CPU a la partida en PCs lentos.
+        // Lowered priority: deck-honesty checking is off the critical path (background backlog
+        // drain), so it must not steal CPU from the live game on slow machines.
         worker.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 2));
         worker.start();
     }

@@ -40,6 +40,7 @@ import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 
 /**
+ * Table-felt background panel shown behind the loading/init screen.
  *
  * @author tonikelope
  */
@@ -53,19 +54,19 @@ public class InitPanel extends javax.swing.JLayeredPane {
      * Creates new form InitPanel
      */
     public InitPanel() {
-        // 1. Inicialización rápida de componentes UI
+        // 1. Quick UI component initialization
         Helpers.GUIRunAndWait(this::initComponents);
 
         // Prevent backend loading in NetBeans visual editor
         if (!isDesignTime()) {
-            // 2. Carga asíncrona de la textura
+            // 2. Asynchronous texture loading
             if (CACHED_TAPETE != null && !GameFrame.COLOR_TAPETE.endsWith("*")) {
                 this.tp = CACHED_TAPETE;
             } else {
                 updateTexture();
             }
 
-            // 3. Listener de redimensionado
+            // 3. Resize listener
             addComponentListener(new ComponentResizeEndListener() {
                 @Override
                 public void resizeTimedOut() {
@@ -77,6 +78,9 @@ public class InitPanel extends javax.swing.JLayeredPane {
         }
     }
 
+    /**
+     * Reloads the felt texture (e.g. after a table color change or resize).
+     */
     public void refresh() {
         updateTexture(); // Start the background loading process
     }
@@ -86,7 +90,7 @@ public class InitPanel extends javax.swing.JLayeredPane {
             synchronized (paint_lock) {
                 try {
                     BufferedImage tile;
-                    int w = Math.max(getWidth(), 1); // Evita 0
+                    int w = Math.max(getWidth(), 1); // avoid 0
                     int h = Math.max(getHeight(), 1);
 
                     if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
@@ -94,20 +98,20 @@ public class InitPanel extends javax.swing.JLayeredPane {
                         tile = Helpers.toBufferedImage(scaled);
                     } else {
                         String resPath = "/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg";
-                        // try-with-resources: ImageIO.read no cierra el stream.
+                        // try-with-resources: ImageIO.read does not close the stream itself.
                         try (java.io.InputStream is = getClass().getResourceAsStream(resPath)) {
                             tile = ImageIO.read(is);
                         }
                     }
 
-                    // Sprint deferred 🟡-32: snapshot del tile anterior para
-                    // flush diferido post-repaint (ver TablePanel para detalle
-                    // del race con EDT).
-                    final java.awt.Image oldImage = (this.tp != null) ? this.tp.getImage() : null;
+                    // Sprint deferred 🟡-32: snapshot the previous tile for a deferred
+                    // flush after repaint (see TablePanel for the full race-with-EDT
+                    // explanation).
+                    final Image oldImage = (this.tp != null) ? this.tp.getImage() : null;
                     Rectangle2D anchor = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
                     this.tp = new TexturePaint(tile, anchor);
 
-                    // --- AQUÍ SE ACTIVA EL CACHÉ ---
+                    // Only cache the built-in textures; custom ("*") images are scaled per panel size.
                     if (!GameFrame.COLOR_TAPETE.endsWith("*")) {
                         CACHED_TAPETE = this.tp;
                     }

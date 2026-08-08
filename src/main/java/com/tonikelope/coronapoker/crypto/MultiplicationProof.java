@@ -49,6 +49,7 @@ public final class MultiplicationProof {
     private MultiplicationProof() {
     }
 
+    /** Prover's transcript: the three commitment openings and five scalar responses. */
     public static final class Proof {
         final byte[] m1;
         final byte[] m2;
@@ -160,8 +161,8 @@ public final class MultiplicationProof {
         EdwardsPoint h = PedersenVectorCommit.H;
         BigInteger e = challenge(ca, cb, cc, p.m1, p.m2, p.m3);
 
-        // Las tres ecuaciones del gate se comprueban en UN solo shared-ladder via batch-verify (pesos
-        // rho_j independientes, ligados por Fiat-Shamir a todas ellas). Ecuaciones idénticas a antes:
+        // The three gate equations are checked in a single shared-ladder via batch-verify (independent
+        // weights rho_j, bound to all three by Fiat-Shamir). Same equations as before:
         //   (1) z1·G_0 + z2·H − e·C_a == M1
         //   (2) z3·G_0 + z4·H − e·C_b == M2
         //   (3) z1·C_b + z5·H − e·C_c == M3

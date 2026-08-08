@@ -36,6 +36,8 @@ import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 
 /**
+ * Borderless dialog that plays a GIF animation once, or until the user clicks
+ * to skip it, then disposes itself and notifies {@link Init#LOCK_CINEMATICS}.
  *
  * @author tonikelope
  */
@@ -44,23 +46,29 @@ public class GifAnimationDialog extends JDialog {
     private final CyclicBarrier gif_barrier = new CyclicBarrier(2);
     private volatile boolean force_exit = false;
 
+    /**
+     * @return true once the user has clicked the dialog to dismiss it early
+     */
     public boolean isForce_exit() {
         return force_exit;
     }
 
     /**
-     * Creates new form GifAnimation
+     * Same as {@link #GifAnimationDialog(java.awt.Frame, boolean, ImageIcon, int)}
+     * with {@code frames = 0}.
      */
     public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon) {
         this(parent, modal, icon, 0);
-
     }
 
     /**
-     * Creates new form GifAnimation
-     */
-    /**
-     * Creates new form GifAnimation
+     * Creates a modal-capable dialog sized to fit the parent frame and plays
+     * the given GIF once.
+     *
+     * @param parent the owner frame, used to size and position the dialog
+     * @param modal whether the dialog blocks input to the parent while shown
+     * @param icon the (unscaled) GIF to display
+     * @param frames the number of frames in the animation
      */
     public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon, int frames) {
         super(parent, modal);
@@ -80,8 +88,8 @@ public class GifAnimationDialog extends JDialog {
         int max_width = Math.round(parent.getWidth() * 0.8f);
 
         if (width > max_width) {
-            // Encajar el ancho al tope manteniendo la proporción: la altura se
-            // reescala por el mismo factor. Cálculo directo, sin iterar.
+            // Clamp width to the cap while keeping the aspect ratio: rescale
+            // height by the same factor. Direct calculation, no iteration.
             height = Math.round((float) height * max_width / width);
             width = max_width;
         }
@@ -92,8 +100,8 @@ public class GifAnimationDialog extends JDialog {
         gif_panel.setPreferredSize(targetSize);
         setPreferredSize(targetSize);
 
-        // Pass the RAW ImageIcon. The internal JLabel (getGif) 
-        // handles resizing in paintComponent using Graphics2D to prevent thread blocking.
+        // Pass the RAW ImageIcon. The internal JLabel (getGif) handles resizing in
+        // paintComponent using Graphics2D to prevent thread blocking.
         gif_panel.getGif().setIcon(icon, frames);
 
         pack();
@@ -173,8 +181,6 @@ public class GifAnimationDialog extends JDialog {
     }// </editor-fold>//GEN-END:initComponents
 
     private void formMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseClicked
-        // TODO add your handling code here
-
         force_exit = true;
 
         dispose();
@@ -187,14 +193,12 @@ public class GifAnimationDialog extends JDialog {
     }//GEN-LAST:event_formMouseClicked
 
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
-        // TODO add your handling code here:
         if (isModal()) {
             Init.CURRENT_MODAL_DIALOG.add(this);
         }
     }//GEN-LAST:event_formWindowActivated
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
-        // TODO add your handling code here:
         if (isModal()) {
             try {
                 Init.CURRENT_MODAL_DIALOG.removeLast();

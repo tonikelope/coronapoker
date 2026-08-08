@@ -37,16 +37,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Sistema de internacionalización (i18n) basado en ficheros .properties.
- *
- * Uso: Translator.translate("clave.semantica")
- *
- * Los ficheros de traducción se encuentran en /i18n/messages_XX.properties
- * donde XX es el código de idioma (es, en, ...).
- *
- * El idioma por defecto es el español (es). Si una clave no se encuentra en el
- * idioma seleccionado, se usa el valor del idioma por defecto. Si tampoco
- * existe en el idioma por defecto, se devuelve la propia clave.
+ * Simple i18n system backed by {@code .properties} resource files.
+ * <p>
+ * Usage: {@code Translator.translate("some.key")}.
+ * <p>
+ * Translation files live under {@code /i18n/messages_XX.properties}, where XX is the
+ * language code (es, en, ...). Spanish (es) is the default language; if a key is missing
+ * from the active language it falls back to the default, and finally to the key itself.
  *
  * @author tonikelope
  */
@@ -66,7 +63,7 @@ public class Translator {
         EN_PROPS.clear();
         CACHE.clear();
 
-        // Sincronizar: Cargar siempre el idioma por defecto (español) como fallback
+        // Always load the default language (Spanish) as a fallback
         try (InputStream is = Translator.class.getResourceAsStream("/i18n/messages_es.properties")) {
             if (is != null) {
                 DEFAULT_PROPS.load(new InputStreamReader(is, StandardCharsets.UTF_8));
@@ -75,7 +72,7 @@ public class Translator {
             Logger.getLogger(Translator.class.getName()).log(Level.SEVERE, "Error loading default language", ex);
         }
 
-        // Cargar siempre el inglés para poder forzarlo en logs
+        // Always load English too, so callers can force it (e.g. for logs)
         try (InputStream is = Translator.class.getResourceAsStream("/i18n/messages_en.properties")) {
             if (is != null) {
                 EN_PROPS.load(new InputStreamReader(is, StandardCharsets.UTF_8));
@@ -84,7 +81,7 @@ public class Translator {
             Logger.getLogger(Translator.class.getName()).log(Level.SEVERE, "Error loading English properties", ex);
         }
 
-        // Cargar idioma seleccionado (si no es el por defecto ni inglés)
+        // Load the selected language (skipped only when it's the default, Spanish)
         if (!"es".equals(lang)) {
             try (InputStream is = Translator.class.getResourceAsStream("/i18n/messages_" + lang + ".properties")) {
                 if (is != null) {
@@ -96,18 +93,47 @@ public class Translator {
         }
     }
 
+    /**
+     * Translates a key using the active language.
+     *
+     * @param key i18n key
+     * @return translated string, or {@code key} itself if not found
+     */
     public static String translate(String key) {
         return _translate(key, false);
     }
 
+    /**
+     * Translates a key and substitutes {@code args} via {@link java.text.MessageFormat}.
+     *
+     * @param key  i18n key
+     * @param args format arguments
+     * @return formatted, translated string
+     */
     public static String translate(String key, Object... args) {
         return translate(key, false, args);
     }
 
+    /**
+     * Translates a key, optionally forcing English regardless of the active language.
+     *
+     * @param key     i18n key
+     * @param forceEn {@code true} to try the English properties first
+     * @return translated string, or {@code key} itself if not found
+     */
     public static String translate(String key, boolean forceEn) {
         return _translate(key, forceEn);
     }
 
+    /**
+     * Translates a key, optionally forcing English, and substitutes {@code args} via
+     * {@link java.text.MessageFormat}.
+     *
+     * @param key     i18n key
+     * @param forceEn {@code true} to try the English properties first
+     * @param args    format arguments
+     * @return formatted, translated string
+     */
     public static String translate(String key, boolean forceEn, Object... args) {
         String val = _translate(key, forceEn);
         if (val != null && args != null && args.length > 0) {
@@ -126,14 +152,14 @@ public class Translator {
             return null;
         }
 
-        // Recargar si cambió el idioma
+        // Reload if the active language changed
         if (!LANG.equals(GameFrame.LANGUAGE)) {
             LANG = GameFrame.LANGUAGE;
             loadLanguage(LANG);
         }
 
         return CACHE.computeIfAbsent(key + (forceEn ? "#forceEn" : ""), k -> {
-            // 1. Si se fuerza inglés, probar primero en las propiedades de inglés
+            // 1. If English is forced, try the English properties first
             if (forceEn) {
                 String valEn = EN_PROPS.getProperty(key);
                 if (valEn != null) {
@@ -141,17 +167,17 @@ public class Translator {
                 }
             }
 
-            // 2. Probar como clave directa en el idioma actual
+            // 2. Try as a direct key in the current language
             String val = LANG_PROPS.getProperty(key);
             if (val != null) {
                 return val;
             }
-            // 3. Probar como clave directa en el idioma por defecto
+            // 3. Try as a direct key in the default language
             val = DEFAULT_PROPS.getProperty(key);
             if (val != null) {
                 return val;
             }
-            // 4. Si no se encuentra, devolver la propia clave
+            // 4. Fall back to the key itself if nothing matched
             return key;
         });
     }

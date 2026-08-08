@@ -29,16 +29,23 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 /**
+ * Factory for {@link TablePanel} instances, keyed by player count.
  *
  * @author tonikelope
  */
 public class TablePanelFactory {
 
+    /**
+     * Builds a panel sized for {@code players} seats.
+     *
+     * @param players number of seats (2..10)
+     * @return a new {@link DynamicTablePanel}, or {@code null} if out of range
+     */
     public static TablePanel getPanel(int players) {
 
-        // Tablero ÚNICO por geometría (DynamicTablePanel): coloca a los N jugadores
-        // por anclas en vez de usar un .form fijo por cada número de jugadores (los
-        // antiguos TablePanel2..TablePanel10 ya se eliminaron).
+        // Single geometry-based board: places players via anchors instead of
+        // switching between fixed per-count .form panels (the old
+        // TablePanel2..TablePanel10 have been removed).
         if (players >= 2 && players <= 10) {
             return new DynamicTablePanel(players);
         }
@@ -47,6 +54,14 @@ public class TablePanelFactory {
 
     }
 
+    /**
+     * Rebuilds {@code panel} with one seat fewer per player who has exited,
+     * carrying over each remaining player's state and the layout settings.
+     *
+     * @param panel the current panel
+     * @return a smaller panel, or {@code null} if no one has exited or the
+     *         resulting seat count is unsupported
+     */
     public static TablePanel downgradePanel(TablePanel panel) {
 
         RemotePlayer[] remotos = panel.getRemotePlayers();

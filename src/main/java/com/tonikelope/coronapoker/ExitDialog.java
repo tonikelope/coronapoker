@@ -33,6 +33,9 @@ import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 
 /**
+ * Confirmation dialog shown when the player asks to leave the table. When the host has
+ * force-recover engaged (the table can no longer take new players), the same dialog is
+ * repurposed as the "stop the game" prompt instead.
  *
  * @author tonikelope
  */
@@ -40,12 +43,17 @@ public class ExitDialog extends JDialog {
 
     private volatile boolean exit = false;
 
+    /**
+     * @return the "wait for the hand to finish before leaving" checkbox (force-recover flow)
+     */
     public JCheckBox getProgramar_parada_checkbox() {
         return programar_parada_checkbox;
     }
 
     /**
-     * Creates new form ExitDialog
+     * @param parent owner frame
+     * @param modal whether the dialog blocks input to the owner
+     * @param msg message shown unless force-recover overrides it
      */
     public ExitDialog(java.awt.Frame parent, boolean modal, String msg) {
         super(parent, modal);
@@ -65,9 +73,7 @@ public class ExitDialog extends JDialog {
 
         pack();
 
-        // Translúcido al 95%: deja entrever muy ligeramente la mesa detrás. Esta misma
-        // clase es el diálogo de "salir de la timba" y el de "detener la timba"
-        // (variante force_recover), así que ambos quedan translúcidos.
+        // 95% opacity: lets the table show through slightly behind the dialog.
         setOpacity(0.95f);
     }
 

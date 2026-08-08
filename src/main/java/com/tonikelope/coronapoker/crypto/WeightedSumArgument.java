@@ -126,11 +126,11 @@ public final class WeightedSumArgument {
             return false;
         }
         BigInteger e = challenge(cf, b, q, proof.t, proof.tq);
-        // Las n comprobaciones por-elemento + la agregada comparten UN solo shared-ladder via
-        // batch-verify (pesos rho_j independientes, ligados por Fiat-Shamir a todas). Ecuaciones
-        // idénticas a antes:
-        //   por-elemento i: z_i·G_0 + zs_i·H − e·C_f[i] == T_i
-        //   agregada:       Σ z_i·B_i − e·Q            == T_Q
+        // The n per-element checks plus the aggregate one share a single doubling ladder via
+        // batch-verify (independent rho_j weights, all bound together by Fiat-Shamir). Same
+        // equations as before:
+        //   per-element i: z_i·G_0 + zs_i·H − e·C_f[i] == T_i
+        //   aggregate:     Σ z_i·B_i − e·Q             == T_Q
         EdwardsPoint g0 = PedersenVectorCommit.generator(0);
         EdwardsPoint h = PedersenVectorCommit.H;
         BatchVerifier bv = new BatchVerifier("SRA/WSumArg/batch/v1");

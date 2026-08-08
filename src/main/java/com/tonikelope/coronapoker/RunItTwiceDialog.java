@@ -55,9 +55,8 @@ import javax.swing.WindowConstants;
  * disposes it anyway if a close ever gets lost.
  *
  * The dialog pops up centered over the table, right on top of the community
- * cards, so when the board already shows at least one revealed card it is
- * shown slightly translucent: the voter can read the board before deciding.
- * On a preflop all-in there is nothing to see behind and it stays opaque.
+ * cards, so it is shown slightly translucent: the voter can read the board
+ * before deciding.
  *
  * @author tonikelope
  */
@@ -134,9 +133,8 @@ public class RunItTwiceDialog extends JDialog {
         question.setAlignmentX(Component.CENTER_ALIGNMENT);
         question.setHorizontalAlignment(SwingConstants.CENTER);
 
-        // Bote total en juego: la cifra que se reparte una o dos veces. Se
-        // muestra para que cada votante decida con el dinero a la vista (el
-        // diálogo tapa la pot_label del tapete que normalmente lo enseña).
+        // Total pot in play, the figure that gets split once or twice: shown
+        // here because this dialog covers the table's own pot label.
         JLabel pot_label = new JLabel(Translator.translate("game.bote_2") + " " + pot_text);
         pot_label.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 28));
         pot_label.setForeground(new Color(0, 110, 0));
@@ -220,6 +218,9 @@ public class RunItTwiceDialog extends JDialog {
         });
     }
 
+    /**
+     * Host-driven close: zeroes the countdown bar and disposes the dialog on the EDT.
+     */
     public void closeDialog() {
         disposing = true;
         Helpers.GUIRun(() -> {

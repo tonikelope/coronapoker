@@ -49,13 +49,11 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 /**
- * Veto del MODO AUTO: antes de ejecutar una acción automática (el pre-pulsado de
- * los botones AUTO) se muestra una cuenta atrás con un botón rojo de cancelar,
- * NO modal — el jugador puede seguir usando el tablero / menú (clic, clic derecho)
- * mientras corre. La resolución se entrega por callback en el EDT: al expirar la
- * barra se ejecuta la acción; al cancelar (o si el turno se resuelve por otra vía
- * o se cae la partida) NO se ejecuta. keep_waiting permite abortar si el jugador
- * actúa a mano mientras corría la cuenta.
+ * Veto overlay for AUTO MODE: before an auto-action fires (the pre-armed AUTO buttons), shows a
+ * countdown with a red Cancel button. Non-modal — the player can still use the board/menu (click,
+ * right-click) while it runs. Resolution is delivered once via callback on the EDT: on timeout the
+ * action runs; on cancel (or if the turn resolves another way, or the table goes down) it does
+ * not. {@code keep_waiting} lets the caller abort the countdown if the player acts manually.
  *
  * @author tonikelope
  */
@@ -67,15 +65,14 @@ public class AutoActionDialog extends JPanel {
 
     private final Consumer<Boolean> on_resolve;
 
-    // Anclas: el asiento local (center_over, para la altura) y su botonera de acción
-    // (width_ref, para la columna izquierda y la anchura). Guardadas para posicionar el
-    // overlay sobre el tapete en showOn (en coordenadas del tapete, no de pantalla).
+    // Anchors used by showOn() to position the overlay in table coordinates: center_over (the
+    // local seat, for vertical centering) and width_ref (its action button row, for the left
+    // column and width).
     private final Component center_over;
     private final Component width_ref;
 
-    // Resolución de un solo disparo. cancelled=true -> NO ejecutar (cancelar /
-    // abortar); cancelled=false -> timeout -> ejecutar. Cierra el diálogo e
-    // invoca el callback en el EDT.
+    // One-shot resolution. cancelled=true -> do not execute (cancel/abort); cancelled=false ->
+    // timed out -> execute. Closes the overlay and invokes the callback on the EDT.
     private synchronized void resolve(boolean cancelled) {
         if (resolved) {
             return;
@@ -90,22 +87,33 @@ public class AutoActionDialog extends JPanel {
         });
     }
 
-    // Cierra el veto desde fuera (p.ej. al ocultarse la mesa por salir de la
-    // timba o por fin de partida): lo resuelve como CANCELADO —no ejecuta la
-    // acción automática— y cierra la ventana. Idempotente (resolve es de un
-    // solo disparo), así que es inofensivo aunque el diálogo ya se hubiese
-    // resuelto por su cuenta atrás.
+    /**
+     * Closes the veto from outside (e.g. the table hiding because the player left the game, or
+     * the hand ended): resolves as CANCELLED — the auto-action does not run — and closes the
+     * overlay. Idempotent, so it's harmless even if the countdown already resolved on its own.
+     */
     public void cancel() {
         resolve(true);
     }
 
-    // Acepta desde fuera (atajo de teclado ESPACIO): ejecuta ya la acción automática,
-    // como si se hubiese agotado la cuenta atrás. Idempotente (resolve es de un solo
-    // disparo), inofensivo si ya se resolvió.
+    /**
+     * Accepts from outside (SPACE keyboard shortcut): runs the auto-action immediately, as if
+     * the countdown had expired. Idempotent, harmless if already resolved.
+     */
     public void accept() {
         resolve(false);
     }
 
+    /**
+     * Builds the veto overlay; it is not shown until {@link #showOn(TablePanel)} is called.
+     *
+     * @param center_over local seat used to vertically center the overlay in showOn()
+     * @param width_ref action button row used for the overlay's column and width in showOn()
+     * @param seconds countdown length in seconds
+     * @param action_text optional action label shown under the title; may be null/empty
+     * @param keep_waiting polled once per second; returning false aborts the countdown
+     * @param on_resolve callback run on the EDT with the resolution (true = cancelled, false = executed)
+     */
     public AutoActionDialog(Component center_over, Component width_ref, int seconds, String action_text, BooleanSupplier keep_waiting, Consumer<Boolean> on_resolve) {
 
         super();
@@ -114,7 +122,7 @@ public class AutoActionDialog extends JPanel {
         this.center_over = center_over;
         this.width_ref = width_ref;
 
-        // El overlay ES el panel (blanco, borde naranja): se monta sobre el tapete.
+        // The overlay is the panel itself (white, orange border), mounted on top of the table.
         setOpaque(true);
         setLayout(new GridBagLayout());
         setBackground(Color.WHITE);
@@ -161,26 +169,26 @@ public class AutoActionDialog extends JPanel {
         cancel.addActionListener((java.awt.event.ActionEvent e) -> resolve(true));
         add(cancel, gbc);
 
-        // Como componente ligero no roba el foco del teclado al tablero; el botón Cancelar
-        // sigue respondiendo al ratón. Escala por DIALOG_ZOOM igual que un diálogo.
+        // As a lightweight component it doesn't steal keyboard focus from the table; the
+        // Cancel button still responds to the mouse. Scaled via DIALOG_ZOOM like a real dialog.
         Helpers.applyDialogZoom(this);
         Helpers.translateComponents(this, false);
 
-        // A la altura del jugador local: los rótulos se reajustan al ancho de la botonera
-        // (width_ref) ANTES de que el layout calcule el alto, para que salga correcto y no
-        // quede holgura vertical. La POSICIÓN definitiva se calcula en showOn, en
-        // coordenadas del tapete.
-        // Icono del MODO AUTO a la IZQUIERDA del título, escalado a la altura de su letra. Su
-        // ancho se reserva en el ajuste de fuente para que el conjunto (icono + texto) siga
-        // cabiendo en la botonera y NO ensanche el diálogo.
+        // Fit the labels to the action row's width (width_ref) BEFORE the layout computes the
+        // height, so the height comes out right with no vertical slack. The final position is
+        // computed later, in showOn(), in table coordinates.
+        // The AUTO MODE icon sits to the left of the title, scaled to the title's line height.
+        // Its width is reserved during font fitting so icon + text still fit the action row
+        // without widening the overlay.
         java.awt.Image auto_icon = new javax.swing.ImageIcon(getClass().getResource("/images/menu/auto.png")).getImage();
         title.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
 
         if (center_over != null && center_over.isShowing() && width_ref != null && width_ref.isShowing()) {
-            // Ancho útil = botonera − borde (10 px a cada lado) − insets (20 px a cada
-            // lado). fitFontToWidth solo encoge la fuente si el texto no cabe.
+            // Usable width = action row width - border (10px each side) - insets (20px each
+            // side). fitFontToWidth only shrinks the font if the text doesn't fit.
             int avail = width_ref.getWidth() - 2 * 10 - 2 * 20;
-            // Reserva del icono (fuente antes de ajustar; el icono final nunca es mayor -> conservador).
+            // Icon reservation uses the pre-fit font size; the final icon is never larger, so
+            // this is conservative.
             int reserved = title.getFont().getSize() + title.getIconTextGap();
             title.setFont(Helpers.fitFontToWidth(title, title.getText(), title.getFont(), Math.max(20, avail - reserved), 14));
             if (action != null) {
@@ -188,12 +196,12 @@ public class AutoActionDialog extends JPanel {
             }
         }
 
-        // Icono cuadrado a la altura de la letra del título (ya con su tamaño final), a su izquierda.
+        // Square icon sized to the title's final font height, placed to its left.
         int auto_px = Math.max(1, title.getFont().getSize());
         title.setIcon(new javax.swing.ImageIcon(auto_icon.getScaledInstance(auto_px, auto_px, java.awt.Image.SCALE_SMOOTH)));
 
-        // Cuenta atrás en background. Resuelve por callback: timeout -> ejecutar;
-        // fin de partida o keep_waiting falso (el jugador actuó a mano) -> abortar.
+        // Background countdown. Resolves via callback: timeout -> execute; table torn down or
+        // keep_waiting false (player acted manually) -> abort.
         Helpers.threadRun(() -> {
 
             Helpers.GUIRun(() -> Helpers.smoothCountdown(barra, seconds));
@@ -225,10 +233,14 @@ public class AutoActionDialog extends JPanel {
         });
     }
 
-    // Monta el veto como overlay sobre el tapete (JLayeredPane), anclado a la altura del
-    // asiento local y con la anchura/columna de su botonera, en coordenadas del tapete.
-    // Sustituye al setLocation en coordenadas de PANTALLA del antiguo JDialog, que algunos
-    // gestores de ventanas de Linux ignoraban (la ventana caía a 0,0).
+    /**
+     * Mounts the veto as an overlay on the table (a {@link JLayeredPane}), anchored to the local
+     * seat's height and to the action row's column/width, in table coordinates. Replaces the old
+     * JDialog's screen-coordinate setLocation, which some Linux window managers ignored (the
+     * window would land at 0,0).
+     *
+     * @param tapete table panel to mount the overlay on; no-op if null
+     */
     public void showOn(TablePanel tapete) {
         if (tapete == null) {
             return;
@@ -245,14 +257,14 @@ public class AutoActionDialog extends JPanel {
             setBounds((tapete.getWidth() - pref.width) / 2, (tapete.getHeight() - pref.height) / 2, pref.width, pref.height);
         }
 
-        // Capa por encima de las cartas/fichas voladoras (DRAG_LAYER): el veto es
-        // accionable y debe quedar SIEMPRE visible sobre el tapete (antes: alwaysOnTop).
+        // Layered above flying cards/chips (DRAG_LAYER): the veto is actionable and must
+        // always stay visible over the table (replaces the old alwaysOnTop).
         tapete.add(this, Integer.valueOf(JLayeredPane.DRAG_LAYER + 100));
         tapete.revalidate();
         tapete.repaint();
     }
 
-    // Quita el overlay del tapete (sustituye al dispose() del antiguo JDialog). EDT-only.
+    // Removes the overlay from the table (replaces the old JDialog's dispose()). EDT-only.
     private void removeFromParent() {
         java.awt.Container p = getParent();
         if (p != null) {

@@ -47,14 +47,13 @@ public final class Transcript {
 
     private byte[] state;
 
-    // Un único MessageDigest reutilizado (reset()+update()) en vez de MessageDigest.getInstance()
-    // por cada hash: un prove/verify dispara ~1000-1500 hashes y cada getInstance hace lookup de
-    // proveedor + clonado del SPI (caro, sobre todo en frío / interpretado). Salida byte-idéntica:
-    // reset() deja el digest en su estado inicial, igual que una instancia nueva, y el hash es
-    // SHA-512 de la misma secuencia de bytes. Transcript NO es thread-safe (es el estado de UNA
-    // prueba), así que un digest por instancia es correcto.
+    // Single MessageDigest reused via reset()+update() instead of MessageDigest.getInstance() per
+    // hash: a prove/verify run fires ~1000-1500 hashes, and getInstance's provider lookup + SPI
+    // clone is costly (especially cold/interpreted). Output is byte-identical to a fresh instance.
+    // Transcript is not thread-safe (one proof's state), so one digest per instance is safe.
     private final MessageDigest md;
 
+    /** Starts a fresh transcript, domain-separated on {@code domain} (empty string if null). */
     public Transcript(String domain) {
         if (domain == null) {
             domain = "";

@@ -14,26 +14,22 @@ import java.awt.Graphics2D;
 import javax.swing.JButton;
 
 /**
- * JButton que, cuando está DESHABILITADO, se pinta translúcido (al
- * DISABLED_OPACITY * 100 %) para que la acción no disponible se atenúe y deje
- * entrever el tapete detrás, en vez de mostrarse como un botón gris sólido.
- * Habilitado se pinta exactamente igual que un JButton normal (sin coste).
+ * JButton that paints translucent while disabled, instead of the default solid gray, so the
+ * unavailable action dims and lets the felt show through behind it. When enabled it paints
+ * exactly like a normal JButton (no extra cost).
  *
- * Se usa en la botonera del LocalPlayer (ir/pasar/apostar/all-in) vía el .form
- * (clase del componente cambiada a esta), siguiendo el mismo patrón que el
- * resto de componentes custom del proyecto (Card, LatencyDot, RoundedPanel...).
- *
- * El componente NO es opaco a propósito: así, al repintarse, Swing refresca el
- * antecesor opaco (el tapete) y el alpha compone sobre píxeles frescos, sin
- * arrastres.
+ * Used in LocalPlayer's action buttons (check/fold/bet/all-in), wired via the .form file like the
+ * rest of the project's custom components. Deliberately non-opaque: on repaint, Swing first
+ * refreshes the opaque ancestor (the felt), and the alpha composite is then applied over fresh
+ * pixels.
  *
  * @author tonikelope
  */
 public class TranslucentDisabledButton extends JButton {
 
-    // Opacidad del control cuando está deshabilitado (0..1). Igualada al alpha
-    // del borde/fondo en reposo del LocalPlayer —Color(204,204,204,75)— para que
-    // coincidan exactamente (75/255 ≈ 29,4 %). La comparte TranslucentDisabledSpinner.
+    // Opacity while disabled (0..1), matched to the LocalPlayer idle border/background alpha
+    // (Color(204,204,204,75), i.e. 75/255 ~= 29.4%) so they line up exactly. Shared with
+    // TranslucentDisabledSpinner.
     public static final float DISABLED_OPACITY = 75f / 255f;
 
     public TranslucentDisabledButton() {

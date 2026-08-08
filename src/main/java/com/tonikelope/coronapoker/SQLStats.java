@@ -29,11 +29,13 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 /**
+ * Callback for a named stats query, run when the corresponding entry is selected in
+ * {@link StatsDialog}.
  *
  * @author tonikelope
  */
 public interface SQLStats {
 
-    public void call();
+    void call();
 
 }

@@ -14,16 +14,15 @@ import java.awt.Graphics2D;
 import javax.swing.JSpinner;
 
 /**
- * JSpinner que, cuando está DESHABILITADO, se pinta translúcido (a la misma
- * opacidad que los botones de la botonera, TranslucentDisabledButton
- * .DISABLED_OPACITY) para que el control no disponible se atenúe y deje
- * entrever el tapete detrás. Habilitado se pinta exactamente igual que un
- * JSpinner normal.
+ * JSpinner that paints translucent while disabled, at the same opacity as the
+ * toolbar buttons ({@link TranslucentDisabledButton#DISABLED_OPACITY}), so the
+ * unavailable control dims and lets the felt show through behind it. When
+ * enabled it paints exactly like a normal JSpinner.
  *
- * Es el spinner de apuesta del LocalPlayer; se cablea vía el .form igual que
- * el resto de componentes custom del proyecto. NO es opaco a propósito: al
- * repintarse, Swing refresca el antecesor opaco (el tapete) y el alpha compone
- * sobre píxeles frescos.
+ * Used as LocalPlayer's bet spinner, wired via the .form file like the rest of
+ * the project's custom components. Deliberately non-opaque: on repaint, Swing
+ * first refreshes the opaque ancestor (the felt), and the alpha composite is
+ * then applied over fresh pixels.
  *
  * @author tonikelope
  */

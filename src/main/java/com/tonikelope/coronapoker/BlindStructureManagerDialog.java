@@ -73,6 +73,11 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     private volatile boolean loading_table = false;
     private volatile boolean dirty = false;
 
+    /**
+     * Builds and lays out the blind structure manager dialog.
+     *
+     * @param owner owning window (dialog is centered on it)
+     */
     public BlindStructureManagerDialog(Window owner) {
         super(owner, Dialog.ModalityType.APPLICATION_MODAL);
 
@@ -461,11 +466,10 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         JPanel panel = new JPanel(new BorderLayout(0, 8));
         panel.add(prompt, BorderLayout.NORTH);
         panel.add(field, BorderLayout.CENTER);
-        // Construimos el JOptionPane a mano para poder agrandar la fuente con el
-        // mecanismo estándar de la app: updateFonts escala desde el tamaño POR
-        // DEFECTO de cada componente (~12pt) x zoom, NO desde el tamaño base de
-        // GUI_FONT (que es ~1pt al venir de createFont). Así la etiqueta, la caja y
-        // los botones Aceptar/Cancelar quedan legibles y en la fuente de la app.
+        // Built by hand (not JOptionPane.showInputDialog) so Helpers.updateFonts can scale it:
+        // updateFonts scales from each component's DEFAULT size (~12pt) x zoom, not from
+        // GUI_FONT's base size (~1pt, since it comes from createFont). That keeps the label,
+        // the field and the OK/Cancel buttons legible in the app's font.
         JOptionPane pane = new JOptionPane(panel, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
         javax.swing.JDialog d = pane.createDialog(this, getTitle());
         Helpers.updateFonts(pane, Helpers.GUI_FONT, 1.15f * Helpers.DIALOG_ZOOM);
@@ -493,18 +497,18 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         String suffix = " " + Translator.translate("blinds.copia_sufijo");
         String candidate = truncarNombre(base + suffix);
 
-        // Se comprueba que no exista SOBRE EL NOMBRE YA RECORTADO. Recortar despues
-        // deshacia el trabajo: con un nombre largo, la copia y la copia 2 acababan en la
-        // misma cadena tras el recorte, asi que duplicar machacaba una estructura que ya
-        // existia en vez de crear una nueva.
+        // Existence is checked against the ALREADY-TRUNCATED candidate. Checking first and
+        // truncating afterward would undo that check: with a long name, "Copy" and "Copy 2"
+        // would collapse to the same string once truncated, so duplicating would overwrite an
+        // existing structure instead of creating a new one.
         //
-        // Lo que se recorta es la BASE, no el sufijo: el sufijo con su numero entra
-        // SIEMPRE entero, asi que cada intento da un nombre distinto de verdad. Recortar
-        // el resultado entero dejaba el mismo candidato vuelta tras vuelta en cuanto la
-        // base llenaba el hueco (y con una base del tamano maximo, ese candidato es la
-        // propia estructura que se esta duplicando), o sea, un bucle sin salida en el
-        // hilo grafico. El tope de intentos es la red por si el nombre no diera para
-        // distinguirlos: entonces se devuelve el ultimo, que es lo que hacia antes.
+        // What gets truncated is the BASE, not the suffix: the suffix (with its number) always
+        // goes in whole, so every attempt yields a genuinely different name. Truncating the
+        // combined result instead kept producing the same candidate on every loop once the base
+        // filled the available room (and with a max-length base, that candidate is the very
+        // structure being duplicated) — an infinite loop on the UI thread. The attempt cap is a
+        // safety net for names with no room left to tell them apart: it then returns the last
+        // candidate, same as before.
         for (int n = 2; working.containsKey(candidate) && n < 1000; n++) {
             String cola = suffix + " " + n;
             int hueco_base = BlindStructure.MAX_NAME_LENGTH - cola.length();
@@ -517,7 +521,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         return candidate;
     }
 
-    /** Recorta al maximo que admite el nombre de una estructura. */
+    /** Truncates to the maximum length a structure name allows. */
     private static String truncarNombre(String nombre) {
         return nombre.length() > BlindStructure.MAX_NAME_LENGTH
                 ? nombre.substring(0, BlindStructure.MAX_NAME_LENGTH)

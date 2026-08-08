@@ -85,8 +85,8 @@ public final class GamePreset {
 
         public double smallBlind = 0.10;
         public double bigBlind = 0.20;
-        // Estructura de ciegas elegida: niveles personalizados, o null = escalera por
-        // defecto. Es lo que hace que un preset reproduzca la estructura completa.
+        // Chosen blind structure: custom levels, or null = default ladder. This is
+        // what lets a preset reproduce the full structure.
         public double[][] structure = null;
         public int buyin = 10;
         public boolean fixedBuyin = true;
@@ -95,20 +95,20 @@ public final class GamePreset {
         public boolean rebuy = true;
         public int rebuyLimit = 0;
         public boolean botRebuy = true;
-        public boolean botBalanceToHumans = false; // al terminar, reparte el saldo conjunto de los bots entre los humanos
+        public boolean botBalanceToHumans = false; // on finish, splits the bots' combined balance among the humans
         public int rebuyCapPolicy = GameFrame.REBUY_CAP_BUYIN;
-        public int doubleEvery = 0; // 0 = no se doblan las ciegas
-        public int doubleType = 1;  // 1 = minutos, 2 = manos
-        public double blindCap = 0; // 0 = sin tope
-        public int handLimit = -1;  // -1 = sin limite de manos
+        public int doubleEvery = 0; // 0 = blinds never double
+        public int doubleType = 1;  // 1 = minutes, 2 = hands
+        public double blindCap = 0; // 0 = no cap
+        public int handLimit = -1;  // -1 = no hand limit
         public boolean ante = false;
         public boolean straddle = false;
-        public boolean iwtsth = false;        // regla "Quiero ver la mano"
+        public boolean iwtsth = false;        // "I want to see the hand" rule
         public boolean runItTwice = false;    // ALL-IN run it twice
         public int rabbit = 0;                // 0=off 1=free 2=free+sb 3=free+sb+bb
-        public int thinkTime = GameFrame.DEFAULT_THINK_TIME; // tiempo de pensar en segundos
-        public boolean thinkTimeEnabled = true;       // false = sin limite de tiempo
-        public int showdownTime = GameFrame.DEFAULT_SHOWDOWN_TIME; // pausa del showdown en segundos
+        public int thinkTime = GameFrame.DEFAULT_THINK_TIME; // think time, in seconds
+        public boolean thinkTimeEnabled = true;       // false = no time limit
+        public int showdownTime = GameFrame.DEFAULT_SHOWDOWN_TIME; // showdown pause, in seconds
         public Bot.Difficulty difficulty = Bot.Difficulty.MEDIUM;
 
         /**
@@ -234,7 +234,7 @@ public final class GamePreset {
                             s.showdownTime = Integer.parseInt(val);
                             break;
                         case "DIFF":
-                            // "EXPERT" es un valor legacy del esquema de 4 niveles -> HARD.
+                            // "EXPERT" is a legacy value from the old 4-level scheme -> HARD.
                             s.difficulty = "EXPERT".equals(val)
                                     ? Bot.Difficulty.HARD : Bot.Difficulty.valueOf(val);
                             break;
@@ -298,12 +298,12 @@ public final class GamePreset {
             GameFrame.IWTSTH_RULE = iwtsth;
             GameFrame.RUN_IT_TWICE = runItTwice;
             GameFrame.RABBIT_HUNTING = rabbit;
-            // Clamp defensivo: un preset hand-editado o un blob antiguo/corrupto no debe
-            // meter un tiempo de pensar fuera de rango (el spinner ya acota 10-120).
+            // Defensive clamp: a hand-edited preset or an old/corrupt blob must not push
+            // think time out of range (the spinner already bounds it to 10-120).
             GameFrame.THINK_TIME = Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, thinkTime));
             GameFrame.THINK_TIME_ENABLED = thinkTimeEnabled;
-            // Clamp defensivo: un preset hand-editado o un blob antiguo/corrupto no debe meter una
-            // pausa de showdown fuera de rango (el spinner ya acota 5-30).
+            // Defensive clamp: a hand-edited preset or an old/corrupt blob must not push
+            // the showdown pause out of range (the spinner already bounds it to 5-30).
             GameFrame.SHOWDOWN_TIME = Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, showdownTime));
             GameFrame.BOT_REBUY = botRebuy;
             GameFrame.BOT_BALANCE_TO_HUMANS = botBalanceToHumans;

@@ -35,59 +35,59 @@ import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 
 /**
- * Tablero ÚNICO que coloca a los N jugadores por geometría, sustituyendo a los 9
- * .form fijos (TablePanel2..TablePanel10).
+ * Single dynamic table panel that positions the N players by geometry, replacing
+ * the 9 fixed .form panels (TablePanel2..TablePanel10).
  *
- * Las posiciones NO se inventan: están extraídas de los propios tableros
- * originales (instanciándolos y leyendo dónde los colocaba su GroupLayout) y
- * guardadas como FRACCIONES del ancho/alto del tapete (ver ANCHORS). Así se
- * reproduce su disposición exacta —incluidos los huecos iguales de los laterales,
- * las esquinas inferiores de 8 jugadores o el local descentrado de 10— y, al ser
- * fracciones, escala a cualquier resolución/tamaño de ventana.
+ * The seat positions are not invented: they were extracted from the original
+ * panels (by instantiating them and reading where their GroupLayout placed each
+ * seat) and stored as FRACTIONS of the table's width/height (see {@link #ANCHORS}).
+ * That reproduces their exact layout - including the equal side gaps, the bottom
+ * corners at 8 players, and the off-center local seat at 10 - and, being
+ * fractions, scales to any resolution/window size.
  *
- * Toda la lógica (animaciones de reparto/fichas, overlays, zoom, autoZoom,
- * pintado del tapete) vive en la clase base TablePanel y es geometría-agnóstica
- * (lee posiciones reales en pantalla), así que este panel solo tiene que crear
- * los asientos y colocarlos: el resto funciona sin tocar nada.
+ * All the shared logic (deal/chip animations, overlays, zoom, autoZoom, felt
+ * painting) lives in the base class {@link TablePanel} and is geometry-agnostic
+ * (it reads actual on-screen positions), so this panel only needs to create the
+ * seats and place them; everything else works unmodified.
  *
  * @author tonikelope
  */
 public class DynamicTablePanel extends TablePanel {
 
-    // Margen (px) entre el borde exterior del asiento y el borde del tapete. Los
-    // asientos se PEGAN a su borde con este margen (no se anclan por el centro), así
-    // aprovechan el espacio y siguen pegados aunque cambien de tamaño (vista compacta).
-    // Pequeño a propósito: el propio asiento ya tiene un borde redondeado con padding,
-    // que es el aire mínimo visible aunque el panel esté pegado al borde del tapete.
+    // Gap (px) between a seat's outer edge and the table edge. Seats are PINNED to
+    // their nearest edge with this margin (not anchored by center), so they use the
+    // available space and stay pinned even when they shrink (compact view). Kept
+    // small on purpose: the seat itself already has a rounded, padded border, which
+    // is the minimum visible air even when the panel touches the table edge.
     private static final int EDGE_MARGIN = 5;
 
-    // Anclas por número de jugadores (índice = nº de jugadores, 2..10). Cada fila es
-    // un asiento en el ORDEN del array de jugadores: índice 0 = jugador local, 1..N-1
-    // = remotos (remotePlayer1, remotePlayer2, ...). Los valores son {fx, fy}, el
-    // CENTRO del asiento como fracción del ancho y alto del tapete. La última fila
-    // (índice N) es el centro de las cartas COMUNITARIAS.
+    // Anchors by player count (index = number of players, 2..10). Each row is a seat
+    // in the ORDER of the players array: index 0 = local player, 1..N-1 = remotes
+    // (remotePlayer1, remotePlayer2, ...). Values are {fx, fy}, the CENTER of the
+    // seat as a fraction of the table's width/height. The last row (index N) is the
+    // center of the COMMUNITY cards.
     //
-    // Extraído de TablePanel2..TablePanel10 a 2560×1440 (16:9) con SeatLayoutExtractor.
+    // Extracted from TablePanel2..TablePanel10 at 2560x1440 (16:9) with SeatLayoutExtractor.
     private static final double[][][] ANCHORS = new double[11][][];
 
     static {
         ANCHORS[2] = new double[][]{
             {0.5000, 0.8368}, // local
             {0.5000, 0.1590}, // r1
-            {0.4242, 0.5000}, // comunitarias
+            {0.4242, 0.5000}, // community
         };
         ANCHORS[3] = new double[][]{
             {0.5000, 0.8368}, // local
             {0.0805, 0.1674}, // r1
             {0.9195, 0.1674}, // r2
-            {0.5000, 0.5021}, // comunitarias
+            {0.5000, 0.5021}, // community
         };
         ANCHORS[4] = new double[][]{
             {0.5000, 0.8451}, // local
             {0.0758, 0.5000}, // r1
             {0.5000, 0.1590}, // r2
             {0.9242, 0.5000}, // r3
-            {0.3668, 0.5063}, // comunitarias
+            {0.3668, 0.5063}, // community
         };
         ANCHORS[5] = new double[][]{
             {0.5000, 0.8451}, // local
@@ -95,7 +95,7 @@ public class DynamicTablePanel extends TablePanel {
             {0.3570, 0.1674}, // r2
             {0.6430, 0.1674}, // r3
             {0.9242, 0.5000}, // r4
-            {0.3668, 0.5167}, // comunitarias
+            {0.3668, 0.5167}, // community
         };
         ANCHORS[6] = new double[][]{
             {0.5000, 0.8451}, // local
@@ -104,7 +104,7 @@ public class DynamicTablePanel extends TablePanel {
             {0.5000, 0.1590}, // r3
             {0.9242, 0.2868}, // r4
             {0.9242, 0.7132}, // r5
-            {0.3668, 0.5063}, // comunitarias
+            {0.3668, 0.5063}, // community
         };
         ANCHORS[7] = new double[][]{
             {0.5000, 0.8451}, // local
@@ -114,7 +114,7 @@ public class DynamicTablePanel extends TablePanel {
             {0.6430, 0.1674}, // r4
             {0.9242, 0.2854}, // r5
             {0.9242, 0.7139}, // r6
-            {0.3668, 0.5146}, // comunitarias
+            {0.3668, 0.5146}, // community
         };
         ANCHORS[8] = new double[][]{
             {0.4996, 0.8451}, // local
@@ -125,7 +125,7 @@ public class DynamicTablePanel extends TablePanel {
             {0.7832, 0.1590}, // r5
             {0.9195, 0.5000}, // r6
             {0.8113, 0.8410}, // r7
-            {0.5012, 0.3410}, // comunitarias
+            {0.5012, 0.3410}, // community
         };
         ANCHORS[9] = new double[][]{
             {0.5000, 0.8368}, // local
@@ -137,7 +137,7 @@ public class DynamicTablePanel extends TablePanel {
             {0.9195, 0.1674}, // r6
             {0.9195, 0.5000}, // r7
             {0.9195, 0.8326}, // r8
-            {0.5012, 0.5063}, // comunitarias
+            {0.5012, 0.5063}, // community
         };
         ANCHORS[10] = new double[][]{
             {0.3793, 0.8368}, // local
@@ -150,7 +150,7 @@ public class DynamicTablePanel extends TablePanel {
             {0.9195, 0.5000}, // r7
             {0.9195, 0.8326}, // r8
             {0.6781, 0.8326}, // r9
-            {0.5012, 0.5063}, // comunitarias
+            {0.5012, 0.5063}, // community
         };
     }
 
@@ -158,19 +158,24 @@ public class DynamicTablePanel extends TablePanel {
     private volatile LocalPlayer localPlayer;
     private volatile Player[] seats;
 
-    // Mientras dura la animación de downgrade, doLayout() no re-ancla los asientos
-    // (el tween los mueve a mano con setBounds y competirían).
+    // While the downgrade animation is running, doLayout() must not re-anchor the
+    // seats (the tween moves them by hand with setBounds and they would fight).
     private volatile boolean layout_frozen = false;
 
+    /**
+     * Builds a table for {@code num_players} seats and lays them out by anchor.
+     *
+     * @param num_players seat count (2..10)
+     */
     public DynamicTablePanel(int num_players) {
 
-        // La clase base (super()) ya ha montado su layout vacío y añadido en sus
-        // capas los overlays (fastbuttons, central_label, shuffling_label,
-        // call_cost_label). Aquí creamos los asientos y pasamos a colocado manual.
+        // The base class (super()) has already set up its empty layout and added
+        // the overlays to its layers (fastbuttons, central_label, shuffling_label,
+        // call_cost_label). Here we create the seats and switch to manual placement.
 
         Helpers.GUIRunAndWait(() -> {
 
-            // Sin layout manager: el posicionado lo hace doLayout() por geometría.
+            // No layout manager: positioning is done by doLayout() via geometry.
             setLayout(null);
 
             CommunityCardsPanel community = new CommunityCardsPanel();
@@ -185,20 +190,20 @@ public class DynamicTablePanel extends TablePanel {
             all[0] = local;
             System.arraycopy(remotes, 0, all, 1, remotes.length);
 
-            // Asientos y comunitarias en la capa por defecto (por debajo de los
-            // overlays que la base añade en POPUP/PALETTE/DRAG).
+            // Seats and community cards in the default layer (below the
+            // overlays the base class adds in POPUP/PALETTE/DRAG).
             add(community, JLayeredPane.DEFAULT_LAYER);
             for (Player p : all) {
                 add((JPanel) p, JLayeredPane.DEFAULT_LAYER);
             }
 
-            // Campos propios ANTES de revalidate(): doLayout() podría dispararse en
-            // la revalidación y los necesita (guarda además contra null por si acaso).
+            // Set our own fields BEFORE revalidate(): doLayout() may fire during
+            // revalidation and needs them (also null-guarded just in case).
             this.communityCards = community;
             this.localPlayer = local;
             this.seats = all;
 
-            // Arrays que consume la clase base.
+            // Arrays consumed by the base class.
             players = all;
             remotePlayers = remotes;
 
@@ -225,16 +230,16 @@ public class DynamicTablePanel extends TablePanel {
         return localPlayer;
     }
 
-    // Colocado por anclas: cada asiento (y las comunitarias) se centra en su
-    // posición {fx, fy} del tablero original de N jugadores, escalada al tamaño
-    // ACTUAL del tapete. Se llama en cada validación (resize del tapete, revalidate
-    // tras zoom). NO toca los overlays de las capas superiores (fastbuttons,
-    // central_label, etc.): esos los posiciona la clase base.
+    // Anchor-based placement: each seat (and the community cards) is centered on its
+    // {fx, fy} position from the original N-player panel, scaled to the table's
+    // CURRENT size. Called on every validation (table resize, revalidate after zoom).
+    // Does NOT touch the upper-layer overlays (fastbuttons, central_label, etc.):
+    // those are positioned by the base class.
     @Override
     public void doLayout() {
 
-        // Congelado durante la animación de downgrade: el tween mueve los asientos
-        // con setBounds y un doLayout los devolvería a su ancla (competirían).
+        // Frozen during the downgrade animation: the tween moves the seats with
+        // setBounds and a doLayout would snap them back to their anchor (they'd fight).
         if (layout_frozen) {
             return;
         }
@@ -255,10 +260,10 @@ public class DynamicTablePanel extends TablePanel {
             return;
         }
 
-        // Asientos (0 = local, 1..n-1 = remotos): cada uno se PEGA a su borde más
-        // cercano (según su ancla) con EDGE_MARGIN, y usa la coordenada perpendicular
-        // del ancla para conservar el reparto exacto del original. Al anclar por el
-        // borde y no por el centro, el asiento sigue pegado aunque encoja (compacta).
+        // Seats (0 = local, 1..n-1 = remotes): each one is PINNED to its nearest edge
+        // (per its anchor) with EDGE_MARGIN, using the anchor's perpendicular
+        // coordinate to preserve the original's exact spacing. Anchoring by edge
+        // instead of center keeps the seat pinned even as it shrinks (compact view).
         for (int i = 0; i < n; i++) {
             JPanel panel = (JPanel) s[i];
             java.awt.Rectangle r = seatBoundsFor(n, i, panel.getPreferredSize());
@@ -267,41 +272,45 @@ public class DynamicTablePanel extends TablePanel {
             }
         }
 
-        // Comunitarias: SIEMPRE centradas en la mesa por su FILA DE CARTAS, no por los
-        // bounds del panel. El CommunityCardsPanel es más ancho que las cartas (lleva el
-        // bote y los controles); las cartas van CENTRADAS dentro de su cards_panel (gaps
-        // elásticos a ambos lados) y el cards_panel ocupa todo el ancho del panel. Colocamos
-        // el panel de forma que el CENTRO de su cards_panel caiga en (W/2, H/2).
+        // Community cards: ALWAYS centered on the table by their CARD ROW, not by the
+        // panel's bounds. CommunityCardsPanel is wider than the cards (it also carries
+        // the pot and the controls); the cards sit CENTERED inside cards_panel (elastic
+        // gaps on both sides), and cards_panel spans the panel's full width. We place
+        // the panel so the CENTER of its cards_panel lands at (W/2, H/2).
         //
-        // CLAVE (por qué NO hay bucle NI transitorio, pese a que off_x = cards.width/2 SÍ
-        // depende del ancho del panel): el offset se LEE del layout que Swing ya calculó, y
-        // ese layout es un PUNTO FIJO. Razón: doLayout fija el community a su PROPIO preferred
-        // (cd), y el preferred del community NO depende del tamaño que se le asigna —ningún
-        // hijo reflowa por ancho (todo GroupLayout, labels de una línea, sin HTML ni wrap)—,
-        // así que su layout interno (y con él la X de la fila de cartas) es estable entre
-        // pasadas. Converge en 2 pasadas y la 2.ª solo cambia POSICIÓN, que no invalida.
-        // NUNCA se fuerza community.doLayout() aquí: hacerlo re-colocaba los hijos a media
-        // pasada, el preferred size oscilaba y colgaba el EDT al pausar (bucle infinito →
-        // cuelgue total en pantalla completa). Ese, y NO el que off_x dependa del ancho, era
-        // el mecanismo del cuelgue de 22.58.
+        // WHY THIS DOESN'T LOOP even though off_x = cards.width/2 depends on the panel's
+        // own width: the offset is READ from a layout Swing already computed, and that
+        // layout is a FIXED POINT. doLayout sets community to its OWN preferred size
+        // (cd), and that preferred size doesn't depend on the size assigned to it (no
+        // child reflows by width - all GroupLayout, single-line labels, no HTML/wrap) -
+        // so its internal layout (and with it the card row's X) is stable across passes.
+        // Converges in 2 passes; the 2nd only changes POSITION, which doesn't invalidate.
+        // community.doLayout() is NEVER forced here: doing so re-laid-out its children
+        // mid-pass, the preferred size oscillated, and hung the EDT on pause (infinite
+        // loop -> full fullscreen freeze). That, not off_x depending on width, was the
+        // actual mechanism behind the 22.58 hang.
         //
-        // doLayout es IDEMPOTENTE por diseño: no toca el preferred de nadie, y el setBounds
-        // de abajo solo dispara cuando algo cambió de verdad; un cambio de POSICIÓN no
-        // invalida (Component.reshape solo invalida al redimensionar), y el TAMAÑO solo
-        // cambia cuando cambia el preferred (evento puntual: zoom, pausa), que se estabiliza
-        // en una pasada. Por tanto no puede realimentarse a sí mismo → no hay bucle posible.
-        // HORIZONTAL: por la fila de cartas (punto fijo, converge en 2 pasadas). Es el arreglo
-        // del descentrado original y NO se mueve al pausar/última mano (el banner solo cambia
-        // el ALTO del panel, no la X de la fila de cartas).
+        // doLayout is IDEMPOTENT by design: it never touches anyone's preferred size,
+        // and the setBounds below only fires when something actually changed; a
+        // POSITION change doesn't invalidate (Component.reshape only invalidates on
+        // resize), and SIZE only changes when the preferred size changes (a discrete
+        // event: zoom, pause), which settles in one pass. So it can't feed back on
+        // itself -> no loop is possible.
         //
-        // VERTICAL: por los BOUNDS del panel (cd.height/2), NO por la fila de cartas. En
-        // juego normal las cartas YA están en el centro vertical del panel (medido: dif
-        // ~1px), así que no se mueven. Pero centrarlo por la fila de cartas hacía que, al
-        // aparecer/desaparecer el banner de "ÚLTIMA MANO" (que empuja las cartas hacia
-        // abajo), el panel ENTERO se reposicionara para volver a centrarlas → parpadeo de
-        // todo el community. Por bounds, el panel solo CRECE/ENCOGE simétrico en su sitio
-        // (sin salto) y en UNA pasada (off_y no depende de que las cartas ya estén
-        // colocadas, así que no hay lectura obsoleta ni doble reposicionamiento).
+        // HORIZONTAL: anchored to the card row (fixed point, converges in 2 passes).
+        // This is the fix for the original off-center layout, and it does NOT move on
+        // pause/last-hand (the banner only changes the panel's HEIGHT, not the card
+        // row's X).
+        //
+        // VERTICAL: anchored to the panel's BOUNDS (cd.height/2), NOT the card row. In
+        // normal play the cards are ALREADY at the panel's vertical center (measured
+        // ~1px off), so they don't move. But anchoring by the card row made the whole
+        // community panel reposition to re-center the cards whenever the "LAST HAND"
+        // banner appeared/disappeared (it pushes the cards down) -> the entire
+        // community flickered. Anchoring by bounds instead lets the panel only
+        // GROW/SHRINK symmetrically in place (no jump), in ONE pass (off_y doesn't
+        // depend on the cards already being placed, so there's no stale read or
+        // double repositioning).
         Dimension cd = community.getPreferredSize();
         double off_x = cd.width / 2.0;
         double off_y = cd.height / 2.0;
@@ -319,11 +328,10 @@ public class DynamicTablePanel extends TablePanel {
         }
     }
 
-    // Bounds (con el modelo de pegado al borde) del asiento 'index' en una mesa de
-    // 'total' jugadores, para un asiento de tamaño 'd', al tamaño actual del tapete.
-    // Reutilizado por doLayout() y por la animación de downgrade (que necesita saber
-    // dónde caerá cada superviviente en la mesa de M jugadores). Devuelve null si no
-    // hay anclas para ese total/índice.
+    // Bounds (edge-pinned model) for seat 'index' at a table of 'total' players, for
+    // a seat of size 'd', at the table's current size. Reused by doLayout() and by
+    // the downgrade animation (which needs to know where each survivor will land at
+    // the M-player table). Returns null if there are no anchors for that total/index.
     private java.awt.Rectangle seatBoundsFor(int total, int index, Dimension d) {
         final int W = getWidth();
         final int H = getHeight();
@@ -360,15 +368,18 @@ public class DynamicTablePanel extends TablePanel {
                 (int) Math.round(seat_cy - d.height / 2.0), d.width, d.height);
     }
 
-    // Anima la transición de N a M jugadores cuando alguno abandona: los que se van
-    // se DESVANECEN (fantasma-snapshot con alfa 1→0) y los supervivientes se DESLIZAN
-    // de su posición actual (mesa de N) a su hueco en la mesa de M, manteniendo el
-    // orden del anillo. Funciona con 1 o varios abandonos a la vez. Bloquea al
-    // llamante (hilo del crupier, NUNCA EDT) hasta terminar. Pensado para llamarse
-    // JUSTO ANTES del swap del tablero (downgradeAndRefreshTapete): al acabar, los
-    // supervivientes quedan en las posiciones de la mesa de M, que es donde el
-    // tablero nuevo colocará sus copias → el swap es imperceptible. No toca la lógica
-    // de juego (arrays de jugadores): es puramente visual.
+    /**
+     * Animates the N-to-M player transition when someone leaves: departing seats
+     * FADE OUT (a snapshot ghost, alpha 1-&gt;0) and survivors SLIDE from their current
+     * position (N-player table) to their slot at the M-player table, preserving ring
+     * order. Works for one or several departures at once. Blocks the caller (dealer
+     * thread, NEVER the EDT) until done. Meant to be called RIGHT BEFORE the table
+     * swap ({@code downgradeAndRefreshTapete}): once finished, survivors sit at the
+     * M-player positions, which is where the new table will place its copies, so the
+     * swap is imperceptible. Doesn't touch game logic (player arrays): purely visual.
+     *
+     * @param duration_ms animation duration in milliseconds
+     */
     public void animateDowngrade(int duration_ms) {
 
         final Player[] all = players;
@@ -376,22 +387,23 @@ public class DynamicTablePanel extends TablePanel {
             return;
         }
 
-        // TOCTOU CONOCIDO (dejado a propósito; cosmético y AUTO-CORREGIDO): esta lectura de
-        // isExit() (T1) y la que hace TablePanelFactory.downgradePanel al reconstruir el
-        // tablero (T2, ~500ms después) son DOS lecturas distintas. isExit() puede pasar a
-        // true entre ambas: se fija con RemotePlayer.setExit() (flag volatile, NO bajo el
-        // monitor del crupier) vía Participant.markExitAndNotify(), que corre en hilos
-        // watchdog/escritor (timeout, socket cerrado, auto-expulsión). Como exit es monótono,
-        // leaving(T2) ⊇ leaving(T1). CONSECUENCIA ACOTADA A LO VISUAL: si un 2.º jugador cae
-        // durante la animación, su asiento se desliza como superviviente pero el tablero nuevo
-        // (T2) ya no lo incluye → un salto de UN fotograma al hacer el swap, tras el cual el
-        // tablero queda correcto (downgradePanel es internamente consistente: tamaño y copia
-        // usan la MISMA lectura T2). Si quedaran <2 jugadores no hay swap y el tablero no se
-        // re-ancla, pero eso es fin de partida y la pantalla de balance lo tapa en segundos.
-        // NUNCA afecta a dinero/nick/asiento (esta animación es puramente visual) y se
-        // auto-corrige. NO se blinda con snapshot único porque tocaría el camino sensible de
-        // expulsiones a cambio de un caso extremo (2 caídas en ~500ms) e inocuo. (Auditoría
-        // adversaria 8 lentes, jul-2026.)
+        // KNOWN TOCTOU (left in on purpose; cosmetic and SELF-CORRECTING): this read of
+        // isExit() (T1) and the one TablePanelFactory.downgradePanel does when rebuilding
+        // the table (T2, ~500ms later) are TWO separate reads. isExit() can flip to true
+        // in between: it's set by RemotePlayer.setExit() (a volatile flag, NOT under the
+        // dealer's monitor) via Participant.markExitAndNotify(), which runs on
+        // watchdog/writer threads (timeout, closed socket, auto-kick). Since exit is
+        // monotonic, leaving(T2) is a superset of leaving(T1). CONSEQUENCE BOUNDED TO
+        // VISUALS: if a 2nd player drops during the animation, its seat slides as a
+        // survivor, but the new table (T2) no longer includes it -> a ONE-FRAME jump at
+        // swap time, after which the table is correct (downgradePanel is internally
+        // consistent: size and copying use the SAME T2 read). If fewer than 2 players
+        // remain there's no swap and the table doesn't re-anchor, but that's end of game
+        // and the balance screen covers it within seconds. NEVER affects money/nick/seat
+        // (this animation is purely visual) and self-corrects. Not hardened with a single
+        // snapshot because that would touch the sensitive kick path in exchange for an
+        // extreme and harmless edge case (2 drops within ~500ms). (Adversarial 8-lens
+        // audit, Jul 2026.)
         final java.util.List<JPanel> survivors = new java.util.ArrayList<>();
         final java.util.List<JPanel> leaving = new java.util.ArrayList<>();
         for (Player p : all) {
@@ -406,7 +418,7 @@ public class DynamicTablePanel extends TablePanel {
         final int n = all.length;
         if (m < 2 || m >= n || m >= ANCHORS.length || ANCHORS[m] == null
                 || getWidth() <= 0 || getHeight() <= 0 || !isShowing()) {
-            return; // nada que animar (o fuera del rango de tableros)
+            return; // nothing to animate (or outside the supported table range)
         }
 
         final java.util.concurrent.CountDownLatch finished = new java.util.concurrent.CountDownLatch(1);
@@ -415,7 +427,7 @@ public class DynamicTablePanel extends TablePanel {
 
         Helpers.GUIRunAndWait(() -> {
             try {
-                // Congela el re-anclaje: a partir de aquí las posiciones las manda el tween.
+                // Freeze re-anchoring: from here on, positions are driven by the tween.
                 layout_frozen = true;
 
                 final java.awt.Rectangle[] from = new java.awt.Rectangle[m];
@@ -427,8 +439,8 @@ public class DynamicTablePanel extends TablePanel {
                     to[j] = (t != null) ? t : from[j];
                 }
 
-                // Fantasma (snapshot) por cada saliente para desvanecerlo, y se oculta
-                // el asiento real debajo.
+                // A ghost (snapshot) per departing seat to fade it out, hiding the
+                // real seat underneath.
                 for (JPanel lv : leaving) {
                     if (lv.getWidth() <= 0 || lv.getHeight() <= 0) {
                         continue;
@@ -451,7 +463,7 @@ public class DynamicTablePanel extends TablePanel {
                 timer.addActionListener(e -> {
                     long elapsed = (System.nanoTime() - t0) / 1_000_000L;
                     double u = Math.min(1.0, (double) elapsed / Math.max(1, duration_ms));
-                    double s = u * u * (3.0 - 2.0 * u); // smoothstep (arranque/frenada suaves)
+                    double s = u * u * (3.0 - 2.0 * u); // smoothstep (smooth ease-in/ease-out)
 
                     for (int j = 0; j < m; j++) {
                         java.awt.Rectangle a = from[j];
@@ -485,10 +497,10 @@ public class DynamicTablePanel extends TablePanel {
             Thread.currentThread().interrupt();
         }
 
-        // Limpieza: se quitan los fantasmas. Los supervivientes quedan en la posición
-        // destino (mesa de M). NO se descongela el layout: este panel se descarta en
-        // el swap posterior, y descongelar podría dispararse un doLayout que los
-        // devolviera a la mesa de N (parpadeo) justo antes del swap.
+        // Cleanup: remove the ghosts. Survivors are left at the destination position
+        // (M-player table). The layout is NOT unfrozen: this panel gets discarded in
+        // the swap that follows, and unfreezing could trigger a doLayout that snaps
+        // them back to the N-player table (flicker) right before the swap.
         Helpers.GUIRunAndWait(() -> {
             for (FadeGhost ghost : ghosts) {
                 remove(ghost);
@@ -502,8 +514,8 @@ public class DynamicTablePanel extends TablePanel {
         });
     }
 
-    // Componente efímero que pinta un snapshot (imagen) con opacidad variable, para
-    // desvanecer un asiento que abandona la mesa.
+    // Short-lived component that paints a snapshot (image) at variable opacity, to
+    // fade out a seat that's leaving the table.
     private static final class FadeGhost extends javax.swing.JComponent {
 
         private final java.awt.Image img;
@@ -531,8 +543,8 @@ public class DynamicTablePanel extends TablePanel {
         }
     }
 
-    // Tras el zoom, los asientos cambian de tamaño preferido: forzamos una
-    // revalidación para recolocarlos con el nuevo tamaño.
+    // After zooming, seats change preferred size: force a revalidation to
+    // reposition them at the new size.
     @Override
     public void zoom(float factor, ConcurrentLinkedQueue<Long> notifier) {
         super.zoom(factor, notifier);
@@ -542,9 +554,9 @@ public class DynamicTablePanel extends TablePanel {
         });
     }
 
-    // Sin layout manager, el tamaño preferido por defecto sería (0,0). Como el
-    // tapete va al CENTER del content pane (lo estira el frame), devolvemos el
-    // tamaño del contenedor si está disponible, con un valor de diseño de reserva.
+    // With no layout manager, the default preferred size would be (0,0). Since the
+    // table goes in the content pane's CENTER (stretched by the frame), return the
+    // parent's size when available, falling back to a design-time value.
     @Override
     public Dimension getPreferredSize() {
         Container parent = getParent();

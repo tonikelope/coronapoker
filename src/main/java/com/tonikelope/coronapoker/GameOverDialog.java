@@ -33,16 +33,19 @@ import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 
 /**
+ * Game-over dialog shown to a busted player: rebuy or go spectator. With cinematics enabled it
+ * plays the game_over GIF and audio; with cinematics off (per-setting or the global
+ * cinematics/animations master switch) it falls back to a static "GAME OVER" render with its own
+ * silent countdown, since the GIF itself carries the countdown when animated.
  *
  * @author tonikelope
  */
 public class GameOverDialog extends JDialog {
 
-    // Segundos del RebuyDialog para decidir la recompra (game-over, recompra
-    // intra-partida y elección de buy-in al entrar al tablero comparten esta
-    // misma cifra). Es también la cuenta atrás visual "¿RECOMPRA? (N)" que los
-    // demás ven en el RemotePlayer del arruinado (RemotePlayer.setRebuying) y la
-    // ventana que el host espera las respuestas (Crupier.recibirRebuys).
+    // Countdown (seconds) RebuyDialog gives to decide on a rebuy; shared by the game-over rebuy,
+    // the mid-game rebuy and the initial buy-in choice when joining the table. Also the visual
+    // "REBUY? (N)" countdown other players see on the busted player's RemotePlayer
+    // (RemotePlayer.setRebuying), and how long the host waits for replies (Crupier.recibirRebuys).
     public static final int REBUY_DIALOG_COUNTDOWN = 15;
     private volatile boolean continua = false;
     private volatile String last_mp3_loop = null;
@@ -50,12 +53,12 @@ public class GameOverDialog extends JDialog {
     private volatile RebuyDialog buyin_dialog = null;
     private volatile boolean exit = false;
 
-    // Sin la cinemática de game over (su propio ajuste o el maestro de cinemáticas/animaciones)
-    // el GIF de game over no debe reproducirse: en su lugar se pinta un "GAME OVER" estático
-    // (rojo borde negro sobre fondo negro) con una CUENTA ATRÁS de ALT_COUNTDOWN_SECONDS y SIN
-    // audio alguno (ni game_over.wav ni los efectos). Esa cuenta atrás es además la ventana de
-    // decisión de este diálogo alternativo (al llegar a 0 -> espectador). Los botones
-    // continuar/espectador son los mismos. Congruente con el rótulo BARAJANDO del barajado sin gif.
+    // Without the game-over cinematic (its own setting, or the cinematics/animations master
+    // switch off) the game_over GIF must not play: a static "GAME OVER" (red, black outline, on
+    // black) is drawn instead, with its own ALT_COUNTDOWN_SECONDS countdown and no audio at all
+    // (neither game_over.wav nor the sfx). That countdown also doubles as this alternative
+    // dialog's decision window (reaches 0 -> spectator). Same continue/spectator buttons either
+    // way. Mirrors the "SHUFFLING" static label used when shuffling has no GIF either.
     private static final int ALT_COUNTDOWN_SECONDS = 10;
     private final boolean cinematics_off = !GameFrame.cinematicasGameOverOn();
     private volatile int countdown_seconds = ALT_COUNTDOWN_SECONDS;
@@ -70,7 +73,10 @@ public class GameOverDialog extends JDialog {
     }
 
     /**
-     * Creates new form Recomprar
+     * Creates an interactive game-over dialog (rebuy or spectator choice).
+     *
+     * @param parent owning game window
+     * @param modal whether the dialog blocks input to its owner
      */
     public GameOverDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
@@ -92,6 +98,14 @@ public class GameOverDialog extends JDialog {
         pack();
     }
 
+    /**
+     * Creates a game-over dialog.
+     *
+     * @param parent owning game window
+     * @param modal whether the dialog blocks input to its owner
+     * @param direct if true, shows the final (no-rebuy) state right away with both buttons
+     * disabled, instead of the interactive countdown
+     */
     public GameOverDialog(java.awt.Frame parent, boolean modal, boolean direct) {
         super(parent, modal);
 
@@ -120,8 +134,8 @@ public class GameOverDialog extends JDialog {
         pack();
     }
 
-    // Game over interactivo: con cinemáticas reproduce el GIF; sin cinemáticas pinta el
-    // "GAME OVER" estático con la cuenta atrás actual (countdown_seconds).
+    // Interactive game-over: with cinematics, plays the GIF; without, draws the static
+    // "GAME OVER" with the current countdown (countdown_seconds).
     private void showGameOverActive() {
         if (cinematics_off) {
             gifPanel.setGifIcon(renderGameOverStatic(false, countdown_seconds), 782, 326);
@@ -130,8 +144,8 @@ public class GameOverDialog extends JDialog {
         }
     }
 
-    // Estado final (sin recompra / se acabó la cuenta atrás): con cinemáticas el GIF
-    // game_over_zero; sin cinemáticas el "GAME OVER" estático sin número. Para la cuenta.
+    // Final state (no rebuy / countdown expired): with cinematics, the game_over_zero GIF;
+    // without, the static "GAME OVER" with no number. Also stops the countdown.
     private void showGameOverFinal() {
         stopCountdown();
         if (cinematics_off) {
@@ -141,10 +155,10 @@ public class GameOverDialog extends JDialog {
         }
     }
 
-    // Arranca la cuenta atrás visual (1 Hz) del game over alternativo: cada tick baja el
-    // número y repinta el "GAME OVER" estático. Es además la VENTANA de decisión (sin
-    // game_over.wav): al llegar a 0, si no se ha elegido, queda en espectador
-    // (onCountdownTimeout). Solo en game over interactivo sin cinemáticas.
+    // Starts the visual 1 Hz countdown for the alternative (no-cinematics) game-over: each tick
+    // decrements the number and redraws the static "GAME OVER". This is also the decision
+    // WINDOW (no game_over.wav involved): if nothing was chosen by 0, it falls back to spectator
+    // (onCountdownTimeout). Only used for the interactive game-over without cinematics.
     private void startCountdown() {
         if (!cinematics_off || direct_gameover) {
             return;
@@ -169,9 +183,9 @@ public class GameOverDialog extends JDialog {
         }
     }
 
-    // Fin de la cuenta atrás del game over alternativo sin que se haya elegido: queda en
-    // espectador y cierra. SIN audios (el usuario los quiere mudos en este diálogo); el
-    // estado en espectador lo aplica Crupier al cerrarse el diálogo (isContinua()=false).
+    // Alternative game-over countdown expired with no choice made: falls back to spectator and
+    // closes. No audio here (this fallback dialog is meant to stay silent); Crupier applies the
+    // spectator state once the dialog closes (isContinua() == false).
     private void onCountdownTimeout() {
         if (continua || exit) {
             return;
@@ -183,9 +197,9 @@ public class GameOverDialog extends JDialog {
         dispose();
     }
 
-    // Pinta un lienzo 782x326 (mismo tamaño que el GIF) negro con "GAME OVER" centrado
-    // arriba (rojo, borde negro) y, salvo en el estado final, el número de la cuenta
-    // atrás debajo (blanco, borde negro). Sustituto NO animado del game_over.gif.
+    // Draws a 782x326 canvas (same size as the GIF), black background, "GAME OVER" centered
+    // near the top (red, black outline), and, unless it's the final state, the countdown number
+    // below it (white, black outline). Non-animated stand-in for game_over.gif.
     private javax.swing.ImageIcon renderGameOverStatic(boolean zero, int seconds) {
         final int w = 782;
         final int h = 326;
@@ -213,8 +227,8 @@ public class GameOverDialog extends JDialog {
         return new javax.swing.ImageIcon(img);
     }
 
-    // Texto centrado en (cx,cy) pintado como contorno (borde negro) + relleno, encogido
-    // si hace falta para caber en max_width.
+    // Draws text centered at (cx,cy) as an outline (black stroke) + fill, shrunk to fit
+    // max_width if needed.
     private static void drawOutlinedCentered(java.awt.Graphics2D g2, String text, java.awt.Font font, java.awt.Color fill, double cx, double cy, double max_width) {
         java.awt.font.FontRenderContext frc = g2.getFontRenderContext();
         java.awt.font.TextLayout tl = new java.awt.font.TextLayout(text, font, frc);
@@ -348,20 +362,19 @@ public class GameOverDialog extends JDialog {
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
 
-        // El game over (interactivo o directo) NO oculta la mesa: la caja del
-        // GIF se pone encima de todo en el centro, pero jugadores y comunitarias
-        // siguen vivos detrás (con las luces apagadas) y los arruinados remotos
-        // muestran su GIF de game over a la vez. Antes aquí se hacía hideALL();
-        // ya no — el local ve el estado de la mesa durante su game over.
+        // Game-over (interactive or direct) no longer hides the table: the GIF box overlays
+        // everything centered, but players and community cards stay visible behind it (dimmed),
+        // and busted remote players show their own game-over GIF at the same time. This used to
+        // call hideALL() — no longer, so the local player can still see the table during theirs.
 
         if (GameFrame.getInstance().getFastchat_dialog() != null) {
             GameFrame.getInstance().getFastchat_dialog().setVisible(false);
         }
 
-        // El registro NO se oculta: si el usuario lo tiene abierto, se mantiene
-        // visible durante el game over para poder leer el resultado de la mano
-        // (el GIF va centrado encima; el game over es modal, asi que queda al
-        // frente y el registro permanece detras/al lado, como lo haya colocado).
+        // The game log (GameLogDialog) is intentionally left alone here: if the user has it
+        // open, it stays visible during game-over so they can still read the hand result (the
+        // GIF is centered on top; game-over is modal so it's frontmost, and the log stays
+        // behind/beside it wherever the user placed it).
 
         if (GameFrame.getInstance().getJugadas_dialog() != null) {
             GameFrame.getInstance().getJugadas_dialog().setVisible(false);
@@ -373,10 +386,10 @@ public class GameOverDialog extends JDialog {
 
         continue_button.requestFocus();
 
-        // Game over ALTERNATIVO (sin cinemáticas): SIN audios. No se silencia la música
-        // de fondo ni se reproduce game_over.wav/efectos. La cuenta atrás de 10s es la
-        // ventana de decisión (onCountdownTimeout -> espectador). El directo muestra el
-        // "GAME OVER" estático un par de segundos y cierra.
+        // Alternative game-over (no cinematics): no audio at all — background music isn't
+        // muted and game_over.wav/sfx don't play. The 10s countdown is the decision window
+        // (onCountdownTimeout -> spectator). Direct game-over shows the static "GAME OVER"
+        // for a couple seconds and closes.
         if (cinematics_off) {
             if (!direct_gameover && !continua) {
                 startCountdown();
@@ -422,8 +435,8 @@ public class GameOverDialog extends JDialog {
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
 
-        // Ya no se oculta la mesa al abrir el game over (ver formWindowOpened),
-        // así que no hay visibilidad que restaurar al cerrarlo.
+        // The table is no longer hidden when game-over opens (see formWindowOpened), so
+        // there's no visibility state to restore here on close.
 
         stopCountdown();
 
@@ -440,17 +453,17 @@ public class GameOverDialog extends JDialog {
 
         Audio.stopWavResource("misc/game_over.wav");
 
-        // Game over alternativo (sin cinemáticas): mudo, sin el wav de recompra.
+        // Alternative game-over (no cinematics): silent, skips the rebuy wav.
         if (!cinematics_off && GameFrame.finPartidaSonidoOn()) {
             Audio.playWavResource("misc/rebuy.wav");
         }
 
         dispose();
 
-        // Jugador arruinado (stack 0): rango segun modo. En fijo [1, BUYIN]
-        // default BUYIN (comportamiento de siempre); en variable, el rango de
-        // buy-in configurado [getBuyinMin, getBuyinDefault]. El techo (cap) lo da
-        // getBuyinCap segun la politica (BUYIN o stack mas alto), = headroom a 0.
+        // Busted player (stack 0): range depends on the buy-in mode. Fixed buy-in uses
+        // [1, BUYIN] defaulting to BUYIN (the historical behavior); variable buy-in uses the
+        // configured range [getBuyinMin, getBuyinDefault]. getBuyinCap gives the ceiling per
+        // policy (BUYIN or the highest stack), i.e. headroom down to 0.
         int rebuy_min = GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin();
         int rebuy_max = GameFrame.getBuyinCap();
         int rebuy_def = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
@@ -470,7 +483,7 @@ public class GameOverDialog extends JDialog {
         continue_button.setEnabled(false);
         showGameOverFinal();
 
-        // Game over alternativo (sin cinemáticas): mudo, cierra directamente.
+        // Alternative game-over (no cinematics): silent, closes right away.
         if (cinematics_off) {
             dispose();
             return;

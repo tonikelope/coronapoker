@@ -44,22 +44,23 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
 /**
- * GIF animado pre-decodificado a frames completos (compuestos según el
- * disposal de cada frame) para reproducirlo con indexado por reloj.
+ * Animated GIF pre-decoded into fully composited frames (per-frame disposal
+ * already applied) so playback can index by elapsed clock time instead of
+ * decoding on the fly.
  *
- * El animador GIF de AWT decodifica sobre la marcha y duerme el delay de cada
- * frame con Thread.sleep, sin recuperar nunca el tiempo perdido: con la
- * granularidad del timer de Windows (15,6 ms por defecto, según el estado
- * global del sistema) una animación de 20 ms/frame se estira hasta un ~50%.
- * Aquí los frames se decodifican ANTES de reproducir y el frame visible se
- * elige por tiempo transcurrido (frameAt), saltando frames si hace falta, de
- * forma que la duración total es siempre la nominal del GIF.
+ * AWT's GIF animator decodes on the fly and sleeps each frame's delay via
+ * {@code Thread.sleep}, never recovering lost time: with Windows' timer
+ * granularity (15.6 ms by default, and it varies with global system state) a
+ * 20 ms/frame animation can stretch by ~50%. Here frames are decoded up
+ * front and the visible frame is picked by elapsed time ({@link #frameAt}),
+ * skipping frames when needed, so the total playback duration always
+ * matches the GIF's nominal duration.
  */
 public class PreRenderedGif {
 
     private final BufferedImage[] frames;
 
-    // Línea de tiempo acumulada: el frame i es visible mientras elapsed < frame_end_ms[i]
+    // Cumulative timeline: frame i is visible while elapsed < frame_end_ms[i].
     private final long[] frame_end_ms;
 
     private final int width;
@@ -74,9 +75,13 @@ public class PreRenderedGif {
     }
 
     /**
-     * Construye un PreRenderedGif a partir de frames ya renderizados (p.ej. por
-     * {@link CardFlipAnimator}) repartiendo la duración total de forma uniforme.
-     * Reutiliza el mismo motor de reproducción catch-up que los GIF decodificados.
+     * Builds a PreRenderedGif from frames already rendered elsewhere (e.g. by
+     * {@link CardFlipAnimator}), splitting the total duration evenly across
+     * them. Reuses the same catch-up playback engine as decoded GIFs.
+     *
+     * @param frames pre-rendered frames, in playback order
+     * @param total_ms total playback duration to spread across the frames
+     * @return a PreRenderedGif ready for {@link #frameAt}-based playback
      */
     public static PreRenderedGif fromFrames(BufferedImage[] frames, int total_ms) {
         long[] end = new long[frames.length];
@@ -86,33 +91,40 @@ public class PreRenderedGif {
         return new PreRenderedGif(frames, end, frames[0].getWidth(), frames[0].getHeight());
     }
 
+    /** @return the number of pre-rendered frames. */
     public int getFrameCount() {
         return frames.length;
     }
 
+    /** @return the composited frame at index {@code i}. */
     public BufferedImage getFrame(int i) {
         return frames[i];
     }
 
+    /** @return the GIF's logical width, in pixels. */
     public int getWidth() {
         return width;
     }
 
+    /** @return the GIF's logical height, in pixels. */
     public int getHeight() {
         return height;
     }
 
+    /** @return the GIF's total nominal playback duration, in milliseconds. */
     public long getTotalMs() {
         return frame_end_ms[frame_end_ms.length - 1];
     }
 
+    /** @return the frame that should be visible after {@code elapsed_ms} of playback. */
     public int frameAt(long elapsed_ms) {
         return frameAt(frame_end_ms, elapsed_ms);
     }
 
-    // Frame que toca según el tiempo transcurrido. Si un tick llega tarde, el
-    // resultado salta directamente al frame correcto (catch-up): la animación
-    // pierde frames antes que velocidad. Package-private para el test AAA.
+    // Frame due at the given elapsed time. If a tick arrives late, this jumps
+    // straight to the correct frame (catch-up): the animation drops frames
+    // rather than slowing down. Package-private so the AAA unit test can
+    // call it directly.
     static int frameAt(long[] frame_end_ms, long elapsed_ms) {
 
         for (int i = 0; i < frame_end_ms.length; i++) {
@@ -124,15 +136,23 @@ public class PreRenderedGif {
         return frame_end_ms.length - 1;
     }
 
+    /** {@link #decode(URL, long)} with no memory cap. */
     public static PreRenderedGif decode(URL url) throws IOException {
         return decode(url, Long.MAX_VALUE);
     }
 
     /**
-     * Como {@link #decode(URL)} pero con tope de memoria: la estimación de
-     * almacenamiento se calcula con la pasada de metadatos (sin decodificar un
-     * solo píxel) y si supera max_bytes se lanza IOException, de forma que el
-     * llamante pueda caer a la ruta legacy sin haber pagado el decode.
+     * Like {@link #decode(URL)} but with a memory cap: the storage estimate
+     * is computed from the metadata-only pass (without decoding a single
+     * pixel), and if it exceeds {@code max_bytes} an IOException is thrown
+     * so the caller can fall back to the legacy playback path without
+     * having paid for the decode.
+     *
+     * @param url location of the GIF to decode
+     * @param max_bytes upper bound on the estimated decoded size, in bytes
+     * @return the pre-decoded, pre-composited GIF
+     * @throws IOException if the GIF can't be read, has no frames, or its
+     * estimated storage exceeds {@code max_bytes}
      */
     public static PreRenderedGif decode(URL url, long max_bytes) throws IOException {
 
@@ -155,7 +175,7 @@ public class PreRenderedGif {
                     throw new IOException("GIF has no frames: " + url);
                 }
 
-                // Pasada de metadatos (sin decodificar píxeles): geometría, delay y disposal por frame
+                // Metadata-only pass (no pixel decoding): per-frame geometry, delay and disposal.
                 int[] left = new int[n];
                 int[] top = new int[n];
                 int[] fw = new int[n];
@@ -169,7 +189,7 @@ public class PreRenderedGif {
                     fh[i] = reader.getHeight(i);
                 }
 
-                // Pantalla lógica: del stream metadata, con fallback al extent máximo de los frames
+                // Logical screen size: from the stream metadata, falling back to the frames' max extent.
                 int lw = 0;
                 int lh = 0;
 
@@ -196,15 +216,15 @@ public class PreRenderedGif {
                     throw new IOException("GIF pre-render estimate " + estimate + " bytes exceeds cap " + max_bytes + ": " + url);
                 }
 
-                // Pasada única de decodificación+composición: cada frame crudo se
-                // descarta al instante (pico de memoria ≈ memoria viva).
+                // Single decode+composite pass: each raw frame is discarded
+                // immediately (peak memory roughly equals live memory).
                 BufferedImage[] frames = new BufferedImage[n];
                 long[] frame_end_ms = new long[n];
 
-                // Canvas perezoso: los GIFs de giro (frames completos con disposal
-                // background) son autocontenidos y se almacenan tal cual salen del
-                // lector (indexados de 8 bits, ~4× menos RAM que ARGB) sin tocar
-                // nunca el compositor.
+                // Lazy canvas: spin GIFs (full frames with background disposal)
+                // are self-contained and stored as-is straight from the reader
+                // (8-bit indexed, ~4x less RAM than ARGB) without ever touching
+                // the compositor.
                 BufferedImage canvas = null;
                 Graphics2D g = null;
                 boolean canvas_clean = true;
@@ -225,15 +245,15 @@ public class PreRenderedGif {
                         boolean to_background = "restoreToBackgroundColor".equals(disposal[i]);
 
                         if (canvas_clean && full && to_background) {
-                            // Frame autocontenido: lo compuesto ES el frame crudo y el
-                            // disposal deja el lienzo limpio otra vez.
+                            // Self-contained frame: the composited result IS the raw
+                            // frame, and its disposal leaves the canvas clean again.
                             frames[i] = raw;
                             continue;
                         }
 
                         if (canvas == null) {
-                            // Los frames anteriores (si los hubo) dejaron el lienzo
-                            // limpio, así que arrancar transparente es el estado correcto.
+                            // Any earlier frames left the canvas clean, so starting
+                            // transparent is the correct state.
                             canvas = new BufferedImage(lw, lh, BufferedImage.TYPE_INT_ARGB);
                             g = canvas.createGraphics();
                         }
@@ -274,12 +294,13 @@ public class PreRenderedGif {
         }
     }
 
-    // Estimación de la memoria que retendrá el GIF decodificado, calculada SOLO
-    // con metadatos. Replica la máquina de estados canvas_clean del bucle de
-    // decodificación: frames autocontenidos cuestan su tamaño indexado (1
-    // byte/píxel, lo que devuelve el lector GIF), el resto una copia ARGB del
-    // lienzo completo; el lienzo compositor y el snapshot de restoreToPrevious
-    // se contabilizan una vez si llegan a existir. Package-private para el test AAA.
+    // Estimates the memory the decoded GIF will retain, computed from
+    // metadata ONLY. Mirrors the canvas_clean state machine of the decode
+    // loop: self-contained frames cost their indexed size (1 byte/pixel,
+    // what the GIF reader returns), everything else a full ARGB copy of the
+    // whole canvas; the compositor canvas and the restoreToPrevious snapshot
+    // are each counted once, if they ever come into existence.
+    // Package-private so the AAA unit test can call it directly.
     static long estimateStorageBytes(int[] left, int[] top, int[] fw, int[] fh, String[] disposal, int lw, int lh) {
 
         long bytes = 0;
@@ -324,7 +345,7 @@ public class PreRenderedGif {
 
     private static void readFrameMetadata(IIOMetadata md, int i, int[] left, int[] top, long[] delay_ms, String[] disposal) {
 
-        // Defaults si faltan extensiones (GIFs mínimos sin GraphicControlExtension)
+        // Defaults for missing extensions (minimal GIFs without a GraphicControlExtension).
         left[i] = 0;
         top[i] = 0;
         delay_ms[i] = 100;
@@ -341,8 +362,8 @@ public class PreRenderedGif {
 
             } else if ("GraphicControlExtension".equals(child.getNodeName())) {
 
-                // delayTime viene en centisegundos. Convención de los navegadores:
-                // delays <= 1cs se interpretan como 100 ms.
+                // delayTime is in centiseconds. Browser convention: delays
+                // <= 1cs are treated as 100 ms.
                 int delay_cs = parseIntAttribute(child, "delayTime", 10);
                 delay_ms[i] = (delay_cs <= 1) ? 100 : delay_cs * 10L;
 

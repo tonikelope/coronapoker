@@ -64,14 +64,11 @@ public final class StatsCharts {
     private StatsCharts() {
     }
 
-    // ===== TAMAÑO DE LAS FUENTES DE LAS GRÁFICAS =====
-    // Escala que multiplica el tamaño de TODOS los textos de las gráficas a la vez
-    // (títulos, etiquetas de ejes, números sobre las barras, nombres de jugador,
-    // ejes del radar...). 1.0 = tamaños originales. Se controla en vivo desde el
-    // spinner del StatsDialog (setFontScale + refresco de la gráfica).
-    // Escala base de diseño (1.3). El default efectivo al abrir Estadísticas = DEFAULT_FONT_SCALE ×
-    // Helpers.DIALOG_ZOOM (lo fija StatsDialog), para que el zoom por defecto de las gráficas siga el
-    // zoom de diálogos. El spinner "Global Chart Zoom" lo puede reajustar a mano.
+    // Global multiplier applied to every chart text (titles, axis labels, bar value
+    // labels, player names, radar axes...); 1.0 = design size. Live-controlled from the
+    // StatsDialog "Global Chart Zoom" spinner via setFontScale(). The effective default
+    // on opening Stats is DEFAULT_FONT_SCALE * Helpers.DIALOG_ZOOM (set by StatsDialog),
+    // so charts follow the dialog zoom until the spinner is touched by hand.
     public static final float DEFAULT_FONT_SCALE = 1.3f;
     private static volatile float FONT_SCALE = DEFAULT_FONT_SCALE;
 
@@ -92,11 +89,11 @@ public final class StatsCharts {
         return base.deriveFont(style, scaled);
     }
 
-    // Un valor no finito (NaN/Infinity) en el dataset hace que el eje del grafico
-    // lance "IllegalArgumentException: Must be finite" en CADA repaint del EDT,
-    // dejando el StatsDialog inservible. Caso real: un % nulo de la BD (jugador
-    // que nunca llego a esa calle, timbas viejas) llega como Float.NEGATIVE_INFINITY
-    // desde safeParsePercent. Se filtran/anulan antes de pintar.
+    // A non-finite value (NaN/Infinity) in the dataset makes the chart axis throw
+    // "IllegalArgumentException: Must be finite" on every EDT repaint, freezing the
+    // dialog. Real case: a null DB percentage (player who never reached that street,
+    // old games) arrives as Float.NEGATIVE_INFINITY from StatsDialog.safeParsePercent();
+    // callers filter it out before charting.
     private static boolean isFinite(Double v) {
         return v != null && Double.isFinite(v);
     }
@@ -180,10 +177,9 @@ public final class StatsCharts {
         renderer.setMaximumBarWidth(0.14);
         renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator("{2}", new DecimalFormat("#,##0.#")));
         renderer.setDefaultItemLabelFont(font(Font.BOLD, 12f));
-        // Etiquetas BLANCAS DENTRO de la barra (sobre el color): el gris oscuro
-        // (TITLE) no contrastaba sobre barras de color. INSIDE3/INSIDE9 fija el
-        // numero pegado al extremo de la barra para que el blanco caiga siempre
-        // sobre la barra y no sobre el fondo claro del panel.
+        // White labels drawn inside the bar: the dark grey TITLE colour had no
+        // contrast against a coloured bar. INSIDE3/INSIDE9 pins the number at the
+        // bar's own end so white always lands on the bar, never on the light panel.
         renderer.setDefaultItemLabelPaint(Color.WHITE);
         renderer.setDefaultPositiveItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.INSIDE3, TextAnchor.CENTER_RIGHT));
         renderer.setDefaultNegativeItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.INSIDE9, TextAnchor.CENTER_LEFT));
@@ -301,8 +297,8 @@ public final class StatsCharts {
         for (Map.Entry<String, double[]> e : seriesByPlayer.entrySet()) {
             double[] vals = e.getValue();
             for (int a = 0; a < axisLabels.length; a++) {
-                // Cada eje DEBE tener valor (no se puede saltar uno sin desalinear el
-                // radar), asi que un valor no finito se sustituye por 0.
+                // Every axis needs a value (skipping one would misalign the radar web
+                // across players), so a non-finite value falls back to 0.
                 double raw = a < vals.length ? vals[a] : 0.0;
                 dataset.addValue(Double.isFinite(raw) ? raw : 0.0, e.getKey(), axisLabels[a]);
             }
@@ -374,8 +370,8 @@ public final class StatsCharts {
         renderer.setMaximumBarWidth(0.14);
         renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator(labelFormat, new DecimalFormat("#,##0.#")));
         renderer.setDefaultItemLabelFont(font(Font.BOLD, 12f));
-        // Etiquetas BLANCAS DENTRO de la barra (sobre el color), igual que benefitBars:
-        // el gris oscuro no contrastaba sobre barras azules/naranjas.
+        // White labels inside the bar, same reasoning as benefitBars: dark grey had no
+        // contrast against blue/orange bars.
         renderer.setDefaultItemLabelPaint(Color.WHITE);
         renderer.setDefaultPositiveItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.INSIDE3, TextAnchor.CENTER_RIGHT));
         renderer.setDefaultNegativeItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.INSIDE9, TextAnchor.CENTER_LEFT));

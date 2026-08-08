@@ -33,6 +33,11 @@ import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 
 /**
+ * Rebuy / initial buy-in dialog: a spinner to pick a chip amount, an optional Cancel button,
+ * and a countdown that auto-accepts (or auto-cancels) on timeout. In "defer close" mode (used
+ * by the variable initial buy-in) accepting doesn't close the dialog; it switches to an
+ * indeterminate "waiting for the other players" state that the dealer closes once collection
+ * finishes.
  *
  * @author tonikelope
  */
@@ -41,9 +46,9 @@ public class RebuyDialog extends JDialog {
     private volatile boolean rebuy = false;
     private volatile boolean cancelled = false;
     private volatile boolean cancelable = false;
-    // Modo "diferir cierre": al aceptar (OK o timeout) el dialogo NO se cierra;
-    // pasa a "esperando a los demas jugadores" y lo cierra el crupier al terminar
-    // la recoleccion. Solo lo usa la compra inicial variable.
+    // "Defer close" mode: accepting (OK or timeout) does not close the dialog; it switches to
+    // "waiting for the other players" and the dealer closes it once collection finishes. Only
+    // used by the variable initial buy-in.
     private volatile boolean defer_close = false;
 
     public boolean isRebuy() {
@@ -58,20 +63,22 @@ public class RebuyDialog extends JDialog {
         this.defer_close = v;
     }
 
-    // Tras aceptar la compra inicial: oculta spinner/botones y muestra barra
-    // indeterminada + "esperando a los demas jugadores" hasta que el crupier
-    // cierra el dialogo cuando estan todos. barraIndeterminada cancela el timer
-    // del smoothCountdown, asi que el relevo countdown->indeterminada es limpio.
+    /**
+     * After the initial buy-in is accepted: hides the spinner/buttons and shows an
+     * indeterminate bar plus "waiting for the other players" until the dealer closes the
+     * dialog once everyone is in. {@code Helpers.barraIndeterminada} cancels the
+     * smoothCountdown timer, so the countdown -> indeterminate handoff is clean.
+     */
     public void enterWaitingMode() {
         Helpers.GUIRun(() -> {
-            // Spinner: se DESACTIVA (sigue visible, en gris) -> el jugador ve el
-            // buy-in que eligio. Botones: DESAPARECEN.
+            // Spinner: DISABLED (stays visible, greyed out) so the player still sees the
+            // buy-in they picked. Buttons: HIDDEN.
             rebuy_spinner.setEnabled(false);
             ok_button.setVisible(false);
             cancel_button.setVisible(false);
-            // Revela el mensaje (texto ya puesto en el constructor, en color de
-            // fondo): solo cambiamos el color. SIN re-pack -> no dependemos de
-            // agrandar una ventana no-resizable ya mostrada.
+            // Reveals the message (text already set in the constructor, in the background
+            // color): only the color changes here. No re-pack, since that would rely on
+            // resizing an already-shown non-resizable window.
             wait_label.setForeground(java.awt.Color.BLACK);
             barra.setVisible(true);
             Helpers.barraIndeterminada(barra);
@@ -97,21 +104,20 @@ public class RebuyDialog extends JDialog {
 
                 --t;
 
-                // setValue(t) redundante: smoothCountdown tiene su Timer interno
-                // repintando la barra cada 50ms en escala ms. Solo decrementamos
-                // t para que el loop sepa cuando salir por timeout.
+                // No need to call setValue(t): smoothCountdown runs its own internal Timer
+                // repainting the bar every 50ms in ms scale. We only decrement t so the loop
+                // knows when to exit on timeout.
             }
 
         }
 
-        // En modo defer NO ocultamos la barra: enterWaitingMode la pasa a
-        // indeterminada (que ya cancela el timer del smoothCountdown). Ocultarla
-        // aqui generaria un parpadeo/condicion de carrera con el relevo.
+        // In defer mode, don't hide the bar here: enterWaitingMode switches it to
+        // indeterminate (which already cancels the smoothCountdown timer). Hiding it here
+        // would cause a flicker/race with that handoff.
         if (!defer_close) {
             Helpers.GUIRun(() -> {
-                // Cancela el Timer interno del smoothCountdown antes de ocultar la
-                // barra — evita que el Timer siga corriendo en background tras
-                // dispose del dialog.
+                // Cancel smoothCountdown's internal Timer before hiding the bar, so it doesn't
+                // keep running in the background after the dialog is disposed.
                 Helpers.resetBarra(barra, 0);
                 barra.setVisible(false);
             });
@@ -119,35 +125,45 @@ public class RebuyDialog extends JDialog {
     }
 
     /**
-     * Creates new form RebuyNowDialog with the legacy range [1, BUYIN] and
-     * default value BUYIN.
+     * Same as {@link #RebuyDialog(java.awt.Frame, boolean, boolean, int, int, int, int)} with
+     * the legacy fixed range [1, BUYIN] and default value BUYIN.
      */
     public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout) {
         this(parent, modal, cancel, timeout, 1, GameFrame.BUYIN, GameFrame.BUYIN);
     }
 
     /**
-     * Creates new form RebuyNowDialog with an explicit spinner range and
-     * default value. Used by the variable buy-in flow (table-entry buy-in and
-     * rebuys), where the range and default come from the configurable buy-in
-     * bounds (getBuyinMin/getBuyinMax/getBuyinDefault) instead of the fixed
-     * buy-in.
+     * Same as {@link #RebuyDialog(java.awt.Frame, boolean, boolean, int, int, int, int, String)}
+     * with the default header key for a plain rebuy ("rebuy.recomprar_3"). Used by the
+     * variable buy-in flow (table-entry buy-in and rebuys), where the range and default come
+     * from the configurable buy-in bounds (getBuyinMin/getBuyinMax/getBuyinDefault) instead of
+     * the fixed buy-in.
      */
     public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout, int min, int max, int default_value) {
         this(parent, modal, cancel, timeout, min, max, default_value, "rebuy.recomprar_3");
     }
 
     /**
-     * As above but with an explicit header i18n key: "rebuy.recomprar_3"
-     * (RECOMPRAR) for rebuys, "rebuy.compra_inicial" (COMPRA INICIAL) for the
-     * table-entry buy-in in variable mode.
+     * Builds the rebuy / buy-in dialog.
+     *
+     * @param parent owner frame
+     * @param modal whether the dialog blocks input to the owner
+     * @param cancel whether Cancel is shown; if false, timing out auto-accepts the current
+     *     spinner value instead of cancelling
+     * @param timeout countdown length in seconds, or {@code <= 0} to disable the countdown
+     * @param min minimum spinner value
+     * @param max maximum spinner value
+     * @param default_value initial spinner value, clamped into [min, max]
+     * @param header_key i18n key for the header/title: "rebuy.recomprar_3" (RECOMPRAR) for a
+     *     rebuy, "rebuy.compra_inicial" (COMPRA INICIAL) for the table-entry buy-in in variable
+     *     mode
      */
     public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout, int min, int max, int default_value, String header_key) {
         super(parent, modal);
 
         initComponents();
 
-        // Cabecera (y titulo) segun el caso de uso: recompra vs compra inicial.
+        // Header (and title) depend on the use case: rebuy vs initial buy-in.
         jLabel1.putClientProperty("i18n.key", header_key);
         Helpers.setTranslatedTitle(this, header_key);
 
@@ -156,18 +172,17 @@ public class RebuyDialog extends JDialog {
         // caller can never seed an out-of-range value.
         int safe_max = Math.max(min, max);
         int safe_default = Math.min(Math.max(default_value, min), safe_max);
-        // Paso derivado del propio rango (~1% del maximo, minimo 1). NO usamos
-        // NewGameDialog.BUYIN_SPINNER_STEP: ese refleja el combobox local del
-        // NewGameDialog y en un CLIENTE puede no casar con las ciegas reales de la
-        // partida (recibidas por INIT). Si el paso fuera mayor que el rango,
-        // getNextValue/getPreviousValue devuelven null y las flechas quedan muertas
-        // -> spinner "bloqueado". Derivarlo del rango lo garantiza usable y fino en
-        // todos los peers (paso <= rango siempre).
+        // Step derived from the range itself (~1% of the max, minimum 1). We don't reuse
+        // NewGameDialog.BUYIN_SPINNER_STEP: that reflects NewGameDialog's local combobox and on
+        // a CLIENT may not match the game's actual blinds (received via INIT). If the step
+        // exceeded the range, getNextValue/getPreviousValue would return null and the arrows
+        // would go dead (a "locked" spinner). Deriving it from the range guarantees it stays
+        // usable and fine-grained on every peer (step <= range, always).
         int step = Math.max(1, safe_max / 100);
         rebuy_spinner.setModel(new SpinnerNumberModel(safe_default, min, safe_max, step));
 
-        // Barra un poco mas gruesa (en todos los usos del dialogo). El ancho real
-        // lo da el GroupLayout (max), aqui solo importa el alto.
+        // Slightly thicker bar (for every use of this dialog). GroupLayout (max) drives the
+        // actual width; only the height matters here.
         barra.setPreferredSize(new java.awt.Dimension(Math.round(300 * Helpers.DIALOG_ZOOM), Math.round(30 * Helpers.DIALOG_ZOOM)));
 
         barra.setVisible(false);
@@ -186,11 +201,11 @@ public class RebuyDialog extends JDialog {
 
         Helpers.translateComponents(this, false);
 
-        // El mensaje de espera se fija YA aqui para que su espacio se reserve en
-        // ESTE pack: la ventana es no-resizable y un pack posterior a mostrarse no
-        // la agranda (por eso el label no aparecia al revelarlo tarde). Lo dejamos
-        // invisible (color = fondo) hasta enterWaitingMode, que solo cambia el
-        // color para revelarlo. La fuente ya es la del juego (updateFonts -> GUI_FONT).
+        // The waiting-message text is set here already, so its space is reserved in THIS
+        // pack: the window is non-resizable and a later pack() (after it's shown) won't grow
+        // it, which is why the label wouldn't appear if revealed late. Left invisible (color =
+        // background) until enterWaitingMode, which only changes the color to reveal it. The
+        // font is already the game's (updateFonts -> GUI_FONT).
         wait_label.setText(Translator.translate("rebuy.esperando_jugadores"));
         wait_label.setForeground(panel.getBackground());
 
@@ -201,16 +216,15 @@ public class RebuyDialog extends JDialog {
             Helpers.threadRun(() -> {
                 pausaConBarra(timeout);
                 if (!rebuy && !cancelled) {
-                    // Dialogos obligatorios (game-over, entrada al tablero): al
-                    // expirar se acepta el valor ACTUAL del spinner. Dialogo
-                    // cancelable (top-up voluntario): al expirar se descarta sin
-                    // recomprar (equivale a Cancelar).
+                    // Mandatory dialogs (game-over, joining the table): on timeout, accept the
+                    // spinner's CURRENT value. Cancelable dialog (voluntary top-up): on
+                    // timeout, discard without rebuying (same as pressing Cancel).
                     if (!cancelable) {
                         rebuy = true;
                     }
                     if (defer_close) {
-                        // Compra inicial: al expirar se acepta el default y se pasa
-                        // a "esperando a los demas" (lo cierra el crupier).
+                        // Initial buy-in: on timeout the default is accepted and the dialog
+                        // switches to "waiting for the other players" (closed by the dealer).
                         if (rebuy) {
                             enterWaitingMode();
                         }
@@ -224,11 +238,13 @@ public class RebuyDialog extends JDialog {
     }
 
     /**
-     * Variante con modo (AUTO): muestra SIEMPRE el botón de cancelar en rojo
-     * (aunque cancel sea false, lo que mantiene "al expirar la cuenta →
-     * recompra"), para poder abortar la recompra automática en el último
-     * momento. La usa la recompra automática al arruinarse (Crupier) cuando se
-     * agota el game over.
+     * AUTO-mode variant: always shows the red Cancel button (even when {@code cancel} is
+     * false, which keeps "timeout -> rebuy"), so the automatic rebuy can still be aborted at
+     * the last moment. Used by the dealer's automatic rebuy-on-bust when the game-over
+     * countdown runs out.
+     *
+     * @param auto_rebuy_mode when true, forces the Cancel button visible in red regardless of
+     *     {@code cancel}
      */
     public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout, int min, int max, int default_value, String header_key, boolean auto_rebuy_mode) {
 
@@ -379,8 +395,8 @@ public class RebuyDialog extends JDialog {
     }// </editor-fold>//GEN-END:initComponents
 
     private void cancel_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancel_buttonActionPerformed
-        // Cancela: detiene la cuenta atras para que el deadline no auto-acepte
-        // despues de cerrar (rebuy queda false).
+        // Cancel: stops the countdown so the deadline doesn't auto-accept after closing
+        // (rebuy stays false).
         cancelled = true;
         dispose();
     }//GEN-LAST:event_cancel_buttonActionPerformed
@@ -388,7 +404,7 @@ public class RebuyDialog extends JDialog {
     private void ok_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ok_buttonActionPerformed
         rebuy = true;
         if (defer_close) {
-            // Compra inicial: no cerramos; pasamos a "esperando a los demas".
+            // Initial buy-in: don't close; switch to "waiting for the other players".
             enterWaitingMode();
         } else {
             dispose();
@@ -396,20 +412,18 @@ public class RebuyDialog extends JDialog {
     }//GEN-LAST:event_ok_buttonActionPerformed
 
     private void rebuy_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_rebuy_spinnerStateChanged
-        // El spinner no editable solo cambia por flechas; la cuenta atras es un
-        // deadline duro que NO se cancela al interactuar (al expirar se acepta el
-        // valor actual). Sin accion en este evento.
+        // The non-editable spinner only changes via the arrows; the countdown is a hard
+        // deadline that interacting does NOT cancel (on timeout the current value is
+        // accepted). No action needed here.
     }//GEN-LAST:event_rebuy_spinnerStateChanged
 
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
-        // TODO add your handling code here:
         if (isModal()) {
             Init.CURRENT_MODAL_DIALOG.add(this);
         }
     }//GEN-LAST:event_formWindowActivated
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
-        // TODO add your handling code here:
         if (isModal()) {
             try {
                 Init.CURRENT_MODAL_DIALOG.removeLast();

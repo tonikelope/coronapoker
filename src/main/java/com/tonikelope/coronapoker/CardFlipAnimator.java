@@ -1,22 +1,5 @@
 /*
  * Copyright (C) 2025 tonikelope
- *
- * Animación de destape de carta renderizada con Swing/Java2D (sustituye a los
- * GIF de giro pre-generados con gifsicle).
- *
- * El giro es una rotación 3D de 180 grados sobre el eje vertical con PERSPECTIVA
- * (la carta se ve como un trapecio, no una simple compresión plana). Se resuelve
- * con un WARP INVERSO por píxel: para cada píxel de salida se calcula su origen
- * exacto en el JPG (fórmula cerrada) y se muestrea con interpolación bilineal 2D.
- * Sin "tiras" (que replican y pixelan) -> nítido como el JPG nativo.
- *
- * Los frames se generan a RESOLUCIÓN FÍSICA (según la escala HiDPI del monitor)
- * para que no haya upscale del sistema. La carta se dibuja a un tamaño <= JPG
- * nativo para no ampliar por encima de la resolución de la fuente.
- *
- * Los frames resultantes se envuelven en un {@link PreRenderedGif} y se
- * reproducen con el motor catch-up existente (mismo timing, hooks y
- * sincronización que los GIF).
  */
 package com.tonikelope.coronapoker;
 
@@ -33,27 +16,42 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 
 /**
+ * Swing/Java2D card flip animation (replaces the pre-generated gifsicle spin GIFs).
+ *
+ * The flip is a 180-degree 3D rotation around the vertical axis with PERSPECTIVE (the card
+ * reads as a trapezoid, not a flat squeeze). It's solved with a per-pixel inverse warp: each
+ * output pixel's exact source coordinate in the JPG is computed with a closed-form formula and
+ * sampled with bilinear interpolation — no replicated "strips", so it stays as sharp as the
+ * native JPG.
+ *
+ * Frames are generated at the monitor's PHYSICAL HiDPI resolution so the system never upscales
+ * them, and the card is drawn at or below native JPG size.
+ *
+ * The resulting frames are wrapped in a {@link PreRenderedGif} and played by the existing
+ * catch-up engine (same timing, hooks and sync as regular GIFs).
  *
  * @author tonikelope
  */
 public class CardFlipAnimator {
 
-    // Perspectiva fija (valor validado en la prueba de concepto). Menor = más 3D.
+    // Fixed perspective (value validated in the proof of concept). Lower = more 3D.
     private static final double PERSPECTIVE = 45.0;
-    // Holgura del lienzo alrededor de la carta para acomodar el trapecio.
+    // Canvas slack around the card to accommodate the trapezoid shape.
     private static final double MARGIN = 1.5;
-    // Supersampling del warp (suaviza el contorno de la carta).
+    // Warp supersampling (smooths the card's outline).
     private static final int SS = 2;
 
-    // Caché de imágenes fuente redondeadas a resolución nativa (cara + trasera),
-    // por baraja+carta. Se limpia al cambiar de baraja.
+    // Cache of source images (face + back) rounded at native resolution, keyed by deck+card.
+    // Cleared whenever the deck changes.
     private static final ConcurrentHashMap<String, BufferedImage> SRC_CACHE = new ConcurrentHashMap<>();
     private static volatile String CACHE_BARAJA = null;
     private static volatile String CACHE_TRASERA = null;
 
     /**
-     * Escala HiDPI del monitor principal (1.0, 1.25, 2.0...). Los frames se
-     * generan a esta densidad para quedar 1:1 en píxeles físicos.
+     * HiDPI scale of the primary monitor (1.0, 1.25, 2.0...). Frames are generated at this
+     * density so they land 1:1 in physical pixels.
+     *
+     * @return clamped scale factor in [1.0, 3.0], or 1.0 if it can't be determined
      */
     public static double screenDensity() {
         try {
@@ -66,20 +64,20 @@ public class CardFlipAnimator {
     }
 
     /**
-     * Genera la animación de destape de una carta como PreRenderedGif.
+     * Generates a card flip animation as a {@link PreRenderedGif}.
      *
-     * @param baraja baraja actual (GameFrame.BARAJA)
-     * @param valor_palo clave de la carta, p.ej. "A_P" (o "trasera" no aplica)
-     * @param card_w_logical ancho lógico de la carta estática (Card.CARD_WIDTH)
-     * @param card_h_logical alto lógico de la carta estática (Card.CARD_HEIGHT)
-     * @param corner_logical radio de esquina lógico (Card.CARD_CORNER)
-     * @param duration_ms duración total del giro
-     * @param num_frames número de frames a generar
-     * @param zoom factor "acercar" sobre el tamaño de la carta estática (1.0 = alineado
-     * pixel-perfect; &gt;1.0 dibuja la carta más grande para el efecto de acercamiento)
-     * @param top_half vista compacta: gira solo la MITAD SUPERIOR de la carta (la
-     * misma que muestra la estática partida), no la carta entera
-     * @return PreRenderedGif con los frames del giro, o null si falla la carga
+     * @param baraja current deck (GameFrame.BARAJA)
+     * @param valor_palo card key, e.g. "A_P" (never "trasera" — the back is loaded separately)
+     * @param card_w_logical logical width of the static card (Card.CARD_WIDTH)
+     * @param card_h_logical logical height of the static card (Card.CARD_HEIGHT)
+     * @param corner_logical logical corner radius (Card.CARD_CORNER)
+     * @param duration_ms total flip duration
+     * @param num_frames number of frames to generate
+     * @param zoom zoom factor over the static card size (1.0 = pixel-perfect alignment;
+     * &gt;1.0 draws the card larger for a zoom-in effect)
+     * @param top_half compact view: flip only the card's TOP HALF (matching the split static
+     * view) instead of the whole card
+     * @return the flip animation, or null if the source images fail to load
      */
     public static PreRenderedGif generate(String baraja, String valor_palo,
             int card_w_logical, int card_h_logical, int corner_logical,
@@ -92,13 +90,13 @@ public class CardFlipAnimator {
                 return null;
             }
 
-            // Vista compacta: la estática solo enseña su MITAD SUPERIOR (recorte a media
-            // altura a native res, sin escalar). Para que el giro respete ese recorte NO
-            // se achata el frame (deformaría el trapecio del warp: la carta salía ancha y
-            // baja), sino que se gira una carta que YA es media: se recorta la fuente a su
-            // mitad superior y se encoge el lienzo a la par. El warp genera entonces el
-            // trapecio correcto de una mini carta y el último frame casa con la estática.
-            // El ancho no cambia (el giro es sobre el eje vertical, comprime la anchura).
+            // Compact view: the static card shows only its TOP HALF (native-res crop, no
+            // scaling). Flattening the frame to match would distort the warp's trapezoid (the
+            // card would come out too wide and squat), so instead we flip a card that's ALREADY
+            // half: crop the source to its top half and shrink the canvas to match. The warp
+            // then produces the correct trapezoid for a mini card, and the last frame lines up
+            // with the static one. Width is unchanged (the flip rotates around the vertical
+            // axis, which compresses width, not height).
             int card_h_eff = card_h_logical;
             if (top_half) {
                 front = topHalf(front, corner_logical, card_w_logical);
@@ -107,10 +105,10 @@ public class CardFlipAnimator {
             }
 
             double dens = screenDensity();
-            // Carta y lienzo a resolución FÍSICA. La carta se dibuja a CARD * zoom: con zoom=1
-            // queda al TAMAÑO EXACTO de la estática (alineada y centrada, relevo pixel-perfect);
-            // con zoom>1 se dibuja mayor (efecto acercar) y el lienzo crece en la misma proporción
-            // para que el giro siga centrado sobre la carta estática.
+            // Card and canvas at PHYSICAL resolution. The card is drawn at CARD * zoom: with
+            // zoom=1 it matches the static card's exact size (pixel-perfect handoff); with
+            // zoom>1 it's drawn larger (zoom-in effect) and the canvas grows proportionally so
+            // the flip stays centered on the static card.
             int drawn_w_logical = Math.round(card_w_logical * zoom);
             int drawn_h_logical = Math.round(card_h_eff * zoom);
             int draw_w = Math.round(drawn_w_logical * (float) dens);
@@ -118,9 +116,9 @@ public class CardFlipAnimator {
             int canvas_w = Math.round(canvasWidth(card_w_logical, zoom) * (float) dens);
             int canvas_h = Math.round(canvasHeight(card_h_eff, zoom) * (float) dens);
 
-            // Calidad (por defecto): supersampling SS completo, idéntico a siempre. Rendimiento:
-            // warp sin supersampling (ss=1, ~1/4 del coste del bucle por píxel; además la reducción
-            // final pasa a ser 1:1, o sea gratis).
+            // Quality mode (default): full SS supersampling, as before. Performance mode: warp
+            // without supersampling (ss=1, ~1/4 the per-pixel loop cost; the final downscale
+            // also becomes a free 1:1 copy).
             int ss = GameFrame.ANIM_CALIDAD ? SS : 1;
             BufferedImage[] frames = new BufferedImage[num_frames];
             for (int i = 0; i < num_frames; i++) {
@@ -134,23 +132,26 @@ public class CardFlipAnimator {
         }
     }
 
-    // Ancho/alto LÓGICO del lienzo de la animación (para setSize del label). La carta dibujada
-    // mide CARD * zoom; el margen es SIMÉTRICO y PAR alrededor de ella (display = dibujada +
-    // 2*margen) para que el centrado del overlay sobre la carta estática sea entero al píxel.
-    // Con zoom=1 coincide exactamente con el lienzo pixel-perfect original.
+    /**
+     * Logical canvas width for the flip animation (used to size the label). The margin is
+     * symmetric and even around the drawn card (canvas = drawn + 2*margin) so overlay centering
+     * on the static card lands on an integer pixel. With zoom=1 this matches the original
+     * pixel-perfect canvas exactly.
+     */
     public static int canvasWidth(int card_w_logical, float zoom) {
         int drawn = Math.round(card_w_logical * zoom);
         int margin = Math.round(drawn * (float) (MARGIN - 1) / 2f);
         return drawn + 2 * margin;
     }
 
+    /** Logical canvas height for the flip animation; see {@link #canvasWidth}. */
     public static int canvasHeight(int card_h_logical, float zoom) {
         int drawn = Math.round(card_h_logical * zoom);
         int margin = Math.round(drawn * (float) (MARGIN - 1) / 2f);
         return drawn + 2 * margin;
     }
 
-    /** Invalida la caché de fuentes si cambió la baraja o la trasera seleccionada. */
+    /** Invalidates the source cache if the deck or the selected card back changed. */
     private static void ensureCacheValid(String baraja) {
         if (!java.util.Objects.equals(baraja, CACHE_BARAJA)
                 || !java.util.Objects.equals(GameFrame.TRASERA, CACHE_TRASERA)) {
@@ -160,7 +161,7 @@ public class CardFlipAnimator {
         }
     }
 
-    /** Cara de la carta (JPG de la baraja), redondeada a resolución nativa, cacheada. */
+    /** Card face (deck JPG), rounded at native resolution and cached. */
     private static BufferedImage cachedFace(String baraja, String valor_palo,
             int card_w_logical, int corner_logical) throws Exception {
 
@@ -186,7 +187,7 @@ public class CardFlipAnimator {
         return rounded;
     }
 
-    /** Trasera GLOBAL (juego back/ o mod), redondeada a resolución nativa, cacheada. */
+    /** Global card back (game deck or mod), rounded at native resolution and cached. */
     private static BufferedImage cachedBack(int card_w_logical, int corner_logical) throws Exception {
 
         String key = "back:" + GameFrame.TRASERA;
@@ -205,10 +206,10 @@ public class CardFlipAnimator {
         return rounded;
     }
 
-    /** Carga la trasera seleccionada (baraja del juego o mod) a resolución nativa. */
+    /** Loads the selected card back (game deck or mod) at native resolution. */
     private static BufferedImage loadTraseraRaw() throws Exception {
         String baraja = GameFrame.TRASERA;
-        // "default" (o valor no reconocido): la trasera sigue a la baraja actual.
+        // "default" (or an unrecognized value): the back follows the current deck.
         if (baraja == null || !Card.BARAJAS.containsKey(baraja)) {
             baraja = GameFrame.BARAJA;
         }
@@ -233,7 +234,7 @@ public class CardFlipAnimator {
         return def != null ? ImageIO.read(def) : null;
     }
 
-    /** Invalida la caché de fuentes (llamar al cambiar de baraja o trasera). */
+    /** Invalidates the source cache; call when the deck or card back changes. */
     public static void clearCache() {
         SRC_CACHE.clear();
         CACHE_BARAJA = null;
@@ -241,13 +242,11 @@ public class CardFlipAnimator {
     }
 
     /**
-     * Recorte de la MITAD SUPERIOR a resolución nativa (franja de los primeros h/2
-     * píxeles, sin escalar), para el giro en vista compacta. Es el mismo recorte que
-     * muestra la carta estática partida. Copia real (no getSubimage) para no compartir
-     * el raster de la fuente cacheada. Conserva las esquinas superiores redondeadas y
-     * redondea las inferiores (nuevas, en la línea de corte) al MISMO radio nativo con
-     * que rounded() redondeó las superiores (w * corner / card_w), para que las cuatro
-     * esquinas de la carta partida queden idénticas, igual que en la estática.
+     * Crops the TOP HALF at native resolution (first h/2 pixel rows, unscaled) for the compact
+     * flip view — the same crop the split static card shows. Copies pixels (not getSubimage) so
+     * the cached source raster isn't shared, and rounds the new bottom corners at the crop line
+     * to the same native radius rounded() used for the top ones, so all four corners of the
+     * split card match, just like on the static card.
      */
     private static BufferedImage topHalf(BufferedImage src, int corner_logical, int card_w_logical) {
         int w = src.getWidth();
@@ -267,7 +266,7 @@ public class CardFlipAnimator {
         return cut;
     }
 
-    /** Aplica esquinas redondeadas (máscara SrcIn) conservando la resolución. */
+    /** Applies rounded corners (SrcIn mask) while preserving resolution. */
     private static BufferedImage rounded(BufferedImage src, int radius) {
         int w = src.getWidth(), h = src.getHeight();
         BufferedImage dst = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
@@ -282,8 +281,8 @@ public class CardFlipAnimator {
     }
 
     /**
-     * Warp de perspectiva inverso por píxel: renderiza la carta girada angleDeg
-     * grados (0 = 'back' de frente, 180 = 'front' de frente) a un BufferedImage.
+     * Per-pixel inverse perspective warp: renders the card rotated angleDeg degrees (0 = back
+     * facing forward, 180 = front facing forward) into a BufferedImage.
      */
     private static BufferedImage renderFlipImage(BufferedImage front, BufferedImage back,
             double angleDeg, double persp, int drawW, int drawH, int canvasW, int canvasH, int ss) {
@@ -293,9 +292,9 @@ public class CardFlipAnimator {
         int srcW = src.getWidth(), srcH = src.getHeight();
         int[] srcPix = ((DataBufferInt) src.getRaster().getDataBuffer()).getData();
 
-        // La carta plana mide drawW x drawH (tamaño y aspecto de CARD = la carta estática),
-        // centrada en el lienzo canvasW x canvasH. Así TODA la animación queda alineada en
-        // tamaño y centrada con la carta estática (el último frame coincide sin inventar nada).
+        // The flat card is drawW x drawH (same size/aspect as the static CARD), centered on the
+        // canvasW x canvasH canvas, so the whole animation stays aligned and centered on the
+        // static card — the last frame matches it exactly, with nothing invented.
         int fw = canvasW, fh = canvasH;
         int bw = fw * ss, bh = fh * ss;
 
@@ -336,7 +335,7 @@ public class CardFlipAnimator {
         return out;
     }
 
-    /** Muestreo bilineal ARGB con alpha premultiplicado (evita halos en bordes). */
+    /** Bilinear ARGB sampling with premultiplied alpha (avoids edge halos). */
     private static int sampleBilinear(int[] p, int w, int h, double fx, double fy) {
         int x0 = (int) Math.floor(fx), y0 = (int) Math.floor(fy);
         double tx = fx - x0, ty = fy - y0;

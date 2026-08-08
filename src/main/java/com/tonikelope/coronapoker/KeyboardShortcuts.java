@@ -27,22 +27,19 @@ import java.util.logging.Logger;
 import javax.swing.KeyStroke;
 
 /**
- * Registro central de los atajos de teclado personalizables del juego. Cada acción tiene un id
- * ESTABLE (el mismo nombre que su AbstractAction en los dispatchers de {@link GameFrame} y
- * {@link Init}) y una combinación de teclas por defecto; el usuario puede reasignarla desde la
- * pestaña "Atajos" de Ajustes y el override persiste en {@code coronapoker.properties} bajo la
- * clave {@code shortcut.<id>}.
+ * Central registry of the game's customizable keyboard shortcuts. Each action has a STABLE id
+ * (matching its AbstractAction name in the {@link GameFrame} and {@link Init} dispatchers) and a
+ * default key combination; the user can reassign it from the "Shortcuts" tab in Settings, and the
+ * override persists in {@code coronapoker.properties} under key {@code shortcut.<id>}.
  *
- * Los dos dispatchers globales resuelven por id: piden {@link #idFor(KeyStroke)} y ejecutan el
- * cuerpo (fijo) que tengan registrado para ese id, así reasignar surte efecto EN VIVO sin
- * reconstruir nada. El mapa inverso (KeyStroke -> id) se publica de forma atómica (referencia
- * volatile a un mapa nuevo) para que las lecturas desde el hilo de teclado vean siempre una foto
- * coherente.
+ * The two global dispatchers resolve by id via {@link #idFor(KeyStroke)} and run the fixed body
+ * registered for that id, so a reassignment takes effect LIVE with nothing to rebuild. The reverse
+ * map (KeyStroke -&gt; id) is published atomically (a volatile reference swapped to a new map) so
+ * reads from the keyboard thread always see a consistent snapshot.
  *
- * Solo se modelan atajos basados en keyCode (con o sin modificadores). Quedan fuera, por ser de
- * otra naturaleza o frágiles entre distribuciones de teclado: la rueda de zoom (ratón), la tecla
- * de nota de voz (configurable aparte, en Audio), el chat rápido 'º' (dead-key "typed") y las
- * teclas internas de los diálogos de chat e imágenes.
+ * Only keyCode-based shortcuts (with or without modifiers) are modeled. Left out, being of a
+ * different nature or fragile across keyboard layouts: the mouse-wheel zoom, the quick fastchat
+ * key {@code 'º'} (a dead-key "typed" event), and the internal keys of the chat/image dialogs.
  *
  * @author tonikelope
  */
@@ -52,12 +49,12 @@ public final class KeyboardShortcuts {
 
     private static final String PROPERTY_PREFIX = "shortcut.";
 
-    // Solo estos modificadores cuentan para un atajo (se descartan máscaras de botón u otras).
+    // Only these modifiers count toward a shortcut (button masks etc. are discarded).
     private static final int MOD_MASK = InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK
             | InputEvent.ALT_DOWN_MASK | InputEvent.META_DOWN_MASK | InputEvent.ALT_GRAPH_DOWN_MASK;
 
-    // Ids ESTABLES (== nombre del AbstractAction en los dispatchers). No cambiar: son clave de
-    // persistencia y de resolución en los dispatchers.
+    // STABLE ids (== AbstractAction name in the dispatchers). Do not rename: they are the
+    // persistence key and the dispatcher lookup key.
     public static final String PAUSE = "PAUSE";
     public static final String FULLSCREEN = "FULL-SCREEN";
     public static final String COMPACT = "COMPACT-CARDS";
@@ -87,19 +84,19 @@ public final class KeyboardShortcuts {
     public static final String MUTE = "SOUND-SWITCH";
     public static final String VOLUME_UP = "VOLUME-UP";
     public static final String VOLUME_DOWN = "VOLUME-DOWN";
-    // La nota de voz es "push-to-record" (mantener pulsada): NO se despacha por actionMap, la atiende
-    // VoiceMessageManager, que lee la tecla de aquí. Solo modela su combinación para poder reasignarla.
-    // Es "solo tecla base" (sin modificadores): mantener CTRL+F9 no tiene sentido para grabar.
+    // Voice note is push-to-record (hold key down): NOT dispatched via actionMap, handled by
+    // VoiceMessageManager, which reads the key from here. Only its combination is modeled, so it
+    // can be reassigned. Keycode-only (no modifiers): holding CTRL+F9 makes no sense for recording.
     public static final String VOICE_RECORD = "VOICE-RECORD";
 
     public static final String FASTCHAT_IMAGE = "FASTCHAT-IMAGE";
 
     /**
-     * Definición de una acción reasignable: id, claves i18n de sección/acción (reutilizan las de
-     * {@link ShortcutsDialog}: {@code shortcuts.sec_*} / {@code shortcuts.act_*}), combinación por
-     * defecto y alias FIJOS: teclas extra siempre activas y NO reasignables (p. ej. las flechas
-     * horizontales de la apuesta), que se registran en el mapa inverso para dispararse y para
-     * reservar la tecla (nadie más puede asignársela).
+     * Definition of a reassignable action: id, i18n keys for section/label (reused from
+     * {@link ShortcutsDialog}: {@code shortcuts.sec_*} / {@code shortcuts.act_*}), default
+     * combination, and FIXED aliases: extra keys that are always active and NOT reassignable (e.g.
+     * the horizontal bet arrows), registered in the reverse map both to fire and to reserve the key
+     * so nothing else can claim it.
      */
     public static final class Def {
 
@@ -108,7 +105,7 @@ public final class KeyboardShortcuts {
         public final String label_key;
         public final KeyStroke def;
         public final KeyStroke[] aliases;
-        // true = SOLO tecla base, sin modificadores (nota de voz push-to-record): la captura ignora
+        // true = keycode only, no modifiers (voice note push-to-record): capture ignores
         // ALT/CTRL/SHIFT.
         public boolean keycode_only = false;
 
@@ -130,7 +127,7 @@ public final class KeyboardShortcuts {
         return KeyStroke.getKeyStroke(key_code, modifiers);
     }
 
-    // Catálogo ORDENADO (por secciones, como la ayuda de atajos). El orden manda en la pestaña.
+    // ORDERED catalog (grouped by section, mirroring the shortcuts help). Order drives the tab UI.
     private static final List<Def> DEFS = new ArrayList<>();
 
     static {
@@ -151,8 +148,8 @@ public final class KeyboardShortcuts {
 
         DEFS.add(new Def(CHECK, "shortcuts.sec_bet", "shortcuts.act_check", ks(KeyEvent.VK_SPACE, 0)));
         DEFS.add(new Def(FOLD, "shortcuts.sec_bet", "shortcuts.act_fold", ks(KeyEvent.VK_ESCAPE, 0)));
-        // Subir/bajar apuesta: primaria ARRIBA/ABAJO editable; DERECHA/IZQUIERDA quedan como alias
-        // FIJOS (no se pierden y no se pueden reasignar), igual que hoy hacen las cuatro flechas.
+        // Raise/lower bet: primary UP/DOWN is editable; RIGHT/LEFT stay as FIXED aliases (kept, not
+        // reassignable), matching how all four arrows already behave.
         DEFS.add(new Def(BET_UP, "shortcuts.sec_bet", "shortcuts.act_bet_up", ks(KeyEvent.VK_UP, 0), ks(KeyEvent.VK_RIGHT, 0)));
         DEFS.add(new Def(BET_DOWN, "shortcuts.sec_bet", "shortcuts.act_bet_down", ks(KeyEvent.VK_DOWN, 0), ks(KeyEvent.VK_LEFT, 0)));
         DEFS.add(new Def(BET, "shortcuts.sec_bet", "shortcuts.act_confirm", ks(KeyEvent.VK_ENTER, 0)));
@@ -178,10 +175,10 @@ public final class KeyboardShortcuts {
         }
     }
 
-    // id -> combinación actual (default salvo override). Foto inmutable publicada de golpe.
+    // id -> current combination (default unless overridden). Immutable snapshot published atomically.
     private static volatile Map<String, KeyStroke> current = new HashMap<>();
-    // combinación -> id (incluye alias fijos). Foto inmutable publicada de golpe: la leen los
-    // dispatchers desde el hilo de teclado.
+    // combination -> id (includes fixed aliases). Immutable snapshot published atomically: read by
+    // the dispatchers from the keyboard thread.
     private static volatile Map<KeyStroke, String> reverse = new HashMap<>();
 
     static {
@@ -191,7 +188,7 @@ public final class KeyboardShortcuts {
     private KeyboardShortcuts() {
     }
 
-    // Carga inicial: para cada acción, override de properties si es válido; si no, el default.
+    // Initial load: for each action, use the properties override if valid, else the default.
     private static synchronized void load() {
 
         Map<String, KeyStroke> cur = new HashMap<>();
@@ -201,9 +198,9 @@ public final class KeyboardShortcuts {
             cur.put(d.id, override != null ? override : d.def);
         }
 
-        // Migración de la antigua clave de la tecla de nota de voz ("voice_message_key", un keyCode
-        // suelto que gestionaba VoiceMessageManager) al registro, si el usuario la tenía cambiada y
-        // aún no hay override nuevo.
+        // Migrate the old voice-note key property ("voice_message_key", a bare keyCode that
+        // VoiceMessageManager used to manage) into the registry, if the user had customized it and
+        // no new-style override exists yet.
         if (Helpers.PROPERTIES.getProperty(PROPERTY_PREFIX + VOICE_RECORD) == null) {
             String legacy = Helpers.PROPERTIES.getProperty("voice_message_key");
             if (legacy != null) {
@@ -221,9 +218,9 @@ public final class KeyboardShortcuts {
         reverse = buildReverse(cur);
     }
 
-    // Reconstruye el mapa inverso a partir de las combinaciones actuales + los alias fijos. Si dos
-    // acciones colisionan (no debería pasar por validación en la asignación), gana la primera del
-    // catálogo (orden de DEFS) y se avisa por log.
+    // Rebuilds the reverse map from the current combinations plus the fixed aliases. If two actions
+    // collide (shouldn't happen given assignment validation), the first one in DEFS order wins and
+    // a warning is logged.
     private static Map<KeyStroke, String> buildReverse(Map<String, KeyStroke> cur) {
 
         Map<KeyStroke, String> rev = new HashMap<>();
@@ -252,14 +249,17 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Combinación actual de una acción (default salvo override), o null si el id no existe.
+     * @param id action id
+     * @return the current combination (default unless overridden), or {@code null} if the id is
+     * unknown
      */
     public static KeyStroke get(String id) {
         return current.get(id);
     }
 
     /**
-     * ¿La acción es de SOLO tecla base (sin modificadores)? (nota de voz push-to-record).
+     * @param id action id
+     * @return true if the action is keycode-only, ignoring modifiers (voice note push-to-record)
      */
     public static boolean isKeycodeOnly(String id) {
         Def d = BY_ID.get(id);
@@ -267,7 +267,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * ¿La acción tiene una combinación DISTINTA de la de fábrica (la ha personalizado el usuario)?
+     * @param id action id
+     * @return true if the action's combination differs from the factory default
      */
     public static boolean isCustomized(String id) {
         Def d = BY_ID.get(id);
@@ -276,8 +277,11 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * keyCode de la combinación actual de una acción, o {@link KeyEvent#VK_UNDEFINED} si no aplica.
-     * Para los dispatchers que comparan por keyCode (guardas de ESC/ESPACIO, beep de volumen).
+     * keyCode of the action's current combination, for dispatchers that compare by keyCode (e.g.
+     * the FOLD/CHECK guards, the volume beep).
+     *
+     * @param id action id
+     * @return the keyCode, or {@link KeyEvent#VK_UNDEFINED} if not applicable
      */
     public static int keyCode(String id) {
         KeyStroke k = current.get(id);
@@ -285,16 +289,21 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Id de la acción asignada a esa combinación (incluye alias fijos), o null si ninguna. Lo usan
-     * los dispatchers para resolver y la asignación para detectar conflictos.
+     * Resolves which action owns a combination (including fixed aliases); used by the dispatchers
+     * and by assignment conflict detection.
+     *
+     * @param ks combination to look up
+     * @return the owning action id, or {@code null} if none
      */
     public static String idFor(KeyStroke ks) {
         return ks != null ? reverse.get(ks) : null;
     }
 
     /**
-     * ¿Se puede asignar esa combinación a {@code target_id}? False si ya la usa OTRA acción (o un
-     * alias fijo). True si está libre o es la que ya tiene la propia acción.
+     * @param ks combination to check
+     * @param target_id action that would receive it
+     * @return true if free or already owned by {@code target_id}; false if another action (or a
+     * fixed alias) already uses it
      */
     public static boolean isAssignable(KeyStroke ks, String target_id) {
         if (ks == null) {
@@ -305,9 +314,12 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Reasigna una acción a una combinación nueva EN VIVO (los dispatchers la ven al instante). No
-     * persiste: la edición es transaccional y solo se escribe a disco en {@link #commit()}. No
-     * valida conflictos: el llamador debe haber comprobado {@link #isAssignable} antes.
+     * Reassigns an action to a new combination LIVE (dispatchers see it instantly). Not persisted —
+     * editing is transactional and only written to disk by {@link #commit()}. Does not validate
+     * conflicts; callers must check {@link #isAssignable} first.
+     *
+     * @param id action id
+     * @param ks new combination
      */
     public static synchronized void set(String id, KeyStroke ks) {
 
@@ -322,7 +334,9 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Devuelve una acción a su combinación de fábrica EN VIVO (no persiste; ver {@link #commit()}).
+     * Restores one action to its factory combination LIVE (not persisted; see {@link #commit()}).
+     *
+     * @param id action id
      */
     public static synchronized void reset(String id) {
 
@@ -339,7 +353,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Restaura TODAS las acciones a sus combinaciones de fábrica EN VIVO (no persiste hasta commit).
+     * Restores ALL actions to their factory combinations LIVE (not persisted until
+     * {@link #commit()}).
      */
     public static synchronized void resetAll() {
 
@@ -353,9 +368,9 @@ public final class KeyboardShortcuts {
         reverse = buildReverse(cur);
     }
 
-    // Mientras la pestaña de Atajos está capturando una tecla, los dispatchers globales se apartan
-    // (devuelven false a la primera) para que la combinación pulsada llegue al capturador y no
-    // dispare el atajo que tuviera asignado.
+    // While the Shortcuts tab is capturing a key press, the global dispatchers step aside (bail out
+    // immediately) so the pressed combination reaches the capture field instead of firing whatever
+    // shortcut it's assigned to.
     private static volatile boolean capturing = false;
 
     public static boolean isCapturing() {
@@ -366,20 +381,20 @@ public final class KeyboardShortcuts {
         capturing = c;
     }
 
-    // --- Edición transaccional (coherente con el diálogo de Ajustes: aplica en vivo, GUARDAR
-    // persiste, Cancelar revierte). ---
+    // --- Transactional editing (matches the Settings dialog: applies live, SAVE persists, Cancel
+    // reverts). ---
     private static volatile Map<String, KeyStroke> snapshot = null;
 
     /**
-     * Abre una edición transaccional guardando una foto del estado actual. Los cambios se aplican en
-     * vivo pero no se persisten hasta {@link #commit()}; {@link #revert()} restaura esta foto.
+     * Opens a transactional edit by snapshotting the current state. Changes apply live but aren't
+     * persisted until {@link #commit()}; {@link #revert()} restores this snapshot.
      */
     public static synchronized void beginTransaction() {
         snapshot = new HashMap<>(current);
     }
 
     /**
-     * ¿Hay cambios sin confirmar respecto a la foto de apertura?
+     * @return true if there are unconfirmed changes since the opening snapshot
      */
     public static boolean isDirty() {
         Map<String, KeyStroke> snap = snapshot;
@@ -387,8 +402,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Confirma la edición: persiste el estado actual (override por acción que difiera de su default,
-     * borrando la clave de las que estén de fábrica) y cierra la transacción.
+     * Confirms the edit: persists the current state (one override per action that differs from its
+     * default, clearing the key for those at factory settings) and closes the transaction.
      */
     public static synchronized void commit() {
 
@@ -401,9 +416,9 @@ public final class KeyboardShortcuts {
             }
         }
 
-        // Purga la propiedad legacy de la tecla de voz una vez migrada al registro: si no, resetear
-        // VOICE_RECORD a fábrica desde Atajos se revertiria a la tecla antigua al reiniciar (load la
-        // reaplicaria al ver ausente shortcut.VOICE-RECORD).
+        // Purge the legacy voice-key property now that it's migrated into the registry: otherwise
+        // resetting VOICE_RECORD to factory from the Shortcuts tab would revert to the old key on
+        // restart (load() would reapply it, seeing shortcut.VOICE-RECORD absent).
         Helpers.PROPERTIES.remove("voice_message_key");
 
         Helpers.savePropertiesFile();
@@ -411,7 +426,7 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Descarta la edición: restaura el estado de apertura (en vivo) sin tocar el fichero.
+     * Discards the edit: restores the opening state (live) without touching the properties file.
      */
     public static synchronized void revert() {
         Map<String, KeyStroke> snap = snapshot;
@@ -423,13 +438,13 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Catálogo ordenado de acciones reasignables (para construir la pestaña de Atajos).
+     * @return the ordered catalog of reassignable actions, for building the Shortcuts tab
      */
     public static List<Def> defs() {
         return DEFS;
     }
 
-    // --- Serialización: "<keyCode>,<modificadores DOWN>" (independiente de distribución) ---
+    // --- Serialization format: "<keyCode>,<DOWN modifiers>" (layout-independent) ---
     private static String serialize(KeyStroke ks) {
         int mods = ks.getModifiers() & MOD_MASK;
         return ks.getKeyCode() + "," + mods;
@@ -456,17 +471,23 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Construye la combinación de un evento de tecla PULSADA, quedándose solo con los modificadores
-     * relevantes. Devuelve null si la tecla es un modificador suelto (ALT/CTRL/SHIFT/META/ALT_GR),
-     * que por sí sola no es un atajo.
+     * Builds the combination for a key-PRESSED event, keeping only the relevant modifiers.
+     *
+     * @param e key event
+     * @return the combination, or {@code null} if the key is a bare modifier
+     * (ALT/CTRL/SHIFT/META/ALT_GR), which alone is not a shortcut
      */
     public static KeyStroke fromKeyEvent(KeyEvent e) {
         return fromKeyEvent(e, false);
     }
 
     /**
-     * Igual que {@link #fromKeyEvent(KeyEvent)} pero si {@code keycode_only} descarta los
-     * modificadores (para acciones de SOLO tecla base, como la nota de voz).
+     * Same as {@link #fromKeyEvent(KeyEvent)} but drops modifiers when {@code keycode_only} (for
+     * keycode-only actions, such as the voice note).
+     *
+     * @param e key event
+     * @param keycode_only true to ignore modifiers
+     * @return the combination, or {@code null} for a bare modifier key
      */
     public static KeyStroke fromKeyEvent(KeyEvent e, boolean keycode_only) {
 
@@ -486,8 +507,11 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Texto legible de una combinación para mostrarla ("CTRL + ALT + ESC", "ALT + P"). Las partes
-     * salen en MAYÚSCULAS y en el orden CTRL, ALT, SHIFT, META, tecla.
+     * Human-readable parts of a combination for display (e.g. "CTRL + ALT + ESC", "ALT + P"), in
+     * UPPERCASE and in CTRL, ALT, SHIFT, META, key order.
+     *
+     * @param ks combination, or {@code null}
+     * @return the display parts (a single {@code "?"} element if {@code ks} is null)
      */
     public static String[] keyCapStrings(KeyStroke ks) {
 
@@ -519,8 +543,8 @@ public final class KeyboardShortcuts {
         return parts.toArray(new String[0]);
     }
 
-    // Nombre corto de una tecla para la "tecla física" del panel/ayuda. Las flechas y teclas
-    // habituales se abrevian; el resto usa KeyEvent.getKeyText.
+    // Short name for a key's "physical key" label in the panel/help. Arrows and common keys get
+    // abbreviated; everything else falls back to KeyEvent.getKeyText.
     private static String keyName(int key_code) {
         switch (key_code) {
             case KeyEvent.VK_UP:

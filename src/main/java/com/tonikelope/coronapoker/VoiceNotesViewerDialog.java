@@ -42,34 +42,33 @@ import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 
 /**
- * Visor (galería) de las notas de voz guardadas en {@link Init#VOICE_DIR}. Cada
- * fila muestra el jugador (nick), la fecha/hora y la duración de la nota, con un
- * botón de audición play/stop que reutiliza el MISMO sistema que las audiciones
- * de la pestaña Audio ({@link Audio#previewResource}) y un botón de borrado con
- * confirmación.
+ * Viewer (gallery) for the voice notes saved under {@link Init#VOICE_DIR}. Each row
+ * shows the player nick, timestamp and duration, with a play/stop preview button that
+ * reuses the SAME playback system as the Audio tab ({@link Audio#previewResource}), plus
+ * a delete button with confirmation.
  *
- * Los metadatos se derivan del propio fichero: el nombre sigue el patrón
- * {@code <millisEpoch>_<nickSaneado>_<random8>.wav} (ver
- * {@code WaitingRoomFrame.recibirNotaVoz}), de donde salen el timestamp y el
- * nick; la duración se lee de la cabecera del WAV.
+ * Metadata is derived from the file itself: the name follows the pattern
+ * {@code <millisEpoch>_<sanitizedNick>_<random8>.wav} (see
+ * {@code WaitingRoomFrame.recibirNotaVoz}), which yields the timestamp and nick; the
+ * duration is read from the WAV header.
  *
  * @author tonikelope
  */
 public class VoiceNotesViewerDialog extends javax.swing.JDialog {
 
-    // Ventana única: reabrir desde el mismo owner reutiliza la instancia y la refresca.
+    // Singleton window: reopening from the same owner reuses the instance and refreshes it.
     private static volatile VoiceNotesViewerDialog INSTANCE = null;
 
-    // Tope de audición: las notas duran como mucho 15 s, con margen para no cortar el final.
+    // Preview cap: notes are at most 15s long, with margin to avoid cutting off the tail.
     private static final int MAX_PREVIEW_MS = 20000;
 
-    // Una nota + sus metadatos resueltos al recargar la lista.
+    // A note plus the metadata resolved when the list is reloaded.
     private static final class Note {
 
         final File file;
-        final long millis;      // timestamp de creación de la nota (prefijo del nombre)
-        final String nick;      // nick saneado extraído del nombre
-        final long duration_ms; // duración derivada del WAV (0 si no se pudo leer)
+        final long millis;      // note creation timestamp (filename prefix)
+        final String nick;      // sanitized nick extracted from the filename
+        final long duration_ms; // duration derived from the WAV (0 if it couldn't be read)
 
         Note(File file, long millis, String nick, long duration_ms) {
             this.file = file;
@@ -85,8 +84,10 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
     private List<Note> notes = new ArrayList<>();
 
     /**
-     * Abre el visor (o lo trae al frente y lo refresca si ya está abierto para
-     * ese mismo owner). Debe llamarse en el EDT.
+     * Opens the viewer (or brings it to front and refreshes it if already open for
+     * the same owner). Must be called on the EDT.
+     *
+     * @param owner window that will own the dialog
      */
     public static void open(Window owner) {
 
@@ -110,7 +111,7 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
 
     private VoiceNotesViewerDialog(Window owner) {
 
-        super(owner); // JDialog(Window) => NO modal: no bloquea el diálogo de ajustes.
+        super(owner); // JDialog(Window) => non-modal: does not block the settings dialog.
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         Helpers.setTranslatedTitle(this, "audio.notas_de_voz");
@@ -126,7 +127,7 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         setMinimumSize(new Dimension(Math.round(560 * Helpers.DIALOG_ZOOM), Math.round(360 * Helpers.DIALOG_ZOOM)));
         setSize(Math.round(720 * Helpers.DIALOG_ZOOM), Math.round(520 * Helpers.DIALOG_ZOOM));
 
-        // Corta la audición en curso al cerrar (coherente con AudioSettingsPanel.cleanup()).
+        // Stop any ongoing preview on close (consistent with AudioSettingsPanel.cleanup()).
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosed(java.awt.event.WindowEvent e) {
@@ -151,9 +152,9 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         setContentPane(content);
     }
 
-    // Relee VOICE_DIR y reconstruye la lista (más nuevas arriba). Corta cualquier audición en curso:
-    // los botones play se recrean, así que su estado no debe quedar colgando. El listado y la
-    // lectura de cabeceras WAV (para la duración) se hacen FUERA del EDT; solo se puebla la UI en él.
+    // Re-reads VOICE_DIR and rebuilds the list (newest first). Stops any ongoing preview: the play
+    // buttons get recreated, so their state must not be left dangling. Listing files and reading
+    // WAV headers (for duration) run OFF the EDT; only the UI population happens on it.
     private void reload() {
 
         Audio.stopPreview();
@@ -185,8 +186,8 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         body.repaint();
     }
 
-    // Panel con scroll y una fila por nota, alineadas en columnas por GridBagLayout:
-    // [ nick | fecha/hora | duración | ▶ play/stop | 🗑 borrar ].
+    // Scrollable panel with one row per note, columns aligned via GridBagLayout:
+    // [ nick | date/time | duration | play/stop | delete ].
     private JScrollPane buildListScroll() {
 
         JPanel list = new JPanel(new GridBagLayout());
@@ -199,8 +200,8 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
             addNoteRow(list, row++, note);
         }
 
-        // Fila de relleno al fondo con todo el peso vertical: empuja las notas hacia arriba en vez
-        // de repartirlas por el alto del scroll.
+        // Filler row at the bottom with all the vertical weight: pushes the notes to the top instead
+        // of spreading them across the scroll area's height.
         GridBagConstraints filler = new GridBagConstraints();
         filler.gridx = 0;
         filler.gridy = row;
@@ -256,9 +257,9 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         list.add(buildDeleteButton(note), cell(4, row, 0.0, GridBagConstraints.CENTER));
     }
 
-    // Botón de audición play/stop: mismo sistema que la pestaña Audio. previewResource corta
-    // cualquier audición previa (solo suena una a la vez); el botón de la anterior vuelve solo a
-    // "play" porque su propio on_stop se dispara (en el EDT) al cortarse su reproducción.
+    // Play/stop preview button: same system as the Audio tab. previewResource stops any previous
+    // preview (only one plays at a time); the previous button reverts to "play" on its own because
+    // its own on_stop callback fires (on the EDT) when its playback gets cut off.
     private JButton buildPlayButton(Note note) {
 
         JButton b = new JButton(Helpers.playStopGlyph(false));
@@ -284,8 +285,8 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         return b;
     }
 
-    // Botón papelera: borra la nota del disco tras confirmar. Corta la audición por si sonaba esta
-    // (o cualquier otra) y recarga la lista.
+    // Trash button: deletes the note from disk after confirmation. Stops the preview in case this
+    // (or any other) note was playing, then reloads the list.
     private JButton buildDeleteButton(Note note) {
 
         JButton b = new JButton(Helpers.deleteGlyph(Math.round(15 * Helpers.DIALOG_ZOOM)));
@@ -315,8 +316,8 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         b.setToolTipText(Translator.translate(tooltip_key));
     }
 
-    // Constraints de una celda de la rejilla: la columna del nick (weightx=1) absorbe el ancho
-    // sobrante; el resto van pegadas a la derecha. Padding uniforme entre celdas.
+    // Grid cell constraints: the nick column (weightx=1) absorbs the leftover width; the rest
+    // stay right-aligned. Uniform padding between cells.
     private static GridBagConstraints cell(int gridx, int gridy, double weightx, int anchor) {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = gridx;
@@ -328,7 +329,7 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         return gbc;
     }
 
-    // mm:ss (las notas son cortas, pero el formato aguanta cualquier duración).
+    // mm:ss (notes are short, but the format handles any duration).
     private static String formatDuration(long ms) {
         long total_sec = Math.round(ms / 1000.0);
         return String.format("%d:%02d", total_sec / 60, total_sec % 60);
@@ -339,7 +340,7 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         return base.deriveFont(style, size * Helpers.DIALOG_ZOOM);
     }
 
-    // Lista los .wav de VOICE_DIR, resuelve sus metadatos y ordena de la más nueva a la más antigua.
+    // Lists the .wav files in VOICE_DIR, resolves their metadata, and sorts newest first.
     private static List<Note> loadNotes() {
 
         List<Note> result = new ArrayList<>();
@@ -358,12 +359,13 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         return result;
     }
 
-    // Deriva (millis, nick) del nombre <millis>_<nick>_<random8>.wav y la duración del WAV. Tolera
-    // nombres que no encajen: cae al lastModified del fichero y al nombre completo como nick.
+    // Derives (millis, nick) from the <millis>_<nick>_<random8>.wav filename, plus the WAV duration.
+    // Tolerates names that don't fit the pattern: falls back to the file's lastModified and to the
+    // full name as nick.
     private static Note toNote(File f) {
 
         String name = f.getName();
-        String base = name.substring(0, name.length() - 4); // sin ".wav"
+        String base = name.substring(0, name.length() - 4); // strip ".wav"
 
         long millis;
         String nick;
@@ -388,8 +390,8 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         return new Note(f, millis, nick, durationMillis(f));
     }
 
-    // Duración de la nota: se lee de la cabecera del WAV (sin decodificar el audio). Con caída a una
-    // estimación por tamaño para mu-law 16 kHz mono (~16000 bytes/seg) si la cabecera no da frames.
+    // Note duration: read from the WAV header (without decoding the audio). Falls back to a
+    // size-based estimate for mu-law 16 kHz mono (~16000 bytes/sec) if the header gives no frames.
     private static long durationMillis(File f) {
         try {
             javax.sound.sampled.AudioFileFormat aff = javax.sound.sampled.AudioSystem.getAudioFileFormat(f);
@@ -399,9 +401,9 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
                 return (long) (frames / rate * 1000.0);
             }
         } catch (Exception ex) {
-            // formato inesperado: se estima por tamaño abajo
+            // unexpected format: estimate by size below
         }
-        long bytes = f.length() - 44; // cabecera WAV canónica
+        long bytes = f.length() - 44; // canonical WAV header size
         return bytes > 0 ? bytes * 1000L / 16000L : 0;
     }
 }

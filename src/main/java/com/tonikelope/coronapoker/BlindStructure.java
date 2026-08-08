@@ -60,18 +60,16 @@ public final class BlindStructure {
     public static final int MAX_LEVELS = 64;
     public static final int MAX_NAME_LENGTH = 40;
     public static final double MIN_BLIND = 0.05;
-    // Las ciegas se ajustan en pasos de 0.05 (0.25/0.30/0.35 sí; 0.33/0.04 no).
-    // El motor del dinero trabaja por debajo en céntimos (0.01), pero la unidad
-    // de ajuste de ciegas es 0.05. Ver Helpers.floatClean (resolución del motor).
+    // Blinds step in 0.05 increments (0.25/0.30/0.35 valid; 0.33/0.04 not) — see
+    // the class Javadoc for why 0.05 vs. the engine's 0.01 cent resolution.
     public static final double BLIND_STEP = 0.05;
-    // Tope de una ciega (small o big), aplicado por validateLevels tanto a la
-    // escalera por defecto como a las estructuras personalizadas del editor. Se
-    // limita a 4.000.000 para mantener la consistencia con el buy-in, que es un
-    // int en todo el modelo (jugador, red, SQLite): el techo del buy-in es
-    // BuyinRules.CEIL_MAX_BB (500) big blinds, y 500 x 4.000.000 = 2.000.000.000
-    // cabe en int; el siguiente escalon 1-2-3-5 (big blind 6.000.000+) lo
-    // desbordaria. Asi ninguna ciega (por defecto o personalizada) puede generar
-    // un buy-in fuera del rango de int, sin necesidad de recortes artificiales.
+    // Cap on a single blind (small or big), applied by validateLevels to both
+    // the default ladder and editor-defined custom structures. Set to 4,000,000
+    // so no blind can push the buy-in (an int throughout the model: player,
+    // network, SQLite) out of range: the buy-in ceiling is
+    // BuyinRules.CEIL_MAX_BB (500) big blinds, and 500 x 4,000,000 =
+    // 2,000,000,000 fits in an int, while the next 1-2-3-5 step (6,000,000+)
+    // would overflow it.
     public static final double MAX_BLIND = 4_000_000;
 
     // Validation error codes (also i18n keys). null = valid.
@@ -157,8 +155,8 @@ public final class BlindStructure {
 
     /**
      * Validates a {sb, bb} ladder: at least one level, each value in range and
-     * at one-decimal resolution, big blind &gt;= small blind, and both columns
-     * strictly increasing from one level to the next.
+     * on the {@link #BLIND_STEP} grid, big blind &gt;= small blind, and both
+     * columns strictly increasing from one level to the next.
      *
      * @return null if valid, otherwise an i18n error key
      */
@@ -284,12 +282,9 @@ public final class BlindStructure {
      * game climbs many levels, so the ladder runs high before the blinds finally
      * stop rising.
      *
-     * The top level is capped at 2,000,000/4,000,000 (not the {@link #MAX_BLIND}
-     * 10M) on purpose: the buy-in (chip count) is an int across the whole model,
-     * and the buy-in ceiling is up to {@code BuyinRules.CEIL_MAX_BB} (500) big
-     * blinds. 500 x 4,000,000 = 2,000,000,000 still fits in an int; the next 1-2-3-5
-     * step (3M/6M) would overflow it. So this top keeps buy-in and blind consistent
-     * without any artificial clamp. Returned as a fresh array on each call.
+     * The top level lands exactly at {@link #MAX_BLIND} — see its field comment
+     * for why (the buy-in, an int throughout the model, would overflow one more
+     * 1-2-3-5 step). Returned as a fresh array on each call.
      */
     public static double[][] defaultLevels() {
         double[] sbs = {

@@ -39,15 +39,15 @@ import javax.swing.WindowConstants;
 import javax.swing.border.TitledBorder;
 
 /**
- * Diálogo unificado de ajustes. En partida muestra 3 pestañas: Apariencia, Audio y
- * Partida. Fuera de partida (lanzador / sala de espera, sin GameFrame) se abre en modo
- * "general" con solo Apariencia y Audio; la pestaña Partida (ciegas + reglas) solo se
- * monta en partida.
+ * Unified settings dialog. Appearance, Audio, Shortcuts and Debug tabs are always
+ * present; the Game tab (blinds + rules) is added only in-game (live, GameSettingsPanel)
+ * or in the waiting room (pre-game config, WaitingGameSettingsPanel), never both. Outside
+ * a game (launcher, no GameFrame) the Game tab is omitted entirely.
  *
- * Apariencia y Audio se aplican EN VIVO en partida (preferencia local) y solo PERSISTEN
- * la preferencia fuera de ella (no hay mesa contra la que previsualizar). Partida (ciegas
- * + reglas) solo al pulsar GUARDAR. Para clientes la pestaña Partida es de solo-lectura
- * (las reglas las manda el host); Apariencia y Audio siguen siendo editables (locales).
+ * Appearance and Audio apply LIVE in-game (local preference) and only PERSIST the
+ * preference outside of one (no table to preview against). Game (blinds + rules) applies
+ * only on SAVE. For clients the Game tab is read-only (the host owns the rules);
+ * Appearance and Audio remain editable (local).
  *
  * @author tonikelope
  */
@@ -56,24 +56,24 @@ public class SettingsDialog extends JDialog {
     private final AppearanceSettingsPanel appearance_panel;
     private final AudioSettingsPanel audio_panel;
     private final GameSettingsPanel game_panel;
-    // Pestaña "Partida" de la SALA DE ESPERA (config de timba antes de empezar). Excluyente
-    // con game_panel: uno u otro según el contexto (in-game vs sala), nunca los dos.
+    // Waiting-room "Game" tab (session config before it starts). Mutually exclusive with
+    // game_panel: only one or the other depending on context (in-game vs waiting room), never both.
     private final WaitingGameSettingsPanel waiting_panel;
-    // Pestaña "Debug": consola de logs (java.util.logging) de solo lectura. Global (en todos
-    // los contextos), sin ajustes que confirmar/revertir.
+    // "Debug" tab: read-only java.util.logging console. Global (all contexts), no settings
+    // to confirm/revert.
     private final DebugSettingsPanel debug_panel;
-    // Pestaña "Atajos": reasigna los atajos de teclado globales. Edita el registro
-    // (KeyboardShortcuts) de forma transaccional, igual que Apariencia/Audio.
+    // "Shortcuts" tab: rebinds global keyboard shortcuts. Edits the KeyboardShortcuts
+    // registry transactionally, same as Appearance/Audio.
     private final ShortcutsSettingsPanel shortcuts_panel;
-    // Panel de pestañas y el índice de la pestaña "Atajos", para poder abrir el diálogo
-    // directamente en ella (botón "Personalizar" del diálogo de atajos).
+    // Tab pane and the index of the "Shortcuts" tab, so the dialog can be opened directly
+    // on it (the "Customize" button in the shortcuts dialog).
     private final JTabbedPane tabs = new JTabbedPane();
     private int shortcuts_tab_index = -1;
-    // Diálogo transaccional: true solo si se pulsó GUARDAR (entonces NO se revierte).
+    // Transactional dialog: true only if SAVE was pressed (then nothing is reverted).
     private boolean committed = false;
 
-    // Instancia abierta (único modal a la vez). La usa el cierre automático al arrancar la
-    // partida (closeIfOpen) y el refresco del espejo de la pestaña Partida de sala.
+    // Currently open instance (only one modal at a time). Used by the auto-close on game
+    // start (closeIfOpen) and by the waiting-room Game tab mirror refresh.
     private static volatile SettingsDialog INSTANCE;
 
     public static void open(java.awt.Frame parent) {
@@ -84,8 +84,8 @@ public class SettingsDialog extends JDialog {
         });
     }
 
-    // Abre el diálogo directamente en la pestaña "Atajos" (lo usa el botón "Personalizar" del
-    // diálogo de atajos independiente).
+    // Opens the dialog directly on the "Shortcuts" tab (used by the standalone shortcuts
+    // dialog's "Customize" button).
     public static void openOnShortcuts(java.awt.Frame parent) {
         Helpers.GUIRun(() -> {
             SettingsDialog dialog = new SettingsDialog(parent, true);
@@ -95,7 +95,7 @@ public class SettingsDialog extends JDialog {
         });
     }
 
-    // Selecciona la pestaña "Atajos" si existe.
+    // Selects the "Shortcuts" tab, if present.
     public void selectShortcutsTab() {
         if (shortcuts_tab_index >= 0) {
             tabs.setSelectedIndex(shortcuts_tab_index);
@@ -105,26 +105,26 @@ public class SettingsDialog extends JDialog {
     public SettingsDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        // Tres contextos según dónde se abra la rueda:
-        //  - EN PARTIDA (hay GameFrame): pestaña Partida EN VIVO (GameSettingsPanel).
-        //  - EN LA SALA DE ESPERA (parent = WaitingRoomFrame, sin partida empezada): pestaña
-        //    Partida de SALA (WaitingGameSettingsPanel, config completa pre-timba).
-        //  - LANZADOR (ni juego ni sala): solo Apariencia y Sonido (sin pestaña Partida).
+        // Three contexts depending on where the settings dialog is opened from:
+        //  - IN-GAME (GameFrame exists): live Game tab (GameSettingsPanel).
+        //  - WAITING ROOM (parent = WaitingRoomFrame, game not started yet): waiting-room
+        //    Game tab (WaitingGameSettingsPanel, full pre-game config).
+        //  - LAUNCHER (neither game nor waiting room): only Appearance and Audio (no Game tab).
         boolean in_game = GameFrame.getInstance() != null;
         boolean in_waiting = !in_game && (parent instanceof WaitingRoomFrame)
                 && !((WaitingRoomFrame) parent).isPartida_empezada();
         boolean read_only_game = !in_game || !GameFrame.getInstance().isPartida_local();
-        // En la sala: editable solo para el HOST. Cliente / no-servidor -> solo lectura TOTAL.
-        // Al RECUPERAR una timba (parada para admitir jugadores), el HOST puede editar los
-        // ajustes de "Partida" (reglas + tiempo de pensar) y la dificultad de bots, pero la
-        // economía (compra, recompra, ciegas, estructura, ante, straddle) sigue BLOQUEADA con
-        // los valores de la timba recuperada -> modo recover parcial (no read-only total).
+        // In the waiting room: editable only for the HOST; client / non-server -> fully
+        // read-only. When RECOVERING a session (paused to admit players), the host can
+        // edit the "Game" settings (rules + think time) and bot difficulty, but the
+        // economy (buy-in, rebuy, blinds, structure, ante, straddle) stays LOCKED to the
+        // recovered session's values -> partial recover mode, not fully read-only.
         boolean read_only_wait = !in_waiting || !((WaitingRoomFrame) parent).isServer();
         boolean recover_wait = in_waiting && !read_only_wait && GameFrame.isRECOVER();
 
         setTitle(Translator.translate("settings.ajustes"));
-        // DO_NOTHING: la X la gestiona windowClosing (pregunta antes de descartar, igual
-        // que el botón Cancelar).
+        // DO_NOTHING: the close (X) button is handled by windowClosing (confirms before
+        // discarding, same as the Cancel button).
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 
         appearance_panel = new AppearanceSettingsPanel();
@@ -133,21 +133,22 @@ public class SettingsDialog extends JDialog {
         waiting_panel = in_waiting ? new WaitingGameSettingsPanel(read_only_wait, recover_wait) : null;
         debug_panel = new DebugSettingsPanel();
         shortcuts_panel = new ShortcutsSettingsPanel();
-        // La pestaña Atajos edita el registro de atajos de forma transaccional: aplica en vivo,
-        // GUARDAR persiste y Cancelar revierte (igual que Apariencia y Audio).
+        // The Shortcuts tab edits the shortcuts registry transactionally: applies live,
+        // SAVE persists and Cancel reverts (same as Appearance and Audio).
         KeyboardShortcuts.beginTransaction();
 
-        // Cada pestaña va dentro de un JScrollPane (ScrollableTabPanel): sigue el ancho
-        // del viewport (sin barra horizontal espuria) y rellena el alto cuando cabe, pero
-        // muestra barra vertical cuando el contenido no entra. Así el diálogo se encoge y
-        // scrollea en resoluciones bajas en vez de salirse de la pantalla.
-        // Apariencia y Audio llevan su propio botón "Restaurar predeterminados" en un pie fijo de
-        // la pestaña (siempre visible, no se va con el scroll): cada uno restaura SOLO lo suyo, con
-        // la misma semántica transaccional (aplica en vivo; GUARDAR conserva, Cancelar revierte).
+        // Each tab lives inside a JScrollPane (ScrollableTabPanel): tracks the viewport
+        // width (no spurious horizontal bar) and fills the height when it fits, showing a
+        // vertical bar only when content overflows. This lets the dialog shrink and scroll
+        // at low resolutions instead of running off screen.
+        // Appearance and Audio each have their own "Restore defaults" button in a fixed
+        // footer (always visible, doesn't scroll away): each restores only its own tab,
+        // with the same transactional semantics (applies live; SAVE keeps it, Cancel
+        // reverts it).
         tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), tabWithRestore(appearance_panel, appearance_panel::restoreDefaults, Translator.translate("settings.tab_apariencia")));
         tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), tabWithRestore(audio_panel, audio_panel::restoreDefaults, Translator.translate("settings.tab_audio")));
-        // Atajos de teclado (global, en todos los contextos): reasignables, con su propio pie de
-        // restaurar predeterminados.
+        // Keyboard shortcuts (global, all contexts): rebindable, with its own
+        // restore-defaults footer.
         tabs.addTab(Translator.translate("settings.tab_atajos"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/keyboard.png")), tabWithRestore(shortcuts_panel, shortcuts_panel::restoreDefaults, Translator.translate("settings.tab_atajos")));
         shortcuts_tab_index = tabs.getTabCount() - 1;
         if (in_game) {
@@ -155,20 +156,19 @@ public class SettingsDialog extends JDialog {
         } else if (in_waiting) {
             tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(waiting_panel));
         }
-        // Consola de Debug (logs java.util.logging). Global, va la última. NO se envuelve en
-        // scrollableTab: la consola ya trae su propio JScrollPane y debe rellenar la pestaña.
+        // Debug console (java.util.logging). Global, added last. NOT wrapped in
+        // scrollableTab: the console already has its own JScrollPane and must fill the tab.
         tabs.addTab(Translator.translate("settings.tab_debug"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/log.png")), debug_panel);
 
-        // Al cambiar de pestaña se cancela cualquier captura de tecla armada en la pestaña Atajos
-        // (si no, seguiría viva fuera de ella y se comería la siguiente tecla pulsada).
+        // Switching tabs cancels any key-capture armed on the Shortcuts tab (otherwise it
+        // would stay live outside it and swallow the next key press).
         tabs.addChangeListener(e -> shortcuts_panel.cancelCapture());
 
-        // Diálogo TRANSACCIONAL: Apariencia y Audio se aplican en vivo como
-        // previsualización, pero GUARDAR es lo que los CONFIRMA y además aplica el modo
-        // de pantalla pendiente y la pestaña Partida (ciegas + reglas, solo si eres host:
-        // applyToGame no-opea para clientes). Cancelar / cerrar revierte TODO al estado
-        // de apertura (ver windowClosed). GUARDAR está siempre activo: para un cliente
-        // confirma sus ajustes LOCALES de apariencia y audio.
+        // TRANSACTIONAL dialog: Appearance and Audio apply live as a preview, but SAVE is
+        // what CONFIRMS them and also applies the pending display mode and the Game tab
+        // (blinds + rules, only if you're the host: applyToGame no-ops for clients).
+        // Cancel / close reverts EVERYTHING to the state at open (see windowClosed). SAVE
+        // is always active: for a client it confirms their LOCAL appearance/audio settings.
         JButton save_button = new JButton(Translator.translate("ui.guardar"));
         save_button.setBackground(new java.awt.Color(0, 130, 0));
         save_button.setForeground(new java.awt.Color(255, 255, 255));
@@ -182,7 +182,7 @@ public class SettingsDialog extends JDialog {
             }
             appearance_panel.applyPendingDisplayMode();
             appearance_panel.applyPendingDialogZoom();
-            // Confirma (persiste) las reasignaciones de atajos.
+            // Confirms (persists) the shortcut rebindings.
             KeyboardShortcuts.commit();
             dispose();
         });
@@ -211,8 +211,9 @@ public class SettingsDialog extends JDialog {
 
             @Override
             public void windowOpened(WindowEvent e) {
-                // Consola de Debug al fondo (lo más reciente) al abrir el diálogo. snapToBottom
-                // ya difiere el scroll (invokeLater), así que corre tras el layout del viewport.
+                // Scroll the Debug console to the bottom (most recent) when the dialog
+                // opens. snapToBottom already defers the scroll (invokeLater), so it runs
+                // after the viewport's layout.
                 debug_panel.snapToBottom();
             }
 
@@ -235,22 +236,22 @@ public class SettingsDialog extends JDialog {
 
             @Override
             public void windowClosed(WindowEvent e) {
-                // Si NO se guardó (Cancelar / cerrar), revierte los cambios EN VIVO de
-                // Apariencia y Audio al estado de apertura. El modo de pantalla y la
-                // pestaña Partida solo se aplican al GUARDAR (no aquí). Esto corre también
-                // en el cierre automático (dispose) al arrancar la partida: descarta sin
-                // preguntar (windowClosing -y su confirmación- no se dispara con dispose()).
+                // If NOT saved (Cancel / close), revert the LIVE Appearance/Audio changes
+                // to the state at open. Display mode and the Game tab only apply on SAVE
+                // (not here). This also runs on the automatic close (dispose) when the
+                // game starts: it discards without asking (windowClosing -and its
+                // confirmation- doesn't fire on dispose()).
                 if (!committed) {
                     appearance_panel.revert();
                     audio_panel.revert();
-                    // Descarta las reasignaciones de atajos (vuelve al estado de apertura).
+                    // Discards the shortcut rebindings (back to the state at open).
                     KeyboardShortcuts.revert();
                 }
-                // Cierra la captura de tecla del panel de audio + persiste el volumen.
+                // Closes the audio panel's key capture + persists the volume.
                 audio_panel.cleanup();
-                // Cierra cualquier captura de tecla pendiente de la pestaña Atajos.
+                // Closes any pending key capture on the Shortcuts tab.
                 shortcuts_panel.cleanup();
-                // Libera la suscripción de la consola de Debug a DebugLog.
+                // Releases the Debug console's subscription to DebugLog.
                 debug_panel.cleanup();
                 if (INSTANCE == SettingsDialog.this) {
                     INSTANCE = null;
@@ -258,63 +259,61 @@ public class SettingsDialog extends JDialog {
             }
         });
 
-        // Fuentes UNIFICADAS al tamaño del diálogo de nueva timba (16, conservando el
-        // estilo bold/plain de cada control). Las pestañas Apariencia y Audio usaban
-        // la fuente por defecto (más pequeña) y quedaban descompensadas respecto a
-        // Partida; con esto todo el diálogo va al mismo tamaño.
+        // Fonts UNIFIED to the new-game dialog's size (16, keeping each control's
+        // bold/plain style). The Appearance and Audio tabs used the default (smaller)
+        // font and looked out of balance next to Game; this makes the whole dialog
+        // consistent.
         Helpers.setUniformFont(content, Helpers.GUI_FONT, Math.round(16 * Helpers.DIALOG_ZOOM));
 
         Helpers.scaleIcons(content, Helpers.DIALOG_ZOOM);
 
-        // setUniformFont no alcanza los títulos de los TitledBorder.
+        // setUniformFont doesn't reach TitledBorder titles.
         fixTitledBorderFonts(content, save_button.getFont());
 
-        // Arreglos de tamaño del panel de audio (máximos de fila/panel), ya con la
-        // fuente unificada aplicada.
+        // Audio panel sizing fixups (row/panel maximums), after the unified font is applied.
         audio_panel.applyFontsAndSizing();
 
-        // La consola de Debug conserva su fuente monoespaciada de consola (setUniformFont la
-        // acaba de pisar con la GUI_FONT). Se repone antes del pack.
+        // Restore the Debug console's monospace font (setUniformFont just overwrote it
+        // with GUI_FONT). Done before pack().
         debug_panel.reapplyConsoleFont();
 
-        // Los botones de combinación de la pestaña Atajos van en fuente "Dialog" (la de la interfaz,
-        // McLaren, no trae los glifos de las flechas ↑↓←→); se repone tras setUniformFont.
+        // The Shortcuts tab's combo buttons use the "Dialog" font (the UI font, McLaren,
+        // lacks the ↑↓←→ arrow glyphs); restored after setUniformFont.
         shortcuts_panel.applyKeyFont();
 
-        // Botones de acción un pelín más grandes que el resto del diálogo.
+        // Action buttons slightly larger than the rest of the dialog.
         java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f * Helpers.DIALOG_ZOOM);
         save_button.setFont(buttons_font);
         cancel_button.setFont(buttons_font);
 
         pack();
 
-        // (Antes se ensanchaba ~15% para que la pestaña Partida respirase como el diálogo de
-        // nueva timba. Ahora la pestaña Audio, con los efectos en dos columnas, es la MÁS ancha
-        // y ya estira las demás de sobra, así que ese 15% solo dejaba hueco muerto a la derecha.
-        // Se deja el tamaño empaquetado = el mínimo que necesita el contenido.)
+        // Packed size stays at the content's minimum: Audio (two-column effects) is
+        // already the widest tab and stretches the rest, so no extra widening is needed.
 
-        // Tope al ÁREA ÚTIL de la pantalla (mismo patrón de baja resolución que
-        // NewGameDialog: getMaximumWindowBounds excluye la barra de tareas). El diálogo
-        // queda lo más pequeño posible que entre todo; si aún se sale (resolución muy
-        // baja / escalado alto), se recorta y cada pestaña pasa a scrollear. Los botones
-        // GUARDAR/Cancelar viven en el SOUTH, fuera del scroll, así que siempre se ven.
+        // Cap to the screen's usable area (same low-resolution pattern as NewGameDialog:
+        // getMaximumWindowBounds excludes the taskbar). The dialog stays as small as the
+        // content allows; if it still overflows (very low resolution / high scaling),
+        // it's clipped and each tab starts scrolling. SAVE/Cancel live in SOUTH, outside
+        // the scroll, so they're always visible.
         capToScreen();
 
-        // Único modal a la vez: registrarse como la instancia abierta (la limpia
-        // windowClosed). Lo usan closeIfOpen (auto-cierre al arrancar) y refreshWaitingMirror.
+        // Only one modal at a time: register as the open instance (cleared by
+        // windowClosed). Used by closeIfOpen (auto-close on start) and refreshWaitingMirror.
         INSTANCE = this;
     }
 
-    // Recorta el tamaño empaquetado al área útil de la pantalla (95%). Solo encoge.
+    // Clips the packed size to the screen's usable area (95%). Shrinks only.
     private void capToScreen() {
         Rectangle usable = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
         int max_w = Math.round(usable.width * 0.95f);
         int max_h = Math.round(usable.height * 0.95f);
         int w = getWidth();
         int h = getHeight();
-        // Si hay que recortar el ALTO, aparecerá barra vertical; reserva su ancho (~17px)
-        // para que NO se dispare además una barra horizontal espuria por el ancho que
-        // roba. Si la pantalla no da para ese extra, la horizontal aparece y se scrollea.
+        // If the HEIGHT needs clipping, a vertical scrollbar will appear; reserve its
+        // width (~17px) so it doesn't also trigger a spurious horizontal bar by eating
+        // into the width. If the screen can't fit that extra, the horizontal bar appears
+        // and scrolls.
         if (h > max_h) {
             w += new javax.swing.JScrollBar(javax.swing.JScrollBar.VERTICAL).getPreferredSize().width + 2;
         }
@@ -325,20 +324,21 @@ public class SettingsDialog extends JDialog {
         }
     }
 
-    // ¿Hay cambios sin confirmar en cualquiera de las pestañas? (Apariencia/Audio se
-    // aplican en vivo; Partida es apply-on-save.) Se usa para preguntar antes de
-    // descartar al cancelar.
+    // Are there unconfirmed changes in any tab? (Appearance/Audio apply live; Game is
+    // apply-on-save.) Used to ask for confirmation before discarding on cancel.
     private boolean isDirty() {
         return appearance_panel.isDirty() || audio_panel.isDirty() || KeyboardShortcuts.isDirty()
                 || (game_panel != null && game_panel.isDirty())
                 || (waiting_panel != null && waiting_panel.isDirty());
     }
 
-    // Cierra el diálogo abierto (si lo hay) SIN preguntar por cambios sin guardar. Lo usa
-    // el arranque de partida en el cliente: una vez empezada la timba los ajustes de la
-    // pestaña Partida de sala ya no aplican. dispose() directo NO dispara windowClosing
-    // (donde vive la confirmación de descarte), así que cierra como un Alt+F4 pero sin el
-    // diálogo de "¿descartar cambios?"; los cambios sin guardar se descartan. Idempotente.
+    /**
+     * Closes the currently open dialog, if any, WITHOUT asking about unsaved changes.
+     * Used when a game starts on the client: once the session has started, the
+     * waiting-room Game tab settings no longer apply. A direct dispose() does not fire
+     * windowClosing (where the discard confirmation lives), so this closes like Alt+F4
+     * but without the "discard changes?" prompt; unsaved changes are dropped. Idempotent.
+     */
     public static void closeIfOpen() {
         Helpers.GUIRun(() -> {
             SettingsDialog d = INSTANCE;
@@ -348,8 +348,10 @@ public class SettingsDialog extends JDialog {
         });
     }
 
-    // Refresca (en vivo) la pestaña Partida de SALA en SOLO-LECTURA cuando llega un nuevo
-    // espejo de config del host (GAMECONFIG). Llamar en el EDT.
+    /**
+     * Refreshes (live) the read-only waiting-room Game tab when a new host config mirror
+     * arrives (GAMECONFIG). Must be called on the EDT.
+     */
     public static void refreshWaitingMirror() {
         SettingsDialog d = INSTANCE;
         if (d != null && d.waiting_panel != null) {
@@ -357,8 +359,8 @@ public class SettingsDialog extends JDialog {
         }
     }
 
-    // Cierra descartando los cambios; si hay cambios sin confirmar, pregunta primero.
-    // Lo usan el botón Cancelar y la X de la ventana.
+    // Closes discarding changes; if there are unconfirmed changes, asks first. Used by
+    // the Cancel button and the window's close (X).
     private void cancelWithConfirm() {
         if (!isDirty() || Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("settings.descartar_cambios")) == javax.swing.JOptionPane.YES_OPTION) {
             dispose();
@@ -379,11 +381,11 @@ public class SettingsDialog extends JDialog {
         }
     }
 
-    // Pestaña con su propio pie fijo "Restaurar predeterminados": el contenido scrollea en el
-    // CENTRO y el botón queda abajo, siempre visible. Al pulsarlo restaura SOLO esta pestaña
-    // (restore, aplicado en vivo) y avisa de que hay que GUARDAR para conservarlo (el diálogo es
-    // transaccional: Cancelar lo revierte). El botón hereda la fuente/escala del diálogo con el
-    // resto del contenido (setUniformFont / scaleIcons sobre 'content').
+    // Tab with its own fixed "Restore defaults" footer: content scrolls in the CENTER and
+    // the button stays at the bottom, always visible. Pressing it restores only this tab
+    // (applied live) and warns that SAVE is needed to keep it (the dialog is
+    // transactional: Cancel reverts it). The button inherits the dialog's font/scale with
+    // the rest of the content (setUniformFont / scaleIcons over 'content').
     private JPanel tabWithRestore(Component panel, Runnable restore, String section_name) {
 
         JButton restore_button = new JButton(Translator.translate("settings.restaurar_predeterminados_seccion", section_name));
@@ -402,9 +404,9 @@ public class SettingsDialog extends JDialog {
         return wrap;
     }
 
-    // Envuelve el contenido de una pestaña en un JScrollPane sin borde, con barras
-    // vertical y horizontal bajo demanda y rueda de ratón fluida. El contenido (ver
-    // ScrollableTabPanel) RELLENA el viewport mientras cabe y solo scrollea cuando no.
+    // Wraps a tab's content in a borderless JScrollPane with on-demand
+    // vertical/horizontal bars and smooth mouse-wheel scrolling. The content (see
+    // ScrollableTabPanel) FILLS the viewport while it fits and only scrolls when it doesn't.
     private static JScrollPane scrollableTab(Component panel) {
         JScrollPane sp = new JScrollPane(new ScrollableTabPanel(panel),
                 JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
@@ -415,10 +417,10 @@ public class SettingsDialog extends JDialog {
         return sp;
     }
 
-    // Contenedor que, dentro de un JScrollPane, RELLENA el viewport mientras el contenido
-    // cabe (sigue su ancho/alto: ni barras espurias ni franja de fondo en pantallas
-    // amplias) y deja scrollear en el eje que NO cabe cuando el diálogo se encoge.
-    // Patrón estándar "ScrollablePanel".
+    // Container that, inside a JScrollPane, FILLS the viewport while the content fits
+    // (tracks its width/height: no spurious bars or dead background on wide screens) and
+    // lets the axis that doesn't fit scroll when the dialog shrinks. Standard
+    // "ScrollablePanel" pattern.
     private static final class ScrollableTabPanel extends JPanel implements Scrollable {
 
         ScrollableTabPanel(Component view) {
@@ -441,8 +443,8 @@ public class SettingsDialog extends JDialog {
             return orientation == SwingConstants.VERTICAL ? visible.height : visible.width;
         }
 
-        // Sigue el ancho del viewport solo si el contenido CABE; si no, deja que aparezca
-        // la barra horizontal (cuando el usuario estrecha mucho el diálogo).
+        // Tracks the viewport's width only if the content FITS; otherwise lets the
+        // horizontal bar appear (when the user narrows the dialog a lot).
         @Override
         public boolean getScrollableTracksViewportWidth() {
             return getParent() instanceof JViewport && getPreferredSize().width <= getParent().getWidth();

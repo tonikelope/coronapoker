@@ -40,11 +40,11 @@ import java.util.logging.Logger;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Lado cliente de la sala de espera. Gestiona la conexión al servidor (host),
- * el handshake ECDH/AES+HMAC, el bucle de comandos entrantes (CHAT, USERSLIST,
- * NEWUSER, DELUSER, GAME, CONF, etc.), el ping/pong y la reconexión automática.
+ * Client side of the waiting room. Manages the connection to the server (host), the
+ * ECDH/AES+HMAC handshake, the incoming command loop (CHAT, USERSLIST, NEWUSER, DELUSER,
+ * GAME, CONF, etc.), ping/pong and automatic reconnection.
  *
- * Se instancia desde WaitingRoomFrame cuando server == false.
+ * <p>Instantiated from {@code WaitingRoomFrame} when {@code server == false}.
  */
 public class NetClient {
 
@@ -54,10 +54,10 @@ public class NetClient {
 
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
-    // Gemelo cliente del tope de Participant.SOCKET_READER_QUEUE_CAPACITY: sin el, un host
-    // hostil que vomite comandos mas rapido de lo que el cliente los procesa lo tumba por
-    // memoria. Llena, el lector deja de vaciar el socket y la contrapresion de TCP frena al
-    // emisor. Holgadisimo para el juego, donde las rafagas legitimas son de decenas.
+    // Client-side twin of Participant.SOCKET_READER_QUEUE_CAPACITY: without it, a hostile host
+    // flooding commands faster than the client can process them would OOM it. Once full, the
+    // reader stops draining the socket and TCP backpressure throttles the sender. Generously
+    // sized for the game, where legitimate bursts are in the tens.
     public static final int SOCKET_READER_QUEUE_CAPACITY = 10000;
 
     private final LinkedBlockingQueue<String> local_client_socket_reader_queue = new LinkedBlockingQueue<>(SOCKET_READER_QUEUE_CAPACITY);
@@ -81,22 +81,20 @@ public class NetClient {
     private volatile Integer remote_server_pong2;
     private volatile int remote_server_latency;
     private volatile int remote_server_latency2;
-    // Flag consumido por runPingPongThreadCliente al inicio de cada iteracion
-    // para resetear su contador local consecutive_ping_failures. Se eleva en
-    // reconectarCliente al completarse una reconexion: si el contador habia
-    // acumulado fallos contra el socket viejo, el primer fail contra el nuevo
-    // (potencialmente legitimo por jitter post-reconexion) no debe alcanzar
-    // el threshold ni cerrar el socket recien instalado.
+    // Consumed by runPingPongThreadCliente at the start of each iteration to reset its local
+    // consecutive_ping_failures counter. Raised by reconectarCliente once a reconnection
+    // completes: if the counter had accumulated failures against the old socket, the first
+    // failure against the new one (possibly legitimate post-reconnect jitter) must not reach
+    // the threshold and close the freshly installed socket.
     private volatile boolean reset_ping_counters = false;
-    // Cliente: marca si runPingPongThreadCliente está vivo. Si murió por el
-    // threshold de PONGs perdidos (closeClientSocket+break), reconectarCliente lo
-    // resucita tras un reconnect OK. Análogo al ping_pong_thread_alive del host.
+    // Client-side: whether runPingPongThreadCliente is alive. If it died from the missed-PONG
+    // threshold (closeClientSocket+break), reconectarCliente revives it after a successful
+    // reconnect. Mirrors the host's ping_pong_thread_alive.
     private volatile boolean ping_pong_thread_alive = false;
-    // Telemetría: cuenta de reconexiones EXITOSAS del cliente al
-    // server desde el arranque. Mirror del contador per-peer en Participant
-    // (que cuenta en el servidor las reconexiones recibidas de cada peer).
-    // El cliente puede comparar su propio valor con el broadcast TELEMETRY
-    // del server para detectar divergencias.
+    // Telemetry: count of SUCCESSFUL client reconnections to the server since startup. Mirrors
+    // the per-peer counter in Participant (which counts, server-side, the reconnections
+    // received from each peer). The client can compare its own value against the server's
+    // TELEMETRY broadcast to detect divergence.
     private volatile int reconnection_count = 0;
 
     public NetClient(WaitingRoomFrame waiting_room) {
@@ -107,7 +105,7 @@ public class NetClient {
         return waiting_room;
     }
 
-    // --- Colas y mapas ---
+    // --- Queues and maps ---
     public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
         return received_confirmations;
     }
@@ -121,13 +119,16 @@ public class NetClient {
     }
 
     /**
-     * Encola lo leido del socket respetando el tope de la cola. Gemelo cliente de
-     * Participant.encolarLeido.
+     * Queues what was read from the socket, honoring the queue cap. Client-side twin of
+     * {@code Participant.encolarLeido}.
      *
-     * <p>NO descarta nada mientras la sala siga viva: reintenta cada segundo mientras la cola
-     * este llena, y la contrapresion de TCP hace el resto (el lector deja de vaciar el socket,
-     * su ventana se cierra y el host frena). Un {@code put} a secas hacia lo mismo pero en
-     * silencio y sin salida. Para la senal de cierre NO vale esto: usar {@link #encolarSenalCierre()}.
+     * <p>Never drops anything while the room is alive: retries every second while the queue is
+     * full, and TCP backpressure does the rest (the reader stops draining the socket, its
+     * window closes and the host throttles). A plain {@code put} would do the same but
+     * silently, with no way out. Do NOT use this for the close signal — use
+     * {@link #encolarSenalCierre()}.
+     *
+     * @param mensaje the raw line read from the socket
      */
     public void encolarLeido(String mensaje) {
         try {
@@ -145,13 +146,13 @@ public class NetClient {
     }
 
     /**
-     * Encola la senal de cierre pase lo que pase. Gemelo cliente de
-     * Participant.encolarSenalCierre.
+     * Queues the close signal no matter what. Client-side twin of
+     * {@code Participant.encolarSenalCierre}.
      *
-     * <p>Es lo unico que saca al consumidor de su {@code take()}, de donde salen el cierre del
-     * socket y la reconexion. Por eso aqui no se mira la salida de la sala. Si la cola estuviera
-     * llena se hace hueco tirando lo mas viejo: son comandos de una conexion que ya cae y
-     * ninguno importa mas que la propia senal.
+     * <p>It's the only thing that pulls the consumer out of its {@code take()}, which is where
+     * the socket close and reconnect originate — that's why room exit isn't checked here. If
+     * the queue is full, room is made by dropping the oldest entry: those are commands from a
+     * connection that's already going down, and none of them matter more than the signal itself.
      */
     public void encolarSenalCierre() {
         for (int intentos = 0; intentos < SOCKET_READER_QUEUE_CAPACITY
@@ -177,7 +178,7 @@ public class NetClient {
         return lock_client_reconnect;
     }
 
-    // --- Socket y streams ---
+    // --- Socket and streams ---
     public Socket getLocal_client_socket() {
         return local_client_socket;
     }
@@ -194,7 +195,7 @@ public class NetClient {
         this.local_client_buffer_read_is = r;
     }
 
-    // --- Llaves cripto ---
+    // --- Crypto keys ---
     public SecretKeySpec getLocal_client_aes_key() {
         return local_client_aes_key;
     }
@@ -219,7 +220,7 @@ public class NetClient {
         this.local_client_hmac_key_orig = k;
     }
 
-    // --- Datos del servidor remoto ---
+    // --- Remote server data ---
     public Reconnect2ServerDialog getReconnect_dialog() {
         return reconnect_dialog;
     }
@@ -293,27 +294,30 @@ public class NetClient {
     }
 
     /**
-     * Telemetría: nº de reconexiones EXITOSAS de este cliente al
-     * server desde el arranque del NetClient.
+     * @return the number of SUCCESSFUL reconnections of this client to the server since the
+     * {@code NetClient} started (telemetry)
      */
     public int getReconnectionCount() {
         return reconnection_count;
     }
 
     /**
-     * Incrementa el contador. Debe llamarse desde reconectarCliente()
-     * únicamente cuando la reconexión completa con éxito (ok_rec == true,
-     * antes del return de la rama positiva).
+     * Increments the counter. Must be called from {@code reconectarCliente()} only when the
+     * reconnection completes successfully ({@code ok_rec == true}, before the positive
+     * branch's return).
      */
     public void incrementReconnectionCount() {
         this.reconnection_count++;
     }
 
-    // --- Helpers de ciclo de vida ---
+    // --- Lifecycle helpers ---
+    /**
+     * Closes the client socket. Re-entrant for callers that already hold
+     * {@code local_client_socket_lock} (writeCommand, reconectarCliente).
+     */
     public void closeClientSocket() {
-        // Bajo local_client_socket_lock: el ping thread lo llamaba sin lock y podía
-        // cerrar un socket recién instalado por una reconexión en curso. Re-entrante
-        // para los callers que ya tienen el lock (writeCommand, reconectarCliente).
+        // Under local_client_socket_lock: the ping thread used to call this without the lock
+        // and could close a socket just installed by an in-progress reconnection.
         synchronized (local_client_socket_lock) {
             if (local_client_socket != null) {
                 try {
@@ -326,12 +330,15 @@ public class NetClient {
     }
 
     /**
-     * Cierra un socket CONCRETO cuyo write se ha atascado porque el servidor dejo de leer. A
-     * proposito NO toma local_client_socket_lock: ese candado lo retiene justamente el write
-     * bloqueado (writeCommand escribe bajo el), asi que closeClientSocket, que lo necesita, no
-     * podria desatascarlo. close() es thread-safe y despierta el write parado con IOException,
-     * cuya captura fuerza la reconexion. Se cierra la referencia recibida, no
-     * local_client_socket, para no tumbar un socket nuevo que una reconexion instalara entretanto.
+     * Closes a SPECIFIC socket whose write is stuck because the server stopped reading.
+     * Deliberately does NOT take {@code local_client_socket_lock}: that lock is exactly what
+     * the blocked write holds ({@link #writeCommand(String)} writes under it), so
+     * {@link #closeClientSocket()}, which needs it, couldn't unstick it. {@code close()} is
+     * thread-safe and wakes the stalled write with an {@code IOException}, whose catch forces a
+     * reconnect. Closes the received reference, not {@code local_client_socket}, so as not to
+     * tear down a new socket a reconnection may have installed meanwhile.
+     *
+     * @param s the specific socket to close
      */
     public void closeStalledSocket(Socket s) {
         if (s != null) {
@@ -343,10 +350,16 @@ public class NetClient {
         }
     }
 
-    // --- Transporte: lectura/escritura cifrada al servidor ---
-    // La clase representa el lado cliente, así que el destino/origen es siempre el servidor.
+    // --- Transport: encrypted read/write to the server ---
+    // This class is the client side, so the destination/origin is always the server.
+    /**
+     * Encrypts and writes a text command to the server, blocking while a reconnect is in
+     * progress and forcing one if the write fails.
+     *
+     * @param command the plaintext command to send
+     */
     public void writeCommand(String command) {
-        // Si estamos reconectando, esperamos a que termine antes de escribir.
+        // While reconnecting, wait for it to finish before writing.
         while (reconnecting) {
             synchronized (local_client_socket_lock) {
                 try {
@@ -359,19 +372,17 @@ public class NetClient {
             }
         }
 
-        // Tomamos local_client_socket_lock para leer la volatile + escribir
-        // atómicamente. Sin este lock, reconectarCliente (que tiene el mismo
-        // lock) puede reasignar local_client_socket a un socket nuevo entre
-        // nuestro read del volatile y el uso de getOutputStream(), provocando
-        // que escribamos al socket viejo. El sync sobre s.getOutputStream()
-        // anterior no protegía porque OutputStream del Socket viejo y el nuevo
-        // son monitores distintos.
+        // Takes local_client_socket_lock to read the volatile and write atomically. Without
+        // this lock, reconectarCliente (which holds the same lock) could reassign
+        // local_client_socket to a new socket between our read of the volatile and the
+        // getOutputStream() call, causing us to write to the stale socket. Synchronizing on
+        // s.getOutputStream() alone didn't protect against this, since the old and new
+        // Socket's OutputStream are different monitors.
         //
-        // Si reconectarCliente está activo cuando llegamos aquí, el lock está
-        // tomado y bloquearemos hasta que termine. Eso es exactamente lo que
-        // queremos — escribir DURANTE el reconnect no tiene sentido. La salida
-        // por wait(1000) interrumpible de arriba es para el caso de espera
-        // controlada por flag; este lock es para la consistencia atómica.
+        // If reconectarCliente is active when we get here, the lock is held and we'll block
+        // until it finishes — exactly what we want, since writing DURING a reconnect makes no
+        // sense. The interruptible wait(1000) above handles the flag-controlled wait; this
+        // lock handles atomic consistency.
         synchronized (local_client_socket_lock) {
             Socket s = local_client_socket;
             if (s == null) {
@@ -383,20 +394,25 @@ public class NetClient {
                 os.write((command + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 os.flush();
             } catch (IOException ex) {
-                // Paridad con Participant.writeCommandFromServer :
-                // si el write falla, el socket esta muerto. Cerramos para forzar
-                // readLine null en runSocketReaderClientThread -> reconectarCliente().
-                // Sin esto el cliente solo detectaba la caida cuando el reader
-                // devolvia null por su cuenta, que en Linux sin keepalive tarda
-                // ~16 min de TCP retransmit.
+                // Parity with Participant.writeCommandFromServer: if the write fails, the
+                // socket is dead. Close it to force a null readLine in
+                // runSocketReaderClientThread -> reconectarCliente(). Without this, the client
+                // only detected the drop when the reader returned null on its own, which on
+                // Linux without keepalive takes ~16 min of TCP retransmits.
                 LOGGER.log(Level.WARNING, "Client write failed — socket dead, forcing reconnect", ex);
                 closeClientSocket();
             }
         }
     }
 
+    /**
+     * Reads and decrypts the next text command from the server, transparently handling
+     * relayed binary frames and dropping (not disconnecting on) frames that fail channel auth.
+     *
+     * @return the decrypted command, or {@code null} on end of stream / I/O failure
+     */
     public String readCommand() {
-        // Si estamos reconectando, esperamos.
+        // While reconnecting, wait.
         while (reconnecting) {
             synchronized (local_client_socket_lock) {
                 try {
@@ -424,11 +440,11 @@ public class NetClient {
                     try {
                         return Helpers.decryptCommand(frame.text(), local_client_aes_key, local_client_hmac_key);
                     } catch (java.security.KeyException ke) {
-                        // Se DESCARTA el frame y se sigue leyendo, como documenta SECURITY.md
-                        // ("the receiver drops the frame"). Antes esto salia del bucle y
-                        // acababa en el return null de abajo, o sea en EOF: un frame que no
-                        // supere el canal disparaba una reconexion completa en vez de
-                        // ignorarse.
+                        // The frame is DROPPED and reading continues, as SECURITY.md documents
+                        // ("the receiver drops the frame"). This used to break out of the loop
+                        // and fall through to the return null below, i.e. EOF: a frame that
+                        // failed channel auth triggered a full reconnect instead of being
+                        // ignored.
                         LOGGER.log(Level.WARNING,
                                 "Dropping unauthenticated frame from the host ({0}) — wrong password, MITM or corruption",
                                 ke.getMessage());
@@ -436,8 +452,8 @@ public class NetClient {
                     }
                 }
             } catch (Exception ex) {
-                // Los fallos de canal ya no llegan aqui: se descartan por frame dentro del
-                // bucle. Lo que quede es I/O real, y eso si es fin de lectura.
+                // Channel failures no longer reach here: they're dropped per-frame inside the
+                // loop. What's left is real I/O, and that does mean end of read.
                 LOGGER.log(Level.SEVERE, null, ex);
             }
         }
@@ -445,13 +461,14 @@ public class NetClient {
         return null;
     }
 
-    // F2 ANTI-DoS (canal BINARIO lado CLIENTE): simétrico de Participant.binaryInboundAbuse. Un HOST hostil
-    // podría floodear al cliente con frames binarios (voz/stats) y agotar hilos/disco/CPU de SU máquina
-    // (statsSyncOnMessage = 1 hilo+SQLite por frame; nota de voz = escritura a disco + reproducción). Igual
-    // que en el host: token-bucket propio, exceso -> DROP silencioso ANTES de descifrar/procesar. SIN aviso:
-    // un push de stats grande y LEGÍTIMO del host (un cliente con mucho backlog al conectar) es
-    // indistinguible de abuso, y descartar es inofensivo (import idempotente, resync la próxima vez); avisar
-    // acusaría a un host honesto. Único hilo (el lector, serializado en local_client_buffer_read_is) -> sin lock.
+    // F2 ANTI-DoS (client-side BINARY channel): symmetric to Participant.binaryInboundAbuse. A hostile
+    // HOST could flood the client with binary frames (voice/stats) and exhaust threads/disk/CPU on ITS
+    // OWN machine (statsSyncOnMessage = 1 thread+SQLite per frame; a voice note = disk write + playback).
+    // Same as the host side: its own token bucket, excess -> silent DROP BEFORE decrypting/processing. No
+    // warning: a large but LEGITIMATE stats push from the host (a client with a big backlog on connect)
+    // is indistinguishable from abuse, and dropping is harmless (import is idempotent, resynced next
+    // time); warning would falsely accuse an honest host. Single thread (the reader, serialized on
+    // local_client_buffer_read_is) -> no lock needed.
     private static final double BINARY_INBOUND_BURST = 128.0;
     private static final double BINARY_INBOUND_REFILL_PER_SEC = 8.0;
     private double binary_inbound_tokens = BINARY_INBOUND_BURST;
@@ -470,7 +487,7 @@ public class NetClient {
             binary_inbound_tokens -= 1.0;
             return false;
         }
-        return true; // sin tokens -> exceso de frecuencia
+        return true; // no tokens left -> rate exceeded
     }
 
     /**
@@ -480,7 +497,7 @@ public class NetClient {
      * frame is dropped without disturbing the command stream.
      */
     private void handleBinaryFromServer(byte[] frameBody) {
-        // F2 ANTI-DoS: rate-limit del canal binario ANTES de descifrar/procesar. Exceso -> DROP silencioso.
+        // F2 ANTI-DoS: rate-limit the binary channel BEFORE decrypting/processing. Excess -> silent DROP.
         if (binaryInboundAbuse()) {
             return;
         }
@@ -505,6 +522,8 @@ public class NetClient {
      * Binary sibling of {@link #writeCommand(String)}: writes a binary {@link WireFrame}
      * (a voice/avatar blob) to the server. Holds the same socket lock as the text writer,
      * so a binary frame and a text line never interleave on the channel.
+     *
+     * @param frameBody the raw binary frame payload to send
      */
     public void writeBinary(byte[] frameBody) {
         while (reconnecting) {

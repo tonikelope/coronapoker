@@ -48,11 +48,11 @@ public final class Fe25519 {
     public static final Fe25519 ONE = new Fe25519(BigInteger.ONE);
 
     /**
-     * sqrt(-1) como Fe25519, cacheado UNA vez. {@link #sqrtRatioM1} lo usaba vía {@code of(SQRT_M1)}
-     * dos veces por llamada, y se llama en cada {@code encode}/{@code decode} (~104 veces por
-     * bloqueo de baraja): cada {@code of(SQRT_M1)} hacía un {@code new Fe25519} + {@code BigInteger.mod}
-     * y forzaba re-descomponer a limbs en el siguiente {@code mul}. Como constante compartida, su
-     * {@code limbsCache} se puebla una vez y se reutiliza. Valor idéntico, sin cambiar la reducción.
+     * sqrt(-1) as a Fe25519, cached ONCE. {@link #sqrtRatioM1} used to call {@code of(SQRT_M1)}
+     * twice per invocation, and it runs on every {@code encode}/{@code decode} (~104 times per
+     * deck lock): each {@code of(SQRT_M1)} did a {@code new Fe25519} + {@code BigInteger.mod} and
+     * forced the next {@code mul} to re-decompose into limbs. As a shared constant, its
+     * {@code limbsCache} is populated once and reused. Same value, no change to the reduction.
      */
     private static final Fe25519 SQRT_M1_FE = of(SQRT_M1);
 

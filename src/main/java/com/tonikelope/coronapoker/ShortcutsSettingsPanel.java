@@ -43,44 +43,43 @@ import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 
 /**
- * Pestaña "Atajos" del diálogo de Ajustes: lista las acciones reasignables (de
- * {@link KeyboardShortcuts}) agrupadas por sección, cada sección en su propia caja con borde negro
- * fino, y las cajas repartidas en DOS columnas (equilibradas por número de filas) para no ser un
- * único bloque vertical larguísimo. Cada acción lleva un botón con su combinación actual; al
- * pulsarlo, el botón entra en modo captura ("Pulsa la combinación...") y la siguiente combinación de
- * teclas pasa a ser el nuevo atajo, salvo que ya esté en uso por otra acción (se ignora). Para
- * CANCELAR una captura basta con hacer clic fuera; no se usa ninguna tecla, para que cualquier
- * tecla —incluida ESC— pueda asignarse.
+ * "Shortcuts" tab of the Settings dialog: lists the reassignable actions (from
+ * {@link KeyboardShortcuts}) grouped by section, each section in its own thin black-bordered box,
+ * split across TWO columns (balanced by row count) so it isn't one long vertical block. Each action
+ * has a button showing its current combination; clicking it enters capture mode ("Press the
+ * combination...") and the next key combination becomes the new shortcut, unless another action
+ * already uses it (then it's ignored). To CANCEL a capture, just click outside; no key is used for
+ * cancel, so any key — including ESC — can be assigned.
  *
- * Los cambios se aplican EN VIVO sobre el registro (transacción abierta por el diálogo) y solo
- * persisten al GUARDAR; Cancelar los revierte. La captura pone {@link KeyboardShortcuts#setCapturing}
- * para que los dispatchers globales se aparten y la tecla no dispare el atajo que tuviera.
+ * Changes apply LIVE to the registry (transaction opened by the dialog) and only persist on SAVE;
+ * Cancel reverts them. Capture sets {@link KeyboardShortcuts#setCapturing} so the global dispatchers
+ * step aside and the key doesn't trigger whatever shortcut it used to.
  *
- * Los botones muestran la combinación con la fuente "Dialog" (ver {@link #applyKeyFont()}): la fuente
- * de la interfaz (McLaren) no trae los glifos de las flechas (↑ ↓ ← →) y saldrían en blanco.
+ * Buttons render the combination with the "Dialog" font (see {@link #applyKeyFont()}): the UI font
+ * (McLaren) lacks the arrow glyphs (↑ ↓ ← →), which would otherwise render blank.
  *
  * @author tonikelope
  */
 public class ShortcutsSettingsPanel extends JPanel {
 
-    // Separación MÍNIMA entre cajas de una columna (crece elásticamente para alinear los fondos).
+    // Minimum gap between boxes in a column (grows elastically to align the bottoms).
     private static final int BOX_GAP = 10;
 
-    // Botón de captura por id de acción, para refrescar su texto tras un cambio o un restaurar.
+    // Capture button per action id, to refresh its text after a change or a reset.
     private final Map<String, JButton> buttons = new HashMap<>();
 
-    // Botón "deshacer" por acción (deja ESE atajo en su valor de fábrica). Se habilita solo si la
-    // acción está personalizada.
+    // "Undo" button per action (resets THAT shortcut to its factory value). Enabled only when the
+    // action is customized.
     private final Map<String, JButton> reset_buttons = new HashMap<>();
 
-    // Etiqueta del nombre de cada acción, para ponerla en negrita cuando el atajo está personalizado.
+    // Label with each action's name, bolded when its shortcut is customized.
     private final Map<String, JLabel> action_labels = new HashMap<>();
 
-    // Bordes de las cajas de sección, para poner sus títulos en negrita TRAS la unificación de
-    // fuentes del diálogo (fixTitledBorderFonts los pisaría a plano antes).
+    // Section box borders, so their titles can be bolded AFTER the dialog's font unification
+    // (fixTitledBorderFonts would otherwise flatten them back to plain first).
     private final List<javax.swing.border.TitledBorder> section_borders = new ArrayList<>();
 
-    // Captura en curso (solo una a la vez). Todo se toca en el EDT.
+    // Capture currently in progress (only one at a time). Everything is touched on the EDT.
     private KeyEventDispatcher capture_dispatcher = null;
     private AWTEventListener mouse_cancel_listener = null;
     private String capturing_id = null;
@@ -104,22 +103,22 @@ public class ShortcutsSettingsPanel extends JPanel {
         gbc.insets = new Insets(10, 12, 12, 12);
         add(hint, gbc);
 
-        // Agrupa las acciones por sección conservando el orden del catálogo.
+        // Groups actions by section, preserving the catalog's order.
         LinkedHashMap<String, List<KeyboardShortcuts.Def>> by_section = new LinkedHashMap<>();
         for (KeyboardShortcuts.Def d : KeyboardShortcuts.defs()) {
             by_section.computeIfAbsent(d.section_key, k -> new ArrayList<>()).add(d);
         }
 
-        // Reparte las cajas de sección en dos columnas, metiendo cada sección en la columna que
-        // MENOS filas lleve acumuladas, para que las dos columnas queden parejas de alto.
+        // Distributes section boxes into two columns, adding each section to whichever column has
+        // FEWER accumulated rows so far, to keep both columns similar in height.
         List<JPanel> left = new ArrayList<>();
         List<JPanel> right = new ArrayList<>();
         int left_rows = 0;
         int right_rows = 0;
 
         for (Map.Entry<String, List<KeyboardShortcuts.Def>> e : by_section.entrySet()) {
-            // Peso ~ alto de la caja: filas + un extra por el título y los bordes, para que las dos
-            // columnas queden parejas de alto (no solo de número de filas) y sus fondos casen abajo.
+            // Weight ~ box height: rows plus an extra for the title and borders, so the two columns
+            // end up similar in height (not just row count) and their bottoms line up.
             int weight = e.getValue().size() + 2;
             if (left_rows <= right_rows) {
                 left.add(sectionBox(e.getKey(), e.getValue()));
@@ -130,8 +129,8 @@ public class ShortcutsSettingsPanel extends JPanel {
             }
         }
 
-        // fill BOTH + weighty: las dos columnas se estiran a la misma altura (la de la más larga),
-        // para que la columna corta reparta su hueco sobrante entre sus cajas y ambas casen abajo.
+        // fill BOTH + weighty: both columns stretch to the same height (that of the taller one), so
+        // the shorter column distributes its leftover space between its boxes and both bottoms align.
         gbc.gridy = 1;
         gbc.gridwidth = 1;
         gbc.weightx = 0.5;
@@ -147,13 +146,13 @@ public class ShortcutsSettingsPanel extends JPanel {
         add(column(right), gbc);
     }
 
-    // Caja de una sección: borde negro fino con el nombre de la sección como título, y dentro las
-    // filas (etiqueta + botón alineado + relleno elástico).
+    // Box for one section: thin black border with the section name as title, containing rows
+    // (label + aligned button + elastic filler).
     private JPanel sectionBox(String section_key, List<KeyboardShortcuts.Def> defs) {
 
         JPanel box = new JPanel(new GridBagLayout());
-        // Borde por defecto (esquinas redondeadas, igual que las cajas de las otras pestañas). El
-        // título se pone en negrita en applyKeyFont (tras la unificación de fuentes del diálogo).
+        // Default border (rounded corners, same as the boxes in the other tabs). The title is
+        // bolded in applyKeyFont (after the dialog's font unification).
         javax.swing.border.TitledBorder border = BorderFactory.createTitledBorder(Translator.translate(section_key));
         section_borders.add(border);
         box.setBorder(border);
@@ -177,7 +176,7 @@ public class ShortcutsSettingsPanel extends JPanel {
             final String id = d.id;
             JButton button = new JButton(keyText(id));
             button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            // Cajetines más anchos (margen horizontal generoso) para que la combinación respire.
+            // Wider buttons (generous horizontal margin) so the combination has room to breathe.
             button.setMargin(new Insets(3, 24, 3, 24));
             button.addActionListener(e -> startCapture(id));
             buttons.put(id, button);
@@ -189,8 +188,8 @@ public class ShortcutsSettingsPanel extends JPanel {
             gbc.insets = new Insets(3, 0, 3, 6);
             box.add(button, gbc);
 
-            // Botón pequeño para devolver ESTE atajo a su valor de fábrica. Se habilita solo si la
-            // acción está personalizada (ver refreshButton).
+            // Small button to reset THIS shortcut to its factory value. Enabled only when the
+            // action is customized (see refreshButton).
             JButton reset = new JButton(new ImageIcon(getClass().getResource("/images/menu/undo.png")));
             reset.setCursor(new Cursor(Cursor.HAND_CURSOR));
             reset.setToolTipText(Translator.translate("shortcuts.restaurar_este"));
@@ -221,11 +220,11 @@ public class ShortcutsSettingsPanel extends JPanel {
         return box;
     }
 
-    // Apila las cajas de una columna con separadores ELÁSTICOS entre ellas: al menos BOX_GAP px, y
-    // crecen para repartir el hueco sobrante. Como las dos columnas se estiran a la misma altura (la
-    // de la más larga, ver buildUI con fill BOTH), la columna corta separa sus cajas hasta que su
-    // última caja queda alineada por abajo con la de la otra columna. No hay muelle tras la última
-    // caja: así esa caja se pega al fondo.
+    // Stacks a column's boxes with ELASTIC separators between them: at least BOX_GAP px, growing to
+    // absorb any leftover space. Since both columns stretch to the same height (the taller one —
+    // see buildUI's fill BOTH), the shorter column spreads its boxes apart until its last box lines
+    // up at the bottom with the other column's. There's no filler after the last box, so it stays
+    // pinned to the bottom.
     private static JPanel column(List<JPanel> boxes) {
 
         JPanel col = new JPanel(new GridBagLayout());
@@ -254,7 +253,7 @@ public class ShortcutsSettingsPanel extends JPanel {
         return col;
     }
 
-    // Texto de la combinación actual de una acción ("ALT + P", "CTRL + ALT + ESC").
+    // Current key combination text for an action ("ALT + P", "CTRL + ALT + ESC").
     private static String keyText(String id) {
         return String.join(" + ", KeyboardShortcuts.keyCapStrings(KeyboardShortcuts.get(id)));
     }
@@ -266,32 +265,32 @@ public class ShortcutsSettingsPanel extends JPanel {
         JButton b = buttons.get(id);
         if (b != null) {
             b.setText(keyText(id));
-            // Fuente "Dialog" siempre (la de la interfaz no trae los glifos de flecha); en NEGRITA
-            // si el usuario ha personalizado la combinación (difiere de la de fábrica).
+            // Always "Dialog" font (the UI font lacks arrow glyphs); BOLD if the user has
+            // customized the combination (differs from the factory default).
             b.setFont(new Font("Dialog", customized ? Font.BOLD : Font.PLAIN, b.getFont().getSize()));
         }
 
-        // La etiqueta del nombre también va en negrita si el atajo está personalizado.
+        // The name label is also bolded when the shortcut is customized.
         JLabel label = action_labels.get(id);
         if (label != null) {
             label.setFont(label.getFont().deriveFont(customized ? Font.BOLD : Font.PLAIN));
         }
 
-        // El botón "deshacer" SOLO aparece si el atajo está personalizado.
+        // The "undo" button is visible ONLY when the shortcut is customized.
         JButton reset = reset_buttons.get(id);
         if (reset != null) {
             reset.setVisible(customized);
         }
 
-        // Al aparecer/desaparecer el botón deshacer o cambiar el ancho del texto, recolocar.
+        // Relayout when the undo button appears/disappears or the text width changes.
         revalidate();
         repaint();
     }
 
     /**
-     * Repone las fuentes de la pestaña TRAS la unificación del diálogo: los botones de combinación en
-     * "Dialog" (la de la interfaz no trae los glifos de flecha ↑↓←→) con negrita si están
-     * personalizados, y los títulos de las cajas de sección en negrita.
+     * Restores this tab's fonts AFTER the dialog's font unification: combination buttons in
+     * "Dialog" (the UI font lacks the arrow glyphs ↑↓←→), bold if customized, and section box
+     * titles in bold.
      */
     public void applyKeyFont() {
 
@@ -309,12 +308,12 @@ public class ShortcutsSettingsPanel extends JPanel {
         repaint();
     }
 
-    // Arranca la captura de una acción: aparta los dispatchers globales y espera la próxima
-    // combinación. Si ya había una captura en curso (otro botón), la cancela antes.
+    // Starts capturing an action: steps the global dispatchers aside and waits for the next
+    // combination. If another capture was already in progress (another button), cancels it first.
     private void startCapture(final String id) {
 
-        // Si ya había una captura en curso en OTRO botón, la cancela y le devuelve su texto (si no,
-        // ese botón se quedaría con "Pulsa la combinación..." pegado).
+        // If another button had a capture in progress, cancel it and restore its text (otherwise
+        // that button would be stuck showing "Press the combination...").
         if (capture_dispatcher != null) {
             String prev = capturing_id;
             stopCapture();
@@ -335,16 +334,16 @@ public class ShortcutsSettingsPanel extends JPanel {
         capture_dispatcher = (KeyEvent e) -> {
 
             if (e.getID() != KeyEvent.KEY_PRESSED) {
-                // Nos comemos también el release/typed de las teclas de la captura para que no se
-                // filtren a nadie mientras dura.
+                // Also swallow the release/typed events of the capture's keys so they don't leak
+                // to anyone else while it lasts.
                 return true;
             }
 
-            // Acciones de solo tecla base (nota de voz): se ignoran los modificadores.
+            // Base-key-only actions (voice note): modifiers are ignored.
             KeyStroke ks = KeyboardShortcuts.fromKeyEvent(e, KeyboardShortcuts.isKeycodeOnly(id));
 
             if (ks == null) {
-                // Modificador suelto: seguir esperando la tecla de verdad.
+                // Lone modifier: keep waiting for the actual key.
                 return true;
             }
 
@@ -352,7 +351,7 @@ public class ShortcutsSettingsPanel extends JPanel {
                 KeyboardShortcuts.set(id, ks);
                 cancelToBinding();
             } else {
-                // Ya la usa otra acción: se ignora, con un aviso breve en el propio botón.
+                // Already used by another action: ignored, with a brief notice on the button itself.
                 flashAlreadyAssigned(id);
             }
 
@@ -361,9 +360,9 @@ public class ShortcutsSettingsPanel extends JPanel {
 
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(capture_dispatcher);
 
-        // Cancelar = clic fuera (o en cualquier sitio). No se usa ninguna tecla para cancelar, para
-        // que cualquiera —incluida ESC— pueda asignarse. El clic que inició la captura ya pasó
-        // (actionPerformed salta al soltar), así que el listener solo verá el SIGUIENTE clic.
+        // Cancel = click outside (or anywhere). No key is used for cancel, so any key — including
+        // ESC — can be assigned. The click that started the capture has already happened
+        // (actionPerformed fires on release), so this listener only sees the NEXT click.
         mouse_cancel_listener = (AWTEvent ev) -> {
             if (ev.getID() == MouseEvent.MOUSE_PRESSED) {
                 cancelToBinding();
@@ -372,8 +371,8 @@ public class ShortcutsSettingsPanel extends JPanel {
         Toolkit.getDefaultToolkit().addAWTEventListener(mouse_cancel_listener, AWTEvent.MOUSE_EVENT_MASK);
     }
 
-    // Cierra la captura y deja el botón mostrando la combinación ACTUAL de la acción (la nueva si se
-    // asignó, o la de antes si se canceló).
+    // Ends the capture and leaves the button showing the action's CURRENT combination (the new one
+    // if it was assigned, or the previous one if cancelled).
     private void cancelToBinding() {
         String id = capturing_id;
         stopCapture();
@@ -382,7 +381,7 @@ public class ShortcutsSettingsPanel extends JPanel {
         }
     }
 
-    // Aviso breve "Ya asignado" en el botón y vuelta a su combinación.
+    // Brief "Already assigned" notice on the button, then reverts to its combination.
     private void flashAlreadyAssigned(final String id) {
         stopCapture();
         JButton b = buttons.get(id);
@@ -394,8 +393,8 @@ public class ShortcutsSettingsPanel extends JPanel {
         }
     }
 
-    // Quita el dispatcher de captura y el listener de ratón, y reactiva los atajos globales.
-    // Idempotente.
+    // Removes the capture dispatcher and mouse listener, and re-enables the global shortcuts.
+    // Idempotent.
     private void stopCapture() {
         if (capture_dispatcher != null) {
             KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(capture_dispatcher);
@@ -410,8 +409,8 @@ public class ShortcutsSettingsPanel extends JPanel {
     }
 
     /**
-     * Cancela una captura en curso (si la hay) devolviendo al botón su combinación actual. Lo llama
-     * el diálogo al cambiar de pestaña.
+     * Cancels an in-progress capture (if any), restoring the button's current combination. Called
+     * by the dialog when switching tabs.
      */
     public void cancelCapture() {
         if (capture_dispatcher != null) {
@@ -420,8 +419,8 @@ public class ShortcutsSettingsPanel extends JPanel {
     }
 
     /**
-     * Restaura TODOS los atajos a sus valores de fábrica (en vivo; persiste al GUARDAR) y refresca
-     * los botones. Lo invoca el pie "Restaurar predeterminados" de la pestaña.
+     * Restores ALL shortcuts to their factory values (live; persists on SAVE) and refreshes the
+     * buttons. Invoked by the tab's "Restore defaults" footer.
      */
     public void restoreDefaults() {
         stopCapture();
@@ -432,8 +431,8 @@ public class ShortcutsSettingsPanel extends JPanel {
     }
 
     /**
-     * Cierra cualquier captura pendiente (al cerrarse el diálogo). No revierte los cambios: de eso se
-     * encarga la transacción del registro (commit al GUARDAR, revert al Cancelar).
+     * Closes any pending capture (when the dialog closes). Does not revert changes: that's handled
+     * by the registry transaction (commit on SAVE, revert on Cancel).
      */
     public void cleanup() {
         stopCapture();

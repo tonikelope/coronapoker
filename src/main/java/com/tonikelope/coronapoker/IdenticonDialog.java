@@ -73,11 +73,12 @@ public class IdenticonDialog extends JDialog {
     private final byte[] pubkeyForVerify;
     private BufferedImage identiconImage;
 
-    // La fuente base de este diálogo se sube un nivel (× FONT_BUMP, se veía pequeña a 100 %) y sigue el
-    // zoom de diálogos. El identicon (imagen de seguridad) y los espacios escalan solo con el zoom.
+    // Base font runs one step larger than 100% (it read as too small at native size)
+    // and still follows the dialog zoom on top. The identicon and general spacing
+    // scale with zoom alone, not with this bump.
     static final float FONT_BUMP = 1.2f;
 
-    // base × bump × zoom. Package-static: lo reutiliza SessionIdenticonMosaicDialog.
+    // base * FONT_BUMP * zoom. Package-visible: reused by SessionIdenticonMosaicDialog.
     static float idf(float base) {
         return base * FONT_BUMP * Helpers.DIALOG_ZOOM;
     }
@@ -93,15 +94,15 @@ public class IdenticonDialog extends JDialog {
     /**
      * General constructor.
      *
-     * @param parent         parent frame
-     * @param modal          modal flag
-     * @param nick           displayed in the dialog title
-     * @param rawInput       bytes to fingerprint (AES key bytes for SESSION, Ed25519
-     *                       pubkey for IDENTITY)
-     * @param mode           SESSION or IDENTITY
+     * @param parent parent frame
+     * @param modal modal flag
+     * @param nick displayed in the dialog title
+     * @param rawInput bytes to fingerprint (AES key bytes for SESSION, Ed25519 pubkey
+     *                 for IDENTITY)
+     * @param mode SESSION or IDENTITY
      * @param pubkeyForVerify in IDENTITY mode, the same 32-byte pubkey to pass to
-     *                       TOFUResolver.markVerified when the user clicks the
-     *                       verify button. Pass null for SESSION mode.
+     *                        TOFUResolver.markVerified when the user clicks the verify
+     *                        button. Pass null for SESSION mode.
      */
     public IdenticonDialog(java.awt.Frame parent, boolean modal, String nick,
             byte[] rawInput, Mode mode, byte[] pubkeyForVerify) {
@@ -250,8 +251,8 @@ public class IdenticonDialog extends JDialog {
         JButton copyBtn = new JButton(Translator.translate("ui.identicon.copiar_imagen_button"));
         copyBtn.setFont(copyBtn.getFont().deriveFont(java.awt.Font.PLAIN, idf(13f)));
         copyBtn.setMargin(new java.awt.Insets(6, 14, 6, 14));
-        // El volcado al portapapeles se hace FUERA del EDT (bloqueante en el SO) y el botón queda
-        // deshabilitado mientras dura, para no congelar el diálogo ni disparar copias concurrentes.
+        // Clipboard write runs off the EDT (it blocks at the OS level); the button
+        // stays disabled meanwhile so the dialog doesn't freeze and copies can't overlap.
         copyBtn.addActionListener(evt -> {
             copyBtn.setEnabled(false);
             Helpers.threadRun(() -> {

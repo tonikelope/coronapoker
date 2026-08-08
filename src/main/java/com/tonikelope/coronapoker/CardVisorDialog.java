@@ -38,6 +38,7 @@ import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 
 /**
+ * Popup window that displays a single enlarged card image ("card visor").
  *
  * @author tonikelope
  */
@@ -46,15 +47,18 @@ public class CardVisorDialog extends javax.swing.JDialog {
     private final static String PALOS = "PCTD";
     private final static int CORNER = 100;
 
-    // Visores actualmente abiertos indexados por baraja+carta, para no abrir dos veces
-    // la misma carta DE LA MISMA BARAJA a la vez: si ya hay uno visible se trae al frente
-    // en vez de duplicar. La misma carta de barajas distintas SÍ se puede abrir a la vez
-    // (son imágenes diferentes), por eso la clave incluye la baraja.
+    // Currently open visors keyed by deck+card, so the same card from the same deck can't
+    // be opened twice (bring the existing one to front instead); the same card from a
+    // different deck is a different image, so the key includes the deck.
     private final static HashMap<String, CardVisorDialog> OPEN_VISORS = new HashMap<>();
 
     /**
-     * Traduce valor+palo al índice de carta que usa el visor (mismo cálculo que
-     * el constructor por índice).
+     * Converts a rank+suit pair to the card index used by the visor (same formula as
+     * the index-based constructor).
+     *
+     * @param valor rank ("A", "J", "Q", "K", or a numeric string)
+     * @param palo suit letter, one of {@link #PALOS}
+     * @return the visor card index
      */
     public static int cartaFrom(String valor, String palo) {
         int v;
@@ -80,8 +84,11 @@ public class CardVisorDialog extends javax.swing.JDialog {
     }
 
     /**
-     * Abre el visor para una carta o, si ya hay uno abierto para esa misma carta,
-     * lo trae al frente sin crear un duplicado.
+     * Opens the visor for a card, or brings the existing one to front if a visor is
+     * already open for that same card (no duplicates).
+     *
+     * @param parent owner frame, used to center the visor
+     * @param carta visor card index (see {@link #cartaFrom})
      */
     public static void openOrFocus(java.awt.Frame parent, int carta) {
 
@@ -89,9 +96,8 @@ public class CardVisorDialog extends javax.swing.JDialog {
             Audio.playWavResource("misc/card_visor.wav");
         }
 
-        // La baraja usada al mostrar la carta es la global vigente en este instante
-        // (ver showCard). Forma parte de la clave para que la misma carta de barajas
-        // distintas se pueda tener abierta a la vez sin considerarse un duplicado.
+        // Uses the currently active global deck (see showCard) as part of the key, so
+        // the same card from a different deck isn't treated as a duplicate.
         final String key = GameFrame.BARAJA + "|" + carta;
 
         CardVisorDialog existing = OPEN_VISORS.get(key);
@@ -136,13 +142,12 @@ public class CardVisorDialog extends javax.swing.JDialog {
         scroll_panel.getViewport().addMouseMotionListener(scrollListener);
         scroll_panel.getViewport().addMouseListener(scrollListener);
 
-        // El visor es una ventana no enfocable (para no robarle el foco al juego),
-        // asi que Windows no la activa al clicarla y no sube en el orden Z: con varios
-        // visores abiertos el mas nuevo tapa a los demas y estos no pueden ponerse
-        // delante. Lo traemos al frente manualmente (sin pedir foco) cuando el usuario
-        // interactua con el: al pulsar sobre el cuerpo de la carta y al moverlo (el
-        // arrastre por la barra de titulo nativa no genera eventos de raton Swing, pero
-        // si dispara componentMoved).
+        // The visor is a non-focusable window (so it doesn't steal focus from the game),
+        // so Windows never raises its Z-order on click; with several visors open, the
+        // newest one covers the rest and they can't come forward on their own. Bring it
+        // to front manually (without requesting focus) whenever the user interacts with
+        // it: clicking the card body, and dragging it (see the componentMoved listener
+        // below for native title-bar drags).
         java.awt.event.MouseAdapter bring_to_front = new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
@@ -153,10 +158,9 @@ public class CardVisorDialog extends javax.swing.JDialog {
         card.addMouseListener(bring_to_front);
         scroll_panel.getViewport().addMouseListener(bring_to_front);
 
-        // El arrastre por la barra de titulo nativa no genera eventos de raton Swing;
-        // la unica senal es componentMoved. Como toFront() es idempotente (no hace nada
-        // si el visor ya esta delante), llamarlo en cada movimiento reordena el orden Z
-        // una sola vez de forma efectiva y no interfiere con el arrastre nativo.
+        // Native title-bar dragging fires no Swing mouse events, only componentMoved.
+        // toFront() is idempotent (a no-op once already in front), so calling it on
+        // every move is harmless and doesn't interfere with the native drag.
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentMoved(java.awt.event.ComponentEvent e) {
@@ -164,16 +168,13 @@ public class CardVisorDialog extends javax.swing.JDialog {
             }
         });
 
-        // Escalamos la carta para que quepa entera dentro del área disponible
-        // (respetando su proporción). El scroll_panel usa DEFAULT_SIZE como
-        // preferido (ver initComponents), así que pack() dimensiona la ventana
-        // justo al icono más la decoración: de salida no sale ni scroll vertical
-        // ni horizontal. El JScrollPane sigue ahí por si en pantallas pequeñas la
-        // carta no cupiera.
+        // Scale the card to fit the available area while keeping its aspect ratio.
+        // scroll_panel's preferred size is DEFAULT_SIZE (see initComponents), so pack()
+        // sizes the window to the icon plus decoration with no scrollbars up front; the
+        // JScrollPane stays in case the card doesn't fit on a small screen.
         showCard(carta, Math.round(0.9f * parent.getWidth()), Math.round(0.85f * parent.getHeight()));
 
         pack();
-
     }
 
     private void showCard(int carta, int max_w, int max_h) {
@@ -184,9 +185,9 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         if (carta == 53) {
 
-            // La trasera es un ajuste GLOBAL (back/ del juego o carpeta del mod): se usa
-            // su versión hq/ (con caída a la normal si el mod no la trae), igual que las
-            // cartas destapadas, para que el visor la muestre a máxima calidad.
+            // The card back is a GLOBAL setting (game's back/ or the mod folder); use its
+            // hq/ version, same as face-up cards, so the visor shows it at max quality
+            // (falls back to the normal version if the mod doesn't ship an hq one).
             im = Helpers.makeImageRoundedCorner(Card.traseraSourceIcon().getImage(), CORNER);
 
             int w = im.getWidth();
@@ -222,8 +223,8 @@ public class CardVisorDialog extends javax.swing.JDialog {
                 int w = im.getWidth();
                 int h = im.getHeight();
 
-                // Solo reducimos (nunca ampliamos por encima del tamaño natural) para no
-                // degradar la calidad; si la carta ya cabe se muestra a tamaño real.
+                // Only ever shrink (never upscale past natural size) to avoid degrading
+                // quality; if the card already fits, show it at full size.
                 double scale = Math.min(Math.min((double) max_w / w, (double) max_h / h), 1.0);
 
                 if (scale < 1.0) {

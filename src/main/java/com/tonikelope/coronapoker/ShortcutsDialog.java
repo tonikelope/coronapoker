@@ -53,16 +53,16 @@ import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 
 /**
- * Diálogo de ATAJOS DE TECLADO, hand-coded (sin .form): tema oscuro, atajos agrupados por secciones
- * y cada tecla dibujada como una "tecla" física (KeyCapLabel, recuadro redondeado). El contenido se
- * genera a partir de la tabla SECTIONS, con textos i18n (shortcuts.*), así que añadir/quitar un atajo
- * es tocar una fila. Sigue implementando ZoomableInterface para escalar con el zoom del juego.
+ * Keyboard shortcuts help dialog, hand-coded (no .form): dark theme, shortcuts grouped into
+ * sections, each key drawn as a physical keycap (KeyCapLabel, rounded box). Content is generated
+ * from the SECTIONS table, with i18n texts (shortcuts.*), so adding/removing a shortcut is a
+ * one-row edit. Implements ZoomableInterface to scale with the game's zoom.
  *
  * @author tonikelope
  */
 public class ShortcutsDialog extends JDialog implements ZoomableInterface {
 
-    // Paleta oscura (consola) coherente con el registro / la estética reciente.
+    // Dark, console-style palette matching the log window and the game's current look.
     private static final Color BG = new Color(22, 22, 26);
     private static final Color HEADER_BG = new Color(38, 38, 45);
     private static final Color SECTION_FG = new Color(120, 205, 235);
@@ -79,8 +79,8 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
     private static final Font KEY_FONT = new Font("Dialog", Font.BOLD, 13);
     private static final Font SEP_FONT = new Font("Dialog", Font.BOLD, 15);
 
-    // Contenido: {claveSección, filas[]}, y cada fila {claveAcción, gruposDeTeclas[][]}. Dentro de un
-    // grupo las teclas se unen con "+"; grupos distintos (p. ej. TAB / SHIFT+TAB) se separan con aire.
+    // Shape: {section_key, rows[]}, each row {action_key, keyGroups[][]}. Keys within a group are
+    // joined with "+"; separate groups (e.g. TAB / SHIFT+TAB) get a gap between them.
     private static final Object[][] SECTIONS = {
         {"shortcuts.sec_game", new Object[][]{
             {"shortcuts.act_pause", new String[][]{{"ALT", "P"}}},
@@ -134,6 +134,12 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         }}
     };
 
+    /**
+     * Builds and lays out the shortcuts help dialog.
+     *
+     * @param parent owning game window
+     * @param modal whether the dialog blocks input to its owner
+     */
     public ShortcutsDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
         buildUI();
@@ -156,16 +162,18 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         header.setFont(HEADER_FONT);
         header.setBorder(BorderFactory.createEmptyBorder(14, 20, 12, 20));
 
-        // Botón "Personalizar": cierra esta ayuda y abre Ajustes directamente en la pestaña Atajos,
-        // donde se reasignan las teclas. La ayuda es de solo lectura; la edición vive en Ajustes.
+        // "Customize" button: closes this help dialog and opens Settings straight to the
+        // Shortcuts tab, where keys are actually reassigned. This dialog is read-only; editing
+        // lives in Settings.
         JButton customize = new JButton(Translator.translate("shortcuts.personalizar"));
         customize.setFocusable(false);
-        // Un poco más grande que el botón por defecto (updateFonts conserva este tamaño relativo).
+        // Slightly larger than the default button size; updateFonts scales from this size, so the
+        // relative size is preserved under zoom.
         customize.setFont(customize.getFont().deriveFont(java.awt.Font.BOLD, 18f));
         customize.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         customize.addActionListener(e -> {
             java.awt.Window owner = getOwner();
-            // Ocultar (no dispose): este diálogo está cacheado y se reutiliza.
+            // Hide, don't dispose: this dialog is cached and reused.
             setVisible(false);
             if (owner instanceof java.awt.Frame) {
                 SettingsDialog.openOnShortcuts((java.awt.Frame) owner);
@@ -235,10 +243,10 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         getContentPane().add(sp, BorderLayout.CENTER);
     }
 
-    // Teclas a mostrar de una fila: si su acción es reasignable (está en KeyboardShortcuts), su
-    // combinación ACTUAL —primaria más los alias fijos—, para que la ayuda refleje lo que el usuario
-    // tenga puesto; si no (rueda de zoom, nota de voz, teclas internas de chat/imágenes), las fijas
-    // de la tabla SECTIONS.
+    // Keys to display for a row: if its action is reassignable (registered in KeyboardShortcuts),
+    // its CURRENT binding, primary plus fixed aliases, so the help reflects what the user actually
+    // set; otherwise (zoom wheel, voice note, internal chat/image keys) the fixed ones from the
+    // SECTIONS table.
     private static String[][] resolveKeys(String label_key, String[][] fallback) {
 
         for (KeyboardShortcuts.Def d : KeyboardShortcuts.defs()) {
@@ -255,8 +263,8 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         return fallback;
     }
 
-    // Panel de teclas alineado a la derecha: teclas del mismo grupo separadas por "+"; grupos
-    // distintos, por el hueco del FlowLayout.
+    // Right-aligned key panel: keys within the same group separated by "+"; distinct groups get
+    // the FlowLayout gap between them.
     private JComponent keysPanel(String[][] groups) {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 2));
         p.setOpaque(false);
@@ -278,8 +286,8 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         return l;
     }
 
-    // Tras pack(), limita la altura a una fracción de la pantalla (el resto lo cubre el scroll) para
-    // que con muchas secciones el diálogo no se salga por abajo.
+    // After pack(), caps the height to a fraction of the screen (the scroll pane covers the rest)
+    // so the dialog doesn't run off the bottom of the screen when there are many sections.
     private void capSize() {
         Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
         int maxH = (int) (screen.height * 0.85);
@@ -305,9 +313,9 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         });
     }
 
-    // Una tecla dibujada como recuadro redondeado (gradiente + borde). getPreferredSize se calcula
-    // sobre la fuente ACTUAL, así el zoom del juego (que reescala la fuente) la agranda/encoge y un
-    // pack() posterior recoloca todo. Las de un solo carácter salen cuadradas.
+    // A key drawn as a rounded box (gradient + border). getPreferredSize is computed from the
+    // CURRENT font, so the game's zoom (which rescales the font) grows/shrinks it and a later
+    // pack() re-lays everything out. Single-character keys come out square.
     private static final class KeyCapLabel extends JLabel {
 
         KeyCapLabel(String txt) {

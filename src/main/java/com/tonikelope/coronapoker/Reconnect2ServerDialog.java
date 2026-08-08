@@ -35,6 +35,10 @@ import javax.swing.JProgressBar;
 import javax.swing.JTextField;
 
 /**
+ * Modal dialog shown to a client when the connection to the host drops and automatic retries
+ * have run out ({@link GameFrame#CLIENT_RECON_TIMEOUT}). Blocks {@link WaitingRoomFrame}'s
+ * reconnect loop until the user clicks reconnect, bails out to the lobby, or exits the game
+ * outright.
  *
  * @author tonikelope
  */
@@ -42,6 +46,10 @@ public class Reconnect2ServerDialog extends JDialog {
 
     private volatile boolean reconectar = false;
 
+    /**
+     * Re-arms the dialog for another attempt after a previous one timed out (reused instead of
+     * creating a new instance, so it reappears in its initial state).
+     */
     public void reset() {
 
         Helpers.GUIRun(() -> {
@@ -84,7 +92,9 @@ public class Reconnect2ServerDialog extends JDialog {
     }
 
     /**
-     * Creates new form Reconnect2ServerDialog
+     * @param parent owner frame
+     * @param modal  whether the dialog blocks input to the owner
+     * @param ip_p   server address pre-filled in the editable ip/port field
      */
     public Reconnect2ServerDialog(java.awt.Frame parent, boolean modal, String ip_p) {
         super(parent, modal);
@@ -277,23 +287,19 @@ public class Reconnect2ServerDialog extends JDialog {
     }//GEN-LAST:event_formComponentShown
 
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
-        // Salida voluntaria del usuario: exit code 0 (clean). Antes era 1
-        // (error) y confundia a supervisores externos (systemd, watchdogs).
+        // Voluntary exit: exit code 0 (clean). Used to be 1 (error), which confused
+        // external supervisors (systemd, watchdogs).
         System.exit(0);
     }//GEN-LAST:event_exit_buttonActionPerformed
 
     private void back_to_lobbyActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_back_to_lobbyActionPerformed
-        // Graceful exit from a stuck reconnect attempt. The host has aborted
-        // the table (typically via the MISDEAL -> abortToRecover path) so its
-        // server socket is no longer listening; reconectarCliente keeps
-        // failing with ConnectException. Instead of nuking the process with
-        // System.exit (which would leave the user without a path to recover),
-        // we mark the local player as exit (so reconectarCliente's do-while
-        // terminates), then set force_recover and let
-        // GameFrame.finTransmision(true) drive the existing teardown flow:
-        // RESET_GAME -> Init.VENTANA_INICIO with the recover dialog
-        // auto-opened by continueLastGame(). From there the user can rejoin
-        // the same recovery session as the host.
+        // Graceful exit from a stuck reconnect attempt: the host aborted the table (typically
+        // via MISDEAL -> abortToRecover), so its server socket is gone and reconectarCliente()
+        // just keeps failing. Instead of System.exit (no way back for the user), mark the local
+        // player exit (ends reconectarCliente's retry loop) and set force_recover so
+        // finTransmision(true) tears down and reopens Init.VENTANA_INICIO with the recover
+        // dialog (via continueLastGame()), letting the user rejoin the same recovery session
+        // as the host.
         if (GameFrame.getInstance() != null && GameFrame.getInstance().getLocalPlayer() != null) {
             GameFrame.getInstance().getLocalPlayer().setExit();
         }

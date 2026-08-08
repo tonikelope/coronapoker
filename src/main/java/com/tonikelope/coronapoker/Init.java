@@ -518,11 +518,19 @@ public class Init extends JFrame {
                         Audio.playWavResource("misc/screenshot.wav");
                     }
 
-                    // Estamos en el EDT (el dispatcher envuelve la acción en
-                    // Helpers.GUIRun): renderizamos aquí la ventana completa a
-                    // imagen (printAll, sin Robot ni captura del SO) y volcamos
-                    // el PNG a disco en segundo plano.
-                    final BufferedImage image = Helpers.renderComponentImage(GameFrame.getInstance().getRootPane());
+                    // Solo se fotografían dos ventanas: el registro de la timba si es la ventana
+                    // activa, y si no la mesa (GameFrame). Cualquier otro diálogo en foco (salir,
+                    // ajustes...) cae a la mesa a propósito, para no acabar capturando un diálogo
+                    // suelto. Estamos en el EDT (el dispatcher envuelve la acción en
+                    // Helpers.GUIRun): renderizamos aquí a imagen (printAll, sin Robot ni captura
+                    // del SO) y volcamos el PNG a disco en segundo plano.
+                    java.awt.Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+
+                    final javax.swing.JRootPane root = (active instanceof GameLogDialog && active.isShowing())
+                            ? ((GameLogDialog) active).getRootPane()
+                            : GameFrame.getInstance().getRootPane();
+
+                    final BufferedImage image = Helpers.renderComponentImage(root);
 
                     Helpers.threadRun(() -> {
 

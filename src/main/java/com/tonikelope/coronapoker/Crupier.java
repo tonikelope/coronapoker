@@ -79,41 +79,36 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
 /**
+ * @author tonikelope
  *
- * @author tonikelope This croupier does too many things, but at least it does
- * them well.
+ * This croupier does too many things, but at least it does them well.
  */
 public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context.DealerView {
 
     private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
 
     /**
-     * Whitelist de tipos permitidos en la deserialización Java del payload
-     * RECOVERDATA recibido del host. Sin este filtro, ObjectInputStream.readObject
-     * acepta cualquier clase Serializable del classpath, lo que permite a un host
-     * hostil enviar un gadget chain (jna, jaxb, sqlite-jdbc, soundlibs…) y obtener
-     * RCE en cualquier cliente que pida recovery.
+     * Whitelist for deserializing the RECOVERDATA payload sent by the host. Without it,
+     * ObjectInputStream.readObject accepts any Serializable on the classpath, letting a
+     * hostile host send a gadget chain (jna, jaxb, sqlite-jdbc, soundlibs...) for RCE on
+     * any client that requests recovery.
      *
-     * Tipos legítimos del map (ver Crupier.sqlRecoverGameInfo* y sqlRecoverHand*):
-     *   HashMap (root) → String keys → values de tipo
-     *   String, Integer, Long, Float, Double, Boolean.
-     *
-     * Limits añadidos: 10 MB total, profundidad 20, 10k refs/array. El payload
-     * legítimo más grande observado ronda decenas de KB (balances + metadatos).
-     *
-     * Cualquier clase no listada — incluyendo java.io.File, java.lang.Runtime,
-     * gadgets de Apache Commons, jaxb, etc. — provoca rechazo del payload.
+     * Only the map's legitimate shape is allowed: HashMap root, String keys, values of type
+     * String/Integer/Long/Float/Double/Boolean (see sqlRecoverGameInfo / sqlRecoverHand).
+     * Limits: 10 MB total, depth 20, 10k refs/array (the largest real payload seen is tens
+     * of KB). Anything else — java.io.File, java.lang.Runtime, Commons/jaxb gadgets, etc. —
+     * is rejected.
      */
     static final ObjectInputFilter RECOVERY_OBJECT_FILTER = ObjectInputFilter.Config.createFilter(
             "maxbytes=" + (10 * 1024 * 1024) + ";"
             + "maxdepth=20;maxrefs=10000;maxarray=10000;"
-            // HashMap root + nested classes internas (Node, Set views, etc.)
+            // HashMap root + its internal nested classes (Node, Set views, etc.)
             + "java.util.HashMap$**;"
             + "java.util.HashMap;"
-            // Map.Entry (y su array) lo emite HashMap.writeObject como bucket internamente.
+            // Map.Entry (and its array): HashMap.writeObject emits these internally as buckets.
             + "java.util.Map$Entry;"
             + "java.util.Map$**;"
-            // Wrappers numéricos y String — los únicos values legítimos del map.
+            // Numeric wrappers and String -- the only legitimate value types in the map.
             + "java.lang.String;"
             + "java.lang.Number;"
             + "java.lang.Integer;"
@@ -121,10 +116,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             + "java.lang.Float;"
             + "java.lang.Double;"
             + "java.lang.Boolean;"
-            // Tipos primitivos (cuando se deserializan campos `int` etc. dentro de
-            // los wrappers — Java los referencia por nombre primitivo).
+            // Primitive types (Java references these by name when deserializing the `int`
+            // etc. fields inside the wrappers).
             + "int;long;float;double;boolean;byte;char;short;void;"
-            // DENY everything else (gadgets en jna, jaxb, sqlite-jdbc, soundlibs...).
+            // DENY everything else (gadgets in jna, jaxb, sqlite-jdbc, soundlibs...).
             + "!*"
     );
 
@@ -137,22 +132,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Sprint deferred 🟠-2: muta action[] in-place a FOLD sintético. Contrato común
-     * a las DOS situaciones que lo necesitan (ver los dos entry points de abajo):
+     * Mutates action[] in place into a synthetic FOLD. Shared contract for the two call
+     * sites below:
      *
-     *   action[0] = Player.FOLD     // decision sintética
+     *   action[0] = Player.FOLD     // synthetic decision
      *   action[1] = 0d              // bet=0
-     *   action[2] = null            // sin cinematic
-     *   action[3] = null            // sin record para absorber en el chain
-     *   action[4] = null            // sin sig
-     *   action[5] = Boolean.FALSE   // NO voluntario: rondaApuestas lee esto para NO
-     *                                 construir un record local ni absorber nada en
-     *                                 H_t. La cadena converge por OMISIÓN MUTUA:
-     *                                 ningún peer aporta record para ese asiento y
-     *                                 H_t avanza igual en todos.
+     *   action[2] = null            // no cinematic
+     *   action[3] = null            // no record to absorb into the chain
+     *   action[4] = null            // no signature
+     *   action[5] = Boolean.FALSE   // not voluntary: rondaApuestas skips building a local
+     *                                 record or absorbing anything into H_t. The chain
+     *                                 converges by mutual omission: no peer contributes a
+     *                                 record for this seat, so H_t advances the same for all.
      *
-     * El array debe tener length >= 6 (contrato del action[] del Sprint
-     * Identity, comentado en readActionFromRemotePlayer).
+     * Requires length >= 6 (the action[] contract documented in readActionFromRemotePlayer).
      */
     private static void synthesizeFoldActionSlots(Object[] action) {
         if (action == null || action.length < 6) {
@@ -166,50 +159,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         action[4] = null;
         action[5] = Boolean.FALSE;
 
-        // La marca de "esto hay que emitirlo" se BORRA aqui y la pone despues quien
-        // corresponda. Si no, un wire que no supera la verificacion la deja encendida y,
-        // si acto seguido ese peer queda como ido, el synth de salida la heredaba: se
-        // acababa emitiendo el fold de alguien que ya se habia marchado, que es justo lo
-        // que ese synth NO debe hacer.
+        // The "this must be rebroadcast" mark is CLEARED here and set later by whoever needs
+        // it. Otherwise a wire that fails verification would leave it set, and if that peer
+        // is then treated as gone, the exit-synth would inherit it -- rebroadcasting the fold
+        // of someone who had already left, which is exactly what the exit-synth must not do.
         if (action.length >= 7) {
             action[6] = null;
         }
     }
 
     /**
-     * FOLD sintético porque el peer SE FUE (isExit): su decisión no llegó y la rueda
-     * de apuestas tiene que avanzar igual.
+     * Synthetic FOLD for a peer that LEFT (isExit): their decision never arrived but the
+     * betting round must still advance.
      *
-     * Este fold NO sale al wire. El EXIT ya viajó por el canal en el momento de irse,
-     * así que CADA receptor llega a ese asiento y sintetiza exactamente el mismo fold
-     * por su cuenta; rebroadcastearlo sería ruido. Por eso deja sin marcar el slot [6].
+     * Not rebroadcast: the EXIT already went out on the wire when they left, so every
+     * receiver independently synthesizes the same fold for that seat -- rebroadcasting it
+     * would be noise. Slot [6] is therefore left unmarked.
      */
     static void synthesizeExitFoldAction(Object[] action) {
         synthesizeFoldActionSlots(action);
     }
 
     /**
-     * FOLD sintético porque el ACTION que llegó por el wire NO supera la verificación:
-     * firma Ed25519 inválida, record que no ata con la acción jugada, record ausente
-     * (centinela "*") o malformado (longitud != RECORD_BYTES). Un peer (o un host hostil con
-     * una clave robada) intentó falsificar la decisión: NO se aplica la decisión ni el
-     * importe falsificados, y el peor caso pasa a ser "ese peer pierde su turno".
+     * Synthetic FOLD because the wire ACTION failed verification: invalid Ed25519 signature,
+     * a record that doesn't bind to the played action, a missing record ("*" sentinel), or a
+     * malformed one (length != RECORD_BYTES). A peer (or a hostile host with a stolen key)
+     * tried to forge the decision; neither the forged decision nor the amount is applied --
+     * worst case, that peer just loses its turn.
      *
-     * A diferencia del exit-synth, aquí el RESTO DE LA MESA NO HA VISTO ese wire: solo
-     * lo vio el receptor directo (el host, o un cliente cuando el hostil es el host).
-     * Si el host se lo callara, los demás peers seguirían esperando la acción de ese
-     * asiento y la mesa se quedaría colgada en silencio, así que el slot [6] marca
-     * "esto SÍ hay que emitirlo".
+     * Unlike the exit-synth, the rest of the table has NOT seen this wire -- only the direct
+     * receiver did (the host, or a client when the host itself is hostile). If the host
+     * stayed silent, the other peers would hang waiting for that seat forever, so slot [6]
+     * marks "this MUST be rebroadcast".
      *
-     * Lo que el host emite es el fold PELADO (ACTION#nick#FOLD#0#*#*#*): sin record y
-     * sin firma, porque nadie puede firmar en nombre del actor (§4.5: el único record
-     * is_voluntary=0 del protocolo es el reveal de comunitarias, jamás una acción).
-     * Cada cliente lo ve entrar por la rama "sin record con la cadena activa" y
-     * sintetiza el MISMO fold con el MISMO saw_invalid_action_sig, sin absorber nada:
-     * la cadena converge por omisión mutua y el consenso de cierre de mano registra el
-     * incidente en TODOS los peers, no solo en el que lo detectó.
+     * The host rebroadcasts a bare fold (ACTION#nick#FOLD#0#*#*#*): no record, no signature,
+     * since nobody can sign on the actor's behalf (§4.5: the protocol's only is_voluntary=0
+     * record is the community reveal, never an action). Every client takes the "no record
+     * with an active chain" branch and synthesizes the same fold with the same
+     * saw_invalid_action_sig, absorbing nothing -- the chain converges by mutual omission and
+     * end-of-hand consensus records the incident on every peer, not just the one that
+     * detected it.
      *
-     * Requiere length >= 7 (readActionFromRemotePlayer construye el array con 7 slots).
+     * Requires length >= 7 (readActionFromRemotePlayer builds a 7-slot array).
      */
     static void synthesizeUnverifiedFoldAction(Object[] action) {
         if (action == null || action.length < 7) {
@@ -221,48 +212,52 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * ¿este action[] es el FOLD sintetizado por un wire que no superó la verificación?
-     * Es lo ÚNICO que distingue los dos synths, idénticos en todo lo demás. Un array
-     * sin ese slot (los 3 del bot) NUNCA lo es: el
-     * defecto seguro es "no emitir".
+     * Is this action[] the FOLD synthesized for a wire that failed verification? The
+     * only thing distinguishing the two synths, otherwise identical. An array without
+     * slot [6] (the bot's 3-slot array) is never this case: the safe default is "not
+     * flagged".
      */
     static boolean isUnverifiedSynthFold(Object[] action) {
         return action != null && action.length >= 7 && Boolean.TRUE.equals(action[6]);
     }
 
     /**
-     * Recover / anti-forgery (PURA y testeable): al reproducir una acción PROPIA que el host
-     * sirve sin record verificable (pelada), ¿es un caso BENIGNO de ausencia en vez de una forja?
+     * Recover / anti-forgery (pure, testable): when replaying one of MY OWN actions that
+     * the host serves without a verifiable record (stripped), is this a benign absence
+     * instead of a forgery?
      *
-     * Lo es SII se cumplen las dos condiciones:
-     *   - la decisión reproducida es FOLD — un jugador que salió de la mano solo puede acabar
-     *     tumbado; que el host me atribuya una apuesta que movería mi dinero mientras yo no estaba
-     *     NUNCA es benigno; y
-     *   - el índice 1-based de esta acción propia en el replay ({@code replayedIndex}) es POSTERIOR
-     *     al número de acciones propias que este peer llegó a persistir en su SQLite local antes de
-     *     reconectar ({@code locallyPersistedCount}): es decir, ocurrió mientras yo estaba fuera de
-     *     la mano, así que no tengo registro contra el que confrontarla.
+     * Benign iff BOTH hold:
+     *   - the replayed decision is FOLD — a player who left the hand can only end up
+     *     folded; the host attributing to me a bet that would move my money while I was
+     *     gone is never benign; and
+     *   - this action's 1-based index in the replay ({@code replayedIndex}) is PAST the
+     *     count of my own actions persisted locally before reconnecting
+     *     ({@code locallyPersistedCount}): it happened while I was away from the hand, so
+     *     I have nothing to check it against.
      *
-     * Si el índice es ≤ lo persistido, el host me sirvió pelada una acción que yo SÍ presencié
-     * (me borró la firma): eso es una forja y se mantiene el aviso duro. El FOLD sintético protege
-     * el dinero en ambos casos; esto solo decide si el aviso es una precaución suave o una alerta.
+     * If the index is <= what's persisted, the host stripped an action I actually
+     * witnessed (my signature was erased): that's a forgery and the hard warning stays.
+     * The synthetic FOLD protects the money either way; this only decides whether the
+     * warning is a soft precaution or a hard alert.
      */
     static boolean isBenignPostAbsenceRecover(int decision, int replayedIndex, int locallyPersistedCount) {
         return decision == Player.FOLD && replayedIndex > locallyPersistedCount;
     }
 
     /**
-     * Recover / convergencia de cadena (PURA y testeable): ¿el asiento cuyo turno toca durante el replay
-     * fue SALTADO por OMISION MUTUA en vivo (se desconecto antes de actuar en esta calle)?
+     * Recover / chain convergence (pure, testable): was the seat whose turn comes up
+     * during replay SKIPPED live by mutual omission (it disconnected before acting on
+     * this street)?
      *
-     * La lista {@code order} es la secuencia ORDENADA (por counter) de nicks de TODAS las acciones que se
-     * PROCESARON en vivo — la verdad de lo que paso. {@code contaAccion} es cuantas se han reproducido ya,
-     * asi que {@code order.get(contaAccion)} es de quien toca la siguiente accion guardada. Si el asiento
-     * cuyo turno estamos a punto de procesar NO es ese, es que en vivo su turno se salto (los asientos
-     * saltados no dejan accion en la lista), asi que hay que saltarlo aqui tambien; reproducirlo mete en
-     * H_t un record que en vivo no existio y el siguiente record ORIGINAL rompe su PREV_H. Solo aplica
-     * mientras quedan acciones por reproducir ({@code contaAccion < order.size()}); una vez alcanzado el
-     * frente, el resto de la mano se juega en vivo con normalidad.
+     * {@code order} is the counter-ordered sequence of nicks for every action actually
+     * PROCESSED live — ground truth. {@code contaAccion} is how many have been replayed
+     * so far, so {@code order.get(contaAccion)} names whoever the next stored action
+     * belongs to. If the seat about to be processed isn't that one, its turn was skipped
+     * live (skipped seats leave no entry in the list), so replay must skip it too;
+     * replaying it would insert into H_t a record that never existed live, breaking the
+     * next original record's PREV_H. Only applies while actions remain to replay
+     * ({@code contaAccion < order.size()}); once caught up, the rest of the hand plays
+     * live as normal.
      */
     static boolean isSkippedSeatDuringRecover(String seatNick, int contaAccion, java.util.List<String> order) {
         return order != null && contaAccion >= 0 && contaAccion < order.size()
@@ -270,42 +265,43 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Recover / seguridad anti host-hostil (PURA y testeable): al ir a SALTAR mi PROPIO asiento durante el
-     * replay (porque la lista que sirve el host dice que no me toca), ¿está el host OMITIENDO una acción que
-     * yo sí jugué? Lo está SII el asiento es el MÍO ({@code ownSeat}) y todavía me quedan acciones propias sin
-     * reproducir: reproducidas ({@code ownReplayed}) &lt; las que tengo en mi SQLite local ({@code ownPersisted}),
-     * base que el host NO controla. Un hueco LEGÍTIMO (me desconecté antes de actuar en esa calle) tiene
-     * {@code ownReplayed == ownPersisted}, así que no salta. Solo aplica a mi asiento: para los demás, la
-     * cadena (PREV_H) ya delata cualquier omisión inconsistente y los bots los controla el host de todas formas.
+     * Recover / anti-hostile-host safety (pure, testable): when about to skip MY OWN seat
+     * during replay (because the host's list says it's not my turn), is the host OMITTING
+     * an action I actually played? Yes iff the seat is mine ({@code ownSeat}) and I still
+     * have unreplayed actions of my own: replayed ({@code ownReplayed}) &lt; what's in my
+     * local SQLite ({@code ownPersisted}), a base the host doesn't control. A legitimate
+     * gap (I disconnected before acting on that street) has
+     * {@code ownReplayed == ownPersisted}, so it doesn't trip. Only applies to my own
+     * seat: for others, the chain (PREV_H) already exposes any inconsistent omission, and
+     * the host controls the bots anyway.
      */
     static boolean isHostOmittingOwnActionOnSkip(boolean ownSeat, int ownReplayed, int ownPersisted) {
-        // ownPersisted == Integer.MAX_VALUE es el centinela de FALLO al leer MI SQLite local
-        // (sqlCountLocalHandActions): es un problema LOCAL, no del host. NO se puede determinar si el
-        // host omite nada, asi que NO se acusa (si no, un fallo local de SQL en un skip legitimo
-        // dispararia una acusacion FALSA al host y el empuje a abandonar la mesa). El llamador
-        // registra aparte el "no se pudo verificar".
+        // ownPersisted == Integer.MAX_VALUE is the sentinel for a FAILURE reading my local
+        // SQLite (sqlCountLocalHandActions) — a LOCAL problem, not the host's. Can't tell
+        // whether the host is omitting anything, so no accusation is raised (otherwise a
+        // local SQL failure on a legitimate skip would falsely accuse the host and push the
+        // user to leave). The caller logs "could not verify" separately.
         return ownSeat && ownPersisted != Integer.MAX_VALUE && ownReplayed < ownPersisted;
     }
 
     /**
-     * Identity / anti-forgery (PURA y testeable): ¿el record que trae el wire es
-     * ESTRUCTURALMENTE apto para verificar? Solo lo es con la longitud canónica EXACTA:
-     * el firmante siempre emite RECORD_BYTES (CanonicalActionRecord.encode) y el canal
-     * cifrado + HMAC descarta cualquier frame alterado en tránsito, así que otra
-     * longitud solo puede venir de un cliente modificado. Darla por buena saltaba
-     * ENTERA la verificación (firma, binding y synth) mientras la decisión y el importe
-     * en claro movían el dinero igual.
+     * Identity / anti-forgery (pure, testable): is the record carried on the wire
+     * structurally fit to verify? Only at the exact canonical length: the signer always
+     * emits RECORD_BYTES (CanonicalActionRecord.encode), and the encrypted + HMAC channel
+     * discards any frame altered in transit, so any other length can only come from a
+     * modified client. Accepting it would skip the entire verification (signature,
+     * binding, synth) while the plaintext decision and amount still moved money.
      */
     static boolean isVerifiableWireRecord(byte[] wireRecord) {
         return wireRecord != null && wireRecord.length == CanonicalActionRecord.RECORD_BYTES;
     }
 
     /**
-     * Identity §4.5 (PURA y testeable): lee el bit FLAGS.is_voluntary de un record
-     * canónico. Es lo que decide contra qué clave se verifica la firma (§4.6), así que
-     * el camino vivo y el replay de recover deben leerlo EXACTAMENTE igual.
+     * Identity §4.5 (pure, testable): reads the FLAGS.is_voluntary bit of a canonical
+     * record. Decides which key the signature is verified against (§4.6), so the live
+     * path and the recover replay must read it exactly the same way.
      *
-     * Exige un record de longitud canónica (isVerifiableWireRecord).
+     * Requires a canonically-sized record (isVerifiableWireRecord).
      */
     static boolean readWireVoluntaryFlag(byte[] wireRecord) {
         int flags = ((wireRecord[CanonicalActionRecord.OFFSET_FLAGS] & 0xff) << 8)
@@ -314,10 +310,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity §4.9 (PURA y testeable): ¿este ACTION trae record + firma? Los dos
-     * últimos campos del wire son fijos y llevan "*" cuando no hay nada que verificar
-     * (peer sin cadena, o el fold pelado que emite el host tras un synth). Un wire más
-     * corto es de una versión pre-identity.
+     * Identity §4.9 (pure, testable): does this ACTION carry a record + signature? The
+     * wire's last two fields are fixed and hold "*" when there's nothing to verify (a
+     * peer with no chain, or the stripped fold the host emits after a synth). A shorter
+     * wire is from a pre-identity version.
      */
     static boolean wireCarriesRecordAndSig(String[] partes) {
         return partes != null && partes.length >= 9
@@ -325,14 +321,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity §4.9 (PURA y testeable): arma el subcomando ACTION que sale al wire.
+     * Identity §4.9 (pure, testable): builds the ACTION subcommand sent on the wire.
      *
      *   ACTION#nick_b64#decision#bet#cinematic_or_*#record_or_*#sig_or_*
      *
-     * El importe en claro solo viaja en un BET (el resto de tipos lo derivan de las
-     * reglas y del estado, y en un all-in ese slot lo ocupa la cinemática, que va en
-     * su propio campo). record y sig viajan en base64, o "*" cuando no hay: eso último
-     * es lo que ve el receptor de un fold sintético y lo que le hace sintetizar el suyo.
+     * The plaintext amount only travels for a BET (other types derive it from the rules
+     * and state, and on an all-in that slot holds the cinematic instead, which has its
+     * own field). record and sig travel base64-encoded, or "*" when absent — that's what
+     * a synthetic fold's receiver sees, and what makes it synthesize its own.
      */
     static String buildActionWireCommand(String nick, int decision, Object bet,
             String cinematicField, byte[] record, byte[] sig) {
@@ -489,32 +485,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; // 2 players
     public static final int CARD_ANIMATION_DELAY = 100;
-    // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce los giros de carta
+    // Diagnostic confirmation (once per session) of which engine renders the card flips
     private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
-    // Tope de memoria para pre-decodificar shuffle.gif (las barajas integradas
-    // rondan los 43 MB gracias al fast path indexado; un shuffle.gif de mod que
-    // estime por encima cae a la ruta legacy Toolkit en vez de tragarse la RAM)
+    // Memory cap for pre-decoding shuffle.gif (built-in decks run ~43 MB thanks to the
+    // indexed fast path; a mod's shuffle.gif estimated above this falls back to the
+    // legacy Toolkit path instead of eating RAM)
     public static final long PRE_RENDERED_SHUFFLE_MAX_BYTES = 64L * 1024 * 1024;
-    // Frame (1-based) de cada vuelta del gif en el que se CORTA shuffle.wav, antes
-    // del ultimo frame a proposito: deja margen para que el buffer de salida del
-    // dispositivo (que va por detras) termine de drenar ANTES de que la vuelta
-    // acabe visualmente. Si se corta justo al final, el sonido se oye un pelin
-    // despues de que la animacion desaparece.
+    // Frame (1-based) of each gif loop where shuffle.wav is CUT, deliberately before the
+    // last frame: gives the device's (lagging) output buffer time to finish draining
+    // before the loop ends visually. Cutting right at the end makes the sound trail
+    // slightly after the animation disappears.
     public static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
-    // Caché del shuffle.gif pre-decodificado de la baraja ACTUAL (una sola
-    // entrada, keyed por URL): el decode de ~0,5 s se paga una única vez por
-    // baraja (normalmente en el warm-up de arranque/cambio de baraja, fuera de
-    // la partida) y la animación queda residente (~43 MB las barajas
-    // integradas) hasta que se cambie de baraja, que la reemplaza y libera la
-    // anterior. Un value null cachea también el fallo (GIF de mod
-    // indecodificable o sobre el tope): un único intento y un único WARNING
-    // por baraja.
+    // Pre-decoded shuffle.gif cache for the CURRENT deck (single entry, keyed by URL):
+    // the ~0.5 s decode is paid once per deck (usually during startup/deck-change
+    // warm-up, outside the game) and the animation stays resident (~43 MB for built-in
+    // decks) until the deck changes, which replaces and frees it. A null value also
+    // caches the failure (undecodable or over-cap mod GIF): one attempt and one WARNING
+    // per deck.
     private static volatile Map.Entry<String, PreRenderedGif> SHUFFLE_ANIM_CACHE = null;
 
     private static final Object SHUFFLE_ANIM_LOCK = new Object();
 
-    // URL del shuffle.gif de la baraja actual (fichero del mod o recurso
-    // integrado), null si la baraja no tiene
+    // URL of the current deck's shuffle.gif (mod file or built-in resource), null if the
+    // deck has none
     public static URL shuffleGifUrl() {
 
         String baraja = GameFrame.BARAJA;
@@ -538,9 +531,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return null;
     }
 
-    // Shuffle.gif pre-decodificado de la caché, decodificándolo si no está
-    // (null si no se deja o excede el tope: ruta legacy). Sincronizado para
-    // que el warm-up y el hilo del barajado nunca paguen el decode dos veces.
+    // Pre-decoded shuffle.gif from the cache, decoding it if missing (null if it can't be
+    // decoded or exceeds the cap: legacy path). Synchronized so warm-up and the shuffle
+    // thread never pay the decode twice.
     public static PreRenderedGif getShuffleAnim(URL url_icon) {
 
         String url_key = url_icon.toString();
@@ -561,9 +554,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.WARNING, "Shuffle GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
             }
 
-            // Se loguea en CADA decode real (solo ocurre en fallo de caché, es decir al
-            // arranque y en cada cambio de baraja: la caché es de una sola entrada por URL),
-            // así el log confirma la pre-generación tras cambiar la baraja, no solo la inicial.
+            // Logged on every actual decode (only happens on a cache miss, i.e. startup and
+            // each deck change, since the cache holds a single entry): confirms
+            // pre-generation after a deck change too, not just at startup.
             if (anim != null) {
                 LOGGER.log(Level.INFO, "Shuffle animation pre-rendered for deck \"{0}\" ({1} frames / {2} ms)",
                         new Object[]{GameFrame.BARAJA, anim.getFrameCount(), anim.getTotalMs()});
@@ -575,8 +568,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Calienta la caché en background (arranque, cambio de baraja, animaciones
-    // reactivadas) para que la primera mano no pague el decode de ~0,5 s
+    // Warms the cache in background (startup, deck change, animations re-enabled) so the
+    // first hand doesn't pay the ~0.5 s decode
     public static void warmShuffleAnimCache() {
 
         if (!GameFrame.barajadoAnimOn()) {
@@ -597,123 +590,117 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
-    // Timeout duro para las fases SRA peer-a-peer en las que el host espera la
-    // respuesta de un cliente concreto (DECK_ROTATION_REQ y REQ_SRA_UNLOCK_CHAIN).
-    // Reproducido en issue#9: un peer reconectado mid-cascade no tiene los scalars
-    // SRA generados (los crea solo en el handler DECK_CASCADE_REQ); su Crupier
-    // rechaza silenciosamente -> el host esperaba hasta que el socket del peer
-    // moria naturalmente (60-90s), provocando shuffling animation infinito y
-    // un loop de MISDEAL+recover. Con timeout el host aborta la mano y vuelve a un
-    // estado consistente. Ampliado de 30s a 60s para dar mas margen a un peer lento
-    // (la rotacion es barata, un solo scalarMul), y ademas ahora queda POR ENCIMA de
-    // RECIBIDO_TIMEOUT (45s): a un peer realmente muerto lo caza antes el ping-pong
-    // (lo marca exit) que este timeout, y sigue por debajo de la muerte natural del
-    // socket (60-90s), asi que no cuelga. Un caido/reconectando aqui NO se acusa
-    // (ver el llamador de requestRemoteRotation, fix D).
+    // Hard timeout for the peer-to-peer SRA phases where the host waits on a specific
+    // client's response (DECK_ROTATION_REQ and REQ_SRA_UNLOCK_CHAIN). Fixes issue#9: a
+    // peer reconnected mid-cascade has no SRA scalars generated yet (only created in the
+    // DECK_CASCADE_REQ handler), so its Crupier silently rejects -> the host used to wait
+    // until the peer's socket died naturally (60-90s), causing an infinite shuffling
+    // animation and a MISDEAL+recover loop. With this timeout the host aborts the hand and
+    // returns to a consistent state. Raised from 30s to 60s to give a slow peer more
+    // margin (rotation is cheap, a single scalarMul), and kept ABOVE RECIBIDO_TIMEOUT
+    // (45s) so a truly dead peer is caught by ping-pong (marked exit) before this timeout,
+    // while staying below the socket's natural death (60-90s) so nothing hangs. A
+    // dropped/reconnecting peer is NOT accused here (see requestRemoteRotation's caller,
+    // fix D).
     public static final int REMOTE_SRA_PEER_TIMEOUT_MS = 60000;
-    // Deadline de PROGRESO para la cascada (DECK_CASCADE_RESP). Un peer que contesta PING/PONG
-    // (sigue "vivo") pero CALLA su respuesta de cascada dejaría al host esperando para siempre
-    // -> mesa congelada (p.isExit() no se activa porque el PING lo mantiene vivo). MUCHO más
-    // generoso que REMOTE_SRA_PEER_TIMEOUT_MS porque el paso de cascada puede incluir la
-    // generación de la prueba de barajado en un PC lento: err generoso para NUNCA abortar a un
-    // cliente legítimo lento; solo acota la congelación de infinito a este tope.
+    // PROGRESS deadline for the cascade (DECK_CASCADE_RESP). A peer answering PING/PONG
+    // (still "alive") but staying silent on its cascade response would leave the host
+    // waiting forever -> frozen table (p.isExit() never trips because PING keeps it
+    // alive). Much more generous than REMOTE_SRA_PEER_TIMEOUT_MS because the cascade step
+    // can include generating the shuffle proof on a slow PC: err generous to never abort a
+    // legitimate slow client; only caps the infinite freeze at this ceiling.
     public static final int REMOTE_CASCADE_RESP_TIMEOUT_MS = 120000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
-    // La pausa del showdown (segundos que se muestra el resultado antes de la siguiente mano) es
-    // configurable por timba: vive en GameFrame.SHOWDOWN_TIME (default 10, rango 5-30). Escala
-    // x0.5/x1.5 segun side pots en los llamadores de pausaConBarra.
+    // The showdown pause (seconds the result is shown before the next hand) is
+    // configurable per table: lives in GameFrame.SHOWDOWN_TIME (default 10, range 5-30).
+    // Scaled x0.5/x1.5 by side pots in pausaConBarra's callers.
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
-    public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; // Segundos
+    public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; // Seconds
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 30000;
-    // Deadline de PROGRESO para HAND_READY (arranque de la mano siguiente). PAUSE-AWARE: mientras la timba
-    // esté PAUSADA el reloj no corre (un peer legítimo puede callar HAND_READY porque el juego está en
-    // pausa), así que solo cuenta el tiempo con la timba EN MARCHA. Muy generoso para cubrir clientes lentos
-    // en CPU o red y las animaciones de fin de mano. Al vencer se expulsa SOLO al peer que retiene (la mesa
-    // sigue). Antes NO había timeout y un peer que contesta PING pero no manda HAND_READY congelaba la mesa.
+    // PROGRESS deadline for HAND_READY (starting the next hand). PAUSE-AWARE: the clock
+    // doesn't run while the table is PAUSED (a legitimate peer can withhold HAND_READY
+    // because the game is paused), so only time with the table RUNNING counts. Very
+    // generous to cover clients slow on CPU/network and end-of-hand animations. On expiry
+    // only the withholding peer is expelled (the table continues). Previously there was no
+    // timeout and a peer answering PING but never sending HAND_READY froze the table.
     public static final int HAND_READY_PROGRESS_TIMEOUT_MS = 120000;
-    // Deadline de PROGRESO para un broadcast SÍNCRONO del host (espera de ACK de todos los peers).
-    // PAUSE-AWARE. Un peer que contesta PING pero NO confirma el broadcast hacía reintentar al host para
-    // siempre (congelaba MEGAPACKET / POCKET_CARDS / START_SRA_CASCADE / MISDEAL / HANDVERIFY). Muy generoso
-    // para cubrir clientes lentos procesando una baraja SRA grande. Al vencer se expulsa SOLO al que retiene.
+    // PROGRESS deadline for a SYNCHRONOUS host broadcast (waiting on ACK from every peer).
+    // PAUSE-AWARE. A peer answering PING but never confirming the broadcast used to make
+    // the host retry forever (freezing MEGAPACKET / POCKET_CARDS / START_SRA_CASCADE /
+    // MISDEAL / HANDVERIFY). Very generous to cover clients slowly processing a large SRA
+    // deck. On expiry only the withholding peer is expelled.
     public static final int BROADCAST_PROGRESS_TIMEOUT_MS = 180000;
-    // La mesa del cliente puede quedarse esperando al anfitrion sin fecha de caducidad:
-    // recibir las cartas, el disparo de verificacion y el arranque de la mano siguiente no
-    // llevan plazo A PROPOSITO (ver waitForHandverifyTrigger). Si el anfitrion se cae del
-    // todo, el socket muere y se sale por ahi; pero si su proceso sigue vivo y lo que se
-    // atasca es su hilo repartidor, no corta nadie y la mesa se queda parada en silencio,
-    // sin mas salida que cerrar a lo bruto. Aqui NO se corta (decidir que hacer al vencer
-    // es lo dificil, y ponerle plazo a secas ya resulto ser peor que no tenerlo: seguia la
-    // mano a ciegas y se saltaba el unico punto donde un MISDEAL tardio la corta), pero al
-    // menos se avisa de que la mesa lleva parada, sin aconsejar nada. No se le sugiere que
-    // salga porque no siempre puede: en la espera de las cartas el menu de salir esta
-    // apagado (NUEVA_MANO lo apaga mientras reparte), asi que en ese caso seria mandarle a
-    // una puerta cerrada. En las otras dos esperas si esta abierto, pero mas vale un aviso
-    // que valga para las tres que uno que mienta en una.
+    // The client's table can be left waiting on the host with no deadline by design:
+    // receiving the cards, the verification trigger, and starting the next hand
+    // deliberately have no timeout (see waitForHandverifyTrigger). If the host dies
+    // outright its socket dies with it and the wait ends there; but if its process is
+    // alive and just its dealing thread is stuck, nothing cuts the wait and the table
+    // sits silently frozen, with no way out but a hard close. Still not cut here (deciding
+    // what to do on expiry is the hard part, and a bare timeout proved worse than none: it
+    // kept playing the hand blind and skipped the one point where a late MISDEAL cuts it),
+    // but at least a "table is stuck" notice fires, without recommending anything. Leaving
+    // isn't suggested because it isn't always possible: while waiting for cards the exit
+    // menu is disabled (NUEVA_MANO disables it while dealing), so that would point to a
+    // closed door; it's enabled during the other two waits, but one notice valid for all
+    // three beats one that lies in one of them.
     //
-    // El umbral tiene que ir MUY holgado, bastante mas de lo que parece: el deadline de
-    // progreso de un broadcast son 180 s, pero el arranque de una mano encadena mucho mas
-    // por delante. La cascada se pide peer a peer y a cada uno se le conceden 120 s, asi
-    // que tres remotos lentos ya se plantan en seis minutos con la mesa perfectamente sana,
-    // y si alguien se cae por el camino la cascada se reinicia entera. Ademas el reloj se
-    // reinicia si la timba esta pausada: sin eso, una pausa larga soltaba el aviso justo al
-    // reanudar, que es cuando menos sentido tiene.
+    // The threshold must be MUCH more generous than it looks: a broadcast's progress
+    // deadline is 180s, but starting a hand chains a lot more ahead of it. The cascade is
+    // requested peer by peer with 120s granted to each, so three slow remotes alone reach
+    // six minutes on a perfectly healthy table, and if anyone drops mid-way the whole
+    // cascade restarts. The clock also resets while the table is paused: otherwise a long
+    // pause would fire the notice right at resume, exactly when it makes least sense.
     public static final long MESA_PARADA_AVISO_MS = 600000;
     private static final int MESA_PARADA_AVISO_TIMEOUT = 10000;
-    // Techo de reconexion para los deadlines de progreso. Los cinco plazos se REINICIAN mientras
-    // haya reconexion, asi que un peer que reconecta en bucle los mantiene sin vencer y no se le
-    // puede expulsar aunque retenga la mesa. Este techo acota el tiempo NO PAUSADO que la
-    // reconexion puede congelar un plazo: pasado el, el reloj corre y el deadline vence. La pausa
-    // a proposito sigue congelando indefinidamente (empuja el techo, para que no cuente). Holgado
-    // a proposito: una reconexion legitima dura segundos, no diez minutos.
+    // Reconnection cap on the progress deadlines. All five deadlines RESET while
+    // reconnection is happening, so a peer reconnecting in a loop keeps them from expiring
+    // and can't be expelled even while holding up the table. This cap bounds how much
+    // UNPAUSED time reconnection can freeze a deadline for: past it, the clock runs and
+    // the deadline expires. A deliberate pause still freezes indefinitely (it pushes the
+    // cap forward so it doesn't count). Deliberately generous: a legitimate reconnect
+    // takes seconds, not ten minutes.
     public static final long RECON_CHURN_HARD_CAP_MS = 600000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
-    public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
-    public static final int STRADDLE_DECISION_TIMEOUT = 10; // Segundos que el UTG tiene para decidir el straddle voluntario (timeout = NO straddle). Al declinar, como no hay straddle el UTG es el primero en hablar -> rondaApuestas le arranca su turno normal (esTuTurno: think-time + HABLAS TU / PENSANDO)
-    public static final int STRADDLE_RESULT_WAIT_TIMEOUT = 20; // Tope (s) que el cliente espera el STRADDLE_RESULT del host antes de asumir NO (cubre el peor caso del host ~9s + holgura de red; evita cuelgue si el host hizo early-return sin difundir)
-    private static final double BOT_STRADDLE_PROBABILITY = 0.12; // Probabilidad de que un bot UTG ponga un straddle voluntario (calibrable)
-    public static final int MONTECARLO_ITERATIONS = 1000;// Suficiente para tener un compromiso entre
-    // velocidad/precisión
+    public static final int RIT_VOTE_TIMEOUT = 15; // Seconds the run-it-twice vote lasts (timeout = NORMAL)
+    public static final int STRADDLE_DECISION_TIMEOUT = 10; // Seconds UTG has to decide on a voluntary straddle (timeout = no straddle). Declining, with no straddle UTG speaks first -> rondaApuestas starts their normal turn (esTuTurno: think-time + "your turn" / thinking)
+    public static final int STRADDLE_RESULT_WAIT_TIMEOUT = 20; // Cap (s) the client waits for the host's STRADDLE_RESULT before assuming NO (covers the host's worst case ~9s + network slack; avoids hanging if the host early-returned without broadcasting)
+    private static final double BOT_STRADDLE_PROBABILITY = 0.12; // Probability a bot UTG places a voluntary straddle (tunable)
+    public static final int MONTECARLO_ITERATIONS = 1000;// Enough for a speed/accuracy tradeoff
     public static final int RABBIT_LABEL_TIMEOUT = 3000;
 
-    // Tope defensivo de la espera a que se procesen las peticiones de rabbit hunting.
-    // Holgado a proposito: cada peticion pinta su aviso durante RABBIT_LABEL_TIMEOUT y
-    // varias pueden encadenarse, asi que solo salta si algo se ha quedado colgado.
+    // Defensive cap on waiting for rabbit-hunting requests to be processed. Deliberately
+    // generous: each request shows its notice for RABBIT_LABEL_TIMEOUT and several can
+    // chain, so this only trips if something actually got stuck.
     public static final int RABBIT_PROCESSING_TIMEOUT = 60000;
 
     public static volatile boolean SECURITY_LOCKDOWN = false;
 
-    // Aviso suave UNA vez por anomalia DISTINTA y por partida (no one-shot global: si no, un aviso
-    // temprano se tragaba todos los siguientes). Llave = el reason (mensaje distinto por anomalia).
+    // Soft warning ONCE per DISTINCT anomaly per game (not a global one-shot: otherwise an
+    // early warning would swallow all later ones). Key = the reason (distinct message per
+    // anomaly).
     private final java.util.Set<String> suspicious_host_warned_reasons = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-    // Simetrico host-side: una alerta por (peer + anomalia) por partida, para no spamear popups bajo un
-    // ataque activo. Llave = peerNick + "|" + reason.
+    // Host-side symmetric: one alert per (peer + anomaly) per game, to avoid spamming
+    // popups under an active attack. Key = peerNick + "|" + reason.
     private final java.util.Set<String> malicious_peer_warned_reasons = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-    // Anti-DoS: un peer que rechaza el barajado (cascada) o la rotacion del mazo (crypto invalida o
-    // withhold) fuerza un MISDEAL en ESA mano; sin mas, podria repetirlo cada mano y dejar la timba sin
-    // progreso (loop de MISDEAL, quema CPU). Un cliente de la MISMA version JAMAS produce estos fallos, asi
-    // que se cuentan por peer y por partida; alcanzado el tope se AUTO-EXPULSA (la mesa sigue sin el). Tope
-    // pequeno pero > 1 para presumir buena fe ante un fallo puntual.
+    // Anti-DoS: a peer refusing the shuffle (cascade) or deck rotation (invalid crypto or
+    // withholding) forces a MISDEAL for that hand; unchecked, it could repeat every hand
+    // and stall the table (MISDEAL loop, burns CPU). A same-version client never produces
+    // these failures, so they're counted per peer per game; on reaching the cap the peer
+    // is AUTO-EXPELLED (the table continues without it). Small cap but > 1 to assume good
+    // faith on a one-off failure.
     private static final int MAX_DEAL_REFUSAL_STRIKES = 3;
     private final java.util.concurrent.ConcurrentHashMap<String, Integer> deal_refusal_strikes = new java.util.concurrent.ConcurrentHashMap<>();
 
-    /**
-     * Aviso SUAVE de comportamiento anómalo del host del que el juego PUEDE recuperarse y
-     * que NO da certeza de manipulación (siempre presumimos buena fe: podría ser un bug del
-     * software). A diferencia de {@link #triggerSecurityLockdown}, NO congela el saldo, NO
-     * cierra el socket ni termina la partida: solo informa al usuario UNA vez por sesión y
-     * recomienda ENCARECIDAMENTE abandonar la mesa, dejando que el juego siga si puede. Se usa
-     * cuando ya hemos neutralizado la anomalía rechazando la operación (p.ej. una segunda
-     * rotación) y congelar sería desproporcionado si resultara ser un bug.
-     */
-    // RECOVER anti-chip-theft: lee el saldo VERAZ del PROPIO SQLite del cliente (misma query que usa el
-    // host para construir el RECOVERDATA, pero sobre MI BD — cada peer persiste balance por mano). Devuelve
-    // player -> {stack, buyin, rebuy_count}. Robusto: ante cualquier fallo devuelve mapa VACÍO (el balance
-    // se fía entonces del host, como antes).
+    // RECOVER anti-chip-theft: reads the TRUE balance from the client's OWN SQLite (same
+    // query the host uses to build RECOVERDATA, but against MY DB — each peer persists
+    // balance per hand). Returns player -> {stack, buyin, rebuy_count}. Robust: on any
+    // failure returns an EMPTY map (balance then falls back to trusting the host, as
+    // before).
     private java.util.Map<String, double[]> readLocalRecoverBalances() {
         java.util.Map<String, double[]> out = new java.util.HashMap<>();
         String sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
@@ -733,9 +720,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return out;
     }
 
-    // Antepone "SOSPECHOSO: host «X»" al mensaje cuando somos CLIENTE (la anomalía zero-trust la causa
-    // el host, que reparte/coordina). En el HOST (auto-detección, posible bug propio) devuelve el
-    // mensaje tal cual, sin señalar a nadie.
+    // Prepends "SUSPICIOUS: host «X»" to the message when we're the CLIENT (the
+    // zero-trust anomaly is caused by the host, which deals/coordinates). On the HOST
+    // (self-detection, possibly its own bug) returns the message as-is, naming no one.
     private String withSuspectHostPrefix(String reason) {
         try {
             if (GameFrame.getInstance().isPartida_local()) {
@@ -749,32 +736,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /**
+     * Soft warning about anomalous host behavior the game CAN recover from, that does NOT
+     * prove manipulation (always assume good faith: could be a software bug). Unlike
+     * {@link #triggerSecurityLockdown}, this does NOT freeze the balance, close the
+     * socket, or end the game: it just informs the user once per session and STRONGLY
+     * recommends leaving the table, letting the game continue if it can. Used once the
+     * anomaly has already been neutralized by rejecting the operation (e.g. a second
+     * rotation), where freezing would be disproportionate if it turns out to be a bug.
+     */
     public void warnSuspiciousHost(String reason) {
         if (!suspicious_host_warned_reasons.add(reason)) {
-            return; // ya avisado de ESTA anomalia en esta partida
+            return; // already warned about THIS anomaly in this game
         }
-        // SOSPECHOSO: en un CLIENTE, la anomalía la causa el HOST (reparte/coordina) -> se antepone
-        // "SOSPECHOSO: host «X»" al mensaje (registro rojo + popup). En el HOST es auto-detección
-        // (posible bug propio), no se señala a nadie.
+        // On a CLIENT the anomaly is caused by the HOST -> the message gets the
+        // "SUSPICIOUS: host «X»" prefix (red log + popup). On the HOST it's
+        // self-detection; nobody is named.
         final String fullReason = withSuspectHostPrefix(reason);
         try {
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + fullReason);
         } catch (Exception ignored) {
         }
         Helpers.threadRun(() -> {
-            // Modal: desde este hilo de fondo bloquea hasta que el usuario pulsa OK.
+            // Modal: blocks this background thread until the user clicks OK.
             Helpers.mostrarMensajeError(GameFrame.getInstance(),
                     Translator.translate("zero_trust.suspicious_header")
                     + fullReason + "\n\n"
                     + Translator.translate("zero_trust.suspicious_body"),
                     "justify", zeroTrustPopupWidth());
-            // El aviso recomienda abandonar la mesa: tras cerrarlo se lo ponemos a un click
-            // abriendo el flujo de salida ya existente (mismo camino que el menu Salir /
-            // Ctrl+Q). Si prefiere seguir jugando, cancela el dialogo y no pasa nada.
-            // SOLO en cliente: en el host el aviso es auto-deteccion (posible bug propio) y
-            // ademas su flujo de salida en partida local con un unico humano NO pregunta
-            // (saldria de la timba sin confirmacion). Si mientras tanto salto un lockdown
-            // duro, ese flujo ya esta gestionando la salida y no abrimos nada encima.
+            // The notice recommends leaving the table: after closing it, one click opens
+            // the existing exit flow (same path as the Exit menu / Ctrl+Q). Choosing to
+            // keep playing just cancels the dialog. CLIENT ONLY: on the host the warning
+            // is self-detection, and its local-game exit flow with a single human doesn't
+            // confirm (it would leave the table outright). If a hard lockdown fired
+            // meanwhile, that flow is already handling the exit and nothing is opened on
+            // top of it.
             if (!Crupier.SECURITY_LOCKDOWN && !GameFrame.getInstance().isPartida_local()) {
                 try {
                     Helpers.GUIRun(() -> GameFrame.getInstance().getExit_menu().doClick());
@@ -784,20 +780,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
 
-    // Ancho (px) acotado para los popups zero-trust: sus textos son parrafos largos de una sola
-    // linea, y sin restriccion de ancho el JLabel HTML los pinta en una unica linea que desborda la
-    // pantalla. Escala con el zoom de dialogo para conservar la misma proporcion a cualquier zoom.
+    // Bounded width (px) for zero-trust popups: their text is a long single-line
+    // paragraph, and without a width cap the HTML JLabel renders it as one line that
+    // overflows the screen. Scales with the dialog zoom to keep the same proportion at
+    // any zoom level.
     private int zeroTrustPopupWidth() {
         return Math.round(600f * Helpers.DIALOG_ZOOM);
     }
 
     /**
-     * Recover: aviso SUAVE (no acusatorio) de que el host ha reproducido acciones POSTERIORES a la
-     * ultima que este cliente registro en local. Pasaron mientras estaba fuera de la mano (salio y la
-     * mano siguio sin el), asi que no las puede verificar y las acepta tal cual las sirve el host. A
-     * diferencia de warnSuspiciousHost, NO abre popup modal ni empuja a abandonar la mesa: solo deja
-     * una linea SUAVE en el REGISTRO del juego (en amarillo, via categoryRule de GameLogDialog) y el
-     * detalle en el log de debug (lo emite el llamador). Dedup por recuperacion (recover_absence_warned).
+     * Recover: SOFT (non-accusatory) warning that the host replayed actions PAST the last
+     * one this client recorded locally. They happened while this client was out of the
+     * hand (it left and the hand continued without it), so they can't be verified and are
+     * accepted as served. Unlike warnSuspiciousHost, this opens no modal popup and doesn't
+     * push toward leaving: just a soft line in the game log (yellow, via GameLogDialog's
+     * categoryRule) plus debug detail (logged by the caller). Deduped per recovery
+     * (recover_absence_warned).
      */
     private void warnRecoverActionDuringAbsence() {
         if (this.recover_absence_warned) {
@@ -810,18 +808,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Simetrico HOST-side de warnSuspiciousHost: el host ha detectado comportamiento anomalo o abusivo de
-    // UN peer concreto (flood de mensajes, negativa a la cascada, forfeit por datos que no resuelven a una
-    // carta genesis, etc.). Da la MISMA visibilidad que en el lado cliente pero nombrando al JUGADOR
-    // sospechoso: registro EN ROJO (prefijo zero_trust.peer_alert -> ST_CRITICAL) + popup, dedup por
-    // (peer + anomalia) por partida. La ACCION que proceda segun gravedad (descartar / expulsar / misdeal /
-    // forfeit) la aplica el LLAMADOR; esto solo informa. Fail-safe total: se invoca desde caminos criticos
-    // (incluido el hilo lector de un Participant o en pleno reparto) y NUNCA debe lanzar.
+    // HOST-side symmetric to warnSuspiciousHost: the host detected anomalous or abusive
+    // behavior from a SPECIFIC peer (message flood, cascade refusal, forfeit from data
+    // that doesn't resolve to a genesis card, etc.). Same visibility as the client side
+    // but naming the suspect PLAYER: red log entry (zero_trust.peer_alert prefix ->
+    // ST_CRITICAL) + popup, deduped per (peer + anomaly) per game. The action that
+    // follows by severity (discard / expel / misdeal / forfeit) is the CALLER's job; this
+    // just informs. Fail-safe: called from critical paths (including a Participant's
+    // reader thread or mid-deal) and must NEVER throw.
     public void warnMaliciousPeer(String peerNick, String reasonKey) {
         try {
             String dedupKey = peerNick + "|" + reasonKey;
             if (!malicious_peer_warned_reasons.add(dedupKey)) {
-                return; // ya avisado de ESTA anomalia de ESTE peer en esta partida
+                return; // already warned about THIS anomaly for THIS peer in this game
             }
             String suspect = MessageFormat.format(Translator.translate("zero_trust.suspect_peer_prefix"),
                     (peerNick != null && !peerNick.isEmpty()) ? peerNick : "?");
@@ -847,10 +846,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Anti-DoS: registra una negativa al reparto (cascada o rotacion) de ESTE peer. Alcanzado
-    // MAX_DEAL_REFUSAL_STRIKES en la partida, lo AUTO-EXPULSA (markExitAndNotify + socketClose) para que no
-    // pueda forzar un MISDEAL cada mano indefinidamente. El MISDEAL de la mano actual lo hace el llamador;
-    // esto solo escala tras varias. Fail-safe: nunca lanza.
+    // Anti-DoS: records a deal refusal (cascade or rotation) from THIS peer. On reaching
+    // MAX_DEAL_REFUSAL_STRIKES for the game, AUTO-EXPELS it (markExitAndNotify +
+    // socketClose) so it can't force a MISDEAL every hand indefinitely. The current
+    // hand's MISDEAL is the caller's job; this only escalates after repeated strikes.
+    // Fail-safe: never throws.
     private void registerDealRefusal(String nick) {
         try {
             int strikes = deal_refusal_strikes.merge(nick, 1, Integer::sum);
@@ -874,24 +874,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Torneo/anti-trampa: esta mano el mazo NO se pudo verificar como barajado honesto (host no mandó
-    // el bundle, o llegó mal, o se probó deshonesto). NO se bloquea la mano (cartas ya repartidas) ni
-    // se fuerza salida: se REGISTRA en el log del juego EN ROJO (el prefijo zero_trust.suspicious_alert
-    // lo colorea vía ST_CRITICAL, como los demás errores zero-trust) y se avisa con un popup UNA vez por
-    // partida. La evidencia firmada ya va en el recibo + disputed_hands; el jugador decide si sigue.
+    // Tournament/anti-cheat: this hand's deck could NOT be verified as an honest shuffle
+    // (host didn't send the bundle, it arrived malformed, or it proved dishonest). The
+    // hand isn't blocked (cards already dealt) and no exit is forced: it's logged in RED
+    // (the zero_trust.suspicious_alert prefix colors it via ST_CRITICAL, like other
+    // zero-trust errors) and warned via popup once per game. Signed evidence already
+    // lives in the receipt + disputed_hands; the player decides whether to continue.
     private volatile byte[] deck_unverified_warned_megapacket = null;
 
     public void warnDeckUnverified() {
-        // Dedup POR MANO (megapacket), NO por partida: esto NO debería pasar NUNCA en una partida
-        // legítima; si pasa es GRAVE, así que se avisa (popup + registro rojo) en CADA mano afectada.
-        // El dedup por megapacket evita duplicar dentro de la MISMA mano si saltan el gate y onDishonest.
+        // Deduped PER HAND (megapacket), NOT per game: this should NEVER happen in a
+        // legitimate game; if it does, it's SERIOUS, so it warns (popup + red log) on
+        // EVERY affected hand. The per-megapacket dedup only avoids duplicating within
+        // the SAME hand if both the gate and onDishonest fire.
         byte[] mp = this.local_mega_packet;
         if (mp != null && java.util.Arrays.equals(mp, this.deck_unverified_warned_megapacket)) {
             return;
         }
         this.deck_unverified_warned_megapacket = mp;
 
-        // SOSPECHOSO: el host (reparte y difunde la prueba de barajado). Se nombra por su nick.
+        // SUSPICIOUS: the host (deals and broadcasts the shuffle proof). Named by nick.
         String host;
         try {
             host = WaitingRoomFrame.getInstance().getServer_nick();
@@ -916,10 +918,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Decisión PURA del gate "exigir prueba de barajado": avisar al ir a revelar community SII es fase
-     * community (la ventana de lectura del smuggle), el mazo viene de un reparto FRESCO ({@code expect}),
-     * NO se verificó un bundle honesto para él ({@code verified}) y no se avisó ya ({@code warned}).
-     * Aislada para ser testeable sin un juego completo. Recover no marca {@code expect} ⇒ no avisa.
+     * Pure decision for the "require shuffle proof" gate: warn when about to reveal
+     * community cards iff it's the community phase (the smuggle read window), the deck
+     * comes from a FRESH deal ({@code expect}), no honest bundle was verified for it
+     * ({@code verified}), and it hasn't warned already ({@code warned}). Isolated to be
+     * testable without a full game. Recover doesn't set {@code expect} => no warning.
      */
     public static boolean shouldWarnMissingShuffleProof(int phase, byte[] megapacket,
                                                         byte[] expect, byte[] verified, byte[] warned) {
@@ -957,9 +960,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 dual_lock_verified_megapacket = megapacket;
                             }
                             LOGGER.log(Level.INFO, "SHUFFLE-VERIFY: deck verified OK (hand {0})", handId);
-                            // Registro: barajado verificado (posiblemente TARDE, incluso de una mano ya
-                            // pasada — la cola es persistente). Usa el ordinal del Job (handId), no getMano(),
-                            // que ya podría apuntar a otra mano. Guarda por correr en el hilo de la cola.
+                            // Log: shuffle verified (possibly LATE, even for a hand that's
+                            // already past — the queue is persistent). Uses the Job's ordinal
+                            // (handId), not getMano(), which could already point to another
+                            // hand. Guarded because this runs on the queue's thread.
                             GameFrame gf = GameFrame.getInstance();
                             if (gf != null && gf.getRegistro() != null) {
                                 gf.getRegistro().print(
@@ -972,8 +976,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             LOGGER.log(Level.SEVERE,
                                     "SHUFFLE-VERIFY: deck PROVEN DISHONEST (hand {0}) — host cheating or bug, warning + red log entry",
                                     handId);
-                            // Mazo PROBADO deshonesto: se juega la mano (cartas repartidas), se registra
-                            // en rojo + popup. Evidencia firmada ya en recibo + disputed_hands.
+                            // Deck PROVEN dishonest: the hand is played (cards already dealt),
+                            // logged in red + popup. Signed evidence already in the receipt +
+                            // disputed_hands.
                             warnDeckUnverified();
                         }
 
@@ -992,9 +997,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return q;
     }
 
-    /** Detiene la cola de verificacion de barajado de este Crupier (si llego a crearse), para no fugar
-     *  su worker daemon ni el grafo del Crupier (retenido via la Sink) al arrancar una partida nueva.
-     *  Idempotente y fail-safe. */
+    /** Stops this Crupier's shuffle-verification queue (if it was ever created), so its
+     *  daemon worker and the Crupier graph (retained via the Sink) don't leak when a new
+     *  game starts. Idempotent and fail-safe. */
     public void shutdownShuffleVerifyQueue() {
         ShuffleVerificationQueue q = this.shuffle_verify_queue;
         if (q != null) {
@@ -1005,24 +1010,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void triggerSecurityLockdown(String reason) {
         if (!Crupier.SECURITY_LOCKDOWN) {
             Crupier.SECURITY_LOCKDOWN = true;
-            // Despierta a cualquier handler bloqueado en
-            // awaitStreetForUnlockPhase para que vea el lockdown y aborte
-            // sin esperar al timeout.
+            // Wakes any handler blocked in awaitStreetForUnlockPhase so it sees the
+            // lockdown and aborts without waiting for its timeout.
             synchronized (protocol_state_lock) {
                 protocol_state_lock.notifyAll();
             }
-            // SOSPECHOSO: en cliente, la anomalía la causa el host -> se nombra en el aviso rojo + popup.
+            // SUSPICIOUS: on a client, the host causes the anomaly -> named in the red
+            // warning + popup.
             final String fullReason = withSuspectHostPrefix(reason);
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.security_alert") + " " + fullReason);
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.lockdown_activated"));
 
-            // Si somos cliente, cerramos el socket con el host inmediatamente.
-            // En lockdown el cliente refusa cualquier REQ_SRA_UNLOCK_CHAIN siguiente
-            // y la cascade SRA no tiene timeout artificial, así que sin cierre
-            // el host queda esperando respuesta indefinidamente. Cerrar el
-            // socket fuerza al host a detectar peer caído por SocketException
-            // → exit=true → cascade falla limpio → MISDEAL → abortToRecover →
-            // SERVEREXITRECOVER al resto del ring.
+            // If we're the client, close the socket to the host immediately. In lockdown
+            // the client refuses any further REQ_SRA_UNLOCK_CHAIN, and the SRA cascade has
+            // no artificial timeout, so without closing it the host would wait forever.
+            // Closing the socket forces the host to detect the dropped peer via
+            // SocketException -> exit=true -> cascade fails cleanly -> MISDEAL ->
+            // abortToRecover -> SERVEREXITRECOVER to the rest of the ring.
             if (!GameFrame.getInstance().isPartida_local()) {
                 WaitingRoomFrame wrf = WaitingRoomFrame.getInstance();
                 if (wrf != null) {
@@ -1039,14 +1043,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         + fullReason + "\n\n"
                         + Translator.translate("zero_trust.critical_alert_body"),
                         "justify", zeroTrustPopupWidth());
-                // Tras el popup del lockdown la timba se da por acabada para
-                // este peer. El HOST se entera por socket caido + cascade
-                // fail -> abortAndExit broadcast SERVEREXIT al resto. Pero
-                // ESTE peer (con socket ya cerrado) no recibira SERVEREXIT,
-                // asi que dispara local su propio finTransmision sin
-                // force_recover -> BalanceScreen final. Sin esto, el peer
-                // que detecta el ataque quedaria con GameFrame abierto
-                // esperando algo que no llega.
+                // After the lockdown popup, the game is over for this peer. The HOST finds
+                // out via the dropped socket + failed cascade -> broadcasts SERVEREXIT to
+                // the rest (abortAndExit). But THIS peer (socket already closed) won't
+                // receive SERVEREXIT, so it fires its own local finTransmision without
+                // force_recover -> final BalanceScreen. Without this, the peer that
+                // detected the attack would be left with GameFrame open, waiting for
+                // something that never arrives.
                 try {
                     GameFrame inst = GameFrame.getInstance();
                     if (inst != null) {
@@ -1064,54 +1067,51 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // VARIABLES CRIPTOGRÁFICAS DE ESTADO
+    // CRYPTOGRAPHIC STATE VARIABLES
     private volatile byte[] local_hand_seed = null;
 
-    // Añadir esto debajo de local_hand_seed
     public byte[] getLocal_hand_seed() {
         return local_hand_seed;
     }
 
-    // --- LLAVES SRA DEL JUGADOR LOCAL ---
-    // Dual-lock: cada peer genera DOS pares de scalars por mano.
-    //   - local_sra_lock / local_sra_unlock se usan en la cascade principal y
-    //     siguen siendo la clave de las pocket pieces.
-    //   - local_sra_lock_community / local_sra_unlock_community se usan en la
-    //     fase de rotación que transforma las community pieces y luego para
-    //     desbloquearlas en cada calle. El testamento criptográfico al hacer
-    //     EXIT entrega SOLO la mitad community; las pocket cards del peer
-    //     que sale permanecen ininteligibles para el host.
+    // --- LOCAL PLAYER'S SRA KEYS ---
+    // Dual-lock: each peer generates TWO scalar pairs per hand.
+    //   - local_sra_lock / local_sra_unlock are used in the main cascade and remain the
+    //     key for the pocket pieces.
+    //   - local_sra_lock_community / local_sra_unlock_community are used in the rotation
+    //     phase that transforms the community pieces, then to unlock them on each street.
+    //     The cryptographic "will" left on EXIT hands over ONLY the community half; the
+    //     exiting peer's pocket cards stay unintelligible to the host.
     public volatile byte[] local_sra_lock = null;
     public volatile byte[] local_sra_unlock = null;
     public volatile byte[] local_sra_lock_community = null;
     public volatile byte[] local_sra_unlock_community = null;
-    // Anti-replay de la rotación: el cliente sirve UNA sola rotación por
-    // cascada. Se pone a false al generar los scalars en el handler DECK_CASCADE_REQ
-    // (cada cascada/reintento legítimo permite una rotación) y a true tras servir la
-    // rotación. Una segunda DECK_ROTATION_REQ sin nueva cascada = host hostil intentando
-    // usar la rotación como oráculo de pocket-unlock encubierto → lockdown. Cierra el
-    // sigilo del único resquicio que queda (cartas de un peer que sale): sin rotación
-    // extra, el host tendría que corromper la rotación legítima y eso rompe el board
-    // (misdeal injustificado, detectable).
+    // Rotation anti-replay: the client serves ONE rotation per cascade. Set to false when
+    // scalars are generated in the DECK_CASCADE_REQ handler (each legitimate
+    // cascade/retry allows one rotation), and to true after serving it. A second
+    // DECK_ROTATION_REQ without a new cascade means a hostile host trying to use rotation
+    // as a covert pocket-unlock oracle -> lockdown. Closes off the one remaining gap (an
+    // exiting peer's cards): without an extra rotation, the host would have to corrupt
+    // the legitimate rotation, which breaks the board (unjustified misdeal, detectable).
     public volatile boolean rotation_served_this_cascade = false;
-    // Locks community de los bots que orquesta este host. La mitad UNLOCK la
-    // guarda el Participant (sra_unlock_community); el LOCK solo es necesario
-    // localmente en la fase de rotación, así que vive en este Map keyed por
-    // nick del bot. Limpiado en los mismos sitios que el resto de scalars.
+    // Community locks for the bots this host orchestrates. The UNLOCK half is kept by the
+    // Participant (sra_unlock_community); LOCK is only needed locally during the rotation
+    // phase, so it lives in this Map keyed by bot nick. Cleared at the same sites as the
+    // rest of the scalars.
     public final java.util.concurrent.ConcurrentHashMap<String, byte[]> bot_community_locks = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // Verifiable dealing: commitments publicos K=k*B de cada peer del ring
-    // (nick -> encoding Ristretto 32B), para K_pocket y K_community. Se recolectan
-    // durante la cascade (propios + bots localmente, remotos via DECK_CASCADE_RESP),
-    // se difunden en el MEGAPACKET y se anclan en H_0 para que la cadena
-    // DLEQ del dealing se verifique contra claves que nadie puede falsificar.
+    // Verifiable dealing: public commitments K=k*B for each ring peer (nick -> 32B
+    // Ristretto encoding), for K_pocket and K_community. Collected during the cascade
+    // (own + bots locally, remote peers via DECK_CASCADE_RESP), broadcast in the
+    // MEGAPACKET, and anchored in H_0 so the dealing's DLEQ chain verifies against keys
+    // nobody can forge.
     public final java.util.concurrent.ConcurrentHashMap<String, byte[]> peer_k_pocket = new java.util.concurrent.ConcurrentHashMap<>();
     public final java.util.concurrent.ConcurrentHashMap<String, byte[]> peer_k_community = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
-     * Serializa los commitments del ring para el MEGAPACKET, en orden del ring:
-     * "nickB64:KpocketB64:KcommunityB64;...". Base64 no usa ':' ni ';' ni '#',
-     * asi que son separadores seguros frente al split('#') del wire.
+     * Serializes the ring's commitments for the MEGAPACKET, in ring order:
+     * "nickB64:KpocketB64:KcommunityB64;...". Base64 doesn't use ':', ';' or '#', so
+     * these are safe separators against the wire's split('#').
      */
     private String serializeCommitments() {
         StringBuilder sb = new StringBuilder();
@@ -1138,7 +1138,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return sb.toString();
     }
 
-    /** Parsea el campo de commitments del MEGAPACKET y puebla los mapas locales. */
+    /** Parses the MEGAPACKET's commitments field and populates the local maps. */
     public void parseCommitments(String field) {
         if (field == null || field.isEmpty()) {
             return;
@@ -1166,50 +1166,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
     public volatile byte[] local_mega_packet = null;
 
-    // REGISTRO de la cadena de cascada (sin generar pruebas -> cero CPU en el barajado).
-    // cascade_chain_decks = genesis + un deck por paso. Por paso: para host/bots se guarda (perm, k)
-    // para generar la prueba luego en background; para remotos, la prueba que ya mando el cliente.
-    // Sirve para que TODOS verifiquen que la cascada es un barajado honesto (un host modificado no
-    // puede colar cartas) — la generacion+verificacion corre en background tras el reparto.
+    // Cascade chain log (no proofs generated here -> zero CPU cost during the deal).
+    // cascade_chain_decks = genesis + one deck per step. Per step: host/bots store (perm, k) to
+    // generate the proof later in background; remote steps store the proof the client already sent.
+    // Lets everyone verify the cascade was an honest shuffle (a tampered host can't slip in cards) —
+    // generation+verification runs in background after the deal.
     public volatile java.util.List<byte[]> cascade_chain_decks = null;
-    public volatile java.util.List<int[]> cascade_step_perm = null;          // host/bot: perm; remoto: null
-    public volatile java.util.List<byte[]> cascade_step_k = null;            // host/bot: k; remoto: null
-    // Cierre del flanco ROTACION (dual-lock): estados community tras cada paso de rotacion + un
-    // RotationProof (batch-DLEQ) por paso. Junto a la cascada cierra genesis->MEGAPACKET
-    // (DualLockCascade). host/bot: prueba generada inline (batch-DLEQ es barato, ~ms); remoto: la
-    // prueba que mande el cliente en DECK_ROTATION_RESP (pendiente wire-rotation-2 -> null por ahora).
+    public volatile java.util.List<int[]> cascade_step_perm = null;          // host/bot: perm; remote: null
+    public volatile java.util.List<byte[]> cascade_step_k = null;            // host/bot: k; remote: null
+    // Rotation side (dual-lock) of the chain: community state after each rotation step + one
+    // RotationProof (batch-DLEQ) per step. Together with the cascade this closes genesis->MEGAPACKET
+    // (DualLockCascade). host/bot: proof generated inline (batch-DLEQ is cheap, ~ms); remote: the
+    // proof the client sends in DECK_ROTATION_RESP (wire-rotation-2 pending -> null for now).
     public volatile java.util.List<byte[]> cascade_rotation_states = null;
-    // CERO crypto en el path de reparto: el bucle solo registra estados + el escalar combinado
-    // (s=s1*s2, multiplicacion BigInteger barata) de host/bot; las pruebas batch-DLEQ se generan en
-    // BACKGROUND. Para pasos remotos guardamos la prueba que ya mando el cliente (su generacion es
-    // inline pero de UN solo paso, trivial).
-    public volatile java.util.List<java.math.BigInteger> cascade_rotation_scalars = null; // host/bot: s; remoto: null
-    public volatile java.util.List<byte[]> cascade_rotation_remote_proofs = null;          // remoto: prueba; host/bot: null
-    public volatile java.util.List<byte[]> cascade_rotation_proofs = null;                  // construido en background
-    // Prueba del último paso de rotación remoto, parseada en requestRemoteRotation y leída por el bucle.
+    // Zero crypto on the deal path: the loop only logs state + the combined scalar (s=s1*s2, a cheap
+    // BigInteger multiply) for host/bot; batch-DLEQ proofs are generated in BACKGROUND. Remote steps
+    // store the proof the client already sent (its generation is inline but for a single step, trivial).
+    public volatile java.util.List<java.math.BigInteger> cascade_rotation_scalars = null; // host/bot: s; remote: null
+    public volatile java.util.List<byte[]> cascade_rotation_remote_proofs = null;          // remote: proof; host/bot: null
+    public volatile java.util.List<byte[]> cascade_rotation_proofs = null;                  // built in background
+    // Proof of the last remote rotation step, parsed in requestRemoteRotation and read by the loop.
     private volatile byte[] last_remote_rotation_proof = null;
-    // Gate "exigir prueba": el cliente EXIGE un bundle de barajado honesto para el mazo de cada reparto
-    // FRESCO. expect = mazo de un reparto fresco (se marca al procesar el MEGAPACKET, NO en recover, que
-    // restaura por otra ruta -> no avisa tras recover, el barajado ya se verifico pre-crash). verified =
-    // mazo para el que un bundle verifico OK. warned = guard de aviso unico por mazo. Llave = el propio
-    // megapacket (cambia cada mano -> sin reset). Lo lee el handler de unlock community (la ventana de
-    // lectura): si va a revelar community sin haber verificado el barajado de este mazo, avisa.
+    // "Require proof" gate: the client demands an honest-shuffle bundle for the deck of every FRESH
+    // deal. expect = deck of a fresh deal (set when processing the MEGAPACKET, NOT on recover, which
+    // restores via a different path -> no warning after recover, the shuffle was already verified
+    // pre-crash). verified = deck for which a bundle verified OK. warned = one-shot warning guard per
+    // deck. Keyed by the megapacket itself (changes every hand -> no reset needed). Read by the
+    // community-unlock handler: warns if it's about to reveal community without a verified shuffle.
     public volatile byte[] dual_lock_expect_bundle_for = null;
     public volatile byte[] dual_lock_verified_megapacket = null;
     public volatile byte[] dual_lock_warned_megapacket = null;
-    // Marca "un DUALLOCK_BUNDLE para este mazo LLEGO del host" (se pone al recibir el comando, antes de
-    // parsear/verificar). Distingue en el recibo el peer LENTO (bundle recibido pero la cola aun no acabo
-    // -> benigno) del host que NO mando la prueba (recibido != mazo vivo -> sospechoso). Llave = megapacket.
+    // Marks "a DUALLOCK_BUNDLE for this deck ARRIVED from the host" (set on receipt, before
+    // parsing/verifying). Distinguishes a SLOW peer (bundle received but queue not drained yet ->
+    // benign) from a host that never sent the proof (received != live deck -> suspicious). Keyed by megapacket.
     public volatile byte[] dual_lock_bundle_received_for = null;
 
-    // Cola serial de verificacion del barajado honesto (peer-side). Sustituye al threadRun-por-mano:
-    // cada job lleva SU snapshot de mazo+bundle y un unico worker daemon los drena en FIFO, asi un equipo
-    // muy lento termina de verificar manos pasadas (y caza un smuggle pasado) aunque la mano viva avance,
-    // sin acumular hilos peleando por la CPU. Creada perezosamente al primer DUALLOCK_BUNDLE (ver
-    // getShuffleVerifyQueue). El worker es daemon -> no bloquea el cierre de la JVM.
+    // Serial queue for honest-shuffle verification (peer side). Replaces the old per-hand threadRun:
+    // each job carries its own deck+bundle snapshot and a single daemon worker drains them FIFO, so a
+    // slow machine keeps verifying past hands (and can still catch a past smuggle) while the live hand
+    // moves on, without piling up threads fighting for CPU. Created lazily on the first DUALLOCK_BUNDLE
+    // (see getShuffleVerifyQueue). The worker is a daemon thread -> doesn't block JVM shutdown.
     private volatile ShuffleVerificationQueue shuffle_verify_queue = null;
 
-    // --- TOKENS DEL HOST ---
+    // --- HOST TOKENS ---
     public volatile byte[] local_token_flop = null;
     public volatile byte[] local_token_turn = null;
     public volatile byte[] local_token_river = null;
@@ -1220,38 +1219,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones_locales_recuperadas = new ConcurrentLinkedQueue<>();
-    // Recover: indice 1-based de la accion PROPIA que se esta reproduciendo (por nick) y numero de
-    // acciones propias que este peer alcanzo a persistir en su SQLite local antes de reconectar. Si
-    // el indice supera al persistido, la accion es POSTERIOR a la ultima que este cliente registro:
-    // paso mientras estaba fuera de la mano (salio y la mano siguio sin el). No la puede verificar,
-    // asi que la ACEPTA tal cual la sirve el host y solo avisa en el registro (amarillo), sin acusar.
-    // Se reinician al arrancar cada recuperacion (recuperarAccionesLocales).
+    // Recover: 1-based index of the OWN action being replayed (per nick), and the count of own
+    // actions this peer managed to persist to its local SQLite before reconnecting. If the index
+    // exceeds the persisted count, the action happened AFTER the last one this client recorded —
+    // it occurred while the client was out of the hand (left, hand continued without it). It can't
+    // be verified, so it's ACCEPTED as served by the host, with only a log warning (yellow), no accusation.
+    // Reset at the start of each recovery (recuperarAccionesLocales).
     private final java.util.HashMap<String, Integer> recover_replay_index = new java.util.HashMap<>();
     private final java.util.HashMap<String, Integer> recover_persisted_count = new java.util.HashMap<>();
     private boolean recover_absence_warned = false;
-    // Recover: la SECUENCIA ORDENADA (por counter) de nicks de las acciones guardadas de la mano
-    // (TODAS, no solo las propias). Es la verdad de lo que paso en vivo. Durante el replay, si el
-    // asiento cuyo turno toca NO coincide con recover_action_order.get(conta_accion), ese asiento se
-    // salto en vivo por OMISION MUTUA (se desconecto antes de actuar en esa calle) y hay que saltarlo
-    // igual, o el recover mete en H_t una accion que en vivo no existio y la cadena diverge. Simetrico
-    // en host y cliente (ambos reciben la lista completa). Se reconstruye en recuperarAccionesLocales.
+    // Recover: the ORDERED sequence (by counter) of nicks for all saved actions of the hand (not just
+    // this peer's own). This is ground truth for what actually happened live. During replay, if the
+    // seat whose turn it is doesn't match recover_action_order.get(conta_accion), that seat was skipped
+    // live by MUTUAL OMISSION (it disconnected before acting on that street) and must be skipped the
+    // same way here, or replay would insert an action into H_t that never existed live and the chain
+    // would diverge. Symmetric on host and client (both receive the full list). Rebuilt in
+    // recuperarAccionesLocales.
     private java.util.List<String> recover_action_order = null;
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> rabbit_players = new ConcurrentHashMap<>();
 
-    // ConcurrentHashMap (no HashMap): se escribe bajo lock_contabilidad
-    // (auditorCuentas, updateExitPlayers) pero se ITERA fuera de ese lock,
-    // bajo SQL_LOCK, en sqlNewHand/sqlUpdateHandEnd. Como el orden global es
-    // lock_contabilidad → SQL_LOCK, no se puede tomar lock_contabilidad dentro
-    // del SQL_LOCK para proteger la iteración sin invertir el orden y arriesgar
-    // un AB-BA con el snapshot de finTransmision. Con un HashMap llano, un exit
-    // en otro hilo (finTransmision → auditorCuentas.put) concurrente con la
-    // iteración del crupier reventaba con ConcurrentModificationException (o
-    // peor, corrupción de la tabla en un resize). El CHM da iteración
-    // débilmente consistente y sin excepción, que es justo lo que necesita un
-    // volcado de balances best-effort durante el cierre.
+    // ConcurrentHashMap (not HashMap): written under lock_contabilidad (auditorCuentas,
+    // updateExitPlayers) but ITERATED outside that lock, under SQL_LOCK, in sqlNewHand/
+    // sqlUpdateHandEnd. Since the global lock order is lock_contabilidad -> SQL_LOCK, we can't take
+    // lock_contabilidad inside SQL_LOCK to protect the iteration without inverting the order and
+    // risking an AB-BA with the finTransmision snapshot. With a plain HashMap, an exit on another
+    // thread (finTransmision -> auditorCuentas.put) concurrent with the dealer's iteration would
+    // throw ConcurrentModificationException (or worse, corrupt the table during a resize). CHM gives
+    // weakly-consistent, exception-free iteration, exactly what a best-effort balance dump during
+    // shutdown needs.
     private final ConcurrentHashMap<String, Double[]> auditor = new ConcurrentHashMap<>();
     private final Object lock_ciegas = new Object();
     private final Object lock_apuestas = new Object();
@@ -1264,17 +1262,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final Object lock_rebuynow = new Object();
     private final Object lock_pausa_barra = new Object();
     private final Object lock_fin_mano = new Object();
-    // Publica las transiciones de calle (street) y de showdown (show_time)
-    // hacia los hilos que deben esperar a esos estados antes de servir una
-    // REQ_SRA_UNLOCK_CHAIN. Toda escritura de street/show_time pasa por
-    // setStreetLocal/setShowTime y dispara notifyAll bajo este lock, así
-    // ningún waiter pierde una transición.
+    // Publishes street and show_time transitions to threads waiting on those states before
+    // serving a REQ_SRA_UNLOCK_CHAIN. Every write to street/show_time goes through
+    // setStreetLocal/setShowTime and fires notifyAll under this lock, so no waiter misses a transition.
     private final Object protocol_state_lock = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
-    // Nicks cuya salida ya se ha anunciado a la mesa. Ver remotePlayerQuit: hace falta
-    // porque la marca de "este jugador ya esta fuera" la pone antes el camino de expulsion,
-    // asi que no sirve para saber si el aviso llego a emitirse. No se limpia nunca: el
-    // Crupier dura lo que la partida y de ella no se vuelve.
+    // Nicks whose exit has already been announced to the table. Needed by remotePlayerQuit: the
+    // "this player is already out" flag is set earlier by the expulsion path, so it can't tell
+    // whether the announcement was actually emitted. Never cleared: the Crupier lives as long as
+    // the game and is never reused.
     private final java.util.Set<String> quit_anunciado = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<Player> flop_players = new ConcurrentLinkedQueue<>();
@@ -1291,42 +1287,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile double partial_raise_cum = 0;
     private volatile int conta_raise = 0;
     private volatile int conta_bet = 0;
-    private volatile boolean straddle_posted = false; // true si en esta mano el UTG decidió poner el straddle (voluntario)
-    private volatile String straddle_utg_nick = null; // con straddle, el "under the gun" REAL (primero en hablar) = siguiente activo tras el straddler; null sin straddle
-    private volatile boolean straddle_recovered_posted = false; // recovery (host): si la mano replayada tenía el straddle posteado (del fósil); el host rebroadcasta esta decisión, no vuelve a preguntar
-    private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // diálogo de straddle voluntario abierto en el peer del UTG (para cerrarlo desde fuera)
+    private volatile boolean straddle_posted = false; // true if the UTG chose to post a voluntary straddle this hand
+    private volatile String straddle_utg_nick = null; // with straddle, the REAL "under the gun" (first to act) = next active after the straddler; null without straddle
+    private volatile boolean straddle_recovered_posted = false; // recovery (host): whether the replayed hand had the straddle posted (from the fossil); host rebroadcasts this decision instead of asking again
+    private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // voluntary-straddle dialog open on the UTG's peer (to close it externally)
 
     public VoluntaryStraddleDialog getStraddle_local_dialog() {
         return straddle_local_dialog;
     }
 
-    private volatile boolean straddle_bar_active = false; // true mientras la barra del community cuenta los 5s de decisión del straddle (luego indeterminada hasta el resultado)
-    private volatile boolean straddle_local_cards_deferred = false; // repartir dejó las hole cards del UTG local boca abajo a la espera de su decisión de straddle; resolveVoluntaryStraddle garantiza revelarlas (incluso si sale por early-return)
-    // ---- Straddle CIEGO CRIPTOGRÁFICO (commit-reveal) ----
-    // El straddler no puede RESOLVER sus hole cards hasta comprometer su decisión firmada: el
-    // reparto DIFIERE por completo el desbloqueo de sus 2 slots (ningún peer quita su candado),
-    // y solo tras verificar su decisión firmada se corre una cascada diferida que deja el residuo
-    // single-locked por él. Cierra la fuga que permitía a un cliente (o host) malicioso decidir
-    // el straddle con la mano ya vista. Uniforme: cuando el host straddlea, son los CLIENTES los
-    // que retienen su candado, así que el host tampoco puede mirar antes de comprometerse.
-    private volatile boolean straddle_cards_pending = false; // el proceso LOCAL es el straddler ciego y sus cartas aún no se han resuelto (salta VISUAL@ en el fósil; dispara la resolución diferida tras decidir)
-    private volatile String deferred_straddle_nick = null;   // host: nick del straddler cuyos 2 slots se retuvieron en el reparto (para la cascada diferida); null si no hay
-    private volatile int deferred_straddle_slot = -1;        // índice de anillo (active_crypto_ring) del slot del straddler diferido; -1 si no hay
-    private volatile String straddle_decision_verified_nick = null; // responder (cada peer): nick del straddler cuya decisión FIRMADA verificó esta mano; el gate de UNLOCK_PHASE_POCKET_STRADDLE exige que el slot pelado sea el suyo
-    private volatile int straddle_decision_verified_value = -1; // valor (NO/POST) de esa decisión FIRMADA; gobierna el importe del straddle en todos los peers (no el STRADDLE_RESULT no firmado del host)
-    private volatile int local_signed_straddle_decision = -1; // la decisión que el peer LOCAL firmó esta mano cuando es el straddler; gobierna su propio importe sin depender de que el host difunda el STRADDLE_DECISION
-    private volatile byte[] pending_remote_straddle_sig = null; // host: firma de la decisión que el cliente straddler mandó en STRADDLE_RESP (para difundirla como STRADDLE_DECISION y correr la cascada diferida)
-    private volatile java.util.List<Player> forced_bet_chip_contributors = null; // jugadores cuyas fichas de forzadas (ciegas/straddle/ante) vuelan al bote al arrancar la mano
+    private volatile boolean straddle_bar_active = false; // true while the community bar counts down the 5s straddle decision (indeterminate afterwards until the result)
+    private volatile boolean straddle_local_cards_deferred = false; // dealing left the local UTG's hole cards face down pending their straddle decision; resolveVoluntaryStraddle guarantees revealing them (even on an early-return exit)
+    // ---- Cryptographically blind straddle (commit-reveal) ----
+    // The straddler can't RESOLVE their hole cards until their signed decision is committed: dealing
+    // fully DEFERS unlocking their 2 slots (no peer removes its lock), and only after verifying the
+    // signed decision does a deferred cascade run to leave the residue single-locked by them. Closes
+    // the leak that let a malicious client (or host) decide the straddle after already seeing the
+    // hand. Symmetric: when the host straddles, it's the CLIENTS who hold back their lock, so the
+    // host can't peek before committing either.
+    private volatile boolean straddle_cards_pending = false; // the LOCAL process is the blind straddler and its cards aren't resolved yet (skips VISUAL@ in the fossil; triggers deferred resolution after deciding)
+    private volatile String deferred_straddle_nick = null;   // host: nick of the straddler whose 2 slots were withheld during the deal (for the deferred cascade); null if none
+    private volatile int deferred_straddle_slot = -1;        // ring index (active_crypto_ring) of the deferred straddler's slot; -1 if none
+    private volatile String straddle_decision_verified_nick = null; // responder (each peer): nick of the straddler whose SIGNED decision verified this hand; the UNLOCK_PHASE_POCKET_STRADDLE gate requires the peeled slot to be theirs
+    private volatile int straddle_decision_verified_value = -1; // value (NO/POST) of that SIGNED decision; governs the straddle amount on every peer (not the host's unsigned STRADDLE_RESULT)
+    private volatile int local_signed_straddle_decision = -1; // decision the LOCAL peer signed this hand when it's the straddler; governs its own amount without depending on the host broadcasting STRADDLE_DECISION
+    private volatile byte[] pending_remote_straddle_sig = null; // host: signature of the decision the straddling client sent in STRADDLE_RESP (to broadcast as STRADDLE_DECISION and run the deferred cascade)
+    private volatile java.util.List<Player> forced_bet_chip_contributors = null; // players whose forced-bet chips (blinds/straddle/ante) fly into the pot when the hand starts
     private volatile double bote_sobrante = 0;
     private volatile String[] nicks_permutados;
     private volatile boolean fin_de_la_transmision = false;
     private volatile int street = PREFLOP;
-    // Zero-trust state machine: el cliente sólo responde REQ_SRA_UNLOCK_CHAIN
-    // si la longitud de cada item encaja con la calle/fase en que está. Para
-    // POCKET el guard verdadero es el anti-genesis cripto-check del cliente —
-    // no hay un flag de "ya terminó Phase 2 para mí" porque cada peer sigue
-    // siendo unlocker para los pockets de los OTROS targets aún cuando ya
-    // recibió los suyos.
+    // Zero-trust state machine: the client only answers REQ_SRA_UNLOCK_CHAIN if each item's length
+    // matches the street/phase it's in. For POCKET the real guard is the client's anti-genesis
+    // crypto-check — there's no "Phase 2 already done for me" flag, since each peer keeps unlocking
+    // for OTHER targets' pockets even after receiving its own.
     private volatile boolean flop_revealed = false;
     private volatile boolean turn_revealed = false;
     private volatile boolean river_revealed = false;
@@ -1341,40 +1335,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile Player last_aggressor = null;
     private volatile boolean destapar_resistencia = false;
     private volatile boolean show_time = false;
-    // True desde que repartir() ha colocado las 5 comunitarias tapadas (y las hole
-    // cards) hasta el reset de la siguiente mano. Gatea el overlay de coste de
-    // igualar para que NO aparezca antes del reparto ni entre manos (al transicionar
-    // el tablero), solo durante las apuestas con las cartas ya en la mesa.
+    // True from the moment repartir() places the 5 face-down community cards (and hole cards) until
+    // the next hand's reset. Gates the call-cost overlay so it never shows before the deal or between
+    // hands (while the board is transitioning), only during betting with cards already on the table.
     private volatile boolean community_cards_dealt = false;
-    // Diálogo de votación run-it-twice activo en el CLIENTE (host-driven via RIT_VOTE_*).
+    // Run-it-twice vote dialog active on the CLIENT (host-driven via RIT_VOTE_*).
     private volatile RunItTwiceDialog rit_client_dialog = null;
-    // True mientras se reparte el segundo board (SIDE-B) de un run-it-twice. Abre
-    // las fases UNLOCK_PHASE_RIT2_* en el gate; fuera de SIDE-B está a false y esas
-    // fases se rechazan siempre. Se fija localmente (no por el host) en host y
-    // clientes al entrar/salir del reparto de SIDE-B, preservando el anti-early-cascade.
+    // True while dealing the second board (SIDE-B) of a run-it-twice. Opens the UNLOCK_PHASE_RIT2_*
+    // phases in the gate; outside SIDE-B it's false and those phases are always rejected. Set locally
+    // (not by the host) on host and clients when entering/leaving the SIDE-B deal, preserving the
+    // anti-early-cascade guard.
     private volatile boolean run_it_twice_side_b = false;
-    // Run-it-twice: etiqueta de cara ya traducida (CARA-A/CARA-B) que la
-    // pot_label del tapete añade entre corchetes mientras se corren los dos
-    // boards (null fuera de run-it-twice). Se enciende con el voto afirmativo
-    // (run-out de SIDE-A), pasa a CARA-B en el rewind y se apaga en NUEVA_MANO.
+    // Run-it-twice: already-translated side label (SIDE-A/SIDE-B) that the felt's pot_label appends
+    // in brackets while running both boards (null outside run-it-twice). Turns on with the affirmative
+    // vote (SIDE-A run-out), switches to SIDE-B on rewind, and turns off on NUEVA_MANO.
     private volatile String rit_pot_board_tag = null;
-    // Resultado del voto run-it-twice de la mano actual (host: de runRitVote;
-    // cliente: del RIT_VOTE_CLOSE). Ambos lo conocen para que sus bucles run()
-    // tomen la misma rama "correr SIDE-B" en lockstep. Reset por mano.
+    // Run-it-twice vote result for the current hand (host: from runRitVote; client: from
+    // RIT_VOTE_CLOSE). Both know it so their run() loops take the same "run SIDE-B" branch in
+    // lockstep. Reset per hand.
     private volatile boolean rit_agreed = false;
-    // True una vez la votación ha terminado esta mano. Persistido al fósil: en un
-    // recovery con el voto ya hecho, el host NO re-vota (usa rit_agreed restaurado);
-    // si el crash fue antes del voto, queda false y la votación corre normal.
+    // True once the vote has finished this hand. Persisted to the fossil: on a recovery with the vote
+    // already done, the host does NOT re-vote (uses the restored rit_agreed); if the crash happened
+    // before the vote, it stays false and the vote runs normally.
     private volatile boolean rit_vote_done = false;
-    // Calle en la que se cerró la acción (all-in run-out). Las comunitarias de
-    // calles POSTERIORES son las "corridas" (se rebobinan para SIDE-B); las de
-    // esta calle y anteriores son compartidas. -1 = no hubo all-in run-out.
+    // Street where the action closed (all-in run-out). Community cards on LATER streets are the ones
+    // "run out" (rewound for SIDE-B); this street and earlier ones are shared. -1 = no all-in run-out.
     private volatile int rit_allin_street = -1;
-    // Cartas comunitarias que salieron en CARA-A en las calles posteriores al
-    // all-in (las "corridas"). El reparto real de CARA-B NO las repone, así que
-    // la simulacion de Montecarlo de CARA-B debe excluirlas de la baraja. Se
-    // capturan antes de que rebobinarComunitariasSideB sobrescriba esas cartas
-    // con los valores de CARA-B. Vacia fuera de run-it-twice.
+    // Community cards that came out on SIDE-A on streets after the all-in (the "run-out" ones). The
+    // actual SIDE-B deal does NOT replace them, so SIDE-B's Monte Carlo simulation must exclude them
+    // from the deck. Captured before rebobinarComunitariasSideB overwrites those cards with SIDE-B
+    // values. Empty outside run-it-twice.
     private final ArrayList<Integer> rit_side_a_runout_cards = new ArrayList<>();
     private volatile boolean badbeat = false;
     private volatile int jugada_ganadora = 0;
@@ -1392,30 +1382,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean last_hand = false;
     private volatile int sqlite_id_game = -1;
     private volatile int sqlite_id_hand = -1;
-    // Run-it-twice: silencia los INSERT/UPDATE del showdown SQL mientras se
-    // liquidan los DOS boards. La tabla showdown lleva UNA fila por jugador/mano;
-    // sin esto cada board insertaría su propia fila y se duplicarían las stats y
-    // (peor) el COUNT(winner) de sqlGetPlayerContaWins, que se recarga la mano
-    // siguiente y desharía la corrección en memoria del conta_win. Tras los dos
-    // boards se escribe UNA fila consolidada (pay total + winner = ganó algún side).
+    // Run-it-twice: silences the showdown SQL INSERT/UPDATE while both boards are settled. The
+    // showdown table has ONE row per player/hand; without this each board would insert its own row,
+    // duplicating stats and (worse) sqlGetPlayerContaWins' COUNT(winner), which reloads next hand and
+    // would undo the in-memory conta_win correction. After both boards, one consolidated row is
+    // written (total pay + winner = won some side).
     private volatile boolean rit_suppress_showdown_sql = false;
-    // Mano anulada por MISDEAL (cancelarManoYDevolverApuestas ya devolvió las
-    // apuestas, rollbackAbortedHand cerró la mano en SQL e izó
-    // fin_de_la_transmision). Señal para los caminos que liquidaron dinero
-    // ANTES del aborto — el settle de CARA-A del run-it-twice — de que deben
-    // revertir su parte (el refund fue ÍNTEGRO) y no escribir SQL de showdown
-    // ni re-estampar la mano que el rollback dejó cerrada con pot=0.
+    // Hand voided by MISDEAL (cancelarManoYDevolverApuestas already refunded the bets,
+    // rollbackAbortedHand closed the hand in SQL and raised fin_de_la_transmision). Signals paths that
+    // settled money BEFORE the abort — the run-it-twice SIDE-A settle — that they must revert their
+    // part (the refund was FULL) and must not write showdown SQL or re-stamp a hand the rollback
+    // already closed with pot=0.
     private volatile boolean mano_anulada = false;
-    // Testigo de que la devolucion de apuestas de una mano anulada YA ha corrido. Lo que lo
-    // hace fiable es ser volatil y no bajar nunca dentro de una mano; la escritura que
-    // importa (la que lo iza) va bajo lock_contabilidad y es la ultima del bloque, asi que
-    // verlo a true implica que el bote ya esta a cero. El reset de NUEVA_MANO va sin cerrojo
-    // porque ahi no hay liquidacion en curso:
-    // mano_anulada se iza FUERA del cerrojo, asi que entre la marca y la devolucion cabe
-    // una liquidacion entera. Quien liquida no necesita saber si la mano se anulo, sino
-    // si el dinero ya volvio a los stacks: si aun no ha vuelto, tiene que dejarlo donde
-    // se pueda encontrar, porque la devolucion que llegue detras no hallara nada que
-    // devolver.
+    // Witness that the refund for a voided hand has ALREADY run. Reliable because it's volatile and
+    // never lowered within a hand, and the write that matters (the one that raises it) is done under
+    // lock_contabilidad as the last step of the block, so seeing it true implies the pot is already
+    // zero. NUEVA_MANO's reset is lock-free since no settlement is in flight there.
+    // mano_anulada is raised OUTSIDE the lock, so a full settlement can run between the flag and the
+    // refund. Whoever settles doesn't need to know whether the hand was voided, only whether the money
+    // is already back in the stacks: if not yet, it must leave it somewhere findable, because the
+    // refund arriving afterward won't find anything to give back.
     private volatile boolean apuestas_devueltas = false;
     private volatile GameOverDialog gameover_dialog = null;
     private volatile String dealer_nick = null;
@@ -1432,19 +1418,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile Long last_iwtsth_rejected = null;
     private volatile int limpers;
     private volatile int game_recovered = 0;
-    // Recovery: true cuando recuperarDatosClavePartida ya rotó posiciones
-    // (setPositions en la rama de mano-fresh, saltar=true sin mano-en-curso).
-    // Lo lee el finally de NUEVA_MANO para NO volver a llamar setPositions y
-    // evitar una segunda rotación (calcularPosiciones no es idempotente: cada
-    // llamada avanza las ciegas/dealer un asiento). Sin esto, el dealer/ciegas
-    // saltaban un asiento y quedaba un botón de dealer fantasma del primer
-    // reparto sin limpiar.
+    // Recovery: true once recuperarDatosClavePartida already rotated positions (setPositions on the
+    // fresh-hand branch, saltar=true with no hand in progress). Read by NUEVA_MANO's finally to avoid
+    // calling setPositions again and rotating a second time (calcularPosiciones isn't idempotent: each
+    // call advances blinds/dealer one seat). Without this, dealer/blinds would skip a seat and leave a
+    // phantom dealer button from the first deal uncleaned.
     private volatile boolean recovery_positions_set = false;
     private volatile Object[] ciegas_update = null;
-    // El ante y el straddle se aplican al instante (su efecto real es al repartir
-    // la siguiente mano), pero cuando cambian marcamos este aviso diferido para
-    // reutilizar la MISMA señalización que las ciegas: indicador amarillo en la
-    // mesa mientras está pendiente y popup en la próxima mano.
+    // Ante and straddle changes apply instantly (their real effect is on the next deal), but when they
+    // change we set this deferred notice to reuse the SAME signaling as blinds: a yellow indicator on
+    // the table while pending, and a popup on the next hand.
     private volatile boolean ante_straddle_update = false;
     private volatile boolean dead_dealer = false;
     private volatile boolean force_recover = false;
@@ -1457,13 +1440,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] current_hand_id = null;
     public volatile HandStateChain hand_state_chain = null;
 
-    // Rabbit-fee acceptance window: el id de la mano recien terminada cuyo
-    // bote_sobrante (incluidos los fees de rabbit) AUN no se ha doblado en el bote de
-    // la siguiente. current_hand_id se anula pronto (readyForNextHand :7759), ANTES de
-    // la barrera HAND_READY, asi que sin este latch un rabbit que llega en ese hueco
-    // entre-manos se rechazaria y el fee divergiria entre peers (DIVERGENT falso). Se
-    // fija al capturar la mano que termina (readyForNextHand) y se cierra cuando su
-    // bote_sobrante se consume (NUEVA_MANO :8555). Ver rabbitBelongsToCurrentHand.
+    // Rabbit-fee acceptance window: id of the just-finished hand whose bote_sobrante (including
+    // rabbit fees) hasn't been folded into the next pot YET. current_hand_id is cleared early
+    // (readyForNextHand), before the HAND_READY barrier, so without this latch a rabbit request
+    // arriving in that inter-hand gap would be rejected and the fee would diverge between peers (a
+    // false DIVERGENT). Set when the finishing hand is captured (readyForNextHand) and closed once
+    // its bote_sobrante is consumed (NUEVA_MANO). See rabbitBelongsToCurrentHand.
     private volatile byte[] rabbit_fee_window_hand_id = null;
 
     // Identity: per-hand flag — set to true the first time this
@@ -1475,21 +1457,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // and consensus passes anyway" hole. Cleared in readyForNextHand.
     private volatile boolean saw_invalid_action_sig = false;
 
-    // Ventana de espera (fuera del reparto) para recoger las pruebas de barajado ASYNC de los
-    // pasos remotos (B1). MUY generosa: el prove del cliente puede tardar segundos en frío (hasta
-    // ~9s medidos en un PC lento), y esto corre durante las apuestas (que suelen durar más).
-    // Ampliada a 45s pensando en MESAS LLENAS (10 jugadores): el verde "barajado verificado" exige
-    // que lleguen TODAS las pruebas remotas, asi que con 10 provers (y sobre todo la primera mano en
-    // frío, antes de que el warmup del JIT surta efecto) conviene margen de sobra para no marcar "sin
-    // verificar" por un solo rezagado. El prove es PARALELO (cada peer en su maquina), asi que la
-    // ventana cubre al mas lento, no la suma de los 10. Es puro background: ampliarla NO bloquea el
-    // juego. Si aun asi no llega, el paso degrada a "sin prueba" (el bundle no se difunde, igual que
-    // un peer proofless): peor caso un aviso, nunca un reparto incorrecto ni una trampa.
+    // Wait window (outside the deal) to collect ASYNC shuffle proofs for remote steps. Generous on
+    // purpose: a client's cold prove can take seconds (up to ~9s measured on a slow PC), and this runs
+    // during betting (which usually lasts longer). Widened to 45s for FULL TABLES (10 players): the
+    // green "shuffle verified" badge requires ALL remote proofs to arrive, so with 10 provers (and
+    // especially the first cold hand, before JIT warmup kicks in) extra margin avoids flagging
+    // "unverified" over a single straggler. Proving is PARALLEL (each peer on its own machine), so the
+    // window covers the slowest one, not the sum of all 10. Pure background work: widening it does NOT
+    // block the game. If a proof still doesn't arrive, that step degrades to "no proof" (the bundle
+    // isn't broadcast, same as a proofless peer) — worst case a warning, never an incorrect deal or a cheat.
     private static final long CASCADE_ASYNC_PROOF_TIMEOUT_MS = 45000;
 
-    // Base64(SHA-256(deck)): identificador content-addressed del deckOut de un paso, para emparejar
-    // la prueba async del cliente (DECK_CASCADE_PROOF) con su paso en la cadena. Único por mano, así
-    // que una prueba de una mano vieja no casa con ningún deckOut actual y se descarta sola.
+    // Base64(SHA-256(deck)): content-addressed id of a step's deckOut, to match the client's async
+    // proof (DECK_CASCADE_PROOF) to its step in the chain. Unique per hand, so a proof from a stale
+    // hand won't match any current deckOut and is discarded on its own.
     private static String cascadeDeckHash(byte[] deck) {
         try {
             return Base64.getEncoder().encodeToString(java.security.MessageDigest.getInstance("SHA-256").digest(deck));
@@ -1498,27 +1479,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Recoge (fuera del path de reparto) las pruebas de barajado ASYNC de los pasos REMOTOS cuyo
-    // cliente las mandó aparte (deck ya, prueba después). Sondea received_commands por mensajes
-    // DECK_CASCADE_PROOF#hash(deckOut)#proof, con espera acotada. Devuelve mapa hash(deckOut) ->
-    // prueba; los que no lleguen a tiempo quedan fuera (su paso queda null -> el bundle no se
-    // difunde, igual que hoy con un peer proofless).
+    // Collects (outside the deal path) ASYNC shuffle proofs for REMOTE steps whose client sent them
+    // separately (deck first, proof later). Polls received_commands for DECK_CASCADE_PROOF#
+    // hash(deckOut)#proof messages, with a bounded wait. Returns a map hash(deckOut) -> proof; any
+    // that don't arrive in time are left out (their step stays null -> the bundle isn't broadcast,
+    // same as a proofless peer today).
     //
-    // Dos blindajes clave:
-    //  - RE-ENCOLA todo lo que NO sea un DECK_CASCADE_PROOF de NUESTROS hashes (incluidas pruebas
-    //    de otro builder de una mano solapada): si no, un builder se comería las pruebas de otro y
-    //    lo degradaría a falso "host sin prueba" en toda la mesa.
-    //  - VERIFICA cada prueba (verifyStepWire) contra (deckIn, deckOut) del paso antes de aceptarla,
-    //    FUERA del lock (es cara). El deckOut de un peer lo conoce el siguiente en la cascada (es su
-    //    input), así que sin esto un peer podría PISAR la prueba honesta de otro con una basura
-    //    (first-wins) -> mazo sin verificar / falso "host deshonesto". Una basura se descarta y se
-    //    sigue esperando la buena.
+    // Two key safeguards:
+    //  - RE-QUEUES anything that isn't a DECK_CASCADE_PROOF for OUR hashes (including proofs from
+    //    another builder in an overlapping hand): otherwise one builder would eat another's proofs and
+    //    falsely degrade it to "host without proof" table-wide.
+    //  - VERIFIES each proof (verifyStepWire) against the step's (deckIn, deckOut) before accepting
+    //    it, OUTSIDE the lock (it's expensive). A peer's deckOut is known by the next one in the
+    //    cascade (it's their input), so without this a peer could OVERWRITE another's honest proof
+    //    with garbage (first-wins) -> unverified deck / false "dishonest host". Garbage is discarded
+    //    and we keep waiting for the real one.
     private java.util.Map<String, byte[]> collectAsyncCascadeProofs(
             java.util.List<byte[]> decks, java.util.List<int[]> perms) {
         java.util.Map<String, byte[]> collected = new java.util.HashMap<>();
         java.util.Map<String, Integer> hashToStep = new java.util.HashMap<>();
         for (int s = 0; s < perms.size(); s++) {
-            // Paso remoto (perm null): su prueba de barajado viene async.
+            // Remote step (perm null): its shuffle proof arrives async.
             if (perms.get(s) == null) {
                 String h = cascadeDeckHash(decks.get(s + 1));
                 if (h != null) {
@@ -1533,9 +1514,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         while (System.currentTimeMillis() < deadline
                 && collected.size() < hashToStep.size()
                 && !isFin_de_la_transmision()) {
-            // Bajo el lock: SOLO sacar los DECK_CASCADE_PROOF de NUESTROS hashes aún no aceptados
-            // (a un buffer); re-encolar TODO lo demás. NO verificar aquí (verifyStepWire es caro y
-            // bloquearía al reader que mete comandos).
+            // Under the lock: ONLY pull DECK_CASCADE_PROOF entries for OUR not-yet-accepted hashes
+            // (into a buffer); re-queue everything else. Do NOT verify here (verifyStepWire is
+            // expensive and would block the reader thread that feeds commands in).
             java.util.List<String[]> candidates = new java.util.ArrayList<>();
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
@@ -1546,14 +1527,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             && hashToStep.containsKey(partes[3]) && !collected.containsKey(partes[3])) {
                         candidates.add(new String[]{partes[3], partes[4]});
                     } else {
-                        rejected.add(cmd); // no es NUESTRO proof -> re-encolar (otro builder / otro comando)
+                        rejected.add(cmd); // not OUR proof -> re-queue (another builder / another command)
                     }
                 }
                 if (!rejected.isEmpty()) {
                     this.getReceived_commands().addAll(rejected);
                 }
             }
-            // Fuera del lock: verificar cada candidato y aceptar SOLO los válidos.
+            // Outside the lock: verify each candidate and accept ONLY the valid ones.
             for (String[] c : candidates) {
                 if (collected.containsKey(c[0])) {
                     continue;
@@ -1566,14 +1547,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         collected.put(c[0], proof);
                     }
                 } catch (Exception ex) {
-                    // Prueba mal formada o inválida: se descarta (se sigue esperando la buena).
+                    // Malformed or invalid proof: discarded (we keep waiting for the real one).
                 }
             }
             if (collected.size() < hashToStep.size()) {
-                // Espera acotada INCONDICIONAL (250 ms) como el resto de bucles de espera del host:
-                // el throttle es el timeout del wait. NO guardar con isEmpty(): como re-encolamos todo
-                // lo que no es NUESTRO proof, la cola casi nunca está vacía durante las apuestas -> con
-                // el guard el while giraría sin dormir (busy-spin, 100% núcleo).
+                // Unconditional bounded wait (250 ms), like the host's other wait loops: the throttle
+                // IS the wait timeout. Do NOT guard with isEmpty(): since we re-queue everything that
+                // isn't OUR proof, the queue is almost never empty during betting -> with the guard the
+                // while loop would spin without ever sleeping (busy-spin, 100% core).
                 synchronized (this.getReceived_commands()) {
                     try {
                         this.received_commands.wait(WAIT_QUEUES);
@@ -1598,15 +1579,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
 
-        // Deadline de PROGRESO host-side (anti-DoS por congelación). Antes NO había
-        // timeout: la única señal de "este peer no responderá" era que su propio thread
-        // de Participant lo marcase exit por inactividad de PING/PONG. Pero un peer
-        // MALICIOSO puede contestar los PING (seguir "vivo") y CALLAR su DECK_CASCADE_RESP
-        // -> este bucle giraba para siempre y CONGELABA la mesa (p.isExit() nunca se
-        // activaba). El deadline es por-peer (no lo multiplica el tamaño de la mesa) y MUY
-        // generoso (REMOTE_CASCADE_RESP_TIMEOUT_MS) para no abortar jamás a un cliente
-        // legítimo lento; al vencer devolvemos null (el peer sigue vivo) y el llamador lo
-        // trata como REFUSAL zero-trust -> MISDEAL, igual que la rotación.
+        // Host-side PROGRESS deadline (anti-DoS freeze). There used to be no timeout: the only
+        // signal that "this peer won't answer" was its own Participant thread marking it exit on
+        // PING/PONG inactivity. But a MALICIOUS peer can keep answering PINGs (stay "alive") and
+        // withhold its DECK_CASCADE_RESP -> this loop would spin forever and FREEZE the table
+        // (p.isExit() never triggers). The deadline is per-peer (not multiplied by table size) and
+        // VERY generous (REMOTE_CASCADE_RESP_TIMEOUT_MS) so a slow legitimate client is never
+        // aborted; on expiry we return null (the peer is still alive) and the caller treats it as a
+        // zero-trust REFUSAL -> MISDEAL, same as rotation.
         long deadlineMs = System.currentTimeMillis() + REMOTE_CASCADE_RESP_TIMEOUT_MS;
         long hardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
         boolean ok = false;
@@ -1623,17 +1603,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                             if (senderNick.equals(nick)) {
                                 byte[] candidate = Base64.getDecoder().decode(partes[4]);
-                                // ZERO-TRUST host-side: el peer responde con un deck que
-                                // vamos a propagar al siguiente en la cascada y, al final,
-                                // a TODOS via MEGAPACKET. Si el peer (malicioso o comprometido)
-                                // devuelve bytes que no son puntos de Curve25519, no podemos
-                                // contaminar la cascada — aborta la mano antes de propagar.
+                                // ZERO-TRUST host-side: the peer responds with a deck we're about to propagate
+                                // to the next step in the cascade and, eventually, to EVERYONE via MEGAPACKET.
+                                // If the peer (malicious or compromised) returns bytes that aren't valid
+                                // Curve25519 points, we can't let the cascade get contaminated — abort the hand
+                                // before propagating.
                                 if (java.util.Arrays.equals(candidate, currentDeck)) {
-                                    // ZERO-TRUST: un barajado honesto (lock con k!=1 + shuffle) JAMAS devuelve
-                                    // el deck de entrada intacto. Un "identity echo" es un peer manipulado y,
-                                    // ademas, aliasaria el hash(deckOut) del paso previo (colision -> su prueba
-                                    // se aceptaria por el paso EQUIVOCADO y el host difundiria un bundle que falla
-                                    // -> framearia al host honesto). Se rechaza antes de propagar.
+                                    // ZERO-TRUST: an honest shuffle (lock with k!=1 + shuffle) NEVER returns the
+                                    // input deck unchanged. An "identity echo" is a manipulated peer, and it
+                                    // would also alias the previous step's hash(deckOut) (collision -> its proof
+                                    // would be accepted for the WRONG step and the host would broadcast a bundle
+                                    // that fails -> framing the honest host). Rejected before propagating.
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST: DECK_CASCADE_RESP from {0} echoed its input deck unchanged (no shuffle/lock) — refusing cascade",
                                             nick);
@@ -1641,10 +1621,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 } else if (candidate.length == 1664 && RistrettoSRA.arePointsValid(candidate)) {
                                     newDeck = candidate;
                                     ok = true;
-                                    // Capturar los commitments K del peer (partes[5]=K_pocket,
-                                    // partes[6]=K_community) para anclarlos en H_0. Son obligatorios:
-                                    // un peer que no los manda es un peer manipulado (todos corren la
-                                    // misma versión), así que se rechaza igual que un commitment inválido.
+                                    // Capture the peer's K commitments (partes[5]=K_pocket, partes[6]=K_community)
+                                    // to anchor them in H_0. Mandatory: a peer that doesn't send them is a
+                                    // manipulated peer (everyone runs the same version), so it's rejected just
+                                    // like an invalid commitment.
                                     if (partes.length >= 7) {
                                         try {
                                             byte[] kp = Base64.getDecoder().decode(partes[5]);
@@ -1690,28 +1670,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (fatalError) {
-                // Violacion zero-trust del peer (identity echo / deck off-curve / commitments invalidos):
-                // NO es un simple drop de red, es un peer MANIPULADO. Primero se le NOMBRA como sospechoso
-                // (registro rojo + popup, visibilidad §8) y se le anota un strike de negativa al reparto
-                // (registerDealRefusal, que AUTO-EXPULSA tras MAX_DEAL_REFUSAL_STRIKES), igual que la rotacion.
-                // Esto DEBE ir aqui: el markExitAndNotify de abajo lo marca isExit, asi que el llamador lo
-                // encamina a la rama "restart sin el" (silenciosa) en vez de a la rama MISDEAL que emitia
-                // estos avisos. Sin esto, la cripto-violacion mas flagrante quedaba SIN visibilidad ni
-                // escalado a expulsion. Un drop de red honesto NO llega aqui (no activa fatalError), asi que
-                // no se acusa a nadie por caerse.
+                // Zero-trust violation by the peer (identity echo / off-curve deck / invalid commitments):
+                // NOT a plain network drop, this is a MANIPULATED peer. First it's NAMED as suspicious
+                // (red log + popup, §8 visibility) and given a deal-refusal strike (registerDealRefusal,
+                // which AUTO-EXPELS after MAX_DEAL_REFUSAL_STRIKES), same as rotation. This MUST happen
+                // here: markExitAndNotify below marks it isExit, so the caller routes it to the (silent)
+                // "restart without them" branch instead of the MISDEAL branch that used to emit these
+                // warnings. Without this, the most blatant crypto violation had NO visibility or
+                // escalation toward expulsion. An honest network drop never reaches here (doesn't set
+                // fatalError), so no one gets accused just for disconnecting.
                 warnMaliciousPeer(nick, "zero_trust.cascade_refused");
                 registerDealRefusal(nick);
-                // Se le trata como CAIDO (markExitAndNotify marca Participant.exit Y Player.exit y despierta
-                // los waits) para que el reintento de la cascada lo SALTE (guard !p.isExit() abajo) en vez de
-                // re-pedirle el paso y volver a fallar en bucle infinito (livelock del hilo de reparto). Reusa
-                // la misma maquinaria de "peer se fue a mitad de cascada"; la mano se reparte sin el.
+                // Treated as DROPPED (markExitAndNotify marks both Participant.exit and Player.exit and
+                // wakes up waiters) so the cascade retry SKIPS it (the !p.isExit() guard below) instead of
+                // re-requesting its step and failing again in an infinite loop (livelock of the dealer
+                // thread). Reuses the same machinery as "peer left mid-cascade"; the hand is dealt without them.
                 p.markExitAndNotify("zero-trust cascade violation (manipulated peer)");
                 return null;
             }
             if (!ok) {
-                // La pausa a proposito congela indefinidamente (y empuja el techo). La reconexion congela
-                // solo hasta el techo (evita un MISDEAL espurio, pero sin que un peer que reconecta en bucle
-                // mantenga el deadline reiniciado sin que venza nunca).
+                // A deliberate pause freezes indefinitely (and pushes the deadline forward). A
+                // reconnect only freezes up to the hard cap (avoids a spurious MISDEAL, but without a
+                // peer stuck reconnecting in a loop keeping the deadline reset forever).
                 if (GameFrame.getInstance().isTimba_pausada()) {
                     deadlineMs = System.currentTimeMillis() + REMOTE_CASCADE_RESP_TIMEOUT_MS;
                     hardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
@@ -1740,13 +1720,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return newDeck;
     }
 
-    // Dual-lock: pide a un peer remoto que aplique sobre el bloque
-    // de community pieces la rotación uPocket + kCommunity (en ese orden).
-    // Tras la rotación, el peer pierde su lock de pocket sobre las community
-    // pieces y añade su lock de community — la mitad que sí se entrega vía
-    // testamento al hacer EXIT. La fase de rotación es secuencial peer-a-peer
-    // igual que la cascade principal; este método maneja un solo peer.
-    /** Une una lista de byte[] como CSV de base64 (el alfabeto base64 no usa ',' ni '#', sin ambigüedad). */
+    // Dual-lock: asks a remote peer to apply the uPocket + kCommunity rotation (in that order) to the
+    // community-pieces block. After rotation, the peer drops its pocket lock on the community pieces
+    // and adds its community lock — the half that IS handed over via testament on EXIT. The rotation
+    // phase is sequential peer-by-peer just like the main cascade; this method handles a single peer.
+    /** Joins a list of byte[] as a base64 CSV (the base64 alphabet uses neither ',' nor '#', no ambiguity). */
     private static String joinB64(java.util.List<byte[]> items) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < items.size(); i++) {
@@ -1772,10 +1750,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean ok = false;
         boolean fatalError = false;
         byte[] newPieces = null;
-        this.last_remote_rotation_proof = null; // se rellena si el cliente manda su RotationProof
-        // Timeout duro: si el peer no responde en REMOTE_SRA_PEER_TIMEOUT_MS, abortamos
-        // la rotacion. Sin esto un peer reconectado mid-cascade (sin scalars SRA) deja
-        // al host esperando hasta que el socket muera naturalmente (60-90s) — issue#9.
+        this.last_remote_rotation_proof = null; // filled in if the client sends its RotationProof
+        // Hard timeout: if the peer doesn't respond within REMOTE_SRA_PEER_TIMEOUT_MS, abort the
+        // rotation. Without this a peer reconnected mid-cascade (no SRA scalars) would leave the host
+        // waiting until the socket dies naturally (60-90s) — issue#9.
         long deadlineMs = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
         do {
             synchronized (this.getReceived_commands()) {
@@ -1788,12 +1766,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                             if (senderNick.equals(nick)) {
                                 byte[] candidate = Base64.getDecoder().decode(partes[4]);
-                                // El bloque rotado debe conservar exactamente la misma longitud
-                                // (mismas N posiciones) y seguir siendo puntos de la curva.
+                                // The rotated block must keep exactly the same length (same N
+                                // positions) and remain valid curve points.
                                 if (candidate.length == expectedLength && RistrettoSRA.arePointsValid(candidate)) {
                                     newPieces = candidate;
-                                    // Prueba de rotacion del paso del cliente (opcional; sin ella el paso
-                                    // queda remoto-pendiente y el full-chain verify se salta, no rompe nada).
+                                    // Client's rotation-step proof (optional; without it the step stays
+                                    // remote-pending and the full-chain verify is skipped, harmlessly).
                                     this.last_remote_rotation_proof = (partes.length >= 6 && partes[5] != null && !partes[5].isEmpty())
                                             ? Base64.getDecoder().decode(partes[5]) : null;
                                     ok = true;
@@ -1845,11 +1823,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Variante verificable del unlock batch. Envia, por item, las cadenas
-     * DealChain por punto (no el residuo desnudo); el peer las verifica contra su
-     * MEGAPACKET comprometido y devuelve las cadenas extendidas con su prueba. El
-     * host nunca le manda el punto a descifrar — solo el offset y las pruebas previas
-     * — asi que el cegado es imposible. Devuelve los RespItem por nick o null.
+     * Verifiable variant of the unlock batch. Sends per-item DealChain proofs per point (not the bare
+     * residue); the peer verifies them against its committed MEGAPACKET and returns the extended
+     * chains with its own proof. The host never sends the point to decrypt — only the offset and prior
+     * proofs — so blinding it is impossible.
+     *
+     * @return the RespItem list per nick, or null on failure/timeout.
      */
     private java.util.List<UnlockChainWire.RespItem> requestRemoteUnlockChain(
             String nick, Participant p, int phase, java.util.List<UnlockChainWire.ReqItem> items) {
@@ -1918,16 +1897,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return ok ? result : null;
     }
 
-    /**
-     * Extiende localmente (en nombre de signerNick, con su lock) la cadena
-     * DealChain de cada slot del pocket salvo el del propio signer (skipSlot). Usado
-     * por el host para su propio paso, el de los bots y el testamento de un peer que
-     * salió (el host deriva el lock del unlock entregado). Devuelve false si algún
-     * extend falla (no debería con datos honestos).
-     */
-    // Unicast de un comando GAME a UN participante concreto (no broadcast, no espera ACK — como
-    // los REQ de cascada). Lo usa el straddle ciego para el POCKET_DEFERRED (avisar al straddler
-    // que pase a ciegas) y para la ENTREGA diferida de su POCKET_CARDS tras la cascada.
+    // Unicasts a GAME command to ONE specific participant (no broadcast, no ACK wait — like the
+    // cascade REQs). Used by the blind straddle for POCKET_DEFERRED (telling the straddler to go
+    // blind) and for the deferred delivery of its POCKET_CARDS after the cascade.
     private void sendGAMECommandToParticipant(Participant p, String command) {
         if (p == null) {
             return;
@@ -1942,14 +1914,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /**
+     * Locally extends (on behalf of signerNick, with its lock) the DealChain of every pocket slot
+     * except the signer's own (skipSlot). Used by the host for its own step, the bots' steps, and the
+     * testament of a departed peer (the host derives the lock from the delivered unlock).
+     *
+     * @return false if any extend fails (shouldn't happen with honest data).
+     */
     private boolean extendPocketChainsForSigner(String[][] chains, String[] ring, int skipSlot,
             String signerNick, byte[] signerLock) {
         return extendPocketChainsForSigner(chains, ring, skipSlot, -1, signerNick, signerLock);
     }
 
-    // Overload con un SEGUNDO slot a saltar (skipSlot2): el straddle ciego lo usa para NO quitar
-    // el candado de los 2 puntos del slot del straddler durante el reparto inicial (se difieren
-    // hasta su decisión firmada). skipSlot2 = -1 cuando no hay straddler diferido.
+    // Overload with a SECOND slot to skip (skipSlot2): the blind straddle uses this to NOT remove the
+    // lock from the straddler's 2 slot points during the initial deal (deferred until their signed
+    // decision). skipSlot2 = -1 when there's no deferred straddler.
     private boolean extendPocketChainsForSigner(String[][] chains, String[] ring, int skipSlot, int skipSlot2,
             String signerNick, byte[] signerLock) {
         for (int i = 0; i < ring.length; i++) {
@@ -1970,12 +1949,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Análogo community de {@link #extendPocketChainsForSigner}. Extiende, en
-     * nombre de signerNick con su community-lock, la cadena de cada recipient (clave del map)
-     * salvo skipRecipient. A diferencia del pocket, TODAS las copies anclan al MISMO punto
-     * base del MEGAPACKET (offset+j, las community pieces post-rotación), no a slots por
-     * jugador. Usa peer_k_community. skipRecipient==null cuando el signer no es recipient
-     * (los bots: tienen community-lock que pelar pero no reciben pieza propia).
+     * Community counterpart of {@link #extendPocketChainsForSigner}. Extends, on behalf of signerNick
+     * with its community lock, the chain of every recipient (map key) except skipRecipient. Unlike
+     * pocket, ALL copies anchor to the SAME base point of the MEGAPACKET (offset+j, the post-rotation
+     * community pieces), not per-player slots. Uses peer_k_community. skipRecipient==null when the
+     * signer isn't a recipient (bots: have a community lock to peel but receive no piece of their own).
      */
     private boolean extendCommunityChainsForSigner(java.util.Map<String, String[]> chains,
             int offset, int numCards, String skipRecipient, String signerNick, byte[] signerLock) {
@@ -2000,8 +1978,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean enviarCartasJugadoresRemotos() {
         for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
             if (p != null) {
-                p.setReceived_token(null); // Usado para guardar la llave de los Bots
-                p.setSra_unlock_community(null); // Dual-lock: par community del bot
+                p.setReceived_token(null); // Used to hold the bots' key
+                p.setSra_unlock_community(null); // Dual-lock: bot's community pair
             }
         }
         this.bot_community_locks.clear();
@@ -2017,19 +1995,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.CSPRNG_GENERATOR.nextBytes(this.current_hand_id);
         }
 
-        // CASCADA DE CIFRADO Y BARAJADO
+        // ENCRYPTION AND SHUFFLE CASCADE
         //
-        // Si un peer humano cae DURANTE su pase de cascade (entre el DECK_CASCADE_REQ
-        // y nuestra recepción de su RESP), aún no se han enviado las pocket cards,
-        // así que no es un misdeal: rehacemos la cascada desde el genesis con un
-        // ring nuevo SIN el peer caído. Sólo damos por perdida la mano si se ha
-        // ido tanta gente que ya no quedan ≥2 activos para jugar.
+        // If a human peer drops DURING its cascade pass (between the DECK_CASCADE_REQ and receiving
+        // its RESP), pocket cards haven't been sent yet, so it's not a misdeal: redo the cascade from
+        // genesis with a new ring WITHOUT the dropped peer. Only give up the hand if so many people
+        // left that fewer than 2 active players remain.
         StringBuilder orderBuilder;
         String[] currentRing;
         byte[] workingDeck;
 
         while (true) {
-            // Resetea cualquier estado parcial de un intento anterior abortado.
+            // Reset any partial state left by an aborted previous attempt.
             for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
                 if (p != null) {
                     p.setReceived_token(null);
@@ -2043,7 +2020,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
             int numPlayers = ringCriptografico.size();
             if (numPlayers < 2) {
-                // Sin jugadores suficientes la mano no puede jugarse; sí es misdeal.
+                // Not enough players to play the hand; this IS a misdeal.
                 cancelarManoYDevolverApuestas("peer.not_enough_players");
                 return false;
             }
@@ -2063,33 +2040,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.active_crypto_ring = currentRing;
             logCryptoRingDebug("HOST (broadcast order)", currentRing);
 
-            // Candado fresco del Host por intento.
+            // Fresh host lock for this attempt.
             this.local_sra_lock = RistrettoSRA.generateLockScalar();
             this.local_sra_unlock = RistrettoSRA.getUnlockScalar(this.local_sra_lock);
-            // Dual-lock: segundo par para community. Generado por
-            // adelantado para que la fase de rotación que vendrá después de la
-            // cascade tenga el scalar listo. Hasta que se cablee la rotación
-            // este par queda inerte (no se aplica a nada).
+            // Dual-lock: second pair for community. Generated ahead of time so the rotation
+            // phase that follows the cascade already has its scalar ready. Until rotation is wired up
+            // this pair stays inert (not applied to anything).
             this.local_sra_lock_community = RistrettoSRA.generateLockScalar();
             this.local_sra_unlock_community = RistrettoSRA.getUnlockScalar(this.local_sra_lock_community);
 
-            // Commitments K=k*B del host para H_0.
+            // Host's K=k*B commitments for H_0.
             String hostNickForCommit = GameFrame.getInstance().getNick_local();
             peer_k_pocket.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock));
             peer_k_community.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock_community));
 
-            // Registrar la cadena de cascada (reset por intento). cascadeGenesis es el
-            // anclaje publico que todos derivan. Las pruebas NO se generan aqui (bloquearia el
-            // reparto -> la animacion de barajado se alarga); se generan en background tras el bucle.
+            // Log the cascade chain (reset per attempt). cascadeGenesis is the public anchor everyone
+            // derives from. Proofs are NOT generated here (would block the deal -> longer shuffle
+            // animation); they're generated in background after the loop.
             byte[] cascadeGenesis = RistrettoSRA.getGenesisDeck();
             java.util.List<byte[]> chainDecks = new java.util.ArrayList<>();
-            java.util.List<int[]> chainStepPerm = new java.util.ArrayList<>();   // host/bot: perm; remoto: null
-            java.util.List<byte[]> chainStepK = new java.util.ArrayList<>();      // host/bot: k; remoto: null
+            java.util.List<int[]> chainStepPerm = new java.util.ArrayList<>();   // host/bot: perm; remote: null
+            java.util.List<byte[]> chainStepK = new java.util.ArrayList<>();      // host/bot: k; remote: null
             chainDecks.add(cascadeGenesis);
 
             workingDeck = RistrettoSRA.applyCommutativeLock(cascadeGenesis, this.local_sra_lock);
             workingDeck = DeterministicShuffle.shuffleDeck(workingDeck, this.local_hand_seed);
-            // Paso del host: registrar (perm, k) para generar su prueba luego en background.
+            // Host's step: log (perm, k) to generate its proof later in background.
             chainStepPerm.add(DeterministicShuffle.shufflePermutation(cascadeGenesis.length / 32, this.local_hand_seed));
             chainStepK.add(this.local_sra_lock);
             chainDecks.add(workingDeck);
@@ -2097,9 +2073,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean restart = false;
             for (int i = 0; i < numPlayers && !restart; i++) {
                 String currNick = currentRing[i];
-                // Overlay VISUAL del turno de barajado de este jugador (todos: host, bots y remotos),
-                // sincronizado en todos los peers. Fire-and-forget; puramente de display, no toca la
-                // cascada ni el consenso. El host emite en el ORDEN del anillo (giro por la mesa).
+                // VISUAL overlay of this player's shuffle turn (all: host, bots, remotes), synced
+                // across every peer. Fire-and-forget; purely for display, doesn't touch the cascade or
+                // consensus. Host emits in RING order (goes around the table).
                 emitShuffleTurn(currNick);
                 if (!currNick.equals(GameFrame.getInstance().getNick_local())) {
                     Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
@@ -2111,85 +2087,79 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
                         }
                         p.setReceived_token(botUnlock);
-                        // Dual-lock: scalars community del bot. El lock se usará
-                        // durante la rotación; el unlock se guarda en el Participant
-                        // para que cascadeAndDealCommunityPieces pueda aplicarlo.
+                        // Dual-lock: bot's community scalars. The lock will be used during
+                        // rotation; the unlock is stored on the Participant so
+                        // cascadeAndDealCommunityPieces can apply it.
                         byte[] botCommunityLock = RistrettoSRA.generateLockScalar();
                         byte[] botCommunityUnlock = RistrettoSRA.getUnlockScalar(botCommunityLock);
                         this.bot_community_locks.put(currNick, botCommunityLock);
                         p.setSra_unlock_community(botCommunityUnlock);
-                        // Commitments K del bot para H_0.
+                        // Bot's K commitments for H_0.
                         peer_k_pocket.put(currNick, RistrettoSRA.commitment(botLock));
                         peer_k_community.put(currNick, RistrettoSRA.commitment(botCommunityLock));
                         workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = DeterministicShuffle.shuffleDeck(workingDeck, botSeed);
-                        // Registrar el paso del bot (perm, k); su prueba va en background.
+                        // Log the bot's step (perm, k); its proof happens in background.
                         chainStepPerm.add(DeterministicShuffle.shufflePermutation(workingDeck.length / 32, botSeed));
                         chainStepK.add(botLock);
                         chainDecks.add(workingDeck);
                     } else if (p != null && !p.isExit()) {
-                        // Cuantas reconexiones llevaba ANTES de pedirle su paso. Si al fallar
-                        // lleva mas, es que se cayo y volvio por el camino, y entonces su
-                        // silencio no es culpa suya: al reconectar pierde sus escalares
-                        // efimeros y ya no puede contestar a una peticion que se le hizo
-                        // antes. Mirar el estado del socket al vencer el plazo no sirve para
-                        // esto, porque para entonces ya suele estar reconectado y parece que
-                        // nunca se fue. El contador solo sube, y solo con una reconexion que
-                        // haya salido bien.
+                        // Reconnection count BEFORE requesting its step. If it's higher on failure,
+                        // the peer dropped and came back mid-way, so its silence isn't its fault: on
+                        // reconnect it loses its ephemeral scalars and can no longer answer a request
+                        // made before that. Checking socket state at deadline expiry doesn't work for
+                        // this, because by then it's usually reconnected and looks like it never left.
+                        // The counter only goes up, and only on a successful reconnect.
                         int reconexiones_antes = p.getReconnectionCount();
                         byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
                         if (cascaded != null) {
                             workingDeck = cascaded;
-                            // Paso remoto: sin perm/k local; su prueba de barajado llega ASYNC
-                            // (DECK_CASCADE_PROOF) y se empareja por hash(deckOut) en background.
+                            // Remote step: no local perm/k; its shuffle proof arrives ASYNC
+                            // (DECK_CASCADE_PROOF) and is matched by hash(deckOut) in background.
                             chainStepPerm.add(null);
                             chainStepK.add(null);
                             chainDecks.add(workingDeck);
                         } else if (p.isExit()) {
-                            // El peer quedó marcado exit durante el cascade. Dos causas, mismo
-                            // tratamiento: o su socket murió (su Participant lo marcó exit), o cometió
-                            // una violación zero-trust y requestRemoteCascade lo marcó exit
-                            // (markExitAndNotify) para no reintentar con él en bucle. Reiniciamos la
-                            // cascada SIN él (el guard !p.isExit() de arriba lo salta en el reintento).
-                            // Aún no hemos repartido nada.
+                            // The peer was marked exit during the cascade. Two causes, same handling:
+                            // either its socket died (its Participant marked it exit), or it committed a
+                            // zero-trust violation and requestRemoteCascade marked it exit
+                            // (markExitAndNotify) to avoid retrying with it in a loop. Restart the
+                            // cascade WITHOUT it (the !p.isExit() guard above skips it on retry). Nothing
+                            // has been dealt yet.
                             LOGGER.log(Level.WARNING,
                                     "Peer {0} left during cascade (drop or zero-trust violation) — restarting shuffle without them",
                                     currNick);
                             restart = true;
                         } else if (p.isSocketDownOrReconnecting() || p.getReconnectionCount() != reconexiones_antes) {
-                            // El peer se CAYO o RECONECTO en algun momento desde que se le
-                            // pidio su paso. Al reconectar a mitad pierde sus escalares SRA
-                            // efimeros y ya no puede contestar, asi que su silencio NO es una
-                            // negativa maliciosa: mano anulada sin acusarle ni apuntarle
-                            // nada, igual que hace la rotacion, su gemela, mas abajo. Sin
-                            // esto caia en el else de acusar, y a un jugador honesto al que
-                            // se le habia ido la red un momento se le nombraba tramposo en
-                            // rojo y con ventana emergente.
+                            // The peer DROPPED or RECONNECTED at some point since its step was
+                            // requested. Reconnecting mid-way loses its ephemeral SRA scalars so it can
+                            // no longer answer, so its silence is NOT a malicious refusal: void the hand
+                            // without accusing or striking it, same as rotation's twin case below.
+                            // Without this it fell into the accusation branch, and an honest player
+                            // whose network blipped got flagged a cheater in red with a popup.
                             //
-                            // Se miran las DOS cosas porque cada una cubre un momento: el
-                            // estado del socket vale si sigue caido ahora mismo, y el
-                            // contador de reconexiones vale si ya volvio, que es el caso mas
-                            // frecuente (el plazo no corre mientras esta caido, asi que
-                            // cuando vence lo normal es que haya vuelto y parezca que nunca
-                            // se fue).
+                            // Both checks are needed because each covers a different moment: socket
+                            // state tells if it's still down right now, and the reconnection counter
+                            // tells if it already came back, which is the more common case (the
+                            // deadline doesn't run while it's down, so by the time it expires it has
+                            // usually returned and looks like it never left).
                             //
-                            // Y no vale reiniciar la cascada como en la rama de arriba: ahi
-                            // el peer esta fuera y el reintento lo salta, pero este sigue
-                            // dentro, asi que el reintento se lo volveria a encontrar y a
-                            // gastar otro plazo entero con el.
+                            // Restarting the cascade like the branch above wouldn't work here: there the
+                            // peer is out and the retry skips it, but this one is still in, so the retry
+                            // would hit it again and burn another full deadline on it.
                             LOGGER.log(Level.WARNING,
                                     "Peer {0} unavailable for cascade (drop/reconnect), aborting hand without accusing them",
                                     currNick);
                             cancelarManoYDevolverApuestas("peer.dropped_during_cascade");
                             return false;
                         } else {
-                            // El peer sigue VIVO (contesta PING) pero no entregó una
-                            // DECK_CASCADE_RESP válida a tiempo: CALLÓ hasta vencer el deadline de
-                            // progreso (withhold). Igual que la rotación (requestRemoteRotation):
-                            // MISDEAL, cancela la mano, devuelve las apuestas y la timba sigue. Una
-                            // crypto inválida (fatalError) NO llega aquí: requestRemoteCascade ya marcó
-                            // exit a ese peer y cae en la rama de arriba (restart sin él). Antes esto
-                            // CONGELABA la mesa (withhold, sin deadline).
+                            // The peer is still ALIVE (answers PING) but never delivered a valid
+                            // DECK_CASCADE_RESP in time: it WITHHELD until the progress deadline expired.
+                            // Same as rotation (requestRemoteRotation): MISDEAL, cancel the hand, refund
+                            // the bets, and the game continues. Invalid crypto (fatalError) never reaches
+                            // here: requestRemoteCascade already marked that peer exit and it falls into
+                            // the branch above (restart without it). This used to FREEZE the table
+                            // (withhold, no deadline).
                             LOGGER.log(Level.SEVERE,
                                     "ZERO-TRUST: peer {0} refused the cascade (alive but no valid DECK_CASCADE_RESP) — aborting hand, game continues",
                                     currNick);
@@ -2202,11 +2172,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!restart) {
-                // SOLO REGISTRAR la cadena (decks + datos de cada paso: perm/k del host
-                // y bots; los pasos remotos sin perm/k, su prueba llega async). NO se genera ni
-                // verifica nada aqui -> CERO CPU extra en el barajado (antes bloqueaba el hilo del
-                // juego y se congelaba la barra de tiempo). La generacion+verificacion corre luego
-                // en background.
+                // ONLY log the chain (decks + per-step data: host/bot perm/k; remote steps have no
+                // perm/k, their proof arrives async). Nothing is generated or verified here -> ZERO
+                // extra CPU during the shuffle (used to block the game thread and freeze the time bar).
+                // Generation+verification runs later in background.
                 this.cascade_chain_decks = chainDecks;
                 this.cascade_step_perm = chainStepPerm;
                 this.cascade_step_k = chainStepK;
@@ -2214,18 +2183,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // ROTACIÓN dual-lock de community pieces.
+        // Dual-lock rotation of community pieces.
         //
-        // Tras la cascade, workingDeck tiene 52 cartas * 32 bytes = 1664 bytes.
-        // Las primeras N*2 cartas (N*64 bytes) son pocket pieces para los N
-        // jugadores; el resto son community pieces (flop+turn+river+burns).
-        // Cada peer aplica uPocket + kCommunity sobre el subarray community
-        // para rotar los locks de la mitad pocket a la mitad community. Tras
-        // este pase, las community pieces solo tienen locks de k_community y
-        // su unlock se distribuye separadamente del de pocket — esa separación
-        // es lo que permite que el testamento al hacer EXIT entregue solo la
-        // mitad community sin filtrar pocket. Las pocket pieces no se tocan,
-        // siguen con todos los locks de k_pocket de la cascade.
+        // After the cascade, workingDeck is 52 cards * 32 bytes = 1664 bytes. The first N*2 cards
+        // (N*64 bytes) are pocket pieces for the N players; the rest are community pieces
+        // (flop+turn+river+burns). Each peer applies uPocket + kCommunity to the community sub-array
+        // to rotate the locks from the pocket half to the community half. After this pass, the
+        // community pieces only carry k_community locks, whose unlock is distributed separately from
+        // pocket — that separation is what lets the EXIT testament hand over only the community half
+        // without leaking pocket. Pocket pieces are untouched, still carrying all the cascade's
+        // k_pocket locks.
         int numPlayersFinal = currentRing.length;
         int pocketBytesEnd = numPlayersFinal * 64;
         int communityBytesLen = 1664 - pocketBytesEnd;
@@ -2234,9 +2201,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean rotationOk = true;
         String rotationFailMotivo = null;
-        // Cierre del flanco rotacion: el bucle solo REGISTRA (cero crypto en el path): estado community
-        // tras cada paso + el escalar combinado s=s1*s2 de host/bot (mult BigInteger barata) o la prueba
-        // que ya mando el cliente. Las pruebas batch-DLEQ de host/bot se generan en BACKGROUND.
+        // Rotation side of the chain: the loop only LOGS (zero crypto on the path): community state
+        // after each step + host/bot's combined scalar s=s1*s2 (cheap BigInteger multiply), or the
+        // proof the client already sent. Host/bot batch-DLEQ proofs are generated in BACKGROUND.
         java.util.List<byte[]> rotStates = new java.util.ArrayList<>();
         java.util.List<java.math.BigInteger> rotScalars = new java.util.ArrayList<>();
         java.util.List<byte[]> rotRemoteProofs = new java.util.ArrayList<>();
@@ -2245,11 +2212,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.math.BigInteger stepScalar = null;
             byte[] stepRemoteProof = null;
             if (currNick.equals(GameFrame.getInstance().getNick_local())) {
-                // Rotación en UN solo lock: aplicar uPocket y luego kCommunity equivale a
-                // multiplicar cada punto por s = uPocket*kCommunity (mod L). Ese escalar producto
-                // es el MISMO que ya necesita la prueba de rotación (stepScalar), así que un solo
-                // pase da bytes idénticos pero hace la MITAD de scalarMul (no re-decodifica ni
-                // re-cifra el estado community intermedio).
+                // Single-lock rotation: applying uPocket then kCommunity is equivalent to
+                // multiplying each point by s = uPocket*kCommunity (mod L). That product scalar is the
+                // SAME one the rotation proof already needs (stepScalar), so a single pass gives
+                // identical bytes while doing HALF the scalarMul work (no re-decoding or re-encrypting
+                // the intermediate community state).
                 stepScalar = RistrettoSRA.bytesToScalar(this.local_sra_unlock)
                         .multiply(RistrettoSRA.bytesToScalar(this.local_sra_lock_community))
                         .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
@@ -2266,7 +2233,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         rotationOk = false;
                         break;
                     }
-                    // Rotación en UN solo lock (ver nota en la rama local): s = uPocket*kCommunity.
+                    // Single-lock rotation (see note in the local branch): s = uPocket*kCommunity.
                     stepScalar = RistrettoSRA.bytesToScalar(botUnlock)
                             .multiply(RistrettoSRA.bytesToScalar(botCommunityLock))
                             .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
@@ -2275,13 +2242,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
                     if (rotated != null) {
                         communityPieces = rotated;
-                        stepRemoteProof = this.last_remote_rotation_proof; // prueba del cliente (DECK_ROTATION_RESP partes[5])
+                        stepRemoteProof = this.last_remote_rotation_proof; // client's proof (DECK_ROTATION_RESP partes[5])
                     } else if (p.isExit() || p.isSocketDownOrReconnecting()) {
-                        // El peer se CAYO o esta RECONECTANDO durante la rotacion (al reconectar mid-cascade
-                        // pierde sus scalars SRA efimeros y no puede responder, issue#9). NO es una negativa
-                        // maliciosa: MISDEAL SIN acusar ni dar strike, igual que la rama de peer-exit de abajo.
-                        // El contador de reconexiones que se lleva por peer es solo para la
-                        // telemetria y el indicador de enlace: no interviene en esta decision.
+                        // The peer DROPPED or is RECONNECTING during rotation (reconnecting mid-cascade
+                        // loses its ephemeral SRA scalars and it can't respond, issue#9). NOT a malicious
+                        // refusal: MISDEAL WITHOUT accusing or striking, same as the peer-exit branch
+                        // below. The per-peer reconnection counter is only for telemetry and the link
+                        // indicator: it plays no part in this decision.
                         LOGGER.log(Level.WARNING,
                                 "Peer {0} unavailable for rotation (drop/reconnect), aborting hand without strike, game continues",
                                 currNick);
@@ -2289,9 +2256,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         rotationFailMotivo = "peer.dropped_during_rotation";
                         break;
                     } else {
-                        // Peer VIVO y conectado que no entrego una rotacion valida: crypto invalida (fatalError)
-                        // o withhold hasta vencer el deadline. REFUSAL zero-trust: nombrar (rojo + popup) mas
-                        // strike hacia AUTO-EXPEL, y MISDEAL. Paridad con la cascada.
+                        // Peer ALIVE and connected that didn't deliver a valid rotation: either invalid
+                        // crypto (fatalError) or withheld until the deadline expired. Zero-trust REFUSAL:
+                        // name it (red + popup) plus a strike toward AUTO-EXPEL, and MISDEAL. Parity with
+                        // the cascade.
                         LOGGER.log(Level.WARNING,
                                 "Peer {0} refused rotation (alive, connected, no valid response), aborting hand, game continues",
                                 currNick);
@@ -2302,8 +2270,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         break;
                     }
                 } else {
-                    // Peer está exit (se fue). Trata como "left without testament":
-                    // misdeal pero la timba continúa (excepción del user).
+                    // Peer is exit (left). Treated as "left without testament": misdeal, but the game continues.
                     LOGGER.log(Level.WARNING,
                             "Peer {0} not available for rotation (null or exit) — aborting hand, game continues",
                             currNick);
@@ -2312,9 +2279,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     break;
                 }
             }
-            rotStates.add(communityPieces);   // estado community tras este paso (state[i+1])
-            rotScalars.add(stepScalar);        // host/bot: s=s1*s2; remoto: null
-            rotRemoteProofs.add(stepRemoteProof); // remoto: prueba del cliente; host/bot: null
+            rotStates.add(communityPieces);   // community state after this step (state[i+1])
+            rotScalars.add(stepScalar);        // host/bot: s = s1*s2; remote: null
+            rotRemoteProofs.add(stepRemoteProof); // remote: client's proof; host/bot: null
         }
 
         if (!rotationOk) {
@@ -2325,7 +2292,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.cascade_rotation_scalars = rotScalars;
         this.cascade_rotation_remote_proofs = rotRemoteProofs;
 
-        // Reensamblar el deck: pocket pieces intactos + community pieces rotados.
+        // Reassemble the deck: pocket pieces intact + rotated community pieces.
         byte[] dualLockDeck = new byte[1664];
         System.arraycopy(workingDeck, 0, dualLockDeck, 0, pocketBytesEnd);
         System.arraycopy(communityPieces, 0, dualLockDeck, pocketBytesEnd, communityBytesLen);
@@ -2340,10 +2307,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE, "Error encoding orderB64 for MEGAPACKET", e);
         }
 
-        // Enviamos el MEGAPACKET final a todos. El HAND_ID viaja como cuarto campo;
-        // los clientes lo recogen para sembrar su HandStateChain.
+        // Broadcast the final MEGAPACKET to everyone. HAND_ID travels as the 4th
+        // field; clients pick it up to seed their HandStateChain.
         String handIdB64 = Base64.getEncoder().encodeToString(this.current_hand_id);
-        // 5º campo = commitments K del ring (nick:Kp:Kc;...) para H_0.
+        // 5th field = ring K commitments (nick:Kp:Kc;...) for H_0.
         String commitmentsField = serializeCommitments();
         broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64 + "#" + commitmentsField, null, true);
 
@@ -2353,22 +2320,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // chain on every peer in parallel.
         initHandStateChain();
 
-        // Cascade POCKET en un único batch por helper humano.
-        //
-        // Por cada slot i del ring se construye pockets[i] = mega_packet[i*64:(i+1)*64].
-        // El host quita su lock localmente salvo si el target del slot ES el
-        // host (su lock se queda hasta el resolveCardIndex final). Igual con
-        // bots: si target del slot es un bot, su lock se queda. Tras eso,
-        // por cada humano remoto H pedimos en UN solo REQ_SRA_UNLOCK_CHAIN
-        // que H quite su lock de todos los slots i cuyo target no sea H
-        // (target=H mantiene el lock del propio H para que su client lo abra).
-        // Si un humano H ha hecho EXIT con testamento, aplicamos su unlock
-        // localmente para esos mismos slots; sin testamento abortamos la mano.
-        // Dealing pocket VERIFICABLE. Cada peer que quita su lock adjunta una
-        // prueba DLEQ encadenada desde el MEGAPACKET comprometido; el host (sus propios
-        // locks, los de bots y los testamentos de exits) extiende localmente, y los
-        // helpers vivos vía REQ_SRA_UNLOCK_CHAIN. El residuo single-locked de cada slot
-        // es el tail de su cadena. Ningún peer descifra bytes sin probar su procedencia.
+        // Pocket cascade, batched per remote human helper: pockets[i] = mega_packet[i*64:(i+1)*64].
+        // The host strips its own lock and each bot's lock from every slot except the one
+        // whose target IS that signer (kept until the final resolveCardIndex). Each remote
+        // human helper strips its lock from every slot but its own via one REQ_SRA_UNLOCK_CHAIN
+        // (or, on EXIT, the host extends its testament locally; no testament aborts the hand).
+        // Every unlock carries a DLEQ proof chained from the committed MEGAPACKET, so a slot's
+        // single-locked residue is verifiable end to end — no peer decrypts bytes without
+        // proving provenance.
         String hostNick = GameFrame.getInstance().getNick_local();
         int ringLen = currentRing.length;
         String[][] pocketChains = new String[ringLen][2];
@@ -2377,10 +2336,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             pocketChains[i][1] = "";
         }
 
-        // Straddle CIEGO: si hay un straddler humano esta mano, sus 2 pocket slots NO se
-        // desbloquean ahora — ningún signer (host, bots ni humanos) quita su candado hasta que
-        // el straddler firme su decisión, y entonces el host corre resolveDeferredStraddlerResidue.
-        // Guarda nick/slot para esa cascada diferida. straddlerSlot=-1 => reparto normal.
+        // Blind straddle: if a human straddles this hand, their 2 pocket slots stay locked by
+        // everyone until they sign their decision; the host then runs
+        // resolveDeferredStraddlerResidue. straddlerSlot=-1 means a normal deal.
         String blindStraddlerNick = blindStraddlerNickThisHand();
         int straddlerSlot = -1;
         if (blindStraddlerNick != null) {
@@ -2394,7 +2352,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.deferred_straddle_nick = (straddlerSlot >= 0) ? blindStraddlerNick : null;
         this.deferred_straddle_slot = straddlerSlot;
 
-        // Paso 1: el host quita su lock (con prueba) de cada slot salvo el suyo (y el del straddler).
+        // Step 1: the host strips its own lock (with proof) from every slot except its own
+        // (and the straddler's).
         int hostSlot = -1;
         for (int i = 0; i < ringLen; i++) {
             if (currentRing[i].equals(hostNick)) {
@@ -2406,7 +2365,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
             return false;
         }
-        // Bots: el host quita el lock de cada bot (con prueba) de cada slot salvo el del bot.
+        // Bots: the host strips each bot's lock (with proof) from every slot except that bot's own.
         for (String bNick : currentRing) {
             Participant pb = GameFrame.getInstance().getParticipantes().get(bNick);
             if (pb != null && pb.isCpu() && pb.getReceived_token() != null) {
@@ -2425,8 +2384,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Paso 2: helpers humanos remotos en orden del ring (vivos vía comando; exit
-        // con testamento extendido localmente por el host derivando el lock del unlock).
+        // Step 2: remote human helpers in ring order (live ones via command; an EXIT with
+        // testament is extended locally by the host, deriving the lock from the unlock).
         for (int h = 0; h < ringLen; h++) {
             String hNick = currentRing[h];
             if (hNick.equals(hostNick)) {
@@ -2456,9 +2415,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             covered.add(ri.peerIdx);
                         }
                     }
-                    // El helper debe haber extendido TODOS los slots != h. Un RESP incompleto
-                    // dejaria un residuo aun lockeado por el helper (paridad con el batch viejo
-                    // que validaba count). Tratarlo como rechazo.
+                    // The helper must extend ALL slots != h; a partial RESP would leave a slot
+                    // still locked by the helper. Treat it as a refusal.
                     boolean allCovered = true;
                     for (int i = 0; i < ringLen && allCovered; i++) {
                         if (i != h && i != straddlerSlot && !covered.contains(i)) {
@@ -2493,13 +2451,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Paso 3: el host verifica cada cadena final y toma el tail (residuo single-locked
-        // por el target). Una cadena que no verifica = un peer devolvió algo no probado.
+        // Step 3: the host verifies each final chain and takes its tail (the residue
+        // single-locked by the target). A chain that fails verification means a peer
+        // returned something unproven.
         byte[][] pockets = new byte[ringLen][];
         for (int i = 0; i < ringLen; i++) {
             if (i == straddlerSlot) {
-                // Straddle ciego: su residuo NO se computa aquí (ningún signer peló su slot); se
-                // difiere a resolveDeferredStraddlerResidue tras la decisión firmada.
+                // Blind straddle: its residue is not computed here (no signer peeled its slot);
+                // deferred to resolveDeferredStraddlerResidue after the signed decision.
                 continue;
             }
             byte[] pc = new byte[64];
@@ -2518,21 +2477,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             pockets[i] = pc;
         }
 
-        // Broadcast y resolución local por target.
+        // Broadcast and local resolution per target.
         for (int i = 0; i < currentRing.length; i++) {
             String targetNick = currentRing[i];
             if (i == straddlerSlot) {
-                // Straddle ciego: ni se difunde ni se resuelve su residuo ahora (diferido hasta su
-                // decisión firmada). Si es un CLIENTE remoto, se le avisa (POCKET_DEFERRED) para que
-                // pase a ciegas por recibirMisCartas; si el straddler es el HOST no hace falta (no
-                // corre recibirMisCartas) y sus cartas se resuelven en local tras decidir.
+                // Blind straddle: neither broadcast nor resolved now (deferred until the signed
+                // decision). A remote client is notified (POCKET_DEFERRED) so it passes through
+                // recibirMisCartas blind; the host straddler needs no such notice (it doesn't run
+                // recibirMisCartas) and resolves its cards locally after deciding.
                 if (!targetNick.equals(hostNick)) {
                     Participant sp = GameFrame.getInstance().getParticipantes().get(targetNick);
                     sendGAMECommandToParticipant(sp, "POCKET_DEFERRED#"
                             + Base64.getEncoder().encodeToString(targetNick.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
                 } else {
-                    // El HOST es el straddler: marca pending para que su fósil (más abajo) salte
-                    // VISUAL@; sus cartas se resuelven en resolveVoluntaryStraddle tras decidir.
+                    // Host is the straddler: mark pending so its fossil snapshot (below) skips
+                    // VISUAL@; its cards resolve in resolveVoluntaryStraddle after deciding.
                     this.straddle_cards_pending = true;
                 }
                 continue;
@@ -2566,10 +2525,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     int id2 = RistrettoSRA.resolveCardIndex(c2);
                     if (id1 >= 0 && id2 >= 0) {
                         Player botPlayer = nick2player.get(targetNick);
-                        // Un espectador entra al anillo criptográfico (contribuye su lock)
-                        // pero NO juega la mano: jamás se le reparten cartas, conserva su
-                        // JOKER. Sin este guard se le tapaban las cartas y se persistían en
-                        // BOTVISUAL@, reapareciendo boca abajo al recuperar.
+                        // A spectator joins the crypto ring (contributes its lock) but doesn't
+                        // play the hand: it's never dealt cards and keeps its JOKER. Without
+                        // this guard its cards got set and persisted in BOTVISUAL@, reappearing
+                        // face-down on recover.
                         if (botPlayer != null && botPlayer.isActivo()) {
                             botPlayer.getHoleCard1().iniciarConValorNumerico(id1 + 1);
                             botPlayer.getHoleCard2().iniciarConValorNumerico(id2 + 1);
@@ -2579,17 +2538,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // GUARDAMOS EL FÓSIL DESPUÉS DE REPARTIR (Obligatorio en SRA)
+        // Save the fossil snapshot after dealing (mandatory in SRA).
         this.guardarFosilSRA();
 
-        // Tras repartir lanzamos en un hilo la generacion (cascada) + verificacion de la cadena
-        // COMPLETA genesis->MEGAPACKET (cascada Bayer-Groth + rotacion batch-DLEQ). Corre durante las
-        // apuestas, sin tocar la animacion.
-        // ESTADO (wire-rotation-1): host-side SELF-verify. Cubre ya la rotacion (antes quedaba fuera).
-        // Pendiente para proteccion efectiva: (a) difundir el bundle a los peers, (b) que cada peer lo
-        // verifique, (c) gatear el unlock en el veredicto verificado-por-peers ANTES de la ventana de
-        // lectura (avisar+permitir-seguir si falla, no abort duro). El anti-peek de una carta de jugador
-        // VIVO ya lo da la cadena DLEQ en tiempo real (self-strip + anclaje + GATE 6 en WaitingRoomFrame).
+        // After dealing, spawn a thread that generates the missing proofs and self-verifies the
+        // FULL genesis->MEGAPACKET chain (Bayer-Groth cascade + batch-DLEQ rotation) in the
+        // background, during betting, without touching the animation. Once the self-check
+        // passes, the bundle is broadcast so every peer verifies it independently (see
+        // WaitingRoomFrame's DUALLOCK_BUNDLE handler), which warns rather than hard-aborting on
+        // failure. Live per-hand peek protection is unaffected either way: it comes from the
+        // real-time DLEQ chain (self-strip + anchoring + gating in WaitingRoomFrame).
         final byte[] bgGenesis = RistrettoSRA.getGenesisDeck();
         final int bgHandOrdinal = getMano(); // ordinal de ESTA mano, para el "barajado verificado" del registro
         final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
@@ -2604,38 +2562,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.threadRun(() -> {
                 final Thread bgVerifyThread = Thread.currentThread();
                 final int bgVerifyPrio = bgVerifyThread.getPriority();
-                // Prioridad rebajada mientras corre el prove/verify de fondo: no debe competir
-                // de tú a tú con el EDT durante la ráfaga de apuestas de las primeras manos en
-                // PCs de 1-2 núcleos. Restaurada en finally porque el hilo es del pool cacheado
-                // (Helpers.threadRun) y se reutiliza para otras tareas.
+                // Lower priority while the background prove/verify runs: it shouldn't compete
+                // evenly with the EDT during the early betting rounds on 1-2 core machines.
+                // Restored in finally since the thread comes from the cached pool
+                // (Helpers.threadRun) and gets reused for other tasks.
                 bgVerifyThread.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 2));
                 try {
-                    // B1: recoger primero las pruebas de barajado ASYNC de los pasos remotos. Un
-                    // cliente manda su deck+commitments YA y la prueba APARTE (DECK_CASCADE_PROOF),
-                    // para no bloquear el reparto con su prove (132/377/8900 ms). Aquí, fuera del path de
-                    // reparto, se esperan (acotado) emparejadas por hash del deckOut.
+                    // B1: collect the ASYNC shuffle proofs from remote steps first. A client sends
+                    // its deck+commitments immediately and its proof separately
+                    // (DECK_CASCADE_PROOF) so the deal isn't blocked on its prove (132/377/8900
+                    // ms). Here, off the dealing path, we wait (bounded) matching them by deckOut
+                    // hash.
                     java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(bgDecks, bgPerm);
                     java.util.List<byte[]> proofs = new java.util.ArrayList<>();
                     for (int s = 0; s < bgPerm.size(); s++) {
                         byte[] stepProof;
                         if (bgPerm.get(s) != null) {
-                            // Paso del host o de un bot: la prueba se genera localmente aquí.
+                            // Host or bot step: the proof is generated locally here.
                             stepProof = com.tonikelope.coronapoker.crypto.ShuffleCascade.proveStepWire(
                                     bgDecks.get(s), bgDecks.get(s + 1), bgPerm.get(s), bgK.get(s));
                         } else {
-                            // Paso remoto: prueba ASYNC emparejada por hash(deckOut).
-                            // null si no llegó en la ventana -> degradación = peer proofless de hoy.
+                            // Remote step: ASYNC proof matched by hash(deckOut); null if it didn't
+                            // arrive within the window -> degrades same as today's proofless peer.
                             String h = cascadeDeckHash(bgDecks.get(s + 1));
                             stepProof = (h != null) ? asyncProofs.get(h) : null;
                         }
                         proofs.add(stepProof);
                     }
-                    // La cascada la reverifica DualLockWire.verifyFullChainWire mas abajo por dentro
-                    // (DualLockCascade.verifyFullChain -> ShuffleCascade.verifyChain), que ademas es
-                    // quien gatea la difusion (fullOk); no la verificamos aparte solo para un log.
-                    // Cadena COMPLETA (cascada + rotacion). Generamos AQUI (background) las pruebas
-                    // batch-DLEQ de host/bot a partir del escalar registrado; las remotas ya vienen del
-                    // cliente. Cero crypto de esto en el path de reparto.
+                    // The cascade itself is re-verified below by DualLockWire.verifyFullChainWire
+                    // (-> DualLockCascade.verifyFullChain -> ShuffleCascade.verifyChain), which
+                    // also gates the broadcast (fullOk); no separate check here just for a log line.
+                    // FULL chain (cascade + rotation): generate the host/bot batch-DLEQ proofs here
+                    // (background) from the recorded scalar; remote ones already come from the
+                    // client. None of this crypto runs on the dealing path.
                     java.util.List<byte[]> rotProofsBg = new java.util.ArrayList<>();
                     boolean rotComplete = bgRotStates != null && bgRotScalars != null
                             && bgRotRemoteProofs != null && bgMega != null && !bgRotStates.isEmpty()
@@ -2648,12 +2607,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             byte[] after = bgRotStates.get(r);
                             byte[] stepP;
                             if (bgRotRemoteProofs.get(r) != null) {
-                                // Paso remoto: VERIFICAR la prueba del peer contra (before, after) ANTES
-                                // de aceptarla. Un peer puede rotar bien las piezas (pasan el on-curve) pero
-                                // mandar una prueba basura bien formada: el full-chain self-check (fullOk)
-                                // fallaria pero el bundle se difunde igual -> falso "host deshonesto" en toda
-                                // la mesa. Si no verifica, se trata como paso SIN prueba (rotComplete=false ->
-                                // no se difunde el bundle -> degradacion identica a un peer proofless de hoy).
+                                // Remote step: VERIFY the peer's proof against (before, after) before
+                                // accepting it. A peer can rotate the pieces correctly (they pass
+                                // on-curve) yet send a well-formed but bogus proof: the full-chain
+                                // self-check would fail, but the bundle would still get broadcast,
+                                // framing the host as dishonest table-wide. If it doesn't verify, treat
+                                // the step as proofless (rotComplete=false -> bundle not broadcast ->
+                                // same degradation as today's proofless peer).
                                 byte[] cand = bgRotRemoteProofs.get(r);
                                 stepP = com.tonikelope.coronapoker.crypto.DualLockWire.verifyRotationStepWire(before, after, cand)
                                         ? cand : null;
@@ -2675,8 +2635,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             before = after;
                         }
                     }
-                    // Solo seguimos si TODAS las pruebas de cascada estan (un peer legacy/proofless deja
-                    // un null -> NO difundir un bundle con null, que todos los peers rechazarian en falso).
+                    // Only proceed if ALL cascade proofs are present (a legacy/proofless peer leaves
+                    // a null -> never broadcast a bundle with a null, every peer would wrongly reject it).
                     if (rotComplete && !rotProofsBg.isEmpty() && !proofs.contains(null)) {
                         this.cascade_rotation_proofs = rotProofsBg;
                         boolean fullOk = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
@@ -2686,21 +2646,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 "SHUFFLE-VERIFY: background dual-lock full-chain self-check (cascade+rotation) = {0} ({1} rotation steps)",
                                 new Object[]{fullOk, rotProofsBg.size()});
                         if (fullOk) {
-                            // El host tambien firma "mazo verificado" en su receipt (su auto-verify).
+                            // The host also signs "deck verified" in its own receipt (its self-check).
                             this.dual_lock_verified_megapacket = bgMega;
-                            // Registro: barajado (honestidad del mazo) verificado localmente por el host.
+                            // Log: shuffle honesty verified locally by the host.
                             GameFrame gfBg = GameFrame.getInstance();
                             if (gfBg != null && gfBg.getRegistro() != null) {
                                 gfBg.getRegistro().print(
                                         MessageFormat.format(Translator.translate("game.barajado_verificado"), String.valueOf(bgHandOrdinal)));
                             }
-                            // Difundir el bundle a los peers para que CADA UNO verifique por su cuenta (el
-                            // host verificandose a si mismo no protege). El peer deriva pocketCount LOCAL y
-                            // recomputa el genesis. NO mandamos pocketCount (no fiarse del host). Fire-and-forget.
-                            // SOLO si el auto-chequeo (fullOk) pasa: difundir un bundle que falla localmente haria
-                            // que TODOS los peers lo rechazasen y, como quien lo difunde es el host, se leeria como
-                            // "host deshonesto" en toda la mesa (un peer malicioso podria forzar ese fallo). Si no
-                            // pasa NO se difunde -> los peers avisan "missing proof" en el reveal (proteccion intacta).
+                            // Broadcast the bundle so EVERY peer verifies it independently (the host
+                            // verifying itself protects nobody). Each peer derives pocketCount locally
+                            // and recomputes the genesis; we never send pocketCount (don't trust the
+                            // host for that). Fire-and-forget, and only when the self-check (fullOk)
+                            // passes — broadcasting a bundle that fails locally would make every peer
+                            // reject it and read as "dishonest host" table-wide (a malicious peer could
+                            // force that failure). If it fails, we don't broadcast and peers warn
+                            // "missing proof" on reveal instead (protection intact).
                             try {
                                 String bundle = "DUALLOCK_BUNDLE#"
                                         + joinB64(bgDecks.subList(1, bgDecks.size())) + "#"
@@ -2712,8 +2673,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 LOGGER.log(Level.WARNING, "DUALLOCK_BUNDLE broadcast failed", bcEx);
                             }
                         } else {
-                            // Auto-chequeo FALLIDO: NO difundir (evita framear al host). Los peers no reciben
-                            // bundle -> avisan "missing proof" al revelar community. Degradacion = proofless.
+                            // Self-check FAILED: don't broadcast (avoids framing the host). Peers get
+                            // no bundle -> warn "missing proof" on community reveal. Degrades to proofless.
                             LOGGER.log(Level.SEVERE,
                                     "SHUFFLE-VERIFY: full-chain self-check FAILED — NOT broadcasting bundle (peers will warn 'missing proof'); likely a manipulated peer");
                         }
@@ -2753,9 +2714,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (partes[2].equals("MEGAPACKET") && partes.length >= 5) {
                             String orderB64 = partes[3];
                             this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[4]);
-                            // Reparto FRESCO: a partir de ahora exijo un bundle de barajado honesto para
-                            // este mazo (el handler de unlock community avisa si no llega). El recover NO
-                            // pasa por aqui, asi que no exige bundle (el barajado ya se verifico pre-crash).
+                            // Fresh deal: from now on we require an honest-shuffle bundle for this
+                            // deck (the community-unlock handler warns if it never arrives). Recover
+                            // doesn't go through here, so it doesn't require a bundle (the shuffle
+                            // was already verified pre-crash).
                             this.dual_lock_expect_bundle_for = this.local_mega_packet;
                             try {
                                 String orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
@@ -2768,13 +2730,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                                 this.active_crypto_ring = ringList.toArray(new String[0]);
                                 logCryptoRingDebug("CLIENT (received order)", this.active_crypto_ring);
-                                // DEBUG del anillo: qué orden DERIVARÍA este cliente localmente
-                                // (getAnilloCriptografico). OJO: desde que el anillo arranca por el DEALER,
-                                // este "local derive" puede DIFERIR legítimamente del "received" si el cliente
-                                // aún no tiene el dealer_nick de esta mano (stale/null/carrera con POSITIONS).
-                                // NO implica divergencia de consenso: el orden autoritativo es el DIFUNDIDO
-                                // (active_crypto_ring, arriba); esta derivación local nunca se usa para
-                                // verificar. Solo lee, no muta nada.
+                                // Ring debug: what order this client would derive locally
+                                // (getAnilloCriptografico). Since the ring starts at the DEALER, this
+                                // can legitimately differ from the received order if the client
+                                // doesn't have this hand's dealer_nick yet (stale/null/race with
+                                // POSITIONS) — not a consensus divergence, since the authoritative
+                                // order is the broadcast one (active_crypto_ring above); this local
+                                // derivation is never used to verify anything. Read-only.
                                 try {
                                     java.util.ArrayList<Player> localRing = getAnilloCriptografico();
                                     String[] localNicks = new String[localRing.size()];
@@ -2805,7 +2767,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     this.current_hand_id = null;
                                 }
                             }
-                            // Parsear los commitments K (5º campo) antes de sembrar H_0.
+                            // Parse the K commitments (5th field) before seeding H_0.
                             if (partes.length >= 7) {
                                 parseCommitments(partes[6]);
                             }
@@ -2820,11 +2782,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                 if (targetNick.equals(GameFrame.getInstance().getNick_local())) {
 
-                                    // El MEGAPACKET tiene que haberse procesado antes.
+                                    // The MEGAPACKET must have been processed already.
                                     if (this.local_mega_packet != null) {
                                         this.local_sra_unlock = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local()).getSra_unlock();
 
-                                        // Quitamos nuestro propio candado (El último de la capa de cifrado)
+                                        // Strip our own lock (the last layer of encryption).
                                         byte[] myPocket = RistrettoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
                                         byte[] c1 = java.util.Arrays.copyOfRange(myPocket, 0, 32);
                                         byte[] c2 = java.util.Arrays.copyOfRange(myPocket, 32, 64);
@@ -2840,7 +2802,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             ok = true;
                                         }
                                     } else {
-                                        // Si ha llegado antes que la baraja, lo devolvemos a la cola y esperamos
+                                        // Arrived before the deck: put it back on the queue and keep waiting.
                                         rejected.add(comando);
                                     }
                                 }
@@ -2848,12 +2810,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 LOGGER.log(Level.WARNING, "Error processing POCKET_CARDS", e);
                             }
                         } else if (partes[2].equals("POCKET_DEFERRED") && partes.length >= 4) {
-                            // Straddle CIEGO: soy el UTG que decide a ciegas. El host RETUVO mis 2
-                            // pocket cards (no me manda POCKET_CARDS ahora), así que salgo del bucle
-                            // SIN cartas (ok=true) marcando straddle_cards_pending, y sigo a repartir
-                            // -> resolveVoluntaryStraddle. Tras firmar mi decisión el host corre la
-                            // cascada diferida y me entrega el POCKET_CARDS; entonces resuelvo. Solo
-                            // actúo si el nick soy yo (si no, lo dejo caer: no debería llegarme).
+                            // Blind straddle: I'm the UTG deciding blind. The host withheld my 2
+                            // pocket cards (no POCKET_CARDS yet), so I leave the loop without cards
+                            // (ok=true), mark straddle_cards_pending, and move on to
+                            // resolveVoluntaryStraddle. After I sign my decision the host runs the
+                            // deferred cascade and sends POCKET_CARDS, which I then resolve. Only
+                            // act if the nick is mine; otherwise drop it — it shouldn't reach us.
                             try {
                                 String dnick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
                                 if (dnick.equals(GameFrame.getInstance().getNick_local())) {
@@ -2864,8 +2826,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 LOGGER.log(Level.WARNING, "Malformed POCKET_DEFERRED", e);
                             }
                         } else if (partes[2].equals("MISDEAL") && partes.length >= 4) {
-                            // El host aborta la mano: salimos del consumer sin las cartas.
-                            // El cancelar ya lo hace el case top-level en WaitingRoomFrame.
+                            // The host aborts the hand: exit the consumer without cards. The actual
+                            // cancellation is handled by the top-level case in WaitingRoomFrame.
                             return null;
                         } else {
                             rejected.add(comando);
@@ -2882,29 +2844,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isFin_de_la_transmision()) {
                     break;
                 }
-                // AQUI NO HAY PLAZO, y es a proposito. Se probo a ponerle uno y era mucho
-                // peor: lo que devuelve este metodo NO LO MIRA NADIE, asi que al vencer el
-                // cliente seguia a repartir sin megapaquete y sin identificador de mano, o
-                // sea, jugando la mano con cartas que no son las suyas y con la cadena de
-                // firmas apagada, sin verificar ni una accion en toda la mano. Y ademas
-                // cualquier plazo razonable se queda corto: el anfitrion se concede dos
-                // minutos POR PEER para su paso del barajado, y reinicia la cascada entera si
-                // alguien se cae por el camino. Quedarse esperando es ruidoso, pero no
-                // corrompe la mano. Ponerle plazo exige antes que el llamador sepa que
-                // hacer cuando no hay cartas.
-                // La pausa NO cuenta como mesa parada: si no se reiniciara el reloj, una
-                // pausa larga soltaba el aviso justo al reanudar.
+                // Deliberately NO deadline here: a timeout was tried and made things worse —
+                // nothing checks this method's return value, so on timeout the client kept
+                // dealing without a megapacket or hand ID (playing with someone else's cards,
+                // signature chain dead, no action verified all hand). Any reasonable deadline
+                // is also too short: the host allows itself two minutes PER PEER for its
+                // shuffle step and restarts the whole cascade if anyone drops out mid-way.
+                // Waiting forever is noisy but doesn't corrupt the hand; adding a deadline
+                // first requires the caller to know what to do with no cards.
+                // A pause doesn't count toward "table stalled": without resetting the clock, a
+                // long pause would fire the warning right as play resumed.
                 if (GameFrame.getInstance().checkPause()) {
                     espera_inicio = System.currentTimeMillis();
                 }
                 aviso_parada = avisarMesaParada(espera_inicio, aviso_parada);
-                // Patrón estándar del Crupier (15+ receive* loops lo usan):
-                // espera sobre received_commands para que un notifyAll de
-                // los productores (Participant reader, WaitingRoomFrame.cliente)
-                // nos despierte inmediatamente al llegar el próximo comando.
-                // El timeout WAIT_QUEUES es safety net consistente con el resto
-                // del fichero — sustituye el Helpers.pausar(100) anterior que
-                // polleaba sin escuchar al notifier real.
+                // Standard Crupier pattern (used by 15+ receive* loops): wait on
+                // received_commands so a producer's notifyAll (Participant reader,
+                // WaitingRoomFrame.cliente) wakes us immediately on the next command.
+                // WAIT_QUEUES is just a safety-net timeout, consistent with the rest of
+                // the file.
                 synchronized (this.getReceived_commands()) {
                     try {
                         this.getReceived_commands().wait(WAIT_QUEUES);
@@ -2920,7 +2878,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
 
-        // ¡ESENCIAL! El cliente guarda sus cartas en su Fósil local
+        // Essential: the client saves its cards to its local fossil snapshot.
         this.guardarFosilSRA();
 
         return new ArrayList<>(java.util.Arrays.asList(cartas));
@@ -2932,35 +2890,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public String getTestamentoCriptografico(String nick) {
-        // ZERO-TRUST: si el cliente entró en lockdown nunca compartimos
-        // nuestra propia sra_unlock con el servidor — eso permitiría al
-        // host descifrar nuestras pocket cards de la mano congelada. El
-        // testamento de OTROS peers sí se devuelve normal (uso local del
-        // host honesto para destapar a un peer que se marchó).
+        // Zero-trust: once locked down, never share our own sra_unlock with the server —
+        // that would let the host decrypt our pocket cards for the frozen hand. Other
+        // peers' testaments are still returned normally (used locally by an honest
+        // host to reveal a peer who left).
         if (Crupier.SECURITY_LOCKDOWN && nick.equals(GameFrame.getInstance().getNick_local())) {
             return "*";
         }
         try {
-            // Dual-lock: el testamento entrega EXCLUSIVAMENTE la mitad
-            // community. La mitad pocket (sra_unlock / received_token / local_sra_unlock)
-            // NUNCA se comparte vía EXIT — es la propiedad de seguridad que justifica
-            // el refactor. Con solo community, el host puede continuar revelando las
-            // comunitarias pero no descifrar las cartas privadas del peer que sale.
+            // Dual-lock: the testament hands over ONLY the community half. The pocket half
+            // (sra_unlock / received_token / local_sra_unlock) is never shared via EXIT —
+            // that's the security property this refactor exists for. With only the
+            // community half, the host can still reveal community cards but can't
+            // decrypt the leaving peer's pocket.
             byte[] testament = null;
             if (nick.equals(GameFrame.getInstance().getNick_local())) {
                 testament = this.local_sra_unlock_community;
             } else {
                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
                 if (p != null) {
-                    // Para bots y humanos: el unlock community vive en
-                    // sra_unlock_community. Para bots lo puso el host en la cascade;
-                    // para humanos llega vía testamento previo.
+                    // For both bots and humans, the community unlock lives in
+                    // sra_unlock_community: the host set it during the cascade for bots;
+                    // humans send it via a prior testament.
                     testament = p.getSra_unlock_community();
                 }
             }
 
-            // Fallback para cliente remoto que no ha seteado local_sra_unlock_community
-            // pero lo tiene en su Participant local.
+            // Fallback for a remote client that hasn't set local_sra_unlock_community yet
+            // but has it on its local Participant.
             if (testament == null && nick.equals(GameFrame.getInstance().getNick_local())) {
                 Participant p = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
                 if (p != null) {
@@ -2978,18 +2935,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Dual-lock (Opción G): la clave que viaja en SHOWCARDS al revelar
-     * voluntariamente las cartas privadas de un jugador al showdown. Es la
-     * mitad POCKET — el receptor la usa con applyCommutativeLock sobre el
-     * pocket piece cifrado para destapar las cartas. NUNCA debe confundirse
-     * con getTestamentoCriptografico (que es la mitad community para EXIT):
-     * mezclar las dos rompe el showdown (pocket pieces no se descifran con
-     * community) o filtra cartas privadas del peer que sale (community
-     * pieces no son sensibles a la pocket).
+     * Dual-lock (option G): the key carried in SHOWCARDS when voluntarily revealing a
+     * player's private cards at showdown. This is the POCKET half — the receiver uses
+     * it with applyCommutativeLock on the encrypted pocket piece. Never confuse this
+     * with getTestamentoCriptografico (the community half for EXIT): mixing them up
+     * breaks showdown or leaks the leaving peer's private cards.
      *
-     * Self vs others: el host tiene p.getReceived_token() para sus bots; para
-     * un humano remoto solo se tiene su pocket key si ya envió un SHOWCARDS
-     * propio antes en esta mano y se guardó en p.sra_unlock (línea 2757).
+     * Self vs others: the host has p.getReceived_token() for its bots; a remote
+     * human's pocket key is only known if it already sent its own SHOWCARDS this hand.
      */
     public String getShowdownPocketKey(String nick) {
         if (Crupier.SECURITY_LOCKDOWN && nick.equals(GameFrame.getInstance().getNick_local())) {
@@ -3000,9 +2953,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (nick.equals(GameFrame.getInstance().getNick_local())) {
                 pocketKey = this.local_sra_unlock;
                 if (pocketKey == null) {
-                    // Fallback para cliente remoto: el Crupier puede no haber
-                    // copiado todavía el unlock desde el Participant (el copy
-                    // ocurre al procesar POCKET_CARDS, línea ~1084).
+                    // Fallback for a remote client: the Crupier may not have copied the
+                    // unlock from the Participant yet (copied while processing POCKET_CARDS).
                     Participant p = GameFrame.getInstance().getParticipantes().get(nick);
                     if (p != null) {
                         pocketKey = p.getSra_unlock();
@@ -3014,9 +2966,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (p.isCpu()) {
                         pocketKey = p.getReceived_token();
                     } else {
-                        // Humano remoto: solo conocemos su pocket key si ya hizo
-                        // SHOWCARDS propio antes en esta mano y la guardamos en
-                        // sra_unlock al procesar la respuesta (línea 2757).
+                        // Remote human: we only know their pocket key if they already sent
+                        // their own SHOWCARDS this hand, saved to sra_unlock when we
+                        // processed the response.
                         pocketKey = p.getSra_unlock();
                     }
                 }
@@ -3031,18 +2983,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * PHASE A.1: firma (HAND_ID || nick || pocketKey) con la privkey LOCAL bajo
-     * el dominio SHOWDOWN, para acompañar la pocketKey en el wire SHOWCARDS
-     * / RESP_SHOWDOWN_KEY. La sig demuestra que la clave fue autorizada por
-     * quien la posee:
+     * Signs (HAND_ID || nick || pocketKey) with the LOCAL privkey under the SHOWDOWN
+     * domain, to accompany the pocketKey on the wire (SHOWCARDS / RESP_SHOWDOWN_KEY),
+     * proving the key was authorized by whoever holds it:
      *
-     *   - Si el local nick es el revelador (humano local): firma con su Ed25519.
-     *   - Si revelaNick es un bot que el host orquesta: el host firma con SU
-     *     propia Ed25519. Los bots no tienen identity y los receptores los
-     *     verifican con la pubkey del host (ver resolveShowdownSignerPubkey).
+     *   - If the local nick is the revealer (local human): signs with its own Ed25519.
+     *   - If revealNick is a host-orchestrated bot: the host signs with its own
+     *     Ed25519 (bots have no identity; receivers verify against the host's
+     *     pubkey — see resolveShowdownSignerPubkey).
      *
-     * Devuelve "*" si pocketKey="*" (lockdown) o si la identity no está lista
-     * (TOFU race / no signer); los receptores rechazan ese caso.
+     * Returns "*" if pocketKey is "*" (lockdown) or identity isn't ready (TOFU race /
+     * no signer); receivers reject that case.
      */
     public String signShowdownRevealForBroadcast(String revealNick, String pocketKeyB64) {
         if (pocketKeyB64 == null || pocketKeyB64.equals("*")) {
@@ -3109,12 +3060,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return -1;
         }
 
-        // 2. Fallback a la derivación local del anillo. OJO: este método está actualmente SIN USO
-        // (cero callers en el repo; el comentario anterior "solo en recoveries" era falso — nunca se
-        // ejecuta). Si alguien lo revive: desde que el anillo se ordena por ASIENTO (nicks_permutados,
-        // ver getAnilloCriptografico), este fallback SOLO es consensuado si nicks_permutados está
-        // sincronizado entre peers en ese punto. El camino de consenso real NO pasa por aquí: mapea
-        // sobre active_crypto_ring (el orden DIFUNDIDO por el host, rama 1 de arriba).
+        // 2. Fallback to locally deriving the ring. This method currently has ZERO
+        // callers in the repo. If revived: since the ring is ordered by SEAT
+        // (nicks_permutados, see getAnilloCriptografico), this fallback is only
+        // consensus-safe when nicks_permutados is in sync across peers at that point.
+        // The real consensus path doesn't go through here — it maps onto
+        // active_crypto_ring (the host-broadcast order, branch 1 above).
         java.util.ArrayList<Player> ring = getAnilloCriptografico();
         for (int i = 0; i < ring.size(); i++) {
             if (ring.get(i).getNickname().equals(nick)) {
@@ -3124,7 +3075,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return -1;
     }
 
-    // Variables puras para auditoría (Inmunes a la GUI)
+    // Pure fields for auditing (untouched by the GUI).
     public volatile byte[] local_envelope = null;
     public volatile byte[] local_original_cards = new byte[2];
 
@@ -3164,11 +3115,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return ante_straddle_update;
     }
 
-    // Marca que el ante y/o el straddle han cambiado durante la partida para que
-    // se avise igual que con las ciegas. NO aplica los valores (eso lo hace quien
-    // llama, al instante): solo enciende el aviso diferido. Bajo lock_ciegas para
-    // ser atómico con la limpieza en readyForNextHand; no anida otros locks, así
-    // que no puede provocar deadlock.
+    // Flags that ante and/or straddle changed mid-game, so it's announced like the
+    // blinds. Doesn't apply the values (the caller does that immediately) — only
+    // arms the deferred notice. Under lock_ciegas to stay atomic with the cleanup in
+    // readyForNextHand; doesn't nest other locks, so it can't deadlock.
     public void marcarCambioAnteStraddle() {
         synchronized (lock_ciegas) {
             this.ante_straddle_update = true;
@@ -3215,11 +3165,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return dealer_nick;
     }
 
-    // Carta-ancla del asiento del dealer: origen del vuelo de reparto (las
-    // cartas salen de las manos del dealer hacia el resto de asientos y las
-    // posiciones comunitarias). Devuelve su primera hole card como punto fijo,
-    // o null si el dealer no se puede resolver (el vuelo parte entonces del
-    // centro de la mesa).
+    // Anchor card for the dealer's seat: the deal animation's flight origin (cards
+    // fly from the dealer's hands to the other seats and community positions).
+    // Returns its first hole card as the fixed point, or null if the dealer can't
+    // be resolved (the flight then starts from the center of the table).
     private Card getDealerSeatAnchor() {
         if (this.dealer_nick == null) {
             return null;
@@ -3232,35 +3181,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return null;
     }
 
-    // Anima el deslizamiento de las fichas de posición (dealer/ciegas) del asiento
-    // de su portador anterior al del nuevo, en paralelo y justo antes del barajado.
-    // Reproduce lo que muestra refreshPositionChipIcons: por prioridad BB > SB >
-    // DEALER hay como mucho un portador visible por ficha (en heads-up el dealer
-    // coincide con la ciega → no hay botón). Bloquea hasta el aterrizaje. Respeta
-    // la opción de animación y se salta en RECOVER/fin de transmisión.
-    // Vuelos de rotación de fichas ya calculados por prepareChipRotation (los consume
-    // animateChipRotation al volar). Se preparan JUSTO tras fijar posiciones para poder
-    // ocultar la ficha grande antes de que se llegue a pintar.
+    // Chip-rotation flights already computed by prepareChipRotation (consumed by
+    // animateChipRotation when it flies). Prepared right after fixing positions so the
+    // big chip can be hidden before it's ever painted.
     private java.util.List<TablePanel.ChipFlight> pending_chip_rotation_flights;
     private java.util.List<Player> pending_chip_rotation_to_hide;
-    // Jugadores cuya ficha GRANDE queda SUPRIMIDA (refreshPositionChipIcons NO la pinta
-    // aunque la llamen) desde prepareChipRotation hasta que la viajera aterriza. Sin esto,
-    // ocultarla una vez no basta: un repintado intermedio (el layout/zoom inicial de la
-    // mesa vuelve a llamar a refreshPositionChipIcons) la volvía a pintar antes del vuelo.
+    // Players whose big chip stays SUPPRESSED (refreshPositionChipIcons won't paint it
+    // even if called) from prepareChipRotation until the flying chip lands. Without
+    // this, hiding it once isn't enough: an intermediate repaint (the table's initial
+    // layout/zoom calls refreshPositionChipIcons again) would paint it back before the flight.
     private volatile java.util.List<Player> big_chip_suppressed;
 
-    // ¿La ficha GRANDE de este jugador está suprimida ahora mismo (rotación en curso)?
+    // Is this player's big chip suppressed right now (rotation in progress)?
     public boolean isBigChipSuppressed(Player p) {
         java.util.List<Player> s = this.big_chip_suppressed;
         return s != null && s.contains(p);
     }
 
-    // Prepara la rotación de fichas de posición (dealer/ciegas): calcula los vuelos y,
-    // sobre todo, OCULTA ya las FICHAS GRANDES (chip_label) de los asientos DESTINO —en
-    // el MISMO lote de eventos EDT en que setPosition acaba de pintarlas, antes de
-    // cualquier repintado— para que NUNCA se vean pintadas en el asiento antes de que la
-    // viajera las traiga (el iconito de rol sobre el nick NO se toca). Se llama justo
-    // tras el bucle de nuevaMano. El vuelo real lo hace animateChipRotation() después.
+    // Prepares position-chip rotation (dealer/blinds): computes the flights and,
+    // crucially, already HIDES the big chips (chip_label) at the DESTINATION seats —
+    // in the same EDT event batch in which setPosition just painted them, before any
+    // repaint — so they're never seen painted at the seat before the flying chip
+    // brings them (the small role icon over the nick is untouched). Called right
+    // after the nuevaMano loop; the actual flight happens later in animateChipRotation().
     private void prepareChipRotation(String prev_dealer_nick, String prev_sb_nick, String prev_bb_nick) {
 
         this.pending_chip_rotation_flights = null;
@@ -3277,19 +3220,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // vuelos reales, para que una ficha que NO se mueve no parpadee.
         final java.util.List<Player> to_hide = new java.util.ArrayList<>();
 
-        // Ciega grande: siempre se pinta.
+        // Big blind: always painted.
         addChipFlight(flights, to_hide, n2p, prev_bb_nick, this.big_blind_nick, Helpers.IMAGEN_BB, false);
 
-        // Ciega pequeña: solo si su asiento es distinto del de la ciega grande.
+        // Small blind: only if its seat differs from the big blind's.
         String new_sb_holder = chipHolder(this.small_blind_nick, this.big_blind_nick, null);
         String old_sb_holder = chipHolder(prev_sb_nick, prev_bb_nick, null);
         addChipFlight(flights, to_hide, n2p, old_sb_holder, new_sb_holder, Helpers.IMAGEN_SB, false);
 
-        // Botón del dealer: solo si su asiento es distinto del de ambas ciegas
-        // (en heads-up dealer == ciega pequeña → sin botón visible). Si es un
-        // DEAD DEALER (el jugador que debía recibir el botón se fue y este
-        // retrocede al dealer anterior) el botón sale del CENTRO de la mesa —su
-        // asiento de origen ya no existe— con la imagen dead_dealer.
+        // Dealer button: only if its seat differs from both blinds' (heads-up dealer ==
+        // small blind -> no visible button). On a DEAD DEALER (the player who should
+        // get the button left, so it falls back to the previous dealer) the button
+        // flies from the CENTER of the table — its origin seat no longer exists —
+        // using the dead_dealer image.
         final boolean dead = isDead_dealer();
         String new_dealer_holder = chipHolder(this.dealer_nick, this.big_blind_nick, this.small_blind_nick);
         String old_dealer_holder = chipHolder(prev_dealer_nick, prev_bb_nick, prev_sb_nick);
@@ -3300,8 +3243,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // SUPRIME el pintado de las fichas grandes de los destinos hasta que aterricen
-        // (para que ningún repintado intermedio las reponga) y las oculta YA.
+        // Suppresses painting of destination big chips until they land (so no
+        // intermediate repaint restores them) and hides them right away.
         this.big_chip_suppressed = to_hide;
         Helpers.GUIRunAndWait(() -> {
             for (Player p : to_hide) {
@@ -3313,10 +3256,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.pending_chip_rotation_to_hide = to_hide;
     }
 
-    // Vuela las fichas de posición ya preparadas por prepareChipRotation. Bloquea hasta
-    // que aterrizan; al aterrizar repone cada ficha (bajo la viajera → relevo sin hueco).
-    // Si prepareChipRotation no dejó vuelos (animación off / RECOVER / fin / nada que
-    // mover), no hace nada.
+    // Flies the position chips already prepared by prepareChipRotation. Blocks until
+    // they land; on landing, each chip is restored under the flying one (seamless
+    // handoff). No-op if prepareChipRotation left no flights (animation off / RECOVER /
+    // end / nothing to move).
     private void animateChipRotation() {
 
         final java.util.List<TablePanel.ChipFlight> flights = this.pending_chip_rotation_flights;
@@ -3329,13 +3272,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // Misma duración (velocidad) que el vuelo de cada carta del reparto.
+        // Same duration (speed) as each dealt card's flight.
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
         final int flight_dur = Math.max(150, pausa);
 
         GameFrame.getInstance().getTapete().flyChipsToSeats(flights, flight_dur, () -> {
-            // Deja de suprimir JUSTO antes de reponer: la ficha aparece bajo la viajera
-            // (relevo sin hueco) y ya puede volver a pintarse con normalidad.
+            // Stops suppressing right before restoring: the chip appears under the
+            // flying one (seamless handoff) and can be painted normally again.
             this.big_chip_suppressed = null;
             for (Player p : to_hide) {
                 p.refreshPositionChipIcons();
@@ -3343,9 +3286,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
 
-    // Devuelve el nick que MUESTRA su ficha, o null si ese rol no se pinta por
-    // compartir asiento con uno de mayor prioridad (BB > SB > DEALER), replicando
-    // refreshPositionChipIcons.
+    // Returns the nick that shows its chip, or null if that role isn't painted
+    // because it shares a seat with a higher-priority one (BB > SB > DEALER),
+    // mirroring refreshPositionChipIcons.
     private static String chipHolder(String nick, String higher1, String higher2) {
         if (nick == null) {
             return null;
@@ -3356,12 +3299,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return nick;
     }
 
-    // Añade un vuelo de ficha del portador anterior al nuevo y registra su asiento
-    // destino en to_hide. Se salta si el rol no se pinta (newNick null) o el nuevo
-    // portador no se resuelve. Con fromCenter la ficha sale del CENTRO de la mesa
-    // (primera mano o dead dealer: el asiento de origen ya no existe) y NO se aplica
-    // el filtro de "sin movimiento"; en caso normal, origen = asiento anterior y se
-    // omite si no hay movimiento (mismo asiento).
+    // Adds a chip flight from the previous holder to the new one and registers its
+    // destination seat in to_hide. Skipped if the role isn't painted (newNick null)
+    // or the new holder can't be resolved. With fromCenter, the chip starts at the
+    // CENTER of the table (first hand or dead dealer: the origin seat no longer
+    // exists) and the "no movement" filter doesn't apply; otherwise origin = previous
+    // seat, and it's skipped when there's no movement (same seat).
     private void addChipFlight(java.util.List<TablePanel.ChipFlight> flights, java.util.List<Player> to_hide,
             java.util.Map<String, Player> n2p, String oldNick, String newNick, ImageIcon sprite, boolean fromCenter) {
         if (newNick == null || sprite == null) {
@@ -3379,48 +3322,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         to_hide.add(to);
     }
 
-    // Duración (ms) del encogido-y-desvanecido de la ficha al aterrizar en el bote.
+    // Duration (ms) of the chip's shrink-and-fade when it lands in the pot.
     private static final int POT_CHIP_SHRINK_MS = 320;
 
-    // Fichas voladoras al bote en vuelo. Mientras haya alguna, actualizarContadoresTapete
-    // NO refresca el VALOR del pot_label: ese refresco se difiere al aterrizaje de la
-    // ficha (su onLand), para que el valor del bote suba justo cuando la ficha lo toca
-    // y a la vez que el parpadeo amarillo (no antes, con la ficha aún en el aire).
+    // Chips currently flying to the pot. While any are in flight,
+    // actualizarContadoresTapete does NOT refresh the pot_label value — that refresh
+    // is deferred to each chip's landing (onLand), so the pot value rises exactly
+    // when the chip touches it, together with the yellow flash (not before, while
+    // it's still in the air).
     private final java.util.concurrent.atomic.AtomicInteger pot_chips_in_flight = new java.util.concurrent.atomic.AtomicInteger(0);
 
     public boolean isPotLabelValueDeferred() {
         return pot_chips_in_flight.get() > 0;
     }
 
-    // Lanza una ficha del bote volando desde el asiento del jugador que acaba de
-    // meter dinero (call/bet/all-in) hasta el icono del pot_label, con la misma
-    // velocidad/estilo que el vuelo de reparto y un encogido al aterrizar (que
-    // hace parpadear el pot_label en amarillo). La disparan los jugadores en el
-    // MISMO instante en que suena el sonido de fichas (call/bet/allin.wav), para
-    // que animación y sonido vayan sincronizados. Respeta la opción de animación y
-    // se salta en RECOVER/fin de transmisión. NO bloquea: la animación corre sola
-    // en el EDT y el llamante continúa de inmediato.
+    // Flies a pot chip from the seat of the player who just put in money
+    // (call/bet/all-in) to the pot_label icon, with the same speed/style as the deal
+    // flight and a shrink on landing (which flashes pot_label yellow). Players fire
+    // it at the exact instant the chip sound plays (call/bet/allin.wav) so animation
+    // and sound stay in sync. Respects the animation option and is skipped on
+    // RECOVER/end of transmission. Non-blocking: the animation runs on the EDT and
+    // the caller continues immediately.
     public void launchChipToPot(Player player) {
 
         if (!GameFrame.apuestasAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision()) {
-            // Sin animación de ficha: el handler pudo aplazar el rodaje del stack/bet
-            // esperando esta ficha que no vuela -> los rodamos ya (al instante de la
-            // acción). No-op si no había aplazamiento.
+            // No chip animation: the handler may have deferred rolling the stack/bet
+            // waiting for this chip, which won't fly -> roll them now instead. No-op if
+            // nothing was deferred.
             player.rollCountersToModel();
             return;
         }
 
-        // Difiere el VALOR del pot_label hasta que la ficha aterrice: incrementa el contador
-        // antes de lanzar (sincrónico, así actualizarContadoresTapete ya lo ve diferido) y,
-        // al aterrizar (onLand, a la vez que el flash), lo decrementa, refresca el valor con
-        // el bote ya commiteado y rueda el stack (baja) y la apuesta (sube) del jugador hasta
-        // su modelo -> los TRES a la vez. El handler dejó el stack/bet sin rodar (defer) para
-        // esto. Garantizado-una-vez por flyChipToPot.
+        // Defers the pot_label VALUE until the chip lands: increments the counter before
+        // launching (synchronously, so actualizarContadoresTapete already sees it
+        // deferred), then on landing (onLand, together with the flash) decrements it,
+        // refreshes the value with the pot already committed, and rolls the player's
+        // stack (down) and bet (up) into the model — all three at once. The handler
+        // left stack/bet unrolled (deferred) for exactly this. Guaranteed-once via flyChipToPot.
         pot_chips_in_flight.incrementAndGet();
         GameFrame.getInstance().getTapete().flyChipToPot(player, Helpers.IMAGEN_POT_CHIP, POT_CHIP_SHRINK_MS, () -> {
             pot_chips_in_flight.decrementAndGet();
-            // Solo el VALOR del bote (no actualizarContadoresTapete completo): así el
-            // aterrizaje no re-muestra la bet_label si el showdown ya la ocultó.
+            // Only the pot VALUE (not the full actualizarContadoresTapete): so landing
+            // doesn't re-show bet_label if showdown already hid it.
             refreshTapeteBoteValue();
             player.rollCountersToModel();
         });
@@ -3430,14 +3373,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return game_recovered;
     }
 
-    // Prepara la animación de fichas-al-bote de las apuestas FORZADAS del arranque de
-    // mano (ciega grande, ciega pequeña y straddle si lo hay; y si hay ante, TODOS los
-    // jugadores, en UNA sola tanda). DIFIERE el valor del bote: incrementa
-    // pot_chips_in_flight ANTES de actualizarContadoresTapete para que el bote no
-    // salte de golpe y se vea INCREMENTAR al aterrizar las fichas (idéntico a
-    // bet/call). Las fichas vuelan luego en flyForcedBetsToPot (tras rotar las fichas
-    // de posición, justo antes del barajado). Respeta la opción de animación y se
-    // salta en RECOVER/fin de transmisión/mano recuperada (camino sin animación intacto).
+    // Prepares the pot-chip animation for the hand's FORCED bets at start (big blind,
+    // small blind, and straddle if any; with ante, ALL players in one single batch).
+    // Defers the pot value: increments pot_chips_in_flight BEFORE
+    // actualizarContadoresTapete so the pot doesn't jump all at once and instead
+    // visibly INCREMENTS as chips land (same as bet/call). Chips actually fly later
+    // in flyForcedBetsToPot (after rotating position chips, right before the
+    // shuffle). Respects the animation option and is skipped on RECOVER/end of
+    // transmission/recovered hand (the no-animation path stays intact).
     private void prepareForcedBetsToPot() {
         this.forced_bet_chip_contributors = null;
 
@@ -3448,16 +3391,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         java.util.List<Player> contributors = new java.util.ArrayList<>();
 
         if (GameFrame.ANTE) {
-            // Todos antearon (+ ciegas/straddle): una ficha por cada jugador activo.
+            // Everyone anted (+ blinds/straddle): one chip per active player.
             for (Player p : GameFrame.getInstance().getJugadores()) {
                 if (p.isActivo()) {
                     contributors.add(p);
                 }
             }
         } else {
-            // Solo las ciegas: el straddle es VOLUNTARIO y se decide tras repartir
-            // (resolveVoluntaryStraddle), así que en esta tanda pre-reparto nunca está
-            // posteado — su ficha roja y su dinero vuelan aparte, tras la decisión.
+            // Blinds only: the straddle is VOLUNTARY and decided after dealing
+            // (resolveVoluntaryStraddle), so it's never posted in this pre-deal batch
+            // — its chip and money fly separately, after the decision.
             addForcedBetContributor(contributors, this.big_blind_nick);
             addForcedBetContributor(contributors, this.small_blind_nick);
         }
@@ -3471,10 +3414,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         this.forced_bet_chip_contributors = contributors;
 
-        // Muestra el valor INICIAL del bote (antes de las forzadas = el sobrante que
-        // arrastra la mano, normalmente 0) para que se vea SUBIR al aterrizar las
-        // fichas. El diferido (pot_chips_in_flight, ya incrementado arriba) evita que
-        // actualizarContadoresTapete lo pise con el total antes de tiempo.
+        // Shows the pot's INITIAL value (before forced bets = the carryover the hand
+        // brings in, normally 0) so it visibly RISES as chips land. The deferral
+        // (pot_chips_in_flight, already incremented above) stops
+        // actualizarContadoresTapete from overwriting it with the final total too early.
         GameFrame.getInstance().setTapeteBote(Math.max(0f, this.bote_sobrante), null);
     }
 
@@ -3490,9 +3433,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Siguiente jugador ACTIVO en orden de asiento tras 'nick' (envolvente). Lo usa
-    // el straddle para situar el "under the gun" real (primero en hablar) en el
-    // asiento siguiente al straddler. Devuelve null si 'nick' no esta o no hay otro.
+    // Next ACTIVE player in seat order after 'nick' (wraps around). Used by the
+    // straddle to place the real "under the gun" (first to act) at the seat after
+    // the straddler. Returns null if 'nick' isn't found or there's no other player.
     private Player nextActivePlayerAfter(String nick) {
         java.util.List<Player> jugadores = GameFrame.getInstance().getJugadores();
         int n = jugadores.size();
@@ -3515,23 +3458,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return null;
     }
 
-    // Vuela las fichas de las forzadas al bote (preparadas en prepareForcedBetsToPot),
-    // IDÉNTICO a la animación de bet/call: cada ficha vuela al pot_label, lo incrementa
-    // y lo flasea amarillo al aterrizar. Una sola tanda (ante+ciegas+straddle juntos).
-    // BLOQUEA hasta el aterrizaje (como la rotación de fichas de posición), justo
-    // antes del barajado. onLand de flyChipToPot está garantizado-una-vez, así que
-    // pot_chips_in_flight siempre se equilibra aunque se aborte.
+    // Flies forced-bet chips (staged by prepareForcedBetsToPot) to the pot, same animation as
+    // bet/call, in one batch (ante+blinds+straddle together). Blocks until landing, right
+    // before the shuffle. flyChipToPot's onLand is guaranteed-once, so pot_chips_in_flight
+    // stays balanced even if aborted.
     private void flyForcedBetsToPot() {
         final java.util.List<Player> contributors = this.forced_bet_chip_contributors;
         this.forced_bet_chip_contributors = null;
 
         if (contributors == null || contributors.isEmpty()) {
-            // No vuelan fichas forzadas (animacion de apuestas off / recover / etc.). Red de
-            // seguridad (A3-2): si una carrera del toggle de apuestas (apuestasAnimOn) dejo a un poster de
-            // forzada (ciega/ante) con el rodaje APLAZADO esperando una ficha que ya no vuela,
-            // su label quedaria congelado en el valor pre-ciega hasta su proxima accion. Rodar
-            // al modelo a todos los activos lo resuelve (no-op para los no aplazados: target ==
-            // mostrado -> sin animacion). Aqui no hay otras fichas en vuelo (inicio de mano).
+            // No chip animation this batch (off / recover / etc). Safety net: a race on the
+            // apuestasAnimOn toggle could leave a forced-bet poster's counters deferred,
+            // waiting for a chip that never flies, frozen at the pre-blind value. Rolling all
+            // active players to the model fixes it (no-op for non-deferred ones).
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
                 if (jugador != null && jugador.isActivo()) {
                     jugador.rollCountersToModel();
@@ -3540,12 +3479,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // El community panel (y su pot_label) debe estar VISIBLE y posicionado al
-        // volar: si no, getPotIconScreenCenter() devuelve null y flyChipToPot manda
-        // las fichas al CENTRO de la mesa (fallback). Lo mostramos aqui (aparece el
-        // community); el barajado lo vuelve a ocultar despues (setVisible(false) +
-        // showCentralFramesLoop), asi la secuencia es: aparece community -> vuelan
-        // las forzadas al bote + flaseo + incremento -> se oculta para el barajado.
+        // The community panel (and its pot_label) must be visible and positioned before
+        // flying chips: otherwise getPotIconScreenCenter() returns null and flyChipToPot
+        // falls back to the table center. The shuffle hides it again afterwards.
         Helpers.GUIRunAndWait(() -> {
             GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
             GameFrame.getInstance().getTapete().getCommunityCards().revalidate();
@@ -3562,9 +3498,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getTapete().flyChipToPot(p, Helpers.IMAGEN_POT_CHIP, POT_CHIP_SHRINK_MS, () -> {
                 pot_chips_in_flight.decrementAndGet();
                 refreshTapeteBoteValue();
-                // A LA VEZ que el bote sube y flasea: rueda el stack (baja) y la apuesta
-                // (sube) de ESTE contribuyente hasta su modelo. Estaba congelado en su valor
-                // previo desde prepareForcedBetsToPot -> los tres arrancan juntos al aterrizar.
+                // Roll this contributor's stack/bet counters to the model right as the pot
+                // rises and flashes — they were frozen since prepareForcedBetsToPot.
                 p.rollCountersToModel();
                 latch.countDown();
             });
@@ -3576,10 +3511,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Thread.currentThread().interrupt();
         }
 
-        // Espera al fin EXACTO del parpadeo amarillo del bote (NO un tiempo arbitrario):
-        // onPotFlashDone dispara su callback cuando el timer del flash (170ms tras el
-        // ultimo aterrizaje) termina, o de inmediato si ya no hay flash. Asi el barajado
-        // no oculta el community hasta que se haya visto el incremento + el flaseo.
+        // Wait for the exact end of the pot's yellow flash (not an arbitrary delay):
+        // onPotFlashDone fires when the flash timer ends, or immediately if none is running.
         if (!isFin_de_la_transmision()) {
             final java.util.concurrent.CountDownLatch flash_done = new java.util.concurrent.CountDownLatch(1);
             GameFrame.getInstance().getTapete().getCommunityCards().onPotFlashDone(flash_done::countDown);
@@ -3591,58 +3524,46 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Conteo animado de stacks a TIEMPO CONSTANTE: duracion fija STACK_FILL_MS para
-    // TODOS, asi acaban a la vez aunque tengan stacks distintos (buy-in variable) —
-    // a velocidad constante se escalonarian. Interpolacion LINEAL, SIN frenadita: la
-    // frenadita (ease-out) y el parpadeo son sello del contador final (BalanceScreen),
-    // no de esta cortinilla. Palanca facil si el autor lo quiere mas rapido/lento.
+    // Fixed-duration stack fill animation: all players finish together (STACK_FILL_MS)
+    // regardless of stack size, avoiding a staggered look. Linear interpolation, no ease-out —
+    // that's BalanceScreen's signature on the final counter, not this curtain's.
     private static final long STACK_FILL_MS = 1000;
 
-    // Llenado de stacks (apertura + recompra) NO bloqueante: NUNCA frena el juego (ciegas/
-    // dealer/reparto animan en paralelo). Publica latch + nicks de la tanda en curso para el
-    // gate POR JUGADOR (awaitStackFillIfPending), que solo bloquea EL TURNO del jugador cuyo
-    // stack aun sube. null/liberado = sin llenado pendiente.
+    // Stack fill (initial + rebuy) is non-blocking for the game; publishes the latch + nicks
+    // of the current batch for the per-player gate (awaitStackFillIfPending), which only
+    // blocks that player's turn. null/released = nothing pending.
     private volatile java.util.concurrent.CountDownLatch stack_fill_latch = null;
     private volatile java.util.Set<String> stack_fill_nicks = null;
 
-    // Gate unico del conteo animado de stacks (apertura + recompra): respeta la
-    // opcion de animacion de CONTADORES (Ajustes) y se salta en recover / fin de
-    // transmision (camino sin animacion byte-identico al de antes). Lo consultan
-    // animateInitialStacks/animateRebuyStacks; esta ultima CAPTURA su decision en
-    // rebuy_fill_animated, que es lo que lee reComprar (asi un toggle a mitad del
-    // conteo no duplica la caja registradora).
+    // Single gate for the animated stack fill (initial + rebuy): honors the counters-animation
+    // setting and skips on recover/end-of-broadcast. animateRebuyStacks captures its decision
+    // in rebuy_fill_animated, which reComprar reads for its 'silent' flag so a mid-count
+    // toggle can't double the rebuy till sound.
     public boolean isStackFillAnimated() {
         return GameFrame.contadoresAnimOn() && !GameFrame.RECOVER && !isFin_de_la_transmision();
     }
 
-    // ¿La recompra de la tanda en curso se animo con la cortinilla de stacks (que ya
-    // toco la caja registradora)? animateRebuyStacks lo CAPTURA una vez; reComprar lo
-    // lee para su 'silent'. Capturarlo —en vez de releer isStackFillAnimated en
-    // reComprar— evita que apagar "Contadores" a mitad del conteo (~1 s) haga que
-    // reComprar crea que no se animo y suene la caja una SEGUNDA vez.
+    // Whether the current rebuy batch was animated (and already played the till sound);
+    // captured once by animateRebuyStacks so reComprar's 'silent' flag can't flip mid-count.
     private volatile boolean rebuy_fill_animated = false;
 
     public boolean isRebuyFillAnimated() {
         return rebuy_fill_animated;
     }
 
-    // ¿Hay que APLAZAR el rodaje vivo del stack/apuesta del jugador hasta que su ficha
-    // aterrice en el bote? Sí cuando va a volar ficha (apuestasAnimOn) y los
-    // contadores ruedan (contadoresAnimOn). Lo consultan los handlers de acción
-    // antes de mover el dinero: si es true, setBet/setStack no ruedan (el label se queda)
-    // y launchChipToPot los rueda en el aterrizaje, junto al bote (los tres a la vez).
+    // Whether to defer rolling the player's stack/bet counters until their chip lands in the
+    // pot (true when both chip-fly and counter animations are on). Action handlers check this
+    // before moving money: if true, setBet/setStack leave the label alone and
+    // launchChipToPot rolls the counters on landing instead.
     public boolean shouldDeferCountersToChip() {
         return GameFrame.apuestasAnimOn() && GameFrame.contadoresAnimOn()
                 && !GameFrame.RECOVER && !isFin_de_la_transmision();
     }
 
-    // Contador animado de stacks: cada label sube LINEAL de from[i] a to[i] sobre la
-    // MISMA duracion fija (STACK_FILL_MS) -> TODOS acaban a la vez aunque tengan
-    // stacks distintos. Progreso por reloj de pared (robusto a frame drops). Sin
-    // frenadita (eso es del contador final). PURO VISUAL (setStackDisplay, no toca el
-    // modelo). BLOQUEA el hilo llamante hasta el ultimo frame mediante una BARRERA
-    // (CountDownLatch liberado EXACTO al terminar, no un sleep): nada se postea/paga
-    // antes de que esten llenos. Si start_sound != null, suena al arrancar.
+    // Animates each label linearly from from[i] to to[i] over the same fixed duration
+    // (STACK_FILL_MS), progressing by wall clock (robust to frame drops), no ease-out (that's
+    // the final counter's job). Visual only (setStackDisplay, model untouched). Blocks the
+    // caller until the last frame via a CountDownLatch. Plays start_sound if set.
     private void animateStackFill(java.util.List<Player> players, double[] from, double[] to, String start_sound) {
         if (players == null || players.isEmpty()) {
             return;
@@ -3654,7 +3575,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         final int n = players.size();
 
-        // Frame 0: todos a su valor inicial antes de arrancar el rodaje.
+        // Frame 0: paint everyone at their initial value before the roll starts.
         Helpers.GUIRunAndWait(() -> {
             for (int i = 0; i < n; i++) {
                 players.get(i).setStackDisplay(from[i]);
@@ -3664,9 +3585,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
         final long start_ms = System.currentTimeMillis();
 
-        // Publica latch + nicks ANTES de arrancar el Timer: el juego NO espera (esto retorna
-        // ya), solo esTuTurno (awaitStackFillIfPending) bloquea el turno de cada jugador hasta
-        // que SU stack acabe de subir. El Timer libera el latch en el ultimo frame.
+        // Publish latch + nicks before starting the Timer: the game doesn't wait here, only
+        // esTuTurno (via awaitStackFillIfPending) blocks a player's turn until their own
+        // stack finishes rising. The Timer releases the latch on the last frame.
         java.util.Set<String> nicks = new java.util.HashSet<>();
         for (Player pl : players) {
             nicks.add(pl.getNickname());
@@ -3674,9 +3595,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.stack_fill_nicks = nicks;
         this.stack_fill_latch = latch;
 
-        // El Timer vive y corre en el EDT (createlo alli). Cada tick avanza el mismo progreso
-        // lineal para todos; al cumplirse la duracion fija los valores finales y libera el
-        // latch (el gate por jugador). NO se bloquea aqui: la mano sigue su curso.
+        // The Timer lives and runs on the EDT. Each tick advances the same linear progress
+        // for all players; on completion it snaps to final values and releases the latch.
+        // Doesn't block here — the hand keeps going.
         Helpers.GUIRun(() -> {
             javax.swing.Timer roll = new javax.swing.Timer(16, null);
             roll.addActionListener((e) -> {
@@ -3685,14 +3606,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (p >= 1.0) {
                     ((javax.swing.Timer) e.getSource()).stop();
                     for (int i = 0; i < n; i++) {
-                        // Aterriza en el MODELO actual, no en to[i] (precalculado pre-ciega):
-                        // como el llenado NO bloquea, la ciega/ante puede haberse posteado a
-                        // mitad (el stack ya esta descontado). Usar to[i] dejaria el label
-                        // demasiado alto (por el importe de la ciega) hasta la siguiente
-                        // actualizacion. getStack() = valor real, lock-free: el campo es
-                        // volatile y getStack ya NO es synchronized (como el resto de
-                        // accesores), asi que leerlo en el EDT NO coge el monitor del jugador
-                        // -> imposible el deadlock EDT<->worker (ver setStack/setBet).
+                        // Land on the current model value, not the precomputed to[i]: since
+                        // the fill is non-blocking, a blind/ante may have posted mid-fill and
+                        // already reduced the stack. getStack() is volatile and no longer
+                        // synchronized, so reading it on the EDT can't deadlock with a worker
+                        // thread (see setStack/setBet).
                         players.get(i).setStackDisplay(players.get(i).getStack());
                     }
                     latch.countDown();
@@ -3700,7 +3618,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 for (int i = 0; i < n; i++) {
-                    double value = from[i] + (to[i] - from[i]) * p; // lineal, sin frenadita
+                    double value = from[i] + (to[i] - from[i]) * p; // linear, no ease-out
                     players.get(i).setStackDisplay(Helpers.doubleClean(value));
                 }
             });
@@ -3708,11 +3626,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
 
-    // Gate POR JUGADOR del llenado de stacks: si 'nick' esta en la tanda en curso y su stack
-    // aun no ha terminado de subir, BLOQUEA hasta que termine (lo llama esTuTurno antes de
-    // activar el turno: borde + botones). Asi el juego NO se frena por las animaciones, solo
-    // el turno del jugador a medio llenar. Tope DEFENSIVO (muerte del EDT). Sin llenado
-    // pendiente para ese nick -> retorna al instante (latch ya liberado o nick no esta).
+    // Per-player gate: if 'nick' is in the current fill batch and still rising, blocks until
+    // done (called by esTuTurno before enabling the turn: border + buttons). Only that
+    // player's turn stalls, never the whole game. Returns immediately if nothing is pending
+    // for this nick.
     public void awaitStackFillIfPending(String nick) {
         java.util.concurrent.CountDownLatch l = this.stack_fill_latch;
         java.util.Set<String> nicks = this.stack_fill_nicks;
@@ -3726,11 +3643,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Apertura de timba: el stack de cada jugador sentado sube de 0 a su buy-in a
-    // la vez, como cortinilla, ANTES de la primera mano (y por tanto antes de
-    // postear/volar las ciegas). La barrera de animateStackFill garantiza que la
-    // mano no arranca hasta que los stacks esten llenos. El fogonazo del buy-in se
-    // evita pintando ya el label a 0 en el constructor de GameFrame (mismo gate).
+    // Table opening: every seated player's stack rises from 0 to their buy-in together,
+    // before the first hand (and before blinds post/fly). animateStackFill's barrier
+    // ensures the hand doesn't start until stacks are full; GameFrame's constructor already
+    // paints labels at 0 to avoid a flash.
     private void animateInitialStacks() {
         if (!isStackFillAnimated()) {
             return;
@@ -3757,16 +3673,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         animateStackFill(players, from, to, null);
     }
 
-    // Recompra animada: ANTES de aplicar el rebuy al modelo (nuevaMano ->
-    // reComprar), el stack de cada recomprador sube de su valor actual al valor
-    // tras recomprar, a la vez, con la caja registradora. La barrera deja terminar
-    // el conteo antes de que la mano avance. reComprar pone el modelo justo despues
-    // aterrizando en el MISMO valor (sin fogonazo) y, por el gate compartido, NO
-    // repite el sonido. 'applied' se recalcula igual que reComprar (headroom) para
-    // que el destino coincida exactamente con el que fijara el modelo.
+    // Animated rebuy: before nuevaMano -> reComprar applies the rebuy to the model, each
+    // rebuyer's stack rises to its post-rebuy value together, with the till sound. The
+    // barrier lets the count finish before the hand advances; reComprar then lands the
+    // model on the same value (no flash) and, via the shared gate, skips the sound.
+    // 'applied' mirrors reComprar's headroom calc so the destination matches exactly.
     private void animateRebuyStacks(java.util.Set<String> rebuy_nicks) {
-        // Por defecto NO animada: cada reComprar pondra su propio sonido. Se marca true
-        // solo si de verdad lanzamos la cortinilla (que toca la caja) -> reComprar mudo.
+        // Not animated by default: each reComprar plays its own sound. Only set true if we
+        // actually run the fill (which plays the till sound), so reComprar stays silent.
         this.rebuy_fill_animated = false;
         if (!isStackFillAnimated() || rebuy_nicks == null || rebuy_nicks.isEmpty()) {
             return;
@@ -3894,18 +3808,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     denied_by_limit = true;
                     broadcast_now = false;
                 } else {
-                    // El host es el banco: acotamos el importe al headroom (techo de
-                    // mesa - stack actual) para que un cliente manipulado no fabrique
-                    // fichas ni supere el techo via REBUYNOW#nick#<entero arbitrario>.
-                    // El spinner del RebuyDialog ya lo acota; esto es la defensa. El
-                    // centinela -1 del toggle-off local no llega aquí (rama remove).
+                    // The host is the bank: clamp to headroom (table ceiling - current stack)
+                    // so a tampered client can't fabricate chips or exceed the ceiling via
+                    // REBUYNOW#nick#<arbitrary int>. The RebuyDialog spinner already clamps
+                    // this; here is the server-side defense.
                     Player jp = nick2player.get(nick);
                     int headroom = GameFrame.rebuyHeadroom(jp != null ? jp.getStack() : 0f);
                     int safe_buyin = Math.min(buyin, headroom);
                     if (safe_buyin <= 0) {
-                        // Sin margen (ya en el techo): se ignora la solicitud. La UI
-                        // ya deberia haberlo impedido; aqui no izamos toggle ni
-                        // difundimos nada.
+                        // No headroom left (already at the ceiling): ignore the request.
                         LOGGER.log(Level.WARNING, "Rebuy request from {0} ignored: stack at table ceiling {1}",
                                 new Object[]{nick, GameFrame.getBuyinCap()});
                         broadcast_now = false;
@@ -4191,10 +4102,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return turno;
     }
 
-    // Apaga el flag de cinemática en curso y despierta a los hilos que esperan
-    // su final en LOCK_CINEMATICS (watcher de _cinematicAllin, turno de los
-    // bots). Para los early-outs que NO van a reproducir animación: el caller
-    // (botón all-in local / RemotePlayer.allin) ya puso PLAYING_CINEMATIC=true.
+    // Clears the cinematic-in-progress flag and wakes threads waiting on it in
+    // LOCK_CINEMATICS (the _cinematicAllin watcher, bot turns). Used on early-outs where
+    // no animation will play, since the caller already set PLAYING_CINEMATIC=true.
     private void cinematicOff() {
         Init.PLAYING_CINEMATIC = false;
 
@@ -4203,15 +4113,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Bolsa de cinemáticas de all-in: índices de allin_cinematics barajados
-    // con el CSPRNG. En vez de tirar un dado por all-in (que por azar repite
-    // la misma varias veces seguidas), cada jugador baraja localmente TODAS
-    // las animaciones en su primer all-in de la timba (Crupier nuevo por
-    // partida = bolsa nueva) y las va consumiendo en orden; al agotarse se
-    // rebaraja. El guard de la frontera evita además repetir entre el final
-    // de una bolsa y el comienzo de la siguiente. La elección sigue siendo
-    // local del que actúa (viaja a los demás dentro del ACTION), así que la
-    // bolsa no necesita sincronía con nadie.
+    // All-in cinematic bag: indices into allin_cinematics shuffled with the CSPRNG. Instead
+    // of rolling per all-in (which can repeat the same clip several times in a row), each
+    // player shuffles all animations once (new Crupier per game = new bag) and consumes them
+    // in order, reshuffling when empty. The boundary guard also avoids a repeat across
+    // reshuffles. The choice stays local to the actor (it travels to others inside the
+    // ACTION), so the bag needs no sync with anyone.
     private final ArrayList<Integer> allin_cinematic_bag = new ArrayList<>();
     private int last_allin_cinematic = -1;
 
@@ -4221,9 +4128,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.allin_cinematic_bag.add(i);
             }
             Collections.shuffle(this.allin_cinematic_bag, Helpers.CSPRNG_GENERATOR);
-            // Se consume desde el final (remove O(1)): si el primero en salir
-            // del rebarajado repitiera el último mostrado, se permuta con otra
-            // posición al azar (solo posible con 2+ animaciones).
+            // Consumed from the end (O(1) remove): if the first draw after a reshuffle would
+            // repeat the last one shown, swap it with a random position (only possible with
+            // 2+ animations).
             if (total > 1 && this.allin_cinematic_bag.get(total - 1) == this.last_allin_cinematic) {
                 Collections.swap(this.allin_cinematic_bag, total - 1, Helpers.CSPRNG_GENERATOR.nextInt(total - 1));
             }
@@ -4232,9 +4139,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return this.last_allin_cinematic;
     }
 
-    // Duración de una cinemática del catálogo local: la declarada en la tabla
-    // o, si la entrada no la trae, la del propio GIF (mod primero, bundled
-    // después). 0 si no se pudo determinar.
+    // Duration of a cinematic from the local catalog: the value declared in the table, or if
+    // absent, the GIF's own length (mod first, bundled second). 0 if it couldn't be determined.
     private long allinCinematicPausa(Object[] cinematic) {
 
         String filename = (String) cinematic[0];
@@ -4269,10 +4175,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return pausa;
     }
 
-    // URL local de un GIF de cinemática de all-in: mod primero (si el fichero
-    // del mod existe, NO se cae al bundled aunque su URL falle — mismo
-    // comportamiento de siempre), bundled después, null si no existe en esta
-    // máquina.
+    // Local URL of an all-in cinematic GIF: mod first (if the mod file exists, never falls
+    // back to bundled even if its URL fails), bundled second, null if not present locally.
     private URL resolveAllinCinematicURL(String filename) {
 
         if (Init.MOD != null && Files
@@ -4362,20 +4266,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         Long.parseLong(partes[1]));
 
             } catch (Exception ex) {
-                // Se captura CUALQUIER fallo, como hace el gemelo de la cinematica propia:
-                // un campo malformado no solo produce un problema de codificacion, tambien
-                // un base64 invalido, una separacion que no cuadra o un numero que no lo es.
-                // Cualquiera de esos se escapaba dejando la marca de cinematica ENCENDIDA, y
-                // quien espera a que termine la animacion lo hace sin tope: mesa parada.
+                // Catches ANY failure, like its local-cinematic twin: a malformed field can
+                // mean invalid base64, a bad split, or a non-numeric duration, not just an
+                // encoding issue. Left uncaught, any of these would leave the cinematic flag
+                // stuck ON and whoever waits for it to finish would block forever.
                 LOGGER.log(Level.SEVERE, null, ex);
                 cinematicOff();
                 setCurrent_remote_cinematic_b64(null);
             }
 
         } else {
-            // Camino de TODOS los all-in de bot (no llevan cinemática): el
-            // notify de cinematicOff evita que el siguiente bot en turno se
-            // coma el timed-wait entero por ver el flag aún encendido.
+            // Path for bot all-ins (no cinematic): cinematicOff's notify keeps the next
+            // bot's turn from burning the full timed-wait on a still-set flag.
             cinematicOff();
         }
 
@@ -4385,13 +4287,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private boolean _cinematicAllin(String announced_filename, long announced_pausa) {
 
-        // MODs: el GIF anunciado en el ACTION sale del catálogo de QUIEN actúa,
-        // y esta máquina puede no tenerlo. Si no se resuelve localmente y hay
-        // catálogo propio, se sustituye por la siguiente cinemática de la
-        // bolsa local (mismo sistema barajado que para los all-in propios),
-        // con SU duración (si no se pudo determinar, se conserva la anunciada:
-        // el diálogo cierra solo al acabar los frames y la duración solo pauta
-        // el remanente del skip).
+        // Mods: the GIF announced in the ACTION comes from the actor's own catalog, which
+        // this machine may not have. If it can't be resolved locally and we have our own
+        // catalog, substitute the next cinematic from the local bag (same shuffle system as
+        // for our own all-ins), with its own duration (kept as announced if undetermined —
+        // the dialog closes when frames end regardless; duration only paces the skip remainder).
         String chosen_filename = announced_filename;
         long chosen_pausa = announced_pausa;
 
@@ -4423,11 +4323,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final long pausa = chosen_pausa;
 
         if (this.sincronizando_mano) {
-            // Replay de recovery: la cinemática se omite, pero el caller
-            // (RemotePlayer.allin / botón local) ya puso PLAYING_CINEMATIC=true.
-            // Hay que apagarlo aquí o el flag quedaría atascado en true y la
-            // espera de los bots al fin de la cinemática se bloquearía tras
-            // la recuperación.
+            // Recovery replay: the cinematic is skipped, but the caller (RemotePlayer.allin /
+            // local all-in button) already set PLAYING_CINEMATIC=true. It must be cleared here
+            // or the flag would stay stuck on and bots waiting for the cinematic to end would
+            // block past recovery.
             cinematicOff();
             this.current_remote_cinematic_b64 = null;
 
@@ -4455,12 +4354,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                 long now = System.currentTimeMillis();
 
-                                // El dialogo se CONSTRUYE esperando al hilo gráfico, porque justo
-                                // debajo se consulta. Encargarlo y seguir de largo dejaba mirar un
-                                // dialogo que aun no existia, y ese fallo se entierra en el hilo de
-                                // fondo: la marca de cinematica se quedaba encendida y quien espera
-                                // a que termine la animacion se quedaba esperando. Mostrarlo va
-                                // aparte y sin esperar, que es modal y no volveria hasta cerrarse.
+                                // The dialog is built on (and waited for on) the EDT because it's read
+                                // right below; firing it off without waiting could read a dialog that
+                                // doesn't exist yet, silently leaving the cinematic flag stuck ON.
+                                // Showing it, however, runs separately without waiting — it's modal
+                                // and wouldn't return until closed.
                                 Helpers.GUIRunAndWait(() -> {
                                     try {
                                         gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, icon,
@@ -4474,8 +4372,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 final GifAnimationDialog dialogo = gif_dialog;
 
                                 if (dialogo == null) {
-                                    // No se pudo abrir la animacion: se apaga la marca igual, o la
-                                    // mesa se queda esperando un final que no va a llegar nunca.
+                                    // Animation couldn't be shown: clear the flag anyway, or the table
+                                    // waits forever for an end that will never come.
                                     LOGGER.log(Level.SEVERE,
                                             "All-in cinematic dialog could not be created — skipping the animation");
                                     cinematicOff();
@@ -4724,10 +4622,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return auditor;
     }
 
-    // Linea de borde de una tabla con caracteres de caja Unicode (box-drawing). El
-    // GameLogDialog pinta esos caracteres atenuados (la rejilla). 'cols' son los
-    // anchos de CONTENIDO de cada columna; cada tramo abarca col+2 (un espacio de
-    // padding a cada lado dentro de la celda).
+    // Border line of a table using Unicode box-drawing characters (GameLogDialog paints
+    // them dimmed as the grid). 'cols' are each column's content width; each segment spans
+    // col+2 (one padding space on each side).
     public static String gridBorderLine(char left, char mid, char right, int[] cols) {
         StringBuilder sb = new StringBuilder().append(left);
         for (int i = 0; i < cols.length; i++) {
@@ -4739,8 +4636,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return sb.append(right).toString();
     }
 
-    // Fila de tabla con separadores verticales: "│ celda0 │ celda1 │ ... │". Las
-    // celdas ya vienen alineadas a su ancho de columna por quien llama.
+    // Table row with vertical separators: "│ cell0 │ cell1 │ ... │". Cells are already
+    // padded to their column width by the caller.
     public static String gridRowLine(String... cells) {
         StringBuilder sb = new StringBuilder("│");
         for (String c : cells) {
@@ -4753,15 +4650,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         auditorCuentas(true);
     }
 
-    // 'print': si es false, refresca el mapa del auditor (y reconcilia el bote
-    // sobrante / detecta descuadres igual que siempre) pero NO vuelca la tabla
-    // de cuentas (NICK/STACK/BUYIN) al registro. finTransmision lo llama así:
-    // solo necesita el mapa fresco para el snapshot del marcador final
-    // (NICK/RESULTADO), que ya es el resumen de cierre — la tabla de stacks debe
-    // salir SOLO al arrancar cada mano. Esto evita además que esa tabla, impresa
-    // desde el hilo de finTransmision (threadRun), se cuele entre las acciones que
-    // el hilo del Crupier sigue logueando (el print del registro es asíncrono y
-    // no garantiza orden entre hilos).
+    // 'print': if false, refreshes the auditor map (still reconciling leftover pot / detecting
+    // mismatches as usual) but skips logging the NICK/STACK/BUYIN table. finTransmision uses
+    // this — it only needs the fresh map for the final scoreboard snapshot; the stack table
+    // should only appear at the start of each hand. Also avoids that table, printed from
+    // finTransmision's own thread, interleaving with actions the Crupier thread is still
+    // logging (log printing is async, no ordering guarantee across threads).
     public void auditorCuentas(boolean print) {
 
         synchronized (this.getLock_contabilidad()) {
@@ -4778,12 +4672,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             double buyin_sum = 0;
 
-            // Tabla de balance del registro: una fila por jugador (orden de
-            // asiento) con un icono pequeno del rol (dealer/ciega) al lado del
-            // nick. El rol se captura AQUI, al imprimir, para que el scrollback de
-            // manos antiguas conserve los roles correctos (mirarlo al renderizar
-            // mostraria los de la mano en curso). Las columnas van alineadas con
-            // padding: la fuente del registro es monospace.
+            // Log balance table: one row per player (seat order) with a small role icon
+            // (dealer/blind) next to the nick. The role is captured HERE, at print time, so
+            // old hands in the scrollback keep their correct roles (rendering it later would
+            // show the current hand's roles). Columns are padded — the log uses a monospace font.
             String dealer_nick = this.getDealer_nick();
             String sb_nick = this.getSb_nick();
             String bb_nick = this.getBb_nick();
@@ -4810,8 +4702,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 String buyin_s = Helpers.money2String(pasta[1]);
 
-                // Mismo orden de prioridad que el icono del tapete (BB > SB >
-                // dealer): en heads-up el dealer es tambien la ciega pequena.
+                // Same priority order as the table icon (BB > SB > dealer): in heads-up the
+                // dealer is also the small blind.
                 String role = nick.equals(bb_nick) ? "(BB)"
                         : nick.equals(sb_nick) ? "(SB)"
                         : (this.straddle_posted && nick.equals(dealer_nick) && nick.equals(this.utg_nick)) ? "(DS)"
@@ -4825,18 +4717,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 balance_rows.add(new String[]{role, nick, stack_s, buyin_s});
             }
 
-            // Las cabeceras NICK/STACK/BUYIN se alinean sobre sus columnas: el
-            // ancho de cada columna incluye el de su propio rotulo. El token "(##)"
-            // hace que el renderer ponga un marcador en blanco (mismo offset que
-            // los iconos de rol) para que la cabecera quede alineada con las filas.
+            // NICK/STACK/BUYIN headers align over their columns: each column's width
+            // includes its own label. The "(##)" token makes the renderer emit a blank
+            // placeholder (same offset as the role icons) so the header lines up with rows.
             nick_w = Math.max(nick_w, "NICK".length());
             stack_w = Math.max(stack_w, "STACK".length());
             buyin_w = Math.max(buyin_w, "BUYIN".length());
 
-            // Tabla de cuentas con bordes (rejilla). Los iconos de rol van en el
-            // margen izquierdo (gutter del marcador), fuera del marco. Columnas
-            // NICK / STACK / BUYIN. El borde y la cabecera usan el token "(##)"
-            // (marcador en blanco + atenuado); las filas, el token de rol.
+            // Bordered balance table. Role icons sit in the left margin (scoreboard gutter),
+            // outside the frame. Columns: NICK / STACK / BUYIN. Border and header use the
+            // "(##)" (blank/dimmed) token; rows use the role token.
             int[] bal_cols = {nick_w, stack_w, buyin_w};
 
             StringBuilder status = new StringBuilder("(##) ").append(gridBorderLine('┌', '┬', '┐', bal_cols))
@@ -4853,12 +4743,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         String.format("%" + buyin_w + "s", r[3])));
             }
 
-            // Reconciliacion del bote sobrante ANTES de imprimir los totales:
-            // normalmente stack_sum + bote_sobrante == buyin_sum. En una partida
-            // recuperada el bote sobrante puede haberse perdido, asi que lo
-            // reconstruimos a partir de los totales para que las cuentas cuadren.
-            // error_dialog marca el unico caso que ademas abre un dialogo modal
-            // (recuperacion que sigue sin cuadrar tras reconstruir), igual que antes.
+            // Reconcile leftover pot before printing totals: normally stack_sum +
+            // bote_sobrante == buyin_sum. On a recovered game the leftover pot may have been
+            // lost, so rebuild it from the totals to make the accounts balance. error_dialog
+            // flags the one case that also pops a modal dialog: recovery still doesn't
+            // balance after rebuilding.
             boolean error_auditor = false, error_dialog = false;
 
             if (Helpers.doubleSecureCompare(Helpers.doubleClean(stack_sum) + Helpers.doubleClean(this.bote_sobrante),
@@ -4868,7 +4757,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     this.game_recovered = 2;
 
-                    // CORREGIMOS EL BOTE SOBRANTE DESAPARECIDO AL RECUPERAR LA PARTIDA
+                    // Rebuild the leftover pot lost during game recovery.
                     this.bote_sobrante = Helpers
                             .doubleClean(Helpers.doubleClean(buyin_sum) - Helpers.doubleClean(stack_sum));
 
@@ -4877,9 +4766,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.bote_total = this.bote_sobrante;
 
                     } else {
-                        // No debería llegar aqui nunca (bote sobrante negativo) si no ha habido algún
-                        // error jodido (Si ocurriese, ponemos el sobrante a cero aunque el auditor dará
-                        // aviso en el registro)
+                        // Should never happen (negative leftover) short of a serious bug; zero it out —
+                        // the auditor will still flag the mismatch in the log.
                         this.bote_sobrante = 0f;
                     }
 
@@ -4894,13 +4782,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // Pie de la tabla: separador + fila de totales (suma de stacks bajo
-            // STACK, suma de buyins bajo BUYIN; el bote sobrante entre parentesis a
-            // la DERECHA del marco si lo hay, asi se ve de un vistazo que (stacks +
-            // sobrante) == buyins) + borde inferior. Todo en el mismo bloque que la
-            // tabla para que lea como su pie. Los totales usan el token "($$)"
-            // (icono de fichas). La antigua linea "AUDITOR DE CUENTAS" solo se
-            // imprime ya cuando el auditor detecta un descuadre.
+            // Table footer: separator + totals row (stack sum under STACK, buyin sum under
+            // BUYIN; leftover pot in parentheses to the right of the frame if any, so
+            // (stacks + leftover) == buyins is visible at a glance) + bottom border. Totals
+            // use the "($$)" chip-icon token. The old "AUDITOR DE CUENTAS" line now only
+            // prints when the auditor detects a mismatch.
             status.append("\n(##) ").append(gridBorderLine('├', '┼', '┤', bal_cols));
 
             status.append("\n($$) ").append(gridRowLine(
@@ -4917,9 +4803,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (print) {
                 GameFrame.getInstance().getRegistro().print(status.toString());
 
-                // Indicador de antes activos: el ante es simetrico (todos antean), no es
-                // un rol por-nick como el straddle, asi que va en una linea propia con el
-                // icono de fichas (token "(A )").
+                // Ante-active indicator: the ante is symmetric (everyone antes), not a
+                // per-nick role like straddle, so it gets its own line with the chip icon
+                // ("(A )" token).
                 if (GameFrame.ANTE) {
                     GameFrame.getInstance().getRegistro().print("(A ) " + Translator.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
                 }
@@ -4943,22 +4829,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Ajuste de liquidación final (opción GameFrame.BOT_BALANCE_TO_HUMANS): calcula, sobre una COPIA del
-    // auditor, la liquidación en la que los bots se disuelven del reparto de dinero real. TODOS los bots
-    // pasan a NEUTRAL (stack := buyin, resultado 0) y su saldo conjunto (Σ stack-buyin, CON SIGNO) se
-    // reparte a PARTES IGUALES entre los humanos (los humanos quedan a suma cero entre ellos, salvo el
-    // bote_sobrante). El piquillo en céntimos no divisible va a UN humano elegido de forma DETERMINISTA
-    // (la semilla deriva del propio auditor —idéntico en toda la mesa—, así que la elección es la misma en
-    // todos los peers). Conserva el dinero: lo restado a los bots es exactamente lo sumado a los humanos.
+    // Final settlement adjustment (GameFrame.BOT_BALANCE_TO_HUMANS option): computes, on a COPY of the
+    // auditor, a settlement where bots are dissolved out of the real-money split. All bots go NEUTRAL
+    // (stack := buyin, result 0) and their combined signed balance (Σ stack-buyin) is split equally among
+    // humans (so humans net to zero among themselves, aside from bote_sobrante). The non-divisible cent
+    // remainder goes to one human chosen deterministically (seed derived from the auditor itself, so the
+    // choice matches across all peers). Money-preserving: what's subtracted from bots equals what's added
+    // to humans.
     //
-    // NO toca el auditor EN VIVO: opera sobre el mapa que se le pasa (una copia). Así el resultado OFICIAL
-    // de la timba (pantalla de balance, estadísticas, historial) queda INTACTO con los valores reales; este
-    // reparto solo alimenta la SEGUNDA tabla del registro (efectos de liquidación de dinero real entre
-    // humanos "a posteriori"). Un bot es todo nick con el prefijo canónico "CoronaBot$" (mismo criterio que
-    // el resto del protocolo de red), de modo que host y clientes clasifican idéntico.
+    // Does NOT touch the live auditor — operates on the copy passed in, so the official game result
+    // (balance screen, stats, history) stays intact with real values; this split only feeds a second log
+    // table (real-money settlement effects among humans, after the fact). A bot is any nick with the
+    // canonical "CoronaBot$" prefix, matching the rest of the network protocol so host and clients
+    // classify identically.
     //
-    // @param auditor copia MUTABLE del auditor ({stack, buyin} por nick) sobre la que se aplica el reparto.
-    // @return true si se aplicó (había al menos un bot no-plano y al menos un humano).
+    // @param auditor mutable copy of the auditor ({stack, buyin} per nick) the split is applied to.
+    // @return true if applied (at least one non-flat bot and at least one human).
     public static boolean redistributeBotBalanceToHumans(java.util.Map<String, Double[]> auditor) {
         java.util.ArrayList<String> humans = new java.util.ArrayList<>();
         java.util.ArrayList<String> bots = new java.util.ArrayList<>();
@@ -4975,12 +4861,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
 
-        // Orden canónico (idéntico en todos los peers) para que la semilla del piquillo y el
-        // recorrido de reparto sean deterministas.
+        // Canonical order (identical across peers) so the remainder seed and split traversal
+        // are deterministic.
         java.util.Collections.sort(humans);
         java.util.Collections.sort(bots);
 
-        // Saldo conjunto de los bots en céntimos (con signo) + neutralización de cada bot.
+        // Combined signed bot balance in cents, plus neutralizing each bot.
         long sb_cents = 0;
         boolean any_bot_nonflat = false;
         for (String bot : bots) {
@@ -4995,12 +4881,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (bot_cents != 0) {
                 any_bot_nonflat = true;
             }
-            // Bot a neutral: stack := buyin (resultado 0). Sobre un bot ya plano es un no-op de valor.
+            // Neutralize the bot: stack := buyin (result 0). A no-op value-wise on an already-flat bot.
             auditor.put(bot, new Double[]{buyin, buyin});
         }
 
-        // Si TODOS los bots ya estaban exactamente planos no hay nada que disolver: no marcamos el
-        // reparto como aplicado para no imprimir un mensaje y una tabla adaptada idénticos a la habitual.
+        // If all bots were already exactly flat there's nothing to dissolve: don't mark the
+        // split as applied, to avoid printing a message and adapted table identical to usual.
         if (!any_bot_nonflat) {
             return false;
         }
@@ -5008,11 +4894,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         int h = humans.size();
         long sign = sb_cents < 0 ? -1L : 1L;
         long abs_cents = Math.abs(sb_cents);
-        long per_cents = abs_cents / h;                 // parte igual por humano (céntimos)
-        long rem_cents = abs_cents - per_cents * h;     // piquillo no divisible (0..h-1 céntimos)
+        long per_cents = abs_cents / h;                 // equal share per human (cents)
+        long rem_cents = abs_cents - per_cents * h;     // non-divisible remainder (0..h-1 cents)
 
-        // Humano DETERMINISTA que recibe el piquillo. La semilla deriva de los nicks (orden
-        // canónico) y del saldo conjunto: misma entrada en todos los peers -> misma elección.
+        // Deterministic human who gets the remainder. Seed derives from the nicks (canonical
+        // order) and the combined balance: same input on every peer -> same choice.
         long seed = 1125899906842597L;
         for (String nick : humans) {
             seed = seed * 31 + nick.hashCode();
@@ -5041,12 +4927,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    // Arranca el visual de cuenta atrás de game over (GIF sobre las cartas con
-    // su cinemática on, o cuenta atrás numérica en la action label) de los
-    // arruinados que SON humanos remotos. Idempotente (setRebuying ignora si ya
-    // está activo o si el jugador salió/es espectador), así que es seguro
-    // llamarlo dos veces: una pronto (a la vez que el game over local) y otra
-    // dentro de recibirRebuys para el caso en que el local no esté arruinado.
+    // Starts the game-over countdown visual (cinematic GIF over the cards, or a numeric
+    // countdown in the action label) for busted remote-human players. Idempotent (setRebuying
+    // no-ops if already active or the player left/is a spectator), so it's safe to call
+    // twice: once early (alongside the local game over) and once inside recibirRebuys for
+    // when the local player isn't busted.
     private void startRebuyingVisuals(ArrayList<String> nicks) {
         for (String nick : nicks) {
             Player jugador = nick2player.get(nick);
@@ -5060,15 +4945,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void recibirRebuys(ArrayList<String> pending, boolean skip_countdown) {
 
-        // Barra de tiempo según el modo local (misma cinemática de GAME OVER
-        // que decide el visual de los arruinados en setRebuying):
-        // - CINEMÁTICA DE GAME OVER ON: el GIF de game over sobre las cartas
-        //   YA es la cuenta atrás → barra indeterminada desde el principio.
-        // - OFF: la barra se llena y baja en smooth los segundos de decisión
-        //   del game over (los mismos que marca la cuenta atrás
-        //   "¿RECOMPRA? (N)" de la action label) y al agotarse pasa a
-        //   indeterminada (en el bucle de abajo) hasta que lleguen los REBUY
-        //   o salten los timeouts de seguridad del crupier.
+        // Time bar per the local game-over cinematic setting (same one that decides busted
+        // players' visual in setRebuying):
+        // - ON: the game-over GIF over the cards already IS the countdown -> indeterminate
+        //   bar from the start.
+        // - OFF: the bar smoothly counts down the game-over decision seconds (same as the
+        //   "REBUY? (N)" action-label countdown), then flips to indeterminate (in the loop
+        //   below) until the REBUYs arrive or the crupier's safety timeouts fire.
         final boolean barra_smooth = !GameFrame.cinematicasGameOverOn();
         if (barra_smooth) {
             Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameOverDialog.REBUY_DIALOG_COUNTDOWN);
@@ -5076,13 +4959,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
         }
 
-        // Visual "¿RECOMPRA? (N)": cuenta atrás LOCAL en la action label de los
-        // humanos arruinados mientras deciden en su máquina (sin sincronía con
-        // su GameOverDialog real — cosmético). Bots fuera: en el host ni
-        // entran en pending y en los clientes su REBUY llega al instante.
-        // skip_countdown: el LOCAL también se arruinó, así que este recibirRebuys
-        // corre DESPUÉS de su game-over modal y una cuenta atrás remota saldría
-        // desincronizada → no se lanza; abajo solo se refleja el desenlace (RECOMPRA).
+        // "REBUY? (N)" visual: local countdown in the action label of busted humans while
+        // they decide on their own machine (not synced with their real GameOverDialog —
+        // cosmetic). Bots are excluded: on the host they never enter pending, and on clients
+        // their REBUY arrives instantly. skip_countdown: the LOCAL player also busted, so
+        // this recibirRebuys runs after its own game-over modal and a remote countdown would
+        // be out of sync — skip it; below only reflects the outcome (REBUY or not).
         if (!skip_countdown) {
             startRebuyingVisuals(pending);
         }
@@ -5120,18 +5002,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 continue;
                             }
                             jugador.setTimeout(false);
-                            // Decisión recibida: retira la cuenta atrás/GIF y pinta
-                            // el desenlace — "¡RECOMPRA!" si recompró (con un solo
-                            // arruinado la espera acaba al instante y sin esto no
-                            // daría tiempo a ver qué pasó); si no, restaura y el
-                            // setSpectator de abajo repinta encima.
+                            // Decision received: pull the countdown/GIF and show the outcome —
+                            // "REBUY!" if they rebought (with only one busted player the wait
+                            // ends instantly, so without this there'd be no time to see the
+                            // result); otherwise restore, and setSpectator below repaints over it.
                             boolean recompra = (partes.length > 4)
                                     ? (!partes[4].equals("0") && !atRebuyLimit(nick))
                                     : !atRebuyLimit(nick);
                             if (jugador instanceof RemotePlayer) {
                                 if (skip_countdown) {
-                                    // No se lanzó cuenta atrás remota (local también
-                                    // arruinado): solo reflejamos el desenlace.
+                                    // No remote countdown was started (local player also
+                                    // busted): just reflect the outcome.
                                     ((RemotePlayer) jugador).showRebuyOutcome(recompra);
                                 } else {
                                     ((RemotePlayer) jugador).setRebuying(false, recompra);
@@ -5144,16 +5025,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             if (partes.length > 4) {
                                 if (partes[4].equals("0")) {
-                                    // Pulsó ESPECTADOR en su game over: feedback
-                                    // explícito en el visual de espectador.
+                                    // Pressed SPECTATOR on their game over: explicit feedback
+                                    // in the spectator visual.
                                     jugador.setSpectator(Translator.translate("rebuy.no_recompra"));
                                 } else if (atRebuyLimit(nick)) {
                                     jugador.setSpectator(null);
                                 } else {
-                                    // Mismo blindaje que rebuyNow: el host acota el importe
-                                    // al headroom (techo de mesa - stack) para que un cliente
-                                    // manipulado no fabrique fichas ni supere el techo via
-                                    // REBUY#...#<entero arbitrario>.
+                                    // Same defense as rebuyNow: the host clamps the amount to
+                                    // headroom (table ceiling - stack) so a tampered client
+                                    // can't fabricate chips or exceed the ceiling via
+                                    // REBUY#...#<arbitrary int>.
                                     int raw_rebuy = Integer.parseInt(partes[4]);
                                     int headroom = GameFrame.rebuyHeadroom(jugador.getStack());
                                     int safe_rebuy = Math.min(raw_rebuy, headroom);
@@ -5182,12 +5063,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!pending.isEmpty()) {
-                // Solo en modo barra smooth (CINEMATICAS off): decisión agotada
-                // (los segundos del smoothCountdown de arriba) → barra a
-                // indeterminada hasta que lleguen los REBUY que faltan o salte
-                // el timeout de seguridad. Si llegan antes, el bucle sale solo
-                // y el resetBarra final cancela el smooth — la mano siguiente
-                // arranca sin esperar a que la barra termine.
+                // Only in smooth-bar mode (cinematics off): once the decision time (the
+                // smoothCountdown seconds above) is up, flip to indeterminate until the
+                // remaining REBUYs arrive or the safety timeout fires. If they arrive first,
+                // the loop exits on its own and the final resetBarra cancels the smooth bar.
                 if (barra_smooth && !barra_indeterminada
                         && System.currentTimeMillis() - barra_start > GameOverDialog.REBUY_DIALOG_COUNTDOWN * 1000L) {
                     barra_indeterminada = true;
@@ -5199,9 +5078,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String nick = iterator.next();
                     Player jp = nick2player.get(nick);
                     if (jp != null && jp.isExit()) {
-                        // Se fue en pleno rebuy (cierre/desconexión): fuera de
-                        // la espera y fuera la cuenta atrás visual (el guard de
-                        // exit en setRebuying no toca el visual de SE PIRA).
+                        // Left mid-rebuy (closed/disconnected): drop from the wait and clear
+                        // the countdown visual (setRebuying's exit guard leaves the LEFT visual alone).
                         if (jp instanceof RemotePlayer) {
                             ((RemotePlayer) jp).setRebuying(false);
                         }
@@ -5211,19 +5089,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
-                    // La barra smooth se congela durante la pausa (deadline
-                    // empujado en smoothCountdown): empujamos también el
-                    // instante del flip a indeterminada para no cortarla.
+                    // The smooth bar freezes during pause (its deadline is pushed in
+                    // smoothCountdown too): push the indeterminate-flip instant along with it
+                    // so it doesn't get cut short.
                     barra_start = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
                     if (GameFrame.getInstance().isPartida_local()) {
-                        // Jugador no respondió al rebuy en el tiempo esperado:
-                        // se asume "no rebuy" (= spectator), MISMO comportamiento
-                        // que si hubiera contestado "0" expresamente. Antes este
-                        // path llamaba remotePlayerQuit y los expulsaba de la
-                        // mesa, lo cual es un kick injustificado: el jugador
-                        // sigue en la partida como spectator y volverá a jugar
-                        // si recarga manualmente en la siguiente mano.
+                        // Player didn't respond to the rebuy prompt in time: treated as "no
+                        // rebuy" (spectator), same as an explicit "0" reply. Previously this
+                        // path called remotePlayerQuit and kicked them from the table, which
+                        // is an unjustified kick — the player stays in the game as a
+                        // spectator and can rejoin manually on the next hand.
                         LOGGER.log(Level.INFO, "REBUY timeout — pending players default to spectator (no kick)");
                         for (String nick : pending) {
                             Player jpk = nick2player.get(nick);
@@ -5231,9 +5107,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 jpk.setSpectator(null);
                                 jpk.setTimeout(false);
                             }
-                            // Para la cuenta atrás visual; con spectator ya
-                            // puesto, el restore se omite y manda el repaint
-                            // de setSpectator.
+                            // Stop the countdown visual; with spectator already set, the
+                            // restore is skipped and setSpectator's repaint takes over.
                             if (jpk instanceof RemotePlayer) {
                                 ((RemotePlayer) jpk).setRebuying(false);
                             }
@@ -5257,10 +5132,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
     }
 
-    // Fija el buy-in INICIAL de un jugador (modo variable). NO es una recompra:
-    // setea stack y buyin directamente (no usa reComprar -> sin CYAN, sin contar
-    // recompra, sin tocar rebuy_now). El auditor se siembra luego en
-    // auditorCuentas() al arrancar la mano 1 desde el getBuyin() ya fijado aqui.
+    // Sets a player's INITIAL buy-in (variable mode). Not a rebuy: sets stack and buyin
+    // directly (bypasses reComprar, so no rebuy sound/count, no rebuy_now). The auditor is
+    // later seeded in auditorCuentas() when hand 1 starts, from the getBuyin() set here.
     private void aplicarBuyinInicial(String nick, int amount) {
         Player jugador = nick2player.get(nick);
         if (jugador == null) {
@@ -5272,13 +5146,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         jugador.setBuyin(safe);
     }
 
-    // Barrera de arranque en modo buy-in variable: al entrar al tablero (luces
-    // apagadas, antes de las animaciones de la mano 1) cada humano elige su
-    // buy-in en el rango configurado [getBuyinMin, getBuyinMax] (default
-    // getBuyinDefault) con la misma cuenta atras que la recompra. Reutiliza el
-    // mensaje GAME y la mecanica de recibirRebuys. NO se
-    // ejecuta en modo fijo (camino antiguo directo) ni en recover (los stacks
-    // vienen de balance).
+    // Startup barrier for variable buy-in mode: on entering the table (lights off, before
+    // hand 1's animations) each human picks their buy-in within [getBuyinMin, getBuyinMax]
+    // (default getBuyinDefault), using the same countdown as a rebuy. Reuses the GAME message
+    // and recibirRebuys machinery. Skipped in fixed mode and on recover (stacks come from balance).
     private void solicitarBuyinsIniciales() {
 
         if (GameFrame.FIXED_BUYIN || GameFrame.RECOVER) {
@@ -5287,8 +5158,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         final LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
 
-        // Apagado temporal mientras dura la eleccion de buy-in. El try/finally que abre aqui
-        // garantiza que el velo se levanta aunque la recoleccion reviente por el camino.
+        // Lights stay off while the buy-in choice runs. The try/finally opened here
+        // guarantees the veil lifts even if collection blows up along the way.
         Helpers.GUIRunAndWait(() -> {
             GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
             GameFrame.getInstance().getTapete().repaint();
@@ -5307,27 +5178,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 dlg[0].setLocationRelativeTo(dlg[0].getParent());
             });
 
-            // Mostrar SIN bloquear este hilo: el crupier debe seguir para recolectar al
-            // resto. El dialogo es modal y, al aceptar (defer_close), pasa a "esperando
-            // a los demas jugadores" en vez de cerrarse; lo cierra el crupier al
-            // terminar la recoleccion.
+            // Show WITHOUT blocking this thread: the crupier must keep collecting from the
+            // rest. The dialog is modal and, on accept (defer_close), switches to "waiting
+            // for other players" instead of closing; the crupier closes it once collection is done.
             Helpers.GUIRun(() -> dlg[0].setVisible(true));
 
-            // Espera la eleccion local (OK o auto-aceptar a los 15s).
+            // Wait for the local choice (OK, or auto-accept after 15s).
             while (!dlg[0].isRebuy() && !fin_de_la_transmision) {
                 Helpers.pausar(GameFrame.WAIT_QUEUES);
             }
 
-            // El spinner ya acota al rango configurado; el clamp es defensivo.
+            // The spinner already clamps to the configured range; this clamp is defensive.
             int chosen = Math.max(GameFrame.getBuyinMin(),
                     Math.min((int) dlg[0].getRebuy_spinner().getValue(), GameFrame.getBuyinMax()));
 
             ArrayList<String> pending = new ArrayList<>();
 
             try {
-                // Cada peer auto-aplica su propio buy-in y NO se mete en su pending
-                // (igual que el arruinado local en el game-over): asi el host puede
-                // rebroadcast con skip=remitente sin que nadie espere su propio eco.
+                // Each peer auto-applies its own buy-in and does NOT enter its own pending
+                // (like the local busted player in game-over): so the host can rebroadcast
+                // with skip=sender without anyone waiting on their own echo.
                 aplicarBuyinInicial(local.getNickname(), chosen);
                 String localCmd = "BUYIN#"
                         + Base64.getEncoder().encodeToString(local.getNickname().getBytes("UTF-8"))
@@ -5366,26 +5236,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         } finally {
             Helpers.GUIRunAndWait(() -> {
-                // Cierra el dialogo de "esperando a los demas" (ya estan todos).
+                // Close the "waiting for others" dialog (everyone's in now).
                 if (dlg[0] != null) {
                     dlg[0].dispose();
                 }
                 GameFrame.getInstance().getCapa_brillo().popForcedLightsOFF();
                 GameFrame.getInstance().getTapete().repaint();
-                // Re-sincroniza el icono de luces con el brillo resultante: este dialogo corre
-                // durante el montaje de la mesa, donde un render puede dejar el icono en "off"
-                // mientras las luces vuelven a "on" -> icono bloqueado/desincronizado.
+                // Re-sync the lights icon with the resulting brightness: this dialog runs
+                // during table setup, where a render can leave the icon "off" while the
+                // lights go back "on" -> icon stuck out of sync otherwise.
                 GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
             });
         }
     }
 
-    // Espera (host) los BUYIN de los clientes humanos o (cliente) los broadcasts
-    // del host, aplicandolos a medida que llegan. Mismo esqueleto que
-    // recibirRebuys: drena received_commands, reencola lo no-BUYIN, y el host
-    // tiene la misma ventana amplia (2*REBUY_TIMEOUT) para absorber desync; al
-    // expirar los pendientes (host) caen al default 50BB. El cliente no fuerza
-    // timeout: sigue al host hasta recibir todos los broadcasts.
+    // Waits (host) for human clients' BUYIN, or (client) for the host's broadcasts, applying
+    // each as it arrives. Same skeleton as recibirRebuys: drains received_commands, requeues
+    // non-BUYIN, and the host has the same wide window (2*REBUY_TIMEOUT) to absorb desync;
+    // pending players fall back to the default on expiry. The client never forces a timeout —
+    // it follows the host until all broadcasts arrive.
     private void recibirBuyinsIniciales(ArrayList<String> pending) {
 
         Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
@@ -5481,34 +5350,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
     }
 
-    // Se lleva la cuenta de a quien se ha anunciado ya en vez de mirar si el jugador esta
-    // marcado como salido, porque mirar la marca dejaba esto sin hacer NADA en todas las
-    // expulsiones automaticas: ahi al jugador se le marca antes de llegar aqui, con lo que
-    // el cuerpo entero se saltaba y el aviso al resto de la mesa, que sale de aqui y de
-    // ningun otro sitio, no se emitia jamas. Los demas se quedaban esperando el turno de
-    // alguien a quien la mesa acababa de echar.
+    // Tracks who's already been announced instead of checking the player's exit flag: on
+    // automatic kicks the flag gets set before reaching here, so checking it made the whole
+    // body a no-op and the notice to the rest of the table — which is only ever sent from
+    // here — never went out, leaving everyone waiting on the turn of someone already gone.
     //
-    // Y el aviso va SIN esperar confirmacion. Esperandola, el anfitrion se colgaba: las
-    // confirmaciones las despacha el hilo consumidor de cada peer, asi que cualquiera que
-    // se fuera a la vez se quedaba esperando este mismo cerrojo y la suya no llegaba nunca;
-    // tres minutos parado, acusacion por el registro a ese inocente de estar reteniendola, y
-    // expulsion. Sacar el envio fuera del cerrojo NO arregla eso: exitSpectatorBots ya entra
-    // aqui con el cerrojo puesto (los monitores de Java son reentrantes) y corre al cerrar
-    // cada mano. Lo que sobra es la espera, no el sitio.
+    // The notice is sent WITHOUT waiting for confirmation. Waiting used to hang the host:
+    // confirmations are dispatched by each peer's consumer thread, so anyone leaving at the
+    // same time would be stuck waiting on this very lock while their own confirmation never
+    // arrived — a multi-minute stall, a false accusation in the log, and a kick of an
+    // innocent peer. Moving the send outside the lock wouldn't fix that: exitSpectatorBots
+    // already reenters this method with the lock held (Java monitors are reentrant) and runs
+    // on every hand close.
     //
-    // OJO, lo que esto se deja fuera: al no esperar confirmacion tampoco hay reintento, y el
-    // reintento cubria un caso. A quien tenga la red caida justo ahora (pero al que todavia
-    // no se le haya dado por ido) el aviso se le escribe a un socket condenado y se pierde;
-    // si luego reconecta dentro de su ventana, vuelve a la mesa sin haberse enterado y se
-    // queda esperando el turno del que se fue. Al reconectar solo se le manda el acuse, no
-    // el estado de la mesa. Aun asi esto es mejor que lo que habia: antes NADIE se enteraba
-    // de ninguna expulsion, y ahora se entera todo el mundo menos ese caso. Cerrarlo del
-    // todo es reenviar el estado al reconectar, y eso es harina de otro costal.
+    // Trade-off: without a confirmation wait there's also no retry. A peer whose network just
+    // dropped (but isn't marked gone yet) gets the notice written to a doomed socket and loses
+    // it; if they reconnect within their window they rejoin without knowing, and wait on the
+    // departed player's turn — reconnection only resends the ack, not table state. Still
+    // strictly better than before (nobody heard about kicks at all). Fully closing this gap
+    // means resending state on reconnect, a separate piece of work.
     //
-    // Y quedan dos esperas dentro de la escritura, ninguna de este cambio: la del peer que
-    // esta reconectando (acotada por el vigilante de la reconexion forzada) y la del turno
-    // de salida del socket (acotada por el detector de atasco del latido). El bucle de
-    // escrituras es el mismo de siempre y la version anterior pasaba por el igual.
+    // Two waits remain inside the write path, unrelated to this: the reconnecting peer's
+    // (bounded by the forced-reconnect watchdog) and the socket's outbound-queue wait
+    // (bounded by the heartbeat stall detector) — unchanged from before.
     public synchronized void remotePlayerQuit(String nick, String testamento) {
         Player jugador = nick2player.get(nick);
         if (jugador != null && quit_anunciado.add(nick)) {
@@ -5522,15 +5386,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 try {
                     String cmd = "EXIT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
-                    // V60: Propagamos el testamento en bloque (si existe)
+                    // Propagate the departing player's testament (if any) inline.
                     if (testamento != null && !testamento.isEmpty() && !testamento.equals("*")) {
                         cmd += "#" + testamento;
                     }
-                    // El que se va no aporta ninguna accion al hueco que le tocaba, cada
-                    // receptor marca su salida al recibir esto y sintetiza su retirada
-                    // cuando la ronda llega a ese asiento, y la cadena converge por omision
-                    // mutua. Asi que no hay que retenerlo ni encolarlo por orden, ni esperar
-                    // a que nadie confirme (ver la cabecera del metodo).
+                    // The departing player contributes no action to their upcoming turn; each
+                    // receiver marks the exit on receipt and synthesizes a fold when the round
+                    // reaches that seat, so the chain converges by mutual omission — no need
+                    // to hold, order-queue, or wait for confirmation (see method header).
                     broadcastGAMECommandFromServer(cmd, nick, false);
                 } catch (UnsupportedEncodingException ex) {
                 }
@@ -5565,7 +5428,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Sobrecarga de compatibilidad
+    // Backward-compatible overload.
     public synchronized void remotePlayerQuit(String nick) {
         remotePlayerQuit(nick, null);
     }
@@ -5592,36 +5455,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void actualizarContadoresTapete() {
 
-        // Con fichas voladoras en vuelo el valor del bote se difiere a su aterrizaje
-        // (lo refresca el onLand de la ficha, a la vez que el parpadeo). El resto de
-        // contadores (apuesta de calle, ciegas, mano) sí se actualizan ya.
+        // With chips flying, the pot value is deferred to their landing (refreshed by the
+        // chip's onLand, alongside the flash). The other counters (street bet, blinds, hand)
+        // update right away.
         if (!isPotLabelValueDeferred()) {
             refreshTapeteBoteValue();
         }
 
         if (this.destapar_resistencia || this.show_time) {
-            // Run-out all-in (normal o run-it-twice) o SHOWDOWN: ya no hay apuestas.
-            // Se oculta la bet_label de calle y el bote se centra ocupando todo el
-            // ancho — exactamente el estado al que llega el showdown, que solo le
-            // añade el fondo verde. Así la label no salta de sitio al cerrarse la
-            // mano. El gate por show_time evita además que un refresco tardío
-            // (editar ciegas, aterrizaje de una ficha, etc.) vuelva a mostrar la
-            // bet_label una vez empezado el showdown.
+            // Run-out all-in (normal or run-it-twice) or showdown: no more bets. Hide the
+            // street bet_label and center the pot across the full width — exactly the state
+            // showdown arrives at, which only adds the green background, so the label doesn't
+            // jump once the hand closes. The show_time gate also stops a late refresh
+            // (editing blinds, a chip landing, etc.) from re-showing bet_label after showdown starts.
             GameFrame.getInstance().hideTapeteApuestas();
             Helpers.GUIRun(() -> GameFrame.getInstance().getTapete().getCommunityCards()
                     .getPot_label().setHorizontalAlignment(JLabel.CENTER));
         } else {
             GameFrame.getInstance().setTapeteApuestas(this.apuestas);
-            // Fase de apuestas: el bote va a la IZQUIERDA (LEADING) con la bet_label
-            // de calle a su derecha. Se reafirma aquí (no solo en NUEVA_MANO) porque
-            // el CENTER del showdown/run-out anterior es un estado de un solo tiro: si
-            // una reordenación en el EDT (o el solape del hilo de liquidación de la
-            // mano previa con el arranque de la siguiente) lo aplica DESPUÉS del
-            // LEADING de NUEVA_MANO, el bote se quedaba centrado TODA la mano y solo
-            // se corregía al llegar el siguiente showdown. Atar la alineación a la
-            // fase en cada refresco de contadores lo corrige al instante (simétrico al
-            // CENTER de la rama de arriba). setHorizontalAlignment es no-op si el valor
-            // ya coincide, así que no fuerza repintados de más.
+            // Betting phase: the pot sits LEADING with the street bet_label to its right.
+            // Reasserted here (not just in NUEVA_MANO) because the previous showdown/run-out
+            // CENTER is a one-shot state: if an EDT reordering (or the previous hand's payout
+            // thread overlapping the next hand's start) applies it AFTER NUEVA_MANO's LEADING,
+            // the pot stayed centered for the whole hand, only fixed at the next showdown.
+            // Tying the alignment to the phase on every counter refresh corrects it instantly
+            // (symmetric to the CENTER branch above). setHorizontalAlignment is a no-op when
+            // the value already matches, so this doesn't force extra repaints.
             Helpers.GUIRun(() -> GameFrame.getInstance().getTapete().getCommunityCards()
                     .getPot_label().setHorizontalAlignment(JLabel.LEADING));
         }
@@ -5632,12 +5491,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         refreshCallCostOverlay();
     }
 
-    // Overlay opcional sobre las comunitarias: cuánto tendría que poner el jugador
-    // local para IGUALAR la apuesta actual (lo que le tocará cuando le llegue el
-    // turno). Se actualiza tras cada acción, así sube en vivo cuando alguien sube.
-    // Solo se muestra en fase de apuestas, con el local activo y algo por igualar;
-    // en otro caso se oculta. El importe se trunca al stack (no puedes poner más de
-    // lo que tienes). Respeta el toggle de Apariencia.
+    // Optional overlay on the community cards: how much the local player would need to put in
+    // to CALL the current bet (what they'll owe when their turn comes). Refreshed after every
+    // action, so it rises live as others raise. Shown only during the betting phase, with the
+    // local player active and something to call; hidden otherwise. Amount is capped to the
+    // stack. Respects the Appearance toggle.
     public void refreshCallCostOverlay() {
         TablePanel tapete = GameFrame.getInstance().getTapete();
         if (tapete == null) {
@@ -5665,10 +5523,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         tapete.updateCallCostOverlay("+" + Helpers.money2String(shown));
     }
 
-    // Refresca SOLO el valor del pot_label (sin tocar bet_label/ciegas/mano). Lo usa
-    // el aterrizaje de la ficha voladora para aplicar el valor del bote diferido sin
-    // re-mostrar el bet_label (que el showdown pudo ocultar). RIT: durante el run-out
-    // de cada cara muestra la MITAD que ESA cara juega; fuera de RIT, el total.
+    // Refreshes ONLY the pot_label value (bet_label/blinds/hand untouched). Used by a flying
+    // chip's landing to apply the deferred pot value without re-showing bet_label (which
+    // showdown may have hidden). RIT: during each side's run-out, shows the HALF that side
+    // plays; outside RIT, the total.
     public void refreshTapeteBoteValue() {
         double pot_show = this.rit_pot_board_tag != null
                 ? splitPotForRunItTwice(this.bote_total)[0]
@@ -5703,19 +5561,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean isLocal;
 
         synchronized (lock_mostrar) {
-            // Nota: ya no gateamos con show_time. Si el comando proviene del flujo IWTSTH, la temporización
-            // del wait/pausaConBarra puede haber cerrado show_time antes de que llegue el SHOWCARDS de un
-            // candidato remoto. La función es idempotente (chequea isTapada() abajo) y los callers
-            // ya verifican show_time donde corresponde para el flujo voluntario (LocalPlayer.player_allin_buttonActionPerformed).
+            // Note: no longer gated on show_time. If the command comes from the IWTSTH flow, the
+            // wait/pausaConBarra timing may have closed show_time before a remote candidate's
+            // SHOWCARDS arrives. The function is idempotent (checks isTapada() below) and callers
+            // already check show_time where it matters for the voluntary flow
+            // (LocalPlayer.player_allin_buttonActionPerformed).
             jugador = nick2player.get(nick);
             if (jugador == null) {
                 return;
             }
             isLocal = jugador.equals(GameFrame.getInstance().getLocalPlayer());
 
-            // Solo desciframos si es remoto y faltan los valores
+            // Only decrypt if remote and values are still missing.
             if (!isLocal && (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty())) {
-                // ZERO-TRUST: Si el jugador ha enviado su testamento (sra_unlock), desciframos su mano
+                // Zero-trust: if the player has sent their testament (sra_unlock), decrypt their hand.
                 Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
                 if (p != null && p.getSra_unlock() != null && p.getSra_unlock().length == 32) {
                     unlockPlayerCardsWithSRAKey(jugador);
@@ -5723,16 +5582,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // ZERO-TRUST SRA: Enviamos la clave de desbloqueo en vez de las cartas en texto plano.
-            // Cada receptor descifra localmente desde su propia copia del mega_packet.
+            // Zero-trust SRA: send the unlock key instead of plaintext cards. Each receiver
+            // decrypts locally from its own copy of the mega_packet.
             //
-            // Dual-lock: SHOWCARDS revela cartas PRIVADAS, así que la clave que viaja
-            // es la mitad POCKET (no la community que entrega EXIT). El receptor la guarda en
-            // Participant.sra_unlock y unlockPlayerCardsWithSRAKey la aplica sobre el pocket
-            // piece almacenado en single_locked_pocket_cards.
+            // Dual-lock: SHOWCARDS reveals PRIVATE cards, so the key sent is the POCKET half
+            // (not the community half that EXIT delivers). The receiver stores it in
+            // Participant.sra_unlock and unlockPlayerCardsWithSRAKey applies it to the pocket
+            // piece held in single_locked_pocket_cards.
             //
-            // Sig Ed25519 sobre (HAND_ID || nick || pocketKey): el host no puede substituir
-            // la clave porque no tiene la privkey del nick (humano = suya, bot = host).
+            // Ed25519 signature over (HAND_ID || nick || pocketKey): the host can't substitute
+            // the key since it doesn't hold the nick's privkey (human = their own, bot = host's).
             try {
                 String sraKeyB64 = getShowdownPocketKey(nick);
                 String sigB64 = signShowdownRevealForBroadcast(nick, sraKeyB64);
@@ -5749,15 +5608,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                 } else {
-                    // No hay clave de revelado utilizable para este nick (getShowdownPocketKey="*"):
-                    // caso de borde/defensivo, tipicamente una mano recuperada cuyo fosil BOTKEYS@
-                    // no traia el token de este bot. NO fabricamos un token: para un bot la clave es
-                    // botLock^-1 (el received_token real), y un escalar aleatorio nuevo NO reconstruye
-                    // ese inverso -> en los clientes resolveCardIndex daria -1, las cartas seguirian
-                    // tapadas y ademas saltaria un warnSuspiciousHost falso contra un host honesto.
-                    // Menos danino: no emitir (las cartas quedan solo en local; el host, que las tiene
-                    // en claro, si las pinta). El arreglo correcto de este borde seria recuperar el
-                    // botLock^-1 real del cascade/fosil, no inventarlo.
+                    // No usable reveal key for this nick (getShowdownPocketKey="*"): a defensive
+                    // edge case, typically a recovered hand whose BOTKEYS@ fossil didn't carry this
+                    // bot's token. We do NOT fabricate one: a bot's key is botLock^-1 (the real
+                    // received_token), and a fresh random scalar can't reconstruct that inverse —
+                    // clients' resolveCardIndex would return -1, cards would stay hidden, and a
+                    // false warnSuspiciousHost would fire against an honest host. Least harmful
+                    // option: don't emit (cards stay local-only; the host, which holds them in the
+                    // clear, still shows them). The real fix would recover the actual botLock^-1
+                    // from the cascade/fossil rather than invent one.
                     LOGGER.log(Level.WARNING,
                             "showAndBroadcastPlayerCards: cannot send SHOWCARDS for {0} — key=\"{1}\", sig=\"{2}\". Cards stay local-only.",
                             new Object[]{nick, sraKeyB64, sigB64});
@@ -5767,18 +5626,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Destape + etiqueta FUERA de lock_mostrar: el giro animado bloquea
-        // ~1s a este worker y el lock lo comparten el procesador de comandos
-        // (showPlayerCards) y el cierre de show_time del crupier — retenerlo
-        // durante la animación los atascaría. La idempotencia frente a
-        // destapes concurrentes del mismo jugador la da el
-        // destape_animado_lock dentro del método animado.
+        // Reveal + label OUTSIDE lock_mostrar: the flip animation blocks this worker for ~1s,
+        // and the lock is shared with the command processor (showPlayerCards) and the
+        // crupier's show_time close — holding it during the animation would stall them. The
+        // animated method's own destape_animado_lock handles idempotency against concurrent
+        // reveals of the same player.
         if (jugador.getHoleCard1().isTapada()) {
-            // Bloquea hasta el fin del giro (los callers son workers): la
-            // etiqueta de jugada de abajo no aparece hasta destapar del todo.
+            // Blocks until the flip finishes (callers are workers): the hand-name label below
+            // doesn't appear until fully revealed.
             mostrarAnimacionDestaparCartasJugador(jugador, true);
 
-            // CLONACIÓN DEFENSIVA: Pasamos una copia a la clase Hand para que no desordene la UI
+            // Defensive clone: pass a copy to Hand so it doesn't reorder the UI's cards.
             ArrayList<Card> evalList = new ArrayList<>();
             evalList.addAll(jugador.getHoleCards());
             for (Card c : GameFrame.getInstance().getCartas_comunes()) {
@@ -5790,9 +5648,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 Hand jugada = new Hand(evalList);
                 jugador.showCards(jugada.getName());
-                // Habilita el resaltado por hover de la jugada recién enseñada (IWTSTH forzado o
-                // botón MOSTRAR voluntario): sin kickers, igual que un ganador. El showdown solo lo
-                // fija para quien ya mostraba; aquí lo hacemos para el revelado tardío.
+                // Enables hover highlighting for the hand just revealed (forced IWTSTH or the
+                // voluntary SHOW button): no kickers, same as a winner. Showdown only sets this
+                // for players who were already showing; here it's done for the late reveal.
                 jugador.setShowdownHand(jugada.getWinners());
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
@@ -5836,10 +5694,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.river_revealed = v;
     }
 
-    // Phase enum para REQ_SRA_UNLOCK_CHAIN. Cada item del batch lleva un
-    // (phase, peer_idx); el cliente valida que (phase, peer_idx) encaja con
-    // su estado local y aún no se ha servido en esta mano (anti-reuse, ver
-    // isUnlockPhaseAllowedForStreet + communitySlotRange, el gate vivo del batch).
+    // Phase enum for REQ_SRA_UNLOCK_CHAIN. Each batch item carries a (phase, peer_idx); the
+    // client validates it matches its local state and hasn't already been served this hand
+    // (anti-reuse — see isUnlockPhaseAllowedForStreet + communitySlotRange, the batch's live gate).
     public static final int UNLOCK_PHASE_POCKET = 0;
     public static final int UNLOCK_PHASE_FLOP = 1;
     public static final int UNLOCK_PHASE_TURN = 2;
@@ -5847,26 +5704,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int UNLOCK_PHASE_RABBIT_FLOP = 4;
     public static final int UNLOCK_PHASE_RABBIT_TURN = 5;
     public static final int UNLOCK_PHASE_RABBIT_RIVER = 6;
-    // Run-it-twice SIDE-B: fases dedicadas para repartir el segundo board desde
-    // offsets frescos del MEGAPACKET. Tags propias (disjuntas de las de SIDE-A)
-    // para no chocar con el single-serve del reparto vivo.
+    // Run-it-twice side B: dedicated phases for dealing the second board from fresh
+    // MEGAPACKET offsets. Own tags (disjoint from side A's) so they don't collide with the
+    // live deal's single-serve.
     public static final int UNLOCK_PHASE_RIT2_FLOP = 7;
     public static final int UNLOCK_PHASE_RIT2_TURN = 8;
     public static final int UNLOCK_PHASE_RIT2_RIVER = 9;
-    // Straddle ciego: desbloqueo DIFERIDO de los 2 pocket slots del straddler, corrido tras
-    // verificar su decisión firmada. A diferencia de POCKET (siempre seguro, primer paso de la
-    // mano), esta fase el responder solo la sirve si ya verificó la decisión firmada del
-    // straddler Y el slot pelado es EXACTAMENTE el suyo (straddleUnlockSlot); si no, la rechaza.
+    // Blind straddle: DEFERRED unlock of the straddler's 2 pocket slots, run after verifying
+    // their signed decision. Unlike POCKET (always safe, the hand's first step), this phase
+    // is only served by the responder once it has verified the straddler's signed decision AND
+    // the slot being peeled is EXACTLY theirs (straddleUnlockSlot); otherwise it's rejected.
     public static final int UNLOCK_PHASE_POCKET_STRADDLE = 10;
 
-    // ANTI "leer el board futuro": el host controla offsetBase en REQ_SRA_UNLOCK_CHAIN, así que un
-    // cliente que va a ayudar a revelar community DEBE exigir que el slot REALMENTE pelado caiga en los
-    // slots que ESA fase puede tocar (derivados LOCAL del layout + ring.length, NUNCA fiados del host).
-    // Sin esto el host pide, durante el flop, los slots de turn/river y lee el board antes de tiempo
-    // (GATE-6 no lo pilla: el host se quita su lock el último, en local). Layout IDÉNTICO al de
-    // enviarCartasComunitarias / enviarRabbitComunitarias / SIDE-B: pocketCount=2N; FLOP off=2N+1 (3
-    // cartas), TURN 2N+5, RIVER 2N+7; RIT2 = +RIT2_BOARD_SPAN. Devuelve {primerSlot, numCartas} o null si
-    // la fase NO es community (POCKET: espacio de escalar disjunto + self-strip ya lo cubren).
+    // Anti "read the future board": the host controls offsetBase in REQ_SRA_UNLOCK_CHAIN, so a
+    // client helping reveal community cards MUST require that the slot actually being peeled
+    // falls within what THAT phase can touch (derived LOCALLY from the layout + ring.length,
+    // never trusted from the host). Without this, the host could request turn/river slots
+    // during the flop and read the board early (GATE-6 doesn't catch it since the host drops
+    // its own lock last, locally). Layout identical to enviarCartasComunitarias /
+    // enviarRabbitComunitarias / side B: pocketCount=2N; FLOP offset=2N+1 (3 cards), TURN
+    // 2N+5, RIVER 2N+7; RIT2 adds RIT2_BOARD_SPAN. Returns {firstSlot, numCards}, or null if
+    // the phase isn't community-related (POCKET is covered by its disjoint scalar space + self-strip).
     public static int[] communitySlotRange(int phase, int numPlayers) {
         int streetKind; // 0=flop, 1=turn, 2=river
         boolean rit2;
@@ -5899,12 +5757,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 rit2 = true;
                 break;
             default:
-                return null; // POCKET u otra: sin binding community aquí
+                return null; // POCKET or other: no community binding here
         }
         int offset = numPlayers * 2 + (rit2 ? RIT2_BOARD_SPAN : 0);
         int numCards;
         if (streetKind == 0) {
-            offset += 1;                 // flop: burn + 3 cartas
+            offset += 1;                 // flop: burn + 3 cards
             numCards = 3;
         } else if (streetKind == 1) {
             offset += 1 + 3 + 1;         // turn: burn + 3 + burn + 1
@@ -5916,10 +5774,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return new int[]{offset, numCards};
     }
 
-    // Tags ya servidas esta mano (clave compuesta phase:peer_idx para todas
-    // las phases en v3 — comunitaria también es per-recipient). Bloquea que
-    // el host pida el mismo (phase, peer_idx) dos veces engañando con bytes
-    // distintos.
+    // Tags already served this hand (composite phase:peer_idx key for all phases in v3 —
+    // community is per-recipient too). Blocks the host from requesting the same
+    // (phase, peer_idx) twice by tricking it with different bytes.
     private final Set<String> sra_unlock_tags_served = ConcurrentHashMap.newKeySet();
 
     public Set<String> getSra_unlock_tags_served() {
@@ -5944,20 +5801,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return local_mega_packet != null;
     }
 
-    // Tiempo máximo que el handler de REQ_SRA_UNLOCK_CHAIN espera a que el
-    // Crupier local avance hasta la calle exigida por la phase del batch
-    // antes de tratarlo como maniobra del host (early-cascade attack).
-    // Generoso: cubre clientes lentos, redes con jitter alto y manos con
-    // muchos jugadores remotos. Un host honesto nunca rebasa este margen
-    // porque su propia cascade se dispara justo después de su rondaApuestas
-    // local cerrar, y eso espera al último ACTION que el cliente también
-    // recibió por el mismo socket.
+    // Max time the REQ_SRA_UNLOCK_CHAIN handler waits for the local Crupier to reach the
+    // street a batch's phase requires, before treating it as a host early-cascade attack.
+    // Generous on purpose: covers slow clients, high-jitter networks, and hands with many
+    // remote players. An honest host never exceeds this margin, since its own cascade fires
+    // right after its local rondaApuestas closes, which itself waits for the last ACTION the
+    // client also received over the same socket.
     public static final long UNLOCK_WAIT_TIMEOUT_MS = 60000L;
 
-    // Único punto desde el que se modifica street; publica la transición
-    // bajo protocol_state_lock para que awaitStreetForUnlockPhase no se
-    // pierda el cambio. Llamar siempre por aquí en lugar de tocar el
-    // campo directamente.
+    // Sole place that modifies street; publishes the transition under protocol_state_lock so
+    // awaitStreetForUnlockPhase never misses the change. Always go through this instead of
+    // touching the field directly.
     private void setStreetLocal(int s) {
         synchronized (protocol_state_lock) {
             this.street = s;
@@ -5965,7 +5819,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Idem para show_time (cubre las phases RABBIT_*).
+    // Same idea for show_time (covers the RABBIT_* phases).
     public void setShowTime(boolean v) {
         synchronized (protocol_state_lock) {
             this.show_time = v;
@@ -5973,10 +5827,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Idem para conta_mano. Necesario para que el wait con hand_id pueda
-    // distinguir un comando de mano antigua que llega retrasado (drop
-    // silencioso) de un timeout genuino (ataque, lockdown). Todas las
-    // mutaciones de conta_mano pasan por aquí.
+    // Same idea for conta_mano. Needed so the hand_id-based wait can tell a delayed command
+    // from an old hand (silent drop) apart from a genuine timeout (attack, lockdown). All
+    // conta_mano mutations go through here.
     private void setContaManoLocal(int value) {
         synchronized (protocol_state_lock) {
             this.conta_mano = value;
@@ -5985,25 +5838,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Espera bloqueante hasta que el Crupier local haya progresado lo
-     * suficiente para que sea seguro servir un REQ_SRA_UNLOCK_CHAIN de la phase
-     * pedida, o hasta agotar el timeout.
+     * Blocks until the local Crupier has progressed enough to safely serve a
+     * REQ_SRA_UNLOCK_CHAIN for the requested phase, or until the timeout expires.
      *
-     * Gateo zero-trust contra el "early-cascade attack": un host malicioso
-     * (con el código modificado, y dado que CoronaPoker es 100% open source
-     * cualquiera puede compilar una versión hostil) podría adelantar la
-     * cascade de FLOP/TURN/RIVER antes de jugar la calle previa, leer las
-     * cartas comunitarias y jugar el pre-flop con conocimiento del board.
-     * El state machine por sí solo no lo detecta (la cascade está bien
-     * formada, sólo va prematura). Esta espera fuerza que el cliente sólo
-     * sirva la clave cuando su propia ronda local ha cerrado la calle
-     * anterior — el cliente es la fuente de verdad de "hemos jugado el
-     * pre-flop".
+     * Zero-trust gate against the "early-cascade attack": a malicious host (modified code —
+     * CoronaPoker is fully open source, so anyone can build a hostile build) could push the
+     * FLOP/TURN/RIVER cascade ahead of playing the previous street, read the community cards,
+     * and play pre-flop with board knowledge. The state machine alone can't detect this (the
+     * cascade is well-formed, just premature). This wait forces the client to serve the key
+     * only once its own local round has closed the previous street — the client is the source
+     * of truth for "we've played pre-flop".
      *
-     * Devuelve un código discreto para que el caller distinga las tres
-     * salidas posibles (READY, STALE_HAND, TIMEOUT) y aplique distinta
-     * política de seguridad — un comando residual de una mano ya pasada
-     * NO es trampa (drop silencioso), pero un timeout legítimo sí lo es.
+     * Returns a discrete code so the caller can tell apart the three outcomes (READY,
+     * STALE_HAND, TIMEOUT) and apply different security policy — a leftover command from an
+     * already-closed hand is not cheating (silent drop), but a genuine timeout is.
      */
     public UnlockWaitResult awaitStreetForUnlockPhase(int phase, int hand_id, long timeoutMs) {
         synchronized (protocol_state_lock) {
@@ -6016,10 +5864,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return UnlockWaitResult.STALE_HAND;
                 }
                 if (hand_id != this.conta_mano) {
-                    // Mano de la request no coincide con la actual: o
-                    // viene de una mano ya cerrada (drop silencioso, no
-                    // es ataque) o el host nos está adelantando (raro y
-                    // tampoco sirve para nada; lo tratamos igual).
+                    // Request's hand doesn't match the current one: either it's from an
+                    // already-closed hand (silent drop, not an attack) or the host is getting
+                    // ahead of us (rare and useless either way; treated the same).
                     return UnlockWaitResult.STALE_HAND;
                 }
                 if (isUnlockPhaseStateSafe(phase)) {
@@ -6040,33 +5887,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public enum UnlockWaitResult {
-        READY,        // listo para servir, las gates posteriores deciden
-        STALE_HAND,   // hand_id no coincide con la mano actual o se canceló: drop silencioso
-        TIMEOUT,      // expiró el deadline esperando a la calle: ataque
-        LOCKDOWN      // lockdown ya activo, no servir nada más
+        READY,        // safe to serve; later gates decide
+        STALE_HAND,   // hand_id doesn't match the current hand, or it was cancelled: silent drop
+        TIMEOUT,      // deadline expired waiting for the street: treated as an attack
+        LOCKDOWN      // lockdown already active, serve nothing else
     }
 
-    // Predicado interno: ¿el estado local del Crupier admite ya servir
-    // esta phase? POCKET es siempre seguro (es el primer paso de la mano);
-    // FLOP/TURN/RIVER exigen que el propio rondaApuestas haya avanzado la
-    // calle correspondiente; los RABBIT_* exigen show_time. Llamado bajo
+    // Internal predicate: does the Crupier's local state already allow serving this phase?
+    // POCKET is always safe (the hand's first step); FLOP/TURN/RIVER require the local
+    // rondaApuestas to have reached that street; RABBIT_* require show_time. Called under
     // protocol_state_lock.
     private boolean isUnlockPhaseStateSafe(int phase) {
         if (phase == UNLOCK_PHASE_POCKET_STRADDLE) {
-            // Straddle ciego: solo seguro cuando ESTE peer ya verificó la decisión FIRMADA del
-            // straddler. Así el responder BLOQUEA en awaitStreetForUnlockPhase hasta ver la firma
-            // (un host que pida el desbloqueo diferido antes de que el straddler se comprometa se
-            // topa con el gate -> timeout -> refuse+warn). El binding de slot lo verifica el
-            // responder aparte (solo se pela el slot del straddler verificado, ninguno más).
+            // Blind straddle: only safe once THIS peer has verified the straddler's SIGNED
+            // decision. The responder BLOCKS in awaitStreetForUnlockPhase until it sees the
+            // signature (a host requesting the deferred unlock before the straddler commits
+            // hits this gate -> timeout -> refuse+warn). Slot binding is verified separately
+            // by the responder (only the verified straddler's own slot gets peeled).
             return this.straddle_decision_verified_nick != null;
         }
         return isUnlockPhaseAllowedForStreet(phase, this.street, this.show_time, this.run_it_twice_side_b);
     }
 
-    // Cada peer, tras verificar la decisión FIRMADA del straddler, la registra bajo
-    // protocol_state_lock + notifyAll para despertar a awaitStreetForUnlockPhase (igual que
-    // setStreetLocal con la calle). A partir de aquí servirá el UNLOCK_PHASE_POCKET_STRADDLE
-    // de ESE straddler (y solo su slot). Idempotente.
+    // Each peer, after verifying the straddler's SIGNED decision, records it under
+    // protocol_state_lock + notifyAll to wake awaitStreetForUnlockPhase (same pattern as
+    // setStreetLocal for the street). From this point it will serve UNLOCK_PHASE_POCKET_STRADDLE
+    // for THAT straddler only (and only their slot). Idempotent.
     public void recordVerifiedStraddleDecision(String straddlerNick, int decision) {
         synchronized (protocol_state_lock) {
             this.straddle_decision_verified_nick = straddlerNick;
@@ -6079,12 +5925,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return this.straddle_decision_verified_nick;
     }
 
-    // ZERO-TRUST STRADDLE: espera (sobre protocol_state_lock, despertado por el hilo LECTOR que
-    // procesa STRADDLE_DECISION de forma inmediata) hasta que ESTE peer haya verificado la decisión
-    // FIRMADA del straddler dado, y devuelve su valor (NO/POST). Devuelve null si expira el plazo,
-    // la mano se cierra o hay lockdown. Se usa para que el importe del straddle lo gobierne la firma
-    // del straddler (única y verificable, idéntica en todos los peers) y no el STRADDLE_RESULT no
-    // firmado del host, que un host hostil podría falsear para mover fichas del straddler honesto.
+    // Zero-trust straddle: waits (on protocol_state_lock, woken by the reader thread that
+    // processes STRADDLE_DECISION immediately) until THIS peer has verified the given
+    // straddler's SIGNED decision, and returns its value (NO/POST). Returns null on timeout,
+    // hand close, or lockdown. This makes the straddle amount governed by the straddler's
+    // signature (unique, verifiable, identical across peers) rather than the host's unsigned
+    // STRADDLE_RESULT, which a hostile host could falsify to move an honest straddler's chips.
     private Integer awaitVerifiedStraddleDecisionValue(String straddlerNick, long timeoutMs) {
         if (straddlerNick == null) {
             return null;
@@ -6115,8 +5961,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void setRunItTwiceSideB(boolean v) {
         synchronized (protocol_state_lock) {
             this.run_it_twice_side_b = v;
-            // Despierta a awaitStreetForUnlockPhase para que reevalúe el gate al
-            // entrar/salir de SIDE-B (igual que setStreetLocal con la calle).
+            // Wakes awaitStreetForUnlockPhase to reevaluate the gate on entering/leaving
+            // side B (same pattern as setStreetLocal for the street).
             protocol_state_lock.notifyAll();
         }
     }
@@ -6142,11 +5988,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Overload con el flag de reparto run-it-twice SIDE-B. Las fases RIT2_* solo
-     * se sirven MIENTRAS SIDE-B se está repartiendo ({@code ritSideB}), y con el
-     * mismo gate anti early-cascade que el board vivo (la calle local re-avanza
-     * durante SIDE-B). Fuera de SIDE-B se rechazan siempre: de-lockear esos
-     * offsets frescos en una mano normal filtraría cartas aún vivas en el mazo.
+     * Overload with the run-it-twice side-B dealing flag. RIT2_* phases are only served WHILE
+     * side B is being dealt ({@code ritSideB}), with the same anti-early-cascade gate as the
+     * live board (the local street re-advances during side B). Outside side B they're always
+     * refused: unlocking those fresh offsets on a normal hand would leak cards still live in the deck.
      */
     static boolean isUnlockPhaseAllowedForStreet(int phase, int street, boolean showTime, boolean ritSideB) {
         switch (phase) {
@@ -6175,19 +6020,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public boolean showPlayerCards(String nick, String sraKeyB64, String sigB64) {
         synchronized (lock_mostrar) {
-            // SHOWCARDS = botón MOSTRAR voluntario mid-hand. NO es el showdown
-            // (eso es POTCARDS). Aún así llevamos sig Ed25519 para que el host
-            // no pueda substituir la sraKey y hacer ver cartas falsas a
-            // espectadores/stream/UI mid-hand.
+            // SHOWCARDS = voluntary SHOW button mid-hand. Not the showdown (that's POTCARDS).
+            // Still carries an Ed25519 signature so the host can't substitute the sraKey and
+            // make spectators/stream/UI see fake cards mid-hand.
             //
-            // Es idempotente (chequea isTapada()).
+            // Idempotent (checks isTapada()).
             {
                 Player jugador = nick2player.get(nick);
                 if (jugador == null) {
                     return false;
                 }
 
-                // BLINDAJE V61: Si el server nos hace un echo de nuestro propio paquete en un cliente remoto, LO IGNORAMOS.
+                // Defense: if the server echoes our own packet back to us on a remote client, ignore it.
                 if (!GameFrame.getInstance().isPartida_local() && jugador.equals(GameFrame.getInstance().getLocalPlayer())) {
                     setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : GameFrame.SHOWDOWN_TIME);
                     return false;
@@ -6198,10 +6042,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     boolean keyProvided = (sraKeyB64 != null && !sraKeyB64.equals("*"));
                     boolean sigProvided = (sigB64 != null && !sigB64.equals("*"));
                     if (keyProvided && !sigProvided) {
-                        // Sig ausente. En un CLIENTE = el host stripeó/forjó la sig -> host hostil -> LOCKDOWN
-                        // (§8.2: cliente detecta ataque del host -> LEAVE). En el HOST procesando el SHOWCARDS
-                        // de un peer = dato malformado AISLADO a ese peer -> SILENT-REFUSE (no destapar, SIN
-                        // lockdown). Un peer NO puede matar la timba de todos con un SHOWCARDS sin firma.
+                        // Missing signature. On a CLIENT: the host stripped/forged it -> hostile host ->
+                        // lockdown (§8.2: client detects host attack -> leave). On the HOST processing a
+                        // peer's SHOWCARDS: malformed data isolated to that peer -> silent refuse (don't
+                        // reveal, no lockdown). A single peer can't kill the whole table with an unsigned SHOWCARDS.
                         if (!GameFrame.getInstance().isPartida_local()) {
                             LOGGER.log(Level.SEVERE,
                                     "ZERO-TRUST: SHOWCARDS for {0} arrived WITHOUT sig — host stripped or legacy. Host hostile, lockdown.",
@@ -6246,10 +6090,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                 } else {
                                     Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                                    // Solo se guarda un escalar USABLE: uno inservible (32 ceros)
-                                    // no descifra nada y ademas revienta en cuanto alguien lo
-                                    // invierte. Si no vale, el destape falla por el camino de
-                                    // siempre ("el SRA no resuelve"), que ya esta contemplado.
+                                    // Only store a USABLE scalar: a useless one (32 zero bytes) decrypts
+                                    // nothing and breaks as soon as anyone inverts it. If invalid, the
+                                    // reveal fails through the usual path ("SRA doesn't resolve"), already handled.
                                     if (p != null && RistrettoSRA.isValidScalar(sraKey)) {
                                         p.setSra_unlock(sraKey);
                                     }
@@ -6258,16 +6101,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         decrypted = true;
                                     }
                                     if (!decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
-                                        // Politica §8: sig OK pero SRA no resuelve = anomalia aislada a UN peer
-                                        // -> FORFEIT (decrypted=false -> sus cartas no se revelan, el showdown las
-                                        // muckea, ya manejado), NO terminamos la partida de todos. Avisamos.
-                                        // Coherente con el caso gemelo en RESP_SHOWDOWN_KEY.
+                                        // Policy §8: signature OK but SRA doesn't resolve = an anomaly isolated
+                                        // to ONE peer -> forfeit (decrypted=false -> their cards aren't revealed,
+                                        // showdown mucks them, already handled), not a table-wide abort. Warn.
+                                        // Consistent with the twin case in RESP_SHOWDOWN_KEY.
                                         LOGGER.log(Level.SEVERE,
                                                 "ZERO-TRUST: SHOWCARDS for {0} — sig OK but SRA does not resolve. Malicious peer or bug -> FORFEIT (cards not revealed) + warning.",
                                                 nick);
-                                        // Visibilidad §8 con SOSPECHOSO correcto: en el HOST la culpa es del
-                                        // PEER (warnMaliciousPeer lo nombra en rojo + popup); en un cliente es
-                                        // el host quien relaya la clave mala (warnSuspiciousHost nombra al host).
+                                        // §8 visibility with the correct suspect named: on the HOST, the peer is
+                                        // at fault (warnMaliciousPeer names them in red + popup); on a client, the
+                                        // host is relaying the bad key (warnSuspiciousHost names the host).
                                         if (GameFrame.getInstance().isPartida_local()) {
                                             warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
                                         } else {
@@ -6282,24 +6125,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                     if (decrypted) {
-                        // Destape + etiqueta de jugada a un worker: este método
-                        // corre en el hilo procesador de comandos y el giro
-                        // animado bloquea ~1s — los comandos siguientes no
-                        // pueden esperar eso. El orden etiqueta-tras-animación
-                        // se conserva dentro del worker (la animación bloquea
-                        // al worker, no al procesador). El destape lógico está
-                        // garantizado por el finally del método animado aunque
-                        // la animación falle.
+                        // Reveal + hand label offloaded to a worker: this method runs on the
+                        // command processor thread, and the flip animation blocks ~1s —
+                        // subsequent commands can't wait on that. Label-after-animation order
+                        // is preserved within the worker (the animation blocks the worker, not
+                        // the processor). The logical reveal is guaranteed by the animated
+                        // method's finally even if the animation itself fails.
                         final Player fjugador = jugador;
 
                         Helpers.threadRun(() -> {
-                            // Serializado bajo el destape_animado_lock del jugador
-                            // (reentrante para la animación interior) con re-check
-                            // de tapada: el isTapada() de la entrada del método deja
-                            // pasar un SHOWCARDS duplicado mientras el primer worker
-                            // aún anima (~1s), y sin esto el duplicado repetiría
-                            // etiqueta y sqlNewShowcards. Con el destape clásico la
-                            // ventana era de milisegundos; con la animación no.
+                            // Serialized under the player's destape_animado_lock (reentrant for
+                            // the inner animation), with a re-check of isTapada(): the method
+                            // entry's isTapada() check lets a duplicate SHOWCARDS through while
+                            // the first worker is still animating (~1s), and without this the
+                            // duplicate would repeat the label and sqlNewShowcards. With the
+                            // instant (non-animated) reveal that window was milliseconds; with
+                            // the animation, it isn't.
                             Object destape_lock = (fjugador instanceof RemotePlayer)
                                     ? ((RemotePlayer) fjugador).getDestape_animado_lock() : new Object();
 
@@ -6324,9 +6165,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 try {
                                     jugada = new Hand(evaluationList);
                                     fjugador.showCards(jugada.getName());
-                                    // Habilita el resaltado por hover de la jugada recién enseñada (SHOWCARDS
-                                    // recibido: IWTSTH forzado o MOSTRAR voluntario de un peer): sin kickers,
-                                    // igual que un ganador. Lo fija en el revelado tardío, no solo el showdown.
+                                    // Enables hover highlighting for the hand just revealed (received
+                                    // SHOWCARDS: forced IWTSTH or a peer's voluntary SHOW): no kickers,
+                                    // same as a winner. Set on the late reveal, not just at showdown.
                                     fjugador.setShowdownHand(jugada.getWinners());
                                 } catch (Exception e) {
                                 }
@@ -6459,14 +6300,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (GameFrame.getInstance().isPartida_local()) {
             map = sqlRecoverServerLocalGameKeyData(true);
             if (map == null) {
-                // Sin fila de recovery (juego sin manos commiteadas, p.ej. el host
-                // murió tras sqlNewGame y antes de la 1ª mano; o la DB no respondió).
-                // Un return "a secas" dejaría saltar_primera_mano=false y el finally de
-                // NUEVA_MANO se saltaría setPositions -> dealer/sb/bb null -> repartir()
-                // peta o la mesa queda congelada (getJugadoresActivos()<2). Marcamos
-                // fresh-start: el finally hará setPositions + rescate de spectators y
-                // arrancará una mano nueva limpia. (El cliente ya degradaba así; el host
-                // era el único que abandonaba la recuperación de forma muda.)
+                // No recovery row (game with no committed hands yet — e.g. the host died
+                // after sqlNewGame but before hand 1, or the DB didn't respond). A plain
+                // return would leave saltar_primera_mano=false, so NUEVA_MANO's finally would
+                // skip setPositions -> dealer/sb/bb null -> repartir() crashes or the table
+                // freezes (getJugadoresActivos()<2). Mark fresh-start instead: the finally
+                // will run setPositions + rescue spectators and start a clean new hand.
                 saltar_primera_mano = true;
                 return;
             }
@@ -6515,9 +6354,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
                             } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
-                                // Dual-lock: la mitad community se guardó en SRAKEYS_COMMUNITY@
-                                // por guardarFosilSRA. Recuperarla es lo que permite que
-                                // cascadeAndDealCommunityPieces siga funcionando post-recovery.
+                                // Dual-lock: the community half was saved under SRAKEYS_COMMUNITY@ by
+                                // guardarFosilSRA. Restoring it is what lets cascadeAndDealCommunityPieces
+                                // keep working post-recovery.
                                 this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
                                 Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
                                 if (myP != null) {
@@ -6530,15 +6369,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     myP.setSra_unlock(this.local_sra_unlock);
                                 }
                             } else if (part.startsWith("COMMITMENTS@")) {
-                                // Recovery: repoblar los K del ring para que
-                                // initHandStateChain reconstruya el MISMO H_0 que la mano original.
+                                // Recovery: repopulate the ring's K values so initHandStateChain
+                                // rebuilds the SAME H_0 as the original hand.
                                 this.peer_k_pocket.clear();
                                 this.peer_k_community.clear();
                                 parseCommitments(part.substring("COMMITMENTS@".length()));
                             } else if (part.startsWith("BOTKEYS_COMMUNITY@")) {
-                                // Dual-lock: unlocks community de cada bot. Sin esto, la
-                                // contribución community del bot quedaría sin invertir y
-                                // las community pieces no se podrían descifrar tras recovery.
+                                // Dual-lock: each bot's community unlocks. Without these, a bot's
+                                // community contribution would stay un-inverted and the community
+                                // pieces couldn't be decrypted after recovery.
                                 String[] bKeys = part.substring("BOTKEYS_COMMUNITY@".length()).split(",");
                                 for (String bk : bKeys) {
                                     if (bk.isEmpty()) {
@@ -6584,7 +6423,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         String[] cards = pair[1].split(",");
                                         Player botPlayer = nick2player.get(bNick);
                                         if (botPlayer != null) {
-                                            // BOTVISUAL almacena getCartaComoEntero() (rango 1..52) — no sumar +1 al restaurar.
+                                            // BOTVISUAL stores getCartaComoEntero() (range 1..52) — don't add +1 when restoring.
                                             botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]));
                                             botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]));
 
@@ -6593,12 +6432,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                 }
                             } else if (part.startsWith("POCKETS@")) {
-                                // Repoblar single_locked_pocket_cards: imprescindible para que
-                                // verifyAndStoreShowdownKey pueda aplicar el sraKey de cada
-                                // peer al residuo single-locked y validar el plaintext de
-                                // POTCARDS. Sin esto, todos los humanos remotos caen al
-                                // path "no single_locked_pocket_cards ... skipping" y
-                                // calcularJugadas los muckea.
+                                // Repopulate single_locked_pocket_cards: required for
+                                // verifyAndStoreShowdownKey to apply each peer's sraKey to the
+                                // single-locked residue and validate POTCARDS' plaintext. Without
+                                // this, every remote human hits the "no single_locked_pocket_cards
+                                // ... skipping" path and calcularJugadas mucks them.
                                 String[] entries = part.substring("POCKETS@".length()).split(",");
                                 for (String entry : entries) {
                                     if (entry.isEmpty()) {
@@ -6632,8 +6470,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
                                 }
                             } else if (part.startsWith("RIT@")) {
-                                // Run-it-twice: restaura el estado del voto para que
-                                // la mano recuperada corra los dos boards (o uno).
+                                // Run-it-twice: restores the vote state so the recovered hand
+                                // runs both boards (or just one), as agreed.
                                 String[] rit = part.substring("RIT@".length()).split(",");
                                 try {
                                     this.rit_vote_done = Boolean.parseBoolean(rit[0]);
@@ -6643,17 +6481,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     LOGGER.log(Level.WARNING, "RIT@ unparseable: {0}", part);
                                 }
                             } else if (part.startsWith("STRADDLE@")) {
-                                // Straddle voluntario: si la mano replayada lo tenía
-                                // posteado, el host lo repone en resolveVoluntaryStraddle
-                                // (post-reparto) y rebroadcasta la decisión a los clientes.
+                                // Voluntary straddle: if the replayed hand had it posted, the
+                                // host restores it in resolveVoluntaryStraddle (post-deal) and
+                                // rebroadcasts the decision to clients.
                                 this.straddle_recovered_posted = Boolean.parseBoolean(part.substring("STRADDLE@".length()));
                             }
                         }
 
                         if (orderMap != null && megaPacket != null) {
                             this.local_mega_packet = megaPacket;
-                            // Recover: el barajado se verifico pre-crash y el mazo viene del fosil propio
-                            // (confiable) -> marco verificado para el receipt (no falsa alarma de "no verificado").
+                            // Recover: the shuffle was verified pre-crash and the deck comes from our
+                            // own (trusted) fossil -> mark it verified for the receipt (no false "unverified" alarm).
                             this.dual_lock_verified_megapacket = megaPacket;
                             String[] orderTokens = orderMap.split(",");
                             java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
@@ -6664,13 +6502,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             this.active_crypto_ring = ringList.toArray(new String[0]);
 
-                            // Las hole cards del jugador local NO se destapan aqui:
-                            // se quedan reseteadas (resetearCarta(false) en NUEVA_MANO,
-                            // igual que las de los remotos) para que repartir() las
-                            // revele al aterrizar el vuelo de reparto, idéntico a una
-                            // mano normal. local_original_cards ya lleva su valor para
-                            // el onLand del vuelo. Destaparlas aqui las mostraba boca
-                            // arriba antes de la animacion (solo afectaba al local).
+                            // The local player's hole cards are NOT revealed here: they stay reset
+                            // (resetearCarta(false) in NUEVA_MANO, same as remote players') so
+                            // repartir() reveals them when the deal animation lands, identical to a
+                            // normal hand — revealing them here would show them face-up before the
+                            // animation. local_original_cards already carries the value for the flight's onLand.
 
                             // Recovery: restore HAND_ID from SQL
                             // and re-init HandStateChain. Without this the chain
@@ -6699,11 +6535,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
                 saltar_primera_mano = true;
             }
-            // Si el fosil existia pero no llego a entregar mega_packet+ring
-            // utilizables (corrupto o vacio por MISDEAL+rollback previo), no
-            // hay material para replay. Forzar saltar=true asegura simetria
-            // con el branch cliente (recibira map sin megapacket y tambien
-            // saltara).
+            // If the fossil existed but didn't yield a usable mega_packet+ring (corrupted or
+            // empty from a prior MISDEAL+rollback), there's no material to replay. Forcing
+            // saltar=true keeps this symmetric with the client branch (which gets a map with
+            // no megapacket and also skips).
             if (!saltar_primera_mano && (this.local_mega_packet == null || this.active_crypto_ring == null)) {
                 saltar_primera_mano = true;
             }
@@ -6714,42 +6549,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.sqlite_id_hand = (int) map.get("hand_id");
             }
             sqlSyncRecoveryShells(map);
-            // Solo cargar fosil si la mano realmente estaba en-curso
-            // (hand_end == 0L). Si la mano esta cerrada (post-MISDEAL la
-            // marca con end!=0 via rollbackAbortedHand) NO se carga
-            // local_mega_packet/ring desde el fosil viejo — sino el
-            // DECK_CASCADE_REQ de la mano FRESH del host disparaba
-            // hasMegaPacket()=true en cliente y triggerSecurityLockdown
-            // como falso positivo "MEGAPACKET already locked".
-            // El HOST ya tiene este mismo check arriba (linea ~2671);
-            // sin el equivalente aqui en CLIENTE, race condition garantizada.
+            // Only load the fossil if the hand was genuinely in progress (hand_end == 0L). If
+            // the hand is closed (post-MISDEAL marks it end!=0 via rollbackAbortedHand), don't
+            // load local_mega_packet/ring from the stale fossil — otherwise the host's FRESH
+            // hand's DECK_CASCADE_REQ would make hasMegaPacket()=true on the client and trigger
+            // a false-positive "MEGAPACKET already locked" lockdown. The host already has this
+            // same check above; without the client-side equivalent here, a race is guaranteed.
             boolean handInProgress = map != null
                     && map.get("hand_end") != null
                     && (Long) map.get("hand_end") == 0L;
 
-            // Issue#9: si el local NO esta en preflop_players de la mano en
-            // curso del host, somos observer pasivo — la mano que el host
-            // esta replayando NO es nuestra (p.ej. salimos limpios en una
-            // mano anterior y el host nos reinvita mid-N+1 sin "wait for
-            // hand end"). Sin este guard, loadHandFossil devuelve el fosil
-            // STALE de la ultima mano en la que SI participamos (hand N),
-            // poblando local_mega_packet+active_crypto_ring con datos
-            // viejos. Luego el guard observer de mas abajo ve ambos != null
-            // y NO entra en el branch que marca calentando — repartir() nos
-            // dealea con local_original_cards del fosil viejo (cartas de
-            // hand N reveladas como nuestras, o AA mismo palo del init
-            // {0,0} si VISUAL@ no estaba). cleanHandCrupierTempFiles se
-            // skipea en NUEVA_MANO cuando GameFrame.RECOVER, asi que el
-            // fosil stale sobrevive entre sesiones del cliente cuando este
-            // se va con Leave Game antes de que arranque la mano siguiente.
+            // If the local player isn't in the host's in-progress hand's preflop_players, we're
+            // a passive observer — the hand the host is replaying isn't ours (e.g. we left
+            // cleanly on a previous hand and the host re-invites us mid-N+1 without "wait for
+            // hand end"). Without this guard, loadHandFossil would return the STALE fossil from
+            // the last hand we DID play (hand N), populating local_mega_packet+active_crypto_ring
+            // with old data. The observer guard further below then sees both non-null and skips
+            // the branch that marks us as warming up — repartir() would deal us
+            // local_original_cards from the old fossil (hand N's cards shown as ours, or AA of
+            // the same suit from the {0,0} init if VISUAL@ was missing). cleanHandCrupierTempFiles
+            // is skipped in NUEVA_MANO when GameFrame.RECOVER, so a stale fossil can survive
+            // across client sessions if the client leaves via Leave Game before the next hand starts.
             //
-            // preflop_players es String "b64nick#b64nick#..." (ver
-            // sqlNewHand+sqlUpdateHandResistencia). split+contains evita
-            // falso positivo si un b64 fuera substring de otro.
+            // preflop_players is a "b64nick#b64nick#..." string (see sqlNewHand +
+            // sqlUpdateHandResistencia). split+contains avoids a false positive if one b64
+            // token happened to be a substring of another.
             //
-            // Si preflop_players viene null (no deberia: sqlNewHand siempre
-            // lo escribe en PREFLOP) caemos al path legacy con fosil para
-            // no romper recoveries en estados intermedios desconocidos.
+            // If preflop_players comes back null (shouldn't — sqlNewHand always writes it in
+            // PREFLOP), fall back to the legacy fossil path so unknown intermediate recovery
+            // states don't break outright.
             boolean shouldLoadFossil = handInProgress;
             if (handInProgress && map.get("preflop_players") instanceof String) {
                 String preflopStr = (String) map.get("preflop_players");
@@ -6774,7 +6602,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         } else if (part.startsWith("FULLMEGAPACKET@")) {
                             megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
                         } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
-                            // Dual-lock: la mitad community persistida por guardarFosilSRA.
+                            // Dual-lock: the community half persisted by guardarFosilSRA.
                             this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
                             Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
                             if (myP != null) {
@@ -6787,8 +6615,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 myP.setSra_unlock(this.local_sra_unlock);
                             }
                         } else if (part.startsWith("COMMITMENTS@")) {
-                            // Recovery: repoblar los K del ring para que
-                            // initHandStateChain reconstruya el MISMO H_0 que la mano original.
+                            // Recovery: repopulate the ring's K values so initHandStateChain
+                            // rebuilds the SAME H_0 as the original hand.
                             this.peer_k_pocket.clear();
                             this.peer_k_community.clear();
                             parseCommitments(part.substring("COMMITMENTS@".length()));
@@ -6838,7 +6666,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     String[] cards = pair[1].split(",");
                                     Player botPlayer = nick2player.get(bNick);
                                     if (botPlayer != null) {
-                                        // BOTVISUAL almacena getCartaComoEntero() (rango 1..52) — no sumar +1 al restaurar.
+                                        // BOTVISUAL stores getCartaComoEntero() (range 1..52) — don't add +1 when restoring.
                                         botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]));
                                         botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]));
 
@@ -6847,11 +6675,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                             }
                         } else if (part.startsWith("POCKETS@")) {
-                            // Repoblar single_locked_pocket_cards del cliente: imprescindible
-                            // para que recibirCartasResistencia pueda descifrar el residuo
-                            // single-locked con el sraKey que llega en POTCARDS y verificar
-                            // contra el plaintext del host. Sin esto el cliente cae al
-                            // fallback de espectador y acepta plaintext sin verificación SRA.
+                            // Repopulate the client's single_locked_pocket_cards: required for
+                            // recibirCartasResistencia to decrypt the single-locked residue with
+                            // the sraKey arriving in POTCARDS and verify it against the host's
+                            // plaintext. Without this the client falls back to the spectator path
+                            // and accepts plaintext without SRA verification.
                             String[] entries = part.substring("POCKETS@".length()).split(",");
                             for (String entry : entries) {
                                 if (entry.isEmpty()) {
@@ -6889,8 +6717,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     if (orderMap != null && megaPacket != null) {
                         this.local_mega_packet = megaPacket;
-                        // Recover: el barajado se verifico pre-crash y el mazo viene del fosil propio
-                        // (confiable) -> marco verificado para el receipt (no falsa alarma de "no verificado").
+                        // Recover: the shuffle was verified pre-crash and the deck comes from our
+                        // own (trusted) fossil -> mark it verified for the receipt (no false "unverified" alarm).
                         this.dual_lock_verified_megapacket = megaPacket;
                         String[] orderTokens = orderMap.split(",");
                         java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
@@ -6901,26 +6729,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         this.active_crypto_ring = ringList.toArray(new String[0]);
 
-                        // Las hole cards del jugador local NO se destapan aqui:
-                        // se quedan reseteadas (resetearCarta(false) en NUEVA_MANO,
-                        // igual que las de los remotos) para que repartir() las
-                        // revele al aterrizar el vuelo de reparto, idéntico a una
-                        // mano normal. local_original_cards ya lleva su valor para
-                        // el onLand del vuelo. Destaparlas aqui las mostraba boca
-                        // arriba antes de la animacion (solo afectaba al local).
+                        // The local player's hole cards are NOT revealed here: they stay reset
+                        // (resetearCarta(false) in NUEVA_MANO, same as remote players') so
+                        // repartir() reveals them when the deal animation lands, identical to a
+                        // normal hand — revealing them here would show them face-up before the
+                        // animation. local_original_cards already carries the value for the flight's onLand.
 
-                        // ZERO-TRUST RECOVER: el HAND_ID ancla la cadena H_t y es un dato de
-                        // INTEGRIDAD. El cliente lo persistio en su PROPIA SQLite durante la mano
-                        // viva (sqlUpdateHandHandId; el valor vino del MEGAPACKET del host, no del
-                        // host en recover). Se restaura del fosil LOCAL, NO del map que sirve el
-                        // host: un host hostil podia OMITIR hand_id_b64 del map para dejar la cadena
-                        // null y, con la cadena null, la verificacion de la accion propia reproducida
-                        // (firma + binding en siguienteAccionLocalRecuperada) se saltaba y la
-                        // decision/importe que sirve el host se aplicaba en crudo -> forja de la
-                        // accion de la victima. Con el HAND_ID propio, una mano identity SIEMPRE
-                        // reconstruye la cadena y un record ausente/"*" se sintetiza como FOLD. Una
-                        // mano legacy (sin identidad) no tiene HAND_ID persistido -> cadena null
-                        // legitima (modo degradado, igual que antes).
+                        // Zero-trust recover: HAND_ID anchors the H_t chain and is an integrity
+                        // value. The client persisted it in its OWN SQLite during the live hand
+                        // (sqlUpdateHandHandId; the value came from the host's MEGAPACKET, not
+                        // from the host during recovery). It's restored from the LOCAL fossil,
+                        // NOT from the map the host serves: a hostile host could omit
+                        // hand_id_b64 from the map to leave the chain null, and with a null
+                        // chain the verification of our own replayed action (signature + binding
+                        // in siguienteAccionLocalRecuperada) would be skipped, letting whatever
+                        // decision/amount the host serves apply raw — forging the victim's
+                        // action. With our own HAND_ID, an identity hand always rebuilds the
+                        // chain and a missing/"*" record is synthesized as FOLD. A legacy hand
+                        // (no identity) has no persisted HAND_ID -> a null chain there is legitimate (degraded mode).
                         try {
                             String localHandIdB64 = sqlRecoverLocalHandIdB64();
                             if (localHandIdB64 != null) {
@@ -6938,32 +6764,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (Exception e) {
             }
 
-            // Simetrico con la decision del host (rama partida_local de arriba,
-            // checks de map.get("hand_end") y del fosil): solo se intenta replay
-            // de la mano interrumpida cuando hand_end existe explicitamente y
-            // vale 0 (mano-en-curso real) Y el fosil entrega un megapacket
-            // utilizable. Si la mano fue rolled-back tras MISDEAL, hand_end
-            // viene null o sin row, y el fosil queda vacio: ahi NO hay nada
-            // que replay, hay que arrancar mano fresh. Sin este branch el
-            // cliente quedaba esperando datos de una mano inexistente mientras
-            // el host ya habia llamado sqlNewHand() -> cuelgue indefinido y
-            // stack 0 en GUI (de ahi el "ESPECTADOR no calentando").
+            // Symmetric with the host's decision (partida_local branch above, the
+            // map.get("hand_end") and fossil checks): only attempt to replay the interrupted
+            // hand when hand_end is explicitly present and 0 (genuinely in progress) AND the
+            // fossil yields a usable megapacket. If the hand was rolled back after a MISDEAL,
+            // hand_end comes back null/rowless and the fossil is empty — there's nothing to
+            // replay, so start a fresh hand instead. Without this branch the client would wait
+            // forever for data on a hand that no longer exists while the host had already
+            // called sqlNewHand().
             //
-            // Joiner pasivo (humano nuevo que entra antes de un recover de timba):
-            // no tiene fosil local (su SQLite es virgen) -> local_mega_packet/
-            // active_crypto_ring quedan null -> cae en saltar=true. Pero si el
-            // host SI esta replayando (hand_end == 0L en el map), el joiner debe
-            // observar pasivamente: game_recovered=1 codifica "no replay local
-            // mio, pero el host esta jugando una mano recuperada en la que yo
-            // no estaba". El observer queda calentando (su setSpectator se hizo
-            // arriba en el loop balance) y el rescate posterior en NUEVA_MANO
-            // se gatea con game_recovered==0 para no sacarlo del calentando.
-            // Sin esto, el unsetSpectator y la rama !isCalentando del repartir
-            // forzaban al joiner a llamar recibirMisCartas esperando POCKET_CARDS
-            // que el host no envia para manos en game_recovered=1 -> cuelgue
-            // indefinido del hilo principal y bloqueo global tras la mano
-            // recuperada (el host pide ACTION del joiner para la mano siguiente
-            // y el joiner sigue stuck en recibirMisCartas de la anterior).
+            // Passive joiner (a new human joining before a game recovery): has no local fossil
+            // (fresh SQLite) -> local_mega_packet/active_crypto_ring stay null -> falls into
+            // saltar=true. But if the host IS replaying (hand_end == 0L in the map), the joiner
+            // must passively observe: game_recovered=1 encodes "no local replay of mine, but
+            // the host is playing a recovered hand I wasn't part of". The observer stays
+            // warming up (its setSpectator was already set above in the balance loop), and the
+            // later rescue in NUEVA_MANO is gated on game_recovered==0 so it doesn't pull them
+            // out of warming-up prematurely — otherwise the joiner would be forced to call
+            // recibirMisCartas expecting a POCKET_CARDS the host never sends for
+            // game_recovered=1 hands, hanging the main thread and stalling the table after the
+            // recovered hand.
             boolean hostReplayingHand = map != null
                     && map.get("hand_end") != null
                     && (Long) map.get("hand_end") == 0L;
@@ -6975,28 +6795,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 saltar_primera_mano = true;
                 if (hostReplayingHand) {
                     this.game_recovered = 1;
-                    // Issue#9: el cliente local es observer pasivo de la mano
-                    // en curso (sin fosil propio porque no estaba en ella —
-                    // p.ej. dejo el juego limpio en una mano anterior y el
-                    // host le invita a rejoin mientras esta mid-hand de una
-                    // mano siguiente sin "wait for hand end"). En la rama del
-                    // host (cryptoRingList != null) este caso se marca calentando
-                    // via !inRing + stack>0 -> setSpectator. En el cliente
-                    // cryptoRingList es null (no hay fosil -> active_crypto_ring
-                    // null -> cryptoRingList null por el ternario de arriba), el
-                    // loop cae en el else que solo maneja !inBalance + stack>0.
-                    // Pero el local player SI esta in balance (su row de la
-                    // ultima mano cerrada anterior), asi que ese else lo
-                    // skippea -> spectator=false -> isActivo()=true.
-                    // Resultado visible: repartir() lo dealea con
-                    // local_original_cards={0,0} (init por defecto del byte[])
-                    // -> ambas hole cards iniciarConValorNumerico(1) -> AA del
-                    // mismo palo phantom; ademas el host no le manda accion
-                    // (lo tiene como spectator) pero la GUI del cliente cree
-                    // que juega. Espejamos aqui el calentando del host. El
-                    // rescate de NUEVA_MANO (gateado por !exit + isSpectator +
-                    // stack>0) le saca del calentando al arrancar la siguiente
-                    // mano, asi que juega normal sin pasos extra.
+                    // The local client is a passive observer of the in-progress hand (no fossil
+                    // of its own since it wasn't part of it — e.g. it left cleanly on a
+                    // previous hand and the host invites it to rejoin mid-hand of the next one
+                    // without "wait for hand end"). On the host's side (cryptoRingList != null)
+                    // this case gets marked warming-up via !inRing + stack>0 -> setSpectator.
+                    // On the client, cryptoRingList is null (no fossil -> active_crypto_ring
+                    // null), so the loop below falls into the else branch that only handles
+                    // !inBalance + stack>0 — but the local player IS in balance (its row from
+                    // the last closed hand), so that else skips it -> spectator=false ->
+                    // isActivo()=true. Without mirroring the host's warming-up state here,
+                    // repartir() would deal from local_original_cards={0,0} (the byte[]
+                    // default) -> both hole cards resolving to a phantom AA, while the host
+                    // never sends this player an action (it treats them as spectator) even
+                    // though their GUI thinks they're playing. NUEVA_MANO's rescue (gated on
+                    // !exit + isSpectator + stack>0) pulls them out of warming-up when the next
+                    // hand starts, so they play normally with no extra steps.
                     Player myPlayer = GameFrame.getInstance().getLocalPlayer();
                     if (myPlayer != null && !myPlayer.isExit() && !myPlayer.isSpectator()) {
                         myPlayer.setSpectator(Translator.translate("game.calentando"));
@@ -7008,12 +6822,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (map != null) {
-            // rs.getInt/getLong devuelven 0 cuando la columna SQL es NULL (no
-            // null) y map.put usa primitivos autoboxed por lo que !=null
-            // siempre es true. Sin estos guards extra, un recovery sobre SQL
-            // sin row (post-MISDEAL con la mano ya cerrada por
-            // rollbackAbortedHand) sobreescribia GameFrame.BUYIN/CIEGAS a 0
-            // -> players sin dinero ni blinds correctos.
+            // rs.getInt/getLong return 0 (not null) for a NULL SQL column, and map.put
+            // autoboxes primitives, so a plain !=null check is always true. Without these
+            // extra >0 guards, a recovery against a row-less SQL query (post-MISDEAL with
+            // the hand already closed by rollbackAbortedHand) would overwrite
+            // GameFrame.BUYIN/blinds with 0.
             int recoveredHandId = map.get("hand_id") != null ? (int) map.get("hand_id") : -1;
             this.sqlite_id_hand = recoveredHandId > 0 ? recoveredHandId : -1;
             int recoveredBuyin = map.get("buyin") != null ? (int) map.get("buyin") : 0;
@@ -7032,11 +6845,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.ciega_pequeña = recoveredSb;
             }
             double recoveredBb = map.get("bbval") != null ? (double) map.get("bbval") : 0;
-            // La tabla hand solo guarda sbval; el SQL calcula bbval como sbval*2. Con
-            // una estructura personalizada la BB puede no ser 2*SB, así que se deriva
-            // del nivel correspondiente de la estructura activa (ya restaurada por
-            // applyRecoverSettings). Sin estructura, bigBlindForSmallBlind devuelve
-            // sb*2 -> idéntico al valor del SQL (timbas por defecto sin cambios).
+            // The hand table only stores sbval; the SQL query derives bbval as sbval*2. With a
+            // custom blind structure BB may not be 2*SB, so it's re-derived from the matching
+            // level of the active structure (already restored by applyRecoverSettings). Without
+            // a custom structure, bigBlindForSmallBlind just returns sb*2 — same as the SQL value.
             if (recoveredSb > 0f && GameFrame.ACTIVE_BLIND_STRUCTURE != null) {
                 recoveredBb = GameFrame.bigBlindForSmallBlind(recoveredSb);
             }
@@ -7051,9 +6863,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (map.get("balance") != null) {
                 String[] bal = ((String) map.get("balance")).split("@");
                 java.util.ArrayList<String> nicksRec = new java.util.ArrayList<>();
-                // ANTI robo de fichas en RECOVER: mi saldo VERAZ está persistido en MI PROPIO SQLite (cada
-                // peer guarda balance por mano). El balance del host es solo una PISTA; abajo se PREFIERE el
-                // local y se detecta si el host lo manipula (chip theft en la recuperación).
+                // Anti chip-theft on RECOVER: my true balance lives in MY OWN SQLite (each peer
+                // persists its balance per hand). The host's balance is just a hint — the local
+                // value is preferred below, and a mismatch flags host tampering.
                 final java.util.Map<String, double[]> localBal = readLocalRecoverBalances();
                 for (String d : bal) {
                     if (d.isEmpty()) {
@@ -7066,9 +6878,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         double hostStack = Double.parseDouble(p[1]);
                         int hostBuyin = Integer.parseInt(p[2]);
                         int hostRebuy = (p.length > 3) ? Integer.parseInt(p[3]) : 0;
-                        // Preferir el saldo LOCAL (mi verdad); el del host SOLO si no tengo dato local (join
-                        // nuevo, etc.). Si el host difiere de lo que YO persistí -> está manipulando el ledger
-                        // en la recuperación -> uso el local + aviso (sospechoso host, rojo, queda registrado).
+                        // Prefer the LOCAL balance (my own truth); fall back to the host's only when
+                        // there's no local data (fresh join, etc). A mismatch means the host is
+                        // tampering with the ledger during recovery — use local + warn.
                         double stack = hostStack;
                         int buyin = hostBuyin;
                         int rebuy = hostRebuy;
@@ -7147,30 +6959,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.small_blind_nick = (String) map.get("sb");
             this.big_blind_nick = (String) map.get("bb");
 
-            // Calcular utg_nick localmente cuando hay datos de recovery utiles:
-            // cubre tanto el caso clasico (saltar=false, peer con replay completo)
-            // como el caso del joiner pasivo observer (saltar=true pero el host
-            // SI tiene una mano en curso en el map -> map.hand_end == 0L).
-            // En ambos casos dealer/sb/bb se setearon arriba desde el map de
-            // recovery y nicks_permutados contiene la lista completa de
-            // participantes; basta el calculo local desde bb_pos.
+            // Derive utg_nick locally whenever the recovery map has a usable dealer/sb/bb: covers
+            // both the classic case (saltar=false, full replay) and the passive-observer joiner
+            // (saltar=true but the host has a hand in progress, i.e. map.hand_end == 0L). The
+            // else branch (no in-progress hand in the map) is a genuine fresh start, where the
+            // host computes and broadcasts POSITIONS via setPositions and clients wait for it.
             //
-            // El else (no hay mano-en-curso en el map) es el fresh-start
-            // genuino donde el host calcula y broadcastea POSITIONS via
-            // setPositions y los clientes esperan a recibirlo.
-            //
-            // Antes este if se gateaba con !saltar_primera_mano, lo cual
-            // metia al joiner observer en la rama else -> recibirPosiciones
-            // -> timeout porque el host (en saltar=false) jamas envia
-            // POSITIONS en este punto. Sin utg_nick, la siguiente
-            // rondaApuestas iteraba infinitamente comparando nicks contra
-            // null hasta IndexOutOfBoundsException en getJugadores().get().
-            //
-            // No uso this.game_recovered como discriminador porque su
-            // asignacion final ocurre mas abajo (linea ~3296) y aqui aun no
-            // refleja el estado de recovery del peer. map.hand_end == 0L es
-            // el invariante real "hay una mano-en-curso en el snapshot de
-            // recovery" y esta accesible directamente.
+            // this.game_recovered isn't used as the discriminator here because it's only set
+            // further down and doesn't yet reflect this peer's recovery state at this point;
+            // map.hand_end == 0L is the real, directly available invariant for "the recovery
+            // snapshot has a hand in progress".
             boolean hostHasInProgressHand = (map != null
                     && map.get("hand_end") != null
                     && (Long) map.get("hand_end") == 0L);
@@ -7193,8 +6991,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } else {
                 setPositions();
-                // Posiciones ya rotadas y repintadas aquí: el finally de
-                // NUEVA_MANO NO debe volver a llamar setPositions (doble rotación).
+                // Positions are already rotated and repainted here: NUEVA_MANO's finally must
+                // not call setPositions again (would double-rotate).
                 this.recovery_positions_set = true;
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
                     jugador.refreshPos();
@@ -7211,10 +7009,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             Helpers.GUIRun(() -> {
-                // Apagado temporal mientras se recupera la mano. Va DENTRO del try (igual que los
-                // dos bloques del game over) para que el finally lo deshaga aunque reviente el
-                // repintado, el icono o el propio dialogo: un apagado suelto dejaria la mesa negra
-                // y el interruptor muerto.
+                // Temporary lights-off while the hand recovers. Kept inside the try (same
+                // pattern as the game-over blocks) so the finally always undoes it, even if
+                // the repaint, icon refresh or the dialog itself throws — an unmatched
+                // lights-off would leave the table dark with a dead switch.
                 try {
                     GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
                     GameFrame.getInstance().getTapete().repaint();
@@ -7234,16 +7032,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 recuperarAccionesLocales();
             }
 
-            // sincronizando_mano debe activarse solo si TENGO acciones MIAS
-            // (o de bots locales) que replicar visualmente via
-            // siguienteAccionLocalRecuperada — esa es la unica ruta que
-            // cierra el dragon dialog cuando la queue se vacia. Antes el
-            // check era sobre tot_acciones_recuperadas (TODAS las acciones
-            // de TODOS los peers de la mano): si la mano tenia acciones de
-            // otros pero ninguna mia (caso clasico: me desconecte antes de
-            // actuar), sincronizando_mano quedaba latched y el dragon
-            // nunca se cerraba. Quien NO tiene acciones que replicar es un
-            // observador del replay y no necesita el dialog.
+            // sincronizando_mano must only activate when there are LOCAL actions (mine or a
+            // local bot's) to replay via siguienteAccionLocalRecuperada — that's the only path
+            // that closes the dragon dialog once the queue drains. A peer with no local actions
+            // to replay is just a replay observer and doesn't need the dialog.
             if (!this.acciones_locales_recuperadas.isEmpty()) {
                 this.sincronizando_mano = true;
             } else {
@@ -7291,12 +7083,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.game_recovered = 1;
             GameFrame.getInstance().refresh();
         }
-        // NO else { game_recovered = 0 }: NUEVA_MANO ya resetea
-        // game_recovered=0 al inicio (linea ~4172). Si la rama "joiner
-        // pasivo observer" mas arriba (saltar=true + hostReplayingHand)
-        // ya seteo game_recovered=1, ese valor debe sobrevivir. Un else
-        // que lo bajaba a 0 piso ese fix y reintroducia el bug del joiner
-        // colgado en recibirMisCartas durante la mano recuperada.
+        // No else { game_recovered = 0 } here: NUEVA_MANO already resets game_recovered=0 at
+        // its start. If the passive-observer joiner branch above already set it to 1, that
+        // value must survive — resetting it here would re-hang the joiner in
+        // recibirMisCartas during the recovered hand.
     }
 
     private void cancelarManoYDevolverApuestas(String motivo) {
@@ -7319,10 +7109,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (isFin_de_la_transmision()) {
             return;
         }
-        // Antes del refund: los caminos con dinero ya liquidado en esta mano
-        // (settle de CARA-A del run-it-twice) leen este flag al volver del
-        // reparto abortado para revertir su parte. volatile + mismo hilo (host)
-        // o publicación vía el breakout de la cola (cliente) lo hacen visible.
+        // Set before the refund: code paths that already settled money for this hand (the
+        // face-A settle of a run-it-twice) read this flag when unwinding from the aborted deal
+        // to revert their part. volatile + same thread (host) or the queue breakout (client)
+        // make it visible.
         this.mano_anulada = true;
         LOGGER.log(Level.WARNING, "MISDEAL triggered: {0}", motivo);
         // Defense in depth: if a recovery dragon was left open (e.g. a
@@ -7344,8 +7134,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         synchronized (getLock_contabilidad()) {
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
-                // getBote() es el total invertido por el jugador en la mano actual,
-                // sumando todas las streets.
+                // getBote() is the player's total invested in the current hand, all streets summed.
                 double refund = Helpers.doubleClean(jugador.getBote());
 
                 if (Helpers.doubleSecureCompare(refund, 0f) > 0) {
@@ -7361,16 +7150,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Note: bote_sobrante is kept intact by design (it belongs to the global game, not the aborted hand)
             this.bote = new HandPot(0f);
 
-            // Ultimo, y dentro del cerrojo: a partir de aqui el dinero de la mano esta de
-            // vuelta en los stacks y quien liquide despues no debe repartir nada.
+            // Last, and still inside the lock: from here on the hand's money is back in the
+            // stacks, so anything that settles afterwards must not distribute anything.
             this.apuestas_devueltas = true;
         }
 
-        // Sonido del aviso de mano anulada. Solo las violaciones de seguridad reales (zero_trust.*,
-        // el MISMO criterio que decide abortAndExit vs recover más abajo) merecen la sirena de
-        // peligro EN BUCLE, que se corta al cerrar el popup (finally). El resto de aborts
-        // (peer/protocolo, straddle, rit) son incidencias rutinarias: basta el sonido de
-        // advertencia, una vez. Cada uno gateado por su casilla ("Alerta de peligro" / "Advertencia").
+        // MISDEAL alert sound. Only genuine security violations (zero_trust.*, the SAME
+        // criterion that picks abortAndExit vs recover below) get the looping danger siren,
+        // cut when the popup closes (finally). Other aborts (peer/protocol, straddle, RIT) are
+        // routine — a single warning sound is enough. Each gated by its own settings checkbox.
         boolean peligro_grave = motivo != null && motivo.startsWith("zero_trust.");
         if (peligro_grave) {
             if (GameFrame.errorSonidoOn()) {
@@ -7380,49 +7168,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Audio.playWavResource("misc/warning.wav");
         }
 
-        // Coherent MISDEAL halt across host AND client.
+        // Coherent MISDEAL halt across host AND client. Both peers must: show the MISDEAL popup
+        // synchronously so the calling thread (Crupier thread on host, network reader thread on
+        // client) blocks until acknowledged, keeping that thread from advancing toward a fresh
+        // NUEVA_MANO/cascade while the modal is up; call rollbackAbortedHand() to undo the
+        // conta_mano++ and sqlNewHand insert that every peer already ran before the cascade
+        // failed (skipping this on the client would leave a hand row with end=0 in its local
+        // SQLite, so a future "Recover" would try to replay a hand that was never dealt); and
+        // call setFin_de_la_transmision(true) to halt the local run() loop, so every downstream
+        // isFin_de_la_transmision() check bails out cleanly.
         //
-        // Both peers MUST:
-        //   - Show the MISDEAL popup synchronously so the calling thread
-        //     (Crupier thread on host, network reader thread on client)
-        //     blocks until the user acknowledges. While the modal is up,
-        //     nothing in that thread's callstack can advance towards a
-        //     fresh NUEVA_MANO / cascade.
-        //   - rollbackAbortedHand(): undo the conta_mano++ (NUEVA_MANO:3460)
-        //     and the sqlNewHand insert (NUEVA_MANO:3547). Both ran on
-        //     EVERY peer before the cascade failed. If we skipped this on
-        //     the client, the client's local SQLite would still hold a
-        //     hand row with end=0, and a future "Recover" from its main
-        //     menu would try to replay a hand that was never really dealt.
-        //   - setFin_de_la_transmision(true): halt the local run() loop
-        //     before any new hand can start. ANY isFin_de_la_transmision()
-        //     check downstream (NUEVA_MANO, repartir, rondaApuestas, SRA
-        //     helpers, etc) bails out cleanly.
-        //
-        // Only the HOST then fires abortToRecover() which broadcasts
-        // SERVEREXITRECOVER and triggers finTransmision -> RESET_GAME ->
-        // Init.VENTANA_INICIO with the recover dialog auto-opened.
-        //
-        //
-        // Clients do NOT broadcast — they are driven by receiving the
-        // host's SERVEREXITRECOVER right after the reader thread resumes
-        // from the popup. TCP guarantees the command arrives in order;
-        // the reader thread blocking during the modal just delays delivery
-        // by however long the user takes to click OK, which is harmless.
-        //
+        // Only the HOST then fires abortToRecover(), which broadcasts SERVEREXITRECOVER and
+        // triggers finTransmision -> RESET_GAME -> Init.VENTANA_INICIO with the recover dialog
+        // auto-opened. Clients don't broadcast — they react to the host's SERVEREXITRECOVER once
+        // their reader thread resumes from the popup; TCP ordering means the reader thread
+        // blocking during the modal only delays delivery, harmlessly.
         try {
             Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
         } finally {
-            // La alerta de peligro suena en bucle hasta que el usuario cierra el popup.
+            // The danger alert loops until the user closes the popup.
             Audio.stopDangerAlertLoop();
         }
         rollbackAbortedHand();
         setFin_de_la_transmision(true);
 
         if (broadcast && GameFrame.getInstance().isPartida_local()) {
-            // Violacion zero-trust = ataque o protocolo roto: la timba acaba,
-            // BalanceScreen final, NO se vuelve a sala de espera. Cualquier otro
-            // motivo (peer caido normal, etc.) sigue por el flujo de recover.
+            // A zero-trust violation means an attack or broken protocol: the game ends with the
+            // final BalanceScreen, no return to the waiting room. Any other reason (normal peer
+            // drop, etc) goes through the recover flow instead.
             if (motivo != null && motivo.startsWith("zero_trust.")) {
                 abortAndExit();
             } else {
@@ -7440,27 +7213,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * starts fresh. See the inline comment for the transactional detail.
      */
     private void rollbackAbortedHand() {
-        // La mano abortada se MARCA como terminada (end != 0, pot=0) +
-        // balance row con stacks post-refund, en lugar de borrarse. Asi el
-        // recovery encuentra una "ultima mano cerrada limpiamente" igual
-        // que tras un exit con wait-for-hand-end. La siguiente NUEVA_MANO
-        // arranca fresh con calcularPosiciones limpio. conta_mano y
-        // sqlite_id_hand se preservan (la mano cuenta como completada).
-        // Sin este UPDATE+INSERT (DELETE original), recovery encontraba
-        // SQL vacio -> dealer_nick=null -> repartir() petaba +
-        // balance vacio -> players quedaban spectator sin cartas.
+        // Without this UPDATE+INSERT, recovery would find an empty SQL result -> dealer_nick
+        // null -> repartir() crashing, plus an empty balance -> players stuck as spectators
+        // with no cards.
         if (sqlite_id_hand > 0) {
-            // Cierre de la mano anulada (marcar end + pot=0 y escribir los
-            // balances post-refund) en UNA transaccion. Con autocommit por
-            // defecto cada statement se commiteaba por separado, asi que un
-            // crash entre el UPDATE hand y los INSERT de balance dejaba la mano
-            // marcada como cerrada pero con balances PARCIALES, y el recovery
-            // (que lee balances de MAX(hand.id)) hacia volver a algun jugador
-            // con stack/buyin por defecto -> auditor mismatch. Agrupar en
-            // transaccion garantiza todo-o-nada: si el proceso muere antes del
-            // commit, SQLite (journal clasico + synchronous=FULL) revierte y la
-            // mano queda SIN cerrar (estado consistente que el recovery sabe
-            // manejar), nunca a medias.
+            // Close the aborted hand (mark end + pot=0, write post-refund balances) in ONE
+            // transaction. With per-statement autocommit, a crash between the hand UPDATE and
+            // the balance INSERTs could leave the hand marked closed but with partial balances,
+            // and recovery (which reads balances off MAX(hand.id)) would bring some player back
+            // with a default stack/buyin -> auditor mismatch. Grouping into a transaction makes
+            // it all-or-nothing: a crash before commit rolls back to a still-open hand, a state
+            // recovery already knows how to handle.
             synchronized (GameFrame.SQL_LOCK) {
                 Connection con = null;
                 boolean prev_autocommit = true;
@@ -7505,8 +7268,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         }
-        // Refs in-memory: el Crupier sera destruido por RESET_GAME tras
-        // abortAndRecover/abortAndExit. Limpieza por higiene.
+        // In-memory refs: the Crupier will be destroyed by RESET_GAME after
+        // abortAndRecover/abortAndExit. Cleared for hygiene.
         this.local_mega_packet = null;
         this.active_crypto_ring = null;
         this.local_sra_unlock = null;
@@ -7523,9 +7286,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * finTransmision -> RESET_GAME shuts down the very thread pool we are on.
      */
     private void abortAndRecover() {
-        // Aborto controlado: host fuerza recover -> todos a sala de espera
-        // con dialog recover auto-abierto. Para MISDEAL no-zero-trust (peer
-        // caido, etc.) la timba puede continuar fresh.
+        // Controlled abort: the host forces recover -> everyone goes to the waiting room with
+        // the recover dialog auto-opened. For a non-zero-trust MISDEAL (peer drop, etc.) the
+        // game can continue fresh.
         LOGGER.log(Level.WARNING, "RECOVERY: abortAndRecover engaged — broadcasting SERVEREXITRECOVER and routing everyone to main menu with recover dialog");
         setForce_recover(true);
         Helpers.threadRun(() -> {
@@ -7544,13 +7307,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void abortAndExit() {
-        // Violacion zero-trust detectada: la timba acaba. Broadcast SERVEREXIT
-        // (no RECOVER) y finTransmision sin force_recover -> BalanceScreen
-        // final con el balance al momento del ultimo refund. No reconexion,
-        // no sala de espera. Fin punto.
+        // Zero-trust violation detected: the game ends. Broadcasts SERVEREXIT (not RECOVER) and
+        // calls finTransmision without force_recover, landing on the final BalanceScreen with
+        // the balance as of the last refund. No reconnection, no waiting room.
         LOGGER.log(Level.WARNING, "ZERO-TRUST: abortAndExit engaged — broadcasting SERVEREXIT and routing everyone to BalanceScreen (game over)");
-        // NO setForce_recover(true) — queremos que finTransmision detecte
-        // force_recover=false y vaya a la rama BalanceScreen.
+        // Deliberately NOT calling setForce_recover(true): finTransmision must see
+        // force_recover=false to take the BalanceScreen branch.
         Helpers.threadRun(() -> {
             try {
                 broadcastGAMECommandFromServer("SERVEREXIT", null, false);
@@ -7563,12 +7325,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void recibirPosiciones() {
 
-        // Guard de salida: si la transmisión termina (host caído, cliente
-        // saliendo por SERVEREXITRECOVER, etc.) salimos sin haber recibido
-        // POSITIONS. El caller (Crupier.run) ya tiene checks posteriores
-        // que abortan limpiamente al ver isFin_de_la_transmision. Sin este
-        // guard el cliente queda colgado para siempre esperando un
-        // comando que nunca va a llegar.
+        // Exit guard: if the transmission ends (host dropped, client leaving via
+        // SERVEREXITRECOVER, etc.) we return without having received POSITIONS. The caller
+        // (Crupier.run) already checks isFin_de_la_transmision afterwards and aborts cleanly.
+        // Without this guard the client would hang forever waiting for a command that will
+        // never arrive.
         boolean ok;
 
         long start_time = System.currentTimeMillis();
@@ -7674,14 +7435,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // La escalera de ciegas efectiva: la estructura personalizada activa o, en su
-    // ausencia, la escalera por defecto (1-2-3-5 x 10^n, de 0.1/0.2 hasta
-    // 2.000.000/4.000.000). Ambas rutas escalan y TOPAN igual, a traves de
-    // BlindStructure.nextLevel: al alcanzar el ultimo nivel la subida se detiene.
-    // Antes la ruta por defecto escalaba por decadas SIN TOPE (el array CIEGAS
-    // multiplicado por 10^j crecia indefinidamente), de modo que en timbas largas
-    // las ciegas seguian subiendo mas alla del ultimo nivel de la escalera y
-    // acababan en valores absurdos.
+    // The effective blind ladder: the active custom structure, or else the default ladder
+    // (1-2-3-5 x 10^n, from 0.1/0.2 up to 2,000,000/4,000,000). Both paths cap identically via
+    // BlindStructure.nextLevel, which stops increasing once the last level is reached.
     private static double[][] effectiveBlindStructure() {
         return GameFrame.ACTIVE_BLIND_STRUCTURE != null
                 ? GameFrame.ACTIVE_BLIND_STRUCTURE
@@ -7697,8 +7453,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         synchronized (lock_ciegas) {
             if (BlindStructure.nextLevel(effectiveBlindStructure(), this.ciega_pequeña) == null) {
-                // Escalera agotada (ultimo nivel alcanzado) o ciega actual fuera de
-                // la escalera: no se sube mas y nunca se reanuncia.
+                // Ladder exhausted (last level reached) or the current blind is off the
+                // ladder: stop increasing, never re-announce.
                 return false;
             }
             if (GameFrame.BLIND_CAP > 0f && Helpers.doubleSecureCompare(simulateNextBlinds()[1], GameFrame.BLIND_CAP) > 0) {
@@ -7721,8 +7477,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         double[] next = BlindStructure.nextLevel(effectiveBlindStructure(), this.ciega_pequeña);
 
         if (next == null) {
-            // checkDoblarCiegas ya lo veta; defensa: nunca atascar ni anunciar una
-            // subida fantasma en el ultimo nivel de la escalera.
+            // checkDoblarCiegas already vetoes this; defensive guard against a phantom
+            // blind increase announcement at the last ladder level.
             LOGGER.log(Level.WARNING, "doblarCiegas sin nivel siguiente en la escalera (sb={0})", Helpers.doubleClean(this.ciega_pequeña));
             return;
         }
@@ -7746,22 +7502,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void readyForNextHand() {
-        // Limpieza entre manos del cache de pocket cards y de la cola de comandos
-        // pendientes. La cola tiene que limpiarse bajo su propio monitor porque
-        // el thread del Participant puede estar polleando entradas al mismo
-        // tiempo (sync sobre received_commands en cada acceso). Sin synchronized
-        // aquí podía aparecer ConcurrentModificationException o mensajes legítimos
-        // de la mano siguiente quedarse en estado inconsistente.
+        // Between-hands cleanup of the pocket-card cache and the pending command queue. The
+        // queue must be cleared under its own monitor because the Participant thread may be
+        // polling it concurrently (received_commands is synchronized on every access);
+        // otherwise this could throw ConcurrentModificationException or leave next-hand
+        // messages in an inconsistent state.
         single_locked_pocket_cards.clear();
 
         synchronized (received_commands) {
             received_commands.clear();
         }
 
-        // Rabbit-fee window: la mano que termina puede seguir aceptando rabbits
-        // legitimos hasta que su bote_sobrante se doble en el bote de la siguiente
-        // (NUEVA_MANO :8555). Guardamos su id ANTES de anular current_hand_id (que
-        // ocurre aqui, antes de la barrera HAND_READY) para cubrir ese hueco.
+        // Rabbit-fee window: the hand that's ending can still accept legitimate rabbit requests
+        // until its bote_sobrante gets folded into the next hand's pot. Save its id BEFORE
+        // clearing current_hand_id (which happens next, before the HAND_READY barrier) to cover
+        // that gap.
         this.rabbit_fee_window_hand_id = this.current_hand_id;
 
         // Identity: the per-hand chain belongs to the hand that just ended. The
@@ -7783,27 +7538,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_hand_seed = jvm_entropy;
 
         if (GameFrame.getInstance().isPartida_local()) {
-            // Espera a que todos los humanos conectados envíen HAND_READY. Deadline de PROGRESO
-            // PAUSE-AWARE (HAND_READY_PROGRESS_TIMEOUT_MS): antes NO había timeout y un peer que contesta
-            // PING pero no manda HAND_READY congelaba el arranque de la mano para SIEMPRE. Ahora, si un peer
-            // retiene HAND_READY con la timba EN MARCHA más allá del tope, se le expulsa y la mesa sigue. El
-            // reloj NO corre mientras la timba está PAUSADA (un peer que calla porque el juego está en pausa
-            // nunca se expulsa) y el tope es enorme, así que un cliente simplemente lento tampoco. Un peer
-            // caído de verdad sale por isExit() (socket muerto), no por este deadline.
+            // Wait for every connected human to send HAND_READY, with a pause-aware progress
+            // deadline (HAND_READY_PROGRESS_TIMEOUT_MS): a peer that answers PING but withholds
+            // HAND_READY while the game is running gets expelled once the deadline passes, and
+            // the table continues. The clock doesn't run while the game is paused (so a
+            // legitimately quiet peer is never expelled) and the cap is generous, so a merely
+            // slow client isn't either. A genuinely dropped peer leaves via isExit() (dead
+            // socket), not this deadline.
             //
-            // Se espera a TODOS los humanos no exitados, incluidos joiners pasivos
-            // (calentando) y espectadores (bust). Aunque no participen de la
-            // cascada SRA ni de la cadena de hash, su Crupier sigue corriendo
-            // NUEVA_MANO y la rama cliente de este mismo readyForNextHand envia
-            // HAND_READY incondicionalmente, asi que el HAND_READY llega siempre.
-            // No filtrarlos garantiza que el host nunca arranque la mano siguiente
-            // antes de que un peer pasivo haya cerrado su mano previa.
-            // La comprobación de "todos listos" va DENTRO del synchronized: si
-            // quedara fuera, un HAND_READY podía llegar (setNew_hand_ready +
-            // notifyAll) justo entre el chequeo y el wait y se perdía la
-            // notificación, durmiendo el NEW_HAND_READY_WAIT completo (~1s) aunque
-            // el peer ya estuviera listo. La expulsión al vencer el deadline se hace FUERA del synchronized
-            // (markExitAndNotify anida otros monitores; se evita anidarlos bajo lock_nueva_mano).
+            // We wait for ALL non-exited humans, including passive joiners (warming up) and
+            // busted spectators: even though they don't take part in the SRA cascade or the
+            // hash chain, their Crupier still runs NUEVA_MANO and the client branch below sends
+            // HAND_READY unconditionally, so it always arrives. Not filtering them out
+            // guarantees the host never starts the next hand before a passive peer has closed
+            // its previous one.
+            //
+            // The "everyone ready" check runs INSIDE the synchronized block: outside it, a
+            // HAND_READY notification could land between the check and the wait and be missed,
+            // sleeping the full NEW_HAND_READY_WAIT (~1s) even though the peer was already
+            // ready. Expulsion on deadline happens OUTSIDE the synchronized block, since
+            // markExitAndNotify nests other monitors that must not nest under lock_nueva_mano.
             boolean allReady = false;
             while (!allReady && !isFin_de_la_transmision()) {
                 Participant expel = null;
@@ -7814,16 +7568,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         boolean paused = false;
                         boolean someTimeout = false;
                         try {
-                            // Congela el deadline mientras la timba esté PAUSADA o haya CUALQUIER peer en
-                            // timeout (reconexión). Un peer legítimo puede tardar en confirmar HAND_READY
-                            // porque está reconectando o rehaciendo un RECOVER, no por retener nada.
+                            // Freeze the deadline while the game is PAUSED or ANY peer is in a
+                            // reconnect timeout. A legitimate peer can take a while to confirm
+                            // HAND_READY while reconnecting or replaying a RECOVER — that's not
+                            // withholding.
                             paused = GameFrame.getInstance().isTimba_pausada();
                             someTimeout = isSomePlayerTimeout();
                         } catch (Exception ignored) {
                         }
-                        // La pausa a proposito congela indefinidamente (y empuja el techo, para que no
-                        // cuente hacia el). La reconexion congela solo hasta el techo: sin el, un peer que
-                        // reconecta en bucle mantendria el deadline reiniciado sin que venza nunca.
+                        // A deliberate pause freezes indefinitely (and pushes the hard cap so it
+                        // doesn't count against it). A reconnect only freezes up to the hard cap:
+                        // otherwise a peer reconnecting in a loop would keep resetting the
+                        // deadline and it would never expire.
                         if (paused) {
                             deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
                             hardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
@@ -7845,7 +7601,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         long remaining = deadlineMs - System.currentTimeMillis();
                         if (remaining <= 0) {
-                            expel = stalling; // se expulsa FUERA del lock
+                            expel = stalling; // expelled OUTSIDE the lock
                             break;
                         }
                         try {
@@ -7864,17 +7620,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         expel.socketClose();
                     } catch (Exception ignored) {
                     }
-                    // El outer while re-entra: el expulsado ya cuenta como exit y se re-evalúa el resto.
+                    // The outer while loop re-enters: the expelled peer now counts as exited and
+                    // the rest are re-evaluated.
                 }
             }
 
-            // Host ordena a todos que pueden empezar a procesar la cascada SRA.
+            // Host tells everyone they can start processing the SRA cascade.
             broadcastGAMECommandFromServer("START_SRA_CASCADE", null, true);
 
         } else {
-            // Cliente avisa de que está listo para la mano actual y espera la
-            // señal del host SIN timeout. Si el host se cae, isFin_de_la_transmision
-            // o el socket reader lo detectarán por su cuenta.
+            // Client announces it's ready for the current hand and waits for the host's signal
+            // with NO timeout. If the host drops, isFin_de_la_transmision or the socket reader
+            // will detect it on their own.
             this.sendGAMECommandToServer("HAND_READY#" + String.valueOf(this.conta_mano + 1));
 
             boolean serverCommitted = false;
@@ -7897,9 +7654,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!serverCommitted && !isFin_de_la_transmision()) {
-                    // Este bucle no llama a checkPause (master tampoco, y no se toca), asi
-                    // que la pausa se mira a mano para no contarla como mesa parada: aqui,
-                    // que es entre manos, es justo cuando la gente pausa.
+                    // This loop doesn't call checkPause (neither does the host side, deliberately),
+                    // so pause is checked manually to avoid counting it as a stalled table — this
+                    // is between hands, exactly when people tend to pause.
                     if (GameFrame.getInstance().isTimba_pausada()) {
                         espera_inicio = System.currentTimeMillis();
                     }
@@ -7921,17 +7678,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             synchronized (lock_rabbit) {
 
-                rabbit_players.put(nick, true); // Lo ponemos en PENDING (para que el server pueda llevar la cuenta de
-                // todos los que fueron procesados).
+                rabbit_players.put(nick, true); // Marked PENDING so the server can track who's been processed.
                 try {
 
-                    // La tarifa se decide con el numero que viaja en el wire, que lo elige el
-                    // solicitante. Se probo a que cada peer llevara su propia cuenta para que un
-                    // cliente modificado no se regalara el precio, y era PEOR: quien entra o se
-                    // recupera con la partida ya empezada arranca su cuenta a cero, cobra una
-                    // tarifa distinta al resto y desde ahi el dinero y el consenso de cierre
-                    // divergen cada mano. El numero del wire es el mismo para todos pase lo que
-                    // pase, que es lo que de verdad importa aqui.
+                    // The fee is decided by the counter carried on the wire, chosen by the
+                    // requester. Having each peer keep its own counter (so a modified client
+                    // couldn't discount its own fee) was tried and was worse: a peer joining or
+                    // recovering mid-game starts its counter at zero, charges a different fee
+                    // than everyone else, and money/close-consensus diverge every hand from
+                    // there. The wire number is identical for everyone regardless, which is
+                    // what actually matters here.
 
                     if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
                         destaparRabbitCards();
@@ -7972,10 +7728,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         double coste_rabbit = 0;
 
                         synchronized (getLock_contabilidad()) {
-                            // El stack se lee DENTRO del lock, como el gemelo del misdeal: leerlo
-                            // fuera y escribirlo dentro abre una ventana en la que el showdown
-                            // paga las ganancias y esta resta las PISA con el valor viejo, que se
-                            // lleva por delante el bote que el jugador acaba de cobrar.
+                            // The stack is read INSIDE the lock, same pattern as the misdeal path:
+                            // reading it outside and writing inside would open a window where the
+                            // showdown pays out winnings and this subtraction overwrites the
+                            // player's stack with the stale value, wiping out the pot they just won.
                             double stack = jugador.getStack();
 
                             if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit > 1) {
@@ -8011,7 +7767,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 + " (" + Helpers.money2String(coste_rabbit) + ")");
 
                         if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                            // Si es una petición local calculamos mejor mano hipotética
+                            // For a local request, compute the best hypothetical hand.
                             ArrayList<Card> cartas = new ArrayList<>();
 
                             for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
@@ -8048,27 +7804,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         }
 
-                        // Avisamos al server o al resto de jugadores si procede
+                        // Notify the server or the other players, as applicable.
                         String comando;
                         try {
-                            // Adjuntamos el HAND_ID de la mano en curso: los receptores
-                            // aplican el fee/revelado si la rabbit es de SU mano actual
-                            // (no del transitorio show_time), lo que hace el cobro
-                            // determinista entre peers y elimina el DIVERGENT falso.
-                            // "*" solo en el borde de current_hand_id nulo (los
-                            // receptores caen entonces al guard show_time de siempre).
+                            // Attach the current hand's HAND_ID: recipients only apply the
+                            // fee/reveal if the rabbit request is for THEIR current hand (not the
+                            // transient show_time), making the charge deterministic across peers
+                            // and eliminating false DIVERGENT flags. "*" is only used at the edge
+                            // case of a null current_hand_id, where recipients fall back to the
+                            // usual show_time guard.
                             String handIdField = (this.current_hand_id != null)
                                     ? Base64.getEncoder().encodeToString(this.current_hand_id) : "*";
                             comando = "RABBIT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
                                     + String.valueOf(conta_rabbit) + "#" + handIdField;
 
                             if (GameFrame.getInstance().isPartida_local()) {
-                                // Si somos el sevidor re-enviamos el comando a todo el mundo.
+                                // If we're the server, relay the command to everyone.
                                 broadcastGAMECommandFromServer(comando, nick);
 
                             } else if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                                // Si somos cliente enviamos comando al server en caso de que fuéramos nosotros
-                                // los que pedimos las RABIT.
+                                // If we're a client and it was us who requested the rabbit,
+                                // send the command to the server.
                                 sendGAMECommandToServer(comando);
                             }
 
@@ -8078,19 +7834,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                 } catch (Exception ex) {
-                    // El PENDING de abajo lo suelta el finally pase lo que pase: si un fallo
-                    // por el medio dejaba el nick colgado, quien espera a que se procesen las
-                    // peticiones lo hacia sin tope y la mano no avanzaba nunca.
+                    // The finally below always clears the PENDING mark: if a failure in between
+                    // left the nick stuck, anyone waiting for requests to finish processing
+                    // would wait unbounded and the hand would never advance.
                     LOGGER.log(Level.SEVERE, "Rabbit hunting request failed for " + nick, ex);
                 } finally {
-                    rabbit_players.put(nick, false); // Petición Rabbit procesada
+                    rabbit_players.put(nick, false); // Rabbit request processed
 
                     lock_rabbit.notifyAll();
 
-                    // Despertamos al bucle de pausaConBarra (dormido en
-                    // lock_pausa_barra.wait) para que reanude la cuenta atras en cuanto
-                    // el rabbit deja de estar en curso, sin esperar el timeout de 1s.
-                    // Orden de locks seguro: pausaConBarra nunca toma lock_rabbit.
+                    // Wake the pausaConBarra loop (sleeping in lock_pausa_barra.wait) so it
+                    // resumes the countdown as soon as the rabbit request finishes, instead of
+                    // waiting out its 1s timeout. Safe lock order: pausaConBarra never takes
+                    // lock_rabbit.
                     synchronized (lock_pausa_barra) {
                         lock_pausa_barra.notifyAll();
                     }
@@ -8106,14 +7862,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void IWTSTH_HANDLER(String iwtsther) {
-        // Congela la cuenta atras de showdown en ESTA maquina en el instante en que
-        // se entera de la peticion, ANTES de que el worker de abajo se programe y
-        // tome lock_iwtsth. Sin esto, el host (cuando pide un cliente remoto) y los
-        // clientes no-solicitantes seguian drenando tiempo_pausa durante el
-        // round-trip y podian cerrar show_time a mitad. El solicitante ya lo puso en
-        // IWTSTH_REQUEST; volverlo a poner es idempotente. El guard !iwtsth evita
-        // congelar por un IWTSTH ya resuelto en esta mano (se soltaria solo por el
-        // timeout corto del bucle de pausa, pero mejor no encenderlo).
+        // Freeze the showdown countdown on THIS machine the instant it learns of the request,
+        // BEFORE the worker below gets scheduled and takes lock_iwtsth. Without this, the host
+        // (when a remote client requests) and non-requesting clients kept draining tiempo_pausa
+        // during the round-trip and could close show_time mid-flight. The requester already set
+        // this in IWTSTH_REQUEST; setting it again is idempotent. The !iwtsth guard avoids
+        // freezing for an IWTSTH already resolved this hand.
         if (!iwtsth) {
             this.iwtsthing_request = true;
         }
@@ -8188,10 +7942,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void IWTSTH_SHOW(String iwtsther, boolean authorized) {
-        // NOTA: ya no gateamos con iwtsthing. El guard original silenciaba el flujo si iwtsthing era false
-        // (p.ej. cuando IWTSTH_HANDLER no llegó a correr en un candidato remoto por race con show_time/pausaConBarra).
-        // El caller (IWTSTH_HANDLER del host tras autorizar, o WaitingRoomFrame.case "IWTSTHSHOW" en clientes) ya
-        // ha decidido que esto debe ejecutarse — no debe depender de un flag que pudo no setearse por timing.
+        // No longer gated on iwtsthing: the caller (the host's IWTSTH_HANDLER after
+        // authorizing, or WaitingRoomFrame's "IWTSTHSHOW" case on clients) has already decided
+        // this must run, so it must not depend on a flag that might not have been set in time.
         Helpers.threadRun(() -> {
             synchronized (lock_iwtsth) {
                 {
@@ -8205,28 +7958,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
 
                         if (authorized) {
-                            // El servidor no puede descifrar las cartas de los remotos (no tiene sus llaves SRA),
-                            // así que solo autoriza la petición y cada cliente confiesa sus propias cartas.
+                            // The server can't decrypt remote clients' cards (it doesn't hold their
+                            // SRA keys), so it only authorizes the request and each client confesses
+                            // its own cards.
 
-                            // A) Local Player: si soy candidato (perdedor que no ha mostrado en el showdown) confieso.
-                            // NOTAS:
-                            //   - NO chequeamos isBoton_mostrar / isBotonMostrarActivado: esos flags reflejan el
-                            //     estado del botón "Mostrar" voluntario y dependen de que IWTSTH_HANDLER haya
-                            //     deshabilitado el botón (race con timing).
-                            //   - NO chequeamos getHoleCard1().isTapada(): el LocalPlayer SIEMPRE ve sus propias
-                            //     cartas (destapar() se llama en el reparto, línea 4320, y Card.tapar() nunca se
-                            //     invoca en el código), así que isTapada() es false en el propio jugador desde el
-                            //     reparto. Ese check es la perspectiva externa (otros viendo al candidato), no la
-                            //     del propio jugador, y si lo dejamos aquí el SHOWCARDS NUNCA se envía.
-                            //   - isMuestra() distingue "auto-show en showdown" (true, no hay que confesar nada)
-                            //     vs "auto-muck/IWTSTH candidate" (false, hay que confesar).
+                            // A) Local player: if I'm a candidate (a loser who hasn't shown at
+                            // showdown), confess.
+                            // Notes:
+                            //   - NOT gated on isBoton_mostrar/isBotonMostrarActivado: those flags
+                            //     track the voluntary "Show" button state and depend on
+                            //     IWTSTH_HANDLER having disabled the button (timing race).
+                            //   - NOT gated on getHoleCard1().isTapada(): the LocalPlayer always sees
+                            //     its own cards (destapar() runs at deal time and Card.tapar() is
+                            //     never invoked), so isTapada() is false for one's own player from
+                            //     the deal onward. That flag reflects the external viewpoint (others
+                            //     looking at the candidate), not the player's own — gating on it here
+                            //     would mean SHOWCARDS never gets sent.
+                            //   - isMuestra() distinguishes "auto-show at showdown" (true, nothing to
+                            //     confess) from "auto-muck / IWTSTH candidate" (false, must confess).
                             LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
                             if (local.isLoser() && !local.isMuestra()) {
                                 showAndBroadcastPlayerCards(local.getNickname());
-                                // Marcamos al jugador como "ya mostrado" tras la confesión forzada del IWTSTH.
-                                // Sin esto, el cleanup de abajo vería isBoton_mostrar()=true && !isBotonMostrarActivado()
-                                // && !isMuestra() y re-habilitaría el botón "Mostrar" voluntario, lo cual no tiene
-                                // sentido — las cartas YA se mostraron forzosamente.
+                                // Mark the player as "already shown" after the forced IWTSTH
+                                // confession. Without this, the cleanup below would see
+                                // isBoton_mostrar()=true && !isBotonMostrarActivado() && !isMuestra()
+                                // and re-enable the voluntary "Show" button, which makes no sense —
+                                // the cards were already forcibly shown.
                                 local.setMuestra(true);
                                 local.desactivar_boton_mostrar();
                             }
@@ -8261,16 +8018,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 // Cleanup UI:
-                // - Restauramos el botón de mostrar si procede
-                // - Restauramos la barra al estado correcto de pausaConBarra (no solo setIndeterminate(false),
-                //   que dejaría la barra con max=1/val=1 visualmente "al máximo, sin moverse").
+                // - Restore the show button if applicable.
+                // - Restore the progress bar to pausaConBarra's correct state (not just
+                //   setIndeterminate(false), which would leave it visually "maxed out, not moving").
                 Helpers.GUIRunAndWait(() -> {
                     if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
                         GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
                     }
                 });
-                // Restaurar la barra al valor restante de pausaConBarra para que el bucle pueda
-                // seguir decrementando correctamente sin verse "atascada al máximo".
+                // Restore the bar to pausaConBarra's remaining value so the loop can keep
+                // decrementing correctly instead of appearing "stuck at max".
                 setTiempo_pausa(getTiempoPausa());
 
                 // Release the lock to let the game proceed
@@ -8280,8 +8037,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     iwtsthing_request = false;
                     lock_iwtsth.notifyAll();
                 }
-                // Despertamos también al loop de pausaConBarra que está dormido en lock_pausa_barra.wait(1000)
-                // para que reanude su decremento sin tener que esperar el timeout.
+                // Also wake the pausaConBarra loop, sleeping in lock_pausa_barra.wait(1000), so it
+                // resumes decrementing without waiting out its timeout.
                 synchronized (lock_pausa_barra) {
                     lock_pausa_barra.notifyAll();
                 }
@@ -8338,7 +8095,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                     carta.destaparRabbit();
-                    // Hay que destapar la carta subyacente cuando el rabbit desaparece.
+                    // The underlying card must be revealed once the rabbit overlay is gone.
                     if (carta.getCartaComoEntero() >= 0) {
                         carta.destapar(false);
                     }
@@ -8357,8 +8114,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private boolean NUEVA_MANO() {
 
-        // Aún no se han repartido las comunitarias de esta mano: el overlay de coste
-        // de igualar permanece oculto hasta que repartir() las coloque.
+        // Community cards for this hand haven't been dealt yet: the call-cost overlay stays
+        // hidden until repartir() places them.
         this.community_cards_dealt = false;
 
         this.local_sra_lock = null;
@@ -8437,12 +8194,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // nicks_permutados tiene que reflejar a los jugadores recién integrados. Se añaden a la COLA,
-        // pero su orden relativo (cuando entran varios a la vez) NO lo decide el host ni el orden de
-        // getJugadores(): se deriva determinísticamente del anillo verificado vigente
-        // (SeatDraw.orderNewcomers), así que todos los peers calculan la misma cola y nadie puede
-        // sesgar el orden de las incorporaciones. La mesa puede parar y entrar/salir gente varias
-        // veces: cada lote se ordena contra el anillo de ese momento, siempre igual en todos los peers.
+        // nicks_permutados must reflect newly-joined players. They're appended to the queue, but
+        // their relative order (when several join at once) is NOT decided by the host or by
+        // getJugadores() order — it's derived deterministically from the current verified ring
+        // (SeatDraw.orderNewcomers), so every peer computes the same queue and no one can bias
+        // the join order.
         ArrayList<String> currentRing = new ArrayList<>(Arrays.asList(this.nicks_permutados));
         ArrayList<String> newcomers = new ArrayList<>();
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
@@ -8478,13 +8234,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         Bot.BOT_COMMUNITY_CARDS.makeEmpty();
-        // Cabecera de mano enmarcada (en vez de la antigua tira de asteriscos).
+        // Framed hand header (replaces the old asterisk-strip banner).
         GameFrame.getInstance().getRegistro().print(
                 Helpers.framedTitle(Translator.translate("game.mano_2") + " (" + this.conta_mano + ")"));
 
-        // Snapshot de los portadores ANTES de rotar, para animar el deslizamiento
-        // de las fichas (dealer/ciegas) del asiento anterior al nuevo. En la
-        // primera mano son null → las fichas salen del centro de la mesa.
+        // Snapshot the current seat holders BEFORE rotating, to animate the dealer/blind chips
+        // sliding from the previous seat to the new one. Null on the first hand, so the chips
+        // fly in from the center of the table.
         final String prev_dealer_nick = this.dealer_nick;
         final String prev_sb_nick = this.small_blind_nick;
         final String prev_bb_nick = this.big_blind_nick;
@@ -8508,8 +8264,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.cartas_resistencia = false;
         this.destapar_resistencia = false;
 
-        // El run-out terminó: vuelve a permitir cambiar RUN_IT_TWICE (lo congeló el
-        // arranque del run-out del all-in).
+        // The run-out has ended: allow toggling RUN_IT_TWICE again (locked while the all-in
+        // run-out was in progress).
         GameFrame.RUN_IT_TWICE_LOCKED = false;
 
         this.run_it_twice_side_b = false;
@@ -8524,16 +8280,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.rit_pot_board_tag = null;
 
-        // Defensivo: si una mano anterior abortó entre los dos boards con el SQL
-        // del showdown silenciado, lo reactivamos al empezar la mano nueva.
+        // Defensive: if a previous hand aborted between the two boards with showdown SQL
+        // silenced, re-enable it at the start of the new hand.
         this.rit_suppress_showdown_sql = false;
-        // Defensivo por el mismo motivo: tras un MISDEAL no hay más manos en
-        // este Crupier (fin_de_la_transmision queda izado), pero si alguna vez
-        // lo hubiera, una mano nueva nunca debe arrancar marcada como anulada.
+        // Same defensive reasoning: after a MISDEAL this Crupier has no more hands
+        // (fin_de_la_transmision stays raised), but a fresh hand should never start marked
+        // aborted regardless.
         this.mano_anulada = false;
-        // Mismo motivo defensivo que la linea de arriba: una mano nueva nunca arranca con
-        // el dinero de la anterior dado por devuelto. No necesita cerrojo (aqui no hay
-        // liquidacion en curso) y es volatil, como su companiera.
+        // Same reasoning as above: a fresh hand never starts with the previous hand's money
+        // already marked as refunded. No lock needed here (nothing is settling), volatile like
+        // its counterpart.
         this.apuestas_devueltas = false;
         this.ultimo_raise = 0f;
         this.partial_raise_cum = 0f;
@@ -8541,13 +8297,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.conta_bet = 0;
         this.straddle_posted = false;
         this.straddle_utg_nick = null;
-        // Se repone del fósil en la mano recuperada (recuperarDatosClavePartida, más
-        // abajo); en mano fresca queda false (la decisión la toma resolveVoluntaryStraddle).
+        // Restored from the fossil when recovering a hand (recuperarDatosClavePartida, below);
+        // stays false on a fresh hand (resolveVoluntaryStraddle makes that call).
         this.straddle_recovered_posted = false;
         this.straddle_local_cards_deferred = false;
-        // Straddle CIEGO criptográfico: estado por mano en TODOS los peers. Resetear el flag de
-        // decisión verificada es CRÍTICO — un flag rancio de una mano anterior habilitaría el
-        // desbloqueo diferido antes de que el straddler de esta mano se comprometa.
+        // Cryptographic BLIND straddle: per-hand state on every peer. Resetting the verified-
+        // decision flag is CRITICAL — a stale flag from a previous hand would allow the deferred
+        // unlock before this hand's straddler has committed.
         this.straddle_cards_pending = false;
         this.deferred_straddle_nick = null;
         this.deferred_straddle_slot = -1;
@@ -8569,10 +8325,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.bote_total = Math.max(0f, this.bote_sobrante);
 
-            // El remanente de la mano anterior (incluidos sus fees de rabbit) ya se
-            // ha doblado en el bote de esta -> cerramos su ventana de aceptacion de
-            // rabbit. A partir de aqui un rabbit de aquella mano llega tarde y se
-            // rechaza (aplicarlo ya descuadraria el bote_sobrante de esta).
+            // The previous hand's leftover pot (including its rabbit fees) has now been folded
+            // into this hand's pot, so its rabbit-acceptance window is closed. From here on a
+            // rabbit request for that hand arrives late and is rejected (applying it would
+            // unbalance this hand's bote_sobrante).
             this.rabbit_fee_window_hand_id = null;
         }
         this.bote = new HandPot(0f);
@@ -8585,19 +8341,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Recompra animada (con caja registradora) ANTES de aplicarla al modelo en
-        // el bucle de abajo: el contador rueda el stack hasta el valor final y la
-        // barrera deja terminar el conteo antes de que la mano avance. reComprar
-        // aterriza luego en ese mismo valor sin repetir el sonido (gate compartido).
+        // Animated rebuy (cash-register sound) BEFORE applying it to the model in the loop
+        // below: the counter rolls the stack up to its final value and the barrier waits for
+        // the count to finish before the hand advances. reComprar later lands on that same
+        // value without repeating the sound (shared gate).
         animateRebuyStacks(rebuys_about_to_apply);
 
-        // ANTES de que el bucle nuevaMano pinte las fichas: arma la SUPRESIÓN de las fichas
-        // grandes que van a rotar (y oculta las que quedaran visibles de la mano anterior).
-        // Así el setPosition -> refreshPositionChipIcons de nuevaMano NO llega a pintarlas
-        // (ni tampoco un zoomIcons diferido del tablero dinámico, que es lo que se colaba en
-        // la primera mano): la ficha grande NO se pinta, no hay nada que ocultar después; la
-        // viajera la trae. El vuelo lo dispara animateChipRotation() más abajo, y al aterrizar
-        // se levanta la supresión y se repone.
+        // BEFORE the nuevaMano loop paints the chips: arm the SUPPRESSION of the large chips
+        // that are about to rotate (and hide any still visible from the previous hand). This
+        // way nuevaMano's setPosition -> refreshPositionChipIcons never paints them (nor does a
+        // deferred zoomIcons from the dynamic board, which used to sneak in on the first hand):
+        // the large chip isn't painted, so there's nothing to hide afterward — the flying chip
+        // carries it. The flight is triggered by animateChipRotation() below, and landing lifts
+        // the suppression and restores it.
         prepareChipRotation(prev_dealer_nick, prev_sb_nick, prev_bb_nick);
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
@@ -8632,90 +8388,73 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 recuperarDatosClavePartida();
             } finally {
-                // Garantizar reset incluso si recuperarDatosClavePartida lanza
-                // o sale temprano por algún return interno. De lo contrario
-                // GameFrame.RECOVER queda stale y la siguiente partida fresh
-                // entra de nuevo en modo recovery — el host sin datos válidos
-                // por SQL y el cliente esperando RECOVERDATA del host (que no
-                // los va a enviar porque para él NO es recovery). Cuelgue
-                // garantizado. setRECOVER es idempotente.
+                // Guarantee the reset even if recuperarDatosClavePartida throws or returns
+                // early. Otherwise GameFrame.RECOVER stays stale and the next fresh game enters
+                // recovery mode again — the host has no valid SQL data and the client waits for
+                // RECOVERDATA the host never sends (it's not recovery for the host) -> guaranteed
+                // hang. setRECOVER is idempotent.
                 if (GameFrame.RECOVER) {
                     GameFrame.setRECOVER(false);
                 }
-                // Tras recovery con saltar=true (mano fresh, sin replay), el
-                // setPositions de NUEVA_MANO mas arriba se skipeo (estaba bajo
-                // !GameFrame.RECOVER y RECOVER aun era true en ese punto).
-                // Sin esta llamada explicita aqui, dealer/sb/bb quedan null
-                // y repartir() peta. En HOST calcularPosiciones asigna nicks
-                // desde nicks_permutados y broadcast POSITIONS; en CLIENTE
-                // recibirPosiciones lee POSITIONS de la queue del Crupier.
+                // After a recovery with saltar=true (fresh hand, no replay), NUEVA_MANO's
+                // setPositions call above was skipped (gated on !GameFrame.RECOVER, which was
+                // still true then). Without this explicit call here, dealer/sb/bb stay null and
+                // repartir() crashes. On the HOST, calcularPosiciones assigns nicks from
+                // nicks_permutados and broadcasts POSITIONS; on the CLIENT, recibirPosiciones
+                // reads POSITIONS off the Crupier's queue.
                 if (saltar_primera_mano) {
-                    // Limpiar refs cripto que recuperarDatosClavePartida pudo
-                    // haber repoblado del fosil viejo. Sin esto, la cascade
-                    // NUEVA del host disparaba DECK_CASCADE_REQ en cliente y
-                    // el handler veia hasMegaPacket()=true (de la mano vieja)
-                    // -> lockdown falso positivo "MEGAPACKET already locked".
+                    // Clear crypto refs that recuperarDatosClavePartida may have repopulated
+                    // from the old fossil. Without this, the host's new cascade would trigger a
+                    // DECK_CASCADE_REQ on the client whose handler would see hasMegaPacket()=true
+                    // (from the stale hand) and falsely lock down as "MEGAPACKET already locked".
                     //
-                    // Issue#9 root cause: el handler DECK_CASCADE_REQ corre en
-                    // threadRun async (WaitingRoomFrame:2110-2122) y setea
-                    // local_sra_lock_community + local_sra_unlock_community
-                    // DIRECTAMENTE en el Crupier. Cuando el host avanza rapido
-                    // tras su propio recovery y envia DECK_CASCADE_REQ antes de
-                    // que este bloque corra, el handler async genera los scalars
-                    // validos para la nueva mano — pero este cleanup defensivo
-                    // los SOBREESCRIBIA a null. Luego el siguiente
-                    // DECK_ROTATION_REQ rechazaba silencioso (community lock
-                    // null) y el host se quedaba 60-90s sin respuesta -> MISDEAL.
-                    //
-                    // Solo limpiamos local_mega_packet y active_crypto_ring (los
-                    // que el handler chequea via hasMegaPacket()). Los scalars
-                    // pocket (local_sra_lock / local_sra_unlock) ya estan null
-                    // desde NUEVA_MANO arriba y el handler nunca los pone en el
-                    // Crupier (vive en Participant.sra_unlock); los scalars
-                    // community NO se tocan aqui — si el handler ya los genero
-                    // para la nueva mano, no los pisamos; si no, siguen null
-                    // desde NUEVA_MANO y el handler los rellenara cuando llegue.
+                    // The DECK_CASCADE_REQ handler runs asynchronously and sets
+                    // local_sra_lock_community + local_sra_unlock_community directly on the
+                    // Crupier. If the host races ahead after its own recovery and sends
+                    // DECK_CASCADE_REQ before this block runs, that async handler generates valid
+                    // scalars for the new hand — but this defensive cleanup would overwrite them
+                    // to null, causing the next DECK_ROTATION_REQ to silently reject (null
+                    // community lock) and the host to stall 60-90s with no response -> MISDEAL.
+                    // So only local_mega_packet and active_crypto_ring are cleared here (the ones
+                    // the handler checks via hasMegaPacket()). The pocket scalars
+                    // (local_sra_lock/local_sra_unlock) are already null from NUEVA_MANO above and
+                    // the handler never sets them on the Crupier (they live in
+                    // Participant.sra_unlock); the community scalars are left untouched here — if
+                    // the handler already generated them for the new hand they aren't overwritten,
+                    // otherwise they stay null until the handler fills them in.
                     this.local_mega_packet = null;
                     this.active_crypto_ring = null;
                     this.local_original_cards = new byte[2];
-                    // setPositions solo en el fresh-start genuino (game_recovered==0):
-                    // host calcula y broadcastea POSITIONS, clientes esperan POSITIONS.
-                    // El joiner pasivo observer (saltar=true + game_recovered=1) ya
-                    // tiene dealer/sb/bb/utg desde el map de recovery procesado en
-                    // recuperarDatosClavePartida (donde el if ahora gateado por
-                    // game_recovered==1 calcula utg localmente sin esperar POSITIONS).
-                    // Sin este gate, el observer caia en recibirPosiciones a timeout.
+                    // setPositions only on a genuine fresh start (game_recovered==0): the host
+                    // computes and broadcasts POSITIONS, clients wait for it. The passive-observer
+                    // joiner (saltar=true + game_recovered=1) already has dealer/sb/bb/utg from the
+                    // recovery map processed in recuperarDatosClavePartida. Without this gate the
+                    // observer would fall into recibirPosiciones and time out.
                     //
-                    // recovery_positions_set evita la DOBLE rotación: si
-                    // recuperarDatosClavePartida ya llamó setPositions (rama
-                    // mano-fresh con saltar=true y sin mano-en-curso del host),
-                    // volver a llamarlo aquí avanzaba ciegas/dealer un segundo
-                    // asiento y dejaba un botón de dealer fantasma (el del primer
-                    // reparto, pintado por refreshPos y nunca limpiado). Solo
-                    // hace falta cuando recuperar NO rotó (host con mano-en-curso
-                    // pero un jugador del preflop se fue -> rama if sin setPositions).
+                    // recovery_positions_set avoids a DOUBLE rotation: if recuperarDatosClavePartida
+                    // already called setPositions (fresh-hand branch, saltar=true, no in-progress
+                    // host hand), calling it again here would advance blinds/dealer by a second
+                    // seat and leave a phantom dealer button (from the first deal, painted by
+                    // refreshPos and never cleared). It's only needed when recover did NOT rotate
+                    // (host with an in-progress hand but a preflop player left -> if-branch with
+                    // no setPositions call).
                     if (this.game_recovered == 0 && !this.recovery_positions_set) {
                         this.setPositions();
                     }
                 }
-                // Rescate de spectator: tras saltar=true y balance vacio del
-                // recovery, los players quedan marcados spectator desde el
-                // INIT (warming-up). Sin este unsetSpectator, isActivo()=false
-                // -> getJugadoresActivos()=0 -> NUEVA_MANO no arranca, timba
-                // muere. Solo rescatamos players con stack > 0.
+                // Spectator rescue: after saltar=true with an empty recovery balance, players
+                // stay marked spectator from INIT (warming up). Without this unsetSpectator,
+                // isActivo()=false -> getJugadoresActivos()=0 -> NUEVA_MANO never starts and the
+                // game dies. Only players with stack > 0 are rescued.
                 //
-                // Gateado por game_recovered==0: el rescate sirve para el caso
-                // genuino "no hay replay en ningun peer" (fosil corrupto del
-                // host o hand_end!=0). Pero un joiner pasivo que llega antes
-                // de un recover ve saltar=true porque no tiene fosil propio,
-                // aunque el host SI esta replayando — recuperarDatosClavePartida
-                // marca game_recovered=1 en ese sub-caso. Sacarlo del calentando
-                // aqui le forzaba a entrar como jugador activo en la mano
-                // recuperada, llamar recibirMisCartas esperando POCKET_CARDS
-                // que nunca llegan (el host no los reparte en game_recovered=1)
-                // y bloquear el hilo principal. La siguiente NUEVA_MANO
-                // (game_recovered=0 ya, mano fresca) le rescata en linea 4214
-                // de forma natural y entra normal.
+                // Gated on game_recovered==0: the rescue is for the genuine "no peer has a
+                // replay" case (corrupt host fossil or hand_end!=0). A passive joiner arriving
+                // just before a recover sees saltar=true (no fossil of its own) even though the
+                // host IS replaying — recuperarDatosClavePartida marks game_recovered=1 for that
+                // sub-case. Pulling it out of warming-up here would force it into the recovered
+                // hand as an active player, calling recibirMisCartas and waiting forever for
+                // POCKET_CARDS the host never deals in game_recovered=1, blocking the main
+                // thread. The next fresh NUEVA_MANO (game_recovered=0) rescues it naturally.
                 if (saltar_primera_mano && this.game_recovered == 0) {
                     try {
                         for (Player j : GameFrame.getInstance().getJugadores()) {
@@ -8732,15 +8471,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.apuesta_actual = this.ciega_grande;
 
-        // Straddle VOLUNTARIO (opción fija de 2x la ciega grande): el UTG decide a
-        // ciegas, tras repartir, si lo pone (ver resolveVoluntaryStraddle, llamado
-        // post-reparto). NO se postea aquí: es una decisión que viaja por la red
-        // (host-driven, como el voto run-it-twice) y debe converger en todos los peers
-        // antes del replay/ronda. En la mano RECUPERADA tampoco se pregunta: el host
-        // repone la decisión original desde el fósil y la rebroadcasta — todo eso
-        // también ocurre en resolveVoluntaryStraddle, así que el camino es uniforme.
-        // Con STRADDLE off, getJugadoresActivos()<=2 o heads-up, resolveVoluntaryStraddle
-        // es un no-op y el camino por defecto queda byte-idéntico.
+        // Voluntary straddle (fixed at 2x the big blind): the UTG decides blind, after the
+        // deal, whether to post it (see resolveVoluntaryStraddle, called post-deal). Not posted
+        // here — it's a networked decision (host-driven, like the run-it-twice vote) that must
+        // converge across peers before the replay/round. A recovered hand also goes through
+        // resolveVoluntaryStraddle: the host replays the original decision from the fossil and
+        // rebroadcasts it, keeping the path uniform. With STRADDLE off, <=2 active players, or
+        // heads-up, resolveVoluntaryStraddle is a no-op and the default path is unchanged.
 
         for (Player p : GameFrame.getInstance().getJugadores()) {
             if (p.isActivo()) {
@@ -8770,21 +8507,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.bote_total += this.apuestas;
 
-            // Antes (opcion A: tradicional simetrico). Cada jugador activo postea el
-            // ante (= ciega pequena) al bote como DINERO MUERTO. No cuenta como apuesta
-            // a igualar (apuesta_actual sigue siendo la ciega grande): va por postAnte
-            // (NO setBet), asi que no entra en la suma de getBet() y se anade directo a
-            // bote_total. genSidePots/getTotal lo reparten bien porque keyan en getBote()
-            // (el ante esta dentro). TAMBIEN en la mano RECUPERADA: el ante es dinero
-            // muerto que el replay NO reproduce (no es accion), asi que se repone aqui
-            // (corre tras refreshPos, antes del replay). Si ANTE esta off, no toca nada.
+            // Symmetric ante: every active player posts the ante (= small blind) to the pot as
+            // dead money. It doesn't count as an amount to call (apuesta_actual stays the big
+            // blind) — it goes through postAnte (not setBet), so it's excluded from the getBet()
+            // sum and added straight to bote_total. genSidePots/getTotal still split it correctly
+            // since they key off getBote() (which includes the ante). Also applies on a
+            // RECOVERED hand: the ante is dead money the replay doesn't reproduce (it's not an
+            // action), so it's re-posted here (runs after refreshPos, before the replay). No-op
+            // if ANTE is off.
             if (GameFrame.ANTE) {
                 double total_antes = 0f;
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
                     if (jugador.isActivo()) {
-                        // El ante vuela al bote: NO rueda su stack/bet en postAnte; se difiere
-                        // y rollCountersToModel (al aterrizar su ficha) lo rueda junto al bote.
-                        // Gate del vuelo (incluye game_recovered==0: el bloque recover ya corrió).
+                        // The ante flies to the pot: postAnte doesn't roll its stack/bet counters
+                        // — that's deferred, and rollCountersToModel rolls it together with the
+                        // pot once its chip lands. Gate includes game_recovered==0 (the recover
+                        // block has already run by then).
                         if (shouldDeferCountersToChip() && this.game_recovered == 0) {
                             jugador.setCounterRollDeferred(true);
                         }
@@ -8794,9 +8532,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.bote_total += total_antes;
             }
 
-            // Prepara la animacion de fichas-al-bote de las forzadas ANTES de mostrar
-            // el bote: difiere su valor para que se vea incrementar al aterrizar (no
-            // de golpe). Las fichas vuelan luego, tras rotar las fichas de posicion.
+            // Prepare the chips-to-pot animation for the forced bets BEFORE showing the pot:
+            // defer its value so it appears to increase as the chips land, not all at once. The
+            // chips fly later, after the position chips rotate.
             prepareForcedBetsToPot();
 
             Helpers.GUIRun(() -> {
@@ -8806,15 +8544,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             actualizarContadoresTapete();
 
-            // Desliza las fichas de posición (dealer/ciegas) de su portador anterior al
-            // nuevo, justo antes del barajado central (ya preparadas + ocultadas por
-            // prepareChipRotation tras nuevaMano). Bloquea hasta que aterrizan.
+            // Slide the position chips (dealer/blinds) from their previous holder to the new
+            // one, right before the central shuffle (already prepared + hidden by
+            // prepareChipRotation after nuevaMano). Blocks until they land.
             animateChipRotation();
 
-            // Tras rotar las fichas de posicion y ANTES del barajado: las forzadas
-            // (ciegas/straddle, y si hay ante TODOS) vuelan al bote en una sola tanda,
-            // identico a bet/call (vuelan + bote sube + flaseo amarillo). Bloquea hasta
-            // aterrizar, como la rotacion de fichas de posicion.
+            // After the position chips rotate and BEFORE the shuffle: the forced bets
+            // (blinds/straddle, and every ante if enabled) fly to the pot in one batch,
+            // identical to bet/call (fly + pot increases + yellow flash). Blocks until landing,
+            // same as the position chip rotation.
             flyForcedBetsToPot();
 
             Object shuffle_lock = new Object();
@@ -8826,10 +8564,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final boolean[] gif_thread_done = {false};
 
             Helpers.threadRun(() -> {
-                // Abre (una vez) y reutiliza la linea de audio del barajado ANTES
-                // de animar y fuera del EDT: arrancar el sonido en cada vuelta del
-                // gif sera instantaneo, sin un open por ciclo que pueda llegar
-                // tarde y quedarse mudo.
+                // Open (once) and reuse the shuffle audio line BEFORE animating and off the EDT:
+                // starting the sound on each GIF pass will be instant, with no per-cycle open
+                // that could lag and end up silent.
                 if (!isFin_de_la_transmision()) {
                     Audio.preloadWav("misc/shuffle.wav");
                 }
@@ -8837,13 +8574,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 URL url_icon = shuffleGifUrl();
                 if (url_icon != null && GameFrame.barajadoAnimOn()) {
 
-                    // Motor pre-decodificado con catch-up también para el barajado:
-                    // un único decode por baraja (normalmente ya caliente por el
-                    // warm-up de arranque/cambio de baraja; el animador Toolkit
-                    // re-decodificaba el GIF entero en CADA ciclo del bucle por el
-                    // flush) y ciclos siempre de duración nominal aunque el timer
-                    // de Windows vaya grueso. Si el GIF no se deja pre-decodificar
-                    // (o excede el tope de RAM), la ruta legacy sigue intacta.
+                    // Pre-decoded engine with catch-up, also used for the shuffle: a single
+                    // decode per deck (normally already warmed up at startup/deck change; the
+                    // old Toolkit animator used to re-decode the whole GIF on EVERY loop cycle
+                    // due to the flush) with cycles always at nominal duration even under a
+                    // coarse Windows timer. Falls back to the legacy path if the GIF can't be
+                    // pre-decoded (or exceeds the RAM cap).
                     PreRenderedGif shuffle_anim = getShuffleAnim(url_icon);
 
                     Helpers.GUIRunAndWait(() -> {
@@ -8851,9 +8587,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     });
 
                     if (shuffle_anim != null) {
-                        // Bucle hasta que la cascada SRA termine, con mínimo 1 ciclo
-                        // completo (el predicado solo se consulta al fin de ciclo) y
-                        // audio re-disparado en cada ciclo, como el do-while legacy.
+                        // Loops until the SRA cascade finishes, with a minimum of 1 full cycle
+                        // (the predicate is only checked at cycle end) and audio re-triggered
+                        // each cycle, like the legacy do-while.
                         GameFrame.getInstance().getTapete().showCentralFramesLoop(shuffle_anim,
                                 shuffle_anim.getWidth(), shuffle_anim.getHeight(),
                                 GameFrame.shuffleSound(), SHUFFLE_AUDIO_STOP_FRAME, () -> barajando);
@@ -8878,10 +8614,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         });
                     }
                 } else if (!isFin_de_la_transmision()) {
-                    // Sin gif de barajado (la baraja no trae shuffle.gif, o las animaciones
-                    // estan desactivadas): ocultamos las comunitarias —igual que el camino
-                    // del gif— y mostramos "BARAJANDO" centrado donde iria el gif, con el
-                    // ancho del panel de comunitarias, mientras suena el barajado en bucle.
+                    // No shuffle GIF (the deck ships none, or animations are disabled): hide the
+                    // community cards — same as the GIF path — and show "SHUFFLING" centered
+                    // where the GIF would go, at the community-cards panel width, while the
+                    // shuffle sound loops.
                     Helpers.GUIRunAndWait(() -> {
                         GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
                         GameFrame.getInstance().getTapete().showShufflingText();
@@ -8893,15 +8629,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (GameFrame.barajadoSonidoOn()) {
                             Audio.playWavResourceAndWait("misc/shuffle.wav");
                         } else {
-                            // Sin sonido de barajado: la espera bloqueante del clip ya no marca el
-                            // ritmo del bucle, así que pausamos para no hacer busy-spin mientras el
-                            // rótulo "BARAJANDO" sigue arriba hasta que la cascada SRA termina.
+                            // No shuffle sound: the clip's blocking wait no longer paces the loop,
+                            // so pause instead of busy-spinning while the "SHUFFLING" label stays
+                            // up until the SRA cascade finishes.
                             Helpers.pausar(300);
                         }
                     } while (barajando && !isFin_de_la_transmision());
 
-                    // Ocultar el rotulo SIEMPRE es seguro (el barajado terminó); restaurar
-                    // las comunitarias solo si no hay fin de transmisión (igual que el gif).
+                    // Hiding the label is ALWAYS safe (the shuffle has finished); restore the
+                    // community cards only if the transmission hasn't ended (same as the GIF path).
                     Helpers.GUIRunAndWait(() -> {
                         GameFrame.getInstance().getTapete().hideShufflingText();
                         if (!isFin_de_la_transmision()) {
@@ -8918,7 +8654,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (GameFrame.getInstance().isPartida_local() && this.game_recovered == 0) {
 
                 try {
-                    // Si la cascada falla (alguien no responde), abortamos la inicialización
+                    // If the cascade fails (someone doesn't respond), abort initialization.
                     if (!enviarCartasJugadoresRemotos()) {
                         barajando = false;
                         synchronized (shuffle_lock) {
@@ -8943,9 +8679,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                 } finally {
-                    // SIEMPRE oculta el overlay de barajado en todos los peers: éxito, abort
-                    // (return false) o excepción del host. Sin esto, una excepción dejaría el
-                    // overlay girando eternamente en los clientes.
+                    // ALWAYS hides the shuffle overlay on every peer: success, abort (return
+                    // false), or a host exception. Without this, an exception would leave the
+                    // overlay spinning forever on the clients.
                     emitShuffleTurnEnd();
                 }
             } else if (!GameFrame.getInstance().isPartida_local()
@@ -8967,15 +8703,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // El barajado termino: corta el audio antes de repartir. Las rutas de
-            // animacion ya lo paran al salir; esto cubre cualquier borde.
+            // The shuffle has finished: stop the audio before dealing. The animation paths
+            // already stop it on exit; this covers any remaining edge case.
             Audio.stopPreloadedWav("misc/shuffle.wav");
 
             repartir();
-            // Straddle voluntario: tras repartir (cartas del UTG local boca abajo a la
-            // espera), el UTG decide a ciegas si lo pone. host-driven + broadcast canónico
-            // -> converge en todos los peers antes de la ronda preflop. No-op si STRADDLE
-            // off / heads-up / <=2 activos. Revela por fin las cartas tapadas del UTG local.
+            // Voluntary straddle: after the deal (local UTG's cards face-down, waiting), the UTG
+            // decides blind whether to post it — host-driven + canonical broadcast, converging
+            // on every peer before the preflop round. No-op if STRADDLE is off / heads-up / <=2
+            // active. Finally reveals the local UTG's hidden cards.
             resolveVoluntaryStraddle();
             Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
             Helpers.GUIRun(() -> {
@@ -9036,12 +8772,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Auditor invariant must hold across "exited cleanly + come back
             // via recovery". A human player who sends EXIT mid-game
             // stays in jugadores with isExit()=true and their stack+buyin
-            // preserved in memory. Before this fix the condition below skipped
-            // them (isActivo() is false for exited players and their stack is
-            // typically >0), so no balance row got written for them in any
-            // subsequent hand. The recovery loader (sqlRecoverServerLocalGameKeyData
-            // around line 6575) only reads balances from MAX(hand.id), so the
-            // exited player ended up with no row to restore from and came back
+            // preserved in memory. The condition below must include isExit(),
+            // since isActivo() is false for exited players — skipping them
+            // would leave no balance row for them in any subsequent hand.
+            // The recovery loader only reads balances from MAX(hand.id), so an
+            // exited player without a row to restore from would come back
             // with default stack/buyin — instant auditor mismatch.
             //
             // Including isExit() here writes one balance row per (exited
@@ -9131,8 +8866,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (exists) {
-                    // Existe la acción de ese jugador en esa mano, ahora vamos a ver si coincide lo
-                    // que tenemos guardado con lo que ha enviado el servidor/jugador
+                    // That player's action already exists for this hand; check whether what we
+                    // stored matches what the server/player just sent.
 
                     sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=? and action=?"
                             + (current_player.getDecision() >= Player.BET ? " and bet=?" : "");
@@ -9155,8 +8890,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                 } else {
-                    // No existe esa acción para ese jugador, por lo que no podemos comparar y por
-                    // tanto nos fiamos de lo que envía el servidor/jugador
+                    // No such action exists for that player, so there's nothing to compare
+                    // against — trust what the server/player just sent.
                     ret = true;
                 }
 
@@ -9169,11 +8904,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Recover: número de acciones de {@code nick} que este peer llegó a persistir en su SQLite local
-     * para la mano en curso (cada acción presenciada se guarda con {@link #sqlNewAction}, y el recover
-     * NO borra esas filas). Es la referencia contra la que {@link #isBenignPostAbsenceRecover} decide si
-     * una acción reproducida es posterior a la ausencia del jugador. Ante un fallo de SQL devuelve
-     * {@code Integer.MAX_VALUE} (conservador: ningún índice lo supera ⇒ nunca degrada un aviso a suave).
+     * Recover: number of {@code nick}'s actions this peer persisted to its local SQLite for the
+     * current hand (every witnessed action is saved via {@link #sqlNewAction}, and recover never
+     * deletes those rows). This is the reference {@link #isBenignPostAbsenceRecover} uses to
+     * decide whether a replayed action came after the player's absence. Returns
+     * {@code Integer.MAX_VALUE} on SQL failure (conservative: no index exceeds it, so a warning
+     * is never silently downgraded).
      */
     private int sqlCountLocalHandActions(String nick) {
         synchronized (GameFrame.SQL_LOCK) {
@@ -9246,8 +8982,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlUpdateShowdownPay(Player jugador) {
 
-        // Run-it-twice: durante los dos boards no hay fila que actualizar (el
-        // INSERT está suprimido); la fila consolidada se escribe al final.
+        // Run-it-twice: during the two boards there's no row to update (the INSERT is
+        // suppressed); the consolidated row is written at the end.
         if (this.rit_suppress_showdown_sql) {
             return;
         }
@@ -9303,9 +9039,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlNewShowdown(Player jugador, Hand jugada, boolean win, boolean tapadas) {
 
-        // Run-it-twice: el showdown() de cada board está suprimido; la fila
-        // consolidada (una por jugador/mano) la escribe resolverRunItTwiceShowdown
-        // al final llamando a este método con el flag ya desactivado.
+        // Run-it-twice: each board's showdown() is suppressed; the consolidated row (one per
+        // player/hand) is written at the end by resolverRunItTwiceShowdown calling this method
+        // with the flag already off.
         if (this.rit_suppress_showdown_sql) {
             return;
         }
@@ -9345,21 +9081,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void sqlUpdateHandEnd(double bote_tot) {
         synchronized (GameFrame.SQL_LOCK) {
 
-            // ArrayList (no String[auditor.size()] indexado): con auditor ya
-            // ConcurrentHashMap, size() y entrySet() pueden quedar desalineados
-            // si otro hilo (finTransmision -> auditorCuentas) inserta durante la
-            // iteración → un array predimensionado por size() petaría con
-            // ArrayIndexOutOfBounds. Acumular en lista crece sin ese supuesto.
+            // ArrayList, not an indexed String[auditor.size()]: since auditor is a
+            // ConcurrentHashMap, size() and entrySet() could get out of sync if another thread
+            // (finTransmision -> auditorCuentas) inserts during iteration, which would blow up a
+            // size()-presized array with ArrayIndexOutOfBounds. A growable list has no such
+            // assumption.
             ArrayList<String> balance_float = new ArrayList<>();
 
-            // UPDATE hand + los balances de la mano en UNA transaccion: con
-            // autocommit por defecto cada statement se commiteaba aparte, asi
-            // que un crash entre el UPDATE hand y los UPDATE de balance dejaba
-            // la mano cerrada con balances PARCIALES y el recovery (lee balances
-            // de MAX(hand.id)) hacia volver a algun jugador con stack por
-            // defecto. Agrupar en transaccion da todo-o-nada (mismo criterio que
-            // rollbackAbortedHand). El backup forense en disco y el play_time
-            // van DESPUES del commit: no son parte del estado atomico de la mano.
+            // UPDATE hand + this hand's balances in ONE transaction: with per-statement
+            // autocommit, a crash between the hand UPDATE and the balance UPDATEs would leave
+            // the hand closed with partial balances, and recovery (which reads off
+            // MAX(hand.id)) would bring some player back with a default stack. Grouping into a
+            // transaction gives all-or-nothing (same approach as rollbackAbortedHand). The
+            // forensic disk backup and play_time update happen AFTER the commit — they're not
+            // part of the hand's atomic state.
             Connection con = null;
             boolean prev_autocommit = true;
             boolean tx = false;
@@ -9432,12 +9167,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String balanceFileName = Init.DEV_MODE ? "/balance_backup_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt" : "/balance_backup.txt";
 
             try {
-                // writeStringAtomic en lugar del Files.writeString directo
-                // (Sprint deferred 🟠-26): garantiza que tras un crash mid-write
-                // el balance_backup.txt queda CON SU VALOR ANTERIOR INTACTO en
-                // lugar de un fichero vacío. Backup forense por mano: la
-                // pérdida de UN backup parcial era recuperable pero la pérdida
-                // de TODA la historia (writeString truncate+crash) no.
+                // writeStringAtomic instead of a direct Files.writeString: guarantees that a
+                // crash mid-write leaves balance_backup.txt with its PREVIOUS value intact
+                // instead of an empty file. This is a per-hand forensic backup — losing one
+                // partial backup is recoverable, losing the whole history (a
+                // truncate-then-crash with writeString) is not.
                 Helpers.writeStringAtomic(Paths.get(Init.CORONA_DIR + balanceFileName), String.join("@", balance_float));
             } catch (IOException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -9619,13 +9353,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void repartir() {
 
-        // Straddle CIEGO + recover fail-safe: por diseño las cartas del straddler no pueden estar en
-        // el fósil hasta que las resuelve (tras decidir), así que un crash del straddler en la ventana
-        // reparto->revelado deja su fósil SIN VISUAL@ y local_original_cards sin resolver. En recover
-        // eso se detecta como dos hole cards con el MISMO índice (imposible en una mano real; el
-        // default {0,0}). No se puede reconstruir su mano -> MISDEAL limpio en vez de repartir cartas
-        // fantasma que romperían el showdown. Solo aplica al jugador local ACTIVO y jugando (un
-        // espectador/calentando no tiene cartas). En mano fresca local_original_cards ya está resuelto.
+        // Blind straddle + recover fail-safe: by design the straddler's cards can't be in the
+        // fossil until they're resolved (after deciding), so a straddler crash in the
+        // deal->reveal window leaves its fossil without VISUAL@ and local_original_cards
+        // unresolved. Recovery detects that as two hole cards with the SAME index (impossible
+        // in a real hand — that's the {0,0} default): the hand can't be reconstructed, so this
+        // triggers a clean MISDEAL instead of dealing phantom cards that would break the
+        // showdown. Only applies to the local player when ACTIVE and playing (a
+        // spectator/warming-up player has no cards); already resolved on a fresh hand.
         if (this.game_recovered != 0) {
             LocalPlayer lp = GameFrame.getInstance().getLocalPlayer();
             if (lp != null && lp.isActivo() && !lp.isCalentando()
@@ -9639,49 +9374,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean animacion = GameFrame.repartoAnimOn();
 
-        // Base histórica (SIN velocidad de reparto) de la pausa entre cartas y de la duración del
-        // vuelo, cada una con su suelo (100 / 150) para que el arco se lea aún en mesa llena.
+        // Historical base (WITHOUT deal speed applied) for the inter-card pause and the flight
+        // duration, each with its own floor (100 / 150) so the arc still reads at a full table.
         int pausa_base = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
         int flight_base = Math.max(150, pausa_base);
 
-        // Velocidad de reparto configurable: escala la base YA CON SU SUELO. Aplicar el factor aquí
-        // (y no antes del suelo) es lo que hace que se note también en mesa llena: con muchos
-        // jugadores la base cae al suelo y, si el factor se aplicaba antes, quedaba aplastado por el
-        // max(). Normal (100) = base EXACTA; Lento (150) más lento; Rápido (60) más rápido. El vuelo
-        // es bloqueante, así que en modo animación flight_dur sustituye a la pausa entre cartas.
+        // Configurable deal speed: scales the base AFTER the floor is applied. Applying the
+        // factor here (not before the floor) is what makes it noticeable at a full table too:
+        // with many players the base already hits the floor, and applying the factor earlier
+        // would get flattened by the max(). Normal (100) = exact base; Slow (150) slower; Fast
+        // (60) faster. The flight is blocking, so in animation mode flight_dur replaces the
+        // inter-card pause.
         float vel = GameFrame.REPARTO_VELOCIDAD / 100f;
         int pausa = Math.max(60, Math.round(pausa_base * vel));
         int flight_dur = Math.max(80, Math.round(flight_base * vel));
 
-        // Straddle voluntario: si el jugador LOCAL es el UTG en una mano fresca con
-        // straddle activo, sus dos hole cards se reparten BOCA ABAJO y NO se revelan
-        // aquí — decide el straddle a ciegas y resolveVoluntaryStraddle las destapa
-        // tras la decisión. Solo afecta al local que es UTG (el resto, idéntico).
+        // Voluntary straddle: if the LOCAL player is UTG in a fresh hand with straddle enabled,
+        // both hole cards are dealt FACE DOWN and not revealed here — they decide blind whether
+        // to straddle, and resolveVoluntaryStraddle flips them after the decision. Only affects
+        // the local player when they're UTG; everyone else is unchanged.
         final boolean defer_straddle_reveal = GameFrame.STRADDLE && this.game_recovered == 0
                 && getJugadoresActivos() > 2 && this.utg_nick != null
                 && this.utg_nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())
                 && GameFrame.getInstance().getLocalPlayer().isActivo();
-        // resolveVoluntaryStraddle revela estas cartas garantizado (incluso si sale por
-        // early-return, p.ej. si un jugador se va y quedan <=2 antes de la decisión).
+        // resolveVoluntaryStraddle guarantees these cards get revealed (even on an early
+        // return, e.g. a player leaves and only <=2 remain before the decision).
         this.straddle_local_cards_deferred = defer_straddle_reveal;
 
-        // Pre-decode del giro de TUS dos hole cards, lanzado YA: conocemos sus
-        // valores (bóveda C -> local_original_cards) desde antes de repartir, así
-        // que rendimos los frames en background mientras vuelan las cartas. Al
-        // aterrizar el giro está listo y el destape entra sin la pausa fantasma
-        // del render (los frames no se cachean, cuestan decenas/cientos de ms).
-        // Solo con el destape activo y si vas a jugar la mano de cara (el UTG local que
-        // decide el straddle a ciegas se destapa aparte, en resolveVoluntaryStraddle, con
-        // su propio prefetch justo abajo).
+        // Pre-decode the flip animation for YOUR two hole cards, kicked off now: their values
+        // are already known (from the C vault -> local_original_cards) before dealing, so the
+        // frames render in the background while the cards fly. By the time they land the flip
+        // is ready and the reveal has no render stall (frames aren't cached; decoding costs
+        // tens/hundreds of ms). Only when the reveal animation is on and you're playing the
+        // hand face-up (the local UTG deciding the straddle blind gets its own reveal + prefetch
+        // in resolveVoluntaryStraddle instead).
         Future<?> prefetch_flip_hc1 = null;
         Future<?> prefetch_flip_hc2 = null;
         if (!defer_straddle_reveal && GameFrame.destapeAnimOn()
                 && GameFrame.getInstance().getLocalPlayer().isActivo()) {
             final String sp1 = Card.shortStringFromIndex(this.local_original_cards[0] & 0xFF);
             final String sp2 = Card.shortStringFromIndex(this.local_original_cards[1] & 0xFF);
-            // Las hole cards del local se parten (media altura) SOLO en el nivel 3 de vista
-            // compacta, así que su giro se pre-decodifica ya recortado en ese nivel. Si la
-            // vista cambia antes del destape, takePrefetchedHoleCardFlip lo detecta y decodifica inline.
+            // The local player's hole cards are split (half-height) ONLY at compact-view level
+            // 3, so the flip is pre-decoded already cropped for that level. If the view changes
+            // before the reveal, takePrefetchedHoleCardFlip detects it and decodes inline instead.
             final boolean local_top_half = (GameFrame.VISTA_COMPACTA == 3);
             if (sp1 != null) {
                 prefetch_flip_hc1 = Helpers.futureRun(() -> decodeCardFlipAnim(sp1, local_top_half));
@@ -9691,15 +9426,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Straddle CIEGO: NO se prefetchea el giro del straddler aquí. Con el cegado criptográfico
-        // sus valores NO se conocen en el reparto (local_original_cards sigue en {0,0} hasta que
-        // resuelve tras firmar su decisión), así que un prefetch aquí decodificaría la carta
-        // equivocada (índice 0) y se descartaría. revealLocalStraddlerCards decodifica el giro inline
-        // con la carta real ya resuelta (sin prefetch, pf=null).
+        // Blind straddle: the straddler's flip is NOT prefetched here. Under cryptographic
+        // blinding its values aren't known at deal time (local_original_cards stays {0,0} until
+        // resolved after signing the decision), so prefetching here would decode the wrong card
+        // (index 0) and be discarded. revealLocalStraddlerCards decodes the flip inline once the
+        // real card is resolved (no prefetch, pf=null).
         this.straddle_prefetch_flip_hc1 = null;
         this.straddle_prefetch_flip_hc2 = null;
 
-        // Overlay de la ficha sobre la viajera de hc1: se crea justo antes del vuelo.
+        // Chip overlay for hole card 1's flying chip: created right before the flight.
         this.local_chip_flight_overlay = null;
 
         if (!animacion) {
@@ -9720,9 +9455,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int i = 0;
 
-        // Guard: si dealer_nick es null o no esta en la lista de jugadores,
-        // el while desborda con IndexOutOfBoundsException matando el thread
-        // del Crupier silenciosamente. Abortamos la mano controladamente.
+        // Guard: if dealer_nick is null or not in the player list, the while loop would
+        // overflow with an IndexOutOfBoundsException, silently killing the Crupier thread.
+        // Abort the hand in a controlled way instead.
         if (this.dealer_nick == null) {
             LOGGER.log(Level.SEVERE, "repartir() dealer_nick is null — aborting hand");
             cancelarManoYDevolverApuestas("peer.state_inconsistent", true);
@@ -9743,7 +9478,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // Asiento del dealer: ancla de origen del vuelo de reparto.
+        // Dealer's seat: origin anchor for the deal-card flight.
         final Card deal_origin = getDealerSeatAnchor();
 
         int j, pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
@@ -9759,24 +9494,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 final Card hc1 = jugador.getHoleCard1();
                 final boolean es_local = (jugador == GameFrame.getInstance().getLocalPlayer());
-                // Solo TU carta y solo con el destape activo se abre con animación.
+                // Only YOUR card, and only with the reveal animation on, flips open.
                 final boolean flip_local = es_local && !defer_straddle_reveal && GameFrame.destapeAnimOn();
 
-                // La carta tapada vuela del dealer al asiento; al aterrizar la
-                // sienta (deal.wav lo dispara el propio vuelo al lanzar). Para el
-                // jugador local revela su valor real (que ya se extrajo de la bóveda
-                // C): con el destape activo la deja BOCA ABAJO y la abre girando
-                // después en otro hilo (sin frenar el reparto); sin él la destapa
-                // de golpe al aterrizar, EXACTAMENTE como siempre. El UTG a ciegas
-                // (defer_straddle_reveal) se sienta boca abajo y lo revela
-                // resolveVoluntaryStraddle.
+                // The face-down card flies from the dealer to the seat and lands seated
+                // (deal.wav is triggered by the flight itself when launched). For the local
+                // player it reveals the real value (already extracted from the C vault): with
+                // the reveal animation on it stays FACE DOWN and flips open afterward on
+                // another thread (without slowing the deal); without it, it's revealed instantly
+                // on landing, exactly as before. The blind UTG (defer_straddle_reveal) lands
+                // face down and gets revealed by resolveVoluntaryStraddle instead.
                 Runnable seat;
                 if (flip_local) {
-                    // Se sienta BOCA ABAJO y VISIBLE: setVisibleCard(true) es
-                    // imprescindible porque iniciarConValorNumerico NO toca
-                    // visible_card (arranca en false), así que sin él la carta
-                    // quedaría INVISIBLE durante la pausa y solo aparecería al
-                    // arrancar el giro (el "flash" sin pausa). El destape async la abre.
+                    // Lands FACE DOWN and VISIBLE: setVisibleCard(true) is required because
+                    // iniciarConValorNumerico doesn't touch visible_card (starts false) — without
+                    // it the card would be invisible during the pause and only appear once the
+                    // flip starts (a pause-less "flash"). The async reveal opens it.
                     seat = () -> {
                         hc1.setVisibleCard(true);
                         hc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
@@ -9790,11 +9523,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     seat = () -> hc1.iniciarCarta();
                 }
 
-                // ANTES del vuelo (sin tocarlo ni un byte): si tu carta izquierda lleva la
-                // ficha grande, se clona en un overlay POR ENCIMA de la viajera, así la carta
-                // vuela y ATERRIZA POR DEBAJO de la ficha sin parpadeo. El overlay se retira
-                // JUSTO antes del giro (revelarHoleCardLocalAnimada), cuando la ficha debe
-                // desaparecer. La ficha real no se toca aquí (sigue visible bajo el overlay).
+                // BEFORE the flight (untouched otherwise): if your left card is carrying the
+                // large position chip, it's cloned into an overlay ON TOP of the flying card, so
+                // the card flies and LANDS BENEATH the chip without flicker. The overlay is
+                // removed right before the flip (revealarHoleCardLocalAnimada), when the chip
+                // should disappear. The real chip isn't touched here (stays visible under the
+                // overlay).
                 if (flip_local) {
                     local_chip_flight_overlay = GameFrame.getInstance().getTapete()
                             .addChipTopOverlay(GameFrame.getInstance().getLocalPlayer().getChip_label());
@@ -9802,9 +9536,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 GameFrame.getInstance().getTapete().flyCardToSeat(hc1, deal_origin, flight_dur, GameFrame.dealSound(), seat);
 
-                // Destape animado en OTRO hilo nada más aterrizar: el crupier sigue
-                // repartiendo sin esperar a que tu carta se abra. Usa el giro
-                // pre-decodificado, ya listo, así el destape entra sin pausa fantasma.
+                // Animated reveal on ANOTHER thread as soon as it lands: the dealer keeps
+                // dealing without waiting for your card to open. Uses the already-ready
+                // pre-decoded flip, so the reveal has no render stall.
                 if (flip_local) {
                     final Future<?> pf = prefetch_flip_hc1;
                     Helpers.threadRun(() -> revelarHoleCardLocalAnimada(hc1, pf));
@@ -9819,7 +9553,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (defer_straddle_reveal) {
                     jugador.getHoleCard1().iniciarCarta();
                 } else if (GameFrame.destapeAnimOn()) {
-                    // Boca abajo con su valor + destape animado async (no frena el reparto).
+                    // Face down with its value set, revealed async (doesn't slow the deal).
                     final Card lhc1 = jugador.getHoleCard1();
                     lhc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
                     final Future<?> pf = prefetch_flip_hc1;
@@ -9831,7 +9565,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             }
 
-            // En modo animación el vuelo ya consumió el tiempo (bloqueante).
+            // In animation mode the (blocking) flight already consumed the time.
             if (jugador.isActivo() && !animacion) {
                 Helpers.pausar(pausa);
             }
@@ -9851,12 +9585,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 final boolean es_local = (jugador == GameFrame.getInstance().getLocalPlayer());
                 final boolean flip_local = es_local && !defer_straddle_reveal && GameFrame.destapeAnimOn();
 
-                // Igual que la hole card 1: con el destape activo se sienta boca
-                // abajo y gira async al aterrizar; sin él se destapa de golpe.
+                // Same as hole card 1: with the reveal animation on it lands face down and
+                // flips async on landing; without it, revealed instantly.
                 Runnable seat;
                 if (flip_local) {
-                    // Boca abajo y VISIBLE (ver nota en la hole card 1: sin
-                    // setVisibleCard(true) la carta no se vería en la pausa).
+                    // Face down and VISIBLE (see the note on hole card 1: without
+                    // setVisibleCard(true) the card wouldn't be visible during the pause).
                     seat = () -> {
                         hc2.setVisibleCard(true);
                         hc2.iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
@@ -9897,7 +9631,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             }
 
-            // En modo animación el vuelo ya consumió el tiempo (bloqueante).
+            // In animation mode the (blocking) flight already consumed the time.
             if (jugador.isActivo() && !animacion) {
                 Helpers.pausar(pausa);
             }
@@ -9911,10 +9645,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().checkPause();
 
             if (animacion) {
-                // Cada comunitaria vuela tapada desde el dealer a su posición y
-                // se sienta al aterrizar (misma mecánica/velocidad que las hole
-                // cards). El vuelo es bloqueante, así que consume el tiempo entre
-                // cartas y dispara deal.wav al lanzar.
+                // Each community card flies face-down from the dealer to its position and
+                // lands seated (same mechanics/speed as the hole cards). The flight is
+                // blocking, so it consumes the inter-card time and triggers deal.wav on launch.
                 final Card cc = carta;
                 GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, GameFrame.dealSound(), () -> cc.iniciarCarta());
             } else {
@@ -9924,36 +9657,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         ordenarCartasLocalAnimado();
 
-        // Las 5 comunitarias tapadas (y las hole cards) ya están en la mesa: a
-        // partir de aquí el overlay de coste de igualar puede mostrarse.
+        // All 5 community cards (and the hole cards) are now on the table: from here on the
+        // call-cost overlay can be shown.
         this.community_cards_dealt = true;
     }
 
-    // Ordena la mano del jugador local (carta alta a la izquierda) al terminar el
-    // reparto. Si el swap animado está activo (swapAnimOn) y de verdad hay que
-    // intercambiar (hc1 < hc2) con las dos cartas boca arriba y visibles, las cruza
-    // con una animación (cada una se desliza a la posición de la otra) y aplica el
-    // intercambio lógico al final. Si no, ordena en seco (ordenarCartas), el
-    // comportamiento de siempre.
+    // Sorts the local player's hand (high card on the left) once dealing finishes. If the swap
+    // animation is enabled (swapAnimOn) and a swap is actually needed (hc1 < hc2) with both
+    // cards face-up and visible, crosses them with an animation (each slides to the other's
+    // position) and applies the logical swap at the end. Otherwise sorts instantly
+    // (ordenarCartas), the default behaviour.
     //
-    // El cruce se lanza en OTRO hilo (Helpers.threadRun) y NO frena al crupier: el
-    // orden de la mano es SOLO visual (la evaluación lee las dos hole cards como
-    // conjunto, da igual hc1/hc2), así que nada aguas abajo necesita que el swap
-    // esté aplicado antes de continuar. El intercambio lógico se aplica al final
-    // del cruce, unos cientos de ms después, sin efecto en la partida.
+    // The crossing animation runs on ANOTHER thread (Helpers.threadRun) and doesn't block the
+    // dealer: hand order is purely visual (evaluation reads both hole cards as a set,
+    // hc1/hc2 order doesn't matter), so nothing downstream needs the swap applied before
+    // continuing. The logical swap is applied at the end of the animation, a few hundred ms
+    // later, with no effect on gameplay.
     private void ordenarCartasLocalAnimado() {
 
         LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
         Card c1 = local.getHoleCard1();
         Card c2 = local.getHoleCard2();
 
-        // Mismo criterio que ordenarCartas: hc1 debe quedar con la carta más alta.
+        // Same rule as ordenarCartas: hc1 must end up with the higher card.
         boolean needsSwap = c1.getValorNumerico() != -1 && c2.getValorNumerico() != -1
                 && c1.getValorNumerico() < c2.getValorNumerico();
 
-        // Solo animamos si hay swap real, el gate está on, ambas cartas están BOCA
-        // ARRIBA y visibles (si un destape aún corriera estarían tapadas → seco), y
-        // el jugador sigue en la timba.
+        // Only animate when a swap is actually needed, the setting is on, both cards are
+        // FACE UP and visible (if a reveal were still in progress they'd be face-down ->
+        // instant sort instead), and the player is still in the game.
         boolean animable = needsSwap && GameFrame.swapAnimOn()
                 && !c1.isTapada() && !c2.isTapada()
                 && c1.isVisible_card() && c2.isVisible_card()
@@ -9964,10 +9696,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // Cruce en background: el crupier sigue sin bloquearse. La ficha de posición
-        // grande se queda VISIBLE y las cartas cruzan POR DEBAJO de ella: playHoleCardSwap
-        // pone un overlay de la ficha en una capa por encima de las voladoras del swap,
-        // así que aquí NO se oculta (ya reapareció tras el destape de hc1).
+        // Runs the crossing in the background: the dealer keeps going without blocking. The
+        // large position chip stays VISIBLE and the cards cross BENEATH it — playHoleCardSwap
+        // puts a chip overlay on a layer above the swapping cards, so it isn't hidden here (it
+        // already reappeared after hc1's reveal).
         Helpers.threadRun(() -> {
             try {
                 GameFrame.getInstance().getTapete().playHoleCardSwap(c1, c2,
@@ -9975,25 +9707,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         local.getChip_label(), () -> local.ordenarCartas());
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
-                // El intercambio lógico es obligatorio aunque la animación falle.
+                // The logical swap is mandatory even if the animation fails.
                 local.ordenarCartas();
             }
         });
     }
 
     /**
-     * Avisa UNA sola vez por espera de que la mesa lleva demasiado rato esperando al
-     * anfitrion.
+     * Warns ONCE per wait that the table has been waiting too long for the host.
      *
-     * <p>No corta la espera ni cambia el curso de la mano: solo deja de ser un cuelgue
-     * mudo. Ver {@link #MESA_PARADA_AVISO_MS} para el porque de no cortar y para el
-     * porque del umbral.
+     * <p>Doesn't cut the wait short or change the hand's course — it just stops being a
+     * silent hang. See {@link #MESA_PARADA_AVISO_MS} for why it doesn't cut and why that
+     * threshold.
      *
-     * <p>Una vez POR ESPERA, no por partida: cada mano vuelve a empezar de cero.
+     * <p>Once PER WAIT, not per game: each hand starts fresh.
      *
-     * @param espera_inicio instante en que empezo esta espera, ya descontadas las pausas
-     * @param ya_avisado si ya se aviso de esta misma espera
-     * @return el nuevo estado de "ya avisado", para volver a pasarlo en la vuelta siguiente
+     * @param espera_inicio when this wait started, with pauses already discounted
+     * @param ya_avisado whether this same wait has already been warned about
+     * @return the new "already warned" state, to be passed back in on the next loop
      */
     private boolean avisarMesaParada(long espera_inicio, boolean ya_avisado) {
         if (ya_avisado || System.currentTimeMillis() - espera_inicio < MESA_PARADA_AVISO_MS) {
@@ -10065,17 +9796,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!trigger_seen) {
-                // AQUI NO HAY PLAZO, y es a proposito. Se probo a ponerle uno y era mucho
-                // peor: esta barrera es, como dice el javadoc de arriba, el UNICO punto
-                // donde una mano anulada tardia se corta limpiamente ANTES DE QUE SE MUEVA
-                // UNA FICHA. Al vencer se devolvia "el disparo llego" (nadie mira el
-                // retorno) y el cliente liquidaba la mano por su cuenta, saltandose esa
-                // ventana. Y cualquier plazo razonable se queda corto: el anfitrion puede
-                // estar esperando la confirmacion de un peer lento hasta tres minutos,
-                // segun sus propias constantes. Quedarse esperando es ruidoso, pero no
-                // liquida nada a destiempo.
-                // La pausa NO cuenta como mesa parada: si no se reiniciara el reloj, una
-                // pausa larga soltaba el aviso justo al reanudar.
+                // NO DEADLINE HERE, deliberately. Adding one was tried and was much worse: as
+                // the javadoc above says, this barrier is the ONLY point where a late-cancelled
+                // hand cuts cleanly BEFORE ANY CHIP MOVES. Timing out would return "trigger
+                // arrived" (nobody checks the return value here) and the client would settle the
+                // hand on its own, skipping that window. Any reasonable deadline would also be
+                // too short: the host can legitimately wait up to three minutes for a slow
+                // peer's confirmation per its own constants. Waiting is noisy, but it never
+                // settles anything at the wrong time.
+                // Pause doesn't count as a stalled table: without resetting the clock, a long
+                // pause would fire the warning right as it resumes.
                 if (GameFrame.getInstance().checkPause()) {
                     espera_inicio = System.currentTimeMillis();
                 }
@@ -10112,14 +9842,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final int RECEIPT_SIG_LEN = HandStateChain.SIG_BYTES;
     private static final int RECEIPT_TOTAL_LEN = RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN + RECEIPT_FLAGS_LEN + RECEIPT_SIG_LEN;
     private static final int RECEIPT_FLAG_BIT_INVALID_SIG_SEEN = 0;
-    // Bit 1: el firmante NO confirmo el barajado honesto (DUALLOCK_BUNDLE) de esta mano. Paraguas:
-    // puede ser que el bundle llegara y la cola aun no acabara (peer lento, benigno) o que NO llegara.
-    // Va firmado en el receipt -> el host no puede quitarlo, y el consenso atestigua "mazo honesto
-    // verificado por todos", no solo "acciones OK".
+    // Bit 1: the signer did NOT confirm this hand's honest shuffle (DUALLOCK_BUNDLE). Umbrella
+    // condition: either the bundle arrived but the verification queue hadn't finished yet
+    // (slow peer, benign) or it never arrived at all. Signed into the receipt so the host can't
+    // strip it, letting consensus attest "honest deck verified by everyone", not just "actions OK".
     private static final int RECEIPT_FLAG_BIT_DECK_UNVERIFIED = 1;
-    // Bit 2: cualifica al bit 1 cuando NINGUN bundle de barajado llego para este mazo (host no mando la
-    // prueba, incluso de forma selectiva a un peer). Distingue "host no prueba" (sospechoso, avisa a la
-    // mesa) de "peer lento que aun no termino" (benigno, solo evidencia forense). Tambien va firmado.
+    // Bit 2: qualifies bit 1 when NO shuffle bundle arrived for this deck at all (the host sent
+    // no proof, not even selectively to one peer). Distinguishes "host isn't proving" (suspicious,
+    // warns the table) from "slow peer still verifying" (benign, forensic evidence only). Also signed.
     private static final int RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF = 2;
 
     /**
@@ -10197,8 +9927,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             final byte[] handIdSnap = chainSnap.getHandId();
             final byte[] hFinalSnap = chainSnap.getCurrentHash();
-            // Ordinal de la mano (HAND X) para los mensajes del registro; se fija aquí, al cerrar la
-            // mano, para que un readyForNextHand posterior no lo desplace.
+            // Hand ordinal (HAND X) for the log messages; fixed here, at hand close, so a
+            // later readyForNextHand doesn't shift it.
             final int handOrdinalSnap = getMano();
 
             // Build our own receipt and emit it. Identity-not-ready is logged but does
@@ -10384,11 +10114,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (this.saw_invalid_action_sig) {
                 flags |= (byte) (1 << RECEIPT_FLAG_BIT_INVALID_SIG_SEEN);
             }
-            // Bit 1: no confirme el barajado honesto de ESTE mazo esta mano. dual_lock_verified_megapacket
-            // se pone al verificar el bundle OK (cliente), el full-chain en background (host) o al restaurar
-            // en recover. Bit 2 (cualificador): EXIGIA prueba (reparto fresco) y NO me llego ningun bundle
-            // para este mazo -> host no la mando. Si el bundle SI llego (received==mp) pero la cola aun no
-            // acabo, queda solo el bit 1 (peer lento, benigno). Recover pone verified==mp -> ni entra aqui.
+            // Bit 1: I did not confirm THIS deck's honest shuffle this hand. dual_lock_verified_megapacket
+            // is set when the bundle verifies OK (client), by the background full-chain check (host), or
+            // on recover restore. Bit 2 (qualifier): I required proof (fresh deal) and NO bundle for this
+            // deck ever arrived -> host didn't send it. If the bundle DID arrive (received==mp) but the
+            // verification queue hasn't finished, only bit 1 is set (slow peer, benign). Recover sets
+            // verified==mp, so it never reaches this branch.
             byte[] mp = this.local_mega_packet;
             byte[] verified = this.dual_lock_verified_megapacket;
             if (mp == null || verified == null || !Arrays.equals(mp, verified)) {
@@ -10582,11 +10313,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (((flags >> RECEIPT_FLAG_BIT_INVALID_SIG_SEEN) & 1) != 0) {
                 invalidSigReporters.add(nick);
             }
-            // Bit 1: el firmante no confirmo el barajado honesto (DUALLOCK_BUNDLE) de esta
-            // mano. El bit 2 lo cualifica: si esta puesto, NINGUN bundle llego (host no mando
-            // la prueba -> sospechoso, avisa a la mesa); si no, el bundle llego pero la cola
-            // aun no acabo (peer lento -> benigno, solo evidencia forense). Ambos van firmados,
-            // asi que el host relay no los puede quitar.
+            // Bit 1: signer did not confirm the honest shuffle (DUALLOCK_BUNDLE) for this
+            // hand. Bit 2 qualifies it: set means no bundle arrived at all (host withheld
+            // the proof — suspicious, warn the table); unset means the bundle arrived but
+            // verification is still queued (slow peer — benign, forensic only). Both bits
+            // are signed, so the host relay cannot strip them.
             if (((flags >> RECEIPT_FLAG_BIT_DECK_UNVERIFIED) & 1) != 0) {
                 deckUnverifiedReporters.add(nick);
                 if (((flags >> RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF) & 1) != 0) {
@@ -10639,10 +10370,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             Translator.translate("game.popup_verificacion_firma_invalida"),
                             reportersList));
         } else if (!noShuffleProofReporters.isEmpty()) {
-            // Consenso por lo demas limpio, pero a uno o mas firmantes NO les llego ningun bundle
-            // de barajado para este mazo. Un host correcto siempre lo manda, asi que su ausencia
-            // (sobre todo si se repite, o si es selectiva a un peer) es una degradacion real: se
-            // avisa a toda la mesa. NO bloquea ni acusa de trampa (podria ser version modificada o bug).
+            // Consensus is otherwise clean, but one or more signers never received a shuffle
+            // bundle for this deck. A correct host always sends it, so its absence (especially
+            // if repeated, or peer-selective) is a real degradation worth warning the table
+            // about — but not proof of cheating (could be a modified client or a bug).
             String noProofList = String.join(", ", noShuffleProofReporters);
             LOGGER.log(Level.WARNING,
                     "Hand {0} verified but NO shuffle proof reached: [{1}] (host withholding?), local_H={2}",
@@ -10658,18 +10389,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             Translator.translate("game.popup_verificacion_host_sin_prueba"),
                             noProofList));
         } else if (!deckUnverifiedReporters.isEmpty()) {
-            // Consenso limpio salvo que uno o mas firmantes aun no TERMINARON de verificar el
-            // barajado (el bundle SI les llego, pero su cola va lenta). Es benigno y se autocorrige
-            // (la verificacion diferida sigue viva y disparara su propio aviso si algun dia PRUEBA
-            // deshonestidad). No merece molestar a la mesa con un popup: solo evidencia forense
-            // silenciosa (JUL + disputed_hands), misma politica que el caso TOFU-NEW de abajo.
+            // Consensus is clean except that one or more signers have not yet FINISHED
+            // verifying the shuffle (the bundle did arrive, their queue is just slow).
+            // Benign and self-correcting — deferred verification is still running and will
+            // raise its own alert if it later proves dishonesty. No popup, just a yellow
+            // registro notice plus forensic logging (JUL + disputed_hands), same policy as
+            // the TOFU-NEW case below.
             String deckList = String.join(", ", deckUnverifiedReporters);
             LOGGER.log(Level.WARNING,
                     "Hand {0} verified; shuffle proof still pending (slow peer) for: [{1}], local_H={2}",
                     new Object[]{sqlite_id_hand, deckList, localHB64});
-            // Aviso AMARILLO en el registro (NO popup, no acusa de nada): el barajado de esta mano
-            // aún no se pudo confirmar por cliente(s) lento(s); la verificación diferida sigue viva y
-            // emitirá su "barajado verificado" cuando termine.
             GameFrame.getInstance().getRegistro().print(
                     MessageFormat.format(Translator.translate("game.barajado_pendiente"), String.valueOf(handOrdinal)));
             insertDisputedHandRow(receipts, hFinalLocal, "DECK_UNVERIFIED");
@@ -10677,16 +10406,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.INFO,
                     "Hand {0} verified: {1} receipts unanimous, H={2}",
                     new Object[]{sqlite_id_hand, expected.size(), localHB64});
-            // Identity: even on a clean consensus OK, if any of the
-            // peers whose receipts we just verified are still on TOFU-NEW
-            // (pubkey pinned but not yet confirmed out-of-band by the user),
-            // emit a debug-log WARNING. This goes to JUL only — never to the
-            // in-game registro and never to a popup — so it stays as forensic
-            // info for the user reviewing the debug log later. The OK verdict
-            // is still cryptographically sound under the pinned key; the
-            // warning just notes that a malicious peer with a stolen key
-            // could have produced the same OK without the user catching it
-            // via OOB verification.
+            // Even on a clean OK, log a WARNING (JUL only — never registro or popup, purely
+            // forensic) for any verified peer still on TOFU-NEW (pubkey pinned but not yet
+            // confirmed out-of-band). The OK verdict is still cryptographically sound under
+            // the pinned key; the warning just notes that a peer with a stolen key could have
+            // produced the same OK without the user catching it via OOB verification.
             String localNick = GameFrame.getInstance().getNick_local();
             java.util.List<String> unverifiedTofu = new java.util.ArrayList<>();
             for (String nick : expected) {
@@ -10790,8 +10514,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private HashMap<String, Object> recibirDatosClaveRecuperados() {
 
-        // Guard de salida (ver nota en recibirPosiciones). Retorno null
-        // si la transmisión muere antes de recibir RECOVERDATA.
+        // Exit guard (see the note in recibirPosiciones). Returns null if the
+        // transmission dies before RECOVERDATA arrives.
         HashMap<String, Object> map = null;
 
         boolean ok;
@@ -10820,9 +10544,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 ByteArrayInputStream byteIn = new ByteArrayInputStream(
                                         Base64.getDecoder().decode(partes[3]));
                                 in = new ObjectInputStream(byteIn);
-                                // ANTI-RCE: instalar whitelist ANTES de readObject. Sin esto,
-                                // un host hostil podría enviar un gadget chain en el classpath
-                                // y ejecutar código arbitrario en el cliente que pide recovery.
+                                // ANTI-RCE: install the whitelist BEFORE readObject — otherwise a
+                                // hostile host could send a gadget chain and run arbitrary code on
+                                // the recovering client.
                                 in.setObjectInputFilter(RECOVERY_OBJECT_FILTER);
                                 map = (HashMap<String, Object>) in.readObject();
 
@@ -10889,10 +10613,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private String recibirAccionesRecuperadas() {
 
-        // Guard de salida (ver nota en recibirPosiciones). Sin él, si la
-        // transmisión muere durante el wait el cliente queda colgado para
-        // siempre esperando ACTIONDATA. El retorno null en ese caso es
-        // OK: el caller ya está en flujo de terminación.
+        // Exit guard (see the note in recibirPosiciones). Without it, if the
+        // transmission dies during the wait the client hangs forever waiting for
+        // ACTIONDATA; returning null here is fine since the caller is already in
+        // the termination flow.
         String actions = null;
 
         boolean ok;
@@ -10967,14 +10691,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return actions;
     }
 
-    // Deadline de progreso compartido por los dos broadcasts SÍNCRONOS de recuperación
-    // (enviarDatosClaveRecuperados / enviarAccionesRecuperadas, ambos en el hilo del dealer). Congela el
-    // reloj mientras la timba esté pausada o mientras algún peer PENDIENTE esté genuinamente reconectando
-    // (socket caído/en reset, isSocketDownOrReconnecting) — ese tiempo no cuenta; si no, y venció el tope,
-    // expulsa a los peers VIVOS que siguen sin confirmar (markExitAndNotify + socketClose) para que
-    // waitSyncConfirmations los saque de pendientes y el reparto de recuperación avance. La mesa sigue.
-    // NO usa isSomePlayerTimeout(): los llamadores marcan timeout=true a los pendientes justo antes, así que
-    // estaría siempre true y el deadline no vencería nunca (mismo bug de interacción que el broadcast).
+    // Progress deadline shared by the two synchronous recovery broadcasts
+    // (enviarDatosClaveRecuperados / enviarAccionesRecuperadas, both on the dealer thread).
+    // The clock freezes while the table is paused, or while a pending peer is genuinely
+    // reconnecting (socket down/resetting, isSocketDownOrReconnecting) — that time doesn't
+    // count. Once the deadline passes, live peers still unconfirmed get expelled
+    // (markExitAndNotify + socketClose) so waitSyncConfirmations drops them from pending
+    // and recovery keeps moving. Doesn't use isSomePlayerTimeout(): callers already mark
+    // pending peers timeout=true right before this, so it would always be true and the
+    // deadline would never fire (same interaction bug as the broadcast path).
     private long[] expelStalledRecoveryPeers(ArrayList<String> pendientes, long recoverDeadlineMs, long recoverHardCapMs) {
         boolean paused = false;
         boolean anyPendingReconnecting = false;
@@ -10988,13 +10713,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             paused = GameFrame.getInstance().isTimba_pausada();
         } catch (Exception ignored) {
-            // Ante fallo al leer el estado, tratar como reconexion (congelar hasta el techo, no expulsar por error).
+            // If reading the state fails, treat it as reconnecting (freeze until the
+            // cap instead of expelling by mistake).
             anyPendingReconnecting = true;
         }
         long now = System.currentTimeMillis();
-        // La pausa a proposito congela indefinidamente (y empuja el techo). La reconexion de un
-        // pendiente congela solo hasta el techo: sin el, un peer que reconecta en bucle mantendria el
-        // deadline reiniciado y no se le podria expulsar aunque retenga la mesa.
+        // A deliberate pause freezes indefinitely (and pushes the cap forward). A pending
+        // peer's reconnect only freezes until the cap — otherwise a peer stuck
+        // reconnect-looping would keep resetting the deadline and could never be expelled,
+        // even while holding up the table.
         if (paused) {
             return new long[]{now + BROADCAST_PROGRESS_TIMEOUT_MS, now + RECON_CHURN_HARD_CAP_MS};
         }
@@ -11048,11 +10775,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 this.waitSyncConfirmations(id, pendientes);
 
-                // Deadline de progreso PAUSE/TIMEOUT-aware (igual que broadcastGAMECommandFromServer). Antes
-                // no había timeout: un peer que contesta PING pero NO confirma la recuperación bloqueaba el
-                // hilo del dealer para siempre. El reloj no corre en pausa ni mientras haya algún peer
-                // reconectando. Al vencer con la timba en marcha se expulsa al que retiene y la mesa sigue
-                // (al quedar exit, waitSyncConfirmations lo saca de pendientes en la vuelta siguiente).
+                // PAUSE/TIMEOUT-aware progress deadline (same as broadcastGAMECommandFromServer).
+                // Without it, a peer answering PING but never confirming recovery would block
+                // the dealer thread forever. The clock doesn't run during pause or while a peer
+                // is reconnecting; on expiry with the game live, the peer withholding
+                // confirmation gets expelled and the table continues (waitSyncConfirmations
+                // drops it from pending on the next pass once it's marked exit).
                 if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
                         nick2player.get(nick).setTimeout(true);
@@ -11106,9 +10834,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 this.waitSyncConfirmations(id, pendientes);
 
-                // Deadline de progreso PAUSE/TIMEOUT-aware: ver enviarDatosClaveRecuperados y el helper
-                // expelStalledRecoveryPeers. Antes no había timeout y un peer que no confirmaba congelaba
-                // el hilo del dealer para siempre.
+                // PAUSE/TIMEOUT-aware progress deadline: see enviarDatosClaveRecuperados and the
+                // expelStalledRecoveryPeers helper. Without it a non-confirming peer would freeze
+                // the dealer thread forever.
                 if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
                         nick2player.get(nick).setTimeout(true);
@@ -11131,14 +10859,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private double[] calcularBoteParaGanador(double cantidad, int tot_ganadores) {
-        // Reparto en céntimos enteros (aritmética exacta, conserva el dinero): cada
-        // ganador recibe el floor y el resto indivisible vuelve al bote_sobrante.
+        // Split in integer cents (exact arithmetic, preserves the money): each winner
+        // gets the floor share; the indivisible remainder goes to bote_sobrante.
         return PotMath.splitAmongWinners(cantidad, tot_ganadores);
     }
 
     public void sendGAMECommandToServer(String command, boolean confirmation) {
 
-        // Si el menú intenta mandar un EXIT desnudo por otra vía, le pegamos las llaves
+        // If the menu tries to send a bare EXIT through another path, attach the keys.
         if (command != null && command.equals("EXIT")) {
             command = "EXIT#" + getTestamentoCriptografico();
         }
@@ -11181,7 +10909,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private boolean waitSyncConfirmations(int id, ArrayList<String> pending) {
 
-        // Esperamos confirmación
         long start_time = System.currentTimeMillis();
 
         boolean timeout = false;
@@ -11249,7 +10976,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public Object[] readActionFromRemotePlayer(Player jugador) {
         boolean ok = false;
-        // Identity: action[] grows to 6 slots so the wire's
+        // Identity: action[] grows to 7 slots so the wire's
         // record + sig and the voluntary flag survive the trip through Crupier:
         //   [0] decision        (Integer)
         //   [1] bet             (Float; on ALLIN overloaded to cinematic String —
@@ -11257,27 +10984,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         //   [2] cinematic       (String|null — separate slot; [1] is overloaded)
         //   [3] record          (byte[92]|null — canonical record from the wire)
         //   [4] sig             (byte[64]|null — Ed25519 signature from the wire)
-        //   [5] isVoluntary     (Boolean — FALSE marca un FOLD sintetizado localmente:
-        //                        ni se construye record ni se absorbe nada en H_t)
-        //   [6] unverifiedSynth (Boolean — TRUE solo en el synth por un wire que no
-        //                        supera la verificación, el ÚNICO que el host DEBE
-        //                        emitir para que la mesa no se quede esperando el
-        //                        asiento; el synth del peer que se fue va sin marcar
-        //                        porque su EXIT ya viajó)
+        //   [5] isVoluntary     (Boolean — FALSE marks a locally synthesized FOLD: no
+        //                        record is built and nothing is absorbed into H_t)
+        //   [6] unverifiedSynth (Boolean — TRUE only for the synth triggered by a wire
+        //                        that fails verification, the ONE case the host MUST
+        //                        emit so the table doesn't hang waiting on that seat;
+        //                        the exited-peer synth stays unmarked since its EXIT
+        //                        already went out)
         Object[] action = new Object[7];
 
-        // Deadline de PROGRESO gated en el think-time del cliente (Cluster B anti-DoS). Con
-        // THINK_TIME_ENABLED cada cliente tiene su contador de tiempo de pensar
-        // (LocalPlayer.response_counter) que al llegar a cero hace auto-click en CHECK o FOLD y envía la
-        // ACTION, así que un peer legítimo SIEMPRE responde dentro de THINK_TIME + un margen amplio (red, GC,
-        // skew de reloj). Un peer que contesta PING pero RETIENE su ACTION más allá de eso, con la timba EN
-        // MARCHA, congelaría la ronda: se le expulsa y la mesa sigue (al quedar isExit el bucle sale y
-        // synthesizeExitFoldAction lo foldea; el broadcast de EXIT hace converger al resto por omisión mutua).
-        // PAUSE-AWARE: el tiempo en pausa NO cuenta (checkPause bloquea y refrescamos el deadline al volver).
-        // Con THINK_TIME_ENABLED=false NO hay deadline: el juego permite pensar indefinidamente por diseño y
-        // ahí el kick es MANUAL. Antes NO había timeout de ningún tipo y un peer podía congelar la ronda para
-        // siempre. Forzar el FOLD desde el host se evita a propósito: con think-time ON solo EXPULSAMOS al que
-        // se pasa del tope (no pisamos su decisión, que ya habría llegado dentro del tope si fuera legítimo).
+        // PROGRESS deadline gated on client think-time (Cluster B anti-DoS). With
+        // THINK_TIME_ENABLED, each client auto-clicks CHECK/FOLD and sends the ACTION when
+        // its think-time counter (LocalPlayer.response_counter) hits zero, so a legitimate
+        // peer always responds within THINK_TIME + a generous margin (network, GC, clock
+        // skew). A peer that answers PING but withholds its ACTION past that while the game
+        // is running gets expelled so the table continues (isExit lets the loop exit,
+        // synthesizeExitFoldAction folds it, and the EXIT broadcast converges the rest by
+        // omission). PAUSE-AWARE: time spent paused doesn't count (checkPause blocks and the
+        // deadline is refreshed on resume). With THINK_TIME_ENABLED=false there's no
+        // deadline — unlimited thinking is by design, and kicking there is manual. We expel
+        // on timeout rather than forcing a FOLD, so we never overwrite a decision that
+        // arrives just within the limit.
         Participant actor = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
         boolean thinkTimeEnforced = GameFrame.THINK_TIME_ENABLED && actor != null && !actor.isCpu();
         long actionBudgetMs = (long) GameFrame.THINK_TIME * 1000L + 60000L;
@@ -11342,18 +11069,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     boolean wireVoluntary = readWireVoluntaryFlag(wireRecord);
                                                     action[5] = wireVoluntary;
 
-                                                    // §4.5: NINGUNA accion viaja con is_voluntary=0. Toda accion
-                                                    // la firma quien la juega (el humano con su clave, el bot con
-                                                    // la del host por §10) y siempre con el bit a 1; el unico
-                                                    // record is_voluntary=0 del protocolo es el reveal de
-                                                    // comunitarias, que va por su propio comando, y el fold del
-                                                    // peer que se fue jamas llega al wire. Un cero aqui solo lo
-                                                    // pone un cliente modificado para que el receptor verifique
-                                                    // contra la clave del HOST en vez de contra la suya: si la
-                                                    // clave del host no esta resuelta todavia (carrera TOFU) la
-                                                    // verificacion se saltaba y la decision en claro movia el
-                                                    // dinero igual. Mismo trato que cualquier otra accion no
-                                                    // verificable.
+                                                    // §4.5: no genuine action ever ships with is_voluntary=0 —
+                                                    // every action is signed by whoever plays it (human with
+                                                    // their own key, bot with the host's per §10), always with
+                                                    // the bit set. The protocol's only is_voluntary=0 record is
+                                                    // the community-card reveal, which travels on its own
+                                                    // command; an exited peer's fold never hits the wire. A
+                                                    // zero here can only come from a modified client trying to
+                                                    // make the receiver verify against the HOST's key instead
+                                                    // of its own, exploiting a TOFU race where the host key
+                                                    // isn't resolved yet. Treated like any other unverifiable
+                                                    // action.
                                                     byte[] signerPubkey = wireVoluntary
                                                             ? resolveActionSignerPubkey(jugador.getNickname(), true)
                                                             : null;
@@ -11365,23 +11091,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         this.saw_invalid_action_sig = true;
                                                         synthesizeUnverifiedFoldAction(action);
                                                     } else if (signerPubkey == null && this.hand_state_chain == null) {
-                                                        // Sin cadena activa (mano heredada, sin identidades) no hay
-                                                        // nada contra lo que verificar: se deja pasar, como siempre.
+                                                        // No active chain (inherited hand, no identities) means
+                                                        // nothing to verify against — let it through, as always.
                                                         LOGGER.log(Level.WARNING,
                                                                 "Cannot resolve signer pubkey for action by {0} (voluntary={1}) — verification skipped (no chain)",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                     } else if (signerPubkey == null) {
-                                                        // Con la cadena activa, no poder resolver la clave de quien
-                                                        // firma no se deja pasar: saltarse la verificacion dejaba
-                                                        // colar TODAS las acciones de ese jugador el resto de la
-                                                        // partida, que es el agujero por el que entra una decision
-                                                        // falsificada. Mismo trato que una firma que no cuadra.
+                                                        // With the chain active, an unresolvable signer key is NOT
+                                                        // let through — skipping verification would let every
+                                                        // action from that player through for the rest of the
+                                                        // hand, the hole a forged decision enters by. Treated
+                                                        // like a bad signature.
                                                         //
-                                                        // Se probo a condicionar el arranque de la cadena a tener
-                                                        // todas las identidades y se revirtio: esa decision se
-                                                        // tomaria con datos que cada peer acumula por su cuenta, no
-                                                        // con los del reparto, y dejaria de ser la misma en todas
-                                                        // las maquinas. Aqui se prefiere el criterio estricto.
+                                                        // Gating chain startup on having all identities was tried
+                                                        // and reverted: that decision would depend on data each
+                                                        // peer accumulates on its own, not on the deal's, and
+                                                        // could diverge across machines. The strict rule is used
+                                                        // instead.
                                                         LOGGER.log(Level.SEVERE,
                                                                 "ZERO-TRUST: cannot resolve the signer pubkey for action by {0} while the chain is active — SYNTHESIZING FOLD",
                                                                 jugador.getNickname());
@@ -11393,43 +11119,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                                 "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — SYNTHESIZING FOLD instead of applying falsified decision",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                         printInvalidActionSigToRegistro(jugador.getNickname());
-                                                        // Identity: mark the hand as having seen
-                                                        // an invalid signature so the receipt carries the bit y
-                                                        // consensus refuses to report OK at hand close.
+                                                        // Mark the hand as having seen an invalid signature so the
+                                                        // receipt carries the bit and consensus refuses to report
+                                                        // OK at hand close. The forged decision/bet is NOT applied
+                                                        // to game state — a fold is synthesized instead. This wire
+                                                        // was seen ONLY by this receiver (the host relays the
+                                                        // reconstructed command, not the forged bytes), so the
+                                                        // synth doesn't propagate on its own: it's flagged so the
+                                                        // host emits a bare fold and every peer synthesizes the
+                                                        // same one (see synthesizeUnverifiedFoldAction). Nobody
+                                                        // absorbs a record, so the chain converges by omission, and
+                                                        // saw_invalid_action_sig travels in the receipt so
+                                                        // hand-close consensus flags the incident instead of OK.
+                                                        // The money never moves on the forgery.
                                                         this.saw_invalid_action_sig = true;
-                                                        // Sprint deferred 🟠-2: NO aplicar la decision/bet
-                                                        // falsificados al state del juego (cambio vs
-                                                        // comportamiento anterior "absorbed anyway"). En su lugar
-                                                        // sintetizamos fold. OJO: este wire lo ha visto SOLO este
-                                                        // receptor (el host es quien relaya, y lo que relaya es el
-                                                        // comando RECONSTRUIDO, no los bytes forjados), así que el
-                                                        // synth NO se propaga por sí solo: va marcado para que el
-                                                        // host emita el fold pelado y todos los peers sinteticen el
-                                                        // mismo (ver synthesizeUnverifiedFoldAction). Ninguno absorbe
-                                                        // record → la cadena converge por omisión mutua, y el bit
-                                                        // saw_invalid_action_sig viaja en el receipt para que el
-                                                        // consenso de cierre de mano marque el incidente en vez de
-                                                        // reportar OK. El dinero NO se mueve por la falsificación.
                                                         synthesizeUnverifiedFoldAction(action);
                                                     } else {
-                                                        // Firma OK. ZERO-TRUST (🟠-HIGH cerrado): ATAR el record
-                                                        // FIRMADO (TIPO de accion + IMPORTE) a la accion realmente
-                                                        // jugada (signedRecordBindsToAction). El ACTION_TYPE y el
-                                                        // AMOUNT_CENTS del record deben coincidir con lo que la
-                                                        // decision + el estado PRE-accion implican (la MISMA
-                                                        // formula del firmante en buildLocalActionRecordAndSig).
-                                                        // Sin esto, un cliente modificado podia firmar un tipo o un
-                                                        // importe (lo que va al historial firmado y a H_t) DISTINTO
-                                                        // del que juega en claro (partes[4]/partes[5]) y que mueve
-                                                        // el bote en vivo. Cada peer lo recomputa con su propio
-                                                        // estado replicado, identico al del firmante (o la cadena
-                                                        // ya habria divergido), asi que una accion honesta SIEMPRE
-                                                        // coincide y esto NUNCA salta en juego sano. Ante
-                                                        // discrepancia (o un importe irrepresentable NaN/Inf, o una
-                                                        // decision no mapeable, que una accion legitima jamas
-                                                        // produce) se trata IGUAL que una firma invalida: synth-fold
-                                                        // simetrico en todo receptor + flag saw_invalid_action_sig
-                                                        // -> el consenso de cierre marca el incidente.
+                                                        // Signature OK. ZERO-TRUST: bind the SIGNED record (action
+                                                        // type + amount) to what was actually played
+                                                        // (signedRecordBindsToAction) — the record's ACTION_TYPE /
+                                                        // AMOUNT_CENTS must match what the decision + pre-action
+                                                        // state imply (same formula the signer used in
+                                                        // buildLocalActionRecordAndSig). Without this, a modified
+                                                        // client could sign a type/amount different from what it
+                                                        // plays in clear (partes[4]/partes[5]), which is what
+                                                        // actually moves the pot. Every peer recomputes this from
+                                                        // its own replicated state (identical to the signer's, or
+                                                        // the chain would already have diverged), so an honest
+                                                        // action always matches and this never fires in a healthy
+                                                        // game. A mismatch (or an unrepresentable NaN/Inf amount,
+                                                        // or an unmappable decision — neither ever produced by a
+                                                        // legitimate action) is treated like an invalid signature:
+                                                        // symmetric synth-fold on every receiver, flagged so
+                                                        // hand-close consensus marks the incident.
                                                         boolean recordForged;
                                                         try {
                                                             byte[] expectedPid = CanonicalActionRecord.playerIdFromNick(jugador.getNickname());
@@ -11445,8 +11167,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                                         jugador.getNickname());
                                                             }
                                                         } catch (RuntimeException recEx) {
-                                                            // Decision no mapeable o importe irrepresentable
-                                                            // (NaN/Inf): una accion legitima jamas lo produce.
+                                                            // Unmappable decision or unrepresentable amount
+                                                            // (NaN/Inf): never produced by a legitimate action.
                                                             recordForged = true;
                                                             LOGGER.log(Level.SEVERE,
                                                                     "ZERO-TRUST: action by {0} has an unmappable decision or unrepresentable amount — SYNTHESIZING FOLD",
@@ -11459,16 +11181,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         }
                                                     }
                                                 } else {
-                                                    // ZERO-TRUST: record MALFORMADO. Sin este else, un record
-                                                    // que no midiera RECORD_BYTES se saltaba ENTERA la
-                                                    // verificación (pubkey, firma, binding y synth) mientras la
-                                                    // decisión y el importe, ya leídos en claro más arriba,
-                                                    // movían el dinero igual: justo el ataque que el comentario
-                                                    // del strip de aquí abajo dice impedir. Ningún record
-                                                    // legítimo tiene otra longitud (el firmante siempre emite
-                                                    // RECORD_BYTES y el canal cifrado + HMAC descarta lo
-                                                    // alterado en tránsito), así que esto NUNCA salta en juego
-                                                    // sano y solo puede venir de un cliente modificado.
+                                                    // ZERO-TRUST: malformed record. Without this branch, a record
+                                                    // of the wrong length skipped verification entirely (pubkey,
+                                                    // signature, binding, synth) while the already plaintext-read
+                                                    // decision and amount still moved the money — exactly the
+                                                    // attack the strip check below guards against. No legitimate
+                                                    // record has any other length (the signer always emits
+                                                    // RECORD_BYTES, and the encrypted+HMAC channel discards
+                                                    // anything altered in transit), so this only ever fires from
+                                                    // a modified client.
                                                     LOGGER.log(Level.SEVERE,
                                                             "ZERO-TRUST: ACTION by {0} carries a malformed record ({1} bytes, expected {2}) — SYNTHESIZING FOLD instead of applying an unverifiable decision",
                                                             new Object[]{jugador.getNickname(),
@@ -11479,10 +11200,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     synthesizeUnverifiedFoldAction(action);
                                                 }
                                             } catch (Exception parseEx) {
-                                                // Mismo agujero que el else de arriba: hasta ahora esto solo
-                                                // anulaba record/sig y dejaba correr la decisión en claro sin
-                                                // haber verificado nada. Un base64 que no decodifica no lo
-                                                // produce un peer honesto (el canal ya descarta lo corrupto).
+                                                // Same hole as the else above: previously this just nulled
+                                                // record/sig and let the plaintext decision through unverified.
+                                                // A non-decoding base64 is never produced by an honest peer
+                                                // (the channel already discards corruption).
                                                 LOGGER.log(Level.SEVERE,
                                                         "ZERO-TRUST: failed to decode/verify record/sig from ACTION wire by "
                                                         + jugador.getNickname() + " — SYNTHESIZING FOLD", parseEx);
@@ -11504,15 +11225,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             // (see the broadcast path) and exit-synths never hit the wire, so
                                             // this never fires on a healthy hand.
                                             if (this.conta_accion < this.tot_acciones_recuperadas) {
-                                                // RECOVER: un fold PELADO recibido aqui es el exit-fold LEGITIMO de un
-                                                // jugador que se fue a mitad de mano y ahora reconecta (se reproduce sin
-                                                // firma porque nadie puede firmar por el ausente, §4.5). Es OMISION MUTUA
-                                                // como en vivo, NO una firma invalida: synth-fold para no aplicar la
-                                                // decision en claro, pero SIN marcar la mano ni imprimir alerta. Si un host
-                                                // hostil estuviera estripando una accion PRESENCIADA, lo caza la VICTIMA en
-                                                // su propio cliente (contra su BD local: rama benigna/dura + el guard del
-                                                // skip) y la cadena diverge; la marca del receptor aqui seria redundante y
-                                                // ademas un FALSO positivo en el caso benigno (que es el comun).
+                                                // RECOVER: a bare fold received here is the LEGITIMATE exit-fold
+                                                // of a player who left mid-hand and is now reconnecting (replayed
+                                                // unsigned since nobody can sign for an absent player, §4.5).
+                                                // Mutual omission like in live play, not an invalid signature:
+                                                // synth-fold without applying the plaintext decision, but WITHOUT
+                                                // flagging the hand or printing an alert. If a hostile host were
+                                                // instead stripping a witnessed action, the victim's own client
+                                                // would catch it against its local DB and the chain would
+                                                // diverge — flagging here would be redundant and a false
+                                                // positive in the common, benign case.
                                                 LOGGER.log(Level.INFO,
                                                         "RECOVER: exit-fold pelado de {0} — omision mutua, sin marca de firma invalida",
                                                         jugador.getNickname());
@@ -11531,14 +11253,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             } catch (Exception ex) {
                                 LOGGER.log(Level.SEVERE, "Error parsing remote action", ex);
                                 if (ok) {
-                                    // El comando ya se dio por consumido (el nick coincidia) y
-                                    // action[] puede haber quedado A MEDIAS: basta con que el
-                                    // campo de la decision no sea un numero para que se quede
-                                    // sin decision, y aguas abajo eso ya no es un frame que se
-                                    // ignora, es un NPE que se lleva por delante el proceso
-                                    // ENTERO. Un ACTION que no se puede ni leer se trata como
-                                    // cualquier otro que no se puede verificar: fold sintetico
-                                    // que sale al wire para que la mesa converja.
+                                    // The command was already consumed (nick matched) and action[]
+                                    // may be half-built — a non-numeric decision field alone leaves
+                                    // it empty, and downstream that's not a frame to ignore but an
+                                    // NPE that takes down the whole process. An unreadable ACTION is
+                                    // treated like any other unverifiable one: synthesize a fold so
+                                    // the table converges.
                                     printInvalidActionSigToRegistro(jugador.getNickname());
                                     this.saw_invalid_action_sig = true;
                                     synthesizeUnverifiedFoldAction(action);
@@ -11556,24 +11276,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (!ok && !jugador.isExit()) {
                     boolean pausedNow = GameFrame.getInstance().checkPause();
-                    // El cliente CONGELA el contador de think-time del que actúa mientras haya CUALQUIER peer
-                    // en timeout (reconexión) o la timba pausada (LocalPlayer.auto_action usa exactamente
-                    // !isSomePlayerTimeout() && !isTimba_pausada()). El host DEBE congelar su deadline en las
-                    // MISMAS condiciones o expulsaría a un jugador HONESTO que legítimamente espera con su
-                    // barra parada (p.ej. otro peer sufre un corte de red durante su turno). Ese tiempo no
-                    // cuenta contra el think-time.
-                    // ESTE plazo, a diferencia de los otros cuatro, NO lleva techo de reconexion a
-                    // proposito: el cliente del actor congela su reloj de think-time (LocalPlayer.auto_action)
-                    // en las MISMAS condiciones (!isSomePlayerTimeout() && !pausa) y SIN techo, asi que
-                    // ponerle uno aqui rompe la simetria host/cliente que este comentario exige y podria
-                    // expulsar a un actor honesto que espera con la barra parada mientras un tercero reconecta.
+                    // The client freezes the acting player's think-time counter while ANY peer
+                    // is in timeout (reconnecting) or the table is paused (LocalPlayer.auto_action
+                    // uses exactly !isSomePlayerTimeout() && !isTimba_pausada()) — that time
+                    // doesn't count against think-time. The host must freeze its deadline under
+                    // the SAME conditions or it would expel an honest player legitimately
+                    // waiting with a frozen bar (e.g. another peer drops off during their turn).
+                    // Unlike the other four deadlines, this one deliberately carries NO
+                    // reconnection cap: capping it would break this host/client symmetry and
+                    // could expel an honest actor while a third peer reconnects.
                     if (pausedNow || isSomePlayerTimeout()) {
                         actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
                     }
                     if (thinkTimeEnforced && System.currentTimeMillis() >= actionDeadlineMs) {
-                        // Peer vivo (contesta PING) que retiene su ACTION con la timba EN MARCHA más allá del
-                        // think-time + margen amplio. Se le expulsa: al quedar isExit, el bucle sale y
-                        // synthesizeExitFoldAction lo foldea; el broadcast de EXIT hace converger al resto.
+                        // A live peer (answers PING) withholding its ACTION past think-time + margin
+                        // while the game is running gets expelled: isExit lets the loop exit,
+                        // synthesizeExitFoldAction folds it, and the EXIT broadcast converges the rest.
                         LOGGER.log(Level.SEVERE,
                                 "ZERO-TRUST DoS: peer {0} withheld ACTION past think-time + margin ({1}ms, game running, answering PING) — expelling, table continues",
                                 new Object[]{jugador.getNickname(), actionBudgetMs});
@@ -11583,14 +11301,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             actor.socketClose();
                         } catch (Exception ignored) {
                         }
-                        continue; // el while re-evalúa: jugador.isExit() ya es true -> sale del bucle
+                        continue; // the while re-checks: jugador.isExit() is already true -> exits the loop
                     }
                     synchronized (this.getReceived_commands()) {
                         try {
-                            // Con think-time ON el wait se acota al deadline para despertar justo a tiempo de
-                            // expulsar (arriba). Con think-time OFF (pensar ilimitado por diseno) NO hay expulsion
-                            // por deadline, asi que NO dejamos que el deadline ya vencido encoja el wait a 1ms:
-                            // eso degeneraba en busy-spin (poll cada 1ms) mientras se retiene la ACTION >100s.
+                            // With think-time ON the wait is capped to the deadline so it wakes in
+                            // time to expel (above). With think-time OFF (unlimited thinking by
+                            // design) there's no deadline expulsion, so we don't let an already-past
+                            // deadline shrink the wait to 1ms — that degenerated into a busy-spin
+                            // (poll every 1ms) while an ACTION was withheld for >100s.
                             long waitMs = thinkTimeEnforced
                                     ? Math.max(1L, Math.min(WAIT_QUEUES, actionDeadlineMs - System.currentTimeMillis()))
                                     : WAIT_QUEUES;
@@ -11611,9 +11330,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // rondaApuestas keys off action[5]==FALSE to skip both the wire
             // broadcast and the absorb call.
             //
-            // Sprint deferred 🟠-2: extraído al helper synthesizeExitFoldAction
-            // (mismo contrato que el synth por wire no verificable de arriba, salvo
-            // que aquel SÍ hay que emitirlo: aquí el EXIT ya viajó).
+            // Extracted to the synthesizeExitFoldAction helper (same contract as the
+            // unverifiable-wire synth above, except that one must be emitted — here
+            // the EXIT already went out).
             synthesizeExitFoldAction(action);
         } else {
             jugador.setTimeout(false);
@@ -11635,26 +11354,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return tot;
     }
 
-    // ---- Run-it-twice: votación host-driven --------------------------------
+    // ---- Run-it-twice: host-driven voting ------------------------------------
     //
-    // Se ejecuta SOLO en el host (isPartida_local) cuando la acción se cierra
-    // con 2+ implicados (puedenApostar(resisten) <= 1) y la regla está activa.
-    // Votan únicamente los humanos implicados (resisten); los bots no votan.
-    // Unanimidad: run-it-twice solo si TODOS los humanos implicados votan RIT;
-    // un solo NORMAL (o timeout) → board único. Devuelve el booleano acordado.
+    // Runs only on the host (isPartida_local) once the action closes with 2+
+    // players involved (puedenApostar(resisten) <= 1) and the rule is active.
+    // Only involved humans vote (resisten); bots don't. Unanimous: run-it-twice
+    // only if EVERY involved human votes RIT; a single NORMAL (or timeout) means
+    // a single board. Returns the agreed boolean.
     //
-    // El host muestra su propio diálogo localmente (si está implicado) y pide a
-    // los humanos remotos vía RIT_VOTE_REQ; recoge respuestas drenando la cola
-    // received_commands (mismo patrón que requestRemoteCascade) y rebroadcasta
-    // RIT_VOTE_TALLY en vivo; al cerrar manda RIT_VOTE_CLOSE.
+    // The host shows its own dialog locally (if involved) and asks remote humans
+    // via RIT_VOTE_REQ; collects replies by draining received_commands (same
+    // pattern as requestRemoteCascade), rebroadcasts RIT_VOTE_TALLY live, and
+    // sends RIT_VOTE_CLOSE on close.
 
     private void sendRitVoteReq(Participant p, int timeout, int totalVoters) {
         try {
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            // El bote viaja como double crudo: cada cliente lo formatea con su
-            // propio locale (money2String depende de GameFrame.LANGUAGE).
+            // The pot travels as a raw double: each client formats it with its own
+            // locale (money2String depends on GameFrame.LANGUAGE).
             p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters + "#" + this.bote_total, p.getAes_key(), iv, p.getHmac_key()));
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_REQ", e);
@@ -11662,9 +11381,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void broadcastRitTally(int normal, int rit, RunItTwiceDialog hostDialog) {
-        // confirmation=false: fire-and-forget. No espera ACKs (los tally en vivo
-        // deben ser rápidos) y, crucialmente, NO drena received_commands — si
-        // esperara confirmación robaría los RIT_VOTE_RESP que estamos recogiendo.
+        // confirmation=false: fire-and-forget. Doesn't wait for ACKs (live tallies
+        // must be fast) and, crucially, doesn't drain received_commands — waiting
+        // for confirmation would steal the RIT_VOTE_RESP messages we're collecting.
         try {
             broadcastGAMECommandFromServer("RIT_VOTE_TALLY#" + normal + "#" + rit, null, false);
         } catch (RuntimeException e) {
@@ -11676,12 +11395,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void broadcastRitClose(int result) {
-        // CON confirmación, al reves que el recuento en vivo. El recuento es solo pintura y
-        // perderlo no cuesta nada, pero esto es el resultado CANONICO: decide si la mano se
-        // reparte con un board o con dos. Al cliente que no le llegara, su dialogo se cerraba
-        // solo asumiendo que no, y entonces liquidaba un board mientras el resto de la mesa
-        // liquidaba dos, con el dinero saliendo distinto en cada sitio. Se entrega como
-        // cualquier otro dato canonico: con reintento hasta que confirmen.
+        // WITH confirmation, unlike the live tally. The tally is just cosmetic and can
+        // be dropped for free, but this is the CANONICAL result deciding one board vs
+        // two. A client that missed it would close its dialog assuming NORMAL and
+        // settle a single board while the rest of the table settles two, paying out
+        // differently. Delivered like any other canonical data: retried until confirmed.
         try {
             broadcastGAMECommandFromServer("RIT_VOTE_CLOSE#" + result, null, true);
         } catch (RuntimeException e) {
@@ -11702,7 +11420,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 continue;
             }
             if (nick.equals(localNick)) {
-                // Asiento del host: humano (el host nunca es bot).
+                // Host's own seat: human (the host is never a bot).
                 localIsVoter = true;
             } else {
                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
@@ -11710,13 +11428,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     remoteVoterNicks.add(nick);
                     remoteVoterParts.put(nick, p);
                 }
-                // Bots y remotos caídos/exit no votan.
+                // Bots and disconnected/exited remotes don't vote.
             }
         }
 
         int totalVoters = (localIsVoter ? 1 : 0) + remoteVoterNicks.size();
         if (totalVoters == 0) {
-            // Todos los implicados son bots: no se ofrece RIT.
+            // Every player involved is a bot: RIT isn't offered.
             return false;
         }
 
@@ -11738,10 +11456,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         broadcastRitTally(0, 0, hostDialog);
 
-        // Unanimidad: run-it-twice solo si TODOS los implicados votan RIT. En
-        // cuanto alguien vota NORMAL se cierra la votación de inmediato (un solo
-        // NO basta para descartar el reparto doble) y se juega board único; no
-        // se espera a los votos que falten.
+        // Unanimous: run-it-twice only if EVERY involved player votes RIT. As soon
+        // as anyone votes NORMAL, voting closes immediately (a single NO is enough
+        // to rule out the double deal) and a single board is played, without
+        // waiting for the remaining votes.
         boolean any_normal = false;
 
         while (votes.size() < totalVoters && !any_normal
@@ -11770,7 +11488,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 changed = true;
                             }
                         } catch (Exception e) {
-                            // Voto malformado: se ignora.
+                            // Malformed vote: ignored.
                         }
                     } else {
                         rejected.add(cmd);
@@ -11792,7 +11510,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 broadcastRitTally(n, r, hostDialog);
                 if (n > 0) {
-                    // Unanimidad rota: cerramos ya, sin esperar al resto.
+                    // Unanimity broken: close now without waiting for the rest.
                     any_normal = true;
                 }
             }
@@ -11809,9 +11527,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Unanimidad: RIT solo si nadie votó NORMAL y todos llegaron a votar
-        // RIT. Cualquier NORMAL, o votos que no llegaron a tiempo (timeout/caída,
-        // que cuentan como NORMAL), -> board único.
+        // Unanimous: RIT only if nobody voted NORMAL and everyone voted RIT. Any
+        // NORMAL, or a vote that never arrived in time (timeout/disconnect, counted
+        // as NORMAL), means a single board.
         boolean agreed = !any_normal && votes.size() == totalVoters;
 
         int n = 0, r = 0;
@@ -11833,7 +11551,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return agreed;
     }
 
-    // ---- Run-it-twice: lado CLIENTE (reacciona a RIT_VOTE_* del host) -------
+    // ---- Run-it-twice: CLIENT side (reacts to the host's RIT_VOTE_*) ---------
 
     public void showRitClientVoteDialog(int timeout, int totalVoters, double pot) {
         Helpers.GUIRun(() -> {
@@ -11859,8 +11577,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void closeRitClientDialog(boolean agreed) {
-        // El cliente guarda el resultado para que su bucle run() tome la misma
-        // rama SIDE-B que el host (checkpoint 3).
+        // The client stores the result so its run() loop takes the same SIDE-B
+        // branch as the host (checkpoint 3).
         this.rit_agreed = agreed;
         RunItTwiceDialog d = this.rit_client_dialog;
         if (d != null) {
@@ -11872,20 +11590,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void printRitVoteResult(boolean agreed) {
         if (agreed) {
-            // Punto común host (runRitVote / rebroadcast de recovery) y cliente
-            // (RIT_VOTE_CLOSE): desde aquí el run-out es ya el de SIDE-A y la
-            // pot_label lo marca hasta que el rewind cambie a CARA-B.
+            // Shared point for host (runRitVote / recovery rebroadcast) and client
+            // (RIT_VOTE_CLOSE): from here the run-out is already SIDE-A, and
+            // pot_label reflects that until the rewind flips it to SIDE-B.
             this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_a");
         }
         GameFrame.getInstance().getRegistro().print(Translator.translate(agreed ? "runittwice.log_accepted" : "runittwice.log_rejected"));
     }
 
-    // ¿Hay un straddler HUMANO ciego esta mano? Devuelve su nick, o null. Es el straddle
-    // voluntario en mano fresca con >2 activos cuyo UTG es un humano (host o cliente) activo:
-    // ese jugador decide a ciegas y sus 2 hole cards se DIFIEREN criptográficamente hasta que
-    // firma su decisión. Los bots quedan fuera (deciden sin mirar sus cartas, no hace falta
-    // cegarlos). Es la fuente ÚNICA de verdad compartida por el reparto (retención de candados),
-    // recibirMisCartas (pasar a ciegas) y resolveVoluntaryStraddle (liberar tras decidir).
+    // Is there a blind HUMAN straddler this hand? Returns their nick, or null. This is
+    // the voluntary straddle on a fresh hand with >2 active players whose UTG is an
+    // active human (host or client): that player decides blind, with their 2 hole cards
+    // cryptographically withheld until they sign a decision. Bots are excluded (they
+    // decide without looking at cards, no need to blind them). Single source of truth
+    // shared by the deal (lock retention), recibirMisCartas (deal blind) and
+    // resolveVoluntaryStraddle (release after deciding).
     private String blindStraddlerNickThisHand() {
         if (!GameFrame.STRADDLE || this.game_recovered != 0 || getJugadoresActivos() <= 2 || this.utg_nick == null) {
             return null;
@@ -11900,12 +11619,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (utg == null || !utg.isActivo()) {
             return null;
         }
-        // Bot: no necesita cegado (decide sin mirar sus cartas). Se detecta por Participant.isCpu(),
-        // que es fiable TANTO en el host COMO en los clientes (lo usa la verificación de acciones),
-        // a diferencia de RemotePlayer.getBot() que solo lo puebla el host. Esto es imprescindible
-        // para que el responder (cliente) calcule EXACTAMENTE el mismo straddler que el host y no
-        // proteja de más (bot-UTG) ni de menos (humano-UTG). El LocalPlayer siempre es humano
-        // (participante ausente o isCpu()==false).
+        // Bot: doesn't need blinding (decides without looking at its cards). Detected via
+        // Participant.isCpu(), which is reliable on BOTH the host AND the clients (action
+        // verification uses it), unlike RemotePlayer.getBot() which only the host
+        // populates. This is essential so the responder (client) computes EXACTLY the
+        // same straddler as the host, protecting neither too much (bot-UTG) nor too
+        // little (human-UTG). LocalPlayer is always human (absent participant or
+        // isCpu()==false).
         Participant utgPar = GameFrame.getInstance().getParticipantes().get(this.utg_nick);
         if (utgPar != null && utgPar.isCpu()) {
             return null;
@@ -11913,11 +11633,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return this.utg_nick;
     }
 
-    // Índice de anillo (active_crypto_ring) del slot del straddler ciego de esta mano, o -1 si no
-    // hay. Lo usa el RESPONDER (WaitingRoomFrame) para RECHAZAR pelar ese slot bajo la fase POCKET
-    // normal: el slot del straddler SOLO se desbloquea bajo UNLOCK_PHASE_POCKET_STRADDLE con su
-    // decisión firmada verificada. Sin esto, un host hostil pediría el unlock bajo POCKET (que no
-    // tiene gate de firma) y vería/entregaría las cartas antes de que el straddler se comprometa.
+    // Ring index (active_crypto_ring) of this hand's blind straddler slot, or -1 if none.
+    // Used by the RESPONDER (WaitingRoomFrame) to REJECT peeling that slot under the
+    // normal POCKET phase: the straddler's slot only unlocks under
+    // UNLOCK_PHASE_POCKET_STRADDLE with a verified signed decision. Without this, a
+    // hostile host could request the unlock under POCKET (no signature gate) and
+    // see/deliver the cards before the straddler commits.
     public int blindStraddlerSlot() {
         String nick = blindStraddlerNickThisHand();
         String[] ring = this.active_crypto_ring;
@@ -11932,9 +11653,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return -1;
     }
 
-    // Verifica la decisión FIRMADA de un straddler contra su identity pubkey (payload
-    // HAND_ID || nick || decision bajo dominio STRADDLE). true solo si la firma es auténtica
-    // y de ESTA mano. Es el gate: cada peer la exige antes de servir el desbloqueo diferido.
+    // Verifies a straddler's SIGNED decision against their identity pubkey (payload
+    // HAND_ID || nick || decision under the STRADDLE domain). True only if the signature
+    // is authentic and for THIS hand — the gate every peer requires before serving the
+    // deferred unlock.
     private boolean verifyStraddleDecisionWire(String straddlerNick, int decision, byte[] sig) {
         if (straddlerNick == null || sig == null || this.current_hand_id == null) {
             return false;
@@ -11947,8 +11669,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return IdentityManager.verifyStraddleDecision(pubkey, this.current_hand_id, straddlerNick, decision, sig);
     }
 
-    // Firma la decisión de straddle del jugador LOCAL (cuando el host es el straddler, o el
-    // cliente straddler antes de mandarla). null si no hay identity lista o hand_id.
+    // Signs the LOCAL player's straddle decision (when the host is the straddler, or the
+    // straddler client before sending it). Null if identity isn't ready or hand_id is missing.
     private byte[] signLocalStraddleDecision(int decision) {
         IdentityManager im = IdentityManager.getInstance();
         if (this.current_hand_id == null || !im.isReady()) {
@@ -11957,10 +11679,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return im.signStraddleDecision(this.current_hand_id, GameFrame.getInstance().getNick_local(), decision);
     }
 
-    // Cliente: procesa el STRADDLE_DECISION#nickB64#decision#sigB64 difundido por el host. Verifica
-    // la firma del straddler y, si es válida, registra el flag (habilita el desbloqueo diferido de SU
-    // slot). Firma inválida o malformada -> se ignora (el gate del responder seguirá rechazando el
-    // unlock, así un host que forje "el straddler decidió" no consigue extraer sus cartas).
+    // Client: processes the STRADDLE_DECISION#nickB64#decision#sigB64 the host broadcasts.
+    // Verifies the straddler's signature and, if valid, records the flag (enables the
+    // deferred unlock of THEIR slot). Invalid or malformed signature -> ignored (the
+    // responder's gate keeps rejecting the unlock, so a host forging "the straddler
+    // decided" can't extract those cards).
     public void onStraddleDecisionCommand(String[] partes) {
         if (partes == null || partes.length < 6) {
             return;
@@ -11979,21 +11702,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // ====================== Straddle voluntario (post-reparto) ======================
+    // ====================== Voluntary straddle (post-deal) ======================
     //
-    // El straddle dejó de ser obligatorio: tras repartir (cartas del UTG local boca
-    // abajo), el UTG decide A CIEGAS si pone un straddle de 2x la ciega grande. Es una
-    // decisión host-driven, como el voto run-it-twice: el host la determina —diálogo
-    // local si el host es el UTG, heurística si es un bot, o esperando STRADDLE_RESP del
-    // cliente UTG con deadline (timeout = NO)— y difunde el resultado canónico
-    // STRADDLE_RESULT; TODOS los peers lo aplican idénticamente, así apuesta_actual /
-    // bote_total / orden de acción convergen igual que con el viejo straddle obligatorio.
-    // En la mano RECUPERADA no se pregunta: el host repone la decisión original del
-    // fósil (straddle_recovered_posted) y la rebroadcasta -> camino uniforme. Con STRADDLE
-    // off, heads-up o <=2 activos es un no-op total (camino por defecto byte-idéntico).
+    // Straddle is no longer mandatory: after dealing (UTG's local cards face down), the
+    // UTG decides BLIND whether to post a straddle of 2x the big blind. Host-driven,
+    // like the run-it-twice vote: the host determines it — local dialog if the host is
+    // UTG, heuristic if a bot, or waiting on STRADDLE_RESP from the client UTG with a
+    // deadline (timeout = NO) — and broadcasts the canonical STRADDLE_RESULT; every peer
+    // applies it identically, so apuesta_actual / bote_total / action order converge the
+    // same as the old mandatory straddle. A RECOVERED hand doesn't ask: the host restores
+    // the original decision from the fossil (straddle_recovered_posted) and rebroadcasts
+    // it. With STRADDLE off, heads-up, or <=2 active players, this is a total no-op.
 
     private void resolveVoluntaryStraddle() {
-        boolean released_ok = true; // true si no había cartas diferidas que liberar, o se liberaron OK
+        boolean released_ok = true; // true if there were no deferred cards to release, or they released OK
         try {
             if (!GameFrame.STRADDLE || getJugadoresActivos() <= 2 || isFin_de_la_transmision()) {
                 return;
@@ -12014,9 +11736,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final boolean local_is_straddler = straddler == GameFrame.getInstance().getLocalPlayer();
             final boolean host = GameFrame.getInstance().isPartida_local();
 
-            // Mano fresca: feedback visual mientras se decide (icono pensativo en el asiento
-            // del UTG para los demás + barra del community contando los 5 s). En recover no
-            // se pregunta (el host repone del fósil y rebroadcasta), así que no hay espera.
+            // Fresh hand: visual feedback while deciding (thinking icon on the UTG seat for
+            // everyone else + a community bar counting down 5s). Recover doesn't ask (the
+            // host restores from the fossil and rebroadcasts), so there's no wait.
             if (fresh && !local_is_straddler && straddler instanceof RemotePlayer) {
                 ((RemotePlayer) straddler_f).showStraddleThinking();
             }
@@ -12025,31 +11747,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             int decision = VoluntaryStraddleDialog.NO_STRADDLE;
-            byte[] straddler_sig = null; // firma de la decisión del straddler (para la liberación diferida)
+            byte[] straddler_sig = null; // signature of the straddler's decision (for the deferred release)
             if (host) {
-                // HOST: autoridad. En fresca decide (diálogo propio / bot / RESP remoto FIRMADO); en
-                // recover repone del fósil. En ambos casos difunde el resultado canónico.
+                // HOST: authoritative. On a fresh hand it decides (own dialog / bot / SIGNED
+                // remote RESP); on recover it restores from the fossil. Either way it
+                // broadcasts the canonical result.
                 if (fresh) {
                     if (local_is_straddler) {
                         decision = promptStraddleLocal(straddler_f);
-                        this.local_signed_straddle_decision = decision; // el host straddler gobierna su propio importe por su firma
-                        straddler_sig = signLocalStraddleDecision(decision); // el host firma su propia decisión
+                        this.local_signed_straddle_decision = decision; // the host straddler governs its own amount via its own signature
+                        straddler_sig = signLocalStraddleDecision(decision); // the host signs its own decision
                     } else if (straddler instanceof RemotePlayer && ((RemotePlayer) straddler).getBot() != null) {
-                        decision = botStraddleDecision(straddler_f); // bot: sin cegado (no hay slot diferido)
+                        decision = botStraddleDecision(straddler_f); // bot: no blinding (no deferred slot)
                     } else {
                         decision = waitStraddleRespFromRemote(straddler.getNickname());
-                        straddler_sig = this.pending_remote_straddle_sig; // firma del cliente straddler
+                        straddler_sig = this.pending_remote_straddle_sig; // signature from the straddler client
                     }
                 } else {
                     decision = this.straddle_recovered_posted ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE;
                 }
                 broadcastStraddleResult(decision);
             } else {
-                // CLIENTE: en fresca, si soy el UTG muestro el diálogo, FIRMO y mando mi respuesta;
-                // en todo caso (y siempre en recover) espero el resultado canónico del host.
+                // CLIENT: on a fresh hand, if I'm the UTG I show the dialog, SIGN, and send my
+                // response; either way (and always on recover) I wait for the host's
+                // canonical result.
                 if (fresh && local_is_straddler) {
                     int myDecision = promptStraddleLocal(straddler_f);
-                    this.local_signed_straddle_decision = myDecision; // gobierna mi propio importe por mi firma, no por el RESULT del host
+                    this.local_signed_straddle_decision = myDecision; // governs my own amount via my own signature, not the host's RESULT
                     sendStraddleResp(myDecision, signLocalStraddleDecision(myDecision));
                 }
                 decision = waitStraddleResult();
@@ -12062,11 +11786,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // ===== Liberación CRIPTOGRÁFICA de las cartas del straddler diferido (solo mano fresca) =====
-            // El straddler decidió a ciegas; ahora que su decisión está firmada, cada peer sirve el
-            // desbloqueo de su slot. Se hace SIEMPRE que haya cartas diferidas, sea cual sea la decisión
-            // (POST o NO): el straddler sigue en la mano y necesita ver sus cartas. El host orquesta la
-            // cascada y entrega; el cliente straddler espera su POCKET_CARDS diferido y resuelve.
+            // ===== CRYPTOGRAPHIC release of the deferred straddler's cards (fresh hand only) =====
+            // The straddler decided blind; now that their decision is signed, each peer serves
+            // the unlock of that slot. Done ALWAYS when there are deferred cards, regardless of
+            // the decision (POST or NO): the straddler stays in the hand and needs to see their
+            // cards. The host orchestrates the cascade and delivery; the straddler client waits
+            // for its deferred POCKET_CARDS and resolves.
             if (fresh && !isFin_de_la_transmision()) {
                 if (host && this.deferred_straddle_slot >= 0) {
                     released_ok = releaseDeferredStraddlerCardsHost(this.deferred_straddle_nick,
@@ -12076,28 +11801,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // ZERO-TRUST STRADDLE: para un straddler HUMANO cegado el importe lo gobierna su decisión
-            // FIRMADA (verificada por todos los peers a partir del STRADDLE_DECISION difundido), NO el
-            // STRADDLE_RESULT no firmado del host. Todos los peers convergen en el valor firmado (único
-            // y verificable), así que un host hostil no puede difundir un RESULT que contradiga la firma
-            // para forzar o suprimir el straddle de un jugador honesto y mover 2x la ciega grande de su
-            // stack. Para bots (sin firma) o en recover (repuesto del fósil) blindStraddlerNickThisHand
-            // devuelve null y sigue rigiendo el RESULT.
+            // ZERO-TRUST STRADDLE: for a blinded HUMAN straddler, the amount is governed by
+            // their SIGNED decision (verified by every peer from the broadcast
+            // STRADDLE_DECISION), NOT the host's unsigned STRADDLE_RESULT. Every peer
+            // converges on the signed (unique, verifiable) value, so a hostile host can't
+            // broadcast a RESULT contradicting the signature to force or suppress an honest
+            // player's straddle and move 2x the big blind out of their stack. For bots (no
+            // signature) or on recover (restored from the fossil), blindStraddlerNickThisHand
+            // returns null and RESULT still governs.
             if (fresh && !isFin_de_la_transmision()) {
                 String signedStraddler = blindStraddlerNickThisHand();
                 if (signedStraddler != null) {
                     Integer signedDecision;
                     if (local_is_straddler) {
-                        // El straddler LOCAL gobierna su importe con la decisión que EL MISMO firmó, sin
-                        // depender de que el host difunda el STRADDLE_DECISION: cuando el straddler es el
-                        // único humano vivo, un host hostil puede desbloquearle las cartas sin difundir esa
-                        // firma (resuelve el residuo con los locks de los bots que controla) y colar un
-                        // STRADDLE_RESULT falso; usar la firma propia cierra ese hueco.
+                        // The LOCAL straddler governs their amount with the decision they signed
+                        // themselves, without depending on the host broadcasting
+                        // STRADDLE_DECISION: when the straddler is the only human alive, a hostile
+                        // host could unlock their cards without broadcasting that signature
+                        // (resolving the rest via bot locks it controls) and slip in a fake
+                        // STRADDLE_RESULT; using the local signature closes that hole.
                         signedDecision = (this.local_signed_straddle_decision >= 0)
                                 ? this.local_signed_straddle_decision : null;
                     } else {
-                        // Los demás peers aplican la decisión FIRMADA verificada del straddler, difundida en
-                        // STRADDLE_DECISION (única y verificable), no el RESULT no firmado del host.
+                        // Other peers apply the straddler's verified SIGNED decision broadcast in
+                        // STRADDLE_DECISION (unique, verifiable), not the host's unsigned RESULT.
                         signedDecision = awaitVerifiedStraddleDecisionValue(signedStraddler,
                                 STRADDLE_RESULT_WAIT_TIMEOUT * 1000L);
                     }
@@ -12107,23 +11834,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 new Object[]{decision, signedDecision, signedStraddler});
                         decision = signedDecision;
                     }
-                    // signedDecision == null: no llegó/registró la decisión firmada; las cartas del
-                    // straddler tampoco se desbloquearon -> el guard straddlerStuck del finally hará MISDEAL.
+                    // signedDecision == null: the signed decision never arrived/was recorded; the
+                    // straddler's cards weren't unlocked either -> the straddlerStuck guard in
+                    // finally triggers a MISDEAL.
                 }
             }
 
             if (decision == VoluntaryStraddleDialog.POST_STRADDLE && !isFin_de_la_transmision() && released_ok) {
-                // applyStraddlePost vuela primero la ficha ROJA al asiento (bloquea hasta
-                // aterrizar); luego, solo en fresca, vuelan las fichas de dinero al bote
-                // (flaseo amarillo típico). El straddle viejo entraba en apuestas Y bote_total
-                // por la suma de forzadas de NUEVA_MANO (corría antes que ella); aquí, al ser
-                // post-reparto, se suma explícito a AMBOS (apuestas = apuestas de la calle que
-                // se muestran en el tapete; bote_total = bote acumulado). El delta del replay/
-                // ronda usa getBet()-old_bet, así que el check del straddler da 0 (sin doble).
-                // El straddler NO rueda su stack/bet en postStraddle (dentro de
-                // applyStraddlePost): lo difiere hasta que su ficha de DINERO aterrice en
-                // el bote (launchChipToPot abajo, solo fresca) -> los tres a la vez. En no
-                // fresca (recover) no vuela esa ficha, así que no se difiere (rueda al post).
+                // applyStraddlePost first flies the RED chip to the seat (blocks until it
+                // lands); then, fresh-hand only, the money chips fly to the pot (the usual
+                // yellow flash). The old mandatory straddle was folded into apuestas AND
+                // bote_total via NUEVA_MANO's forced-bet sum (which ran before it); here,
+                // being post-deal, it's added explicitly to BOTH (apuestas = street bets
+                // shown on the table; bote_total = accumulated pot). The replay/round delta
+                // uses getBet()-old_bet, so the straddler's check comes out 0 (no
+                // double-count). applyStraddlePost does NOT roll the straddler's stack/bet:
+                // that's deferred until their money chip lands in the pot (launchChipToPot
+                // below, fresh-hand only) so all three happen together. On recover that chip
+                // never flies, so nothing is deferred (it rolls immediately).
                 if (fresh) {
                     straddler_f.setCounterRollDeferred(shouldDeferCountersToChip());
                 }
@@ -12131,32 +11859,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.apuestas += posted;
                 this.bote_total += posted;
                 if (fresh) {
-                    // El straddle es una apuesta forzada (2x CG): suena como las ciegas
-                    // (bet.wav) y, como ellas (flyForcedBetsToPot), SOLO si la animacion de
-                    // fichas esta activa. Sincronizado con la ficha de dinero al bote.
+                    // The straddle is a forced bet (2x BB): sounds like the blinds (bet.wav)
+                    // and, like them (flyForcedBetsToPot), ONLY if the chip animation is on.
+                    // Synced with the money chip landing in the pot.
                     if (GameFrame.apuestasAnimOn() && GameFrame.apuestaSonidoOn()) {
                         Audio.playWavResource("misc/bet.wav");
                     }
                     launchChipToPot(straddler_f);
                     if (GameFrame.getInstance().isPartida_local()) {
-                        // Persiste la decisión para que una mano recuperada la reponga sin
-                        // volver a preguntar (el host la rebroadcasta en el replay).
+                        // Persists the decision so a recovered hand restores it without
+                        // asking again (the host rebroadcasts it during replay).
                         this.straddle_recovered_posted = true;
                         guardarFosilSRA();
                     }
                 }
             }
         } finally {
-            // Cierra el diálogo local si seguía abierto (idempotente).
+            // Closes the local dialog if it was still open (idempotent).
             VoluntaryStraddleDialog d = this.straddle_local_dialog;
             if (d != null) {
                 d.cancel();
                 this.straddle_local_dialog = null;
             }
 
-            // Si un straddler diferido NO pudo resolver sus cartas (cascada fallida, un jugador se
-            // fue en la ventana de decisión, firma ausente, timeout...), no puede jugar a ciegas ->
-            // MISDEAL limpio. Cubre al host (slot sin liberar) y al straddler local (cartas pendientes).
+            // If a deferred straddler couldn't resolve their cards (failed cascade, a player
+            // left during the decision window, missing signature, timeout...), they can't
+            // play blind -> clean MISDEAL. Covers both the host (unreleased slot) and the
+            // local straddler (pending cards).
             boolean straddlerStuck = !isFin_de_la_transmision()
                     && ((GameFrame.getInstance().isPartida_local() && this.deferred_straddle_slot >= 0)
                         || this.straddle_cards_pending);
@@ -12167,10 +11896,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.straddle_cards_pending = false;
                 cancelarManoYDevolverApuestas("straddle.deferred_release_failed");
             } else if (this.straddle_local_cards_deferred) {
-                // Revela GARANTIZADO las cartas tapadas del UTG local que repartir dejó boca abajo
-                // (ya resueltas por la liberación diferida). En finally para cubrir cualquier salida.
-                // En recover el flag es false (repartir reveló normal). Tras revelar, persiste VISUAL@
-                // (que el fósil del reparto saltó por straddle_cards_pending) para el recover.
+                // Guaranteed reveal of the local UTG's face-down hole cards left that way by
+                // the deal (already resolved via the deferred release). In finally to cover
+                // every exit path. On recover this flag is false (the deal revealed normally).
+                // After revealing, persists VISUAL@ (which the deal's fossil skipped due to
+                // straddle_cards_pending) for recovery.
                 this.straddle_local_cards_deferred = false;
                 revealLocalStraddlerCards();
                 guardarFosilSRA();
@@ -12178,8 +11908,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Heurística del bot UTG: pone el straddle con probabilidad baja (BOT_STRADDLE_PROBABILITY),
-    // y solo con stack holgado (no se autolesiona). Corre SOLO en el host (decide por el bot).
+    // Bot UTG heuristic: posts the straddle with low probability (BOT_STRADDLE_PROBABILITY),
+    // and only with a comfortable stack (doesn't self-harm). Runs ONLY on the host (it
+    // decides for the bot).
     private int botStraddleDecision(Player bot) {
         double amount = Helpers.doubleClean(2 * this.ciega_grande);
         if (Helpers.doubleSecureCompare(bot.getStack(), 5 * amount) < 0) {
@@ -12189,9 +11920,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE;
     }
 
-    // Muestra el diálogo de straddle voluntario sobre las hole cards (tapadas) del UTG
-    // local y BLOQUEA hasta que el jugador decide (botón) o expira la cuenta atrás
-    // (5 s -> NO). Devuelve 1 = pone, 0 = no.
+    // Shows the voluntary straddle dialog over the local UTG's (face-down) hole cards and
+    // BLOCKS until the player decides (button) or the countdown expires (5s -> NO).
+    // Returns 1 = post, 0 = no.
     private int promptStraddleLocal(Player straddler) {
         final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
         final int[] result = {VoluntaryStraddleDialog.NO_STRADDLE};
@@ -12208,7 +11939,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             dlg.showOn(GameFrame.getInstance().getTapete());
         });
         try {
-            // El diálogo se auto-resuelve a los 5 s (o antes por botón); +3 s de margen.
+            // The dialog auto-resolves at 5s (or sooner via button); +3s margin.
             latch.await(STRADDLE_DECISION_TIMEOUT + 3, java.util.concurrent.TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -12216,17 +11947,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return result[0];
     }
 
-    // Importe del straddle a MOSTRAR: 2x la ciega grande, o el stack del UTG si no lo
-    // cubre (all-in por menos). El UTG no tiene ciega previa, así que su disponible es
-    // stack + bet (bet = 0 en la práctica).
+    // Straddle amount to DISPLAY: 2x the big blind, or the UTG's stack if it can't cover
+    // it (all-in for less). The UTG has no prior blind, so their available amount is
+    // stack + bet (bet = 0 in practice).
     private double straddleAmountFor(Player straddler) {
         double full = Helpers.doubleClean(2 * this.ciega_grande);
         double available = Helpers.doubleClean(straddler.getStack() + straddler.getBet());
         return Helpers.doubleSecureCompare(available, full) < 0 ? available : full;
     }
 
-    // Host: espera el STRADDLE_RESP del cliente UTG drenando received_commands (re-encola
-    // lo que no toca, como runRitVote). Deadline = 5 s + margen; timeout/caída -> NO.
+    // Host: waits for the client UTG's STRADDLE_RESP by draining received_commands
+    // (re-queues what doesn't match, like runRitVote). Deadline = 5s + margin;
+    // timeout/disconnect -> NO.
     private int waitStraddleRespFromRemote(String nick) {
         this.pending_remote_straddle_sig = null;
         long deadline = System.currentTimeMillis() + (STRADDLE_DECISION_TIMEOUT + 4) * 1000L;
@@ -12243,16 +11975,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             int v = Integer.parseInt(partes[4]);
                             if (voter.equals(nick) && (v == VoluntaryStraddleDialog.NO_STRADDLE || v == VoluntaryStraddleDialog.POST_STRADDLE)) {
                                 answer = v;
-                                // Straddle ciego: captura la firma (partes[5]) para difundirla como
-                                // STRADDLE_DECISION y correr la cascada diferida. Puede faltar si el
-                                // straddler no requería cegado (deferred_straddle_slot < 0).
+                                // Blind straddle: captures the signature (partes[5]) to broadcast as
+                                // STRADDLE_DECISION and run the deferred cascade. May be absent if
+                                // the straddler didn't require blinding (deferred_straddle_slot < 0).
                                 this.pending_remote_straddle_sig = (partes.length >= 6 && !partes[5].isEmpty())
                                         ? Base64.getDecoder().decode(partes[5]) : null;
                             } else {
                                 rejected.add(cmd);
                             }
                         } catch (Exception e) {
-                            // RESP malformado: se ignora.
+                            // Malformed RESP: ignored.
                         }
                     } else {
                         rejected.add(cmd);
@@ -12275,14 +12007,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return VoluntaryStraddleDialog.NO_STRADDLE;
     }
 
-    // Cliente: espera el resultado canónico STRADDLE_RESULT del host drenando
-    // received_commands (re-encola lo que no toca). Con tope STRADDLE_RESULT_WAIT_TIMEOUT:
-    // si host y cliente discrepan transitoriamente en getJugadoresActivos() (un jugador se
-    // va justo en la ventana de decisión), el host puede hacer early-return sin difundir y
-    // el cliente colgaría aquí indefinidamente. Al expirar se asume NO straddle — que es
-    // EXACTAMENTE lo que aplicó el host en ese early-return (no posteó) -> peers convergen.
-    // El tope (20s) supera con holgura el peor caso del host (~9s) para no cortar un POST
-    // legítimo lento; un broadcast real sobre TCP llega mucho antes.
+    // Client: waits for the host's canonical STRADDLE_RESULT by draining received_commands
+    // (re-queues what doesn't match). Capped at STRADDLE_RESULT_WAIT_TIMEOUT: if host and
+    // client transiently disagree on getJugadoresActivos() (a player leaves right in the
+    // decision window), the host can early-return without broadcasting and the client
+    // would hang here forever. On expiry we assume NO straddle — exactly what the host
+    // applied in that early-return (it didn't post) -> peers converge. The cap (20s)
+    // comfortably exceeds the host's worst case (~9s) so it doesn't cut off a legitimately
+    // slow POST; a real TCP broadcast arrives much sooner.
     private int waitStraddleResult() {
         long deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
         while (!isFin_de_la_transmision() && System.currentTimeMillis() < deadline) {
@@ -12301,7 +12033,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 rejected.add(cmd);
                             }
                         } catch (Exception e) {
-                            // RESULT malformado: se ignora.
+                            // Malformed RESULT: ignored.
                         }
                     } else {
                         rejected.add(cmd);
@@ -12321,18 +12053,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // La comprobacion de PAUSA va FUERA del monitor de la cola, que es como lo hacen
-            // las quince esperas hermanas de este fichero. checkPause() DUERME mientras la
-            // timba esta pausada y NO suelta ese monitor: dejarla dentro clavaba al hilo que
-            // reparte los comandos entrantes, y como la orden de reanudar llega por esa misma
-            // cola, no se procesaba nunca. Abrazo mortal permanente con solo pulsar pausa.
+            // The PAUSE check sits OUTSIDE the queue monitor, like the fifteen sibling waits
+            // in this file. checkPause() SLEEPS while the table is paused and does NOT
+            // release that monitor: checking inside it would pin the thread that dispatches
+            // incoming commands, and since the resume order arrives on that same queue, it
+            // would never be processed — a permanent deadlock from just hitting pause.
             //
-            // Congelar el plazo mientras dura la pausa es lo correcto: asumir que no hay
-            // straddle al vencer solo converge si el anfitrion tambien lo asumio; si su aviso
-            // viene de camino, este cliente se queda jugando una mano distinta a la de la
-            // mesa. Lo que NO se mira es si hay peers reconectando: en un cliente esa marca
-            // no la apaga nadie hasta que arranca la ronda, o sea, despues de esta espera, y
-            // mirarla volvia el plazo eterno.
+            // Freezing the deadline during pause is correct: assuming NO straddle on expiry
+            // only converges if the host assumed the same; if its notice is still in flight,
+            // this client ends up playing a different hand than the table. What's NOT
+            // checked is whether peers are reconnecting: on a client nothing clears that
+            // flag until the round starts (i.e. after this wait), so checking it would make
+            // the deadline eternal.
             if (GameFrame.getInstance().checkPause()) {
                 deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
             }
@@ -12340,9 +12072,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return VoluntaryStraddleDialog.NO_STRADDLE;
     }
 
-    // Cliente straddler -> host: su decisión + la FIRMA de esa decisión (dominio STRADDLE). El
-    // host la difunde como STRADDLE_DECISION y corre la cascada diferida. sig puede ser null si
-    // esta mano no requería cegado (heads-up/<=2), en cuyo caso viaja vacía.
+    // Straddler client -> host: their decision + the SIGNATURE of that decision (STRADDLE
+    // domain). The host broadcasts it as STRADDLE_DECISION and runs the deferred cascade.
+    // sig may be null if this hand didn't require blinding (heads-up/<=2), in which case
+    // it travels empty.
     private void sendStraddleResp(int v, byte[] sig) {
         try {
             String myNickB64 = Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
@@ -12354,10 +12087,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void broadcastStraddleResult(int v) {
-        // confirmation=false (fire-and-forget): TCP ya garantiza la entrega y el cliente lo
-        // drena en waitStraddleResult; evita que el handshake de confirmación se trague
-        // comandos pendientes. (El cierre de la votación de correr dos veces SÍ pasó a
-        // confirmado, porque ahí lo que se pierde es cómo se reparte el bote.)
+        // confirmation=false (fire-and-forget): TCP already guarantees delivery and the
+        // client drains it in waitStraddleResult; avoids the confirmation handshake
+        // swallowing pending commands. (The run-it-twice vote close DOES use confirmation,
+        // because there what's at stake is how the pot gets split.)
         try {
             broadcastGAMECommandFromServer("STRADDLE_RESULT#" + v, null, false);
         } catch (RuntimeException e) {
@@ -12365,13 +12098,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Postea el straddle del UTG: mueve 2x la ciega grande (o all-in por menos) de su
-    // stack a la apuesta VIVA, sube apuesta_actual al straddle, fija ultimo_raise=CG si
-    // es completo (siguiente raise mínimo = 3xCG), marca straddle_posted y mueve la
-    // "pistola" al primero-en-hablar real (utg+1; el straddler habla el último, opción).
-    // Vuela la ficha ROJA de straddle a su asiento (bloquea hasta aterrizar). Devuelve el
-    // importe posteado. NO suma a bote_total (lo hace el llamante). Replica el camino del
-    // antiguo straddle obligatorio para que el consenso converja en todos los peers.
+    // Posts the UTG's straddle: moves 2x the big blind (or all-in for less) from their
+    // stack to the live bet, raises apuesta_actual to the straddle, sets ultimo_raise=BB
+    // if it's a full straddle (next min-raise = 3x BB), marks straddle_posted, and moves
+    // the action to the real first-to-speak (utg+1; the straddler speaks last, with
+    // option). Flies the RED straddle chip to their seat (blocks until it lands). Returns
+    // the amount posted. Does NOT add to bote_total (the caller does). Replicates the old
+    // mandatory straddle's path so consensus converges across all peers.
     private double applyStraddlePost(Player straddler) {
         double straddle_amount = Helpers.doubleClean(2 * this.ciega_grande);
         double posted = straddler.postStraddle(straddle_amount);
@@ -12395,17 +12128,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return posted;
     }
 
-    // Vuela la ficha ROJA de straddle desde el CENTRO de la mesa al asiento del straddler
-    // (mismo motor que la rotación de fichas de posición) y, al aterrizar, pinta su ficha
-    // estática. BLOQUEA hasta el aterrizaje. Sin animación / en recover / fin de
-    // transmisión: solo pinta la ficha estática (idéntico al straddle viejo).
+    // Flies the RED straddle chip from the table CENTER to the straddler's seat (same
+    // engine as the position-chip rotation) and, on landing, paints the static chip.
+    // BLOCKS until it lands. Without animation / on recover / on transmission end: just
+    // paints the static chip (identical to the old straddle).
     private void flyStraddleChipToSeat(Player straddler) {
         if (!GameFrame.ciegasDealerAnimOn() || GameFrame.RECOVER || this.game_recovered != 0 || isFin_de_la_transmision()) {
             straddler.refreshPositionChipIcons();
             return;
         }
         final java.util.List<TablePanel.ChipFlight> flights = new java.util.ArrayList<>();
-        flights.add(new TablePanel.ChipFlight(null, straddler, Helpers.IMAGEN_STRADDLE)); // null = desde el centro
+        flights.add(new TablePanel.ChipFlight(null, straddler, Helpers.IMAGEN_STRADDLE)); // null = from center
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
         final int flight_dur = Math.max(150, pausa);
         Helpers.GUIRunAndWait(() -> straddler.getChip_label().setVisible(false));
@@ -12421,9 +12154,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Barra del community durante la decisión: cuenta los 5 s y, al agotarse sin
-    // resultado aún, pasa a indeterminada hasta que stopStraddleCountdownBar la pare
-    // (cubre el retardo de red entre el fin de los 5 s y el STRADDLE_RESULT del host).
+    // Community bar during the decision: counts down 5s and, if it runs out without a
+    // result yet, switches to indeterminate until stopStraddleCountdownBar stops it
+    // (covers the network delay between the 5s expiring and the host's STRADDLE_RESULT).
     private void startStraddleCountdownBar() {
         this.straddle_bar_active = true;
         Helpers.threadRun(() -> {
@@ -12446,14 +12179,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 0);
     }
 
-    // Revela las dos hole cards del UTG local que repartir dejó boca abajo a la espera de
-    // la decisión de straddle a ciegas. Con el destape activo las abre GIRANDO (mismo motor
-    // que el reparto, revelarHoleCardLocalAnimada, usando el prefetch lanzado en repartir y
-    // sin la pausa previa: llevan segundos boca abajo); sin él las destapa en seco como
-    // siempre. En AMBOS casos ordena la mano al final (cruce animado si swapAnimOn): repartir()
-    // no pudo, porque cuando corrió ordenarCartasLocalAnimado estas cartas seguían boca abajo
-    // sin valor. Corre en el hilo del crupier (resolveVoluntaryStraddle), nunca en el EDT, así
-    // que el giro (bloqueante) no cuelga la interfaz.
+    // Reveals the local UTG's two hole cards left face down by the deal, pending the
+    // blind straddle decision. With flip animation on, opens them SPINNING (same engine
+    // as the deal, revelarHoleCardLocalAnimada, using the prefetch launched during the
+    // deal and skipping the lead-in pause since they've been face down for seconds);
+    // without it, reveals them flat as usual. In BOTH cases orders the hand at the end
+    // (animated swap if swapAnimOn): repartir() couldn't, because when
+    // ordenarCartasLocalAnimado ran these cards were still face down with no value. Runs
+    // on the dealer thread (resolveVoluntaryStraddle), never the EDT, so the (blocking)
+    // flip doesn't hang the UI.
     private void revealLocalStraddlerCards() {
         final LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
         final Card c1 = local.getHoleCard1();
@@ -12466,8 +12200,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.straddle_prefetch_flip_hc1 = null;
         this.straddle_prefetch_flip_hc2 = null;
 
-        // Sin destape animado (o local ya fuera / transmisión terminada): revela EN SECO,
-        // exactamente como siempre.
+        // Without flip animation (or local already out / transmission ended): reveals
+        // FLAT, exactly as usual.
         if (!GameFrame.destapeAnimOn() || local.isExit() || isFin_de_la_transmision()) {
             Helpers.GUIRunAndWait(() -> {
                 c1.iniciarConValorNumerico(v1);
@@ -12479,9 +12213,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // Con destape animado: siéntalas BOCA ABAJO con su valor y VISIBLES (como el reparto:
-        // iniciarConValorNumerico no toca visible_card, así que sin setVisibleCard(true) no se
-        // verían) y ábrelas girando una tras otra (cada llamada bloquea hasta acabar su giro).
+        // With flip animation: seat them FACE DOWN with their value and VISIBLE (like the
+        // deal: iniciarConValorNumerico doesn't touch visible_card, so without
+        // setVisibleCard(true) they wouldn't show) and open them spinning one after the
+        // other (each call blocks until its flip finishes).
         Helpers.GUIRunAndWait(() -> {
             c1.setVisibleCard(true);
             c1.iniciarConValorNumerico(v1);
@@ -12492,18 +12227,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         revelarHoleCardLocalAnimada(c1, pf1, 0);
         revelarHoleCardLocalAnimada(c2, pf2, 0);
 
-        // Ya boca arriba: ordena la mano (cruce animado si procede), lo que repartir no pudo.
+        // Already face up: order the hand (animated swap if applicable), which repartir()
+        // couldn't do.
         ordenarCartasLocalAnimado();
     }
 
-    // Cascada de desbloqueo DIFERIDA de los 2 pocket slots del straddler ciego, corrida por el
-    // HOST tras verificar su decisión FIRMADA. Igual que la cascada inicial (enviarCartasJugadoresRemotos)
-    // pero SOLO para el slot del straddler: cada peer (host y bots en local con prueba DLEQ; humanos
-    // vivos vía REQ_SRA_UNLOCK_CHAIN phase UNLOCK_PHASE_POCKET_STRADDLE; exits vía testamento) quita su
-    // candado de esos 2 puntos DEJANDO el del propio straddler → residuo single-locked por él. Devuelve
-    // ese residuo (64 bytes) o null si algún peer se niega / no hay testamento (el caller decide MISDEAL).
-    // NO entrega ni resuelve: eso lo hace el caller (unicast al straddler remoto, o resolución local si
-    // el host es el straddler). Serie, como la cascada inicial: la latencia extra es la de una comunitaria.
+    // DEFERRED unlock cascade for the blind straddler's 2 pocket slots, run by the HOST
+    // after verifying their SIGNED decision. Same as the initial cascade
+    // (enviarCartasJugadoresRemotos) but ONLY for the straddler's slot: every peer (host
+    // and local bots with a DLEQ proof; live humans via REQ_SRA_UNLOCK_CHAIN phase
+    // UNLOCK_PHASE_POCKET_STRADDLE; exited ones via their testament) strips its lock from
+    // those 2 points, LEAVING the straddler's own → a residue single-locked by them.
+    // Returns that residue (64 bytes), or null if a peer refuses / has no testament (the
+    // caller decides MISDEAL). Doesn't deliver or resolve: that's the caller's job
+    // (unicast to a remote straddler, or local resolution if the host is the straddler).
+    // Sequential, like the initial cascade: the extra latency is that of one community card.
     private byte[] resolveDeferredStraddlerResidue(int straddlerSlot) {
         String hostNick = GameFrame.getInstance().getNick_local();
         String[] ring = this.active_crypto_ring;
@@ -12511,10 +12249,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
 
-        // Cadena de los 2 puntos del slot del straddler (arranca vacía = ancla al megapacket).
+        // Chain for the straddler slot's 2 points (starts empty = anchored to the megapacket).
         String[] chainS = {"", ""};
 
-        // Host quita su lock (salvo si el host ES el straddler: entonces conserva el suyo).
+        // Host strips its lock (unless the host IS the straddler: then it keeps its own).
         int hostSlot = -1;
         for (int i = 0; i < ring.length; i++) {
             if (ring[i].equals(hostNick)) {
@@ -12528,7 +12266,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Bots quitan su lock (nunca el straddler: un bot straddler no llega aquí).
+        // Bots strip their lock (never the straddler: a bot straddler never reaches here).
         for (int i = 0; i < ring.length; i++) {
             if (i == straddlerSlot) {
                 continue;
@@ -12542,7 +12280,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Humanos remotos (nunca el straddler): vivos vía REQ (phase STRADDLE), exit vía testamento.
+        // Remote humans (never the straddler): live via REQ (phase STRADDLE), exited via
+        // their testament.
         for (int h = 0; h < ring.length; h++) {
             if (h == straddlerSlot) {
                 continue;
@@ -12575,8 +12314,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!applied) {
-                // Vivo que no respondió (o exit): si tenemos su unlock (testamento) extendemos
-                // local; si no, es una negativa → aborta (el caller hará MISDEAL).
+                // Live peer that didn't respond (or exited): if we have their unlock
+                // (testament) we extend locally; otherwise it's a refusal → abort (the
+                // caller does MISDEAL).
                 if (ph.getSra_unlock() != null) {
                     byte[] hLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock());
                     if (!extendStraddlerChain(chainS, straddlerSlot, hNick, hLock)) {
@@ -12589,7 +12329,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Verifica ambas cadenas contra el megapacket y toma el tail = residuo single-locked por el straddler.
+        // Verifies both chains against the megapacket and takes the tail = residue
+        // single-locked by the straddler.
         byte[] residue = new byte[64];
         for (int j = 0; j < 2; j++) {
             int pointIdx = straddlerSlot * 2 + j;
@@ -12605,7 +12346,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return residue;
     }
 
-    // Extiende (con prueba DLEQ) los 2 puntos del slot del straddler quitando el lock de signerNick.
+    // Extends (with a DLEQ proof) the straddler slot's 2 points, stripping signerNick's lock.
     private boolean extendStraddlerChain(String[] chainS, int straddlerSlot, String signerNick, byte[] signerLock) {
         for (int j = 0; j < 2; j++) {
             int pointIdx = straddlerSlot * 2 + j;
@@ -12619,11 +12360,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    // HOST: libera las cartas del straddler ciego tras conocer su decisión FIRMADA. Difunde la
-    // decisión (habilita el gate de los clientes), corre la cascada diferida de su slot y ENTREGA
-    // el residuo: si el host es el straddler lo resuelve en local; si es remoto se lo manda por
-    // unicast (su cliente lo resuelve). Devuelve true si quedó resuelto/entregado; false => el
-    // caller hará MISDEAL (un peer se negó, firma inválida, o no se pudo resolver).
+    // HOST: releases the blind straddler's cards once their SIGNED decision is known.
+    // Broadcasts the decision (enables the clients' gate), runs the deferred cascade for
+    // their slot, and DELIVERS the residue: resolved locally if the host is the straddler,
+    // sent by unicast if remote (their client resolves it). Returns true if
+    // resolved/delivered; false => the caller does MISDEAL (a peer refused, an invalid
+    // signature, or resolution failed).
     private boolean releaseDeferredStraddlerCardsHost(String straddlerNick, int straddlerSlot, int decision, byte[] straddlerSig) {
         if (straddlerNick == null || straddlerSlot < 0) {
             return false;
@@ -12633,13 +12375,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
         final boolean hostIsStraddler = straddlerNick.equals(GameFrame.getInstance().getNick_local());
-        // Straddler REMOTO: verifica su firma antes de difundirla (un STRADDLE_RESP forjado por un
-        // MitM no cuela). El host straddler firma en local, así que su firma es de fiar.
+        // REMOTE straddler: verify their signature before broadcasting it (a STRADDLE_RESP
+        // forged by a MitM doesn't get through). The host straddler signs locally, so its
+        // own signature is trusted.
         if (!hostIsStraddler && !verifyStraddleDecisionWire(straddlerNick, decision, straddlerSig)) {
             LOGGER.log(Level.SEVERE, "Straddle ciego: firma inválida de {0} — MISDEAL", straddlerNick);
             return false;
         }
-        // Difunde la decisión firmada a los clientes (habilita su gate) + registra el flag local.
+        // Broadcasts the signed decision to clients (enables their gate) + records the
+        // local flag.
         try {
             broadcastGAMECommandFromServer("STRADDLE_DECISION#"
                     + Base64.getEncoder().encodeToString(straddlerNick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
@@ -12650,7 +12394,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
         recordVerifiedStraddleDecision(straddlerNick, decision);
-        // Cascada diferida (bloquea; los clientes ya vieron STRADDLE_DECISION y sirven el unlock).
+        // Deferred cascade (blocks; clients already saw STRADDLE_DECISION and serve the
+        // unlock).
         byte[] residue = resolveDeferredStraddlerResidue(straddlerSlot);
         if (residue == null) {
             LOGGER.log(Level.SEVERE, "Straddle ciego: cascada diferida falló para {0} — MISDEAL", straddlerNick);
@@ -12674,20 +12419,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     + Base64.getEncoder().encodeToString(straddlerNick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
                     + "#" + Base64.getEncoder().encodeToString(residue));
         }
-        // Persiste el fósil AHORA que el residuo del straddler está en single_locked_pocket_cards
-        // (POCKETS@) y, si el host es el straddler, sus cartas ya resueltas (VISUAL@). Imprescindible
-        // para el recover del HOST cuando el straddler es REMOTO y decide NO_STRADDLE: sin esto el
-        // último fósil era el del reparto (que saltó este slot) y en recover verifyAndStoreShowdownKey
-        // rechazaría la clave del straddler y calcularJugadas lo muckearía por "disconnection".
+        // Persists the fossil NOW that the straddler's residue is in
+        // single_locked_pocket_cards (POCKETS@) and, if the host is the straddler, their
+        // cards are already resolved (VISUAL@). Essential for HOST recovery when the
+        // straddler is REMOTE and decides NO_STRADDLE: without this the last fossil was the
+        // deal's (which skipped this slot), and on recover verifyAndStoreShowdownKey would
+        // reject the straddler's key and calcularJugadas would muck them for "disconnection".
         guardarFosilSRA();
         this.deferred_straddle_slot = -1;
         this.deferred_straddle_nick = null;
         return true;
     }
 
-    // CLIENTE straddler: tras firmar su decisión, espera el POCKET_CARDS diferido que el host manda
-    // tras la cascada, y resuelve sus cartas quitando su propio candado. Devuelve true si resolvió;
-    // false (timeout / fin) => el caller hará MISDEAL. Tope generoso, como los REQ de cascada.
+    // Straddler CLIENT: after signing their decision, waits for the deferred POCKET_CARDS
+    // the host sends after the cascade, and resolves their cards by stripping their own
+    // lock. Returns true if resolved; false (timeout / end) => the caller does MISDEAL.
+    // Generous cap, like the cascade REQs.
     private boolean awaitDeferredStraddlerCardsClient() {
         String myNick = GameFrame.getInstance().getNick_local();
         long deadline = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
@@ -12750,14 +12497,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // El tiempo en pausa no cuenta contra el plazo: sin esto, una pausa mas larga
-            // que el tope hacia que el straddler volviera sin cartas en el mismo instante de
-            // reanudar, y quedarse sin ellas aqui significa anular la mano.
+            // Paused time doesn't count against the deadline: without this, a pause longer
+            // than the cap would leave the straddler without cards right at the moment of
+            // resuming, and missing them here means voiding the hand.
             //
-            // Y va FUERA del monitor de la cola, como las quince esperas hermanas del
-            // fichero: la comprobacion DUERME mientras dura la pausa y no suelta ese
-            // monitor, asi que dentro clavaba al hilo que reparte los comandos entrantes
-            // (incluida la orden de reanudar y las propias cartas que se esperan aqui).
+            // This check sits OUTSIDE the queue monitor, like the fifteen sibling waits in
+            // this file: it SLEEPS during the pause without releasing that monitor, so
+            // checking inside it would pin the thread that dispatches incoming commands
+            // (including the resume order and the very cards being waited on here).
             if (GameFrame.getInstance().checkPause()) {
                 deadline = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
             }
@@ -12795,11 +12542,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean enviarCartasComunitarias(java.util.ArrayList<Player> resisten) {
         java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating SRA street unlock: {0}", street);
 
-        // Dual-lock: ambas mitades son load-bearing. La pocket sigue siendo
-        // necesaria para resolver el resto de la mano y la community es la
-        // que descifra los pieces post-rotación; faltar cualquiera es un
-        // estado inconsistente (típicamente recovery de un fósil legacy
-        // sin SRAKEYS_COMMUNITY@).
+        // Dual-lock: both halves are load-bearing. The pocket key is still needed to
+        // resolve the rest of the hand, and the community key decrypts the
+        // post-rotation pieces; missing either means an inconsistent state (typically
+        // recovery of a legacy fossil without SRAKEYS_COMMUNITY@).
         if (this.local_sra_unlock == null || this.local_sra_unlock_community == null || this.active_crypto_ring == null) {
             cancelarManoYDevolverApuestas("peer.state_inconsistent");
             return false;
@@ -12874,8 +12620,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    // Span completo del board de SIDE-A en el MEGAPACKET: burn + flop(3) + burn +
-    // turn + burn + river = 8 cartas. SIDE-B arranca justo después.
+    // Full span of SIDE-A's board in the MEGAPACKET: burn + flop(3) + burn + turn +
+    // burn + river = 8 cards. SIDE-B starts right after.
     private static final int RIT2_BOARD_SPAN = 8;
 
     static int rit2PhaseForStreet(int street) {
@@ -12899,35 +12645,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Run-it-twice: divide un (side)pot en las mitades de SIDE-A y SIDE-B.
-     * Trabaja en céntimos enteros (la ficha mínima del juego es 0.01, toda la
-     * economía redondea al céntimo vía floatClean/setStack). Regla de la casa: si
-     * el total en céntimos es impar, AMBAS caras reciben el floor y el céntimo
-     * indivisible NO se reparte — queda sin pagar y el recálculo de bote_sobrante
-     * tras los dos boards lo arrastra a la mano siguiente. Invariante:
-     * sideA + sideB + pico == pot exacto (ni se crea ni se pierde dinero).
+     * Run-it-twice: splits a (side)pot into SIDE-A and SIDE-B halves. Works in integer
+     * cents (the game's minimum chip is 0.01; the whole economy rounds to the cent via
+     * floatClean/setStack). House rule: if the cent total is odd, BOTH sides get the
+     * floor and the indivisible cent is NOT distributed — it stays unpaid and the
+     * bote_sobrante recalculation after both boards carries it into the next hand.
+     * Invariant: sideA + sideB + remainder == exact pot (money is neither created nor lost).
      *
      * @return {@code [sideA_chips, sideB_chips]}
      */
     static double[] splitPotForRunItTwice(double pot) {
-        // Mitades en céntimos (ficha 0.01): el céntimo indivisible si el total es
-        // impar NO se reparte y el recálculo de bote_sobrante tras los dos boards
-        // lo arrastra. Invariante: sideA + sideB + pico == pot.
         return PotMath.splitForRunItTwice(pot);
     }
 
-    // Run-it-twice rewind (parte comunitaria): deja las cartas comunitarias
-    // "corridas" (calles posteriores al all-in run-out) boca abajo
-    // (iniciada+tapada+visible, mostrando el dorso) y sin el desenfoque del
-    // showdown de SIDE-A, que es justo el estado del que el reparto vivo revela
-    // una comunitaria (actualizarConValorNumerico + destapar). Con animaciones,
-    // las corridas se RETIRAN de la mesa (hueco vacío) y se vuelven a repartir
-    // una a una con la animación de reparto del juego (deal.wav + dorso + pausa,
-    // mismo ritmo que repartir()); sin animaciones, dorso directo con
-    // iniciarCarta(true). resetearCarta(false) a secas NO vale (quedaban
-    // invisibles y destapar no hacía nada): aquí es seguro SOLO porque el
-    // re-reparto las re-inicia antes de que repartirSideB las destape. Las
-    // compartidas (calle del all-in y anteriores) quedan fijas.
+    // Run-it-twice rewind (community part): puts the "run" community cards (streets
+    // after the all-in run-out) face down (initialized+covered+visible, showing the
+    // back) without SIDE-A's showdown blur — exactly the state a live deal reveals a
+    // community card from (actualizarConValorNumerico + destapar). With animations, the
+    // run cards are PULLED from the table (empty gap) and redealt one by one with the
+    // game's deal animation (deal.wav + back + pause, same pace as repartir()); without
+    // animations, straight to the back via iniciarCarta(true). Plain resetearCarta(false)
+    // doesn't work on its own (cards stayed invisible and destapar was a no-op): it's
+    // safe here ONLY because the redeal re-initializes them before repartirSideB reveals
+    // them. The shared cards (the all-in street and earlier) stay fixed.
     private void rebobinarComunitariasSideB() {
 
         ArrayList<Card> corridas = new ArrayList<>();
@@ -12955,18 +12695,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             compartidas.add(GameFrame.getInstance().getRiver());
         }
 
-        // Con el jugador local ya fuera de la timba el rewind pasa a la ruta
-        // seca (dorso directo, sin beats ni deal.wav): el reparto de SIDE-B
-        // tiene que completarse igualmente (lleva medio bote), pero corre bajo
-        // lock_contabilidad y cada pausa cosmética retrasa la salida real
-        // (finTransmision espera ese lock para el snapshot del auditor).
+        // With the local player already out of the game, the rewind switches to the dry
+        // path (straight to the back, no beats or deal.wav): SIDE-B still has to be dealt
+        // (it carries half the pot), but it runs under lock_contabilidad, and every
+        // cosmetic pause delays the real exit (finTransmision waits on that lock for the
+        // auditor snapshot).
         boolean animacion = GameFrame.repartoAnimOn() && !GameFrame.getInstance().getLocalPlayer().isExit();
 
         Helpers.GUIRunAndWait(() -> {
-            // Corridas → fuera de la mesa (resetearCarta invisible) si hay
-            // animaciones, o boca abajo directo si no las hay.
-            // Compartidas → enfocar() para deshacer el atenuado del showdown de
-            // SIDE-A, de modo que el board de SIDE-B se vea entero y brillante.
+            // Run cards -> off the table (resetearCarta invisible) if animated, or
+            // straight face down otherwise.
+            // Shared cards -> enfocar() to undo SIDE-A's showdown dimming, so SIDE-B's
+            // board shows fully bright.
             for (Card carta : corridas) {
                 if (animacion) {
                     carta.resetearCarta(false);
@@ -12983,9 +12723,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // Re-reparto animado: un beat con el hueco vacío para que el rewind se
-        // lea, y cada corrida vuelve boca abajo VOLANDO desde el dealer (mismo
-        // sistema/velocidad que repartir(): base con suelo + factor de velocidad tras el suelo).
+        // Animated redeal: a beat with the empty gap so the rewind reads clearly, and
+        // each run card comes back face down FLYING from the dealer (same system/speed
+        // as repartir(): a floor plus a speed factor applied after the floor).
         int pausa_base = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
         int flight_base = Math.max(150, pausa_base);
         float vel = GameFrame.REPARTO_VELOCIDAD / 100f;
@@ -13002,20 +12742,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Run-it-twice: reparte el SEGUNDO board (SIDE-B). Re-corre el run-out de las
-    // calles posteriores al all-in (rit_allin_street+1 .. RIVER) avanzando la
-    // calle local en lockstep, repartiendo con las fases RIT2 (host enviarRit2 /
-    // cliente recibirCartas con run_it_twice_side_b ya puesto) y revelando cada
-    // calle igual que el board vivo. Devuelve false si el reparto abortó
-    // (lockdown / misdeal / desconexión). Llamar SOLO con setRunItTwiceSideB(true).
+    // Run-it-twice: deals the SECOND board (SIDE-B). Re-runs the streets after the
+    // all-in (rit_allin_street+1 .. RIVER), advancing the local street in lockstep,
+    // dealing with the RIT2 phases (host enviarRit2 / client recibirCartas with
+    // run_it_twice_side_b already set) and revealing each street like the live board.
+    // Returns false if the deal aborted (lockdown / misdeal / disconnect). Call ONLY
+    // with setRunItTwiceSideB(true).
     private boolean repartirSideB(ArrayList<Player> resisten) {
         for (int s = rit_allin_street + 1; s <= RIVER && !isFin_de_la_transmision(); s++) {
             setStreetLocal(s);
 
-            // CLON EXACTO del reparto de comunitarias de rondaApuestas (run-out de
-            // CARA-A): label "decrypting" naranja + barra indeterminada tras 500ms,
-            // y en el finally restaura el foreground de la pot_label y quita la
-            // indeterminada. Así CARA-B se reparte visualmente igual que CARA-A.
+            // EXACT CLONE of rondaApuestas's community deal (SIDE-A's run-out): orange
+            // "decrypting" label + indeterminate bar after 500ms, and in finally restores
+            // the pot_label's foreground and clears the indeterminate state. So SIDE-B
+            // deals visually identical to SIDE-A.
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
             ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
                 Helpers.GUIRunAndWait(() -> {
@@ -13043,44 +12783,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!ok) {
                 return false;
             }
-            // Igual que el run-out normal: actualiza el bote (centrado, sin
-            // bet_label, que actualizarContadoresTapete oculta en el run-out).
+            // Same as the normal run-out: updates the pot (centered, no bet_label, which
+            // actualizarContadoresTapete hides during the run-out).
             actualizarContadoresTapete();
             destaparCartaComunitaria(s, resisten);
         }
         return true;
     }
 
-    // Run-it-twice: liquidación de los DOS boards (ruta dedicada; el showdown
-    // normal NO se toca). SIDE-A ya está en la mesa (rondaApuestas la repartió):
-    // se paga la mitad-A de cada (side)pot, pausa para asimilar, rewind, se
-    // reparte SIDE-B y se paga la mitad-B. Cada bote se parte con
-    // splitPotForRunItTwice (mitades en céntimos 0.01; el pico indivisible no
-    // se reparte y acaba en bote_sobrante al recalcularlo tras los dos boards)
-    // y dentro de cada board se reparte entre los ganadores de ESE board
-    // con calcularBoteParaGanador (mismo helper de producción). conta_win cuenta
-    // UNA vez por jugador que gane ≥1 side (snapshot + corrección final, porque
-    // showdown() incrementa por board vía setWinner). 'perdedores' refleja SIDE-B
-    // (el board final en pantalla) para la cola común (actualizarCartasPerdedores).
+    // Run-it-twice: settles BOTH boards (dedicated path; the normal showdown is
+    // untouched). SIDE-A is already on the table (rondaApuestas dealt it): pay SIDE-A's
+    // half of each (side)pot, pause to let it sink in, rewind, deal SIDE-B, pay its
+    // half. Each pot is split with splitPotForRunItTwice (halves in 0.01 cents; the
+    // indivisible remainder isn't distributed and ends up in bote_sobrante once
+    // recalculated after both boards), and within each board it's split among that
+    // board's winners with calcularBoteParaGanador (same production helper). conta_win
+    // counts ONCE per player who wins >=1 side (snapshot + final correction, since
+    // showdown() increments per board via setWinner). 'perdedores' reflects SIDE-B (the
+    // final on-screen board) for the shared queue (actualizarCartasPerdedores).
     private void resolverRunItTwiceShowdown(ArrayList<Player> resisten) {
-        // Cartas ya reveladas en el all-in; mirror del showdown normal (idempotente).
+        // Cards already revealed at the all-in; mirrors the normal showdown (idempotent).
         awaitHandverifyBarrier();
         procesarCartasResistencia(resisten, false);
 
-        // conta_win: snapshot para corregir el doble incremento de showdown().
-        // pagar: snapshot para poder REVERTIR el settle de CARA-A si el reparto
-        // de CARA-B aborta en MISDEAL (cancelarManoYDevolverApuestas anula la
-        // mano ENTERA con refund íntegro de apuestas; dejar el medio bote de
-        // CARA-A pendiente en pagar duplicaría dinero en todo lo que lee
-        // stack+getPagar(): auditor, balance_backup.txt y filas de balance).
+        // conta_win: snapshot to correct showdown()'s double increment.
+        // pagar: snapshot so SIDE-A's settle can be REVERTED if SIDE-B's deal aborts
+        // into MISDEAL (cancelarManoYDevolverApuestas voids the WHOLE hand with a full
+        // bet refund; leaving SIDE-A's half-pot pending in pagar would duplicate money
+        // everywhere that reads stack+getPagar(): auditor, balance_backup.txt, balance
+        // rows).
         //
-        // Snapshot sobre TODOS los jugadores, no solo resisten: el pot principal
-        // paga a resisten, pero los side pots pagan a HandPot.getPlayers(), y un
-        // jugador que hizo all-in y luego SALIÓ (isExit) queda fuera de resisten
-        // —el run loop lo filtra antes de genSidePots— pero sigue siendo
-        // elegible en su side pot y puede cobrar en CARA-A. Snapshotear/revertir
-        // solo resisten dejaría su medio bote sin revertir. Para los jugadores
-        // que el settle no toca, el snapshot == valor actual y restaurar es no-op.
+        // Snapshot over ALL players, not just resisten: the main pot pays resisten, but
+        // side pots pay HandPot.getPlayers(), and a player who went all-in and then
+        // EXITED is filtered out of resisten before genSidePots but stays eligible in
+        // their side pot and can collect on SIDE-A. Snapshotting/reverting only
+        // resisten would leave their half-pot unreverted. For players the settle
+        // doesn't touch, snapshot == current value and restoring is a no-op.
         HashMap<Player, Integer> contaWinSnapshot = new HashMap<>();
         HashMap<Player, Double> pagarSnapshot = new HashMap<>();
         for (Player p : GameFrame.getInstance().getJugadores()) {
@@ -13089,84 +12827,81 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         java.util.HashSet<Player> wonAnySide = new java.util.HashSet<>();
 
-        // Snapshot de las jugadas de SIDE-A (board en mesa): la tabla showdown
-        // lleva UNA fila por jugador/mano, así que la jugada registrada
-        // (hand_cards/hand_val) es la del primer board. A partir de aquí
-        // silenciamos el SQL del showdown de los dos boards; la fila consolidada
-        // se escribe al final con el pay total y winner = ganó algún side.
+        // Snapshot of SIDE-A's hands (board on the table): the showdown table carries
+        // ONE row per player/hand, so the recorded hand (hand_cards/hand_val) is the
+        // first board's. From here we suppress both boards' showdown SQL; the
+        // consolidated row is written at the end with the total pay and
+        // winner = won some side.
         HashMap<Player, Hand> ritShowdownHands = this.calcularJugadas(resisten);
         this.rit_suppress_showdown_sql = true;
 
-        // Conservación del dinero: bote_sobrante (el resto indivisible heredado de
-        // manos anteriores) se CONSUME en el split de los pots (8221). Hay que
-        // recalcularlo tras los dos boards (= lo que no se pudo repartir), no
-        // dejarlo stale: si no, la siguiente NUEVA_MANO lo resembraría en
-        // bote_total (creación de dinero). Mirror del showdown normal, que SIEMPRE
-        // reescribe bote_sobrante (12727 case-1 / 12887 default). Capturamos el
-        // total de TODOS los pots (principal + sobrante + laterales) antes de pagar.
+        // Money conservation: bote_sobrante (the indivisible remainder inherited from
+        // earlier hands) gets CONSUMED when splitting the pots. It must be recalculated
+        // after both boards (= whatever couldn't be distributed), not left stale —
+        // otherwise the next NUEVA_MANO would reseed it into bote_total (money
+        // creation). Mirrors the normal showdown, which ALWAYS rewrites bote_sobrante.
+        // Captures the total of ALL pots (main + remainder + side pots) before paying out.
         double ritPotTotal = this.bote.getTotal() + this.bote_sobrante;
         for (HandPot sp = this.bote.getSidePot(); sp != null; sp = sp.getSidePot()) {
             ritPotTotal += sp.getTotal();
         }
 
-        // ---- SIDE-A (board ya en mesa) ----
+        // ---- SIDE-A (board already on the table) ----
         double paidA = settleRunItTwiceBoard(resisten, 0, wonAnySide);
         GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_a"));
 
         if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()
                 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
-            // Pausa para asimilar SIDE-A = la MISMA que la pausa de la cola tras
-            // SIDE-B (1.5x con side pots), para que ambas caras esperen igual.
-            // El guard de isExit() (mismo criterio que la pausa entre manos del
-            // bucle principal) es crítico aquí: esta pausa corre BAJO
-            // lock_contabilidad y finTransmision se queda esperando ese lock,
-            // así que isFin_de_la_transmision() jamás puede izarse a tiempo.
+            // Pause to let SIDE-A sink in = the SAME as the pause after SIDE-B's queue
+            // (1.5x with side pots), so both sides wait equally. The isExit() guard
+            // (same criterion as the main loop's between-hands pause) is critical here:
+            // this pause runs UNDER lock_contabilidad, and finTransmision waits on that
+            // same lock, so isFin_de_la_transmision() can never be raised in time.
             this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? GameFrame.SHOWDOWN_TIME : Math.round(1.5f * GameFrame.SHOWDOWN_TIME));
         }
 
-        // ---- SIDE-B: rewind + reparto ----
-        // Solo deshacemos el coloreado del showdown de SIDE-A (pot_panel opaco
-        // verde) para volver al estado de REPARTO. A partir de ahí CARA-B se
-        // comporta IGUAL que CARA-A: el run-out muestra SOLO el bote (centrado,
-        // sin bet_label) vía actualizarContadoresTapete. La alineación se mantiene
-        // CENTER (el run-out ya centra), igual que el showdown que viene después.
+        // ---- SIDE-B: rewind + deal ----
+        // Only undoes SIDE-A's showdown coloring (opaque green pot_panel) to return to
+        // the DEAL state. From there SIDE-B behaves EXACTLY like SIDE-A: the run-out
+        // shows ONLY the pot (centered, no bet_label) via actualizarContadoresTapete.
+        // Alignment stays CENTER (the run-out already centers), same as the showdown
+        // that follows.
         Helpers.GUIRun(() -> {
             CommunityCardsPanel cc = GameFrame.getInstance().getTapete().getCommunityCards();
             cc.getPot_panel().setOpaque(false);
             cc.getPot_label().setHorizontalAlignment(JLabel.CENTER);
             cc.getPot_label().setForeground(cc.getBet_label().getForeground());
-            // El contador de manos sigue siendo el de ESTA mano (CARA-B es el mismo
-            // reparto): debe quedar VISIBLE durante el rewind, igual que en el run-out
-            // de CARA-A y que el reparto normal (~6288). Ocultarlo dejaba el hand_panel
-            // amarillo de la última mano SIN número (parecía "texto en blanco" sobre
-            // amarillo); el foreground negro ya lo fijó last_hand_on y nadie lo cambia.
+            // The hand counter is still THIS hand's (SIDE-B is the same deal): it must
+            // stay VISIBLE during the rewind, same as SIDE-A's run-out and the normal
+            // deal. Hiding it left the last hand's yellow hand_panel with no number
+            // (looked like blank text on yellow); the black foreground was already set
+            // by last_hand_on and nothing changes it.
             cc.getHand_label().setVisible(true);
         });
-        // La barra arranca llena para CARA-B (tras la pausa quedó vacía).
+        // The bar starts full for SIDE-B (it was left empty after the pause).
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 100);
-        // Durante el reparto de SIDE-B (rewind animado + repartirSideB →
-        // actualizarContadoresTapete) la label del bote NO debe arrastrar el
-        // beneficio de SIDE-A: se limpia para volver al estado de REPARTO (sin
-        // número de beneficio, igual que el run-out de SIDE-A).
-        // settleRunItTwiceBoard(.,1,.) lo recalcula para el showdown de SIDE-B.
+        // During SIDE-B's deal (animated rewind + repartirSideB ->
+        // actualizarContadoresTapete) the pot label must NOT carry over SIDE-A's
+        // profit: it's cleared to return to the DEAL state (no profit number, same as
+        // SIDE-A's run-out). settleRunItTwiceBoard(.,1,.) recalculates it for SIDE-B's
+        // showdown.
         this.beneficio_bote_principal = null;
-        // La pot_label pasa a marcar CARA-B y se repinta YA, ANTES del rewind
-        // animado, en estado de reparto (la MITAD de CARA-B, igual que durante el
-        // run-out de CARA-A): sin el repintado arrastraría el texto del settle
-        // de CARA-A (con su etiqueta CARA-A) durante toda la animación del
-        // re-reparto y hasta que se complete la primera calle de SIDE-B.
+        // pot_label switches to marking SIDE-B and repaints NOW, BEFORE the animated
+        // rewind, in deal state (SIDE-B's HALF, same as during SIDE-A's run-out):
+        // without this repaint it would carry over SIDE-A's settle text (with its
+        // SIDE-A tag) through the whole redeal animation and until SIDE-B's first
+        // street completes.
         this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_b");
         GameFrame.getInstance().setTapeteBote(splitPotForRunItTwice(this.bote_total)[0], this.beneficio_bote_principal);
         for (Player p : resisten) {
             p.repaintLastAction();
         }
-        // Captura de las comunitarias de CARA-A (las "corridas": calles
-        // posteriores al all-in) ANTES de que rebobinarComunitariasSideB las
-        // sobrescriba con los valores de CARA-B. El reparto real de CARA-B no
-        // repone estas cartas, así que la simulación de Montecarlo de CARA-B
-        // tiene que excluirlas de la baraja (mismo criterio de calle que el
-        // rewind). Las compartidas (calle del all-in y anteriores) ya están en
-        // el board que monteCarlo retira por su cuenta.
+        // Captures SIDE-A's community cards (the "run" ones: streets after the all-in)
+        // BEFORE rebobinarComunitariasSideB overwrites them with SIDE-B's values.
+        // SIDE-B's real deal doesn't replace these cards, so SIDE-B's Monte Carlo
+        // simulation must exclude them from the deck (same street criterion as the
+        // rewind). The shared cards (the all-in street and earlier) are already in the
+        // board that monteCarlo removes on its own.
         this.rit_side_a_runout_cards.clear();
         CommunityCardsPanel ccA = GameFrame.getInstance().getTapete().getCommunityCards();
         if (this.rit_allin_street < FLOP) {
@@ -13180,38 +12915,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (this.rit_allin_street < RIVER) {
             this.rit_side_a_runout_cards.add(ccA.getRiver().getCartaComoEntero());
         }
-        // Rewind: retirar las comunitarias corridas y re-repartirlas boca abajo
-        // con la animación de reparto del juego.
+        // Rewind: pull the run community cards and redeal them face down with the
+        // game's deal animation.
         rebobinarComunitariasSideB();
         setRunItTwiceSideB(true);
         boolean dealt = repartirSideB(resisten);
         setRunItTwiceSideB(false);
 
-        // Igual que tras el run-out normal (Crupier ~12232): oculta la bet_label
-        // de calle antes del showdown de CARA-B.
+        // Same as after the normal run-out: hides the street's bet_label before
+        // SIDE-B's showdown.
         GameFrame.getInstance().hideTapeteApuestas();
 
-        // CARA-B abortó y las apuestas YA se devolvieron: la mano entera está
-        // anulada de verdad (cancelarManoYDevolverApuestas devolvió todo y
-        // rollbackAbortedHand la cerró en SQL con pot=0 y balances
-        // post-refund). El settle de CARA-A debe revertirse — quedó pendiente
-        // en pagar y nadie lo va a consolidar, pero el auditor y el
-        // balance_backup.txt leen stack+getPagar() y le abonarían al ganador
-        // de A un medio bote que los demás ya recuperaron con el refund.
-        // conta_win vuelve al snapshot (una mano anulada no cuenta victorias)
-        // y NO se escriben filas de showdown de una mano anulada. El abort
-        // sin devolución (p.ej. fin por salida del propio jugador local) sigue
-        // el camino de siempre: CARA-A liquidada se queda como está.
+        // SIDE-B aborted and the bets were ALREADY refunded: the whole hand is
+        // genuinely voided (cancelarManoYDevolverApuestas refunded everything and
+        // rollbackAbortedHand closed it in SQL with pot=0 and post-refund balances).
+        // SIDE-A's settle must be reverted — it's pending in pagar and nobody will
+        // consolidate it, but the auditor and balance_backup.txt read stack+getPagar()
+        // and would credit SIDE-A's winner a half-pot the others already got back via
+        // the refund. conta_win reverts to the snapshot (a voided hand counts no wins)
+        // and no showdown rows are written for it. An abort WITHOUT a refund (e.g. the
+        // local player quitting) follows the usual path: SIDE-A's settle stands as-is.
         //
-        // Se pregunta si el dinero YA VOLVIO a los stacks, no si la mano esta
-        // marcada como anulada, por lo mismo que la rama de mas abajo y que la
-        // liquidacion normal: esa marca se iza FUERA del cerrojo de contabilidad
-        // y la devolucion va dentro, asi que se puede llegar aqui con la marca
-        // puesta y el dinero todavia sin devolver. Mirando la marca, en esa
-        // ventana se revertia lo pagado por CARA-A y se salia... y la devolucion,
-        // cuando por fin entraba, ya no encontraba nada que devolver, porque esta
-        // misma liquidacion vacia los botes antes de soltar el cerrojo. Se perdia
-        // la apuesta ENTERA de la mano, el doble que en la rama de abajo.
+        // Checks whether the money has ALREADY gone back to the stacks, not whether the
+        // hand is flagged voided: the flag is raised OUTSIDE the accounting lock while
+        // the refund runs inside it, so this can be reached with the flag set but the
+        // money not yet refunded. Checking the flag instead would revert SIDE-A's
+        // payout and return here before the refund — which, once it finally ran, would
+        // find nothing left to refund (this same settle already emptied the pots before
+        // releasing the lock), losing the hand's ENTIRE bet, twice what the branch
+        // below loses.
         if (!dealt && this.apuestas_devueltas) {
             for (Player p : GameFrame.getInstance().getJugadores()) {
                 p.setPagar(pagarSnapshot.get(p));
@@ -13227,67 +12959,67 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_b"));
         }
 
-        // Resto indivisible no repartido en ninguno de los dos boards → se arrastra
-        // como bote_sobrante a la mano siguiente (conservación exacta del dinero).
+        // Indivisible remainder not distributed on either board -> carried as
+        // bote_sobrante into the next hand (exact money conservation).
         if (dealt) {
             this.bote_sobrante = Math.max(0, Helpers.doubleClean(ritPotTotal - paidA - paidB));
         } else if (!this.apuestas_devueltas) {
-            // La segunda cara no se repartio y las apuestas NO se han devuelto: pasa cuando
-            // el aborto viene por otro lado, tipicamente porque el jugador local se va. Aqui
-            // el sobrante hay que ponerlo igual, descontando solo lo que pago la primera
-            // cara.
+            // SIDE-B was never dealt and the bets have NOT been refunded: happens when
+            // the abort comes from elsewhere, typically the local player leaving. The
+            // remainder still needs to be set here, deducting only what SIDE-A paid out.
             //
-            // Se pregunta si el dinero ya volvio a los stacks, NO si la mano esta anulada,
-            // por el mismo motivo que su gemelo de la liquidacion normal: la marca de
-            // anulada se iza FUERA del cerrojo de contabilidad y la devolucion va dentro,
-            // asi que entre una y otra cabe pasar por aqui. Mirando la marca, en esa ventana
-            // se salta la asignacion esperando que la devolucion se ocupe, y cuando esta por
-            // fin entra ya no encuentra nada que devolver: faltan las fichas que pago la
-            // primera cara.
+            // Checks whether the money has already gone back to the stacks, NOT whether
+            // the hand is voided, for the same reason as its twin in the normal settle:
+            // the voided flag is raised OUTSIDE the accounting lock while the refund
+            // runs inside it, so this can be reached in between. Checking the flag
+            // instead would skip this assignment expecting the refund to handle it, and
+            // when the refund finally runs it finds nothing left to refund: the chips
+            // SIDE-A paid out are missing.
             //
-            // Sin esto se quedaba con el valor de la mano ANTERIOR, y lo pagado en la
-            // primera cara desaparecia de las cuentas: con un bote de 30, un pico heredado
-            // de 0,03 y 15,01 pagados, faltaban 14,99 fichas y el auditor cantaba el
-            // descuadre. El comentario que habia daba por hecho que abortar implicaba anular
-            // la mano, y solo entonces hay alguien que se ocupe del dinero.
+            // Without this it kept the PREVIOUS hand's value, and what SIDE-A paid out
+            // vanished from the books: with a 30 pot, a 0.03 inherited remainder and
+            // 15.01 paid, 14.99 chips went missing and the auditor flagged an imbalance.
+            // The old comment here assumed aborting always meant voiding the hand, and
+            // only then does someone handle the money.
             this.bote_sobrante = Math.max(0, Helpers.doubleClean(ritPotTotal - paidA));
         }
 
-        // conta_win final: +1 solo si ganó algún side (override del doble conteo).
+        // Final conta_win: +1 only if the player won some side (overrides the
+        // double-count).
         for (Player p : resisten) {
             p.setContaWin(contaWinSnapshot.get(p) + (wonAnySide.contains(p) ? 1 : 0));
         }
 
-        // SQL del showdown: UNA fila consolidada por jugador (no una por board),
-        // mismo invariante que el showdown normal. pay/profit salen de getPagar()
-        // final, que acumula lo ganado en ambos boards y todos los (side)pots;
-        // winner = ganó algún side (igual semántica que conta_win). En un all-in
-        // todas las cartas se muestran (destapar_resistencia), por eso tapadas=false.
+        // Showdown SQL: ONE consolidated row per player (not one per board), same
+        // invariant as the normal showdown. pay/profit come from the final getPagar(),
+        // which accumulates winnings across both boards and every (side)pot; winner =
+        // won some side (same semantics as conta_win). All cards are shown on an
+        // all-in (destapar_resistencia), hence tapadas=false.
         this.rit_suppress_showdown_sql = false;
         for (Player p : resisten) {
             this.sqlNewShowdown(p, ritShowdownHands.get(p), wonAnySide.contains(p), false);
         }
     }
 
-    // Liquida UN board (el que está en la mesa) para run-it-twice: paga la mitad
-    // (board: 0=SIDE-A, 1=SIDE-B) de cada (side)pot a los ganadores de ESE board.
+    // Settles ONE board (whichever is on the table) for run-it-twice: pays the half
+    // (board: 0=SIDE-A, 1=SIDE-B) of each (side)pot to that board's winners.
     private double settleRunItTwiceBoard(ArrayList<Player> resisten, int board,
             java.util.HashSet<Player> wonAnySide) {
         boolean isSideB = (board == 1);
         double paidThisBoard = 0;
 
-        // ---- Pot principal (elegibles = resisten); incluye bote_sobrante ----
+        // ---- Main pot (eligible = resisten); includes bote_sobrante ----
         HashMap<Player, Hand> jugadas = this.calcularJugadas(resisten);
         HashMap<Player, Hand> ganadores = this.calcularGanadores(new HashMap<>(jugadas));
         double mainHalf = splitPotForRunItTwice(this.bote.getTotal() + this.bote_sobrante)[board];
         double[] cantidad = this.calcularBoteParaGanador(mainHalf, ganadores.size());
-        // Beneficio del ganador del pot principal en ESTE board (cosmético, número
-        // verde de la label del tapete): su parte (medio bote / nº ganadores) menos
-        // su mitad de la apuesta de referencia. La apuesta se parte igual que el
-        // bote (mismo split, floor a céntimo 0.01) → la suma de ambos boards =
-        // beneficio real total salvo el pico no repartido (que va a bote_sobrante).
-        // Mismo significado que beneficio_bote_principal del showdown normal
-        // (cantidad - bote.getBet()), pero por board.
+        // Main pot winner's profit for THIS board (cosmetic, the green number on the
+        // table label): their share (half-pot / winner count) minus their half of the
+        // reference bet. The bet splits the same way as the pot (same split, floored
+        // to 0.01) -> the sum across both boards = the real total profit, minus the
+        // undistributed remainder (which goes to bote_sobrante). Same meaning as the
+        // normal showdown's beneficio_bote_principal (cantidad - bote.getBet()), but
+        // per board.
         this.beneficio_bote_principal = cantidad[0] - splitPotForRunItTwice(this.bote.getBet())[board];
         ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
         Player unganador = null;
@@ -13297,8 +13029,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Hand jugada = e.getValue();
             wonAnySide.add(ganador);
             unganador = ganador;
-            // Highlight de la jugada ganadora (igual que el showdown normal):
-            // recoge las cartas usadas y atenúa las hole cards NO usadas del ganador.
+            // Highlights the winning hand (same as the normal showdown): collects the
+            // cards used and dims the winner's UNUSED hole cards.
             ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
             for (Card carta : cartas) {
                 if (!cartas_usadas_jugadas.contains(carta)) {
@@ -13313,31 +13045,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             jugadas.remove(ganador);
             ganador.pagar(cantidad[0], null);
-            // La franja "#1" del bote principal NO se pinta aquí: se difiere a
-            // DESPUÉS de this.showdown() (más abajo) para no adelantarse a los
-            // veredictos GANA/PIERDE. Igual que en el showdown normal y que las
-            // marcas de los botes laterales (que ya van tras el showdown).
-            // NO decrementamos bote_total: es UN bote corrido dos veces y la
-            // variable conserva el total en ambas caras (la cola lo pone a 0 al
-            // cerrar la mano). La LABEL sí muestra la mitad de cada cara, pero eso
-            // es solo presentación (splitPotForRunItTwice en el run-out / paidShow
-            // en el showdown), no toca la contabilidad.
+            // The main pot's "#1" tag is NOT painted here: it's deferred until AFTER
+            // this.showdown() (below) so it doesn't get ahead of the WIN/LOSE
+            // verdicts. Same as the normal showdown and the side-pot tags (which also
+            // happen after the showdown). bote_total is NOT decremented: it's ONE pot
+            // run twice, and the variable keeps the full total across both sides (the
+            // queue zeroes it when the hand closes). The LABEL does show each side's
+            // half, but that's presentation only (splitPotForRunItTwice in the run-out
+            // / paidShow in the showdown) — it doesn't touch the accounting.
             paidThisBoard += cantidad[0];
             GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.money2String(cantidad[0]) + ") -> " + jugada);
         }
 
-        // Atenúa las comunitarias que NO forman parte de ninguna jugada ganadora
-        // (mismo highlight que el showdown normal).
+        // Dims the community cards that aren't part of any winning hand (same
+        // highlight as the normal showdown).
         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
             if (!cartas_usadas_jugadas.contains(carta)) {
                 carta.desenfocar();
             }
         }
 
-        // Bad beat de ESTE board (river propio): el perdedor iba ganando en el
-        // turn con trío+ y el river le dio la vuelta. Se fija el campo ANTES del
-        // showdown porque soundWinner/soundLoser (dentro de showdown) lo leen para
-        // sonar badbeat.wav. Reset por board: SIDE-A no contamina SIDE-B.
+        // Bad beat for THIS board (its own river): the loser was ahead on the turn
+        // with trips+ and the river flipped it. The field is set BEFORE the showdown
+        // because soundWinner/soundLoser (inside showdown) read it to play
+        // badbeat.wav. Reset per board: SIDE-A doesn't leak into SIDE-B.
         this.badbeat = false;
         for (Map.Entry<Player, Hand> e : jugadas.entrySet()) {
             if (badbeat(e.getKey(), unganador)) {
@@ -13345,14 +13076,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Visual del board (revelar/destacar) con los ganadores+perdedores del pot
-        // principal, ANTES de vaciar 'jugadas'. null en el diferido: run-it-twice
-        // conserva su flujo de atenuado propio (ya desenfocó arriba en este
-        // settleRunItTwiceBoard), no se difiere a la pasada 2.
+        // Visual board update (reveal/highlight) with the main pot's winners+losers,
+        // BEFORE emptying 'jugadas'. Null for the deferred param: run-it-twice keeps
+        // its own dimming flow (already dimmed above in this settleRunItTwiceBoard),
+        // it isn't deferred to a second pass.
         this.showdown(new HashMap<>(jugadas), ganadores, null);
 
-        // Franja "#1" del bote principal: tras el showdown (no antes), y solo si
-        // hay side pots. marcarBotePot deduplica entre CARA-A y CARA-B.
+        // Main pot's "#1" tag: after the showdown (not before), and only if there are
+        // side pots. marcarBotePot deduplicates between SIDE-A and SIDE-B.
         if (this.bote.getSidePot() != null) {
             for (Player ganador_principal : ganadores.keySet()) {
                 ganador_principal.marcarBotePot(1);
@@ -13366,11 +13097,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Desglose por bote para la pot_label cuando hay side pots (como el
-        // showdown normal): #1{mitad principal} + #2{mitad lateral} ... con la
-        // MITAD que ESTA cara juega. El beneficio NO va aquí (es ambiguo con
-        // varios botes); el beneficio por jugador ya está en la franja negra.
-        // El bote principal se muestra sin sobrante (igual que el modo normal).
+        // Per-pot breakdown for the pot_label when there are side pots (like the
+        // normal showdown): #1{main half} + #2{side half} ... with the HALF this side
+        // plays. Profit does NOT go here (ambiguous with multiple pots); per-player
+        // profit is already in the black strip. The main pot shows without the
+        // remainder (same as normal mode).
         String bote_tapete = "#1{" + Helpers.money2String(splitPotForRunItTwice(this.bote.getTotal())[board]) + "}";
 
         // ---- Side pots ----
@@ -13378,10 +13109,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         int sec = 2;
         while (current_pot != null) {
             if (current_pot.getPlayers().size() == 1) {
-                // Pot lateral no disputado: refund íntegro, UNA sola vez (SIDE-A);
-                // no se parte entre boards (no hay competición).
+                // Undisputed side pot: full refund, ONCE only (SIDE-A); not split
+                // between boards (nothing to compete for).
                 if (board == 0) {
-                    // Solo aparece en el desglose de CARA-A (en CARA-B no se paga).
+                    // Only appears in SIDE-A's breakdown (not paid on SIDE-B).
                     bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
                     Player only = current_pot.getPlayers().get(0);
                     only.pagar(current_pot.getTotal(), null);
@@ -13418,11 +13149,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             sec++;
         }
 
-        // Label del bote de ESTE board, centrada (como el showdown normal):
-        // - con side pots: desglose por bote (fondo negro/blanco), SIN beneficio
-        //   en paréntesis (ambiguo con varios botes; el beneficio por jugador va
-        //   en la franja negra), igual que el showdown normal con side pots.
-        // - un único bote: número repartido + beneficio (fondo verde).
+        // This board's pot label, centered (like the normal showdown):
+        // - with side pots: per-pot breakdown (black/white background), NO profit in
+        //   parentheses (ambiguous with multiple pots; per-player profit goes in the
+        //   black strip), same as the normal showdown with side pots.
+        // - a single pot: amount paid + profit (green background).
         if (this.bote.getSidePot() != null) {
             setPotBackground(Color.BLACK);
             final String bote_tapete_final = bote_tapete;
@@ -13444,13 +13175,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return paidThisBoard;
     }
 
-    // Run-it-twice SIDE-B (verificable como el board vivo): reparte la
-    // calle actual (this.street) del SEGUNDO board desde offsets FRESCOS del
-    // MEGAPACKET (las posiciones libres tras el river de SIDE-A: offset vivo +
-    // RIT2_BOARD_SPAN), bajo fases RIT2_* y comandos RIT2_*_PIECE, y emite/absorbe
-    // un COMM_REVEAL con código de calle SIDE-B (STREET_RIT2_*) para cerrar el
-    // cross-recipient fork igual que el board vivo. abortOnFail=true: SIDE-B lleva
-    // dinero (medio bote), no es cosmético como rabbit.
+    // Run-it-twice SIDE-B (verifiable like the live board): deals the current street
+    // (this.street) of the SECOND board from FRESH MEGAPACKET offsets (the free slots
+    // after SIDE-A's river: live offset + RIT2_BOARD_SPAN), under RIT2_* phases and
+    // RIT2_*_PIECE commands, and emits/absorbs a COMM_REVEAL with a SIDE-B street code
+    // (STREET_RIT2_*) to close the cross-recipient fork just like the live board.
+    // abortOnFail=true: SIDE-B carries money (half the pot), it isn't cosmetic like
+    // rabbit hunting.
     private boolean enviarRit2Comunitarias(java.util.ArrayList<Player> resisten) {
         java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating SRA SIDE-B street unlock: {0}", street);
 
@@ -13472,8 +13203,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         offset += RIT2_BOARD_SPAN;
 
-        // El segundo board debe caber en el mazo (52 cartas * 32 bytes). Con el
-        // cap de jugadores del juego siempre cabe, pero abortamos limpio si no.
+        // The second board must fit in the deck (52 cards * 32 bytes). With the game's
+        // player cap it always fits, but we abort cleanly if not.
         if (this.local_mega_packet == null || (offset + numCards) * 32 > this.local_mega_packet.length) {
             LOGGER.log(Level.SEVERE, "SIDE-B offset {0}+{1} exceeds deck — aborting hand", new Object[]{offset, numCards});
             cancelarManoYDevolverApuestas("rit.sideb_offset_overflow");
@@ -13499,8 +13230,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getRiver().actualizarConValorNumerico(hostIndices[0] + 1);
         }
 
-        // COMM_REVEAL con código de calle SIDE-B — idéntico patrón al board vivo
-        // (absorber SOLO si el broadcast tuvo éxito, o host y clientes divergen).
+        // COMM_REVEAL with a SIDE-B street code — identical pattern to the live board
+        // (absorb ONLY if the broadcast succeeded, or host and clients diverge).
         Object[] recsig = buildCommunityRevealRecordAndSig(mapJavaStreetToRit2Wire(street), hostIndices);
         if (recsig != null) {
             byte[] record = (byte[]) recsig[0];
@@ -13523,20 +13254,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    // POCKET-like cascade comunitario: construimos una copia per-recipient
-    // (host + cada humano remoto), cada una con todos los locks salvo el del
-    // destinatario, y la broadcastamos como *_PIECE. El destinatario aplica
-    // su propio unlock localmente y verifica via resolveCardIndex (-1 ⇒
-    // lockdown). El host es destinatario también, pero su copia NO le aplica
-    // localmente su propio unlock antes de la cascade: así garantizamos que
-    // ningún helper vea bytes en genesis durante el unlock por red (siempre
-    // queda al menos el host_lock encima). Tras la cascade, el host aplica
-    // su unlock local sobre SU copia para resolver los chunks y devolverlos
-    // al caller, que actualiza su UI.
+    // POCKET-like community cascade: builds a per-recipient copy (host + each remote
+    // human), each with every lock removed except the recipient's, and broadcasts them
+    // as *_PIECE. The recipient applies their own unlock locally and verifies via
+    // resolveCardIndex (-1 => lockdown). The host is a recipient too, but its own
+    // unlock is NOT applied to its copy before the cascade: this guarantees no helper
+    // ever sees genesis bytes during the network unlock (the host_lock always stays on
+    // top). After the cascade, the host applies its local unlock to ITS copy to
+    // resolve the chunks and returns them to the caller, which updates the UI.
     //
-    // Si abortOnFail==true, los fallos disparan cancelarManoYDevolverApuestas
-    // (path vivo). Si false, simplemente devolvemos null (path rabbit: una
-    // pieza que no llega no aborta la mano, sólo deja la carta tapada).
+    // If abortOnFail==true, failures trigger cancelarManoYDevolverApuestas (live
+    // path). If false, we just return null (rabbit path: a piece that doesn't arrive
+    // doesn't abort the hand, it just leaves the card covered).
     private int[] cascadeAndDealCommunityPieces(int offset, int numCards, int unlockPhase, String pieceCommand, boolean abortOnFail) {
         String hostNick = GameFrame.getInstance().getNick_local();
         HashMap<String, Integer> nick2idx = new HashMap<>();
@@ -13555,13 +13284,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Community dealing VERIFICABLE (chain anclado al MEGAPACKET).
-        // Cada copy de recipient X ancla a megapacket[offset+j]; el host y los bots
-        // extienden localmente con prueba DLEQ, los helpers vivos vía REQ_SRA_UNLOCK_CHAIN.
-        // El tail de cada copy es la pieza single-locked por X (formato idéntico al batch
-        // viejo → el cliente y el broadcast no cambian). Cierra el oráculo community: el
-        // helper ancla a SU megapacket por índice (cegado imposible) y GATE 6 rechaza
-        // cualquier strip que revele genesis (extracción de una comunitaria antes de tiempo).
+        // VERIFIABLE community dealing (chain anchored to the MEGAPACKET). Each
+        // recipient X's copy anchors to megapacket[offset+j]; the host and bots extend
+        // it locally with a DLEQ proof, live human helpers via REQ_SRA_UNLOCK_CHAIN.
+        // Each copy's tail is the piece single-locked by X (identical format to the
+        // old batch, so the client and broadcast don't change). Closes the community
+        // oracle: the helper anchors to ITS OWN megapacket by index (blinding
+        // impossible) and GATE 6 rejects any strip that would reveal genesis
+        // (extracting a community card ahead of time).
         java.util.Map<String, String[]> commChains = new java.util.LinkedHashMap<>();
         String[] hostCommChain = new String[numCards];
         java.util.Arrays.fill(hostCommChain, "");
@@ -13572,12 +13302,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             commChains.put(r, arr);
         }
 
-        // El host quita su community-lock de cada copy salvo la suya (la abre localmente).
-        // El lock se deriva del unlock (getUnlockScalar es involutivo): local_sra_lock_community
-        // es null tras una recuperación de mano (solo se restaura el unlock vía
-        // SRAKEYS_COMMUNITY@), mientras que local_sra_unlock_community siempre está disponible
-        // aquí (lo garantiza el guard de enviarCartasComunitarias). commitment(lock derivado)
-        // == peer_k_community[host], así que la prueba DLEQ verifica igual.
+        // The host strips its community-lock from every copy except its own (opens
+        // that one locally). The lock derives from the unlock (getUnlockScalar is
+        // involutive): local_sra_lock_community is null after a hand recovery (only
+        // the unlock is restored, via SRAKEYS_COMMUNITY@), while
+        // local_sra_unlock_community is always available here (guaranteed by
+        // enviarCartasComunitarias's guard). commitment(derived lock) ==
+        // peer_k_community[host], so the DLEQ proof still verifies.
         byte[] hostCommunityLock = RistrettoSRA.getUnlockScalar(this.local_sra_unlock_community);
         if (!extendCommunityChainsForSigner(commChains, offset, numCards, hostNick, hostNick, hostCommunityLock)) {
             if (abortOnFail) {
@@ -13585,7 +13316,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             return null;
         }
-        // Los bots quitan su community-lock de TODAS las copies (no son recipients).
+        // Bots strip their community-lock from ALL copies (they aren't recipients).
         for (String nick : this.active_crypto_ring) {
             Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
             if (pp != null && pp.isCpu()) {
@@ -13605,8 +13336,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Cada helper humano H quita su community-lock de las copies de X != H, con prueba,
-        // vía REQ_SRA_UNLOCK_CHAIN (vivo) o extendido localmente con su testamento (exit).
+        // Each human helper H strips their community-lock from the copies of X != H,
+        // with a proof, via REQ_SRA_UNLOCK_CHAIN (live) or extended locally from their
+        // testament (exited).
         for (String h : remoteHumans) {
             Participant ph = GameFrame.getInstance().getParticipantes().get(h);
             if (ph == null) {
@@ -13637,7 +13369,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             covered.add(recip);
                         }
                     }
-                    // El helper debe haber cubierto TODOS los recipients != h (paridad cabo 2).
+                    // The helper must have covered ALL recipients != h (parity with cascade #2).
                     boolean allCovered = true;
                     for (String recip : commChains.keySet()) {
                         if (!recip.equals(h) && !covered.contains(recip)) {
@@ -13653,7 +13385,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         return null;
                     }
                 } else if (ph.getSra_unlock_community() != null) {
-                    // Testamento: entrega SOLO la mitad community; el host extiende local.
+                    // Testament: delivers ONLY the community half; the host extends it locally.
                     byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock_community());
                     if (!extendCommunityChainsForSigner(commChains, offset, numCards, h, h, hCommunityLock)) {
                         if (abortOnFail) {
@@ -13662,7 +13394,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         return null;
                     }
                 } else {
-                    // Peer vivo, NO respondió, no testament. REFUSAL → para la timba.
+                    // Live peer, did NOT respond, no testament. REFUSAL -> stops the game.
                     if (abortOnFail) {
                         warnMaliciousPeer(h, "zero_trust.community_unlock_refused");
                         cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
@@ -13678,8 +13410,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return null;
                 }
             } else {
-                // Peer ya salió sin dejar testament community. "Se fue sin dar testamento"
-                // — excepción del usuario: misdeal pero la timba continúa.
+                // Peer already left without leaving a community testament. "Left without
+                // a testament" — user exception: misdeal but the game continues.
                 if (abortOnFail) {
                     cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
                 }
@@ -13687,9 +13419,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // El host verifica cada cadena final contra peer_k_community y toma el tail
-        // (la pieza single-locked por su recipient). Una cadena que no verifica = un peer
-        // devolvió algo no probado.
+        // The host verifies each final chain against peer_k_community and takes the
+        // tail (the piece single-locked by its recipient). A chain that fails to
+        // verify means a peer returned something unproven.
         HashMap<String, byte[]> copies = new HashMap<>();
         for (java.util.Map.Entry<String, String[]> e : commChains.entrySet()) {
             byte[] copy = new byte[numCards * 32];
@@ -13710,7 +13442,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             copies.put(e.getKey(), copy);
         }
 
-        // Resolver la copia del host (queda sólo el lock community propio del host).
+        // Resolve the host's copy (only the host's own community lock remains).
         byte[] hostFinal = RistrettoSRA.applyCommutativeLock(copies.get(hostNick), this.local_sra_unlock_community);
         int[] hostIndices = new int[numCards];
         for (int i = 0; i < numCards; i++) {
@@ -13725,8 +13457,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             hostIndices[i] = idx;
         }
 
-        // Difundir las piezas a cada humano remoto. broadcastGAMECommandFromServer
-        // manda a todos los clientes; sólo el destinatario podrá descifrar su pieza.
+        // Broadcasts the pieces to each remote human. broadcastGAMECommandFromServer
+        // sends to every client; only the intended recipient can decrypt their piece.
         for (String r : remoteHumans) {
             try {
                 String nickB64 = Base64.getEncoder().encodeToString(r.getBytes("UTF-8"));
@@ -13748,17 +13480,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean piece_ok = false;
         boolean reveal_ok = false;
 
-        // Observer mode: peers que no estan en active_crypto_ring de esta
-        // mano (joiner pasivo durante recover-timba, calentando o spectator)
-        // no tienen sra_unlock para ella. El host NO les direcciona
-        // FLOP_PIECE/TURN_PIECE/RIVER_PIECE (cascadeAndDealCommunityPieces
-        // itera solo el ring para los recipients), asi que esperar la
-        // pieza colgaria el hilo principal indefinidamente. El observer
-        // pinta el board en cleartext leyendo los indices del propio
-        // COMM_REVEAL firmado por el host (mismo patron que
-        // recibirCartasResistencia ya usa para POTCARDS cuando isCalentando
-        // /isSpectator). Sin dinero en la mano, fiarse de la palabra del
-        // host es seguro — el observer no participa de la criptografia.
+        // Observer mode: peers not in this hand's active_crypto_ring (a passive
+        // joiner during recover-timba, warming up, or a spectator) have no sra_unlock
+        // for it. The host does NOT address FLOP_PIECE/TURN_PIECE/RIVER_PIECE to them
+        // (cascadeAndDealCommunityPieces only iterates the ring for recipients), so
+        // waiting for the piece would hang the main thread forever. The observer
+        // paints the board in cleartext by reading the indices from the host's own
+        // signed COMM_REVEAL (same pattern recibirCartasResistencia already uses for
+        // POTCARDS when isCalentando/isSpectator). With no money in the hand, trusting
+        // the host's word is safe — the observer doesn't participate in the
+        // cryptography.
         String localNick = GameFrame.getInstance().getNick_local();
         boolean inRing = false;
         if (this.active_crypto_ring != null && localNick != null) {
@@ -13788,32 +13519,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // to PIECE-only verification (pre-Phase-3 behaviour) so the hand
         // still plays out.
         //
-        // Observer: necesita el COMM_REVEAL aunque su chain sea null porque
-        // de ahi extrae los indices del board para el UI (no tiene piece
-        // que decodificar).
+        // Observer: needs the COMM_REVEAL even with a null chain because that's
+        // where it gets the board indices for the UI (it has no piece to decode).
         final boolean chainRequiresReveal = (this.hand_state_chain != null);
         if (!chainRequiresReveal && !iAmObserver) {
             reveal_ok = true;
         }
 
-        // Cada cliente humano recibe SU PROPIA pieza cifrada (FLOP_PIECE
-        // /TURN_PIECE/RIVER_PIECE) con los locks de los demás ya quitados; el
-        // cliente aplica su propio sra_unlock y resuelve mediante
-        // resolveCardIndex. Un -1 significa que el host envió bytes que no son
-        // genesis tras mi unlock — basura o smuggling cross-slot — y disparamos
-        // lockdown.
+        // Each human client receives ITS OWN encrypted piece (FLOP_PIECE
+        // /TURN_PIECE/RIVER_PIECE) with everyone else's locks already stripped; the
+        // client applies its own sra_unlock and resolves via resolveCardIndex. A -1
+        // means the host sent bytes that aren't genesis after my unlock — garbage or
+        // cross-slot smuggling — and we trigger lockdown.
         //
-        // Sin timeout: la cascade del host puede tardar minutos con un ring grande
-        // y clientes lentos. El cliente espera indefinidamente — TCP nos garantiza
-        // que la pieza llega o el socket muere. MISDEAL del host es la única señal
-        // de que la mano se cancela legítimamente.
+        // No timeout: the host's cascade can take minutes with a large ring and slow
+        // clients. The client waits indefinitely — TCP guarantees the piece arrives or
+        // the socket dies. A MISDEAL from the host is the only legitimate signal the
+        // hand is being cancelled.
         int[] pieceIndices = null;
         byte[] revealRecord = null;
         byte[] revealSig = null;
         int expectedNumCards = (street == Crupier.FLOP) ? 3 : 1;
-        // Run-it-twice SIDE-B: durante el reparto del segundo board esperamos los
-        // comandos RIT2_*_PIECE y el COMM_REVEAL con código de calle SIDE-B
-        // (STREET_RIT2_*), no los del board vivo.
+        // Run-it-twice SIDE-B: while dealing the second board we wait for the
+        // RIT2_*_PIECE commands and a COMM_REVEAL with a SIDE-B street code
+        // (STREET_RIT2_*), not the live board's.
         final boolean rit2 = this.run_it_twice_side_b;
         final int expectedWireStreet = rit2 ? mapJavaStreetToRit2Wire(street) : mapJavaStreetToWire(street);
         do {
@@ -13836,17 +13565,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         if (iAmObserver && expectedCmd != null && partes.length >= 5
                                 && partes[2].equals(expectedCmd)) {
-                            // Observer no esta en el ring: ninguna pieza es para
-                            // el. Drop silencioso para no contaminar la cola de
-                            // rejected con piezas inservibles del resto de streets.
+                            // Observer isn't in the ring: no piece is meant for it.
+                            // Silent drop so we don't clutter the rejected queue with
+                            // useless pieces from other streets.
                             continue;
                         }
                         if (expectedCmd != null && partes.length >= 5 && partes[2].equals(expectedCmd) && !piece_ok) {
                             String targetNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
                             if (!targetNick.equals(localNick)) {
-                                // Pieza de otro destinatario; no la puedo
-                                // descifrar (los demás siguen con su lock).
-                                // Drop silencioso.
+                                // Piece for another recipient; I can't decrypt it
+                                // (everyone else's still has its lock). Silent drop.
                                 continue;
                             }
                             byte[] piece = java.util.Base64.getDecoder().decode(partes[4]);
@@ -13858,9 +13586,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
                                 return false;
                             }
-                            // Dual-lock: tras la rotación, las community pieces están cifradas
-                            // con scalars de community. El recipient aplica SU unlock_community
-                            // para descifrar.
+                            // Dual-lock: after the rotation, community pieces are encrypted
+                            // with community scalars. The recipient applies THEIR
+                            // unlock_community to decrypt.
                             byte[] unlocked = RistrettoSRA.applyCommutativeLock(piece, this.local_sra_unlock_community);
                             int[] indices = new int[expectedNumCards];
                             for (int k = 0; k < expectedNumCards; k++) {
@@ -13936,15 +13664,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
 
-        // Observer mode: el board se pinta a partir de los indices anunciados
-        // en el COMM_REVEAL firmado por el host. No hay PIECE que decodificar
-        // ni chain que absorber. Validacion minima de la forma del record
-        // (longitud, action_type, street) — si esta corrupto, log warning y
-        // se sigue observando sin pintar este street (no abortamos la mano,
-        // que el observer no tiene poder para decidir misdeal). No se aplica
-        // lockdown porque el observer no tiene state critico que proteger;
-        // los peers reales del ring tienen su propia verificacion en el
-        // bloque chainRequiresReveal mas abajo.
+        // Observer mode: the board is painted from the indices announced in the host's
+        // signed COMM_REVEAL. There's no PIECE to decode or chain to absorb. Minimal
+        // record-shape validation (length, action_type, street) — if corrupt, log a
+        // warning and keep observing without painting this street (we don't abort the
+        // hand; the observer has no say in a misdeal). No lockdown applied since the
+        // observer has no critical state to protect; real ring peers get their own
+        // verification in the chainRequiresReveal block below.
         if (iAmObserver) {
             if (revealRecord == null) {
                 return true;
@@ -14125,12 +13851,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.ultimo_raise = 0f;
                 this.conta_raise = 0;
                 this.conta_bet = 0;
-                // El resto de una subida incompleta (un all-in que no llega a subida
-                // entera) es de la calle que se acaba de cerrar y muere con ella, igual
-                // que la apuesta en curso y el ultimo raise de aqui arriba. Arrastrarlo
-                // hinchaba la cuenta en la calle siguiente y hacia pasar por subida
-                // entera algo que no lo era, con lo que a los demas se les reabria el
-                // turno cuando no tocaba.
+                // A partial raise (all-in short of a full raise) belongs to the street
+                // that just closed and dies with it, like apuesta_actual/ultimo_raise
+                // above. Carrying it over inflated the next street's count and made a
+                // partial look like a full raise, wrongly reopening action to others.
                 this.partial_raise_cum = 0f;
                 for (Player jugador : resisten) {
                     jugador.setBet(0f);
@@ -14144,35 +13868,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     conta_pos++;
                 }
                 if (this.straddle_posted) {
-                    // El straddler (UTG) actua el ULTIMO preflop (opcion): la accion
-                    // arranca en el asiento SIGUIENTE. El do-while salta asientos
-                    // inactivos, y end_pos = este conta_pos hace que el straddler sea
-                    // el ultimo en hablar antes de cerrar la ronda.
+                    // The straddler (UTG) acts LAST preflop (option), so action starts
+                    // at the NEXT seat; end_pos = this conta_pos then closes the round
+                    // on the straddler.
                     conta_pos++;
                     if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {
                         conta_pos %= GameFrame.getInstance().getJugadores().size();
                     }
                 }
             } else {
-                // Quien ABRE postflop: la ciega pequeña multiway, la GRANDE en cara a cara.
-                // En heads-up el boton ES la ciega pequeña (calcularPosiciones lo fija asi),
-                // y por regla abre preflop pero habla el ULTIMO en flop, turn y river.
-                // Arrancar siempre en la pequeña le daba la primera palabra tambien
-                // postflop, invirtiendo la ventaja de posicion durante toda la fase heads-up
-                // (o sea, el final de cualquier partida) y contradiciendo al pivote del
-                // showdown de este mismo fichero, que si la calcula bien.
-                // El cara a cara se decide con el dato CANONICO de esta mano, no con un
-                // recuento en vivo: calcularPosiciones iguala el boton a la ciega pequeña
-                // SOLO en heads-up, y dealer_nick viaja a todos los peers en POSITIONS.
-                // Contar activos aqui seria estado local y mutable: cambiaria de respuesta
-                // entre calles si alguien abandona a mitad de mano, y dos peers que aun no
-                // hubieran procesado el mismo EXIT arrancarian la ronda en asientos
-                // distintos, esperando cada uno a un jugador diferente.
+                // Postflop opener: small blind multiway, BIG blind heads-up. In
+                // heads-up the button IS the small blind (calcularPosiciones sets it
+                // that way): it opens preflop but acts LAST postflop. Always starting
+                // on the small blind would give it first word postflop too, flipping
+                // position advantage for the whole heads-up phase (i.e. any game's
+                // endgame) and contradicting the showdown pivot elsewhere in this file.
+                // heads_up is decided from this hand's CANONICAL dealer_nick (synced to
+                // every peer via POSITIONS), not a live headcount: counting active
+                // players here would be local mutable state, answering differently
+                // street to street as people leave, and two peers who haven't yet
+                // processed the same EXIT would start the round on different seats.
                 boolean heads_up = this.dealer_nick != null && this.dealer_nick.equals(this.small_blind_nick);
                 String primero_postflop = BetRules.firstToActPostflop(heads_up, this.small_blind_nick, this.big_blind_nick);
-                // Si el que abre no esta activo se arranca en el OTRO ciego. En cara a cara
-                // ese es la pequeña: dejar aqui la grande repetia el nick que se acaba de
-                // descartar, o sea que en heads-up no habia fallback ninguno.
+                // If the opener isn't active, start on the OTHER blind. Heads-up
+                // that's the small blind (the big blind would just repeat the seat
+                // we're discarding, so heads-up has no fallback of its own).
                 String fallback_postflop = heads_up ? this.small_blind_nick : this.big_blind_nick;
 
                 if (nick2player.containsKey(primero_postflop) && nick2player.get(primero_postflop).isActivo()) {
@@ -14213,22 +13933,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 boolean isCryptoReplay = this.conta_accion < this.tot_acciones_recuperadas;
                 boolean eraSincronizacion = this.isSincronizando_mano();
 
-                // RECOVER robusto (convergencia de H_t): si estamos reproduciendo y el asiento cuyo turno
-                // toca NO coincide con la siguiente accion guardada, ese asiento se salto en vivo por
-                // OMISION MUTUA (se desconecto antes de actuar en esta calle: no dejo accion, y la cadena
-                // fue directa del anterior al siguiente). Reproducirlo (jugando en vivo ahora que ha
-                // reconectado) meteria en H_t un record que en vivo no existio y el siguiente record
-                // ORIGINAL romperia su PREV_H. Se salta igual, sin absorber, sin contar y sin wire, con el
-                // MISMO patron que los asientos ya retirados de arriba. Simetrico en host y cliente (ambos
-                // tienen recover_action_order), asi que la cadena converge byte a byte con la de vivo.
+                // Robust RECOVER (H_t convergence): if we're replaying and the seat whose
+                // turn it is does NOT match the next saved action, that seat was skipped
+                // live by MUTUAL OMISSION (disconnected before acting this street: it left
+                // no action, and the chain went straight from the previous seat to the
+                // next). Replaying it now that it has reconnected would insert a record
+                // into H_t that never existed live, breaking the next ORIGINAL record's
+                // PREV_H. So it's skipped here too — no absorb, no count, no wire — the
+                // same pattern as already-folded seats above. Symmetric on host and
+                // client (both hold recover_action_order), so the chain converges
+                // byte-for-byte with the live one.
                 if (isCryptoReplay && isSkippedSeatDuringRecover(current_player.getNickname(),
                         this.conta_accion, this.recover_action_order)) {
-                    // SEGURIDAD (host hostil): la lista recover_action_order la sirve el HOST. Para MI PROPIO
-                    // asiento no me fio de ella a ciegas: si el host quiere que salte mi turno pero mi SQLite
-                    // local (que el host NO controla) todavia tiene acciones mias sin reproducir, el host esta
-                    // OMITIENDO una accion que yo SI jugue para borrarla en silencio. Se detecta y se avisa
-                    // (duro) + se marca la mano como no verificada; NO se traga. Un hueco LEGITIMO (me
-                    // desconecte antes de actuar) tiene replayIndex == persistido, asi que no salta este aviso.
+                    // Hostile-host check: recover_action_order is served by the HOST, so
+                    // for MY OWN seat it isn't trusted blindly. If the host wants to skip
+                    // my turn but my local SQLite (which the host doesn't control) still
+                    // has unreplayed actions of mine, the host is silently omitting one I
+                    // actually played — detect and warn hard, mark the hand unverified,
+                    // never swallow it. A legitimate gap (I disconnected before acting)
+                    // has replayIndex == persisted, so it doesn't trip this warning.
                     boolean ownSeat = (current_player == GameFrame.getInstance().getLocalPlayer());
                     if (ownSeat) {
                         int persisted = this.recover_persisted_count.computeIfAbsent(
@@ -14241,16 +13964,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_omitted"));
                             this.saw_invalid_action_sig = true;
                         } else if (persisted == Integer.MAX_VALUE) {
-                            // Fallo LOCAL al leer mi SQLite: no puedo verificar si el host omite algo. NO acuso
-                            // al host por un problema mio; solo lo dejo en el log. La cadena sigue siendo la red
-                            // de seguridad (una omision inconsistente con un record firmado por un humano diverge).
+                            // Local SQLite read failed, so we can't verify a host omission.
+                            // Log only — don't accuse the host over a local problem. The
+                            // chain remains the real safety net (a divergent, human-signed
+                            // record still breaks agreement downstream).
                             LOGGER.log(Level.WARNING,
                                     "RECOVER: cannot verify my own actions on skip (local SQLite read failed) — proceeding without accusing the host");
                         } else {
-                            // BENIGNO: me desconecte antes de actuar en esta calle (replayed == persisted). El
-                            // host reprodujo acciones de otros durante mi ausencia que no puedo verificar. Mismo
-                            // aviso SUAVE (rojo) que el camino del exit-fold pelado, que aqui no salia porque el
-                            // skip no pasa por la rama 2. Dedup por recuperacion (recover_absence_warned).
+                            // Benign: I disconnected before acting this street
+                            // (replayed == persisted). The host replayed others' actions
+                            // during my absence that I can't verify — same soft warning as
+                            // the bare exit-fold path (which doesn't run here since skip
+                            // doesn't go through branch 2). Dedup via recover_absence_warned.
                             warnRecoverActionDuringAbsence();
                         }
                     }
@@ -14258,15 +13983,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             "RECOVER: asiento {0} SALTADO por omision mutua (se desconecto antes de actuar; la accion guardada #{1} es de {2})",
                             new Object[]{current_player.getNickname(), this.conta_accion,
                                 this.recover_action_order.get(this.conta_accion)});
-                    // Este asiento se fue a mitad de mano y en vivo quedo FOLDEADO (fuera de resisten via
-                    // isActivo/exit). Al reconectar vuelve activo, asi que hay que RETIRARLO de resisten aqui
-                    // igual que hace la rama de fold (mismo efecto de estado que synthesizeExitFoldAction en el
-                    // camino del exit-fold pelado): si no, reentraria en ESTA mano al alcanzar el frente en vivo
-                    // (turn/river + showdown) y podria cobrar un bote que ya habia forfeiteado. Reentra en la
-                    // SIGUIENTE mano. No toca H_t (la omision mutua se mantiene); host y cliente lo retiran
-                    // simetricamente, asi que el estado de la mesa sigue consistente entre peers.
-                    // Ademas se PINTA como foldeado (gris) de forma silenciosa: sin esto el asiento quedaba
-                    // fuera de resisten (ignorado) pero sin marca visual de fold, "como si no hubiera hablado".
+                    // This seat left mid-hand and went FOLDED live (out of resisten via
+                    // isActivo/exit). Reconnecting makes it active again, so it must be
+                    // removed from resisten here too (same state effect as
+                    // synthesizeExitFoldAction on the bare exit-fold path): otherwise it
+                    // would re-enter THIS hand once live catches up (turn/river +
+                    // showdown) and could win a pot it already forfeited. It re-enters on
+                    // the NEXT hand. H_t is untouched (mutual omission holds); host and
+                    // client remove it symmetrically, so table state stays consistent.
+                    // Also silently painted as folded (grey): without this the seat was
+                    // excluded from resisten but showed no fold mark, "as if it never spoke".
                     current_player.markFoldedOnRecover();
                     resisten.remove(current_player);
                     conta_pos++;
@@ -14359,16 +14085,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     decision = current_player.getDecision();
                     if (accion_recuperada != null && accion_recuperada.length >= 6
                             && Boolean.FALSE.equals(accion_recuperada[5])) {
-                        // RECOVER (fix divergencia de cadena): la accion recuperada es un SYNTH-FOLD
-                        // pelado (sin record firmado): el exit-fold de un jugador que se fue a mitad de
-                        // mano y ahora ha reconectado. En VIVO ese hueco se resolvio por OMISION MUTUA
-                        // (ningun peer absorbio record en H_t). Colapsarlo a un fold VOLUNTARIO hacia que
-                        // el jugador local lo re-firmara y lo ABSORBIERA (canBuild mas abajo), anadiendo a
-                        // la cadena un record que en vivo NUNCA existio -> H_t se desvia justo ahi y el
-                        // siguiente record ORIGINAL (un bot, con su PREV_H de vivo) rompe el absorb. Se
-                        // reproduce como synth-fold (isVoluntary=FALSE) para que synthFold=true aguas abajo
-                        // salte el rebuild y el absorb (misma omision mutua que en vivo) y emita el fold
-                        // pelado al wire, que el resto recibe y tambien omite. Conserva la marca [6].
+                        // RECOVER (chain-divergence fix): a recovered action of type SYNTH-FOLD
+                        // has no signed record — it's the exit-fold of a player who left mid-hand
+                        // and has now reconnected. Live, that gap was resolved by MUTUAL OMISSION
+                        // (no peer absorbed a record into H_t). Collapsing it to a VOLUNTARY fold
+                        // would make the local player re-sign and absorb it (canBuild below),
+                        // adding a record to the chain that never existed live — H_t would diverge
+                        // right there and the next ORIGINAL record (a bot's, with its live PREV_H)
+                        // would break the absorb. So it's replayed as a synth-fold (isVoluntary =
+                        // FALSE) so that synthFold=true downstream skips the rebuild and the
+                        // absorb (same mutual omission as live) and emits the bare fold on the
+                        // wire, which everyone else also omits. The [6] marker is preserved.
                         action = new Object[]{Player.FOLD, 0d, null, null, null, Boolean.FALSE,
                             accion_recuperada.length >= 7 ? accion_recuperada[6] : Boolean.TRUE};
                         LOGGER.log(Level.INFO,
@@ -14379,20 +14106,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                 } else {
-                    // Misma condición de siempre del branch del bot, izada para poder
-                    // consultarla ANTES de esTuTurno sin cambiar su semántica.
+                    // Same condition as the bot branch below, hoisted so it can be
+                    // checked BEFORE esTuTurno without changing its semantics.
                     final boolean bot_del_host = GameFrame.getInstance().isPartida_local()
                             && GameFrame.getInstance().getParticipantes().get(current_player.getNickname()) != null
                             && GameFrame.getInstance().getParticipantes().get(current_player.getNickname()).isCpu();
 
-                    // Cinemática de all-in en curso (la del jugador local o la de un
-                    // humano remoto): a un BOT no se le activa el turno (esTuTurno:
-                    // borde naranja, barra, decisión) hasta que la animación termine
-                    // en esta máquina. La acción del all-in ya viajó/se pintó en el
-                    // momento del botón (eso no se toca); en red el freno de los
-                    // humanos lo pone su propio modal, pero el bot corre en este
-                    // hilo y se adelantaba: recibía el turno y actuaba detrás de la
-                    // animación.
+                    // While an all-in animation is playing (local player's or a remote
+                    // human's), a BOT's turn is held back (esTuTurno: orange border, bar,
+                    // decision) until the animation finishes on this machine. The all-in
+                    // action itself already traveled/was drawn at button-press time; over
+                    // the network humans are held by their own modal, but the bot runs on
+                    // this thread and used to race ahead, getting the turn and acting
+                    // behind the animation.
                     if (bot_del_host) {
                         esperarFinCinematicaAllin();
                     }
@@ -14456,10 +14182,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                // Red de seguridad de la rueda de apuestas: sin una decision utilizable, el
-                // desempaquetado de aqui abajo revienta y el fallo NO queda contenido (acaba
-                // cerrando el proceso). La guarda de longitud no bastaba: un array del ancho
-                // correcto pero con la decision sin rellenar la pasaba de largo.
+                // Safety net for the betting round: without a usable decision, the unpacking
+                // below throws and the failure isn't contained (it ends up killing the
+                // process). A length guard alone wasn't enough — a correctly-sized array
+                // with an unfilled decision slot slipped through it.
                 if (action == null || action.length < 2 || !(action[0] instanceof Integer)) {
                     action = new Object[]{Player.FOLD, 0d, null};
                 } else if (action.length < 3) {
@@ -14472,12 +14198,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if ((action[1] instanceof String) && !"".equals((String) action[1])) {
                         this.current_remote_cinematic_b64 = (String) action[1];
                     } else {
-                        // All-in SIN cinemática nueva (bot, o jugador con las cinemáticas de
-                        // all-in desactivadas: el wire trae el centinela "*"): limpia el blob del
-                        // all-in ANTERIOR para no reproducir su GIF por error si dos all-in caen
-                        // casi seguidos y el reset asíncrono del anterior aún no ha corrido. Mismo
-                        // criterio que la rama de una acción que no es all-in (ambas dejan el campo
-                        // a null cuando no hay cinemática que reproducir).
+                        // All-in with NO new cinematic (bot, or a player with all-in
+                        // cinematics disabled: the wire carries the "*" sentinel): clear
+                        // the PREVIOUS all-in's blob so its GIF isn't replayed by mistake
+                        // if two all-ins land almost back to back and the previous one's
+                        // async reset hasn't run yet. Same rule as the non-all-in branch
+                        // (both leave the field null when there's no cinematic to play).
                         this.current_remote_cinematic_b64 = null;
                     }
                     action[1] = 0d;
@@ -14509,16 +14235,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         isVoluntary = (Boolean) action[5];
                     }
                 }
-                // action[5]==FALSE marca un FOLD sintetizado localmente. Hay DOS, y solo
-                // se distinguen por action[6]:
-                //   - el peer se fue: su EXIT ya viajó y cada receptor sintetiza el suyo
-                //     al llegar a ese asiento, así que NO se emite (exitSynth).
-                //   - el wire no superó la verificación (firma, binding, record ausente
-                //     o malformado): ese wire lo ha visto SOLO este receptor, así que el
-                //     host DEBE emitir el fold sintético o el resto de la mesa se queda
-                //     esperando ese asiento para siempre.
-                // En lo demás son iguales: ninguno construye record local ni absorbe nada
-                // en H_t, y la cadena converge por omisión mutua.
+                // action[5]==FALSE marks a locally-synthesized FOLD. There are TWO kinds,
+                // distinguished only by action[6]:
+                //   - the peer left: its EXIT already went out and every receiver
+                //     synthesizes its own on reaching that seat, so it's NOT re-emitted
+                //     (exitSynth).
+                //   - the wire failed verification (signature, binding, missing or
+                //     malformed record): only THIS receiver has seen that wire, so the
+                //     host MUST emit the synthetic fold or the rest of the table waits on
+                //     that seat forever.
+                // Otherwise identical: neither builds a local record nor absorbs anything
+                // into H_t, and the chain converges by mutual omission.
                 final boolean synthFold = !isVoluntary;
                 final boolean exitSynth = synthFold && !isUnverifiedSynthFold(action);
                 if (!synthFold && (localRecord == null || localSig == null)) {
@@ -14544,14 +14271,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 String cinematicField = "*";
                 if (decision == Player.ALLIN) {
                     if (current_player == GameFrame.getInstance().getLocalPlayer()) {
-                        // Acción PROPIA (host o cliente): adjunta la cinemática que
-                        // eligió localCinematicAllin. El host quedaba fuera de esta
-                        // rama (la condición exigía !isPartida_local()) y caía al
-                        // else-if con current_remote_cinematic_b64 — null para una
-                        // acción propia — así que sus all-in difundían "*" y los
-                        // clientes no reproducían GIF ni limbo para ellos (asimetría
-                        // heredada del código pre-identity). El campo no forma parte
-                        // del record firmado: cero impacto en firmas/chain.
+                        // Own action (host or client): attach the cinematic chosen by
+                        // localCinematicAllin. This field isn't part of the signed
+                        // record, so it has zero impact on signatures/chain.
                         if (this.current_local_cinematic_b64 != null) {
                             cinematicField = this.current_local_cinematic_b64;
                         }
@@ -14578,11 +14300,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // absorb for this slot. Every receiver hits its own readActionFromRemotePlayer's
                     // isExit branch and synthesises the same local FOLD without absorb.
                     //
-                    // El synth por wire NO verificable es el caso contrario y SÍ sale: sin
-                    // record ni firma (nadie puede firmar por el actor), de modo que cada
-                    // cliente lo recibe como acción sin firmar con la cadena activa y
-                    // sintetiza el MISMO fold. Callárselo dejaba a la mesa esperando ese
-                    // asiento para siempre.
+                    // The unverifiable-wire synth is the opposite case and DOES go out:
+                    // with no record or signature (nobody can sign on the actor's behalf),
+                    // each client receives it as an unsigned action against the live chain
+                    // and synthesizes the SAME fold. Staying silent would leave the table
+                    // waiting on that seat forever.
                     if (GameFrame.getInstance().isPartida_local() && !exitSynth) {
                         broadcastGAMECommandFromServer(comando, current_player.getNickname());
                     }
@@ -14600,10 +14322,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Identity: absorb the (record || sig) bytes into H_t.
                 // Same call on host and every client, so the chain stays byte-identical
                 // across the table. Failed-verify sigs are absorbed too so divergence
-                // remains detectable at hand close (§4.5). Los DOS synths se saltan esto:
-                // localRecord es null de todos modos y absorbActionIntoChain es no-op para
-                // null, pero la guarda explícita documenta la regla (ningún peer aporta
-                // record para ese asiento → omisión mutua).
+                // remains detectable at hand close (§4.5). Both synth kinds skip this:
+                // localRecord is null anyway and absorbActionIntoChain is a no-op for
+                // null, but the explicit guard documents the rule (no peer contributes a
+                // record for that seat -> mutual omission).
                 if (!synthFold) {
                     absorbActionIntoChain(current_player.getNickname(), localRecord, localSig);
                 }
@@ -14614,9 +14336,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     boolean isBBCheck = current_player.getNickname().equals(this.big_blind_nick)
                             && decision == Player.CHECK
                             && Helpers.doubleSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0;
-                    // Con straddle, el "check gratis" lo tiene el straddler (UTG) sobre
-                    // su propio straddle (apuesta_actual == 2x CG), no la ciega grande:
-                    // ese check forzado tampoco cuenta como VPIP.
+                    // With a straddle, the "free check" belongs to the straddler (UTG) on
+                    // their own straddle (apuesta_actual == 2x BB), not the big blind —
+                    // that forced check doesn't count as VPIP either.
                     boolean isStraddleCheck = this.straddle_posted
                             && current_player.getNickname().equals(this.utg_nick)
                             && decision == Player.CHECK
@@ -14679,11 +14401,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (this.sqlCheckGenuineRecoverAction(current_player)) {
                         LOGGER.log(Level.INFO, "Recover action OK");
                     } else {
-                        // La comprobacion existia pero no servia de nada: si la accion que se
-                        // esta reproduciendo NO coincide con la que quedo guardada de esa mano,
-                        // no se decia ni una palabra. Sigue sin abortar la recuperacion (una
-                        // base de datos incompleta no es prueba de nada), pero deja rastro con
-                        // el detalle suficiente para poder mirarlo despues.
+                        // A mismatch between the replayed action and the one stored for
+                        // this hand doesn't abort recovery (an incomplete DB isn't proof of
+                        // anything), but it's logged with enough detail to inspect later.
                         LOGGER.log(Level.SEVERE,
                                 "Recover action MISMATCH: {0} action #{1} replayed as decision={2} bet={3}, which does not match the stored one",
                                 new Object[]{current_player.getNickname(), this.conta_accion,
@@ -14691,13 +14411,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                // El bote (bote_total) se acaba de commitear arriba. Si la ficha del jugador
-                // YA aterrizó (cinemáticas: vuela a mitad del GIF, mucho antes de cerrarse la
-                // acción) o no había ficha, rueda AHORA su stack/bet aplazado, a la vez que el
-                // bote (actualizarContadoresTapete justo debajo) -> los tres juntos. Si su
-                // ficha SIGUE en vuelo (caso normal sin cinemática), NO: su rodaje ya va atado
-                // al aterrizaje (launchChipToPot.onLand), donde el bote también sube. No-op si
-                // no había aplazamiento. Solo afecta al rodaje del contador, no al bote.
+                // The pot (bote_total) was just committed above. If the player's chip has
+                // ALREADY landed (cinematics: it flies mid-GIF, well before the action
+                // closes) or there was no chip, its deferred stack/bet rolls NOW, together
+                // with the pot (actualizarContadoresTapete right below) — all three at
+                // once. If the chip is STILL flying (the normal, non-cinematic case), it
+                // doesn't: its roll is already tied to landing (launchChipToPot.onLand),
+                // where the pot also rises then. No-op if nothing was deferred; this only
+                // affects when the counter rolls, not the pot itself.
                 if (!isPotLabelValueDeferred()) {
                     current_player.rollCountersToModel();
                 }
@@ -14711,48 +14432,47 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.apuestas = 0f;
             actualizarContadoresTapete();
-            // Entre calles de APUESTAS la bet_label queda visible mostrando
-            // "CALLE: ---" para que su icono de pot permanezca fijo (sin el
-            // parpadeo de ocultarse y reaparecer en cada calle). En el RUN-OUT
-            // all-in (destapar_resistencia) actualizarContadoresTapete ya la
-            // oculta y centra el bote, así que solo se ve la pot_label.
+            // Between betting streets bet_label stays visible showing a placeholder
+            // street label so its pot icon stays put (no flicker from hiding/
+            // reappearing each street). In an all-in RUN-OUT (destapar_resistencia)
+            // actualizarContadoresTapete already hides it and centers the pot, so
+            // only pot_label shows.
 
             if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
                 boolean firstResistencia = !this.destapar_resistencia;
                 if (firstResistencia) {
-                    // Calle del all-in run-out: las comunitarias posteriores son
-                    // las "corridas" que SIDE-B rebobina y re-reparte. Host y
-                    // cliente lo registran (ambos corren rondaApuestas en lockstep).
+                    // All-in run-out street: subsequent community cards are the ones
+                    // "run" that SIDE-B rewinds and re-deals. Host and client both
+                    // record it (both run rondaApuestas in lockstep).
                     this.rit_allin_street = this.street;
                 }
-                // PRIMERO bloqueamos el toggle (síncrono, justo antes de empezar a
-                // destapar) y LUEGO leemos el flag: así GameFrame.RUN_IT_TWICE ya no
-                // puede cambiar cuando decidimos el voto (race-free). El menú se
-                // reactiva al empezar la siguiente mano (ver NUEVA_MANO en run()).
+                // Freeze the toggle FIRST (synchronously, right before uncovering
+                // starts) and only THEN read the flag, so GameFrame.RUN_IT_TWICE can't
+                // change while we decide the vote (race-free). The menu re-enables at
+                // the start of the next hand (see NUEVA_MANO in run()).
                 if (firstResistencia && GameFrame.getInstance().isPartida_local()) {
-                    // Congela RUN_IT_TWICE durante el run-out: a continuación se decide
-                    // el voto leyendo el flag (sin lock), así que no debe cambiar hasta
-                    // NUEVA_MANO. Antes se greyaba el menú; ahora lo gestiona el flag.
+                    // Freeze RUN_IT_TWICE for the run-out: the vote decision below reads
+                    // the flag without a lock, so it must not change until NUEVA_MANO.
                     GameFrame.RUN_IT_TWICE_LOCKED = true;
                 }
                 this.destapar_resistencia = true;
-                // Arranca el run-out: oculta ya la bet_label y centra el bote
-                // (actualizarContadoresTapete lo hace al ver destapar_resistencia),
-                // antes del giro de cartas de los rivales, no solo al destapar la
-                // siguiente calle.
+                // Start the run-out: hide bet_label and center the pot now
+                // (actualizarContadoresTapete does this once destapar_resistencia is
+                // set), before opponents' cards flip, not only when the next street
+                // uncovers.
                 actualizarContadoresTapete();
                 if (resisten.contains(GameFrame.getInstance().getLocalPlayer())) {
                     GameFrame.getInstance().getLocalPlayer().desactivarControles();
                 }
                 procesarCartasResistencia(resisten, true);
                 checkJugadasParciales(resisten);
-                // Run-it-twice: votación host-driven al cerrarse la acción con 2+
-                // implicados. Solo si quedan calles por correr (rit_allin_street <
-                // RIVER): un all-in EN el river no tiene nada que correr dos veces,
-                // así que ni se ofrece el voto. En RECOVERY (rit_vote_done restaurado
-                // del fósil) NO se re-vota: se rebroadcasta el resultado para
-                // sincronizar a los clientes y se corre directo. El gate de recovery
-                // es independiente del toggle (el voto pudo hacerse aunque ahora off).
+                // Run-it-twice: host-driven vote once action closes with 2+ players
+                // involved. Only offered if streets remain to run (rit_allin_street <
+                // RIVER) — an all-in ON the river has nothing left to run twice. In
+                // RECOVERY (rit_vote_done restored from the fossil) there's no re-vote:
+                // the result is rebroadcast to sync clients and play runs straight
+                // through. The recovery gate is independent of the toggle (the vote
+                // could have happened even though it's off now).
                 if (firstResistencia && GameFrame.getInstance().isPartida_local()
                         && this.rit_allin_street < Crupier.RIVER) {
                     if (this.rit_vote_done) {
@@ -14762,8 +14482,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         boolean agreed = runRitVote(resisten);
                         this.rit_agreed = agreed;
                         this.rit_vote_done = true;
-                        // Persiste el voto al fósil: una mano recuperada tras el voto
-                        // corre los dos boards en vez de uno.
+                        // Persist the vote to the fossil, so a hand recovered after the
+                        // vote runs both boards instead of one.
                         this.guardarFosilSRA();
                         LOGGER.log(Level.INFO, "RUN-IT-TWICE vote result: {0}", agreed);
                         printRitVoteResult(agreed);
@@ -14772,8 +14492,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (this.street == Crupier.PREFLOP) {
-                // Con straddle la pistola la tiene el primero en hablar (no el
-                // straddler), asi que se la quitamos a ese mismo jugador.
+                // With a straddle, UTG-disable applies to whoever acts first (not the
+                // straddler), so that's the seat we disable it on.
                 String utg_to_disable = (this.straddle_posted && this.straddle_utg_nick != null) ? this.straddle_utg_nick : this.utg_nick;
                 Player utg_to_disable_player = nick2player.get(utg_to_disable);
                 if (utg_to_disable_player != null) {
@@ -14831,9 +14551,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#SRAKEYS@").append(java.util.Base64.getEncoder().encodeToString(unlockToSave));
             }
 
-            // Dual-lock: además del unlock pocket guardamos el unlock
-            // community. Sin esto, una recuperación post-rotación dejaría las
-            // community pieces sin descifrar y la mano se atascaría en FLOP.
+            // Dual-lock: save the community unlock alongside the pocket one. Without
+            // it, recovery after a rotation would leave community pieces undecrypted
+            // and the hand would stall at FLOP.
             byte[] unlockCommunityToSave = this.local_sra_unlock_community;
             if (unlockCommunityToSave == null) {
                 Participant p = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
@@ -14845,10 +14565,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#SRAKEYS_COMMUNITY@").append(java.util.Base64.getEncoder().encodeToString(unlockCommunityToSave));
             }
 
-            // Persistir los commitments K del ring para que el recovery
-            // reconstruya el MISMO H_0. Sin esto, initHandStateChain en
-            // recovery queda sin los K (peer_k_pocket vacío) y diverge del H_0 original,
-            // rompiendo la verificación de la cadena de acciones recuperadas.
+            // Persist the ring's K commitments so recovery reconstructs the SAME
+            // H_0. Without this, initHandStateChain in recovery is left without the
+            // Ks (peer_k_pocket empty) and diverges from the original H_0, breaking
+            // verification of the recovered action chain.
             String commitmentsFossil = serializeCommitments();
             if (!commitmentsFossil.isEmpty()) {
                 fosil.append("#COMMITMENTS@").append(commitmentsFossil);
@@ -14892,13 +14612,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#BOTVISUAL@").append(botVisuals.toString());
             }
 
-            // POCKETS@ persiste la cache single_locked_pocket_cards. Sin esto,
-            // un RESET_GAME+recover deja al host sin el residuo cifrado por target,
-            // verifyAndStoreShowdownKey rechaza cada RESP_SHOWDOWN_KEY de humanos
-            // remotos y calcularJugadas los muckea por "disconnection".
-            // Cada entry está single-locked (solo el lock del target queda); el
-            // host no posee los scalars de humanos remotos, ergo no puede
-            // descifrarlos aunque lea el fosil — no introduce leakeo nuevo.
+            // POCKETS@ persists the single_locked_pocket_cards cache. Without it, a
+            // RESET_GAME+recover leaves the host without each target's encrypted
+            // residue, so verifyAndStoreShowdownKey rejects every RESP_SHOWDOWN_KEY
+            // from remote humans and calcularJugadas mucks them as "disconnection".
+            // Each entry is single-locked (only the target's lock remains); the
+            // host doesn't hold remote humans' scalars, so it can't decrypt these
+            // even by reading the fossil — no new leak.
             StringBuilder pockets = new StringBuilder();
             for (java.util.Map.Entry<String, byte[]> e : this.single_locked_pocket_cards.entrySet()) {
                 byte[] pc = e.getValue();
@@ -14916,18 +14636,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#POCKETS@").append(pockets.toString());
             }
 
-            // VISUAL@ guarda los índices 0..51 que resuelven a una carta
-            // del genesis deck. Si la mano abortó por MISDEAL antes de
-            // descifrar correctamente las hole cards, resolveCardIndex
-            // devolvió -1 y guardar ese valor envenena el fósil: en
-            // recovery se lee como byte=-1 → (byte&0xFF)+1 = 256 →
-            // PALOS[19] OOB → error fatal del Crupier. Sólo persistimos si
-            // ambos índices son válidos.
-            // Straddle CIEGO: mientras el straddler local no haya resuelto sus cartas
-            // (straddle_cards_pending) NO se persiste VISUAL@ — local_original_cards sigue en
-            // {0,0} (que pasaría el guard de rango y envenenaría el fósil con la carta índice 0).
-            // Tras la cascada diferida + revealLocalStraddlerCards se limpia el flag y un
-            // guardarFosilSRA posterior persiste ya las cartas reales para el recover.
+            // VISUAL@ stores the 0..51 indices that resolve to a genesis-deck card. If
+            // the hand aborted on MISDEAL before hole cards decrypted correctly,
+            // resolveCardIndex returned -1, and persisting that would poison the
+            // fossil: on recovery it reads as byte=-1 -> (byte&0xFF)+1 = 256 ->
+            // PALOS[19] OOB -> fatal Crupier error. Only persisted when both indices
+            // are valid.
+            // Blind straddle: while the local straddler hasn't resolved their cards
+            // yet (straddle_cards_pending), VISUAL@ is NOT persisted — local_original_cards
+            // is still {0,0}, which would pass the range guard and poison the fossil
+            // with card index 0. Once the deferred cascade + revealLocalStraddlerCards
+            // clears the flag, a later guardarFosilSRA persists the real cards.
             if (!this.straddle_cards_pending
                     && this.local_original_cards != null
                     && this.local_original_cards[0] >= 0 && this.local_original_cards[0] < 52
@@ -14935,12 +14654,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#VISUAL@").append(this.local_original_cards[0]).append(",").append(this.local_original_cards[1]);
             }
 
-            // Run-it-twice: estado del voto (vote_done, agreed, allin_street) para
-            // que una mano recuperada tras el voto corra los DOS boards en vez de uno.
+            // Run-it-twice: vote state (vote_done, agreed, allin_street) so a hand
+            // recovered after the vote runs BOTH boards instead of one.
             fosil.append("#RIT@").append(this.rit_vote_done).append(",").append(this.rit_agreed).append(",").append(this.rit_allin_street);
 
-            // Straddle voluntario: si el UTG puso el straddle en esta mano, para que la
-            // mano recuperada lo reponga (el host rebroadcasta la decisión, no pregunta).
+            // Voluntary straddle: whether UTG posted it this hand, so a recovered
+            // hand restores it (the host rebroadcasts the decision, doesn't re-ask).
             fosil.append("#STRADDLE@").append(this.straddle_posted);
 
             Helpers.saveHandFossil(this.sqlite_id_game, fosil.toString());
@@ -14950,10 +14669,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void procesarCartasComunesRestantes() {
-        // Sin rabbit que destapar (caso tipico: showdown llego al river con todo
-        // ya revelado) no tocamos la barra — antes meter barraIndeterminada +
-        // resetBarra(0) en sucesion microscopica provocaba un parpadeo visible
-        // en el final del showdown.
+        // With no rabbit to uncover (typical case: showdown reached the river with
+        // everything already revealed), leave the timer bar alone — briefly calling
+        // barraIndeterminada + resetBarra(0) back to back caused a visible flicker
+        // at the end of showdown.
         boolean willRabbit = (street <= PREFLOP && GameFrame.getInstance().getFlop1().isTapada())
                 || (street <= FLOP && GameFrame.getInstance().getTurn().isTapada())
                 || (street <= TURN && GameFrame.getInstance().getRiver().isTapada());
@@ -14977,10 +14696,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean enviarRabbitComunitarias(int targetStreet) {
-        // Dual-lock: rabbit hunting usa cascadeAndDealCommunityPieces que aplica
-        // el unlock community local. Sin community-half no podemos revelar las
-        // cartas no jugadas; salida silenciosa (el rabbit es no crítico, no
-        // disparamos abort de mano).
+        // Dual-lock: rabbit hunting uses cascadeAndDealCommunityPieces, which
+        // applies the local community unlock. Without the community half we can't
+        // reveal the unplayed cards; fail silently (rabbit hunting is non-critical,
+        // so this never aborts the hand).
         if (this.local_sra_unlock == null || this.local_sra_unlock_community == null || this.active_crypto_ring == null) {
             return false;
         }
@@ -15022,34 +14741,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    // PHASE A.1 (showdown zero-trust): el host orquesta el reveal de cartas al
-    // showdown vía SRA verificable. Cada peer envía su k_pocket_unlock; el host
-    // verifica aplicándolo a single_locked_pocket_cards[nick] y comprobando que
-    // resolveCardIndex devuelve 0-51 para ambas cartas. Si el peer mintió
-    // (resolveCardIndex == -1), triggerSecurityLockdown — la mano no settles
-    // con datos falsos. Reemplaza el path plaintext REQ_VISUAL_CARDS/POTCARDS
-    // que existía antes y aceptaba texto en bruto sin verificación criptográfica.
+    // PHASE A.1 (showdown zero-trust): the host orchestrates the showdown card
+    // reveal via verifiable SRA. Each peer sends its k_pocket_unlock; the host
+    // verifies it by applying it to single_locked_pocket_cards[nick] and checking
+    // resolveCardIndex returns 0-51 for both cards. If the peer lied
+    // (resolveCardIndex == -1), triggerSecurityLockdown — the hand never settles
+    // on forged data.
     private void solicitarYRecibirCartasVisuales(ArrayList<Player> resisten) {
         if (!GameFrame.getInstance().isPartida_local()) {
             return;
         }
 
-        // El showdown YA NO emite SHOWCARDS (eso es solo botón MOSTRAR mid-hand).
-        // El único broadcast del showdown es POTCARDS, atómico, llevando para
-        // cada jugador: nick + plaintext c1/c2 + sraKey + sig Ed25519.
+        // Showdown never emits SHOWCARDS (that's only the mid-hand SHOW button).
+        // Its sole broadcast is the atomic POTCARDS, carrying for each player:
+        // nick + plaintext c1/c2 + sraKey + Ed25519 sig.
         //
-        // Verificación per-recipient:
-        //   - Espectadores/calentando: aplican plaintext directo (no tienen
-        //     single_locked_pocket_cards para descifrar SRA).
-        //   - Crypto-ring: verifica sig (lockdown si fail) + descifra SRA y
-        //     compara con plaintext (peer FORFEIT si mismatch — intento de
-        //     trampa). El host también es cazado si modifica el plaintext
-        //     pero deja las sigs intactas: el descifrado no cuadra.
+        // Per-recipient verification:
+        //   - Spectators/warming up: apply plaintext directly (they have no
+        //     single_locked_pocket_cards to SRA-decrypt).
+        //   - Crypto-ring: verify sig (lockdown on fail) + SRA-decrypt and compare
+        //     against plaintext (peer FORFEITs on mismatch — a cheat attempt). The
+        //     host is caught the same way if it tampers with the plaintext but
+        //     leaves sigs intact: the decryption won't match.
 
         String hostNick = GameFrame.getInstance().getNick_local();
 
-        // Recopilar (sraKey, sig) per nick. Para self+bots los firma el host;
-        // para remotos los recibimos via REQ/RESP_SHOWDOWN_KEY.
+        // Collect (sraKey, sig) per nick. Self+bots are signed by the host;
+        // remotes are received via REQ/RESP_SHOWDOWN_KEY.
         HashMap<String, String> nick2key = new HashMap<>();
         HashMap<String, String> nick2sig = new HashMap<>();
 
@@ -15075,7 +14793,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Pedir su sraKey + sig a humanos remotos.
+        // Request sraKey + sig from remote humans.
         ArrayList<String> pendientes = new ArrayList<>();
         for (Player p : resisten) {
             if (!p.getNickname().equals(hostNick) && !p.isExit()) {
@@ -15116,10 +14834,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     if (verifyAndStoreShowdownKey(nick, keyB64, sigB64)) {
                                         nick2key.put(nick, keyB64);
                                         nick2sig.put(nick, sigB64);
-                                        // Solo se quita de pendientes al VERIFICAR: una RESP_SHOWDOWN_KEY con
-                                        // firma inválida NO consume el slot del peer (antes lo muckeaba). Sigue
-                                        // esperando una RESP válida o el timeout. Con el nick-binding (F1) la RESP
-                                        // solo puede venir del propio peer -> a lo sumo auto-daño.
+                                        // Only removed from pendientes once VERIFIED: a
+                                        // RESP_SHOWDOWN_KEY with an invalid signature does not
+                                        // consume the peer's slot. We keep waiting for a valid
+                                        // RESP or the timeout. With nick-binding (F1) the RESP
+                                        // can only come from the peer itself, so a bad one is at
+                                        // most self-harm.
                                         pendientes.remove(nick);
                                     }
                                 } else {
@@ -15142,10 +14862,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!pendientes.isEmpty()) {
-                    // El tiempo en PAUSA no cuenta contra el tope, como en el resto de esperas
-                    // del fichero: aqui no se refrescaba, asi que una pausa mas larga que el
-                    // tope vencia el plazo en el mismo instante de reanudar y dejaba con las
-                    // cartas tapadas a rivales que estaban perfectamente vivos.
+                    // Time spent PAUSED doesn't count against the timeout, same as every
+                    // other wait in this file: without this reset, a pause longer than
+                    // the timeout expired it the instant play resumed, leaving perfectly
+                    // alive opponents with their cards stuck face-down.
                     if (GameFrame.getInstance().checkPause()) {
                         start_time = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
@@ -15165,10 +14885,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } while (!pendientes.isEmpty() && !isFin_de_la_transmision());
         }
 
-        // Construir POTCARDS atómico. Formato per-entry (5 fields):
+        // Build the atomic POTCARDS. Per-entry format (5 fields):
         //   #nickB64#c1#c2#sraKeyB64#sigB64
-        // Si no hay (sraKey, sig) verificada para un nick, se omite — sus
-        // cartas no aparecerán en POTCARDS y showdown las dejará tapadas.
+        // A nick with no verified (sraKey, sig) is omitted — its cards won't appear
+        // in POTCARDS and showdown leaves them face-down.
         if (!Crupier.SECURITY_LOCKDOWN) {
             StringBuilder potcards = new StringBuilder("POTCARDS");
             boolean anyCard = false;
@@ -15205,18 +14925,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Verifica firma Ed25519 + SRA y actualiza HoleCard local del host.
-    // YA NO emite SHOWCARDS — el showdown propaga las claves dentro del
-    // POTCARDS atómico (un solo broadcast con plaintext + sraKey + sig).
+    // Verifies the Ed25519 + SRA signature and updates the host's local HoleCard.
+    // Never emits SHOWCARDS — showdown propagates keys inside the atomic POTCARDS
+    // (a single broadcast with plaintext + sraKey + sig).
     //
-    //   1. Sig Ed25519: la clave debe estar firmada por la privkey del nick
-    //      (resolveShowdownSignerPubkey: humano → suya; bot → host).
-    //   2. SRA matemática: aplicar la clave al single_locked_pocket_cards[nick]
-    //      y verificar resolveCardIndex 0-51 en ambas cartas.
+    //   1. Ed25519 sig: the key must be signed by the nick's privkey
+    //      (resolveShowdownSignerPubkey: human -> their own; bot -> host).
+    //   2. SRA math: apply the key to single_locked_pocket_cards[nick] and check
+    //      resolveCardIndex returns 0-51 for both cards.
     //
-    // Retorno true sólo si verificación completa OK (la entrada se incluirá
-    // en POTCARDS). Cualquier fail → false (sus cartas se omitirán → tapada
-    // en la UI; el pot se resuelve por acciones).
+    // Returns true only on full verification (the entry is then included in
+    // POTCARDS). Any failure -> false (their cards are omitted -> stay face-down
+    // in the UI; the pot is resolved from the action log).
     private boolean verifyAndStoreShowdownKey(String nick, String keyB64, String sigB64) {
         if (keyB64 == null || keyB64.equals("*")) {
             return false;
@@ -15268,12 +14988,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id1 = RistrettoSRA.resolveCardIndex(c1);
             int id2 = RistrettoSRA.resolveCardIndex(c2);
             if (id1 < 0 || id2 < 0) {
-                // Sig OK pero la clave firmada NO resuelve a una carta genesis: el peer firmo una
-                // clave mala (bug/cliente corrupto) o intenta algo — no podemos distinguir. Esto es el
-                // HOST detectando a UN peer -> FORFEIT (return false -> sus cartas no se revelan, el
-                // showdown las muckea), NO terminamos la partida de todos. Visibilidad §8: registro EN ROJO
-                // + popup nombrando al JUGADOR sospechoso (warnMaliciousPeer, el simetrico host-side; antes
-                // se dejaba silencioso porque warnSuspiciousHost habria mis-frameado al host, no al peer).
+                // Sig OK but the signed key does NOT resolve to a genesis card: the peer
+                // signed a bad key (bug/corrupt client) or is attempting something — we
+                // can't tell which. This is the HOST catching ONE peer -> FORFEIT (return
+                // false -> their cards aren't revealed, showdown mucks them), not ending
+                // the game for everyone. Visibility per §8: red log entry + popup naming
+                // the suspect PLAYER (warnMaliciousPeer — the host-side symmetric of
+                // warnSuspiciousHost, which would have mis-framed the host instead).
                 LOGGER.log(Level.SEVERE,
                         "ZERO-TRUST: RESP_SHOWDOWN_KEY from {0} — sig OK but SRA does not resolve (ids={1},{2}). Malicious peer or bug -> FORFEIT (their cards are not revealed).",
                         new Object[]{nick, id1, id2});
@@ -15281,8 +15002,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return false;
             }
 
-            // Persistir la key verificada en el Participant + actualizar UI local del host.
-            // Solo si es un escalar USABLE: uno inservible reventaria al invertirlo.
+            // Persist the verified key to the Participant + update the host's local UI.
+            // Only if it's a USABLE scalar — an unusable one would blow up on inversion.
             Participant p = GameFrame.getInstance().getParticipantes().get(nick);
             if (p != null && RistrettoSRA.isValidScalar(key)) {
                 p.setSra_unlock(key);
@@ -15306,7 +15027,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             HashMap<Player, Hand> jugadas = calcularJugadas(resisten);
             HashMap<Player, Hand> ganadores = calcularGanadores(new HashMap<>(jugadas));
 
-            // Blindaje contra nulls
+            // Null-safety guard
             for (Player p : resisten) {
                 if (jugadas.containsKey(p)) {
                     p.setJugadaParcial(jugadas.get(p), ganadores.containsKey(p), -1);
@@ -15315,10 +15036,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             HashMap<Player, Integer[]> multiverse = monteCarlo(resisten, MONTECARLO_ITERATIONS);
 
-            // Board para la columna de fuerza, armado con las comunitarias que estan a la
-            // vista. El de los bots NO vale: solo se rellena en el anfitrion (los bots son
-            // suyos), asi que en los clientes esta VACIO y esa columna salia calculada como
-            // si no hubiera flop. En el anfitrion sale exactamente lo mismo que antes.
+            // Board for the strength column, built from the community cards currently
+            // visible. The bots' board doesn't apply here: it's only populated on the
+            // host (bots are its own), so on clients it's EMPTY and that column would
+            // compute as if there were no flop. On the host this is unchanged.
             org.alberta.poker.Hand board_loki = new org.alberta.poker.Hand();
 
             for (Card comun : GameFrame.getInstance().getCartas_comunes()) {
@@ -15331,7 +15052,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             for (Player p : resisten) {
-                // Solo simulamos los que confesaron sus cartas
+                // Only simulate players who revealed their cards
                 if (!jugadas.containsKey(p)) {
                     continue;
                 }
@@ -15362,14 +15083,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             stats_ordenadas.sort((a, b) -> ((Integer[]) b[1])[1] - ((Integer[]) a[1])[1]);
 
-            // Tabla MULTIVERSO del registro: cabecera + una fila por jugador,
-            // alineadas en columnas monospace (JUGADA | NICK | GANA | PIERDE | EMPATA |
-            // LOKI | MANO). La primera columna es la jugada PARCIAL actual del jugador
-            // (nombre de la mano en ese punto del board). Cada linea lleva el token
-            // "(MV)" para que el GameLogDialog la pinte atenuada y con las cartas como
-            // fichas (mismo offset que la tabla de cuentas). Las cartas van en la ULTIMA
-            // columna porque se renderizan como fichas de ancho variable y desalinearian
-            // cualquier columna posterior. Primera pasada: formatear porcentajes y medir anchos.
+            // MULTIVERSE log table: header + one row per player, aligned in monospace
+            // columns (HAND | NICK | WIN | LOSE | TIE | LOKI | CARDS). The first column
+            // is the player's current PARTIAL hand (its name at this point of the
+            // board). Each line carries the "(MV)" token so GameLogDialog renders it
+            // dimmed with cards drawn as chips (same offset as the accounting table).
+            // Cards go in the LAST column since they render as variable-width chips
+            // that would misalign any column after them. First pass: format
+            // percentages and measure column widths.
             String jugada_lbl = Translator.translate("ui.jugada");
             String gana_lbl = Translator.translate("ui.gana");
             String pierde_lbl = Translator.translate("ui.pierde");
@@ -15410,10 +15131,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 int[] mv_cols = {mv_jugada_w, mv_nick_w, mv_pct_w, mv_pct_w, mv_pct_w, mv_pct_w};
 
-                // Titulo (una vez, encima del marco) + tabla con bordes. Las cartas
-                // van a la DERECHA del marco (son fichas de ancho variable, no
-                // monoespaciadas). Entre fila y fila va un separador de rejilla, que
-                // ademas evita que las fichas (altas) se toquen verticalmente.
+                // Title (once, above the frame) + bordered table. Cards go OUTSIDE the
+                // frame, to the right (they're variable-width chips, not monospace).
+                // A grid separator between rows also keeps the (tall) chips from
+                // touching each other vertically.
                 StringBuilder mv_tabla = new StringBuilder(
                         "(MV) " + Translator.translate("ui.multiverso") + " (" + MONTECARLO_ITERATIONS + ")");
 
@@ -15452,19 +15173,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Formatea un porcentaje [0..100] a 2 decimales con punto y sufijo "%" para la
-    // tabla MULTIVERSO del registro (p. ej. "86.50%"). Locale fijo (punto) para no
-    // mezclar separadores de decimales dentro de la misma linea.
+    // Formats a [0..100] percentage to 2 decimals with a "%" suffix for the MULTIVERSE
+    // log table (e.g. "86.50%"). Fixed locale (dot) so decimal separators don't mix
+    // within the same line.
     private static String multiversePct(double value) {
         return String.format(java.util.Locale.US, "%.2f%%", value);
     }
 
     private void waitRabbitProcessing() {
 
-        // Tope DEFENSIVO. Con el PENDING liberado en un finally ya no deberia quedarse
-        // nadie colgado, pero esta espera esta en el camino de cierre de la mano: si
-        // alguna vez volviera a quedarse un nick a medias, la mano no avanzaria nunca y
-        // la mesa entera se queda ahi. Vencer el tope no rompe nada, solo sigue.
+        // Defensive timeout. With PENDING released in a finally, nothing should hang
+        // here anymore, but this wait sits on the hand-close path: if a nick were ever
+        // left half-processed, the hand would never advance and the whole table would
+        // stall. Hitting the timeout doesn't break anything, it just moves on.
         long deadline = System.currentTimeMillis() + RABBIT_PROCESSING_TIMEOUT;
 
         synchronized (lock_rabbit) {
@@ -15521,10 +15242,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (String nick : this.active_crypto_ring) {
             playerIds.add(CanonicalActionRecord.playerIdFromNick(nick));
         }
-        // H_0 ancla el commitment K (pocket + community) de cada miembro del ring; los K llegan
-        // del mismo MEGAPACKET, así que host y cliente derivan el mismo H_0. Si falta alguno la
-        // cadena no se inicializa (sin consenso esta mano): no debería ocurrir — todos los peers
-        // corren la misma versión y mandan sus K — así que es un estado anómalo, no un degradado.
+        // H_0 anchors each ring member's K commitment (pocket + community); the Ks
+        // arrive with the same MEGAPACKET, so host and client derive the same H_0. If
+        // any is missing, the chain is not initialized (no consensus this hand) —
+        // this shouldn't happen, since every peer runs the same version and sends its
+        // Ks, so it's an anomaly rather than a degraded mode.
         java.util.List<byte[]> kPockets = new java.util.ArrayList<>();
         java.util.List<byte[]> kCommunities = new java.util.ArrayList<>();
         boolean allCommitmentsPresent = true;
@@ -15724,15 +15446,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity / anti-forgery (PURA y testeable): el importe en centimos que el AMOUNT_CENTS de un action
-     * record DEBE llevar, derivado SOLO de la decision y del estado PRE-accion del jugador. Es exactamente
-     * la formula que usa el FIRMANTE (buildLocalActionRecordAndSig via predictPostActionBetCents), asi que
-     * todo peer que replica la misma secuencia de acciones tiene identico estado pre-accion y obtiene
-     * identico resultado. El receptor la recomputa para ATAR el importe firmado a la accion realmente jugada
-     * (partes[4]/partes[5]): un cliente modificado que firme un importe distinto del que juega no cuela.
+     * Identity / anti-forgery (PURE and testable): the amount in cents that an action
+     * record's AMOUNT_CENTS MUST carry, derived ONLY from the decision and the
+     * player's PRE-action state. This is exactly the formula the SIGNER uses
+     * (buildLocalActionRecordAndSig via predictPostActionBetCents), so any peer
+     * replaying the same action sequence has identical pre-action state and gets an
+     * identical result. The receiver recomputes it to BIND the signed amount to the
+     * action actually played (partes[4]/partes[5]): a modified client signing an
+     * amount different from what it plays doesn't slip through.
      *
-     * FOLD -> 0; CHECK/CALL -> apuesta_actual; BET -> objetivo absoluto (== partes[5] del wire);
-     * ALLIN -> bet + stack (invariante pre/post: el all-in mueve TODO el stack al bote).
+     * FOLD -> 0; CHECK/CALL -> apuesta_actual; BET -> absolute target (== wire
+     * partes[5]); ALLIN -> bet + stack (pre/post invariant: all-in moves the ENTIRE
+     * stack into the bet).
      */
     static long expectedActionAmountCents(int javaDecision, double betAbsoluteTarget,
             double playerBet, double playerStack, double apuestaActual) {
@@ -15751,28 +15476,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity / anti-forgery (PURA y testeable): true SII el record firmado representa FIELMENTE la accion
-     * realmente jugada, atando a la vez su TIPO (ACTION_TYPE) y su IMPORTE (AMOUNT_CENTS). El tipo se ata via
-     * {@link #mapJavaActionToWire} (puro valor de wire, cero dependencia de estado), asi que dos decisiones
-     * con el mismo importe (p.ej. FOLD y un CHECK con apuesta_actual=0) no se confunden; el importe via
-     * {@link #expectedActionAmountCents}. Puede lanzar RuntimeException ante una decision no mapeable o un
-     * importe irrepresentable (NaN/Inf) del bet: una accion legitima jamas lo produce, y el llamador lo trata
-     * como forja (synth-fold). {@code record} debe tener ya longitud RECORD_BYTES (garantizado por el
-     * llamador). {@code betObj} es el bet en claro del wire (Double para BET, ignorado en el resto).
+     * Identity / anti-forgery (PURE and testable): true IFF the signed record
+     * FAITHFULLY represents the action actually played, binding both its TYPE
+     * (ACTION_TYPE) and its AMOUNT (AMOUNT_CENTS). Type is bound via
+     * {@link #mapJavaActionToWire} (pure wire value, zero state dependency), so two
+     * decisions with the same amount (e.g. FOLD and a CHECK with apuesta_actual=0)
+     * aren't confused; amount via {@link #expectedActionAmountCents}. Can throw a
+     * RuntimeException on an unmappable decision or an unrepresentable (NaN/Inf) bet
+     * amount: a legitimate action never produces one, and the caller treats it as
+     * forgery (synth-fold). {@code record} must already have RECORD_BYTES length
+     * (guaranteed by the caller). {@code betObj} is the plaintext wire bet (a Double
+     * for BET, ignored otherwise).
      */
     static boolean signedRecordBindsToAction(byte[] record, int javaDecision, Object betObj,
             double playerBet, double playerStack, double apuestaActual,
             byte[] expectedPlayerId, byte[] expectedHandId) {
-        // TIPO de accion (puro valor de wire).
+        // Action TYPE (pure wire value).
         int signedType = CanonicalActionRecord.readActionType(record);
         int expectedType = mapJavaActionToWire(javaDecision);
         if (signedType != expectedType) {
             return false;
         }
-        // JUGADOR: el record no puede atribuir la accion a otro jugador (aunque la firma sea del actor,
-        // el PLAYER_ID debe ser el suyo). MANO: no puede reutilizar un record de otra mano. Ambos son
-        // identificadores ESTABLES durante toda la mano (cero timing). Tolerante a expected nulo
-        // (p.ej. cadena aun no sembrada): si no se puede derivar el esperado, no se exige.
+        // PLAYER: the record can't attribute the action to another player (even with
+        // the actor's own signature, PLAYER_ID must be theirs). HAND: can't reuse a
+        // record from another hand. Both are STABLE identifiers for the whole hand
+        // (zero timing dependency). Tolerant of a null expected value (e.g. chain not
+        // yet seeded): if the expected value can't be derived, it isn't enforced.
         if (expectedPlayerId != null
                 && !java.util.Arrays.equals(CanonicalActionRecord.readPlayerId(record), expectedPlayerId)) {
             return false;
@@ -15781,7 +15510,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && !java.util.Arrays.equals(CanonicalActionRecord.readHandId(record), expectedHandId)) {
             return false;
         }
-        // IMPORTE.
+        // AMOUNT.
         double betAbsoluteTarget = (betObj instanceof Number) ? ((Number) betObj).doubleValue() : 0;
         long signedCents = CanonicalActionRecord.readAmountCents(record);
         long expectedCents = expectedActionAmountCents(javaDecision, betAbsoluteTarget,
@@ -15831,18 +15560,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * PHASE A.1 (showdown sig): resolver la pubkey del firmante esperado de un
-     * SHOWCARDS / RESP_SHOWDOWN_KEY para nick. La identidad del firmante depende
-     * de si el nick es un humano o un bot:
+     * PHASE A.1 (showdown sig): resolves the expected signer's pubkey for a
+     * SHOWCARDS / RESP_SHOWDOWN_KEY for nick. Signer identity depends on whether
+     * nick is a human or a bot:
      *
-     *   - Humano (local o remoto): firma con su propia Ed25519 privkey. Su
-     *     pubkey vive en Participant.identity_pubkey (poblado vía TOFU/JOIN).
-     *   - Bot: el host firma en su nombre (los bots viven en el proceso host,
-     *     no tienen identity propia). La pubkey del verificador es entonces
-     *     la del host.
+     *   - Human (local or remote): signs with their own Ed25519 privkey, stored in
+     *     Participant.identity_pubkey (populated via TOFU/JOIN).
+     *   - Bot: the host signs on its behalf (bots live in the host process with no
+     *     identity of their own), so the verifier pubkey is the host's.
      *
-     * Devuelve null si la pubkey no está disponible (TOFU race / hand without
-     * identity). El caller trata null como "no se puede verificar" — rechaza.
+     * Returns null if the pubkey isn't available (TOFU race / hand without
+     * identity). The caller treats null as "cannot verify" — rejects.
      */
     private byte[] resolveShowdownSignerPubkey(String revealNick) {
         Participant par = GameFrame.getInstance().getParticipantes().get(revealNick);
@@ -15850,7 +15578,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
         if (par.isCpu()) {
-            // Bot — el firmante es el host.
+            // Bot — the signer is the host.
             if (GameFrame.getInstance().isPartida_local()) {
                 IdentityManager im = IdentityManager.getInstance();
                 return im.isReady() ? im.getPublicKey() : null;
@@ -16034,23 +15762,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
-            // Sin timeout artificial: si un cliente tarda mucho en confirmar (red lenta,
-            // CPU saturada, baraja SRA grande), seguimos esperando indefinidamente.
-            // TCP nos garantiza que el mensaje llegará o el socket morirá; nunca se
-            // pierde "en el medio". La única salida del bucle es que pendientes se
-            // vacíe (todos confirmaron o todos se marcaron exit porque su socket murió
-            // de verdad). Antes este loop forzaba remotePlayerQuit() tras
-            // CLIENT_RECON_TIMEOUT, lo que provocaba kicks injustos a clientes
-            // simplemente lentos durante cascadas SRA.
+            // No artificial timeout: if a client takes long to confirm (slow network,
+            // saturated CPU, a large SRA deck), we keep waiting indefinitely. TCP
+            // guarantees the message arrives or the socket dies — it never gets lost
+            // "in between". The only way out of the loop is pendientes emptying out
+            // (everyone confirmed, or everyone marked exit because their socket truly
+            // died).
             //
-            // Para que la espera "infinita" no sea invisible al autor revisando el
-            // debug log, llevamos un contador de iteraciones del do-while. Cada
-            // iteración representa un período entero de CONFIRMATION_TIMEOUT
-            // (~10 s) en el que waitSyncConfirmations no recibió todos los ACK.
-            // A partir de la segunda iteración consecutiva sin progreso, emitimos
-            // un Level.WARNING en JUL con los nicks que siguen pendientes y el
-            // tiempo acumulado. Es solo info forense — no acelera el kick ni
-            // dispara timeouts: el flujo sigue dependiendo de TCP/isExit.
+            // So the "infinite" wait isn't invisible when reviewing the debug log, we
+            // count do-while iterations. Each iteration represents a full
+            // CONFIRMATION_TIMEOUT (~10s) period where waitSyncConfirmations didn't
+            // receive every ACK. From the second consecutive stalled iteration on, we
+            // emit a JUL WARNING with the still-pending nicks and elapsed time — purely
+            // forensic, it doesn't speed up kicks or trigger timeouts: the flow still
+            // depends on TCP/isExit.
             long broadcastStartMs = System.currentTimeMillis();
             long broadcastDeadlineMs = broadcastStartMs + BROADCAST_PROGRESS_TIMEOUT_MS;
             long broadcastHardCapMs = broadcastStartMs + RECON_CHURN_HARD_CAP_MS;
@@ -16091,12 +15816,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         cmdHead});
                         }
                         for (String nick : pendientes) {
-                            // Un nick pendiente de confirmar NO tiene por que estar sentado a la
-                            // mesa (un espectador, o alguien que entro con la mano ya empezada),
-                            // asi que los dos mapas se consultan con la misma guarda que su
-                            // gemelo de veinte lineas mas arriba. Sin ella el aviso de timeout
-                            // reventaba en el hilo del crupier y se llevaba el proceso del
-                            // anfitrion, es decir, la timba entera.
+                            // A nick pending confirmation need not be seated at the table (a
+                            // spectator, or someone who joined mid-hand), so both maps are
+                            // guarded the same way as their twin ~20 lines up. Without this
+                            // guard the timeout warning threw inside the crupier thread and
+                            // took down the host process — the whole game.
                             Player pendiente_jugador = nick2player.get(nick);
                             if (pendiente_jugador != null) {
                                 pendiente_jugador.setTimeout(true);
@@ -16112,21 +15836,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                             }
                         }
-                        // Deadline de progreso PAUSE-AWARE: el tiempo en pausa NO cuenta (un peer no confirma
-                        // porque el juego está pausado). Con la timba EN MARCHA, si algún peer sigue sin ACK
-                        // más allá del tope se le EXPULSA (la mesa sigue: al quedar exit se le saca de
-                        // pendientes en la siguiente vuelta y el broadcast completa). Un peer caído de verdad
-                        // ya sale por isExit (socket muerto). Antes el host reintentaba para siempre.
+                        // PAUSE-AWARE progress deadline: time spent paused doesn't count (a peer
+                        // not confirming because the game is paused is expected). With the game
+                        // RUNNING, a peer still without ACK past the deadline gets EXPELLED (the
+                        // table continues: once marked exit it drops out of pendientes next
+                        // round and the broadcast completes). A genuinely dead peer already
+                        // exits via isExit (dead socket).
                         boolean paused = false;
                         boolean anyPendingReconnecting = false;
                         try {
-                            // Congela el deadline mientras la timba esté PAUSADA o mientras ALGÚN peer
-                            // PENDIENTE esté genuinamente reconectando (socket caído/en reset). NO se usa
-                            // isSomePlayerTimeout(): este mismo bucle acaba de marcar timeout=true a TODOS los
-                            // pendientes (para la UI de "esperando"), así que isSomePlayerTimeout() estaría
-                            // SIEMPRE true y el deadline no vencería jamás (bug de interacción con f2db6f7c). El
-                            // socket VIVO distingue al que RETIENE (contesta PING, se le expulsa) del que
-                            // reconecta (socket muerto, se le respeta su grace).
+                            // Freeze the deadline while the game is PAUSED or while ANY pending
+                            // peer is genuinely reconnecting (socket down/resetting). We don't use
+                            // isSomePlayerTimeout(): this same loop just marked timeout=true on
+                            // ALL pending peers (for the "waiting" UI), so isSomePlayerTimeout()
+                            // would ALWAYS be true and the deadline would never expire. Live socket
+                            // state distinguishes the peer that's WITHHOLDING (answers PING, gets
+                            // expelled) from one that's reconnecting (dead socket, gets its grace
+                            // period respected).
                             for (String pnick : pendientes) {
                                 Participant pep = GameFrame.getInstance().getParticipantes().get(pnick);
                                 if (pep != null && pep.isSocketDownOrReconnecting()) {
@@ -16137,9 +15863,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             paused = GameFrame.getInstance().isTimba_pausada();
                         } catch (Exception ignored) {
                         }
-                        // La pausa a proposito congela indefinidamente (y empuja el techo). La reconexion de un
-                        // pendiente congela solo hasta el techo: sin el, un peer que reconecta en bucle mantendria
-                        // el deadline reiniciado y no se le podria expulsar aunque retenga la mesa.
+                        // A deliberate pause freezes indefinitely (and pushes the hard cap out).
+                        // A pending peer's reconnection only freezes it up to the hard cap:
+                        // without that, a peer stuck in a reconnect loop would keep resetting
+                        // the deadline and could never be expelled even while withholding the
+                        // table.
                         if (paused) {
                             broadcastDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
                             broadcastHardCapMs = System.currentTimeMillis() + RECON_CHURN_HARD_CAP_MS;
@@ -16176,18 +15904,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Telemetría: construye una TelemetryFrame con las métricas
-     * actuales de TODOS los Participants (latencias del ping/pong del
-     * servidor + reconnection_count acumulado) y la broadcasta a todos
-     * los clientes vía "GAME#id#TELEMETRY#payload".
+     * Telemetry: builds a TelemetryFrame with current metrics for ALL Participants
+     * (server ping/pong latencies + cumulative reconnection_count) and broadcasts it
+     * to every client via "GAME#id#TELEMETRY#payload".
      *
-     * Sólo callable en partida iniciada. Si Crupier o GameFrame no están
-     * listos, no-op silencioso. NO inicia ningún thread propio — el caller
-     * decide la frecuencia (típicamente cada PING_INTERVAL_MS desde un
-     * Timer o thread externo).
+     * Only callable once the game has started; a silent no-op if Crupier or
+     * GameFrame aren't ready. Starts no thread of its own — the caller decides the
+     * frequency (typically every PING_INTERVAL_MS from a Timer or external thread).
      *
-     * Llamada idempotente: el payload de salida es fresco snapshot del
-     * estado actual; no muta estado.
+     * Idempotent: the outgoing payload is a fresh snapshot of current state; it
+     * mutates nothing.
      */
     public void broadcastTelemetryFrame() {
         try {
@@ -16200,7 +15926,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return;
             }
             java.util.Map<String, int[]> perPeer = new java.util.HashMap<>(parts.size() + 1);
-            // Iteración protegida — participantes es synchronizedMap.
+            // Guarded iteration — participantes is a synchronizedMap.
             synchronized (parts) {
                 for (java.util.Map.Entry<String, com.tonikelope.coronapoker.Participant> e : parts.entrySet()) {
                     com.tonikelope.coronapoker.Participant p = e.getValue();
@@ -16208,7 +15934,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         continue;
                     }
                     if (p.isCpu()) {
-                        // Bots: locales al host, sin RTT → entrada verde 0/0/0.
+                        // Bots: local to the host, no RTT -> green 0/0/0 entry.
                         perPeer.put(e.getKey(), new int[]{0, 0, 0});
                     } else {
                         perPeer.put(e.getKey(),
@@ -16216,8 +15942,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
-            // El propio host se incluye con latencia 0 (es su propia perspectiva
-            // — no se hace ping a sí mismo). recon=0 también para el host.
+            // The host includes itself with latency 0 (its own perspective — it
+            // doesn't ping itself). recon=0 for the host too.
             String localNick = GameFrame.getInstance().getNick_local();
             if (localNick != null && !localNick.isEmpty()) {
                 perPeer.put(localNick, new int[]{0, 0, 0});
@@ -16225,20 +15951,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.TelemetryFrame frame = new Helpers.TelemetryFrame(
                     System.currentTimeMillis(), perPeer);
             String payload = Helpers.encodeTelemetry(frame);
-            // OJO: broadcastGAMECommandFromServer YA envuelve el comando como
-            // "GAME#<id>#" + command — solo pasamos "TELEMETRY#<payload>".
-            // Antes el comando salía doblemente envuelto
-            // (GAME#id#GAME#id#TELEMETRY#payload) y el cliente lo veía como
-            // un GAME#GAME — partes[2]="GAME" en lugar de "TELEMETRY" → no
-            // entraba al case y la telemetría nunca se aplicaba en el cliente.
+            // NOTE: broadcastGAMECommandFromServer ALREADY wraps the command as
+            // "GAME#<id>#" + command — only pass "TELEMETRY#<payload>" here, or the
+            // client sees a doubled GAME#GAME wrapper and the TELEMETRY case never
+            // matches.
             String cmd = "TELEMETRY#" + payload;
-            // skip_nick=null y confirmation=false: broadcast fire-and-forget
-            // sin esperar ACK; la telemetría es best-effort, no necesita confirm.
+            // skip_nick=null and confirmation=false: fire-and-forget broadcast, no
+            // ACK wait — telemetry is best-effort and doesn't need confirmation.
             broadcastGAMECommandFromServer(cmd, null, false);
-            // El host NO recibe su propio broadcast (broadcastGAMECommandFromServer
-            // envía a clientes remotos, no se procesa a sí mismo). Aplicamos el
-            // frame localmente para que el host vea las bolitas de sus clientes
-            // con su latencia real + las suyas propias en verde.
+            // The host does NOT receive its own broadcast (broadcastGAMECommandFromServer
+            // sends to remote clients only). Apply the frame locally so the host sees
+            // its clients' latency dots with real values + its own in green.
             applyTelemetryFrameLocally(frame);
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "broadcastTelemetryFrame failed (telemetry is best-effort, no game impact)", ex);
@@ -16246,11 +15969,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Telemetría: aplica un TelemetryFrame a los Player locales.
-     * Usado por:
-     *   - broadcastTelemetryFrame() del host (auto-aplicación, ya que el host
-     *     no recibe su propio broadcast).
-     *   - case "TELEMETRY" del cliente (al recibir broadcast del host).
+     * Telemetry: applies a TelemetryFrame to the local Players. Used by:
+     *   - the host's broadcastTelemetryFrame() (self-apply, since the host doesn't
+     *     receive its own broadcast).
+     *   - the client's "TELEMETRY" case (on receiving the host's broadcast).
      */
     public void applyTelemetryFrameLocally(Helpers.TelemetryFrame frame) {
         if (frame == null || frame.perPeer == null) {
@@ -16290,11 +16012,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private String permutadoPos2Nick(int i) {
-        // Modulo positivo, robusto contra Integer.MIN_VALUE. El bucle anterior
-        // "while (i < 0) i += length" entraría en loop infinito si i == MIN_VALUE
-        // porque sumar length nunca cruza el 0 antes del overflow (los valores
-        // negativos rebotan). Fórmula equivalente para inputs típicos pero safe
-        // en todos los rangos.
+        // Positive modulo, robust against Integer.MIN_VALUE. A "while (i < 0)
+        // i += length" loop would spin forever for i == MIN_VALUE (adding length
+        // never crosses 0 before overflowing). Equivalent result for typical
+        // inputs, but safe across the full int range.
         int n = nicks_permutados.length;
         int mod = ((i % n) + n) % n;
         return nicks_permutados[mod];
@@ -16522,7 +16243,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         } else {
 
-            // Recibimos las posiciones utg, bb, sb, dealer calculados por el servidor
+            // Receive the utg/bb/sb/dealer positions computed by the server
             this.recibirPosiciones();
 
         }
@@ -16541,12 +16262,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             String[] sitiosb64 = this.sqlRecoverGameSeats().split("#");
 
-            // sqlRecoverServerLocalGameKeyData ahora puede devolver null (sin fila:
-            // juego sin manos / DB no disponible). Sin este null-check el .get() hacía
-            // NPE y, como el catch de este método solo coge IOException, el NPE escapaba
-            // y mataba el hilo del Crupier en sortearSitios -> ANTES incluso de llegar a
-            // recuperarDatosClavePartida (cliente colgado en "sorteando sitios"). Mismo
-            // fallback que preflop_players==null de abajo: null -> fresh shuffle.
+            // sqlRecoverServerLocalGameKeyData can return null (no row: game with no
+            // hands yet / DB unavailable). Without this null-check the NPE would escape
+            // the IOException-only catch and kill the Crupier thread in sortearSitios.
+            // Same fallback as preflop_players==null below: null -> fresh shuffle.
             HashMap<String, Object> key_data = this.sqlRecoverServerLocalGameKeyData(false);
             if (key_data == null) {
                 LOGGER.log(Level.WARNING, "recuperarSorteoSitios: no key-data row in SQL — falling back to fresh shuffle");
@@ -16554,15 +16273,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             String preflop_players = (String) key_data.get("preflop_players");
 
-            // Tras un MISDEAL que aborta antes de que la mano tenga el row
-            // preflop_players guardado en SQL, esta lectura devuelve null y el
-            // .contains(b64) de abajo lanzaba NullPointerException. El catch
-            // sólo coge IOException, así que el NPE escapaba y mataba el
-            // thread del Crupier silenciosamente — el cliente quedaba
-            // esperando un SEATS que nunca llegaba ("sorteando sitios"
-            // colgado). Devolviendo null aquí, el caller (sortearSitios) cae
-            // en su rama `else` y hace un shuffle fresh, comportamiento de
-            // "no hay nada que recuperar".
+            // After a MISDEAL that aborts before the hand's preflop_players row is
+            // saved to SQL, this read returns null. Returning null here early avoids
+            // the .contains(b64) NPE below (which would escape the IOException-only
+            // catch and silently kill the Crupier thread, leaving the client hung
+            // waiting on a SEATS that never arrives); the caller (sortearSitios) falls
+            // through to its `else` branch and does a fresh shuffle instead.
             if (preflop_players == null) {
                 LOGGER.log(Level.WARNING, "recuperarSorteoSitios: no preflop_players row in SQL — falling back to fresh shuffle");
                 return null;
@@ -16584,10 +16300,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 HashMap<String, Object> map = this.sqlRecoverGamePositions();
 
-                // map==null (sin fila de posiciones / error SQL): mismo fallback que arriba
-                // con preflop_players -> fresh shuffle. Antes map.get("bb") aquí hacía NPE y,
-                // como el catch sólo coge IOException, el NPE escapaba y mataba el hilo del
-                // Crupier (cliente colgado esperando un SEATS que no llegaba).
+                // map==null (no positions row / SQL error): same fallback as
+                // preflop_players above -> fresh shuffle, avoiding an NPE on
+                // map.get("bb") that would otherwise escape the IOException-only catch
+                // and kill the Crupier thread.
                 if (map == null) {
                     LOGGER.log(Level.WARNING, "recuperarSorteoSitios: no positions row in SQL — falling back to fresh shuffle");
                     return null;
@@ -16629,7 +16345,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     if (nick.equals(grande)) {
 
-                        // Los jugadores nuevos los colocamos después de la CIEGA GRANDE ACTUAL
+                        // New players are placed right after the CURRENT BIG BLIND
                         Collections.shuffle(actuales, Helpers.CSPRNG_GENERATOR);
                         permutados_aux.addAll(actuales);
                         actuales.clear();
@@ -16691,14 +16407,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-            // OJO: devolver la cadena VACIA en vez de nada NO vale, y por poco se cuela.
-            // Partirla por el separador no da una lista vacia, da una lista con UN
-            // elemento vacio, y los bucles que recorren los asientos avanzan con el resto
-            // de la division entre su tamano: con un solo elemento, el indice se queda
-            // clavado en cero y el bucle no termina JAMAS, quemando un nucleo con la mesa
-            // parada y sin una linea en el registro. Se devuelve nada, como siempre, que
-            // al menos falla de forma ruidosa; protegerlo de verdad es reestructurar los
-            // cuatro bloques que recolocan las posiciones, y eso no toca aqui.
+            // NOTE: returning an EMPTY string instead of null does NOT work, and almost
+            // slipped through. Splitting it on the separator doesn't yield an empty
+            // list, it yields a list with ONE empty element, and the seat-walking loops
+            // advance mod their size — with a single element the index stays pinned at
+            // zero and the loop NEVER terminates, spinning a core with the table stalled
+            // and no log line. Returning null still fails loudly at least; fixing this
+            // properly means restructuring the four blocks that recompute positions,
+            // which is out of scope here.
             return ret;
 
         }
@@ -16779,11 +16495,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     try (ResultSet rs = statement.executeQuery()) {
 
-                        // Sin fila (juego sin manos / no encontrado): devolvemos null
-                        // limpio en vez de dejar que el primer rs.getX lance SQLException.
-                        // El caller (recuperarDatosClavePartida) ya trata null como
-                        // fresh-start. Antes el rs.next() se ignoraba y "no hay fila" se
-                        // colaba como excepción.
+                        // No row (game with no hands / not found): return a clean null
+                        // instead of letting the first rs.getX throw SQLException. The
+                        // caller (recuperarDatosClavePartida) already treats null as
+                        // fresh-start.
                         if (!rs.next()) {
                             return null;
                         }
@@ -16819,7 +16534,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (include_balance) {
 
-                    // Recuperamos el balance
+                    // Recover the balance
                     if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(
                             GameFrame.getInstance(),
                             Translator.translate("ui.se_ha_encontrado_un_fichero"),
@@ -16828,12 +16543,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
 
-                            // REPLACE_EXISTING: si una recuperación previa dejó un
-                            // balance_used huérfano, el move fallaba
-                            // con FileAlreadyExistsException, el catch lo logueaba SEVERE
-                            // pero el balance original quedaba en disco para una eventual
-                            // tercera recuperación con datos viejos. REPLACE_EXISTING
-                            // garantiza marca-como-usado idempotente.
+                            // REPLACE_EXISTING: without it, a leftover balance_used from a
+                            // previous recovery would make the move fail with
+                            // FileAlreadyExistsException, leaving the original balance file on
+                            // disk for a later recovery to pick up stale data. This makes
+                            // marking it as used idempotent.
                             Files.move(Paths.get(Init.CORONA_DIR + "/balance"),
                                     Paths.get(Init.CORONA_DIR + "/balance_used"),
                                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -16901,9 +16615,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 ResultSet rs = statement.executeQuery();
 
-                // Sin fila (juego sin manos / no encontrado): null limpio en vez de colar
-                // la ausencia como SQLException (gemelo del guard de
-                // sqlRecoverServerLocalGameKeyData). El caller trata null como fresh shuffle.
+                // No row (game with no hands / not found): clean null instead of letting
+                // the absence surface as SQLException (twin of the guard in
+                // sqlRecoverServerLocalGameKeyData). The caller treats null as fresh shuffle.
                 if (!rs.next()) {
                     return null;
                 }
@@ -16923,14 +16637,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * ZERO-TRUST RECOVER (PURA y testeable): en el replay de recuperación el cliente reproduce sus PROPIAS
-     * acciones a partir de la copia que sirve el HOST y, si no llevan record, las RE-FIRMA con su clave. Un
-     * host hostil podía por tanto forjar la decisión/importe de la víctima (firmados luego por ella, limpios
-     * en H_t). Esta función ata el plaintext reproducido (decisión + importe) al record FIRMADO que lo
-     * acompaña, sin depender del estado reconstruido: TIPO (siempre), IMPORTE de BET (partes[2]; el de
-     * CHECK/ALLIN lo fija la regla del juego, no el record, así que no es forjable por aquí), PLAYER_ID y
-     * HAND_ID. Devuelve false (= forja) ante cualquier discrepancia o record/decisión no representables. El
-     * llamador, ante false, sintetiza FOLD en vez de reproducir/re-firmar lo forjado.
+     * ZERO-TRUST RECOVER (PURE and testable): during recovery replay, the client
+     * reproduces its OWN actions from the copy the HOST serves and, if they carry no
+     * record, RE-SIGNS them with its own key. A hostile host could therefore forge
+     * the victim's decision/amount, later signed clean into H_t by the victim
+     * itself. This function binds the replayed plaintext (decision + amount) to its
+     * accompanying SIGNED record, independent of reconstructed state: TYPE (always),
+     * BET amount (partes[2]; CHECK/ALLIN amounts are fixed by game rules rather than
+     * the record, so they aren't forgeable here), PLAYER_ID and HAND_ID. Returns
+     * false (= forgery) on any mismatch or an unrepresentable record/decision. On
+     * false, the caller synthesizes a FOLD instead of replaying/re-signing the
+     * forged action.
      */
     static boolean recoveredActionBindsToRecord(byte[] record, int decision, Object betObj, String nick,
             byte[] expectedHandId) {
@@ -16973,9 +16690,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (name.equals(nick)) {
 
-                    // Indice 1-based de ESTA accion propia en el replay: sirve para distinguir una
-                    // accion posterior a la ausencia del jugador (indice > lo que persistio en local)
-                    // de una forja sobre una accion que si presencio (ver rama sin record de abajo).
+                    // 1-based index of THIS own action in the replay: distinguishes an
+                    // action after the player's absence (index > what's persisted locally)
+                    // from a forgery over an action they actually witnessed (see the
+                    // no-record branch below).
                     final int replayedIndex = this.recover_replay_index.merge(name, 1, Integer::sum);
 
                     // Recovery: return a full-width action so the
@@ -16985,9 +16703,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // leave record/sig null, the canBuild gate takes over (host
                     // re-builds with its privkey for its own actions, client no-ops
                     // for others), so the chain ends up null for the recovered hand
-                    // only when the shorter data is fed in. El ancho es el mismo que el
-                    // del camino vivo (readActionFromRemotePlayer) porque un replay
-                    // forjado sintetiza el MISMO fold, y ese sale al wire.
+                    // only when the shorter data is fed in. Same width as the live path
+                    // (readActionFromRemotePlayer), since a forged replay synthesizes
+                    // the SAME fold, which goes out on the wire.
                     res = new Object[7];
 
                     res[0] = Integer.parseInt(accion_partes[1]);
@@ -17012,19 +16730,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (isVerifiableWireRecord(recordBytes)) {
                                 res[5] = readWireVoluntaryFlag(recordBytes);
                             }
-                            // ZERO-TRUST RECOVER (HIGH cerrado): (1) verificar la FIRMA Ed25519 (el host sirve el
-                            // record por wire; pubkey null en carrera TOFU -> se salta la firma, no es evidencia de
-                            // ataque). (2) ATAR la decision/importe reproducidos (res[0]/res[1], que MUEVEN dinero y
-                            // que el cliente RE-FIRMA con SU clave aguas abajo) al record firmado (recoveredActionBinds
-                            // ToRecord) -> un host no puede servir un record valido con un plaintext distinto. Ambas
-                            // fallando = forja.
+                            // ZERO-TRUST RECOVER: (1) verify the Ed25519 SIGNATURE (the host serves
+                            // the record over the wire; a null pubkey during a TOFU race skips the
+                            // check — not evidence of an attack). (2) BIND the replayed
+                            // decision/amount (res[0]/res[1], which MOVE money and get RE-SIGNED by
+                            // the client with its own key downstream) to the signed record
+                            // (recoveredActionBindsToRecord) — a host can't serve a valid record
+                            // paired with different plaintext. Either check failing = forgery.
                             byte[] recoverSignerPubkey = resolveActionSignerPubkey(name, true);
                             if (!Boolean.TRUE.equals(res[5])) {
-                                // §4.5 (mismo gate que el camino vivo): NINGUNA accion se firma como
-                                // no voluntaria. Aceptarlo mandaba la verificacion a la clave del HOST,
-                                // que es justo quien nos sirve el record en el replay: podia firmar EL
-                                // un FOLD a nombre de la victima, pasar la firma y pasar el binding
-                                // (que no mira el bit) y hacerle reproducir una accion que nunca jugo.
+                                // §4.5 (same gate as the live path): NO action is ever signed as
+                                // non-voluntary. Accepting one here would route verification to the
+                                // HOST's key — exactly the peer serving us the record during replay —
+                                // letting it sign a FOLD on the victim's behalf, pass the signature
+                                // check and pass the binding check (which doesn't look at this bit),
+                                // and make the victim replay an action it never played.
                                 LOGGER.log(Level.SEVERE,
                                         "ZERO-TRUST RECOVER: recovered action for {0} claims is_voluntary=0, which no genuine action ever does — host forging",
                                         name);
@@ -17047,35 +16767,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             recoverForged = true;
                         }
                         if (recoverForged) {
-                            // NO reproducir la decision/importe forjados NI re-firmarlos con la clave de la
-                            // victima: se sintetiza un FOLD y se marca el incidente para el consenso de
-                            // cierre. Cierra el HIGH: antes se anulaba record+sig pero se mantenia res[0]/res[1],
-                            // que el cliente re-firmaba con su clave -> forja LIMPIA en H_t.
-                            // Es el MISMO synth del camino vivo (wire que no se puede verificar), asi
-                            // que usa su helper. Para los bots del anfitrion eso hace ademas que el
-                            // fold salga al wire en vez de dejar a los clientes esperando ese asiento;
-                            // para el jugador local la marca da igual, porque su accion se rearma
-                            // desde el clic y lo que sale es su propio FOLD firmado.
+                            // Never replay the forged decision/amount, nor re-sign it with the
+                            // victim's key: synthesize a FOLD and flag the incident for close-of-hand
+                            // consensus. This is the SAME synth as the live path (an unverifiable
+                            // wire), so it reuses its helper. For the host's bots this also puts the
+                            // fold on the wire instead of leaving clients waiting on that seat; for
+                            // the local player the marker doesn't matter, since its action is rebuilt
+                            // from the click and what goes out is its own signed FOLD.
                             warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
                             synthesizeUnverifiedFoldAction(res);
                             this.saw_invalid_action_sig = true;
                         }
                     } else if (this.hand_state_chain != null) {
-                        // Record ausente/"*" con la CADENA ACTIVA. Dos causas posibles, y se distinguen por
-                        // el indice de replay contra lo que este peer alcanzo a persistir en local:
-                        //   (a) BENIGNA (ausencia): el jugador salio de la mano y esta accion es POSTERIOR a
-                        //       la ultima que registro (replayedIndex > persisted) y es un FOLD. El host la
-                        //       sirve pelada legitimamente (§4.5: exit-fold sin firma, nadie puede firmar por
-                        //       un jugador que no estaba). No hay con que verificarla -> se ACEPTA tal cual (el
-                        //       FOLD sintetico es justo el resultado correcto) y se avisa SUAVE en el registro
-                        //       (amarillo), sin acusar al host ni empujar a salir.
-                        //   (b) FORJA: el host quito la firma de una accion que yo SI presencie (indice <=
-                        //       persisted) o me atribuye algo que no es un FOLD -> aviso DURO + marca.
-                        // El FOLD sintetico protege el dinero en AMBOS casos. La MARCA de mano-no-verificada
-                        // (saw_invalid_action_sig) solo se pone en (b): un exit-fold legitimo por ausencia es
-                        // omision mutua sin firma, NO una firma invalida, y con la cadena ya convergiendo la
-                        // mano debe VERIFICAR LIMPIO (si no, saldria un popup de "firma invalida" en un caso
-                        // benigno). En (a) solo queda el aviso SUAVE en el registro.
+                        // Missing/"*" record with the CHAIN ACTIVE. Two possible causes,
+                        // distinguished by the replay index against what this peer managed to
+                        // persist locally:
+                        //   (a) BENIGN (absence): the player left the hand and this action is
+                        //       AFTER the last one they recorded (replayedIndex > persisted) and
+                        //       it's a FOLD. The host legitimately serves it bare (§4.5: exit-fold
+                        //       has no signature — nobody can sign for a player who wasn't there).
+                        //       Nothing to verify against -> ACCEPT as-is (the synthetic FOLD is
+                        //       exactly the right outcome), soft (yellow) log warning, no host
+                        //       accusation, no forced exit.
+                        //   (b) FORGERY: the host stripped the signature off an action I DID
+                        //       witness (index <= persisted), or attributes something other than a
+                        //       FOLD to me -> hard warning + flag.
+                        // The synthetic FOLD protects the money in BOTH cases. The unverified-hand
+                        // MARKER (saw_invalid_action_sig) is only set in (b): a legitimate
+                        // absence exit-fold is mutual omission with no signature, NOT an invalid
+                        // signature, and with the chain already converging the hand must verify
+                        // CLEAN (otherwise a benign case would trigger an "invalid signature"
+                        // popup). Case (a) only gets the soft log warning.
                         int persisted = this.recover_persisted_count.computeIfAbsent(name, this::sqlCountLocalHandActions);
                         if (isBenignPostAbsenceRecover((int) res[0], replayedIndex, persisted)) {
                             LOGGER.log(Level.WARNING,
@@ -17139,7 +16861,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         try {
             String datos;
 
-            // Estado del discriminador de acciones-durante-ausencia: fresco por recuperacion.
+            // Absence-vs-forgery discriminator state: reset fresh per recovery.
             this.recover_replay_index.clear();
             this.recover_persisted_count.clear();
             this.recover_absence_warned = false;
@@ -17167,11 +16889,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         String[] parts = r.split("#");
                         String nick = new String(Base64.getDecoder().decode(parts[0]), "UTF-8");
 
-                        // Secuencia ordenada (por counter, tal cual la sirve sqlRecoverHandActions) de
-                        // TODOS los nicks: la referencia para detectar asientos saltados por omision mutua.
-                        // El contador y la lista se incrementan JUNTOS y DESPUES del decode, para que
-                        // tot_acciones_recuperadas == recover_action_order.size() SIEMPRE (una entrada
-                        // malformada que reviente el decode no infla el contador respecto a la lista).
+                        // Ordered sequence (by counter, as served by sqlRecoverHandActions) of
+                        // ALL nicks: the reference used to detect seats skipped by mutual
+                        // omission. Counter and list are incremented TOGETHER, AFTER the decode,
+                        // so tot_acciones_recuperadas == recover_action_order.size() ALWAYS (a
+                        // malformed entry that blows up the decode doesn't inflate the counter
+                        // relative to the list).
                         this.recover_action_order.add(nick);
                         this.tot_acciones_recuperadas++;
 
@@ -17978,17 +17701,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return ciega_pequeña;
     }
 
-    // Pre-decode en vuelo de los GIFs de giro (una Future por carta, ver
-    // prefetchAnimacionDestaparCarta). Acotado por diseño: las claves son las
-    // instancias fijas de las comunitarias del GameFrame, cada recogida vacía
-    // su entrada y cada prefetch reemplaza la anterior de esa carta.
+    // In-flight pre-decode of flip GIFs (one Future per card, see
+    // prefetchAnimacionDestaparCarta). Bounded by design: keys are the GameFrame's
+    // fixed community-card instances, each collection clears its entry, and each
+    // new prefetch replaces the previous one for that card.
     private final ConcurrentHashMap<Card, Future<?>> flip_anim_prefetch = new ConcurrentHashMap<>();
 
-    // Resultado del pre-decode del GIF de giro de una carta: el anim con sus
-    // dimensiones de pintado y las condiciones bajo las que se decodificó
-    // (carta y zoom), para descartarlo si cambian entre el prefetch y el
-    // destape (p.ej. el re-reparto de CARA-B reutiliza las mismas instancias
-    // de Card con otro valor).
+    // Result of a card's flip-GIF pre-decode: the anim plus its paint dimensions
+    // and the conditions it was decoded under
+    // (card and zoom), so it's discarded if either changes between the prefetch and
+    // the uncover (e.g. SIDE-B's re-deal reuses the same Card instances with a
+    // different value).
     private static final class FlipAnim {
 
         private final PreRenderedGif anim;
@@ -17996,9 +17719,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         private final int display_h;
         private final float zoom_factor;
         private final String card;
-        // Si el giro se rindió a media altura (vista compacta). Se compara con el
-        // estado actual al recoger el prefetch: si el usuario cambió la vista compacta
-        // entre el pre-decode y el destape, el prefetch ya no casa y se re-decodifica.
+        // Whether the flip was rendered at half height (compact view). Compared
+        // against current state when the prefetch is collected: if the user toggled
+        // compact view between pre-decode and uncover, the prefetch no longer matches
+        // and is re-decoded.
         private final boolean top_half;
 
         private FlipAnim(PreRenderedGif anim, int display_w, int display_h, float zoom_factor, String card, boolean top_half) {
@@ -18011,24 +17735,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Renderiza la animación de giro de una carta con Swing/Java2D
-    // (CardFlipAnimator) al tamaño y densidad actuales, envuelta en un
-    // PreRenderedGif para el motor catch-up. Devuelve null si la carta no tiene
-    // JPG de cara: el llamante cae al destape seco.
+    // Renders a card's flip animation with Swing/Java2D (CardFlipAnimator) at the
+    // current size/density, wrapped in a PreRenderedGif for the catch-up engine.
+    // Returns null if the card has no face JPG: the caller falls back to a plain
+    // uncover.
     private FlipAnim decodeCardFlipAnim(Card carta) {
-        // toShortString() == getValor() + "_" + getPalo(). En vista compacta la carta
-        // se muestra partida a media altura (su mitad superior), así que su giro también
-        // gira media carta para casar con la estática (mismo criterio que el swap hole).
+        // toShortString() == getValor() + "_" + getPalo(). In compact view the card
+        // is shown split at half height (its top half), so its flip also renders at
+        // half height to match the static image (same rule as the hole-card swap).
         return decodeCardFlipAnim(carta.toShortString(),
                 GameFrame.VISTA_COMPACTA > 0 && carta.isCompactable());
     }
 
-    // Igual pero a partir de la clave "valor_palo" directamente (sin necesitar la
-    // Card ya sentada con su valor): así el reparto puede PRE-decodificar el giro
-    // de tus hole cards en background nada más conocer sus valores (bóveda C),
-    // antes de que aterricen. Rendir los 20-45 frames (warp por píxel + SS) cuesta
-    // decenas/cientos de ms y CardFlipAnimator NO cachea los frames, así que
-    // hacerlo inline al aterrizar metía ese coste como pausa fantasma.
+    // Same, but from the "value_suit" key directly (without needing a Card already
+    // seated with its value): this lets dealing PRE-decode your hole cards' flip in
+    // background as soon as their values are known (vault C), before they land.
+    // Rendering the 20-45 frames (per-pixel warp + SS) costs tens to hundreds of ms
+    // and CardFlipAnimator does NOT cache frames, so doing it inline on landing
+    // showed up as a phantom pause.
     private FlipAnim decodeCardFlipAnim(String valor_palo, boolean top_half) {
 
         float zoom_factor = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
@@ -18038,14 +17762,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int card_h = Card.getCardHeight();
             int corner = Card.getCardCorner();
             int duration = GameFrame.CARD_FLIP_DURATION;
-            // Frames proporcionales a la duración (~60 fps), acotados. MISMO número en Calidad y en
-            // Rendimiento: reducirlos dejaba el destape entrecortado (misma duración total repartida
-            // entre la mitad de pasos = tirones). Rendimiento abarata el destape SIN supersampling
-            // (SS=1 en CardFlipAnimator), no con menos frames, así que el giro conserva su fluidez y
-            // solo pierde nitidez de imagen.
+            // Frame count proportional to duration (~60 fps), clamped. SAME count in
+            // Quality and Performance modes: fewer frames made the flip choppy (same
+            // total duration spread over half the steps = stutter). Performance mode
+            // cheapens the flip by dropping supersampling (SS=1 in CardFlipAnimator),
+            // not frame count, so it stays smooth and only loses image sharpness.
             int num_frames = Math.max(20, Math.min(45, Math.round(duration / 16f)));
-            // Efecto "acercar": la carta girada se dibuja a este factor del tamaño de la estática
-            // (1.0 = desactivado, relevo pixel-perfect; >1.0 la agranda para el efecto).
+            // "Zoom in" effect: the flipping card is drawn at this factor of the
+            // static card's size (1.0 = disabled, pixel-perfect handoff; >1.0 enlarges
+            // it for the effect).
             float flip_zoom = GameFrame.CARD_FLIP_ZOOM / 100f;
 
             PreRenderedGif anim = CardFlipAnimator.generate(GameFrame.BARAJA,
@@ -18056,9 +17781,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return null;
             }
 
-            // En compacta el lienzo (y el overlay que lo pinta) va a media altura, para
-            // que el giro de media carta quede centrado sobre la estática partida y el
-            // relevo giro->carta no salte de tamaño.
+            // In compact view the canvas (and the overlay that paints it) is at half
+            // height, so the half-card flip stays centered over the split static image
+            // and the flip->card handoff doesn't jump in size.
             int display_w = CardFlipAnimator.canvasWidth(card_w, flip_zoom);
             int display_h = CardFlipAnimator.canvasHeight(top_half ? card_h / 2 : card_h, flip_zoom);
 
@@ -18070,11 +17795,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Lanza en background el pre-decode del GIF de giro de una carta. Lo usa
-    // destaparFlop con la segunda y la tercera carta: sus destapes encadenan
-    // sin pausa larga (solo la primera la tiene, y ahí el decode se absorbe
-    // vía lapsed), así que sin esto cada una pagaba su decode en crudo entre
-    // flip y flip y la cadencia del flop variaba de mano en mano.
+    // Launches a card's flip-GIF pre-decode in background. Used by destaparFlop for
+    // the second and third cards: their uncovers chain with no long pause (only the
+    // first has one, where the decode is absorbed via lapsed), so without this each
+    // one paid its raw decode cost between flips and the flop's cadence varied hand
+    // to hand.
     private void prefetchAnimacionDestaparCarta(Card carta) {
 
         if (GameFrame.destapeAnimOn()) {
@@ -18082,9 +17807,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Recoge el pre-decode lanzado por prefetchAnimacionDestaparCarta. Espera
-    // si aún está en curso (siempre mucho menos que la animación del flip
-    // anterior) y lo descarta si la carta o el zoom cambiaron entre medias.
+    // Collects the pre-decode launched by prefetchAnimacionDestaparCarta. Waits if
+    // it's still running (always much less than the previous flip's animation) and
+    // discards it if the card or the zoom changed in between.
     private FlipAnim takePrefetchedFlipAnim(Card carta) {
 
         Future<?> prefetched = flip_anim_prefetch.remove(carta);
@@ -18108,13 +17833,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return null;
     }
 
-    // Destape sin animación de un rival, espejo del camino animado: las dos
-    // hole cards aparecen de golpe A LA VEZ con UN solo uncover.wav (la
-    // izquierda con audio, la derecha sin), en vez de girar. Sin pausa
-    // intermedia — ambas se voltean en el mismo instante para aligerar el
-    // showdown, igual criterio que el giro animado. Mismo lock y re-check
-    // anti-duplicados que el camino animado (reentrante si se llega desde sus
-    // fallbacks internos).
+    // Non-animated uncover for an opponent, mirroring the animated path: both hole
+    // cards appear at once with ONE uncover.wav (left with audio, right without)
+    // instead of flipping. No intermediate pause — both flip at the same instant to
+    // keep showdown snappy, same rule as the animated flip. Same lock and
+    // anti-duplicate re-check as the animated path (reentrant when reached from its
+    // internal fallbacks).
     private void destaparCartasJugadorSeco(RemotePlayer jugador) {
 
         synchronized (jugador.getDestape_animado_lock()) {
@@ -18133,24 +17857,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Destape ANIMADO de las dos hole cards de un rival, con el mismo gate y
-    // el mismo motor que las comunitarias (destapeAnimOn + GIF de giro por
-    // carta, pre-decodificado catch-up, relevos sin hueco). Las dos cartas
-    // giran A LA VEZ (overlays en paralelo, un solo uncover.wav) sobre
-    // overlays efímeros, y el método BLOQUEA hasta que el giro termina (nunca
-    // llamar desde el EDT): así el llamante no actualiza las etiquetas de
-    // gana/pierde/jugada hasta que el destape se ha visto entero. El orden
-    // ENTRE jugadores lo marca el llamante, un rival tras otro.
+    // ANIMATED uncover of an opponent's two hole cards, with the same gate and
+    // engine as community cards (destapeAnimOn + per-card flip GIF, pre-decoded
+    // catch-up, gapless handoffs). Both cards flip AT ONCE (parallel overlays, a
+    // single uncover.wav) over ephemeral overlays, and the method BLOCKS until the
+    // flip finishes (never call from the EDT): this way the caller doesn't update
+    // win/lose/hand labels until the uncover has fully played. Order BETWEEN
+    // players is set by the caller, one opponent after another.
     //
-    // Escalera de fallbacks:
-    //   1) animaciones ON + GIF por carta → giro animado (uncover por carta).
-    //   2) rival destapable pero sin animación posible (animaciones OFF,
-    //      baraja sin GIFs, decode fallido, valores cambiados) →
-    //      destaparCartasJugadorSeco: las dos a la vez con un solo uncover.wav,
-    //      como las comunitarias sin animaciones.
-    //   3) resto (LocalPlayer — sus cartas nunca están tapadas en su propia
-    //      pantalla —, cartas ya destapadas, sin valor) → destape clásico
-    //      destaparCartas(sound); el flag sound aplica SOLO aquí.
+    // Fallback ladder:
+    //   1) animations ON + per-card GIF -> animated flip (uncover per card).
+    //   2) opponent revealable but no animation possible (animations OFF, deck with
+    //      no GIFs, decode failed, values changed) -> destaparCartasJugadorSeco:
+    //      both at once with a single uncover.wav, like community cards without
+    //      animations.
+    //   3) everything else (LocalPlayer — its own cards are never face-down on its
+    //      own screen —, already-uncovered cards, no value) -> classic
+    //      destaparCartas(sound); the sound flag applies ONLY here.
     public void mostrarAnimacionDestaparCartasJugador(Player jugador, boolean sound) {
 
         Card c1 = jugador.getHoleCard1();
@@ -18174,16 +17897,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         synchronized (rp.getDestape_animado_lock()) {
 
-            // Re-chequeo bajo el lock: un destape concurrente del mismo
-            // jugador (SHOWCARDS duplicado/echo) pudo ganarnos mientras
-            // esperábamos. Cartas ya boca arriba = nada que hacer.
+            // Re-check under the lock: a concurrent uncover of the same player
+            // (duplicate/echo SHOWCARDS) may have beaten us here while we waited.
+            // Cards already face-up = nothing to do.
             if (!c1.isTapada() || !c2.isTapada()) {
                 return;
             }
 
             try {
-                // Las dos animaciones en paralelo: la de la segunda carta se
-                // renderiza en background mientras la de la primera va inline.
+                // Both animations in parallel: the second card renders in background
+                // while the first runs inline.
                 final Card fc2 = c2;
 
                 Future<?> decode2 = Helpers.futureRun(() -> decodeCardFlipAnim(fc2));
@@ -18203,12 +17926,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return;
                 }
 
-                // Cinturón y tirantes: las pockets llegan desordenadas y
-                // ordenarCartas PERMUTA los valores entre los dos componentes
-                // Card. Todos los flujos ordenan ANTES de destapar en el mismo
-                // hilo, pero si algún valor cambiase entre el decode y el giro
-                // mejor el destape seco que animar un GIF que no casa con la
-                // carta que aterriza debajo.
+                // Belt and suspenders: pockets arrive unordered and ordenarCartas
+                // SWAPS values between the two Card components. Every flow sorts
+                // BEFORE uncovering on the same thread, but if a value did change
+                // between decode and flip, a plain uncover beats animating a GIF that
+                // doesn't match the card landing underneath it.
                 if (!anim1.card.equals(c1.toShortString()) || !anim2.card.equals(c2.toShortString())) {
                     LOGGER.log(Level.WARNING, "Card values changed between flip GIF decode and playback (plain uncover fallback)");
                     destaparCartasJugadorSeco(rp);
@@ -18217,19 +17939,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 rp.prepararDestapeAnimado();
 
-                // Las DOS hole cards del jugador giran A LA VEZ en una sola
-                // llamada (playCardFlipOverlays ya anima varias cartas en
-                // paralelo, cada overlay centrado sobre la suya) con UN único
-                // uncover.wav para las dos, para aligerar el showdown. El orden
-                // ENTRE jugadores no cambia: el llamante sigue invocando este
-                // método un rival tras otro. delay_end=0 para que lo que siga
-                // (la jugada en etiqueta neutra del showdown) entre JUSTO al
-                // terminar el giro — destaparSync deja la estática debajo de
-                // cada carta y los overlays se retiran sin parpadeo.
-                // El tamaño del overlay (display_w x display_h) lo fija decodeCardFlipAnim:
-                // en vista compacta el giro se rinde a MEDIA altura (girando la mitad
-                // superior de la carta, no achatando el frame entero, que deformaba el
-                // trapecio del warp), así casa con la estática partida que queda debajo.
+                // The player's TWO hole cards flip AT ONCE in a single call
+                // (playCardFlipOverlays already animates several cards in parallel,
+                // each overlay centered on its own) with a SINGLE uncover.wav for
+                // both, to keep showdown snappy. Order BETWEEN players is unchanged:
+                // the caller still invokes this method one opponent after another.
+                // delay_end=0 so whatever follows (the neutral-label hand at
+                // showdown) enters RIGHT as the flip finishes — destaparSync leaves
+                // the static image under each card and the overlays are removed
+                // without a flicker. Overlay size (display_w x display_h) is set by
+                // decodeCardFlipAnim: in compact view the flip renders at HALF
+                // height (flipping the top half of the card, not squashing the whole
+                // frame, which would distort the warp's trapezoid), matching the
+                // split static image underneath.
                 GameFrame.getInstance().getTapete().playCardFlipOverlays(
                         new Card[]{c1, c2},
                         new PreRenderedGif[]{anim1.anim, anim2.anim},
@@ -18241,62 +17963,64 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             } finally {
-                // Pase lo que pase con la animación, el destape lógico es
-                // obligatorio (no-op si destaparSync ya volteó las cartas).
+                // Whatever happens with the animation, the logical uncover is
+                // mandatory (no-op if destaparSync already flipped the cards).
                 jugador.destaparCartas(false);
             }
         }
     }
 
-    // "Un pelín" que la hole card local se queda BOCA ABAJO en el asiento antes
-    // de abrirse (para que se vea la carta tapada tras aterrizar y antes del giro).
+    // Brief moment the local hole card stays FACE-DOWN in its seat before opening
+    // (so the covered card is visible right after landing and before the flip).
     private static final int LOCAL_HOLE_CARD_REVEAL_DELAY = 50;
 
-    // Overlay de la ficha grande por ENCIMA de la viajera de hc1 (para que la carta
-    // aterrice POR DEBAJO de la ficha SIN tocar la animación de reparto). Lo pone
-    // repartir() antes del vuelo de hc1 y lo retira revelarHoleCardLocalAnimada justo
-    // antes del giro (cuando la ficha debe desaparecer).
+    // Overlay of the large position chip ABOVE hc1's traveling one (so the card
+    // lands UNDER the chip without disturbing the deal animation). repartir() puts
+    // it up before hc1's flight and revelarHoleCardLocalAnimada removes it right
+    // before the flip, when the chip should disappear.
     private volatile javax.swing.JLabel local_chip_flight_overlay;
 
-    // Pre-decode del giro de las dos hole cards del straddler LOCAL, lanzado en repartir
-    // (los valores ya están en local_original_cards) para que, cuando resolveVoluntaryStraddle
-    // las destape tras la decisión a ciegas, el giro entre sin la pausa del render. Se
-    // consumen en revealLocalStraddlerCards; null si el destape está off o no hay straddle.
+    // Pre-decode of the LOCAL straddler's two hole-card flips, launched from
+    // repartir (values are already in local_original_cards) so that when
+    // resolveVoluntaryStraddle uncovers them after the blind decision, the flip
+    // plays without a render pause. Consumed in revealLocalStraddlerCards; null if
+    // uncover animations are off or there's no straddle.
     private volatile Future<?> straddle_prefetch_flip_hc1;
     private volatile Future<?> straddle_prefetch_flip_hc2;
 
-    // Destape ASÍNCRONO de UNA hole card local recién aterrizada, SIN frenar al
-    // crupier: repartir() lo lanza en otro hilo (Helpers.threadRun) nada más
-    // aterrizar la carta, así el reparto sigue de inmediato con el resto. La
-    // carta se queda un instante BOCA ABAJO y luego se abre girando con el mismo
-    // motor que las comunitarias/rivales (playCardFlipOverlays, relevos sin
-    // hueco). Solo se llama con el destape activo (destapeAnimOn) y sobre la
-    // carta ya sentada boca abajo con su valor; aun así reverifica el estado y
-    // cae al destape seco si algo no cuadra (baraja sin GIF, decode fallido,
-    // valor cambiado, jugador fuera). El volteo lógico está garantizado por el
-    // finally aunque la animación falle. Es fire-and-forget: no toca el resto de
-    // la lógica del reparto (ordenarCartas incluido).
+    // ASYNCHRONOUS uncover of ONE freshly-landed local hole card, without blocking
+    // the crupier: repartir() launches it on another thread (Helpers.threadRun)
+    // right after the card lands, so dealing continues immediately with the rest.
+    // The card stays FACE-DOWN for an instant, then opens with the same flip engine
+    // as community/opponent cards (playCardFlipOverlays, gapless handoffs). Only
+    // called with uncover animations on and on a card already seated face-down with
+    // its value; it still re-verifies state and falls back to a plain uncover if
+    // anything is off (deck with no GIF, decode failed, value changed, player left).
+    // The logical flip is guaranteed by the finally even if the animation fails.
+    // Fire-and-forget: doesn't touch the rest of the deal logic (including
+    // ordenarCartas).
     //
-    // prefetched: el render del giro lanzado al inicio del reparto (ya conocemos
-    // el valor). Al aterrizar suele estar listo, así el ÚNICO retardo es la pausa
-    // (LOCAL_HOLE_CARD_REVEAL_DELAY): el render de los 20-45 frames NO se cachea y
-    // cuesta decenas/cientos de ms, que inline se colaban como una pausa fantasma
-    // aunque el delay fuese 0. Si no hay prefetch válido, decode inline (fallback).
+    // prefetched: the flip render launched at the start of dealing (the value is
+    // already known). Usually ready by the time the card lands, so the ONLY delay
+    // is LOCAL_HOLE_CARD_REVEAL_DELAY: rendering the 20-45 frames is NOT cached and
+    // costs tens to hundreds of ms, which inline would show up as a phantom pause
+    // even with a zero delay. Falls back to an inline decode if there's no valid
+    // prefetch.
     private void revelarHoleCardLocalAnimada(Card carta, Future<?> prefetched) {
         revelarHoleCardLocalAnimada(carta, prefetched, LOCAL_HOLE_CARD_REVEAL_DELAY);
     }
 
-    // pre_delay_ms: "un pelín" que la carta se queda boca abajo antes del giro. En el
-    // reparto vale LOCAL_HOLE_CARD_REVEAL_DELAY (acaba de aterrizar y conviene verla
-    // tapada un instante); en el destape del straddler es 0 (la carta lleva TODA la
-    // decisión boca abajo, así que el giro entra directo sin pausa extra).
+    // pre_delay_ms: the brief moment the card stays face-down before flipping. In
+    // dealing it's LOCAL_HOLE_CARD_REVEAL_DELAY (it just landed and should show
+    // face-down for an instant); uncovering a straddler it's 0 (the card was
+    // face-down through the whole blind decision, so the flip starts right away).
     private void revelarHoleCardLocalAnimada(Card carta, Future<?> prefetched, int pre_delay_ms) {
 
-        // hc1 lleva la ficha de posición GRANDE encima. Durante el vuelo/aterrizaje la
-        // carta pasó POR DEBAJO de la ficha (overlay puesto por repartir); aquí, JUSTO
-        // antes de arrancar el giro, la ficha DESAPARECE (se oculta la real + se retira
-        // ese overlay, y su clic queda bloqueado) y REAPARECE justo al terminar el giro.
-        // hc2 no la lleva, no toca.
+        // hc1 carries the LARGE position chip above it. During flight/landing the
+        // card passed UNDER the chip (overlay set by repartir); here, RIGHT before
+        // the flip starts, the chip DISAPPEARS (the real one is hidden + that
+        // overlay is removed, and its click gets blocked) and REAPPEARS right when
+        // the flip finishes. hc2 doesn't carry one, untouched.
         final LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
         final boolean chip_on_card = (carta == local.getHoleCard1());
 
@@ -18318,18 +18042,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return;
             }
 
-            // JUSTO antes del giro: la ficha desaparece (oculta la real + retira el
-            // overlay del vuelo, en el mismo instante que arranca el giro).
+            // RIGHT before the flip: the chip disappears (hides the real one + removes
+            // the flight overlay, at the same instant the flip starts).
             if (chip_on_card) {
                 local.setChipForcedHidden(true);
                 GameFrame.getInstance().getTapete().removeTopOverlay(local_chip_flight_overlay);
                 local_chip_flight_overlay = null;
             }
 
-            // La carta gira sobre un overlay efímero centrado en su asiento:
-            // playCardFlipOverlays oculta la tapada en el mismo evento EDT que
-            // muestra su primer frame y la destapa síncrona bajo el último, sin
-            // pintar ningún hueco. delay_end=0.
+            // The card flips over an ephemeral overlay centered on its seat:
+            // playCardFlipOverlays hides the face-down card in the same EDT event
+            // that shows its first frame, and does the sync uncover under the last
+            // frame, so no gap is ever painted. delay_end=0.
             GameFrame.getInstance().getTapete().playCardFlipOverlays(
                     new Card[]{carta},
                     new PreRenderedGif[]{decoded.anim},
@@ -18341,13 +18065,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, null, ex);
         } finally {
-            // El volteo lógico es obligatorio (no-op en el camino feliz:
-            // destaparSync ya volteó la carta bajo el último frame).
+            // The logical flip is mandatory (no-op on the happy path: destaparSync
+            // already flipped the card under the last frame).
             carta.destapar(false);
             if (chip_on_card) {
-                // Belt-and-suspenders: si se salió antes del giro (gate/decode), retira
-                // igualmente el overlay del vuelo. La ficha REAPARECE justo al terminar
-                // (refreshPositionChipIcons respeta si el usuario la tiene desactivada).
+                // Belt and suspenders: if we bailed before the flip (gate/decode),
+                // still remove the flight overlay. The chip REAPPEARS right when it's
+                // done (refreshPositionChipIcons respects whether the user disabled it).
                 GameFrame.getInstance().getTapete().removeTopOverlay(local_chip_flight_overlay);
                 local_chip_flight_overlay = null;
                 local.setChipForcedHidden(false);
@@ -18356,10 +18080,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // Recoge el pre-decode del giro de una hole card local lanzado al inicio del
-    // reparto. Espera si aún no acabó (mucho menos que lo que tardó el vuelo) y lo
-    // descarta si no cuadra con la carta que aterrizó o si el zoom cambió entre
-    // medias (entonces el llamante decodifica inline).
+    // Collects the pre-decode of a local hole card's flip launched at the start of
+    // dealing. Waits if it isn't done yet (much less than the flight took) and
+    // discards it if it doesn't match the landed card or the zoom changed in
+    // between (the caller then decodes inline).
     private FlipAnim takePrefetchedHoleCardFlip(Future<?> prefetched, Card carta) {
 
         if (prefetched == null) {
@@ -18383,11 +18107,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void mostrarAnimacionDestaparCartaComunitaria(Card carta) {
 
-        // Jugador local fuera de la timba (o transmisión ya terminada): nadie
-        // mira la mesa y el hilo de salida puede estar esperando a que este
-        // destape (y el resto del showdown, bajo lock_contabilidad) termine.
-        // Volteo lógico seco — calcularJugadas necesita la carta destapada —
-        // sin GIF, sin pausa y sin checkPause.
+        // Local player has left the game (or transmission already ended): nobody's
+        // watching the table, and the exit thread may be waiting for this uncover
+        // (and the rest of showdown, under lock_contabilidad) to finish. Plain
+        // logical flip — calcularJugadas needs the card uncovered — no GIF, no
+        // pause, no checkPause.
         if (GameFrame.getInstance().getLocalPlayer().isExit() || isFin_de_la_transmision()) {
             carta.destapar(false);
             return;
@@ -18398,12 +18122,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             long start = System.currentTimeMillis();
 
             try {
-                // Render Swing pre-generado + motor catch-up: los frames se
-                // renderizan AQUÍ (el coste lo absorbe la pausa de abajo vía
-                // lapsed; para la 2ª y 3ª del flop viene ya hecho del prefetch) y
-                // la reproducción elige el frame por tiempo transcurrido, así la
-                // animación dura siempre lo nominal aunque el timer de Windows
-                // vaya grueso. Si el render falla, destape seco.
+                // Pre-generated Swing render + catch-up engine: frames are rendered
+                // HERE (the cost is absorbed by the pause below via lapsed; for the
+                // flop's 2nd and 3rd cards it already comes done from the prefetch)
+                // and playback picks the frame by elapsed time, so the animation
+                // always lasts its nominal duration even with a coarse Windows timer.
+                // Falls back to a plain uncover if the render fails.
                 FlipAnim decoded = takePrefetchedFlipAnim(carta);
 
                 if (decoded == null) {
@@ -18413,7 +18137,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 final PreRenderedGif anim = (decoded != null) ? decoded.anim : null;
 
                 if (anim == null) {
-                    // Render no disponible: destape seco con la pausa habitual.
+                    // Render unavailable: plain uncover with the usual pause.
                     Helpers.pausar(
                             (carta == GameFrame.getInstance().getFlop2() || carta == GameFrame.getInstance().getFlop3()) ? 0
                             : (this.destapar_resistencia ? PAUSA_DESTAPAR_CARTA_ALLIN : PAUSA_DESTAPAR_CARTA));
@@ -18448,10 +18172,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
                     });
 
-                    // on_show oculta la tapada en el MISMO evento EDT que muestra el
-                    // primer frame (relevo carta→giro en un solo paint) y before_hide
-                    // destapa la estática DEBAJO del último frame antes de ocultar el
-                    // overlay (relevo giro→carta sin pintar nunca el hueco vacío).
+                    // on_show hides the face-down card in the SAME EDT event that shows
+                    // the first frame (card->flip handoff in a single paint) and
+                    // before_hide uncovers the static image UNDER the last frame before
+                    // hiding the overlay (flip->card handoff without ever painting a gap).
                     GameFrame.getInstance().getTapete().showCentralFrames(anim, fdw, fdh, CARD_ANIMATION_DELAY,
                             GameFrame.uncoverSound(),
                             () -> carta.setVisibleCard(false),
@@ -18461,9 +18185,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             } finally {
-                // Aunque la animación falle, el volteo lógico es obligatorio o la
-                // evaluación de la mano peta luego. (En el camino feliz es no-op:
-                // destaparSync ya volteó la carta bajo el último frame.)
+                // Even if the animation fails, the logical flip is mandatory, or
+                // hand evaluation blows up later. (No-op on the happy path:
+                // destaparSync already flipped the card under the last frame.)
                 carta.destapar(false);
             }
 
@@ -18478,9 +18202,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void destaparFlop(ArrayList<Player> resisten) {
 
-        // La 2ª y la 3ª carta encadenan sin pausa larga: su GIF de giro se
-        // pre-decodifica en background mientras la primera paga su pausa y su
-        // animación, para que la cadencia del flop no dependa del decode.
+        // The 2nd and 3rd cards chain with no long pause: their flip GIF is
+        // pre-decoded in background while the first pays its pause and animation,
+        // so the flop's cadence doesn't depend on decode time.
         prefetchAnimacionDestaparCarta(GameFrame.getInstance().getFlop2());
         prefetchAnimacionDestaparCarta(GameFrame.getInstance().getFlop3());
 
@@ -18541,26 +18265,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         GameFrame.getInstance().getRegistro().print("RIVER -> " + Card.collection2String(com));
     }
 
-    // PHASE A.1 (showdown zero-trust): comportamiento del cliente al showdown.
+    // PHASE A.1 (showdown zero-trust): client-side showdown behavior.
     //
-    // Crypto-ring clients reciben SHOWCARDS#nick#key del host por cada peer al
-    // showdown — el handler async de WaitingRoomFrame:SHOWCARDS llama
-    // showPlayerCards que aplica la clave a single_locked_pocket_cards[nick]
-    // y verifica resolveCardIndex (lockdown si resolveCardIndex==-1).
+    // Crypto-ring clients receive SHOWCARDS#nick#key from the host for each peer at
+    // showdown — WaitingRoomFrame:SHOWCARDS's async handler calls showPlayerCards,
+    // which applies the key to single_locked_pocket_cards[nick] and verifies
+    // resolveCardIndex (lockdown if resolveCardIndex==-1).
     //
-    // ESPECTADORES (isCalentando / isSpectator) NO están en el crypto-ring y
-    // NO tienen single_locked_pocket_cards. Para ellos el host emite también
-    // POTCARDS plaintext, que solo se envía tras haber SRA-verificado a todos
-    // los peers (si alguien mintió, lockdown disparó y POTCARDS nunca sale).
+    // SPECTATORS (isCalentando / isSpectator) are NOT in the crypto-ring and have
+    // no single_locked_pocket_cards. For them the host also emits plaintext
+    // POTCARDS, which is only sent after SRA-verifying every peer (if anyone lied,
+    // lockdown already fired and POTCARDS never goes out).
     //
-    // Esta función:
-    //   (a) responde a REQ_SHOWDOWN_KEY enviando local_sra_unlock.
-    //   (b) procesa POTCARDS (plaintext fallback para espectadores y para
-    //       crypto-ring clients cuyas cartas SHOWCARDS aún están tapadas).
-    //   (c) bloquea hasta que se cumpla la condición de exit según rol:
-    //         - calentando: POTCARDS ha llegado (única forma de ver cartas).
-    //         - crypto-ring: todos los peers no-self tienen HoleCard destapada
-    //           (vía SHOWCARDS) o se aplicó plaintext POTCARDS como fallback.
+    // This function:
+    //   (a) responds to REQ_SHOWDOWN_KEY by sending local_sra_unlock.
+    //   (b) processes POTCARDS (plaintext fallback for spectators and for
+    //       crypto-ring clients whose SHOWCARDS cards are still face-down).
+    //   (c) blocks until its exit condition is met, per role:
+    //         - warming up: POTCARDS has arrived (the only way to see cards).
+    //         - crypto-ring: every non-self peer has an uncovered HoleCard (via
+    //           SHOWCARDS) or plaintext POTCARDS was applied as a fallback.
     private void recibirCartasResistencia(ArrayList<Player> resistencia) {
         long start_time = System.currentTimeMillis();
         String localNick = GameFrame.getInstance().getNick_local();
@@ -18578,20 +18302,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (partes.length >= 3) {
                         switch (partes[2]) {
                             case "REQ_SHOWDOWN_KEY":
-                                // ZERO-TRUST confidencialidad: solo revelo mi k_pocket si SOY CONTENDIENTE
-                                // del showdown (estoy en `resistencia`, computada LOCALMENTE). Un jugador
-                                // RETIRADO entra aquí solo para MIRAR el reveal; si respondiera, un host
-                                // malicioso podría pedirle la clave (REQ_SHOWDOWN_KEY no solicitado) y
-                                // desenmascarar sus cartas MUCKED. Verificado contra MI estado, no el del host.
+                                // ZERO-TRUST confidentiality: only reveal my k_pocket if I AM a
+                                // CONTENDER in this showdown (I'm in `resistencia`, computed
+                                // LOCALLY). A FOLDED player reaches this case only to WATCH the
+                                // reveal; if it responded, a malicious host could request its key
+                                // (an unsolicited REQ_SHOWDOWN_KEY) and unmask its MUCKED cards.
+                                // Checked against MY state, not the host's.
                                 if (!resistencia.contains(GameFrame.getInstance().getLocalPlayer())) {
                                     LOGGER.log(Level.WARNING,
                                             "Ignoring REQ_SHOWDOWN_KEY: local player is not a showdown contender (folded/watcher) — not revealing pocket key");
                                     break;
                                 }
-                                // PHASE A.1: respondemos con nuestra pocket-unlock + sig Ed25519.
-                                // La sig demuestra al host (y al resto via rebroadcast) que la
-                                // clave fue autorizada por NUESTRA privkey — el host no la
-                                // puede substituir. Asíncrono para no bloquear el polling.
+                                // PHASE A.1: respond with our pocket-unlock + Ed25519 sig. The sig
+                                // proves to the host (and everyone else via rebroadcast) that the
+                                // key was authorized by OUR OWN privkey — the host can't substitute
+                                // it. Asynchronous so it doesn't block the polling loop.
                                 Helpers.threadRun(() -> {
                                     try {
                                         byte[] myKey = this.local_sra_unlock;
@@ -18614,19 +18339,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 break;
 
                             case "POTCARDS":
-                                // Showdown atómico. Formato per-entry (5 fields):
+                                // Atomic showdown. Per-entry format (5 fields):
                                 //   #nickB64#c1#c2#sraKeyB64#sigB64
                                 //
-                                // Espectadores/calentando: aplican plaintext (c1/c2) sin
-                                // verificar — no tienen single_locked_pocket_cards. Si
-                                // un crypto-ring detecta cheating dispara lockdown y
-                                // todos paran.
+                                // Spectators/warming up: apply plaintext (c1/c2) unverified —
+                                // they have no single_locked_pocket_cards. If a crypto-ring
+                                // member detects cheating, lockdown fires and everyone stops.
                                 //
-                                // Crypto-ring: verifica sig Ed25519 (lockdown si fail →
-                                // host hostile), luego descifra single_locked_pocket_cards
-                                // con la sraKey y compara con plaintext. Si match: aplica.
-                                // Si mismatch: ese peer FORFEIT (sus cartas no se aplican
-                                // → showdown las dejará tapadas).
+                                // Crypto-ring: verifies the Ed25519 sig (lockdown on fail ->
+                                // hostile host), then decrypts single_locked_pocket_cards with
+                                // the sraKey and compares against plaintext. Match: applied.
+                                // Mismatch: that peer FORFEITs (its cards aren't applied ->
+                                // showdown leaves them face-down).
                                 {
                                     int total = (partes.length - 3) / 5;
                                     boolean lockdownTriggered = false;
@@ -18650,7 +18374,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             }
 
                                             if (iAmCalentando) {
-                                                // Espectador: aplica plaintext directo.
+                                                // Spectator: apply plaintext directly.
                                                 String[] carta1 = c1_str.split("_");
                                                 String[] carta2 = c2_str.split("_");
                                                 jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
@@ -18658,11 +18382,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 continue;
                                             }
 
-                                            // Mapping zero-trust de violaciones:
+                                            // Zero-trust violation mapping:
                                             //   sig/key missing, bad lengths, sig verify FAILED,
-                                            //   Set mismatch (cartas distintas) → 🔴 LOCKDOWN (terminamos).
-                                            //   sig OK pero SRA no resuelve → 🟢 FORFEIT del peer + popup.
-                                            //   Orden swap (mismas cartas) → silencioso (bug benigno).
+                                            //   Set mismatch (different cards) -> LOCKDOWN (we stop).
+                                            //   sig OK but SRA doesn't resolve -> peer FORFEIT + popup.
+                                            //   Order swap (same cards) -> silent (benign bug).
                                             boolean keyProvided = (sraKeyB64 != null && !sraKeyB64.equals("*"));
                                             boolean sigProvided = (sigB64 != null && !sigB64.equals("*"));
                                             if (!keyProvided || !sigProvided) {
@@ -18700,20 +18424,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 break;
                                             }
 
-                                            // Sig OK. Descifrar y poblar holeCards desde el SRA.
-                                            // El SRA-decrypt es la ÚNICA fuente de verdad para peers
-                                            // con cipher local (activos). El plaintext se compara como
-                                            // Set (no tupla) para tolerar reordenamiento UI del host.
-                                            // Solo se guarda un escalar USABLE (ver el gemelo del
-                                            // SHOWCARDS): uno inservible revienta al invertirlo.
+                                            // Sig OK. Decrypt and populate holeCards from the SRA. SRA
+                                            // decryption is the ONLY source of truth for peers with a
+                                            // local cipher (active ones). Plaintext is compared as a
+                                            // Set (not a tuple) to tolerate the host's UI reordering.
+                                            // Only a USABLE scalar is stored (see the SHOWCARDS twin):
+                                            // an unusable one blows up on inversion.
                                             Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
                                             if (pp != null && RistrettoSRA.isValidScalar(sraKey)) {
                                                 pp.setSra_unlock(sraKey);
                                             }
                                             byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
                                             if (pocketCards == null || pocketCards.length != 64) {
-                                                // Espectador (calentando, sin cipher local) → confiamos
-                                                // en el plaintext firmado del host.
+                                                // Spectator (warming up, no local cipher) -> trust the
+                                                // host's signed plaintext.
                                                 String[] carta1 = c1_str.split("_");
                                                 String[] carta2 = c2_str.split("_");
                                                 jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
@@ -18726,12 +18450,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             int id1 = RistrettoSRA.resolveCardIndex(cb1);
                                             int id2 = RistrettoSRA.resolveCardIndex(cb2);
                                             if (id1 < 0 || id2 < 0) {
-                                                // Politica §8 + la intencion documentada arriba ("FORFEIT del peer"):
-                                                // sig OK pero la SRA no resuelve = anomalia aislada a UN peer (firmo una
-                                                // clave mala: bug/cliente corrupto, no distinguible de malicia). NO
-                                                // aplicamos sus cartas (continue -> el showdown las deja tapadas =
-                                                // forfeit) y avisamos, en vez de terminar la partida de TODOS. (El
-                                                // set-mismatch de abajo, host MINTIENDO sobre las cartas, si es lockdown.)
+                                                // §8 policy + the intent documented above ("peer FORFEIT"): sig OK
+                                                // but SRA doesn't resolve = an anomaly isolated to ONE peer (it
+                                                // signed a bad key: bug/corrupt client, indistinguishable from
+                                                // malice). Its cards are NOT applied (continue -> showdown leaves
+                                                // them face-down = forfeit) and we warn, instead of ending the game
+                                                // for EVERYONE. (The set-mismatch below, host LYING about the
+                                                // cards, is a lockdown.)
                                                 LOGGER.log(Level.SEVERE,
                                                         "ZERO-TRUST: POTCARDS for {0} — sig OK but SRA does not resolve (ids={1},{2}). Malicious peer or bug -> FORFEIT (cards not applied) + warning.",
                                                         new Object[]{nick, id1, id2});
@@ -18740,8 +18465,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                             nick + " " + Translator.translate("zero_trust.peer_sra_corrupt_registro"));
                                                 } catch (Exception ignored) {
                                                 }
-                                                // Visibilidad §8 con SOSPECHOSO correcto: en el HOST nombra al
-                                                // PEER (rojo + popup); en un cliente el host relaya la clave mala.
+                                                // §8 visibility with the right SUSPECT named: on the HOST it
+                                                // names the PEER (red + popup); on a client the host relayed
+                                                // the bad key.
                                                 if (GameFrame.getInstance().isPartida_local()) {
                                                     warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
                                                 } else {
@@ -18750,10 +18476,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 continue;
                                             }
 
-                                            // Validar plaintext vs SRA-decrypt como SET (no tupla):
-                                            // pockets son intercambiables en Hold'em; el host puede
-                                            // legítimamente reordenarlas para visualización. Pero si
-                                            // las CARTAS son DISTINTAS → cheat real → LOCKDOWN.
+                                            // Validate plaintext vs SRA-decrypt as a SET (not a tuple):
+                                            // pockets are interchangeable in Hold'em, so the host can
+                                            // legitimately reorder them for display. But if the CARDS
+                                            // are DIFFERENT -> real cheating -> LOCKDOWN.
                                             String expected1 = Card.shortStringFromIndex(id1);
                                             String expected2 = Card.shortStringFromIndex(id2);
                                             java.util.Set<String> received = new java.util.HashSet<>(
@@ -18771,8 +18497,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                             jugador.getHoleCard1().iniciarConValorNumerico(id1 + 1);
                                             jugador.getHoleCard2().iniciarConValorNumerico(id2 + 1);
-                                            // Mismo reordenamiento que el host (carta mayor a la
-                                            // izquierda) para visualización consistente entre peers.
+                                            // Same reordering as the host (higher card on the left) for
+                                            // display consistency across peers.
                                             jugador.ordenarCartas();
                                         } catch (Exception ex) {
                                             LOGGER.log(Level.WARNING, "Error processing POTCARDS entry " + i, ex);
@@ -18804,15 +18530,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // Condiciones de exit:
-            //   - POTCARDS aplicado: showdown propiamente dicho, ya tenemos
-            //     valores de cartas.
-            //   - resistencia no contiene a NADIE remoto/no-exit: caso
-            //     fold-to-win (resisten=[] o solo localPlayer). No hay nada
-            //     que esperar — el server NO emite POTCARDS porque no hay
-            //     entries; salimos inmediato igual que el código antiguo
-            //     (cuyo for sobre resistencia salía con doneWaiting=true si
-            //     la lista no iteraba).
+            // Exit conditions:
+            //   - POTCARDS applied: an actual showdown, we already have card values.
+            //   - resistencia contains NOBODY remote/non-exit: fold-to-win case
+            //     (resisten=[] or just localPlayer). Nothing to wait for — the
+            //     server does NOT emit POTCARDS since there are no entries, so we
+            //     exit immediately.
             if (potcardsApplied) {
                 break;
             }
@@ -18848,19 +18571,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } while (!isFin_de_la_transmision());
     }
 
-    // Espera (timed-wait robusto a notify perdidos, mismo patrón que el
-    // watcher de _cinematicAllin) a que termine la cinemática de all-in en
-    // curso en ESTA máquina. TODOS los finales de la cinemática (frames
-    // completos, skip por click, sin GIF, CINEMATICAS off, replay de
-    // recovery) apagan el flag y notifican LOCK_CINEMATICS; durante el
-    // replay de recovery el flag está apagado (espera inerte). Lo usan el
-    // turno del bot tras un all-in y los destapes animados (resistencia y
-    // showdown), que no deben pisar la animación central.
+    // Waits (timed-wait robust to lost notifies, same pattern as the
+    // _cinematicAllin watcher) for the all-in cinematic currently playing on THIS
+    // machine to finish. EVERY way the cinematic can end (full playback, click-skip,
+    // no GIF, cinematics off, recovery replay) clears the flag and notifies
+    // LOCK_CINEMATICS; during recovery replay the flag is off (inert wait). Used by
+    // the bot's turn after an all-in and by animated uncovers (resistance and
+    // showdown), which must not step on the central animation.
     private void esperarFinCinematicaAllin() {
-        // isExit(): si el jugador local ha salido no hay cinemática que
-        // respetar, y esta espera puede estar corriendo bajo lock_contabilidad
-        // (showdown) reteniendo a finTransmision — el flag de fin no puede
-        // izarse hasta soltar el lock, así que no basta con chequearlo.
+        // isExit(): if the local player has left there's no cinematic to respect,
+        // and this wait may be running under lock_contabilidad (showdown), which
+        // blocks finTransmision — the end flag can't be raised until the lock is
+        // released, so checking it alone isn't enough.
         while (Init.PLAYING_CINEMATIC && !isFin_de_la_transmision()
                 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
             synchronized (Init.LOCK_CINEMATICS) {
@@ -18881,8 +18603,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void procesarCartasResistencia(ArrayList<Player> resisten, boolean destapar) {
 
         if (destapar) {
-            // El destape (animado o seco) de las cartas de la resistencia no
-            // debe arrancar con la cinemática del all-in aún en pantalla.
+            // Uncovering resistance cards (animated or plain) must not start while
+            // the all-in cinematic is still on screen.
             esperarFinCinematicaAllin();
         }
 
@@ -18890,32 +18612,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (GameFrame.getInstance().isPartida_local()) {
 
-                // --- NUEVO: OPTIMISTIC UI - Pedimos las cartas a los clientes remotos ---
+                // Optimistic UI: request cards from remote clients up front.
                 solicitarYRecibirCartasVisuales(resisten);
-                // ------------------------------------------------------------------------
 
-                // Enviamos a cada jugador las cartas de los jugadores que han llegado al final
-                // PHASE A.1 (showdown zero-trust): el broadcast plaintext POTCARDS
-                // queda eliminado. La distribución de cartas al showdown va por
-                // SHOWCARDS#nick#k_pocket_unlock dentro de solicitarYRecibirCartas
-                // Visuales (arriba), con verificación criptográfica vía
-                // resolveCardIndex en el receptor. Un peer que mienta su pocket
-                // key dispara lockdown — no plaintext que aceptar a ciegas.
+                // PHASE A.1 (showdown zero-trust): the plaintext POTCARDS broadcast is
+                // gone. Cards reach showdown via SHOWCARDS#nick#k_pocket_unlock inside
+                // solicitarYRecibirCartasVisuales (above), with cryptographic
+                // verification via resolveCardIndex on the receiver. A peer lying
+                // about its pocket key triggers lockdown — there's no plaintext to
+                // blindly accept.
 
                 if (destapar) {
-                    // Sin uncover.wav de batch aquí: cada giro por jugador ya
-                    // reproduce su propio uncover (caminos animado y seco lo
-                    // suenan SIEMPRE, ignorando el flag sound, igual que en
-                    // showdown). Un uncover explícito previo se duplicaba con el
-                    // del primer giro y, por la carrera entre su force_close=false
-                    // y el force_close=true del giro, unas veces se cortaba a
-                    // media muestra y otras se solapaba/repetía con el giro y la
-                    // primera comunitaria del run-out.
+                    // No batch uncover.wav here: each player's flip already plays its
+                    // own uncover sound (both the animated and plain paths ALWAYS play
+                    // it, ignoring the sound flag, same as showdown). A prior explicit
+                    // uncover duplicated with the first flip's, and depending on the
+                    // race between its force_close=false and the flip's force_close=true,
+                    // it sometimes cut mid-sample and other times overlapped/repeated
+                    // with the flip and the run-out's first community card.
 
-                    // Destapamos las cartas de los jugadores involucrados,
-                    // SECUENCIAL por jugador: cada giro animado bloquea (hilo
-                    // del crupier) y el siguiente rival no gira hasta que el
-                    // anterior termina, como un dealer real.
+                    // Uncover the involved players' cards, SEQUENTIALLY per player: each
+                    // animated flip blocks (crupier thread) and the next opponent
+                    // doesn't flip until the previous one finishes, like a real dealer.
                     for (Player jugador : resisten) {
 
                         if (jugador != GameFrame.getInstance().getLocalPlayer() && !jugador.isExit()) {
@@ -18929,22 +18647,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } else {
 
-                // Recibimos las cartas de los jugadores involucrados en el bote_total
-                // (ignoramos las nuestras que ya las sabemos)
+                // Receive the cards of the players involved in bote_total (skipping
+                // our own, which we already know).
                 recibirCartasResistencia(resisten);
 
                 if (destapar) {
-                    // Sin uncover.wav de batch aquí: cada giro por jugador ya
-                    // reproduce su propio uncover (caminos animado y seco lo
-                    // suenan SIEMPRE, ignorando el flag sound, igual que en
-                    // showdown). Un uncover explícito previo se duplicaba con el
-                    // del primer giro y, por la carrera entre su force_close=false
-                    // y el force_close=true del giro, unas veces se cortaba a
-                    // media muestra y otras se solapaba/repetía con el giro y la
-                    // primera comunitaria del run-out.
+                    // No batch uncover.wav here: each player's flip already plays its
+                    // own uncover sound (both the animated and plain paths ALWAYS play
+                    // it, ignoring the sound flag, same as showdown). A prior explicit
+                    // uncover duplicated with the first flip's, and depending on the
+                    // race between its force_close=false and the flip's force_close=true,
+                    // it sometimes cut mid-sample and other times overlapped/repeated
+                    // with the flip and the run-out's first community card.
 
-                    // Destapamos las cartas de los jugadores involucrados,
-                    // SECUENCIAL por jugador (ver rama del host).
+                    // Uncover the involved players' cards, SEQUENTIALLY per player
+                    // (see the host branch).
                     for (Player jugador : resisten) {
 
                         if (jugador != GameFrame.getInstance().getLocalPlayer() && !jugador.isExit()) {
@@ -19000,10 +18717,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             nick2player.clear();
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
                 nick2player.put(jugador.getNickname(), jugador);
-                // Baja de sala solo para participantes remotos: si el que sale
-                // es el propio host (exit a mitad de mano, con finTransmision
-                // ya en marcha en paralelo) no hay baja que procesar — su
-                // entrada en participantes es un placeholder null por diseño.
+                // Room removal only for remote participants: if the one leaving is
+                // the host itself (exit mid-hand, with finTransmision already
+                // running in parallel) there's nothing to process — its entry in
+                // participantes is a null placeholder by design.
                 if (jugador.isExit() && GameFrame.getInstance().isPartida_local()
                         && jugador != GameFrame.getInstance().getLocalPlayer()) {
                     GameFrame.getInstance().getSala_espera().borrarParticipante(jugador.getNickname());
@@ -19064,23 +18781,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    // Accion para un tick (1s) de la cuenta atras de showdown.
+    // Action for one tick (1s) of the showdown countdown.
     public enum PauseTick {
         IDLE, DECREMENT, HOLD, CLEAR_REQUEST, GIVE_UP
     }
 
     /**
-     * Decide, para un tick de la cuenta atras de showdown, que hacer con la barra.
-     * PURA y sin estado (no toca campos ni GUI ni red) para poder testearla sola.
+     * Decides, for one showdown-countdown tick, what to do with the bar. PURE and
+     * stateless (touches no fields, GUI, or network) so it can be tested in
+     * isolation.
      *
-     * - IDLE:          timba pausada o fin de transmision -> ni se cuenta ni se baja.
-     * - DECREMENT:     nadie mira una mano -> baja la cuenta atras.
-     * - HOLD:          IWTSTH (peticion o handling) o rabbit en curso -> se congela.
-     * - CLEAR_REQUEST: una peticion IWTSTH lleva demasiado sin activarse (round-trip
-     *                  perdido) -> el caller suelta iwtsthing_request y sigue.
-     * - GIVE_UP:       congelado mas alla del tope absoluto -> reanudar a la fuerza.
+     * - IDLE:          game paused or transmission ended -> neither counted nor decremented.
+     * - DECREMENT:     nobody's reviewing a hand -> countdown decrements.
+     * - HOLD:          IWTSTH (request or handling) or a rabbit in progress -> frozen.
+     * - CLEAR_REQUEST: an IWTSTH request has gone too long without activating (lost
+     *                  round-trip) -> the caller releases iwtsthing_request and continues.
+     * - GIVE_UP:       frozen past the absolute cap -> force resume.
      *
-     * vueltasBefore es el contador ANTES de este tick; el tick en curso cuenta +1.
+     * vueltasBefore is the counter BEFORE this tick; the current tick counts +1.
      */
     public static PauseTick decidePauseTick(boolean timbaPausada, boolean finTransmision,
             boolean iwtsthing, boolean iwtsthingRequest, boolean rabbitProcessing,
@@ -19096,19 +18814,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (vueltas > maxVueltas) {
             return PauseTick.GIVE_UP;
         }
-        // Una peticion pendiente que NO escalo a IWTSTH activo ni a rabbit es un
-        // round-trip perdido: tolerancia corta. Un IWTSTH activo (host decidiendo) o
-        // un rabbit procesandose conservan la tolerancia larga (MAX_VUELTAS).
+        // A pending request that did NOT escalate to active IWTSTH or a rabbit is a
+        // lost round-trip: short tolerance. An active IWTSTH (host deciding) or a
+        // rabbit in progress keep the long tolerance (MAX_VUELTAS).
         if (iwtsthingRequest && !iwtsthing && !rabbitProcessing && vueltas > maxRequestVueltas) {
             return PauseTick.CLEAR_REQUEST;
         }
         return PauseTick.HOLD;
     }
 
-    // True si hay al menos una peticion de rabbit hunting procesandose en ESTA
-    // maquina (rabbit_players marca PENDING=true mientras corre RABBIT_HANDLER).
-    // La barra de pausa se congela mientras tanto para no cerrar el showdown a mitad
-    // del revelado/cobro y mantener a todos los peers en la misma mano.
+    // True if at least one rabbit-hunting request is being processed on THIS
+    // machine (rabbit_players marks PENDING=true while RABBIT_HANDLER runs). The
+    // pause bar freezes meanwhile so showdown doesn't close mid reveal/charge,
+    // keeping every peer on the same hand.
     public boolean isRabbitProcessing() {
         for (Boolean pending : rabbit_players.values()) {
             if (Boolean.TRUE.equals(pending)) {
@@ -19118,27 +18836,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return false;
     }
 
-    // Comparacion pura de hand ids (testeable): iguales y ambos presentes.
+    // Pure hand-id comparison (testable): equal and both present.
     public static boolean handIdMatches(byte[] cmdHandId, byte[] currentHandId) {
         return cmdHandId != null && currentHandId != null
                 && java.util.Arrays.equals(cmdHandId, currentHandId);
     }
 
-    // True si un comando RABBIT (con su hand id en base64, que puede faltar en peers
-    // de version antigua) debe aplicarse en ESTE peer. Sustituye al guard isShow_time()
-    // en la recepcion de RABBIT: el cobro/revelado se aplica igual en todas las maquinas
-    // aunque la barra de una ya cerrara, para que el fee no diverja entre peers (lo que
-    // provocaba un DIVERGENT falso en la mano siguiente).
+    // True if a RABBIT command (with its base64 hand id, which may be missing on
+    // older-version peers) should apply on THIS peer. Replaces the isShow_time()
+    // guard on RABBIT reception: the charge/reveal applies the same on every
+    // machine even if one's bar already closed, so the fee doesn't diverge between
+    // peers (which used to trigger a false DIVERGENT on the next hand).
     //
-    // Se acepta si el hand id es:
-    //   - el de la mano en curso (current_hand_id), o
-    //   - el de la mano recien terminada cuyo bote_sobrante AUN no se ha doblado en el
-    //     bote de la siguiente (rabbit_fee_window_hand_id). current_hand_id se anula
-    //     pronto (readyForNextHand :7759, antes de la barrera HAND_READY), asi que este
-    //     segundo termino cubre el hueco entre-manos en el que aplicar el fee sigue
-    //     siendo correcto.
-    // Se rechaza una rabbit de una mano ya cerrada del todo (su bote_sobrante ya
-    // consumido) — aplicarla descuadraria el bote.
+    // Accepted if the hand id is:
+    //   - the current hand's (current_hand_id), or
+    //   - the just-finished hand's, whose bote_sobrante hasn't YET been folded into
+    //     the next hand's pot (rabbit_fee_window_hand_id). current_hand_id is
+    //     cleared early (readyForNextHand :7759, before the HAND_READY barrier), so
+    //     this second term covers the between-hands gap where applying the fee is
+    //     still correct.
+    // A rabbit from a hand that's fully closed already (its bote_sobrante already
+    // consumed) is rejected — applying it would unbalance the pot.
     public boolean rabbitBelongsToCurrentHand(String handIdB64) {
         byte[] cmd = null;
         if (handIdB64 != null && !handIdB64.isEmpty() && !"*".equals(handIdB64)) {
@@ -19156,36 +18874,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.setTiempo_pausa(tiempo);
 
-        // Vueltas seguidas (de un segundo) en las que la cuenta atras no ha bajado por
-        // haber un IWTSTH (peticion o handling) o un rabbit en curso (ver decidePauseTick).
+        // Consecutive one-second ticks where the countdown hasn't decremented because
+        // an IWTSTH (request or handling) or a rabbit is in progress (see decidePauseTick).
         //
-        // El tope grande (MAX_VUELTAS_SIN_BAJAR) es DELIBERADO porque quien levanta la
-        // marca de IWTSTH ACTIVO no es un reloj: es el anfitrion contestando un si/no en
-        // un dialogo, o sea una persona, que puede tardar lo que le de la gana. Un tope
-        // corto rompia la pausa mientras se lo pensaba y dejaba la mano del perdedor
-        // escrita como oculta sin volver a corregirla. En cambio, una PETICION IWTSTH que
-        // se envio pero nunca escalo a activo (round-trip perdido: el host la descarto
-        // porque su show_time ya cerro) usa el tope corto MAX_REQUEST_VUELTAS_SIN_BAJAR y
-        // se suelta sola, para no congelar la mesa 10 min. Esto es solo la red de
-        // seguridad para que la mano no se quede parada de por vida.
+        // The large cap (MAX_VUELTAS_SIN_BAJAR) is DELIBERATE: whoever raises the
+        // ACTIVE IWTSTH flag isn't a clock — it's the host answering yes/no in a
+        // dialog, i.e. a person, who can take as long as they like. A short cap
+        // would break the pause mid-decision and leave the loser's hand permanently
+        // marked hidden. A REQUEST that was sent but never escalated to active
+        // (lost round-trip: the host dropped it because its show_time already
+        // closed) instead uses the short MAX_REQUEST_VUELTAS_SIN_BAJAR cap and
+        // releases itself, so the table doesn't freeze for 10 minutes. This is only
+        // the safety net so a hand can never stay stuck forever.
         int vueltas_sin_bajar = 0;
         final int MAX_VUELTAS_SIN_BAJAR = 600;
-        // Tolerancia CORTA para una peticion IWTSTH que se envio pero nunca escalo a
-        // IWTSTH activo (el host la descarto porque su show_time ya habia cerrado):
-        // soltamos iwtsthing_request en ~15s en vez de congelar la mesa hasta
-        // MAX_VUELTAS_SIN_BAJAR (que existe para el caso legitimo de un humano
-        // pensandose el si/no del dialogo, donde iwtsthing SI esta activo).
+        // SHORT tolerance for an IWTSTH request that was sent but never escalated to
+        // active (the host dropped it because its show_time had already closed): we
+        // release iwtsthing_request in ~15s instead of freezing the table up to
+        // MAX_VUELTAS_SIN_BAJAR (which exists for the legitimate case of a human
+        // thinking over the dialog's yes/no, where iwtsthing IS active).
         final int MAX_REQUEST_VUELTAS_SIN_BAJAR = 15;
 
         while (getTiempoPausa() > 0) {
 
-            // El jugador local ha salido de la timba: la pausa es puro tiempo
-            // para que los humanos asimilen lo ocurrido y aquí ya no queda
-            // humano que mire. Cortarla importa especialmente cuando corre
-            // bajo lock_contabilidad (pausa entre caras del run-it-twice):
-            // finTransmision necesita ese lock ANTES de poder izar
-            // fin_de_la_transmision, así que el flag de fin no puede ser
-            // quien la aborte — isExit() sí, porque se pone sin locks.
+            // The local player has left the game: the pause is purely time for
+            // humans to take in what happened, and there's no human left watching.
+            // Cutting it short matters especially when this runs under
+            // lock_contabilidad (the pause between run-it-twice boards):
+            // finTransmision needs that lock BEFORE it can raise
+            // fin_de_la_transmision, so the end flag can't be what aborts this —
+            // isExit() can, since it's set without any locks.
             if (GameFrame.getInstance().getLocalPlayer().isExit()) {
                 break;
             }
@@ -19194,10 +18912,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     lock_pausa_barra.wait(1000);
 
-                    // Congelamos la cuenta atras mientras haya un IWTSTH (peticion o
-                    // handling) o un rabbit procesandose, para que el round-trip no se
-                    // corte a mitad. La decision es pura y esta en decidePauseTick para
-                    // poder testearla sin GUI ni red.
+                    // Freeze the countdown while an IWTSTH (request or handling) or a
+                    // rabbit is being processed, so the round-trip doesn't get cut off
+                    // mid-flight. The decision is pure and lives in decidePauseTick so
+                    // it can be tested without GUI or network.
                     PauseTick action = decidePauseTick(
                             GameFrame.getInstance().isTimba_pausada(),
                             isFin_de_la_transmision(),
@@ -19213,18 +18931,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         vueltas_sin_bajar = 0;
                         tiempo_pausa--;
 
-                        // OJO (comentario corregido): la barra VISUAL la anima
-                        // Helpers.smoothCountdown por wall-clock y solo la congela
-                        // isTimba_pausada(); NO se congela con IWTSTH/rabbit. El que
-                        // MANDA para saber cuando acaba la pausa es este contador
-                        // logico (tiempo_pausa). Durante un IWTSTH/rabbit este contador
-                        // se congela (ver arriba) mientras la barra visual sigue
-                        // corriendo por reloj hasta que el siguiente setTiempo_pausa la
-                        // re-sincroniza.
+                        // NOTE: the VISUAL bar is animated by Helpers.smoothCountdown on
+                        // wall-clock time and is only frozen by isTimba_pausada() — it does
+                        // NOT freeze for IWTSTH/rabbit. The AUTHORITY for when the pause
+                        // ends is this logical counter (tiempo_pausa). During an
+                        // IWTSTH/rabbit this counter freezes (see above) while the visual
+                        // bar keeps running on the clock until the next setTiempo_pausa
+                        // re-syncs it.
                     } else if (action == PauseTick.CLEAR_REQUEST) {
-                        // Round-trip IWTSTH perdido: soltamos el flag para que la cuenta
-                        // atras siga en vez de quedarse congelada 10 min. La peticion se
-                        // da por perdida (el host nunca autorizara: su show_time cerro).
+                        // Lost IWTSTH round-trip: release the flag so the countdown
+                        // resumes instead of staying frozen for 10 minutes. The request
+                        // is written off (the host will never authorize it: its show_time
+                        // already closed).
                         LOGGER.log(Level.WARNING,
                                 "IWTSTH request unresolved after {0}s — clearing so the countdown can resume",
                                 vueltas_sin_bajar + 1);
@@ -19233,8 +18951,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     } else if (action == PauseTick.HOLD) {
                         vueltas_sin_bajar++;
                     }
-                    // PauseTick.IDLE: timba pausada o fin de transmision -> ni contamos
-                    // ni decrementamos (igual que antes).
+                    // PauseTick.IDLE: game paused or transmission ended -> neither count
+                    // nor decrement.
 
                 } catch (InterruptedException ex) {
                     Helpers.logCooperativeCancellation(LOGGER, "pause progress bar loop", ex);
@@ -19251,7 +18969,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void showdown(HashMap<Player, Hand> perdedores, HashMap<Player, Hand> ganadores, java.util.List<Card> diferir_desenfoque) {
         int pivote;
 
-        // 1. Determinar quién es el primero en enseñar (último agresor o el siguiente al dealer)
+        // 1. Determine who shows first (last aggressor, or the seat after the dealer)
         if (this.last_aggressor != null) {
             pivote = 0;
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
@@ -19268,19 +18986,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
         }
 
-        // 2. PASADA 1 — destapes: en orden de palabra, cada jugador que debe
-        // mostrar gira sus cartas (animado, bloqueante), SIN tocar su action
-        // label (la etiqueta azul de jugada queda reservada al botón MOSTRAR
-        // voluntario de los foldeados entre manos). Los veredictos
-        // GANA/PIERDE + jugada de TODOS se revelan de golpe en la pasada 2,
-        // cuando ya no queda nadie por destapar — como en una mesa real,
-        // donde no hay ganador hasta que todas las manos están boca arriba.
-        // mustShow se decide AQUÍ una sola vez por jugador (first_to_show es
-        // estado del recorrido) y la pasada 2 lo reutiliza tal cual:
-        // recalcularlo podría divergir.
-        // Un all-in en el river llega aquí sin run-out: la cinemática del
-        // all-in puede seguir en pantalla y los giros de la pasada 1 no
-        // deben pisarla.
+        // 2. PASS 1 — uncovers: in speaking order, each player who must show flips
+        // their cards (animated, blocking), WITHOUT touching their action label
+        // (the blue hand-name label stays reserved for folded players' voluntary
+        // SHOW button between hands). WIN/LOSE verdicts + everyone's hand are
+        // revealed all at once in pass 2, once nobody is left to uncover — like a
+        // real table, where there's no winner until every hand is face-up.
+        // mustShow is decided HERE, once per player (first_to_show is state of the
+        // walk) and pass 2 reuses it as-is: recomputing it could diverge.
+        // An all-in on the river reaches here with no run-out: the all-in cinematic
+        // may still be on screen, and pass 1's flips must not step on it.
         esperarFinCinematicaAllin();
 
         HashMap<Player, Boolean> must_show = new HashMap<>();
@@ -19297,12 +19012,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 boolean isWinner = ganadores.containsKey(jugador_actual);
                 Hand jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
 
-                // LÓGICA AUTO-MUCK (IWTSTH):
-                // Se destapa la carta SÓLO si:
-                // - IWTSTH está desactivado (todos muestran)
-                // - Es un All-in (destapar_resistencia = true)
-                // - El jugador es uno de los ganadores del bote
-                // - Es el primer jugador en actuar en el showdown (pivote)
+                // AUTO-MUCK logic (IWTSTH):
+                // Cards are uncovered ONLY if:
+                // - IWTSTH is disabled (everyone shows)
+                // - It's an All-in (destapar_resistencia = true)
+                // - The player is one of the pot's winners
+                // - It's the first player to act at showdown (pivote)
                 boolean mustShow = !GameFrame.IWTSTH_RULE ||
                                    this.destapar_resistencia ||
                                    isWinner ||
@@ -19311,45 +19026,43 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 must_show.put(jugador_actual, mustShow);
 
                 if (mustShow) {
-                    // ¿El destape ocurre AHORA? En all-in y run-it-twice las
-                    // cartas ya giraron antes del showdown: ni animación, ni
-                    // etiqueta neutra, ni pausa — directo al veredicto de la
-                    // pasada 2 (comportamiento de siempre).
+                    // Does the uncover happen NOW? On all-in and run-it-twice the
+                    // cards already flipped before showdown: no animation, no
+                    // neutral label, no pause — straight to pass 2's verdict (as
+                    // always).
                     boolean estaba_tapada = jugador_actual.getHoleCard1().isTapada();
 
-                    // Pausa dramática ENTRE destapes, nunca tras el último:
-                    // corre antes de este giro solo si ya hubo otro antes
-                    // (visualmente cae tras la etiqueta neutra del jugador
-                    // anterior). Así los veredictos de la pasada 2 saltan
-                    // JUSTO al terminar el último giro, igual que en el
-                    // all-in multiway.
+                    // Dramatic pause BETWEEN uncovers, never after the last one: runs
+                    // before this flip only if there was one before it (visually it
+                    // falls after the previous player's neutral label). This way pass
+                    // 2's verdicts land RIGHT as the last flip finishes, same as a
+                    // multiway all-in.
                     if (estaba_tapada && alguno_destapado && !GameFrame.TEST_MODE) {
                         Helpers.pausar(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
                     }
 
-                    // Bloquea hasta el fin del giro (hilo del crupier, como las
-                    // comunitarias).
+                    // Blocks until the flip finishes (crupier thread, like community
+                    // cards).
                     mostrarAnimacionDestaparCartasJugador(jugador_actual, false);
 
                     if (estaba_tapada) {
-                        // Jugada en etiqueta NEUTRA (gris del label en reposo,
-                        // no el azul del botón MOSTRAR): enseña QUÉ lleva sin
-                        // adelantar si gana.
+                        // Hand name on the NEUTRAL label (the label's resting gray,
+                        // not the SHOW button's blue): shows WHAT they hold without
+                        // giving away whether they win.
                         if (jugador_actual instanceof RemotePlayer) {
                             ((RemotePlayer) jugador_actual).showJugadaNeutral(jugada.getName());
                         }
 
                         alguno_destapado = true;
                     } else if (jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
-                        // El LocalPlayer ya ve sus cartas boca arriba (no hubo giro
-                        // que animar), pero su jugada debe pintarse en la etiqueta
-                        // NEUTRA durante el destape secuencial igual que al resto
-                        // (antes solo aparecía en la pasada 2, con ganadores/perdedores).
+                        // LocalPlayer already sees its own cards face-up (no flip to
+                        // animate), but its hand must still paint on the NEUTRAL label
+                        // during the sequential uncover just like everyone else's.
                         ((LocalPlayer) jugador_actual).showJugadaNeutral(jugada.getName());
                     }
                 }
 
-                // A partir de ahora, los siguientes perdedores podrán ocultar sus cartas
+                // From here on, the remaining losers may hide their cards
                 first_to_show = false;
             }
 
@@ -19357,8 +19070,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         } while (pos != pivote);
 
-        // 3. PASADA 2 — veredictos: GANA/PIERDE + jugada + sonidos + SQL para
-        // todos de golpe, con todas las manos ya boca arriba.
+        // 3. PASS 2 — verdicts: WIN/LOSE + hand + sounds + SQL for everyone at
+        // once, with every hand already face-up.
         pos = pivote;
 
         do {
@@ -19374,12 +19087,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isWinner) {
                     jugador_actual.setWinner(jugada.getName());
 
-                    // Resaltado opcional del showdown (RESALTAR_JUGADA_SHOWDOWN): igual que
-                    // para los perdedores, registra las cartas que forman la jugada GANADORA
-                    // (sin kickers) para poder resaltarlas al pasar el ratón por su etiqueta.
-                    // Solo si están visibles (el local ve siempre las suyas; un remoto solo si
-                    // mostró). Sin esto, ningún ganador tenía showdown_hand_cards y el hover no
-                    // hacía nada sobre su etiqueta.
+                    // Optional showdown highlight (RESALTAR_JUGADA_SHOWDOWN): same as for
+                    // losers, records the cards that make up the WINNING hand (no kickers)
+                    // so they can be highlighted on hover over the label. Only if visible
+                    // (the local player always sees their own; a remote one only if it
+                    // showed). Without this, no winner had showdown_hand_cards and hover
+                    // did nothing on their label.
                     jugador_actual.setShowdownHand((isLocal || mustShow) ? jugada.getWinners() : null);
 
                     this.sqlNewShowdown(jugador_actual, jugada, true, !mustShow);
@@ -19393,21 +19106,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                 } else {
-                    // Actualización de UI para perdedores
+                    // UI update for losers
                     if (isLocal) {
                         jugador_actual.setLoser(jugada.getName());
                         GameFrame.getInstance().getLocalPlayer().setMuestra(mustShow);
 
-                        // Si el jugador local hizo "muck" (cartas tapadas), habilitamos el botón voluntario
+                        // If the local player mucked (cards face-down), enable the voluntary
+                        // SHOW button
                         if (!mustShow) {
                             GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(true);
                         }
                     } else {
-                        // El destape de la pasada 1 puede ser asíncrono en el
-                        // fallback clásico, así que no leemos isTapada() aquí
-                        // para decidir la etiqueta: usamos el mustShow que
-                        // gobernó el destape. Un remoto que NO mostró conserva
-                        // el "PIERDE" genérico; si mostró, se expone la jugada.
+                        // Pass 1's uncover can be asynchronous in the classic fallback, so
+                        // we don't read isTapada() here to decide the label: we use the
+                        // mustShow that governed the uncover. A remote who did NOT show
+                        // keeps the generic "LOSE" label; if it showed, the hand is exposed.
                         if (!mustShow) {
                             jugador_actual.setLoser(Translator.translate("ui.pierde_3"));
                         } else {
@@ -19415,11 +19128,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
 
-                    // Resaltado opcional del showdown (RESALTAR_JUGADA_SHOWDOWN): registra las
-                    // cartas que forman la jugada de este perdedor (sin kickers, como un ganador
-                    // individual) para poder resaltarlas al pasar el ratón por su etiqueta. Solo
-                    // si están visibles: el local ve siempre las suyas; un remoto que no mostró
-                    // (muck/IWTSTH) conserva su jugada oculta y no se resalta nada.
+                    // Optional showdown highlight (RESALTAR_JUGADA_SHOWDOWN): records the
+                    // cards forming this loser's hand (no kickers, same as an individual
+                    // winner) so they can be highlighted on hover over the label. Only if
+                    // visible: the local player always sees their own; a remote one who
+                    // didn't show (muck/IWTSTH) keeps its hand hidden and nothing is
+                    // highlighted.
                     jugador_actual.setShowdownHand((isLocal || mustShow) ? jugada.getWinners() : null);
 
                     this.sqlNewShowdown(jugador_actual, jugada, false, !mustShow);
@@ -19437,7 +19151,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // Registro de historial para simular "Tilt" en los bots
+            // Record history to simulate bot "Tilt"
             if (GameFrame.getInstance().isPartida_local()
                     && jugador_actual != GameFrame.getInstance().getLocalPlayer()
                     && jugador_actual instanceof RemotePlayer) {
@@ -19451,15 +19165,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         } while (pos != pivote);
 
-        // El atenuado (desenfocar) de las cartas que NO entran en la jugada
-        // ganadora se aplica AQUÍ, tras la pasada 2, no en el cálculo del
-        // settle: si se hiciera antes, una hole card aún TAPADA (un rival que
-        // todavía no ha destapado en la pasada 1) mostraría su dorso atenuado
-        // (IMAGEN_TRASERA_B) y filtraría que esa carta no cuenta antes de
-        // verla. Diferirlo mantiene todas las cartas brillantes durante los
-        // destapes secuenciales y solo las atenúa al revelar los veredictos,
-        // como en una mesa real. null = el caller atenúa por su cuenta
-        // (run-it-twice conserva su flujo propio).
+        // Dimming (desenfocar) the cards that are NOT part of the winning hand is
+        // applied HERE, after pass 2, not in the settle calculation: doing it
+        // earlier would show a hole card that's still FACE-DOWN (an opponent who
+        // hasn't uncovered yet in pass 1) with a dimmed back (IMAGEN_TRASERA_B),
+        // leaking that the card doesn't count before it's even seen. Deferring it
+        // keeps every card bright during the sequential uncovers and only dims them
+        // once verdicts are revealed, like a real table. null = the caller dims on
+        // its own (run-it-twice keeps its own flow).
         if (diferir_desenfoque != null) {
             for (Card carta : diferir_desenfoque) {
                 carta.desenfocar();
@@ -19566,10 +19279,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void resyncRECOVERGLOBALS() {
-        // Reglas globales recuperadas (IWTSTH / Rabbit / Run It Twice): se re-aplican
-        // con los setters estáticos (set campo + broadcast *RULE a los clientes que
-        // reconectan + persistRecoverSettings), solo si difieren del valor por defecto
-        // con el que arranca la recuperación. Idempotente y default-agnóstico.
+        // Recovered global rules (IWTSTH / Rabbit / Run It Twice): re-applied via the
+        // static setters (set field + broadcast *RULE to reconnecting clients +
+        // persistRecoverSettings), only if they differ from the default value
+        // recovery starts with. Idempotent and default-agnostic.
         if (GameFrame.IWTSTH_RULE_RECOVER != null) {
             boolean v = GameFrame.IWTSTH_RULE_RECOVER;
             GameFrame.IWTSTH_RULE_RECOVER = null;
@@ -19594,7 +19307,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Notas de voz en recover: mismo patrón default-agnóstico que RIT
+        // Voice messages in recover: same default-agnostic pattern as RIT
         if (GameFrame.VOICE_MESSAGES_RECOVER != null) {
             final boolean recovered_voice = GameFrame.VOICE_MESSAGES_RECOVER;
             GameFrame.VOICE_MESSAGES_RECOVER = null;
@@ -19603,7 +19316,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // TTS global en recover: mismo patrón default-agnóstico que las notas de voz
+        // Global TTS in recover: same default-agnostic pattern as voice messages
         if (GameFrame.TTS_SERVER_RECOVER != null) {
             final boolean recovered_tts = GameFrame.TTS_SERVER_RECOVER;
             GameFrame.TTS_SERVER_RECOVER = null;
@@ -19620,32 +19333,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
             broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY) + "#" + String.valueOf(GameFrame.FIXED_BUYIN)
-                    // Rango de buy-in editable y política de tope de recompra (campos
-                    // fijos; van ANTES del campo opcional de estructura).
+                    // Editable buy-in range and rebuy-cap policy (fixed fields; come BEFORE
+                    // the optional structure field).
                     + "#" + String.valueOf(GameFrame.BUYIN_MIN_BB) + "#" + String.valueOf(GameFrame.BUYIN_MAX_BB) + "#" + String.valueOf(GameFrame.REBUY_CAP_POLICY)
-                    // Ante y straddle (campos fijos; van ANTES del campo opcional de estructura).
+                    // Ante and straddle (fixed fields; come BEFORE the optional structure field).
                     + "#" + String.valueOf(GameFrame.ANTE) + "#" + String.valueOf(GameFrame.STRADDLE)
-                    // Reglas de juego elegibles al crear la timba (IWTSTH / Run It Twice /
-                    // Rabbit Hunting): campos fijos, ANTES del campo opcional de estructura,
-                    // para que un cliente que se une conozca las reglas de salida.
+                    // Game rules selectable at table creation (IWTSTH / Run It Twice /
+                    // Rabbit Hunting): fixed fields, BEFORE the optional structure field, so
+                    // a joining client knows the table's rules.
                     + "#" + (GameFrame.IWTSTH_RULE ? "1" : "0") + "#" + (GameFrame.RUN_IT_TWICE ? "1" : "0") + "#" + String.valueOf(GameFrame.RABBIT_HUNTING)
-                    // Tiempo de pensar (segundos) + si esta activo: campos FIJOS, ANTES del
-                    // campo opcional de estructura, para que el cliente arranque con el mismo
-                    // tiempo de pensar (o sin limite) que fijo el host al crear/configurar.
+                    // Think time (seconds) + whether it's on: FIXED fields, BEFORE the
+                    // optional structure field, so the client starts with the same think
+                    // time (or no limit) the host set when creating/configuring.
                     + "#" + String.valueOf(GameFrame.THINK_TIME) + "#" + (GameFrame.THINK_TIME_ENABLED ? "1" : "0")
-                    // Tiempo de pausa del showdown (segundos): campo FIJO, ANTES del campo opcional de
-                    // estructura, para que el cliente muestre el resultado de la mano el mismo tiempo
-                    // que el host (los clientes tambien corren pausaConBarra/setTiempo_pausa).
+                    // Showdown pause time (seconds): FIXED field, BEFORE the optional structure
+                    // field, so the client shows the hand result for the same duration as the
+                    // host (clients also run pausaConBarra/setTiempo_pausa).
                     + "#" + String.valueOf(GameFrame.SHOWDOWN_TIME)
-                    // Reparto del saldo de los bots entre humanos al terminar (campo FIJO, ANTES del
-                    // campo opcional de estructura): el cliente debe aplicar el MISMO ajuste que el host
-                    // en su propia liquidacion final (cada peer calcula el auditor por su cuenta), o la
-                    // tabla final y la pantalla de balance no coincidirian entre peers.
+                    // Whether bots' balance is split among humans at the end (FIXED field,
+                    // BEFORE the optional structure field): the client must apply the SAME
+                    // adjustment as the host in its own final settlement (each peer computes
+                    // the auditor on its own), or the final table and balance screen would
+                    // disagree between peers.
                     + "#" + (GameFrame.BOT_BALANCE_TO_HUMANS ? "1" : "0")
-                    // Estructura de ciegas personalizada (campo opcional al final): los
-                    // clientes recomputan la escalada por su cuenta, así que TODOS deben
-                    // caminar la misma lista o desincronizan al subir las ciegas. Solo se
-                    // añade cuando hay estructura custom; ausente = escalera por defecto.
+                    // Custom blind structure (optional field at the end): clients recompute
+                    // the escalation on their own, so ALL of them must walk the same list or
+                    // they desync when blinds go up. Only added when there's a custom
+                    // structure; absent = default ladder.
                     + (GameFrame.ACTIVE_BLIND_STRUCTURE != null ? "#" + BlindStructure.levelsToString(GameFrame.ACTIVE_BLIND_STRUCTURE) : ""), null);
         }
 
@@ -19697,31 +19411,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Audio.playWavResource("misc/startplay.wav");
         }
 
-        // Desmuteo SIEMPRE el loop de fondo al entrar al juego (la sala de espera lo
-        // dejó muteado por contexto). Quién decide si suena es MUSICA_AMBIENTAL vía
-        // effectiveLoopVolume (volumen 0 si está off). Si lo dejáramos muteado cuando
-        // el flag arranca en off, activarlo a mitad de partida no lo despertaría (el
-        // mute por contexto seguiría a 0) hasta salir a la pantalla principal.
+        // ALWAYS unmute the background loop when entering the game (the waiting room
+        // left it contextually muted). Whether it actually plays is decided by
+        // MUSICA_AMBIENTAL via effectiveLoopVolume (volume 0 if off). Leaving it
+        // muted while the flag starts off would mean toggling it on mid-game wouldn't
+        // wake it up (the contextual mute would stay at 0) until returning to the
+        // main screen.
         Audio.unmuteLoopMp3("misc/background_music.mp3");
 
         GameFrame.getInstance().autoZoomFullScreen(GameFrame.AUTO_FULLSCREEN);
 
-        // Modo buy-in variable: cada humano elige su buy-in al entrar al tablero
-        // (luces apagadas) antes de la mano 1. No-op en modo fijo y en recover.
+        // Variable buy-in mode: each human picks their buy-in on entering the table
+        // (lights off) before hand 1. No-op in fixed mode and in recovery.
         solicitarBuyinsIniciales();
 
-        // Cortinilla de apertura: los stacks suben de 0 a su buy-in a la vez, ANTES
-        // de la primera mano (-> antes de postear/volar las ciegas). Barrera dentro:
-        // bloquea hasta que esten llenos. No-op si animaciones off / recover.
+        // Opening curtain: stacks rise from 0 to their buy-in together, BEFORE the
+        // first hand (i.e. before blinds are posted/animated). Internal barrier:
+        // blocks until they're full. No-op if animations are off / in recovery.
         animateInitialStacks();
 
         while (!fin_de_la_transmision) {
             try {
                 if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
                     if (this.NUEVA_MANO()) {
-                        // El reparto de ciegas/dealer ya queda reflejado en la
-                        // tabla de balance (iconos de rol junto a cada nick), asi
-                        // que la antigua linea "X es la CIEGA GRANDE / ..." sobra.
+                        // Blinds/dealer assignments already show in the balance table
+                        // (role icons next to each nick), so the old "X is the BIG BLIND
+                        // / ..." log line is redundant.
                         auditorCuentas();
 
                         ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
@@ -19792,18 +19507,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             badbeat = false;
                             double sql_bote_total = this.bote_total;
 
-                            // Run-it-twice: si la mano se acordó correr dos veces y
-                            // hubo run-out (calles pendientes tras el all-in) con 2+
-                            // implicados, ruta dedicada que liquida los dos boards
-                            // (cada bote ÷2). El showdown normal de un board queda
-                            // intacto en el else.
+                            // Run-it-twice: if the hand agreed to run twice and there was a
+                            // run-out (streets pending after the all-in) with 2+ players
+                            // involved, dedicated path that settles both boards (each pot
+                            // /2). The normal single-board showdown stays intact in the else.
                             if (this.rit_agreed && this.rit_allin_street >= Crupier.PREFLOP
                                     && this.rit_allin_street < Crupier.RIVER && resisten.size() >= 2) {
                                 resolverRunItTwiceShowdown(resisten);
                             } else {
-                            // Defensivo: si el voto RIT se acordó pero los exits
-                            // dejaron <2 implicados, resuelve el showdown normal
-                            // y la pot_label no debe marcar cara alguna.
+                            // Defensive: if the RIT vote was agreed but exits left <2
+                            // players involved, resolve the normal showdown and the
+                            // pot_label shouldn't tag any board.
                             this.rit_pot_board_tag = null;
                             switch (resisten.size()) {
                                 case 0:
@@ -19817,31 +19531,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
                                     });
                                     GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0d);
-                                    // Nadie resiste: el bote entero queda sin repartir y pasa a la mano
-                                    // siguiente. Se ASIGNA, como en los dos gemelos de este mismo switch
-                                    // (case 1 y default) y como en la ruta run-it-twice, porque bote_total
-                                    // YA ARRASTRA el sobrante heredado: la mano arranca con
-                                    // bote_total = max(0, bote_sobrante) y de ahi va sumando apuestas.
-                                    // Acumular lo contaba dos veces y CREABA fichas, rompiendo el
-                                    // invariante de conservacion (suma de stacks + sobrante == suma de
-                                    // compras) que se comprueba al arrancar cada mano.
+                                    // Nobody resists: the whole pot goes unclaimed and rolls into the
+                                    // next hand. It's ASSIGNED, like the two twin branches of this same
+                                    // switch (case 1 and default) and the run-it-twice path, because
+                                    // bote_total ALREADY carries the inherited carryover: the hand
+                                    // starts with bote_total = max(0, bote_sobrante) and bets add up
+                                    // from there. Accumulating would double-count it and CREATE chips,
+                                    // breaking the conservation invariant (sum of stacks + carryover ==
+                                    // sum of buy-ins) checked at the start of every hand.
                                     //
-                                    // Con las apuestas YA DEVUELTAS no se toca: ese es el unico camino que
-                                    // pone el bote a cero conservando el sobrante a proposito, asi que
-                                    // asignar ahi se llevaria por delante el pico heredado de la mano
-                                    // anterior. Se mira eso y no si la mano esta anulada porque la marca de
-                                    // anulada se iza FUERA del cerrojo: entre la marca y la devolucion cabe
-                                    // esta liquidacion entera, y saltarla ahi dejaba el bote sin repartir Y
-                                    // sin apuntar, con la devolucion llegando despues a un bote ya vaciado.
-                                    // Se lee AQUI, no al entrar en la liquidacion. La barrera de
-                                    // verificacion de aqui arriba se llama dentro de este mismo
-                                    // cerrojo y en el cliente puede acabar anulando la mano (es, a
-                                    // proposito, el unico punto donde una anulacion tardia corta
-                                    // antes de que se mueva una ficha), asi que el testigo cambia
-                                    // DESPUES de entrar. Congelarlo al entrar hacia que en ese caso
-                                    // se creyera que el dinero seguia en el bote cuando ya habia
-                                    // vuelto a los stacks, y se apuntaba un bote vacio como sobrante,
-                                    // borrando el pico heredado de la mano anterior.
+                                    // Left untouched when bets were ALREADY REFUNDED: that's the only
+                                    // path that zeroes the pot while deliberately keeping the carryover,
+                                    // so assigning here would wipe out the carryover inherited from the
+                                    // previous hand. This is checked instead of whether the hand was voided,
+                                    // because the voided flag is raised OUTSIDE this lock: this entire
+                                    // settlement can run between the flag being set and the refund, and
+                                    // skipping it there would leave the pot both unclaimed AND unassigned,
+                                    // with the refund later landing on an already-emptied pot. It's read
+                                    // HERE, not on entering settlement — the verification barrier above is
+                                    // called inside this same lock and can end up voiding the hand on the
+                                    // client (deliberately the only point where a late void cuts in before
+                                    // any chip moves), so the flag can change AFTER entry. Freezing it on
+                                    // entry would make this branch believe the money was still in the pot
+                                    // when it had already returned to the stacks, recording an empty pot as
+                                    // carryover and erasing the carryover inherited from the previous hand.
                                     if (!this.apuestas_devueltas) {
                                         this.bote_sobrante = this.bote_total;
                                     }
@@ -19896,9 +19609,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         double[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
                                         this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
                                         ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
-                                        // Cartas a atenuar: NO se desenfocan aquí (settle), se
-                                        // difieren a tras la pasada 2 del showdown para no filtrar
-                                        // el dorso atenuado de cartas aún tapadas (ver showdown()).
+                                        // Cards to dim: NOT dimmed here (settle) — deferred until
+                                        // after showdown's pass 2, to avoid leaking the dimmed back
+                                        // of still-face-down cards (see showdown()).
                                         ArrayList<Card> diferir_dim = new ArrayList<>();
                                         Player unganador = null;
 
@@ -19952,9 +19665,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
                                         String bote_tapete = "#1{" + Helpers.money2String(this.bote.getTotal()) + "}";
                                         ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
-                                        // Cartas a atenuar: NO se desenfocan aquí (settle), se
-                                        // difieren a tras la pasada 2 del showdown para no filtrar
-                                        // el dorso atenuado de cartas aún tapadas (ver showdown()).
+                                        // Cards to dim: NOT dimmed here (settle) — deferred until
+                                        // after showdown's pass 2, to avoid leaking the dimmed back
+                                        // of still-face-down cards (see showdown()).
                                         ArrayList<Card> diferir_dim = new ArrayList<>();
                                         Player unganador = null;
 
@@ -19974,12 +19687,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 diferir_dim.add(ganador.getHoleCard2());
                                             }
                                             jugadas.remove(entry.getKey());
-                                            // sec_pot=null: paga sin pintar la franja "#1" todavía.
-                                            // La marca se difiere a DESPUÉS de this.showdown() (más
-                                            // abajo), para no adelantar el resultado del bote
-                                            // principal a los veredictos GANA/PIERDE (pasada 2 del
-                                            // showdown). Las marcas de los botes laterales ya se
-                                            // pintan tras el showdown, en su bucle.
+                                            // sec_pot=null: pays out without painting the "#1" tag
+                                            // yet. The tag is deferred until AFTER this.showdown()
+                                            // (below), so the main pot's result doesn't get ahead of
+                                            // the WIN/LOSE verdicts (showdown's pass 2). Side-pot tags
+                                            // are already painted after showdown, in their own loop.
                                             ganador.pagar(cantidad_pagar_ganador[0], null);
                                             this.bote_total -= cantidad_pagar_ganador[0];
                                             jugada = entry.getValue();
@@ -20001,15 +19713,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
                                         }
 
-                                        // Los ganadores de los botes DERIVADOS se calculan ANTES de
-                                        // pintar el veredicto. El showdown decide con la lista de
-                                        // ganadores quien enseña y quien no, y aqui solo llegaban los
-                                        // del bote principal: a quien ganaba unicamente un lateral se
-                                        // le pintaba como perdedor y, con la regla de ocultar cartas
-                                        // activada, se le muckeaba la mano que acababa de ganar. El
-                                        // calculo no toca el estado del juego (calcularGanadores solo
-                                        // vacia la copia que se le pasa), asi que adelantarlo es
-                                        // inofensivo y el bucle de pagos de abajo lo reutiliza.
+                                        // DERIVED pots' winners are computed BEFORE painting the
+                                        // verdict. Showdown decides who shows and who doesn't from
+                                        // the winners list, and only the main pot's winners used to
+                                        // reach it here: a player who only won a side pot was painted
+                                        // as a loser and, with hide-cards enabled, had the hand it
+                                        // just won mucked. The computation doesn't touch game state
+                                        // (calcularGanadores only drains the copy passed to it), so
+                                        // doing it early is harmless and the payout loop below reuses it.
                                         HashMap<Player, Hand> ganadores_todos = new HashMap<>(ganadores);
                                         java.util.ArrayList<HashMap<Player, Hand>> jugadas_por_lateral = new java.util.ArrayList<>();
                                         java.util.ArrayList<HashMap<Player, Hand>> ganadores_por_lateral = new java.util.ArrayList<>();
@@ -20020,13 +19731,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             jugadas_por_lateral.add(jugadas_lateral);
                                             ganadores_por_lateral.add(ganadores_lateral);
 
-                                            // Un bote derivado con UN SOLO jugador no se gana: se
-                                            // RECUPERA, que es la parte de su apuesta que nadie llego a
-                                            // igualar (el bucle de pagos lo dice con esas palabras).
-                                            // Contarlo como victoria le pintaba el borde de ganador, le
-                                            // sumaba una mano ganada y lo guardaba como tal, aunque
-                                            // hubiera perdido todo lo demas. La ruta de correr dos veces
-                                            // ya lo trata asi.
+                                            // A derived pot with a SINGLE player isn't won: it's
+                                            // RECOVERED — the part of their bet nobody matched (the
+                                            // payout loop says exactly that). Counting it as a win
+                                            // painted the winner border, added a won hand, and stored
+                                            // it as such, even if they'd lost everything else. The
+                                            // run-it-twice path already treats it this way.
                                             if (lateral.getPlayers().size() > 1) {
                                                 ganadores_todos.putAll(ganadores_lateral);
                                             }
@@ -20034,10 +19744,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         this.showdown(jugadas, ganadores_todos, diferir_dim);
 
-                                        // Franja "#1" del bote principal: se pinta AHORA, tras el
-                                        // showdown (veredictos de la pasada 2), no en el pagar de
-                                        // arriba. Estamos en la rama con side pots, así que la marca
-                                        // procede; las de los botes laterales se añaden en el bucle.
+                                        // Main pot's "#1" tag: painted NOW, after showdown (pass 2's
+                                        // verdicts), not in the payout above. We're in the side-pots
+                                        // branch, so the tag applies; side pots' tags are added in
+                                        // the loop below.
                                         for (Player ganador_principal : ganadores.keySet()) {
                                             ganador_principal.marcarBotePot(1);
                                         }
@@ -20054,8 +19764,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
                                                 this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
                                             } else {
-                                                // Reutiliza lo ya calculado arriba: recalcularlo aqui
-                                                // volveria a recorrer las manos para nada.
+                                                // Reuse what was already computed above: recomputing here
+                                                // would walk the hands again for nothing.
                                                 jugadas = jugadas_por_lateral.get(indice_lateral);
                                                 ganadores = ganadores_por_lateral.get(indice_lateral);
                                                 cantidad_pagar_ganador = this.calcularBoteParaGanador(current_pot.getTotal(), ganadores.size());
@@ -20085,12 +19795,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         });
                                         GameFrame.getInstance().setTapeteBote(bote_tapete);
                                     }
-                                    // Nunca por debajo de cero. Si la mano se anulo desde la
-                                    // barrera de aqui arriba, el bote queda vacio pero el pico
-                                    // heredado sigue ahi y se paga igual, con lo que esta resta
-                                    // deja el contador en NEGATIVO. El auditor de cuentas lo suma
-                                    // en crudo (no clampa), asi que un sobrante negativo le hace
-                                    // cantar un descuadre y da por destruido ese dinero.
+                                    // Never below zero. If the hand was voided by the barrier above,
+                                    // the pot ends up empty but the inherited carryover is still
+                                    // there and gets paid out regardless, so this subtraction would
+                                    // leave the counter NEGATIVE. The accounting auditor sums it raw
+                                    // (no clamping), so a negative carryover would flag a mismatch
+                                    // and report that money as destroyed.
                                     this.bote_sobrante = Math.max(0f, this.bote_total);
                                     break;
                             }
@@ -20109,15 +19819,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 this.soundShowdown();
                             }
 
-                            // Mano anulada por MISDEAL: rollbackAbortedHand ya
-                            // la cerró (end estampado, pot=0, balances
-                            // post-refund). Re-estamparla aquí escribiría
-                            // pot=sql_bote_total (capturado ANTES del aborto,
-                            // ≠0 si CARA-B del run-it-twice abortó tras
-                            // capturarlo) sobre el pot=0 explícito del
-                            // rollback, y el backup de balances de una mano
-                            // anulada es el de la mano anterior (el refund
-                            // íntegro restaura los stacks pre-mano).
+                            // Hand voided by MISDEAL: rollbackAbortedHand already closed it (end
+                            // stamped, pot=0, post-refund balances). Re-stamping it here would
+                            // write pot=sql_bote_total (captured BEFORE the abort, nonzero if
+                            // run-it-twice's SIDE-B aborted after capturing it) over the
+                            // rollback's explicit pot=0, and a voided hand's balance backup is
+                            // the previous hand's (the full refund restores pre-hand stacks).
                             if (!this.mano_anulada) {
                                 // Settlement attestation: absorb who-won-how-much into H_final and
                                 // run the closing receipt consensus over it. Here getBote()/getPagar()
@@ -20152,11 +19859,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         synchronized (lock_fin_mano) {
 
-                            // Las reglas (IWTSTH/RIT/Rabbit) ya no se greyan aquí: sus
-                            // setters sincronizan sobre lock_fin_mano, así que cualquier
-                            // cambio durante el fin de mano queda en cola y se aplica
-                            // limpio tras resolverla (a la mano siguiente). Solo queda el
-                            // repaint del tapete.
+                            // Rules (IWTSTH/RIT/Rabbit) are no longer greyed out here: their
+                            // setters synchronize on lock_fin_mano, so any change during hand
+                            // close queues up and applies cleanly once it's resolved (next
+                            // hand). Only the table repaint is left.
                             Helpers.GUIRun(() -> {
                                 GameFrame.getInstance().getTapete().getCommunityCards().repaint();
                             });
@@ -20225,8 +19931,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 fin_de_la_transmision = this.isLast_hand();
                             }
 
-                            // (Las reglas IWTSTH/RIT/Rabbit ya no se re-habilitan aquí:
-                            // dejaron de greyarse al resolver la mano — ver nota arriba.)
+                            // (IWTSTH/RIT/Rabbit rules are no longer re-enabled here: they
+                            // stopped being greyed out on hand resolution — see note above.)
                         }
                     } else {
 
@@ -20309,10 +20015,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.rebuy_time = !rebuy_players.isEmpty();
 
-        // El local también se arruinó: su game-over modal corre ANTES de
-        // recibirRebuys, así que una cuenta atrás remota saldría desincronizada.
-        // En ese caso recibirRebuys NO la lanza y solo muestra el desenlace
-        // (RECOMPRA) de cada remoto.
+        // The local player also went broke: its game-over modal runs BEFORE
+        // recibirRebuys, so a remote countdown would come out desynced. In that
+        // case recibirRebuys does NOT launch one and only shows each remote's
+        // outcome (REBUY).
         boolean local_ruined = GameFrame.getInstance().getLocalPlayer().isActivo()
                 && Helpers.doubleSecureCompare(Helpers.doubleClean(GameFrame.getInstance().getLocalPlayer().getStack())
                         + Helpers.doubleClean(GameFrame.getInstance().getLocalPlayer().getPagar()), 0f) == 0;
@@ -20323,10 +20029,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname()) && GameFrame.AUTO_REBUY_ON_BROKE) {
 
-                // Recompra automática al arruinarse: NO se muestra la animación de
-                // game-over; directamente el RebuyDialog (AUTO) —misma barra de
-                // tiempo e importe por defecto, más un botón rojo de cancelar—. Al
-                // expirar -> recompra; al cancelar -> espectador.
+                // Automatic rebuy on going broke: skips the game-over animation and
+                // goes straight to the RebuyDialog (AUTO) — same countdown bar and
+                // default amount, plus a red cancel button. On expiry -> rebuy; on
+                // cancel -> spectator.
                 int rebuy_min = GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin();
                 int rebuy_max = GameFrame.getBuyinCap();
                 int rebuy_def = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
@@ -20398,9 +20104,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 Helpers.GUIRunAndWait(() -> {
-                    // La mesa se oscurece mientras dura el game over. El apagado va DENTRO del try
-                    // para que el finally lo deshaga pase lo que pase: si reventara el repintado o
-                    // el icono, un apagado suelto dejaría la mesa negra y el interruptor muerto.
+                    // The table dims for the duration of game-over. The dimming goes INSIDE
+                    // the try so the finally undoes it no matter what: if the repaint or the
+                    // icon update blew up, a dangling dim would leave the table black with a
+                    // dead light switch.
                     try {
                         GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
 
@@ -20483,9 +20190,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
 
                 Helpers.GUIRunAndWait(() -> {
-                    // Mismo apagado temporal que en la rama de recompra de arriba (y dentro del try
-                    // por lo mismo). Aquí la mesa ya no se recupera: el jugador se queda de
-                    // espectador.
+                    // Same temporary dimming as the rebuy branch above (and inside the try for
+                    // the same reason). Here the table doesn't come back: the player stays a
+                    // spectator.
                     try {
                         GameFrame.getInstance().getCapa_brillo().pushForcedLightsOFF();
 
@@ -20521,7 +20228,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (!rebuy_players.isEmpty()) {
 
-            // Enviamos los REBUYS de los bots
+            // Send bots' REBUYs
             if (GameFrame.getInstance().isPartida_local()) {
 
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
@@ -20532,9 +20239,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         rebuy_players.remove(jugador.getNickname());
 
-                        // Recompra automatica de bot arruinado: en fijo recompra el
-                        // buy-in completo (como siempre); en variable, 50BB por
-                        // defecto (consistente con su buy-in de entrada).
+                        // Automatic rebuy for a broke bot: in fixed mode it rebuys the full
+                        // buy-in (as always); in variable mode, the default 50BB
+                        // (consistent with its starting buy-in).
                         int botbuy = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
                         rebuy_now.put(jugador.getNickname(), botbuy);
 
@@ -20561,8 +20268,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * ¿esta carta privada llego a revelarse? Una que se quedo sin valor es la de quien
-     * se desconecto antes del showdown, y su mano no puede competir.
+     * Was this hole card actually revealed? One left without a value belongs to a
+     * player who disconnected before showdown, and their hand can't compete.
      */
     private static boolean holeCardRevelada(Card carta) {
         return carta != null && carta.getValor() != null && !carta.getValor().isEmpty()
@@ -20576,12 +20283,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // If the player reaches winner calculation with null cards, it means
             // they disconnected before reaching showdown. Their hand is mucked.
-            // Se comprueban LAS DOS cartas: mirando solo la primera, una segunda sin
-            // valor colaba y la jugada se armaba con una carta de menos, que ademas
-            // reventaba mas abajo y se perdia en el catch.
+            // BOTH cards are checked: checking only the first let a valueless second
+            // one slip through, building the hand one card short — which then blew up
+            // further down and got swallowed by the catch.
             if (!holeCardRevelada(jugador.getHoleCard1()) || !holeCardRevelada(jugador.getHoleCard2())) {
                 LOGGER.log(Level.WARNING, "MUCK: {0} could not reveal cards due to disconnection — pot lost", jugador.getNickname());
-                continue; // Al no meterlo en el mapa 'jugadas', el motor lo ignora para el premio.
+                continue; // Not entering the 'jugadas' map means the engine ignores them for the prize.
             }
 
             ArrayList<Card> cartas_utilizables = new ArrayList<>();
@@ -20596,9 +20303,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 jugadas.put(jugador, new Hand(cartas_utilizables));
             } catch (Exception e) {
-                // Quedarse fuera del mapa significa perder el bote, asi que un fallo
-                // aqui NO puede pasar en silencio: sin rastro, un jugador se quedaba sin
-                // cobrar y no habia forma de saber por que.
+                // Being left out of the map means losing the pot, so a failure here
+                // must NOT pass silently: without a trace, a player would go unpaid
+                // with no way to know why.
                 LOGGER.log(Level.SEVERE,
                         "MUCK: could not build " + jugador.getNickname() + "'s hand — pot lost", e);
             }
@@ -20611,7 +20318,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int jugada_max = Hand.CARTA_ALTA;
 
-        // Averiguamos la jugada máxima entre todos los jugadores
+        // Find the best hand among all players
         for (Map.Entry<Player, Hand> entry : candidatos.entrySet()) {
 
             if (entry.getValue().getValue() > jugada_max) {
@@ -20619,7 +20326,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Eliminamos a los jugadores con jugadas por debajo de la jugada máxima
+        // Drop players whose hand is below the best one
         for (Iterator<Map.Entry<Player, Hand>> it = candidatos.entrySet().iterator(); it.hasNext();) {
 
             Map.Entry<Player, Hand> entry = it.next();
@@ -20635,7 +20342,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         } else {
 
-            // Si hay varios con la jugada máxima intentamos desempatar
+            // If several share the best hand, try to break the tie
             switch (jugada_max) {
                 case Hand.ESCALERA_COLOR:
                     return desempatarEscalera(candidatos);
@@ -20663,7 +20370,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int carta_alta = 1;
 
-        // Averiguamos la carta más alta de la primera pareja (la pareja grande)
+        // Find the highest card of the first (bigger) pair
         for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
             Hand jugada = entry.getValue();
             if (jugada.getMano().get(0).getValorNumerico() > carta_alta) {
@@ -20671,7 +20378,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Nos cargamos todos los que tengan una pareja grande menor
+        // Drop everyone with a lower big pair
         for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
             Map.Entry<Player, Hand> entry = it.next();
             Hand jugada = entry.getValue();
@@ -20688,7 +20395,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             carta_alta = 1;
 
-            // Averiguamos la carta más alta de la segunda pareja
+            // Find the highest card of the second pair
             for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
                 Hand jugada = entry.getValue();
                 if (jugada.getMano().get(2).getValorNumerico() > carta_alta) {
@@ -20696,7 +20403,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // Nos cargamos todos los que tengan una pareja secundaria menor
+            // Drop everyone with a lower second pair
             for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
                 Map.Entry<Player, Hand> entry = it.next();
                 Hand jugada = entry.getValue();
@@ -20721,7 +20428,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int carta_alta = 1;
 
-        // Averiguamos la carta más alta del trío del FULL
+        // Find the highest card of the FULL house's trip
         for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
             Hand jugada = entry.getValue();
             if (jugada.getMano().get(0).getValorNumerico() > carta_alta) {
@@ -20729,7 +20436,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Nos cargamos todos los que tengan un trío con carta más pequeña
+        // Drop everyone with a lower trip
         for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
             Map.Entry<Player, Hand> entry = it.next();
             Hand jugada = entry.getValue();
@@ -20746,7 +20453,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             carta_alta = 1;
 
-            // Averiguamos la carta más alta de la pareja del FULL
+            // Find the highest card of the FULL house's pair
             for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
                 Hand jugada = entry.getValue();
                 if (jugada.getMano().get(3).getValorNumerico() > carta_alta) {
@@ -20754,7 +20461,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // Nos cargamos todos los que tengan una pareja con carta más pequeña
+            // Drop everyone with a lower pair
             for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
                 Map.Entry<Player, Hand> entry = it.next();
                 Hand jugada = entry.getValue();
@@ -20773,7 +20480,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int carta_alta = 1;
 
-        // Averiguamos la carta más alta del POKER/TRIO/PAREJA
+        // Find the highest card of the QUADS/TRIPS/PAIR
         for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
             Hand jugada = entry.getValue();
             if (jugada.getMano().get(0).getValorNumerico() > carta_alta) {
@@ -20781,7 +20488,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Nos cargamos todos los que tengan un POKER/TRIO/PAREJA con carta más pequeña
+        // Drop everyone with a lower QUADS/TRIPS/PAIR
         for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
             Map.Entry<Player, Hand> entry = it.next();
             Hand jugada = entry.getValue();
@@ -20814,7 +20521,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Nos cargamos todos los que tengan una escalera menor que la máxima
+        // Drop everyone with a straight lower than the best one
         for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
 
             Map.Entry<Player, Hand> entry = it.next();
@@ -20844,7 +20551,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             int carta_alta = 1;
 
-            // Averiguamos la carta más alta
+            // Find the highest card
             for (Map.Entry<Player, Hand> entry : jugadores.entrySet()) {
                 Hand jugada = entry.getValue();
                 if (jugada.getMano().get(i).getValorNumerico() > carta_alta) {
@@ -20852,7 +20559,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // Nos cargamos todos los que tengan una carta menor
+            // Drop everyone with a lower card
             for (Iterator<Map.Entry<Player, Hand>> it = jugadores.entrySet().iterator(); it.hasNext();) {
                 Map.Entry<Player, Hand> entry = it.next();
                 Hand jugada = entry.getValue();
@@ -20875,14 +20582,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         HashMap<Player, Integer[]> stats = new HashMap<>();
 
-        // Defensa: jugadores que llegan a monteCarlo sin hole cards
-        // reveladas (disconnection mid-hand antes del showdown) construyen
-        // una org.alberta.poker.Hand con suit/rank invalido, y
-        // HandEvaluator.Find_Flush devuelve -1 al iterar el array de
-        // palos -> OOBE -> error fatal del Crupier. calcularJugadas ya filtra el
-        // mismo caso (logea MUCK y los excluye del calculo de
-        // ganadores); aqui replicamos el filtro para que monteCarlo no
-        // pete cuando se evalua la ronda siguiente a un peer recien caido.
+        // Defensive: players reaching monteCarlo without revealed hole cards
+        // (mid-hand disconnection before showdown) build an org.alberta.poker.Hand
+        // with an invalid suit/rank, and HandEvaluator.Find_Flush returns -1 while
+        // walking the suits array -> OOBE -> fatal Crupier error. calcularJugadas
+        // already filters this same case (logs MUCK and excludes them from the
+        // winner calculation); this replicates that filter so monteCarlo doesn't
+        // crash when evaluating the round right after a peer just dropped.
         ArrayList<Player> resistenSafe = new ArrayList<>(resisten.size());
         for (Player p : resisten) {
             if (p == null) {
@@ -20964,12 +20670,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             stats.put(p, new Integer[]{iterations, 0, 0, 0});
         }
 
-        // Run-it-twice CARA-B: las comunitarias que salieron en CARA-A NO se
-        // reponen en el reparto real de CARA-B (la baraja sigue cascadeando sin
-        // repetir), así que la simulación debe excluirlas. No son board actual
-        // ni hole cards, de modo que aún están en deck; removerlas evita tratar
-        // como disponibles hasta 5 cartas (all-in pre-flop) que CARA-B nunca
-        // puede recibir.
+        // Run-it-twice SIDE-B: community cards dealt on SIDE-A are NOT replaced in
+        // SIDE-B's real deal (the deck keeps cascading without repeats), so the
+        // simulation must exclude them too. They're neither the current board nor
+        // hole cards, so they're still in deck; removing them avoids treating up to
+        // 5 cards (a preflop all-in) as available when SIDE-B can never receive them.
         if (this.run_it_twice_side_b) {
             for (Integer cartaCaraA : this.rit_side_a_runout_cards) {
                 deck.remove(cartaCaraA);
@@ -20980,11 +20685,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             ArrayList<Integer> deck_iteration = new ArrayList<>(deck);
 
-            // Barajado del Montecarlo de probabilidades (SOLO display): PRNG rápido en lugar
-            // del DRBG criptográfico (Helpers.CSPRNG_GENERATOR). El % es una estimación de N
-            // muestras; la calidad criptográfica del azar es estadísticamente irrelevante y el
-            // DRBG costaba ~45k draws por reparto en el hilo de juego (tirón en all-ins de PCs
-            // lentos). NO afecta al reparto justo verificable, que va por la cascada cripto.
+            // Monte Carlo odds shuffle (DISPLAY ONLY): a fast PRNG instead of the
+            // cryptographic DRBG (Helpers.CSPRNG_GENERATOR). The % is an estimate over
+            // N samples; cryptographic randomness quality is statistically irrelevant
+            // here, and the DRBG cost ~45k draws per deal on the game thread (a stutter
+            // on slow PCs' all-ins). Does NOT affect the fair, verifiable deal, which
+            // goes through the crypto cascade.
             Collections.shuffle(deck_iteration, java.util.concurrent.ThreadLocalRandom.current());
 
             org.alberta.poker.Hand board_iteration = new org.alberta.poker.Hand(board);
@@ -21029,10 +20735,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     int compare = Bot.HANDEVALUATOR.compareHands(cards7_iteration.get(p), best);
 
                     if (compare == 1) {
-                        // Nuevo mejor: el empate previo era contra una mano ya
-                        // superada, así que deja de contar. Sin este reset el
-                        // flag (global a la iteración) quedaría pegado a true y
-                        // el ganador único final se registraría como empate.
+                        // New best hand: the previous tie was against a hand that's now
+                        // been beaten, so it stops counting. Without this reset the flag
+                        // (global to the iteration) would stick at true and a single true
+                        // winner would end up recorded as a tie.
                         best = cards7_iteration.get(p);
                         tie = false;
                     } else if (compare == 0) {
@@ -21066,11 +20772,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Log de DEBUG del anillo criptográfico para COMPARAR el consenso entre peers: imprime el
-     * orden de nicks y un hash corto (SHA-256) del mismo. Todos los peers deben mostrar el MISMO
-     * hash para la misma mano; un hash distinto delataría una divergencia de orden que rompería
-     * la verificación de la cascada. Herramienta de diagnóstico (sobre todo al tocar el criterio
-     * de orden del anillo en la Fase 2): NO altera nada, solo lee e imprime.
+     * DEBUG log of the crypto ring to COMPARE consensus across peers: prints the
+     * nick order and a short (SHA-256) hash of it. Every peer must show the SAME
+     * hash for the same hand; a different hash would expose an order divergence
+     * that would break cascade verification. A diagnostic tool (especially when
+     * touching the ring's ordering rule in Phase 2): it alters nothing, only reads
+     * and prints.
      */
     public static void logCryptoRingDebug(String context, String[] ring) {
         if (ring == null) {
@@ -21094,10 +20801,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Índice de {@code nick} en el orden de asientos consensuado {@code seats} (nicks_permutados),
-     * o -1 si no está o {@code seats} es null. Es el criterio de orden del anillo criptográfico
-     * (ver getAnilloCriptografico): como nicks_permutados es idéntico en todos los peers, este
-     * índice es un invariante de consenso igual que lo era el orden alfabético.
+     * Index of {@code nick} in the consensus seat order {@code seats}
+     * (nicks_permutados), or -1 if absent or {@code seats} is null. This is the
+     * crypto ring's ordering rule (see getAnilloCriptografico): since
+     * nicks_permutados is identical on every peer, this index is a consensus
+     * invariant, same as alphabetical order used to be.
      */
     private static int seatIndex(String[] seats, String nick) {
         if (seats != null && nick != null) {
@@ -21111,10 +20819,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Anuncia (VISUAL, no cripto) que {@code nick} procesa ahora su paso de cascada: lo aplica
-     * localmente (host) y lo DIFUNDE a los clientes fire-and-forget (confirmation=false, sin ACKs,
-     * para NO bloquear el hilo de reparto). Cada peer decide si lo pinta según su preferencia
-     * (onShuffleTurn respeta el gate local). Puramente de display: no toca la cascada ni el consenso.
+     * Announces (VISUAL only, not crypto) that {@code nick} is now processing its
+     * cascade step: applies it locally (host) and BROADCASTS it to clients
+     * fire-and-forget (confirmation=false, no ACKs, so it doesn't block the dealing
+     * thread). Each peer decides whether to paint it per its own preference
+     * (onShuffleTurn respects the local gate). Purely display: touches neither the
+     * cascade nor consensus.
      */
     private void emitShuffleTurn(String nick) {
         try {
@@ -21128,7 +20838,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Fin del barajado: oculta el overlay en todos los peers (local + broadcast fire-and-forget).
+     * End of shuffling: hides the overlay on every peer (local + fire-and-forget
+     * broadcast).
      */
     private void emitShuffleTurnEnd() {
         try {
@@ -21142,24 +20853,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public java.util.ArrayList<Player> getAnilloCriptografico() {
         java.util.ArrayList<Player> ring = new java.util.ArrayList<>();
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
-            // Incluimos a todos (activos, espectadores, server, desconectados).
-            // Excluimos solo a los que entran a la mesa en caliente (calentando) durante un recover.
+            // Include everyone (active, spectators, server, disconnected).
+            // Exclude only players joining the table mid-game (calentando) during a recover.
             if (!jugador.isCalentando()) {
                 ring.add(jugador);
             }
         }
-        // Orden por ASIENTO consensuado (posición en nicks_permutados, el mismo array en todos los
-        // peers que fija dealer/ciegas) en vez de alfabético, para que la animación de la cascada
-        // gire en círculo por la mesa. Sigue siendo un invariante IDÉNTICO en todos los peers:
-        //   (1) el host construye este orden y lo DIFUNDE en el MEGAPACKET (orderB64); todos usan
-        //       el difundido (active_crypto_ring), no la derivación local (salvo fallback);
-        //   (2) nicks_permutados es consensuado (nicks_permutados[0] = big blind, idéntico en toda
-        //       la mesa) y biyectivo con el anillo (la inyección de warm-up de recibirRebuys mete
-        //       en él a todo no-calentando).
-        // Fallback DETERMINISTA a alfabético para nicks ausentes de nicks_permutados (no debería
-        // pasar por la biyección; defensivo) y para nicks_permutados==null (pre-sorteo): así el
-        // orden nunca queda indefinido ni divergiría entre peers. El comparador es un orden total
-        // (presentes por índice < ausentes por nick), cumple el contrato de Comparator.
+        // Ordered by consensus SEAT (position in nicks_permutados, the same array on
+        // every peer that fixes dealer/blinds) instead of alphabetically, so the
+        // cascade animation circles around the table. Still an IDENTICAL invariant
+        // on every peer:
+        //   (1) the host builds this order and BROADCASTS it in the MEGAPACKET
+        //       (orderB64); everyone uses the broadcast one (active_crypto_ring), not
+        //       the local derivation (except as a fallback);
+        //   (2) nicks_permutados is consensus data (nicks_permutados[0] = big blind,
+        //       identical across the table) and bijective with the ring (recibirRebuys'
+        //       warm-up injection puts every non-calentando player into it).
+        // DETERMINISTIC fallback to alphabetical for nicks missing from
+        // nicks_permutados (shouldn't happen given the bijection; defensive) and for
+        // nicks_permutados==null (pre-draw): this keeps the order from ever being
+        // undefined or diverging between peers. The comparator is a total order
+        // (seated by index < unseated by nick), satisfying Comparator's contract.
         final String[] seats = this.nicks_permutados;
         java.util.Collections.sort(ring, (p1, p2) -> {
             int i1 = seatIndex(seats, p1.getNickname());
@@ -21168,21 +20882,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return Integer.compare(i1, i2);
             }
             if (i1 >= 0) {
-                return -1; // con asiento va antes que sin asiento
+                return -1; // seated goes before unseated
             }
             if (i2 >= 0) {
                 return 1;
             }
-            return p1.getNickname().compareTo(p2.getNickname()); // ambos sin asiento: alfabético estable
+            return p1.getNickname().compareTo(p2.getNickname()); // both unseated: stable alphabetical
         });
-        // Rotar el anillo para que el giro EMPIECE por el DEALER (rota con el botón cada mano), de
-        // modo que la animación de barajado acompañe a la mano en vez de arrancar siempre en el
-        // mismo asiento fijo. SOLO cambia el punto de arranque: el conjunto y el orden circular de
-        // asientos son idénticos, así que la seguridad de consenso es la MISMA que el orden por
-        // asiento (el host construye este orden y lo DIFUNDE; nadie lo re-deriva para verificar).
-        // dealer_nick ya está calculado aquí (setPositions corre antes del barajado). Fallback
-        // DEFENSIVO: si dealer_nick es null (aún sin mano) o no está en el anillo (dealer se fue),
-        // no se rota -> arranca en el asiento 0, comportamiento previo. dealer en 0 -> no-op.
+        // Rotate the ring so the cascade STARTS at the DEALER (rotates with the
+        // button each hand), so the shuffle animation follows the hand instead of
+        // always starting at the same fixed seat. This ONLY changes the starting
+        // point: the set and circular order of seats are identical, so consensus
+        // safety is the SAME as ordering by seat (the host builds this order and
+        // BROADCASTS it; nobody re-derives it to verify). dealer_nick is already
+        // computed here (setPositions runs before shuffling). DEFENSIVE fallback: if
+        // dealer_nick is null (no hand yet) or not in the ring (dealer left), no
+        // rotation happens -> starts at seat 0, the previous behavior. Dealer already
+        // at 0 -> no-op.
         final String dealer = this.dealer_nick;
         if (dealer != null) {
             int dealerIdx = -1;
@@ -21193,7 +20909,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (dealerIdx > 0) {
-                java.util.Collections.rotate(ring, -dealerIdx); // el dealer pasa a la posición 0
+                java.util.Collections.rotate(ring, -dealerIdx); // moves the dealer to position 0
             }
         }
         return ring;

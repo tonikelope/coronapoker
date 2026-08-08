@@ -79,6 +79,7 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 
 /**
+ * Application entry point and launcher window (main menu, splash/boot sequence, update check).
  *
  * @author tonikelope
  */
@@ -94,16 +95,14 @@ public class Init extends JFrame {
     public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";
     public static final String VOICE_DIR = CORONA_DIR + "/voice";
     public static final int DEADLOCK_DETECT_WAIT = 5000;
-    // Franja del splash donde se canta el paso de arranque en curso. Va al pie
-    // de la carta (el gif mide 427x618), sobre su blanco limpio, para no tapar
-    // el logo.
+    // Splash step band: sits at the foot of the card (gif is 427x618), over its
+    // clean white area, so it never covers the logo.
     private static final int SPLASH_STEP_BAND_HEIGHT = 26;
     private static final int SPLASH_STEP_BOTTOM_MARGIN = 40;
     private static final int SPLASH_STEP_PILL_PADDING = 14;
     private static final int SPLASH_STEP_FONT_SIZE = 15;
-    // Pastilla del naranja del contorno del logo (muestreado del propio gif) con
-    // letra blanca: sobre el blanco de la carta, una pastilla clara no se
-    // distinguía del fondo.
+    // Pill color sampled from the logo's orange outline, with white text: a light
+    // pill would blend into the card's white background.
     private static final Color SPLASH_STEP_TEXT_COLOR = Color.WHITE;
     private static final Color SPLASH_STEP_PILL_COLOR = new Color(255, 88, 0, 235);
     public static String SQL_FILE;
@@ -116,8 +115,8 @@ public class Init extends JFrame {
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
     public static volatile Init VENTANA_INICIO = null;
-    // Snapshot (tamaño + estado) de la ventana de inicio en el momento de lanzar
-    // la timba, para reabrirla igual al cancelar desde la sala de espera.
+    // Snapshot (size + state) of the launcher window taken right before launching
+    // a game, so it reopens identically if cancelled from the waiting room.
     public static volatile java.awt.Dimension LAUNCH_FRAME_SIZE = null;
     public static volatile boolean LAUNCH_FRAME_MAXIMIZED = false;
     public static volatile Method M1 = null;
@@ -127,17 +126,16 @@ public class Init extends JFrame {
     public static volatile boolean PEGI18_MOD = false;
     public static volatile boolean PLAYING_CINEMATIC = false;
     public static volatile VolumeControlDialog VOLUME_DIALOG = null;
-    // El beep de confirmación del volumen suena al SOLTAR la tecla de cursor
-    // (no en un debounce, que se dispara en el hueco previo al autorepeat del
-    // teclado y provocaba un doble beep al empezar a mantener pulsado). Este
-    // flag marca que hubo al menos un cambio real de volumen pendiente de
-    // confirmar; lo consume el release de VK_UP/VK_DOWN en el dispatcher.
+    // The volume confirmation beep fires on key RELEASE, not on a debounce
+    // (which fired in the gap before OS key-repeat kicked in and doubled the
+    // beep on a held key). This flag marks a pending real volume change;
+    // consumed by the VK_UP/VK_DOWN release handler in the dispatcher.
     private static volatile boolean VOLUME_BEEP_PENDING = false;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private static volatile String NEW_VERSION = null;
-    // Reintentos SILENCIOSOS del check de versión (arranque y botón
-    // ACTUALIZAR): con el timeout acotado de Helpers.HTTP_TIMEOUT, GitHub lento
-    // o caído no bloquea nada ni saca diálogos.
+    // Silent retries for the version check (startup and the UPDATE button):
+    // with Helpers.HTTP_TIMEOUT bounding each attempt, a slow or down GitHub
+    // never blocks or pops a dialog.
     private static final int UPDATE_CHECK_RETRIES = 3;
     private volatile Timer quote_timer = null;
     private volatile int conta_quote = 0;
@@ -186,13 +184,18 @@ public class Init extends JFrame {
         return update_label;
     }
 
+    /**
+     * Redirects stdout/stderr and java.util.logging to a UTF-8 debug log file
+     * (console output is preserved too), and wires up the in-memory
+     * {@link DebugLog} used by the in-game log viewer.
+     */
     public static void setupConsoleLogger() {
         try {
-            // Garantizar que DEBUG_DIR existe ANTES de abrir el FileOutputStream.
-            // Antes, el orden se sostenía por accidente vía static init de Helpers
-            // (loadPropertiesFile → createIfNoExistsCoronaDirs). Si esa cadena se
-            // alterase (cualquier import o método antes que no toque Helpers),
-            // DEBUG_DIR no existiría y el debug-log se perdería silenciosamente.
+            // Ensure DEBUG_DIR exists BEFORE opening the FileOutputStream. This used
+            // to hold by accident via Helpers' static init (loadPropertiesFile ->
+            // createIfNoExistsCoronaDirs); if that chain ever changed (any import or
+            // method running first that doesn't touch Helpers), DEBUG_DIR wouldn't
+            // exist and the debug log would silently vanish.
             Helpers.createIfNoExistsCoronaDirs();
 
             // Define the path for the debug log file (append mode = true)
@@ -239,9 +242,9 @@ public class Init extends JFrame {
             // Print a header to mark a new session in the log file
             LOGGER.log(Level.INFO, "{0}=== NEW CORONAPOKER SESSION STARTED: {1} ==={2}", new Object[]{"\n============================================================================\n", java.time.LocalDateTime.now(), "\n============================================================================\n"});
 
-            // El rescate del fichero de preferencias ilegible ocurre en un inicializador
-            // estatico, mucho antes de que exista este registro, asi que su aviso se
-            // perdia entero. Se repite aqui, que ya hay donde dejarlo.
+            // The unreadable-preferences-file rescue happens in a static initializer,
+            // long before this logger exists, so its warning used to be lost entirely.
+            // Repeated here now that there's somewhere to log it.
             if (Helpers.PROPERTIES_RESCUE_COPY != null) {
                 LOGGER.log(Level.SEVERE,
                         "The preferences file could not be read at startup — a copy of it was kept at {0} and the game started with what could be read",
@@ -273,8 +276,8 @@ public class Init extends JFrame {
 
     private void initTranslations() {
 
-        // Asignamos las "etiquetas" (keys) de traducción a cada componente.
-        // Como esto está fuera de initComponents, NetBeans NUNCA lo borrará.
+        // Assign translation keys to each component. Kept outside initComponents
+        // so NetBeans never wipes it on regeneration.
         update_label.putClientProperty("i18n.key", "ui.comprobando_actualizacion");
         update_button.putClientProperty("i18n.key", "update.actualizar");
         join_button.putClientProperty("i18n.key", "ui.unirme_a_timba");
@@ -282,7 +285,7 @@ public class Init extends JFrame {
         create_button.putClientProperty("i18n.key", "ui.crear_timba");
         exit_button.putClientProperty("i18n.key", "ui.salir");
 
-        // También los Tooltips
+        // Tooltips too
         sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
         settings_icon.putClientProperty("i18n.tooltip_key", "settings.ajustes");
         Helpers.setScaledBlackIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), 30, 30);
@@ -314,8 +317,8 @@ public class Init extends JFrame {
 
         quote.setEditable(false);
 
-        // Es solo texto decorativo: que se comporte como una etiqueta (sin cursor de texto,
-        // sin foco/caret ni selección) en vez de como un campo de texto.
+        // Purely decorative text: behave like a label (no text cursor, no
+        // focus/caret/selection) instead of an editable text field.
         quote.setCursor(java.awt.Cursor.getDefaultCursor());
         quote.setFocusable(false);
         quote.setHighlighter(null);
@@ -356,7 +359,7 @@ public class Init extends JFrame {
                         Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(1920 * 0.9f), Math.round(1080 * 0.9f));
                     }
 
-                    // La botonera (fuente + tamaño) escala con la ventana, igual que el fondo.
+                    // The button bar (font + size) scales with the window, just like the background.
                     applyInitScale(computeInitScale());
 
                     quote.setSize((int) getWidth(), 150);
@@ -387,9 +390,9 @@ public class Init extends JFrame {
 
         update_label.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
 
-        // Cuerpos de acción globales (lanzador + sala + juego) indexados por id ESTABLE del registro
-        // de atajos. El dispatcher resuelve el id de la combinación pulsada y ejecuta el cuerpo, así
-        // reasignar la tecla surte efecto EN VIVO.
+        // Global action bodies (launcher + waiting room + game), indexed by the shortcut
+        // registry's STABLE id. The dispatcher resolves the id for the key combo pressed and
+        // runs the body, so rebinding a key takes effect LIVE.
         HashMap<String, Action> initActions = new HashMap<>();
 
         initActions.put(KeyboardShortcuts.MUTE, new AbstractAction("SOUND-SWITCH") {
@@ -412,8 +415,8 @@ public class Init extends JFrame {
                 if (Audio.MASTER_VOLUME > 0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME - 0.01f, 2);
 
-                    // Efecto inmediato mientras se mantiene la tecla; el beep de
-                    // confirmación se pospone al release (VOLUME_BEEP_PENDING).
+                    // Immediate effect while the key is held; the confirmation
+                    // beep is deferred to the release (VOLUME_BEEP_PENDING).
                     Audio.refreshALLVolumes(false);
 
                     VOLUME_BEEP_PENDING = true;
@@ -464,8 +467,8 @@ public class Init extends JFrame {
                 if (Audio.MASTER_VOLUME < 1.0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME + 0.01f, 2);
 
-                    // Efecto inmediato mientras se mantiene la tecla; el beep de
-                    // confirmación se pospone al release (VOLUME_BEEP_PENDING).
+                    // Immediate effect while the key is held; the confirmation
+                    // beep is deferred to the release (VOLUME_BEEP_PENDING).
                     Audio.refreshALLVolumes(false);
 
                     VOLUME_BEEP_PENDING = true;
@@ -518,10 +521,10 @@ public class Init extends JFrame {
                         Audio.playWavResource("misc/screenshot.wav");
                     }
 
-                    // Estamos en el EDT (el dispatcher envuelve la acción en
-                    // Helpers.GUIRun): renderizamos aquí la ventana completa a
-                    // imagen (printAll, sin Robot ni captura del SO) y volcamos
-                    // el PNG a disco en segundo plano.
+                    // We're on the EDT (the dispatcher wraps the action in
+                    // Helpers.GUIRun): render the whole window to an image here
+                    // (printAll, no Robot/OS capture) and dump the PNG to disk
+                    // in the background.
                     final BufferedImage image = Helpers.renderComponentImage(GameFrame.getInstance().getRootPane());
 
                     Helpers.threadRun(() -> {
@@ -542,8 +545,8 @@ public class Init extends JFrame {
 
         kfm.addKeyEventDispatcher((KeyEvent e) -> {
 
-            // Mientras la pestaña de Atajos captura una tecla, este dispatcher (y con él el hook de
-            // voz) se aparta para que la combinación pulsada llegue al capturador.
+            // While the Shortcuts tab is capturing a key, this dispatcher (and with it the
+            // voice hook) steps aside so the pressed combo reaches the capturer.
             if (KeyboardShortcuts.isCapturing()) {
                 return false;
             }
@@ -553,19 +556,19 @@ public class Init extends JFrame {
                 return true;
             }
 
-            // Beep de confirmación del volumen al SOLTAR el cursor: un único
-            // sonido cuando se llega al volumen deseado, en vez del debounce que
-            // podía sonar dos veces (una en el hueco previo al autorepeat y otra
-            // al final). refreshALLVolumes(true) fuerza además el refresco final
-            // autoritativo. No consumimos el evento (otros usan las flechas).
+            // Volume confirmation beep on cursor-key RELEASE: a single sound once
+            // the desired volume is reached, instead of the old debounce that could
+            // sound twice (once in the pre-autorepeat gap, once at the end).
+            // refreshALLVolumes(true) also forces the final authoritative refresh.
+            // The event isn't consumed (others rely on the arrow keys).
             if (e.getID() == KeyEvent.KEY_RELEASED && (e.getKeyCode() == KeyboardShortcuts.keyCode(KeyboardShortcuts.VOLUME_UP) || e.getKeyCode() == KeyboardShortcuts.keyCode(KeyboardShortcuts.VOLUME_DOWN)) && VOLUME_BEEP_PENDING) {
                 VOLUME_BEEP_PENDING = false;
                 Audio.refreshALLVolumes(true);
             }
 
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
-            // Resolver por id del registro. Las combinaciones que son de GameFrame resuelven a un id
-            // que NO está en initActions -> a = null -> este dispatcher las deja pasar.
+            // Resolve by the registry's id. Combos that belong to GameFrame resolve to an id
+            // NOT present in initActions -> a = null -> this dispatcher lets them through.
             String id = KeyboardShortcuts.idFor(keyStroke);
             final Action a = id != null ? initActions.get(id) : null;
             if (a != null) {
@@ -598,8 +601,8 @@ public class Init extends JFrame {
 
         setupLanguageFlag();
 
-        // Botonera que escala con la ventana: el layout de los botones de acción deja de usar
-        // tamaños fijos para que sigan a la fuente/tamaño (applyInitScale).
+        // Button bar that scales with the window: the action buttons' layout drops fixed
+        // sizes so they follow the font/size (applyInitScale).
         rebuildActionButtonsLayout();
 
         setupHandCursors();
@@ -622,9 +625,10 @@ public class Init extends JFrame {
     }
 
     /**
-     * Guarda pantalla, tamaño, posición y estado (maximizado o normal) de la
-     * ventana de inicio justo antes de ocultarla para lanzar una timba, de modo
-     * que al cancelar desde la sala o volver al menú se reabra exactamente igual.
+     * Captures the launcher window's screen, size, position and state
+     * (maximized/normal) right before hiding it to launch a game, so it
+     * reopens identically if the user cancels from the waiting room or
+     * returns to the menu.
      */
     public static void captureLaunchFrameState() {
         if (VENTANA_INICIO != null) {
@@ -633,6 +637,11 @@ public class Init extends JFrame {
         }
     }
 
+    /**
+     * Reopens the New Game dialog in recover mode to continue the last saved game.
+     *
+     * @param local {@code true} to recover a local game, {@code false} for a remote one
+     */
     public void continueLastGame(boolean local) {
 
         NewGameDialog dialog = new NewGameDialog(this, true, local);
@@ -983,9 +992,11 @@ public class Init extends JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    // Refresca el icono de altavoz de la ventana de inicio según SONIDOS. Lo
-    // usa GameFrame.setSonidos para que el cambio hecho desde el diálogo de
-    // ajustes de audio se vea aquí cuando aún no hay partida.
+    /**
+     * Refreshes the launcher window's speaker icon to match SONIDOS. Called by
+     * GameFrame.setSonidos so a change made from the audio settings dialog is
+     * reflected here while no game is running yet.
+     */
     public static void refreshSoundIcon() {
 
         Init ventana = VENTANA_INICIO;
@@ -1002,15 +1013,15 @@ public class Init extends JFrame {
             return;
         }
 
-        // Abre el diálogo de ajustes en modo general (Apariencia + Sonido): no hay
-        // GameFrame en el lanzador, así que la pestaña Partida no se monta.
+        // Opens the settings dialog in general mode (Appearance + Sound): there's no
+        // GameFrame in the launcher, so the Game tab isn't mounted.
         SettingsDialog.open(this);
     }
 
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
 
-        // evt es null cuando el toggle de sonido se invoca por codigo (atajos de teclado); en ese
-        // caso no hay click real que validar.
+        // evt is null when the sound toggle is invoked programmatically (keyboard
+        // shortcuts); in that case there's no real click to validate.
         if (evt != null && !Helpers.isRealClick(evt)) {
             return;
         }
@@ -1037,7 +1048,6 @@ public class Init extends JFrame {
     }//GEN-LAST:event_sound_iconMouseClicked
 
     private void language_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_language_comboboxActionPerformed
-        // TODO add your handling code here:
         if (VENTANA_INICIO != null) {
 
             GameFrame.LANGUAGE = language_combobox.getSelectedIndex() == 0 ? "es" : "en";
@@ -1059,12 +1069,11 @@ public class Init extends JFrame {
     }//GEN-LAST:event_language_comboboxActionPerformed
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
-        // TODO add your handling code here:
 
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
-        // Primer ajuste de la botonera al mostrarse (fija la referencia = tamaño real ya
-        // realizado, típicamente maximizado -> escala 1.0, idéntico al diseño).
+        // First button-bar scale pass on show (sets the reference = the actual size already
+        // realized, typically maximized -> scale 1.0, identical to the design).
         applyInitScale(computeInitScale());
 
         if (quote_timer != null) {
@@ -1078,10 +1087,10 @@ public class Init extends JFrame {
     }//GEN-LAST:event_formComponentShown
 
     private void update_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_update_buttonActionPerformed
-        // Si el botón ya anuncia versión nueva, pulsarlo ES la confirmación: se
-        // lanza la actualización directa, sin re-chequear ni volver a sacar el
-        // popup "¿quieres actualizar?". En el estado "no se pudo comprobar"
-        // (NEW_VERSION == null) el botón reintenta el check.
+        // If the button already announces a new version, clicking it IS the
+        // confirmation: launch the update directly, no re-check and no "want to
+        // update?" popup again. In the "couldn't check" state (NEW_VERSION == null)
+        // the button retries the check instead.
         if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
             final String target = NEW_VERSION;
             update_button.setVisible(false);
@@ -1091,8 +1100,8 @@ public class Init extends JFrame {
                 try {
                     performUpdate(target);
                 } finally {
-                    // performUpdate solo retorna si la actualización falló (en
-                    // éxito hace System.exit); restaurar el botón para reintentar.
+                    // performUpdate only returns if the update failed (on success it
+                    // calls System.exit); restore the button so it can be retried.
                     Helpers.GUIRun(() -> {
                         update_label.setVisible(false);
                         update_button.setVisible(true);
@@ -1105,22 +1114,20 @@ public class Init extends JFrame {
     }//GEN-LAST:event_update_buttonActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
-        // TODO add your handling code here:
         Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
         Helpers.savePropertiesFile();
 
     }//GEN-LAST:event_formWindowClosing
 
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
-        // TODO add your handling code here:
         if (quote_timer != null && quote_timer.isRunning()) {
             quote_timer.stop();
         }
     }//GEN-LAST:event_formComponentHidden
 
     private void baraja_fondoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_baraja_fondoMouseClicked
-        // El About se abre SOLO al hacer clic sobre el logo "corona poker" del fondo (arriba-
-        // izquierda de corona_init.png), no en cualquier parte de la imagen (cartas/fichas/felpa).
+        // About opens ONLY on a click over the "corona poker" logo in the background
+        // (top-left of corona_init.png), not anywhere on the image (cards/chips/felt).
         if (Helpers.isRealClick(evt) && isClickOnBackgroundLogo(evt.getX(), evt.getY())) {
             AboutDialog dialog = new AboutDialog(this, true);
             dialog.setLocationRelativeTo(this);
@@ -1128,13 +1135,14 @@ public class Init extends JFrame {
         }
     }//GEN-LAST:event_baraja_fondoMouseClicked
 
-    // Zona del logo dentro de corona_init.png, en FRACCIONES de la imagen (medidas sobre el PNG:
-    // "corona poker" + "by tonikelope" caben en la esquina superior-izquierda).
+    // Logo area within corona_init.png, in image FRACTIONS (measured on the PNG:
+    // "corona poker" + "by tonikelope" fit in the top-left corner).
     private static final float LOGO_FX0 = 0.00f, LOGO_FX1 = 0.31f, LOGO_FY0 = 0.00f, LOGO_FY1 = 0.27f;
 
-    // ¿El clic (coords del label baraja_fondo) cae sobre el logo? La imagen se escala al 90% de la
-    // pantalla y va CENTRADA en el label; mapeamos el clic a coordenadas de imagen (fracción 0..1)
-    // usando el tamaño VIVO del icono, así es robusto al escalado/resize sin recolocar nada.
+    // Does the click (in baraja_fondo label coords) land on the logo? The image is scaled to
+    // 90% of the screen and CENTERED in the label; map the click to image coordinates
+    // (0..1 fraction) using the icon's LIVE size, so it's robust to scaling/resize with no
+    // repositioning needed.
     private boolean isClickOnBackgroundLogo(int clickX, int clickY) {
         javax.swing.Icon ic = baraja_fondo.getIcon();
         if (ic == null) {
@@ -1145,17 +1153,17 @@ public class Init extends JFrame {
         if (iconW <= 0 || iconH <= 0) {
             return false;
         }
-        int originX = (baraja_fondo.getWidth() - iconW) / 2;   // centrado horizontal
-        int originY = (baraja_fondo.getHeight() - iconH) / 2;  // centrado vertical
+        int originX = (baraja_fondo.getWidth() - iconW) / 2;   // horizontal centering
+        int originY = (baraja_fondo.getHeight() - iconH) / 2;  // vertical centering
         float fx = (clickX - originX) / (float) iconW;
         float fy = (clickY - originY) / (float) iconH;
         return fx >= LOGO_FX0 && fx <= LOGO_FX1 && fy >= LOGO_FY0 && fy <= LOGO_FY1;
     }
 
-    // La manita (HAND_CURSOR) solo debe salir sobre elementos clicables (logo, botones, bandera,
-    // ajustes, sonido). El fondo (cartas/fichas/felpa) y el panel contenedor pasan a cursor por
-    // defecto; sobre el fondo, la manita aparece DINÁMICAMENTE solo cuando el ratón está sobre el
-    // logo (mismo hit-test que abre el About). Los botones/bandera/iconos ya traen su propia manita.
+    // The hand cursor (HAND_CURSOR) should only show over clickable elements (logo, buttons,
+    // flag, settings, sound). The background (cards/chips/felt) and its container panel use the
+    // default cursor; over the background, the hand appears DYNAMICALLY only when the mouse is
+    // over the logo (same hit-test that opens About). Buttons/flag/icons already have their own.
     private void setupHandCursors() {
         final java.awt.Cursor def = java.awt.Cursor.getDefaultCursor();
         final java.awt.Cursor hand = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR);
@@ -1171,20 +1179,17 @@ public class Init extends JFrame {
     }
 
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
-        // TODO add your handling code here:
         WindowEvent windowEvent = new WindowEvent(this, WindowEvent.WINDOW_CLOSING);
         processWindowEvent(windowEvent);
     }//GEN-LAST:event_exit_buttonActionPerformed
 
     private void create_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_create_buttonActionPerformed
-        // TODO add your handling code here:
 
-        // Nueva timba: arranca SIEMPRE en la configuracion por defecto. Igual que ya se hace
-        // con la dificultad de los bots, se resetean aqui los ajustes que de otro modo se
-        // arrastrarian de la timba anterior via estaticos de sesion (rabbit y tiempo de pensar).
-        // El resto de controles ya arrancan en su default en el constructor del dialogo. Para
-        // reutilizar una config hay que guardarla como preset favorito. (En recover, loadLastGame
-        // repuebla estos controles con los valores de la timba recuperada.)
+        // New game: always starts on default settings. Same as already done for bot difficulty,
+        // reset here the settings that would otherwise leak from the previous game via session
+        // statics (rabbit hunting, think time). The rest of the controls already default in the
+        // dialog's constructor. To reuse a config, save it as a favorite preset. (On recover,
+        // loadLastGame repopulates these controls from the recovered game's values.)
         Bot.DIFFICULTY = Bot.Difficulty.MEDIUM;
         GameFrame.RABBIT_HUNTING = 0;
         GameFrame.THINK_TIME = GameFrame.DEFAULT_THINK_TIME;
@@ -1206,20 +1211,18 @@ public class Init extends JFrame {
     }//GEN-LAST:event_create_buttonActionPerformed
 
     private void create_buttonMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_create_buttonMouseExited
-        // Hover gestionado por GlassButtonUI (rollover); ya no invertimos colores a mano.
+        // Hover handled by GlassButtonUI (rollover); no more manual color inversion.
     }//GEN-LAST:event_create_buttonMouseExited
 
     private void create_buttonMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_create_buttonMouseEntered
-        // Hover gestionado por GlassButtonUI (rollover); ya no invertimos colores a mano.
+        // Hover handled by GlassButtonUI (rollover); no more manual color inversion.
     }//GEN-LAST:event_create_buttonMouseEntered
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
-        // TODO add your handling code here:
         StatsDialog.showStats(this);
     }//GEN-LAST:event_stats_buttonActionPerformed
 
     private void join_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_join_buttonActionPerformed
-        // TODO add your handling code here:
 
         NewGameDialog dialog = new NewGameDialog(this, true, false);
 
@@ -1236,52 +1239,54 @@ public class Init extends JFrame {
     }//GEN-LAST:event_join_buttonActionPerformed
 
     private void join_buttonMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_join_buttonMouseExited
-        // Hover gestionado por GlassButtonUI (rollover); ya no invertimos colores a mano.
+        // Hover handled by GlassButtonUI (rollover); no more manual color inversion.
     }//GEN-LAST:event_join_buttonMouseExited
 
     private void join_buttonMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_join_buttonMouseEntered
-        // Hover gestionado por GlassButtonUI (rollover); ya no invertimos colores a mano.
+        // Hover handled by GlassButtonUI (rollover); no more manual color inversion.
     }//GEN-LAST:event_join_buttonMouseEntered
 
-    // Aplica el estilo "cristal" (glassmorphism) a la botonera de inicio sobre los JButton
-    // existentes (setUI, no invasivo): fondo negro translúcido redondeado que deja ver el tapete,
-    // acento dorado para las acciones primarias, hover suave pintado por GlassButtonUI (rollover).
-    // Quita el marco naranja del contenedor. NO toca disposición, iconos, acciones ni i18n.
+    // Applies the "glass" (glassmorphism) style to the launcher's button bar over the existing
+    // JButtons (setUI, non-invasive): rounded translucent black background that lets the felt
+    // show through, gold accent for primary actions, soft hover painted by GlassButtonUI
+    // (rollover). Removes the container's orange border. Touches neither layout, icons, actions
+    // nor i18n.
     private void applyModernButtons() {
         final Color red = new Color(214, 78, 70);
         final Color green = new Color(70, 180, 110);
 
-        // Todos con borde BLANCO neutro (sin dorado); CREAR/UNIRME un pelín más opacas que
-        // ESTADÍSTICAS para conservar una jerarquía sutil por opacidad, no por color.
+        // All with a neutral WHITE border (no gold); CREATE/JOIN a touch more opaque than
+        // STATS to keep a subtle hierarchy by opacity rather than color.
         create_button.setUI(new GlassButtonUI(null, false, false, 0.70f, 24));
         join_button.setUI(new GlassButtonUI(null, false, false, 0.70f, 24));
         stats_button.setUI(new GlassButtonUI(null, false, false, 0.60f, 22));
-        // Salir: cristal neutro; el rojo solo aparece al pasar el ratón.
+        // Exit: neutral glass; red only appears on hover.
         exit_button.setUI(new GlassButtonUI(red, false, true, 0.66f, 22));
-        // El icono de SALIR (exit2.png) es una silueta NEGRA que sobre el cristal oscuro apenas
-        // se ve; se blanquea (conservando su alfa) para que resalte, como el de MENÚ en la final.
+        // The EXIT icon (exit2.png) is a BLACK silhouette that's barely visible on the dark
+        // glass; whiten it (keeping its alpha) to stand out, like the MENU icon in the final.
         javax.swing.ImageIcon white_exit = whitenIcon(exit_button.getIcon());
         if (white_exit != null) {
             exit_button.setIcon(white_exit);
         }
-        // Actualizar (solo visible cuando hay versión nueva): verde para destacar.
+        // Update (only visible when a new version exists): green to stand out.
         update_button.setUI(new GlassButtonUI(green, true, false, 0.72f, 22));
 
-        // Fuera el marco naranja de 5px del contenedor de la botonera.
+        // Drop the button bar container's 5px orange border.
         botones_panel.setBorder(null);
     }
 
-    // ---- Selector de idioma como BANDERA (sustituye al combo Español/English) ----
-    // La bandera muestra el idioma ACTUAL (España = es, Union Jack = en); al hacer clic
-    // alterna idioma y bandera. Se dibujan por código (sin añadir ficheros de imagen).
+    // ---- Language selector as a FLAG (replaces the Spanish/English combo) ----
+    // The flag shows the CURRENT language (Spain = es, Union Jack = en); clicking it
+    // toggles both language and flag. Drawn in code (no extra image files).
     private javax.swing.JLabel language_flag;
 
-    // Acceso al visor de capturas: icono de cámara a la derecha del botón ESTADÍSTICAS, a su misma
-    // altura (cuadrado). Se crea y maqueta en rebuildActionButtonsLayout; se escala en applyInitScale.
+    // Entry point to the screenshot viewer: camera icon to the right of the STATS button, at
+    // its same height (square). Created and laid out in rebuildActionButtonsLayout; scaled in
+    // applyInitScale.
     private javax.swing.JLabel screenshot_icon;
 
-    // Alto BASE = el de los iconos de ajustes/sonido (30); ancho rectangular 3:2. La banderita
-    // se redibuja al tamaño ACTUAL (flag_w/flag_h) porque la botonera escala con la ventana.
+    // BASE height = same as the settings/sound icons (30); rectangular 3:2 width. The flag is
+    // redrawn at its CURRENT size (flag_w/flag_h) because the button bar scales with the window.
     private static final int FLAG_H = 30;
     private static final int FLAG_W = 45;
     private int flag_w = FLAG_W;
@@ -1300,16 +1305,16 @@ public class Init extends JFrame {
             }
         });
 
-        // Reconstruye la barra inferior (jPanel1) sustituyendo el combo por la bandera:
-        // [ SALIR (crece) ] [ bandera ] [ ajustes ] [ sonido ], centrado en vertical.
+        // Rebuilds the bottom bar (jPanel1), replacing the combo with the flag:
+        // [ EXIT (grows) ] [ flag ] [ settings ] [ sound ], vertically centered.
         jPanel1.remove(language_combobox);
         javax.swing.GroupLayout gl = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(gl);
         gl.setHorizontalGroup(
                 gl.createSequentialGroup()
-                        // SALIR rellena el ancho disponible (MAX) pero su PREFERIDO es su
-                        // contenido (no 605): así jPanel1 no impone un ancho fijo que, al
-                        // reducir, dominaría al de los botones de acción y los desalinearía.
+                        // EXIT fills the available width (MAX) but its PREFERRED size is its
+                        // own content (not 605): this way jPanel1 doesn't impose a fixed width
+                        // that, when shrinking, would dominate the action buttons and misalign them.
                         .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addGap(16)
                         .addComponent(language_flag, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1335,39 +1340,40 @@ public class Init extends JFrame {
         language_flag.setToolTipText(es ? "Change language to English" : "Cambiar idioma a Español");
     }
 
-    // ---- Botonera de inicio que escala con la ventana (fuente + tamaño) -----------------
-    // Lo pedido: que la FUENTE se adapte al tamaño de la ventana Y que la BOTONERA cambie de
-    // tamaño con ella (los botones siguen a la fuente). A pantalla completa (mayor tamaño
-    // visto) TODO queda EXACTO como el diseño 22.35 (escala 1.0); al encoger la ventana, la
-    // botonera entera encoge en proporción. Claves para que quede fino:
-    //   1) la fuente se DERIVA de la real ya aplicada (conserva GUI_FONT, no un Font nuevo);
-    //   2) se repinta TODO el tapete (los botones cristal son no-opacos en la capa POPUP:
-    //      si solo se repinta el panel, al recolocarse dejan estelas).
-    // Suelo mínimo (legibilidad en pantallas diminutas). NO hay tope superior: la botonera crece
-    // en proporción a CUALQUIER resolución por encima del canónico (4K, 5K, 8K…) de forma
-    // automática. Es seguro: siempre ocupa la misma fracción de pantalla, así que nunca desborda.
+    // ---- Launcher button bar that scales with the window (font + size) -----------------
+    // Goal: the FONT adapts to the window size AND the BUTTON BAR resizes with it (buttons
+    // follow the font). At full screen (larger sizes seen) everything is EXACTLY the 22.35
+    // design (scale 1.0); shrinking the window shrinks the whole bar proportionally. Keys to
+    // getting it right:
+    //   1) the font is DERIVED from the real one already applied (keeps GUI_FONT, not a new Font);
+    //   2) the whole felt panel is repainted (the glass buttons are non-opaque in the POPUP
+    //      layer: repainting only the panel leaves trails when they reposition).
+    // Minimum floor (legibility on tiny screens). NO upper cap: the bar grows proportionally on
+    // ANY resolution above the canonical one (4K, 5K, 8K...) automatically. Safe, since it
+    // always occupies the same screen fraction and never overflows.
     private static final float INIT_MIN_SCALE = 0.6f;
     private static final int CREATE_W = 453, JOIN_W = 463, ACTION_H = 80;
-    // Separación FIJA entre CREAR y UNIRME (misma en el layout y al calcular el ancho de
-    // ESTADÍSTICAS, para que ESTADÍSTICAS abarque EXACTAMENTE a los dos gemelos). 12 px = el
-    // valor real de addPreferredGap(UNRELATED) bajo Nimbus, para que a 1440p (escala 1.0) quede
-    // PIXEL-PERFECT idéntico al diseño 22.35 (ESTADÍSTICAS = 453+12+463 = 928).
+    // FIXED gap between CREATE and JOIN (same value used in the layout and when computing
+    // STATS's width, so STATS spans EXACTLY the two twins). 12px is the real value of
+    // addPreferredGap(UNRELATED) under Nimbus, so at 1440p (scale 1.0) it's PIXEL-PERFECT
+    // identical to the 22.35 design (STATS = 453+12+463 = 928).
     private static final int TWIN_GAP = 12;
-    // Resolución de DISEÑO CANÓNICA = 1440p (2560x1440), fija (NO la ventana del usuario): por
-    // debajo de esto —sea por resolución de monitor o por reducir la ventana— la botonera encoge
-    // en proporción, INCLUSO maximizada; a partir de esto se ve a tamaño de diseño (cap 1.0).
+    // CANONICAL design resolution = 1440p (2560x1440), fixed (NOT the user's window): below
+    // this — whether from monitor resolution or a shrunk window — the bar shrinks
+    // proportionally, even maximized; at or above it, the bar shows at design size (cap 1.0).
     private static final int INIT_REF_W = 2560, INIT_REF_H = 1440;
     private int base_stats_h = 0;
     private boolean init_base_captured = false;
-    // Última escala aplicada por applyInitScale: la usan el conmutador de mute y refreshSoundIcon
-    // para redibujar el icono del altavoz al tamaño chip ACTUAL. Si no, al conmutar el icono volvía
-    // a su tamaño base (30) y "se salía" cuando la botonera está reducida.
+    // Last scale applied by applyInitScale: used by the mute toggle and refreshSoundIcon to
+    // redraw the speaker icon at its CURRENT chip size. Otherwise toggling the icon would revert
+    // it to its base size (30) and it would "stick out" while the bar is shrunk.
     private volatile float current_init_scale = 1f;
     private java.awt.Font base_create, base_join, base_stats, base_exit, base_update, base_update_label, base_quote;
     private javax.swing.Icon base_icon_create, base_icon_join, base_icon_exit, base_icon_stats;
 
-    // Captura UNA vez el estado ya inicializado (tras Helpers.updateFonts, que aplica GUI_FONT):
-    // fuentes e iconos base a escala 1.0. Derivar de estas bases garantiza que a s=1 nada cambie.
+    // Captures the already-initialized state ONCE (after Helpers.updateFonts, which applies
+    // GUI_FONT): base fonts and icons at scale 1.0. Deriving from these bases guarantees
+    // nothing changes at s=1.
     private void captureInitBaseIfNeeded() {
         if (init_base_captured) {
             return;
@@ -1387,12 +1393,12 @@ public class Init extends JFrame {
         init_base_captured = true;
     }
 
-    // Sustituye el layout GENERADO de los botones de acción (anchos/altos FIJOS 453/463/80 en
-    // literales) por uno que respeta el tamaño PREFERIDO (escalado) de CREAR/UNIRME, con
-    // ESTADÍSTICAS ocupando ambos debajo. Se llama UNA vez tras montar la botonera.
+    // Replaces the GENERATED layout of the action buttons (FIXED width/height literals
+    // 453/463/80) with one that honors CREATE/JOIN's PREFERRED (scaled) size, with STATS
+    // spanning both underneath. Called ONCE after the button bar is mounted.
     private void rebuildActionButtonsLayout() {
-        // Icono de cámara del visor de capturas: al lado de ESTADÍSTICAS y a su misma altura.
-        // Usa screenshot.png (256px) para escalar hacia la altura del botón sin verse borroso.
+        // Screenshot viewer camera icon: next to STATS, at its same height. Uses
+        // screenshot.png (256px) to scale up to the button's height without blurring.
         if (screenshot_icon == null) {
             screenshot_icon = new javax.swing.JLabel();
             screenshot_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1431,35 +1437,35 @@ public class Init extends JFrame {
         );
     }
 
-    // Escala de la botonera respecto a la resolución de DISEÑO canónica (1440p): 1.0 a 1440p,
-    // crece SIN tope por encima (4K+) y por debajo aplica una CURVA SUAVE (raíz) para no encoger
-    // en exceso en pantallas pequeñas. Se toma la menor de las razones ancho/alto (reacciona
-    // también si solo cambia el alto). Suelo mínimo por legibilidad; SIN tope superior.
+    // Button bar scale relative to the canonical DESIGN resolution (1440p): 1.0 at 1440p, grows
+    // with NO cap above it (4K+), and below it applies a SOFT (square-root) curve so small
+    // screens don't shrink too aggressively. Uses the smaller of the width/height ratios (also
+    // reacts if only the height changes). Minimum floor for legibility; NO upper cap.
     private float computeInitScale() {
         int w = getWidth(), h = getHeight();
         if (w <= 0 || h <= 0) {
             return 1f;
         }
-        // Razón lineal respecto al canónico (1440p): se adapta al tamaño de la ventana Y a la
-        // resolución del monitor, INCLUSO maximizada. Se toma la menor de ancho/alto.
+        // Linear ratio to the canonical (1440p): adapts to both the window size and the
+        // monitor's resolution, even maximized. Uses the smaller of width/height.
         float raw = Math.min(w / (float) INIT_REF_W, h / (float) INIT_REF_H);
-        // Franja JUSTO por debajo del canónico (p. ej. 1440p maximizado pierde ~3% de alto por la
-        // barra de tareas) -> tamaño de diseño exacto (PIXEL-PERFECT a 1440p). No afecta a s>=1.
+        // Band just below canonical (e.g. 1440p maximized loses ~3% height to the taskbar) ->
+        // exact design size (PIXEL-PERFECT at 1440p). Doesn't affect s>=1.
         if (raw >= 0.92f && raw < 1f) {
             return 1f;
         }
-        // A 1440p (1.0) o por encima: crece en proporción SIN tope superior (4K, 5K, 8K…).
+        // At 1440p (1.0) or above: grows proportionally with NO upper cap (4K, 5K, 8K...).
         if (raw >= 1f) {
             return raw;
         }
-        // Por DEBAJO del canónico: curva SUAVE (raíz cuadrada) para que las resoluciones pequeñas
-        // no encojan tan agresivamente como la razón lineal (a 1366x768 -> ~0.73 en vez de ~0.53).
-        // Sigue siendo monótona y llega a 1.0 en el canónico. Suelo mínimo por legibilidad.
+        // BELOW canonical: SOFT curve (square root) so small resolutions don't shrink as
+        // aggressively as the linear ratio (at 1366x768 -> ~0.73 instead of ~0.53). Still
+        // monotonic and reaches 1.0 at canonical. Minimum floor for legibility.
         float s = (float) Math.sqrt(raw);
         return Math.max(INIT_MIN_SCALE, s);
     }
 
-    // Aplica la escala a toda la botonera. A s=1 el resultado es IDÉNTICO al diseño 22.35.
+    // Applies the scale to the whole button bar. At s=1 the result is IDENTICAL to the 22.35 design.
     private void applyInitScale(float s) {
         captureInitBaseIfNeeded();
         current_init_scale = s;
@@ -1470,18 +1476,18 @@ public class Init extends JFrame {
         setScaledFont(exit_button, base_exit, s);
         setScaledFont(update_button, base_update, s);
         setScaledFont(update_label, base_update_label, s);
-        // La cita del pie también escala su fuente con la ventana.
+        // The footer quote also scales its font with the window.
         setScaledFont(quote, base_quote, s);
 
-        // Padding cristal (base EmptyBorder(10,22) de GlassButtonUI) + gap icono/texto (14).
+        // Glass padding (base EmptyBorder(10,22) from GlassButtonUI) + icon/text gap (14).
         int pv = Math.round(10 * s), ph = Math.round(22 * s), gap = Math.round(14 * s);
         for (javax.swing.JButton b : new javax.swing.JButton[]{create_button, join_button, stats_button, exit_button, update_button}) {
             b.setBorder(javax.swing.BorderFactory.createEmptyBorder(pv, ph, pv, ph));
             b.setIconTextGap(gap);
         }
 
-        // CREAR/UNIRME a su tamaño de DISEÑO escalado; ESTADÍSTICAS + gap + cámara abarcan EXACTAMENTE
-        // a los dos gemelos (CREAR + gap + UNIRME). La cámara es cuadrada, a la altura de ESTADÍSTICAS.
+        // CREATE/JOIN at their scaled DESIGN size; STATS + gap + camera span EXACTLY the two
+        // twins (CREATE + gap + JOIN). The camera is square, at STATS's height.
         int cw = Math.round(CREATE_W * s), jw = Math.round(JOIN_W * s);
         int stats_h = Math.round(base_stats_h * s);
         int cam = stats_h;
@@ -1491,13 +1497,13 @@ public class Init extends JFrame {
         screenshot_icon.setPreferredSize(new java.awt.Dimension(cam, cam));
         Helpers.setScaledIconLabel(screenshot_icon, getClass().getResource("/images/screenshot.png"), cam, cam);
 
-        // Iconos de los botones: escalados desde su icono BASE (a s=1 quedan idénticos).
+        // Button icons: scaled from their BASE icon (identical at s=1).
         setScaledIconFromBase(create_button, base_icon_create, s);
         setScaledIconFromBase(join_button, base_icon_join, s);
         setScaledIconFromBase(exit_button, base_icon_exit, s);
         setScaledIconFromBase(stats_button, base_icon_stats, s);
 
-        // Banderita (redibujada) + engranaje + altavoz (base 30).
+        // Flag (redrawn) + gear + speaker (base 30).
         int chip = Math.round(30 * s);
         flag_w = Math.round(FLAG_W * s);
         flag_h = Math.round(FLAG_H * s);
@@ -1506,7 +1512,7 @@ public class Init extends JFrame {
         Helpers.setScaledBlackIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), chip, chip);
         applySoundIconScaled();
 
-        // Re-layout + REPINTADO COMPLETO del tapete (evita estelas de los botones no-opacos).
+        // Re-layout + FULL repaint of the felt panel (avoids trails from non-opaque buttons).
         action_buttons_panel.revalidate();
         jPanel1.revalidate();
         corona_init_panel.revalidate();
@@ -1515,14 +1521,14 @@ public class Init extends JFrame {
         tapete.repaint();
     }
 
-    // Deriva la fuente escalada de una base conservando familia y estilo (NO crea un Font nuevo).
+    // Derives a scaled font from a base, keeping family and style (does NOT create a new Font).
     private void setScaledFont(javax.swing.JComponent c, java.awt.Font base, float s) {
         if (base != null) {
             c.setFont(base.deriveFont(Math.max(1f, base.getSize2D() * s)));
         }
     }
 
-    // Escala el icono BASE (nativo) del botón por el factor; a s=1 queda idéntico al original.
+    // Scales the button's BASE (native) icon by the factor; identical to the original at s=1.
     private void setScaledIconFromBase(javax.swing.AbstractButton b, javax.swing.Icon base, float s) {
         if (base instanceof javax.swing.ImageIcon) {
             java.awt.Image img = ((javax.swing.ImageIcon) base).getImage();
@@ -1533,17 +1539,17 @@ public class Init extends JFrame {
         }
     }
 
-    // Dibuja el icono del altavoz (sound/mute según SONIDOS) al tamaño chip ACTUAL de la botonera
-    // (escala memorizada). Lo comparten applyInitScale, el conmutador de mute y refreshSoundIcon,
-    // para que conmutar el sonido NO devuelva el icono a su tamaño base y "se salga" al reducir.
+    // Draws the speaker icon (sound/mute per SONIDOS) at the button bar's CURRENT chip size
+    // (remembered scale). Shared by applyInitScale, the mute toggle and refreshSoundIcon, so
+    // toggling sound doesn't revert the icon to its base size and "stick out" when shrunk.
     private void applySoundIconScaled() {
         int chip = Math.max(1, Math.round(30 * current_init_scale));
         sound_icon.setPreferredSize(new java.awt.Dimension(chip, chip));
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), chip, chip);
     }
 
-    // Blanquea la silueta de un icono (zonas opacas -> blanco) conservando su alfa. Para iconos
-    // de línea NEGRA (p. ej. exit2.png de SALIR) que sobre el cristal oscuro no se verían.
+    // Whitens an icon's silhouette (opaque areas -> white), preserving its alpha. For BLACK
+    // line icons (e.g. exit2.png for EXIT) that would be invisible on the dark glass.
     private static javax.swing.ImageIcon whitenIcon(javax.swing.Icon icon) {
         if (!(icon instanceof javax.swing.ImageIcon)) {
             return null;
@@ -1566,7 +1572,7 @@ public class Init extends JFrame {
         return new javax.swing.ImageIcon(out);
     }
 
-    // Alterna idioma + bandera (misma lógica que el antiguo language_comboboxActionPerformed).
+    // Toggles language + flag (same logic as the old language_comboboxActionPerformed).
     private void toggleLanguageByFlag() {
         GameFrame.LANGUAGE = GameFrame.LANGUAGE.equals("es") ? "en" : "es";
         Helpers.PROPERTIES.setProperty("lenguaje", GameFrame.LANGUAGE);
@@ -1579,8 +1585,8 @@ public class Init extends JFrame {
         updateLanguageFlag();
     }
 
-    // Se redibujan al tamaño ACTUAL (flag_w/flag_h): la botonera escala con la ventana y dibujar
-    // 2 banderitas en cada fin de resize es despreciable. Se dibuja a 2x y se reduce (antialias).
+    // Redrawn at the CURRENT size (flag_w/flag_h): the bar scales with the window and drawing 2
+    // small flags on every resize end is negligible. Drawn at 2x then downscaled (antialiasing).
     private javax.swing.ImageIcon spainFlagIcon() {
         return new javax.swing.ImageIcon(drawSpainFlag(flag_w * 2, flag_h * 2).getScaledInstance(flag_w, flag_h, java.awt.Image.SCALE_SMOOTH));
     }
@@ -1589,7 +1595,7 @@ public class Init extends JFrame {
         return new javax.swing.ImageIcon(drawUKFlag(flag_w * 2, flag_h * 2).getScaledInstance(flag_w, flag_h, java.awt.Image.SCALE_SMOOTH));
     }
 
-    // Bandera de España (rojigualda): franjas roja/gualda/roja (1/4, 1/2, 1/4).
+    // Spanish flag (rojigualda): red/gold/red stripes (1/4, 1/2, 1/4).
     private static java.awt.image.BufferedImage drawSpainFlag(int w, int h) {
         java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         java.awt.Graphics2D g = img.createGraphics();
@@ -1604,7 +1610,7 @@ public class Init extends JFrame {
         return img;
     }
 
-    // Bandera del Reino Unido (Union Jack), simplificada (diagonales rojas centradas).
+    // United Kingdom flag (Union Jack), simplified (centered diagonal stripes).
     private static java.awt.image.BufferedImage drawUKFlag(int w, int h) {
         final Color BLUE = new Color(1, 33, 105);
         final Color RED = new Color(200, 16, 46);
@@ -1654,15 +1660,16 @@ public class Init extends JFrame {
     }
 
     /**
-     * Escribe en el splash el paso de arranque en curso.
+     * Writes the current startup step onto the splash screen.
      *
-     * Un arranque lento (el antivirus escaneando el jar tras una actualización
-     * del sistema, o el SO tardando en servir la semilla del CSPRNG) era
-     * indistinguible de uno colgado, porque el splash no cantaba nada. Cada
-     * paso releva al anterior sobre una pastilla redondeada al pie de la carta.
+     * A slow startup (antivirus scanning the jar after a system update, or the
+     * OS taking its time to seed the CSPRNG) used to be indistinguishable from
+     * a hung one, because the splash said nothing. Each step replaces the last
+     * on a rounded pill at the foot of the card.
      *
-     * No hace nada si no hay splash (arranque desde el IDE, o lanzado sin
-     * -splash) y nunca propaga: es cosmético y jamás debe tumbar el arranque.
+     * No-op if there's no splash (running from the IDE, or launched without
+     * -splash) and never propagates: this is cosmetic and must never take
+     * startup down with it.
      */
     private static void splashStep(String msg) {
 
@@ -1683,9 +1690,9 @@ public class Init extends JFrame {
                 java.awt.Dimension size = splash.getSize();
                 int band_y = size.height - SPLASH_STEP_BOTTOM_MARGIN - SPLASH_STEP_BAND_HEIGHT;
 
-                // Borrar la franja anterior en vez de repintarla de blanco: la
-                // superficie de dibujo se compone SOBRE el gif del splash, así que
-                // dejarla transparente es lo que devuelve el fondo original.
+                // Clear the previous band instead of repainting it white: the drawing
+                // surface is composited OVER the splash gif, so making it transparent
+                // is what restores the original background.
                 g.setComposite(java.awt.AlphaComposite.Clear);
                 g.fillRect(0, band_y, size.width, SPLASH_STEP_BAND_HEIGHT);
                 g.setPaintMode();
@@ -1693,8 +1700,8 @@ public class Init extends JFrame {
                 g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
                 g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-                // La fuente del juego se registra al principio del arranque (antes
-                // del primer paso), así que todos los pasos la lucen por igual.
+                // The game's font is registered at the very start of boot (before the
+                // first step), so every step is rendered with it consistently.
                 g.setFont(Helpers.GUI_FONT.deriveFont(Font.BOLD, (float) SPLASH_STEP_FONT_SIZE));
 
                 java.awt.FontMetrics fm = g.getFontMetrics();
@@ -1719,18 +1726,18 @@ public class Init extends JFrame {
             splash.update();
 
         } catch (Throwable ignored) {
-            // El splash puede cerrarse (al hacerse visible la primera ventana)
-            // entre la comprobación y el update, lo que da IllegalStateException.
+            // The splash can close (when the first window becomes visible) between
+            // the check and the update, which throws IllegalStateException.
         }
     }
 
     /**
-     * Aborta el arranque avisando al usuario en lugar de dejar el proceso zombi.
+     * Aborts startup with a user-facing message instead of leaving a zombie process.
      *
-     * Los hilos del pool no son daemon y el detector de deadlocks es un bucle
-     * infinito, así que si el hilo principal muere por un Error (la carga de la
-     * librería nativa de SQLite fallando, por ejemplo) la JVM se queda viva sin
-     * ninguna ventana detrás y con el splash congelado en pantalla para siempre.
+     * Pool threads aren't daemons and the deadlock detector loops forever, so if
+     * the main thread dies from an Error (e.g. the SQLite native library failing
+     * to load), the JVM stays alive with no window behind it and the splash
+     * frozen on screen forever.
      */
     private static void fatalStartupError(String msg, Throwable cause) {
 
@@ -1753,7 +1760,7 @@ public class Init extends JFrame {
             });
 
         } catch (Throwable ignored) {
-            // Sin GUI utilizable el detalle ya está en el log: salimos igual.
+            // No usable GUI; the detail is already in the log, so exit anyway.
         }
 
         System.exit(1);
@@ -1791,11 +1798,10 @@ public class Init extends JFrame {
         if (!Init.DEV_MODE) {
             SQL_FILE = CORONA_DIR + "/coronapoker.db";
         } else {
-            // DEV_MODE: trabajamos sobre una copia temporal desechable para no
-            // mutar la BD real. Blindaje: SQL_FILE NUNCA debe quedar en null (si
-            // no, se abriria "jdbc:sqlite:null" y se crearia un fichero "null").
-            // Si la BD real no existe, usamos un temporal vacio; si la copia falla,
-            // caemos a la ruta real.
+            // DEV_MODE: work on a disposable temp copy so we don't mutate the real DB.
+            // Guard: SQL_FILE must NEVER stay null (otherwise it would open
+            // "jdbc:sqlite:null" and create a "null" file). If the real DB doesn't
+            // exist, use an empty temp one; if the copy fails, fall back to the real path.
             try {
                 File db = File.createTempFile("coronapoker_" + Helpers.genRandomString(WIDTH), ".db");
                 if (Files.exists(Paths.get(CORONA_DIR + "/coronapoker.db"))) {
@@ -1822,17 +1828,17 @@ public class Init extends JFrame {
         EmojiPanel.initClass();
         Helpers.setCoronaLocale();
 
-        // La fuente del juego se registra antes de cantar el primer paso para que
-        // todos los pasos del splash luzcan ya con ella (solo lee un recurso del
-        // jar y lo registra: no depende de la BD ni del CSPRNG que vienen después).
+        // The game font is registered before announcing the first step so every
+        // splash step already renders with it (only reads a jar resource and
+        // registers it: no dependency on the DB or the CSPRNG that come later).
         Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
 
         splashStep(Translator.translate("splash.base_datos"));
 
         LOGGER.log(Level.INFO, "Loading SQLITE DB...");
 
-        // Sin base de datos no hay estadísticas, ni recuperación de timba, ni
-        // identidades TOFU: no tiene sentido seguir arrancando a medias.
+        // No database means no stats, no game recovery, no TOFU identities: no
+        // point continuing a half-booted startup.
         if (!Helpers.initSQLITE()) {
             fatalStartupError(Translator.translate("error.bd_fatal", DEBUG_DIR), null);
         }
@@ -1867,8 +1873,8 @@ public class Init extends JFrame {
                 }
             }
 
-            // Un MOD puede no traer barajas propias (solo sonidos, imagenes o fondo): entonces no
-            // hay clave "decks" y aqui no hay nada que anadir al catalogo.
+            // A MOD may not ship its own decks (just sounds, images or background): then
+            // there's no "decks" key and nothing to add to the catalog here.
             HashMap<String, HashMap> mod_decks = (HashMap<String, HashMap>) Init.MOD.get("decks");
 
             if (mod_decks != null) {
@@ -1901,22 +1907,22 @@ public class Init extends JFrame {
             GameFrame.BARAJA = GameFrame.BARAJA_DEFAULT;
         }
 
-        // Persiste (una vez) las preferencias de barajado/destape derivadas del antiguo
-        // "Cartas" para romper su vínculo con animacion_reparto (evita que apagar el reparto
-        // más tarde arrastre barajado/destape en el siguiente arranque).
+        // Persists (once) the shuffle/reveal preferences derived from the old "Cartas" setting,
+        // to break their link with animacion_reparto (prevents turning off dealing later from
+        // dragging shuffle/reveal along with it on the next startup).
         GameFrame.migrateSplitAnimationPrefs();
 
-        // Pre-decodifica el shuffle.gif de la baraja actual en background desde
-        // el arranque, para que la primera mano no pague el decode
+        // Pre-decodes the current deck's shuffle.gif in the background at startup,
+        // so the first hand doesn't pay the decode cost.
         Crupier.warmShuffleAnimCache();
 
-        // Igual para el logo animado del About (corona_logo.gif): pre-decodifica en
-        // background para que la primera apertura del About no pague el decode.
+        // Same for the animated About logo (corona_logo.gif): pre-decode in the
+        // background so the first About open doesn't pay the decode cost.
         AboutDialog.warmupLogoAnim();
 
-        // Calienta el JIT de la cripto pesada (cascada SRA + prueba/verificación de barajado)
-        // en background, para que las primeras manos no corran interpretadas / en C1 en PCs
-        // lentos (multi-segundo en frío vs ~0,1 s ya compilado). Ver CryptoWarmup.
+        // Warms up the JIT for the heavy crypto (SRA cascade + shuffle proof/verification) in
+        // the background, so the first hands don't run interpreted/C1 on slow machines
+        // (multi-second cold vs ~0.1s once compiled). See CryptoWarmup.
         com.tonikelope.coronapoker.crypto.CryptoWarmup.warmup();
 
         splashStep(Translator.translate("splash.cartas"));
@@ -1948,18 +1954,17 @@ public class Init extends JFrame {
             Audio.unmuteAll();
         }
 
-        // El init.wav es el PRIMER sonido del proceso y salía cortado a veces:
-        // se reproducía mientras el SO aún despertaba el endpoint de audio.
-        // Caldeamos el dispositivo con una línea de silencio y SOLO después
-        // soltamos el init.wav, en un hilo aparte para no retrasar la ventana.
+        // init.wav is the FIRST sound of the process and used to play clipped
+        // sometimes: it played while the OS was still waking up the audio endpoint.
+        // Warm the device with a silent line and ONLY THEN play init.wav, on a
+        // separate thread so the window isn't delayed.
         Helpers.threadRun(() -> {
             Audio.warmAudioDevice();
             Audio.playWavResourceAndWait("misc/init.wav", true, false, !GameFrame.arranqueSonidoOn());
-            // El uncover.wav del destape es deck-independent (misc/) y suena en
-            // cada giro de carta: se precarga UNA vez aquí, con el endpoint ya
-            // caliente, para que cada destape arranque instantáneo (clip
-            // pre-abierto y reutilizado, sin un open de línea por destape que
-            // llegue tarde respecto a la animación de giro). Nunca se invalida.
+            // uncover.wav (card reveal) is deck-independent (misc/) and plays on every
+            // card flip: preloaded ONCE here, with the endpoint already warm, so every
+            // reveal starts instantly (clip pre-opened and reused, no per-reveal line
+            // open lagging behind the flip animation). Never invalidated.
             Audio.preloadWav("misc/uncover.wav");
         });
 
@@ -1971,9 +1976,9 @@ public class Init extends JFrame {
 
         Helpers.GUIRun(() -> {
             VENTANA_INICIO = new Init();
-            // Maximizada en el monitor primario, pero con el tamaño restaurado
-            // (al desmaximizar) fijado al 80% centrado en vez del enorme por
-            // defecto que se salia de la pantalla.
+            // Maximized on the primary monitor, but with the restored size (when
+            // un-maximized) fixed to a centered 80% instead of the huge default
+            // that spilled off-screen.
             Helpers.showFrameOnScreen(VENTANA_INICIO, java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration());
         });
 
@@ -2000,21 +2005,21 @@ public class Init extends JFrame {
         LOGGER.log(Level.INFO, "Initialization complete. Ready.");
     }
 
-    // Descarga el updater y arranca la actualización a la versión dada. En éxito
-    // hace System.exit(0) (el updater toma el relevo) y NO retorna; si la
-    // descarga falla o salta una excepción, avisa al usuario y retorna para que
-    // el caller restaure la UI. Debe invocarse desde un hilo de fondo:
-    // downloadUpdater() bloquea en red.
+    // Downloads the updater and launches the update to the given version. On
+    // success it calls System.exit(0) (the updater takes over) and does NOT
+    // return; if the download fails or throws, it notifies the user and returns
+    // so the caller can restore the UI. Must be invoked from a background
+    // thread: downloadUpdater() blocks on the network.
     private static void performUpdate(String version) {
         Helpers.GUIRun(() -> {
             VENTANA_INICIO.update_label.setText(Translator.translate("update.preparando_actualizacion"));
         });
         try {
             String current_jar_path = Helpers.getCurrentJarPath();
-            // replace (literal) en vez de replaceAll (regex) — el '.' en
-            // "20.66.jar" es metacaracter regex y matchearía cualquier char
-            // (e.g. paths como "20X66Yjar" o "20<algo>66<algo>jar"). replace
-            // hace substring literal, que es lo correcto aquí.
+            // replace (literal) instead of replaceAll (regex) — the '.' in
+            // "20.66.jar" is a regex metacharacter that would match any char (e.g.
+            // paths like "20X66Yjar" or "20<x>66<x>jar"). replace does a literal
+            // substring match, which is what's needed here.
             String new_jar_path = current_jar_path.replace(AboutDialog.VERSION + ".jar", version + ".jar");
             String updater_jar = Helpers.downloadUpdater();
 
@@ -2038,32 +2043,30 @@ public class Init extends JFrame {
 
     private static void UPDATE() {
         Helpers.threadRun(() -> {
-            // Solo el label de "comprobando actualización": los botones de
-            // acción quedan libres durante el check (con GitHub lento los
-            // reintentos pueden tardar varios segundos y no deben retener al
-            // usuario; el setEnabled(false) del panel que había aquí era
-            // además un no-op: JPanel no propaga el disable a sus hijos). Si
-            // el usuario ya se metió en una partida, la oferta de update
-            // simplemente no se muestra esa sesión (guard de ventana visible
-            // y activa).
+            // Only the "checking for update..." label: the action buttons stay free
+            // during the check (with a slow GitHub, retries can take several seconds
+            // and shouldn't block the user; the panel's setEnabled(false) that used
+            // to be here was also a no-op — JPanel doesn't propagate disable to its
+            // children). If the user already jumped into a game, the update offer
+            // simply doesn't show that session (window visible + active guard).
             Helpers.GUIRun(() -> {
                 VENTANA_INICIO.update_label.setVisible(true);
                 VENTANA_INICIO.update_button.setVisible(false);
             });
-            // Reset para que el botón ACTUALIZAR manual re-compruebe siempre
-            // (un check previo "estás al día" deja NEW_VERSION en blanco).
+            // Reset so a manual UPDATE click always re-checks (a prior "already
+            // up to date" check leaves NEW_VERSION blank).
             NEW_VERSION = null;
 
-            // try/finally: el check es best-effort y corre en background, pero
-            // pase lo que pase (excepción de red no prevista, Error, fallo de un
-            // diálogo) el finally DEBE restaurar la UI — si no, la etiqueta
-            // "COMPROBANDO ACTUALIZACIÓN..." se queda colgada para siempre.
+            // try/finally: the check is best-effort and runs in the background, but
+            // no matter what happens (unexpected network exception, Error, dialog
+            // failure) the finally MUST restore the UI — otherwise the "CHECKING FOR
+            // UPDATE..." label stays stuck forever.
             try {
-                // Hasta UPDATE_CHECK_RETRIES intentos en silencio: si GitHub no
-                // responde, se deja visible el botón ACTUALIZAR para el check
-                // manual y punto (el diálogo modal de "¿reintentar?" que había
-                // aquí podía asaltar al usuario ya metido en partida, sin el
-                // guard de ventana visible/activa que sí tiene la oferta).
+                // Up to UPDATE_CHECK_RETRIES silent attempts: if GitHub doesn't
+                // respond, just leave the UPDATE button visible for a manual check
+                // (the "retry?" modal dialog that used to be here could ambush a
+                // user already in a game, lacking the visible/active window guard
+                // that the offer itself has).
                 for (int intento = 0; intento < UPDATE_CHECK_RETRIES && NEW_VERSION == null; intento++) {
                     NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
                 }
@@ -2083,22 +2086,21 @@ public class Init extends JFrame {
             } finally {
                 Helpers.GUIRun(() -> {
                     VENTANA_INICIO.update_label.setVisible(false);
-                    // El botón cubre dos estados muy distintos y hay que poder
-                    // distinguirlos de un vistazo: o se encontró versión nueva
-                    // (pero el popup no llegó a completarse — p.ej. la ventana no
-                    // estaba activa), o el check no pudo comprobar nada (red /
-                    // timeout). Se etiqueta y colorea según el caso para que el
-                    // usuario sepa qué le ofrece al pulsarlo: actualizar, o
-                    // reintentar la comprobación. NEW_VERSION == "" (al día) no
-                    // entra: el botón queda oculto. Se actualiza también la
-                    // i18n.key para que un cambio de idioma reaplique el texto
-                    // correcto (Helpers.translateComponents).
+                    // The button covers two very different states that must be
+                    // distinguishable at a glance: either a new version was found
+                    // (but the popup didn't complete — e.g. the window wasn't
+                    // active), or the check couldn't reach anything (network/
+                    // timeout). Labeled and colored per case so the user knows what
+                    // clicking it does: update, or retry the check. NEW_VERSION == ""
+                    // (already up to date) doesn't reach here: the button stays
+                    // hidden. The i18n.key is also updated so a language change
+                    // reapplies the right text (Helpers.translateComponents).
                     if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
                         VENTANA_INICIO.update_button.putClientProperty("i18n.key", "update.boton_hay_version_nueva");
                         VENTANA_INICIO.update_button.setText(Translator.translate("update.boton_hay_version_nueva"));
-                        // Amarillo brillante (no el verde oscuro previo): sobre el cristal negro de
-                        // GlassButtonUI el verde apenas contrastaba. La fuente ya es negrita (Dialog
-                        // BOLD 18, preservada por updateFonts/setScaledFont) como el resto de la botonera.
+                        // Bright yellow (not the previous dark green): green barely contrasted on
+                        // GlassButtonUI's dark glass. The font is already bold (Dialog BOLD 18,
+                        // preserved by updateFonts/setScaledFont) like the rest of the bar.
                         VENTANA_INICIO.update_button.setForeground(new Color(255, 214, 0));
                         VENTANA_INICIO.update_button.setVisible(true);
                     } else if (NEW_VERSION == null) {
@@ -2114,9 +2116,9 @@ public class Init extends JFrame {
 
     private static void antiScreensaver() {
 
-        // Robot solo para el FALLBACK de tecla (plataformas sin vía nativa de
-        // wake-lock). En Windows/Linux la vía nativa no lo necesita; si no se
-        // puede crear (headless), seguimos sin fallback.
+        // Robot is only for the key-press FALLBACK (platforms without a native
+        // wake-lock path). Windows/Linux don't need it via the native path; if it
+        // can't be created (headless), we just continue without a fallback.
         Robot rob;
         try {
             rob = new Robot();
@@ -2126,9 +2128,9 @@ public class Init extends JFrame {
         }
         final Robot fallback_robot = rob;
 
-        // Timer daemon: un único hilo para toda la vida de la app, daemon para
-        // que jamás impida el cierre de la JVM. SetThreadExecutionState es
-        // por-hilo, así que el wake-lock se refresca SIEMPRE desde este hilo.
+        // Daemon timer: a single thread for the app's whole lifetime, daemon so it
+        // never blocks JVM shutdown. SetThreadExecutionState is per-thread, so the
+        // wake-lock is ALWAYS refreshed from this same thread.
         java.util.Timer screensaver = new java.util.Timer("anti-screensaver", true);
 
         screensaver.schedule(new TimerTask() {

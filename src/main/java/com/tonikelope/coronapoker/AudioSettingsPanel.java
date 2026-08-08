@@ -49,35 +49,34 @@ import javax.swing.ListSelectionModel;
 import javax.swing.border.TitledBorder;
 
 /**
- * Contenido de los ajustes de audio como JPanel reutilizable: lo usa la pestaña "Audio"
- * del diálogo unificado de ajustes ({@link SettingsDialog}), accesible desde la rueda
- * dentada en el lanzador, la sala de espera y la partida. Cada cambio se aplica y
- * persiste al instante (el volumen maestro es el mismo valor que mueve el atajo global
- * Shift+Arriba/Abajo).
+ * Reusable audio settings panel: content of the "Audio" tab in the unified settings
+ * dialog ({@link SettingsDialog}), reachable from the gear icon in the launcher, the
+ * waiting room and the game itself. Every change is applied and persisted immediately
+ * (the master volume is the same value driven by the global Shift+Up/Down shortcut).
  *
- * El "host" (diálogo) debe: llamar a {@link #applyFontsAndSizing()} tras añadir el
- * panel, gestionar la pila de modales y llamar a {@link #cleanup()} al cerrarse
- * (para no filtrar el dispatcher de captura de tecla ni perder el volumen).
+ * <p>The host dialog must call {@link #applyFontsAndSizing()} after adding the panel,
+ * manage the modal stack, and call {@link #cleanup()} on close (otherwise the key
+ * capture dispatcher leaks and the volume change is lost).
  *
  * @author tonikelope
  */
 public class AudioSettingsPanel extends JPanel {
 
-    // El panel vivo (en cualquier host): lo usa refreshVolume() para sincronizar el
-    // slider cuando el volumen cambia por el atajo global mientras está abierto.
+    // The live panel instance (whichever host owns it): refreshVolume() uses it to sync
+    // the slider when the global shortcut changes the volume while the panel is open.
     private static volatile AudioSettingsPanel INSTANCE = null;
 
     private final JCheckBox sonidos_checkbox;
     private final JCheckBox sonidos_chorra_checkbox;
-    // Grupo "Música": un maestro (MUSICA) que apaga todas las pistas + las cuatro individuales,
-    // mismo patrón que "Efectos de sonido".
+    // "Music" group: one master (MUSICA) that turns off all tracks + the four individual
+    // toggles, same pattern as "Sound effects".
     private final JCheckBox musica_master_checkbox;
     private final JCheckBox musica_checkbox;
     private final JCheckBox musica_sala_checkbox;
     private final JCheckBox musica_about_checkbox;
     private final JCheckBox musica_stats_checkbox;
-    // Grupo "Efectos de sonido": un maestro (sonido_efectos) que los apaga todos + los
-    // efectos individuales. "mis cartas" cuelga de "destapar".
+    // "Sound effects" group: one master (sonido_efectos) that turns them all off + the
+    // individual effects. "my cards" depends on "reveal".
     private final JCheckBox sonido_efectos_checkbox;
     private final JCheckBox sonido_barajado_checkbox;
     private final JCheckBox sonido_reparto_checkbox;
@@ -115,8 +114,8 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_error_red_checkbox;
     private final JCheckBox tts_checkbox;
     private final JCheckBox voice_messages_checkbox;
-    // Cabeceras de categoría de la sección de efectos ("Acciones", "Cartas"...): se agrisan
-    // junto con los efectos cuando estos se desactivan (refreshSoundControlsEnabled).
+    // Category headers in the effects section ("Actions", "Cards"...): greyed out along
+    // with the effects when disabled (refreshSoundControlsEnabled).
     private final List<JLabel> fx_type_headers = new java.util.ArrayList<>();
     private final boolean global_rules_locked;
     private final JSlider volume_slider;
@@ -132,8 +131,8 @@ public class AudioSettingsPanel extends JPanel {
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
 
-    // Paneles con TitledBorder + filas cuyo alto hay que fijar: referencias para
-    // applyFontsAndSizing() (updateFonts no alcanza los títulos de borde).
+    // Panels with a TitledBorder + rows whose height must be pinned: kept as references
+    // for applyFontsAndSizing() (updateFonts doesn't reach border titles).
     private final JPanel volume_panel;
     private final JPanel sound_music_panel;
     private final JPanel output_panel;
@@ -143,9 +142,9 @@ public class AudioSettingsPanel extends JPanel {
     private final JPanel retention_panel;
     private final JPanel purge_panel;
 
-    // Snapshot al ABRIR (diálogo transaccional): los cambios se aplican en vivo como
-    // previsualización y revert() restaura estos valores si se cancela; GUARDAR los
-    // conserva. (El diálogo independiente del altavoz commitea siempre.)
+    // Snapshot taken on OPEN (transactional dialog): changes apply live as a preview and
+    // revert() restores these values on cancel; SAVE keeps them. (The standalone speaker
+    // dialog always commits.)
     private final float snap_master_volume;
     private final boolean snap_sonidos;
     private final boolean snap_sonidos_chorra;
@@ -201,8 +200,10 @@ public class AudioSettingsPanel extends JPanel {
 
     private volatile boolean loading = true;
 
-    // Sincroniza el slider cuando el volumen cambia por el atajo global mientras
-    // hay un panel de audio abierto (en cualquier host).
+    /**
+     * Syncs the volume slider when the global shortcut changes the volume while an audio
+     * panel is open, whichever host owns it.
+     */
     public static void refreshVolume() {
 
         AudioSettingsPanel panel = INSTANCE;
@@ -218,6 +219,10 @@ public class AudioSettingsPanel extends JPanel {
         }
     }
 
+    /**
+     * Builds the panel: snapshots current audio settings, then builds and wires every
+     * control, applying each change live as it happens.
+     */
     public AudioSettingsPanel() {
 
         super(new BorderLayout(10, 10));
@@ -318,10 +323,10 @@ public class AudioSettingsPanel extends JPanel {
         volume_panel.add(volume_slider, BorderLayout.CENTER);
         volume_panel.add(volume_value_label, BorderLayout.EAST);
 
-        // --- Sonido y música (lo que antes vivía en el menú y el popup) ---
-        // TTS (global) y Notas de voz (global) son reglas de la timba: se pueden
-        // preseleccionar antes de jugar, pero si eres CLIENTE en partida el
-        // servidor manda y quedan en gris (su valor sobreescribe y se queda así).
+        // --- Sound & music (previously lived in the menu and the popup) ---
+        // TTS (global) and Voice notes (global) are table rules: they can be pre-set
+        // before playing, but as a CLIENT in a running game the server's value wins and
+        // they show greyed out.
         global_rules_locked = GameFrame.getInstance() != null && !GameFrame.getInstance().isPartida_local();
 
         sonidos_checkbox = new JCheckBox(Translator.translate("audio.sonidos"), GameFrame.SONIDOS);
@@ -335,8 +340,8 @@ public class AudioSettingsPanel extends JPanel {
         sonidos_chorra_checkbox = new JCheckBox(Translator.translate("menu.sonidos_de_cona"), GameFrame.SONIDOS_CHORRA);
         sonidos_chorra_checkbox.addActionListener(e -> GameFrame.setSonidosChorra(sonidos_chorra_checkbox.isSelected()));
 
-        // Maestro de música: apaga las cuatro pistas de un plumazo y refresca su habilitado
-        // (mismo patrón que el maestro de efectos). Cuelga de "Sonidos".
+        // Music master: turns off all four tracks at once and refreshes their enabled
+        // state (same pattern as the effects master). Depends on "Sound".
         musica_master_checkbox = new JCheckBox(Translator.translate("audio.musica_maestro"), GameFrame.MUSICA);
         Helpers.setTranslatedToolTip(musica_master_checkbox, "tooltip.cfg.music_master");
         musica_master_checkbox.setFont(musica_master_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
@@ -357,10 +362,10 @@ public class AudioSettingsPanel extends JPanel {
         musica_stats_checkbox = new JCheckBox(Translator.translate("audio.musica_stats"), GameFrame.MUSICA_STATS);
         musica_stats_checkbox.addActionListener(e -> GameFrame.setMusicaStats(musica_stats_checkbox.isSelected()));
 
-        // --- Efectos de sonido (subpanel bajo "Música ambiente") ---
-        // Maestro que apaga TODOS los efectos + toggles individuales (todos ON por defecto).
-        // El maestro y "destapar" refrescan el habilitado de sus dependientes. El grupo entero
-        // cuelga del master "Sonidos" (se deshabilita si está off, como coña/música).
+        // --- Sound effects (subpanel under "Ambient music") ---
+        // Master that turns off ALL effects + individual toggles (all ON by default). The
+        // master and "reveal" refresh their dependents' enabled state. The whole group depends
+        // on the "Sound" master (disabled along with it, like jokes/music).
         sonido_efectos_checkbox = new JCheckBox(Translator.translate("audio.efectos_sonido"), GameFrame.SONIDO_EFECTOS);
         Helpers.setTranslatedToolTip(sonido_efectos_checkbox, "tooltip.cfg.fx_master");
         sonido_efectos_checkbox.setFont(sonido_efectos_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
@@ -485,19 +490,19 @@ public class AudioSettingsPanel extends JPanel {
         sound_music_panel = new JPanel();
         sound_music_panel.setLayout(new BoxLayout(sound_music_panel, BoxLayout.Y_AXIS));
         sound_music_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.sonido_musica")));
-        // Maestro "SONIDO" al borde; el resto sangrado para que se lea que dependen de él.
-        // Aire entre las filas maestras para que no queden apelmazadas (hay margen de sobra en
-        // esta columna, la más corta, sin subir el alto del diálogo).
+        // "SOUND" master flush left; the rest indented to read as dependents. Extra spacing
+        // between master rows so they don't feel cramped (this column has room to spare, being
+        // the shortest, without growing the dialog's height).
         sound_music_panel.add(iconRow(menuIcon("/images/menu/sound.png"), sonidos_checkbox));
         sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox)));
 
-        // Un poco de aire antes del recuadro de música.
+        // A little breathing room before the music box.
         sound_music_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
 
-        // Subpanel "Música" (recuadro fino), MISMO patrón que "Efectos de sonido": maestro arriba
-        // y, sangradas debajo, las cuatro pistas individuales (juego, sala de espera, Acerca de,
-        // estadísticas). El maestro apaga todas; cada pista conserva su toggle.
+        // "Music" subpanel (thin box), SAME pattern as "Sound effects": master on top and,
+        // indented below, the four individual tracks (game, waiting room, About, stats). The
+        // master turns them all off; each track keeps its own toggle.
         JPanel musica_group = groupBox();
         musica_group.add(iconRow(menuIcon("/images/menu/music.png"), musica_master_checkbox));
         musica_group.add(effectRow(menuIcon("/images/menu/music.png"), musica_checkbox, false, previewButton(Audio.ASCENSOR_VOLUME.getKey())));
@@ -506,18 +511,18 @@ public class AudioSettingsPanel extends JPanel {
         musica_group.add(effectRow(menuIcon("/images/menu/meter.png"), musica_stats_checkbox, false, previewButton(Audio.STATS_VOLUME.getKey())));
         sound_music_panel.add(indent(musica_group));
 
-        // Un poco más de aire para que el recuadro de efectos se lea como subgrupo aparte.
+        // A bit more spacing so the effects box reads as a separate subgroup.
         sound_music_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
 
-        // Subpanel "Efectos de sonido" (recuadro fino): maestro arriba y, debajo, los efectos
-        // individuales AGRUPADOS POR TIPO (cabecera en negrita + sus casillas sangradas), en DOS
-        // columnas para que la lista no dispare el alto. "Mis cartas" cuelga (más sangría) de
-        // "Destapar". Cada casilla se nombra por PARA QUÉ se usa (no por el sonido).
+        // "Sound effects" subpanel (thin box): master on top, then the individual effects
+        // GROUPED BY TYPE (bold header + indented checkboxes) in TWO columns so the list doesn't
+        // blow up the dialog's height. "My cards" depends (deeper indent) on "Reveal". Each
+        // checkbox is named after WHAT it's for, not the sound file.
         JPanel efectos_group = groupBox(true);
         efectos_group.add(iconRow(menuIcon("/images/menu/fx.png"), sonido_efectos_checkbox));
 
-        // Columna izquierda de tipos: acciones + cartas + sala. Repartida para quedar pareja en
-        // nº de filas con la derecha.
+        // Left type column: actions + cards + room. Balanced to match the right column's
+        // row count.
         JPanel fx_col_a = effectsColumn();
         fx_col_a.add(typeHeader("audio.grupo_acciones"));
         fx_col_a.add(effectRow(menuIcon("/images/menu/chips.png"), sonido_apostar_checkbox, false, previewButton("misc/bet.wav")));
@@ -528,9 +533,9 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_a.add(typeHeader("audio.grupo_cartas"));
         fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_barajado_checkbox, false, previewButton("misc/shuffle.wav")));
         fx_col_a.add(effectRow(menuIcon("/images/menu/dealer.png"), sonido_reparto_checkbox, false, previewButton("misc/deal.wav")));
-        // "Destapar" + su subopción "mis cartas" van juntas en un recuadro negro fino (groupBox):
-        // "mis cartas" cuelga (más sangría) de "Destapar" y ambas comparten el mismo gif de destape,
-        // así que se leen como un grupo aparte del resto de efectos de cartas.
+        // "Reveal" + its suboption "my cards" go together in a thin box (groupBox): "my cards"
+        // hangs (deeper indent) off "Reveal" and both share the same reveal sound, so they read
+        // as a separate group from the rest of the card effects.
         JPanel destape_box = groupBox();
         destape_box.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false, previewButton("misc/uncover.wav")));
         destape_box.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true, previewButton("misc/uncover.wav")));
@@ -544,13 +549,13 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_a.add(effectRow(menuIcon("/images/menu/info.png"), sonido_aviso_checkbox, false, previewButton("misc/warning.wav")));
         fx_col_a.add(effectRow(menuIcon("/images/menu/stop.png"), sonido_error_checkbox, false, previewButton("misc/danger_alert.wav")));
         fx_col_a.add(effectRow(menuIcon("/images/menu/close.png"), sonido_error_red_checkbox, false, previewButton("misc/network_error_" + GameFrame.LANGUAGE.toLowerCase() + ".wav")));
-        // Fija las filas arriba: si esta columna es la más corta, el glue absorbe el hueco abajo
-        // (si no, BoxLayout podría centrarlas y desalinear las cabeceras respecto a la otra).
+        // Pins the rows to the top: if this column ends up shorter, the glue absorbs the extra
+        // space below it (otherwise BoxLayout could center them, misaligning the headers).
         fx_col_a.add(Box.createVerticalGlue());
 
-        // Columna derecha de tipos: estado de la partida, turno/tiempo e interfaz. Lo que antes
-        // era el cajón de sastre "Otros" (interruptor de luces, recompra e IWTSTH) se integra en
-        // "Partida", que es a lo que pertenecen: son eventos del transcurso de la timba.
+        // Right type column: game state, turn/timer and UI. The old catch-all "Other" group
+        // (lights switch, rebuy, IWTSTH) is folded into "Game", where it actually belongs: they
+        // are all events of the game's progress.
         JPanel fx_col_b = effectsColumn();
         fx_col_b.add(typeHeader("audio.grupo_partida"));
         fx_col_b.add(effectRow(menuIcon("/images/menu/games.png"), sonido_inicio_checkbox, false, previewButton("misc/startplay.wav")));
@@ -575,13 +580,13 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_b.add(effectRow(menuIcon("/images/menu/corona.png"), sonido_arranque_checkbox, false, previewButton("misc/init.wav")));
         fx_col_b.add(Box.createVerticalGlue());
 
-        // GridBagLayout (no GridLayout): cada subcolumna toma su ANCHO PREFERIDO (weightx=0);
-        // GridLayout las forzaba al MISMO ancho, dejando hueco muerto en la más estrecha. Ambas a
-        // la MISMA ALTURA (fill=BOTH, weighty=1) para alinear sus cabeceras. Entre las dos va una
-        // celda ELÁSTICA (weightx=1): al ensanchar el diálogo, el sobre-ancho ABRE la separación
-        // entre columnas en vez de quedar como hueco a la derecha del recuadro. Ancho máximo libre
-        // (para poder estirarse) y alto topado al preferido (no crece de más); la izquierda, más
-        // corta, deja hueco abajo absorbido por su glue.
+        // GridBagLayout, not GridLayout: each subcolumn takes its PREFERRED width (weightx=0);
+        // GridLayout forced them to the SAME width, leaving dead space in the narrower one. Both
+        // stretch to the SAME height (fill=BOTH, weighty=1) so their headers line up. An ELASTIC
+        // cell (weightx=1) sits between them: widening the dialog opens up the gap between
+        // columns instead of leaving dead space to the right of the box. Max width is unbounded
+        // (so it can stretch) and height is capped at preferred (won't grow further); the
+        // shorter left column absorbs the leftover space with its own glue.
         JPanel fx_cols = new JPanel(new java.awt.GridBagLayout()) {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -597,10 +602,10 @@ public class AudioSettingsPanel extends JPanel {
         fx_gbc.weightx = 0.0;
         fx_gbc.anchor = java.awt.GridBagConstraints.NORTHWEST;
         fx_gbc.gridx = 0;
-        // Separación mínima entre columnas cuando el diálogo está a su ancho natural.
+        // Minimum gap between columns at the dialog's natural width.
         fx_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(16 * Helpers.DIALOG_ZOOM));
         fx_cols.add(fx_col_a, fx_gbc);
-        // Muelle central: se lleva todo el ancho sobrante y empuja la 2ª columna hacia la derecha.
+        // Center spring: absorbs all the leftover width and pushes the 2nd column right.
         fx_gbc.gridx = 1;
         fx_gbc.weightx = 1.0;
         fx_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
@@ -622,8 +627,8 @@ public class AudioSettingsPanel extends JPanel {
 
         output_list = new JList<>(output_model);
         output_list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        // Alto preferido de 4 filas; luego el panel se estira (sin tope) para nivelar la columna
-        // derecha con la izquierda, y el JScrollPane se encarga si hay más dispositivos.
+        // Preferred height of 4 rows; the panel then stretches (uncapped) to level the right
+        // column with the left one, and the JScrollPane handles any extra devices.
         output_list.setVisibleRowCount(4);
         output_list.setSelectedIndex(findDeviceIndex(output_devices, AudioDeviceManager.getOutputDevice()));
 
@@ -697,10 +702,10 @@ public class AudioSettingsPanel extends JPanel {
         mic_panel.add(new JScrollPane(capture_list), BorderLayout.CENTER);
 
         // --- Voice note options ---
-        // Interruptor maestro LOCAL en lógica POSITIVA: ON = notas de voz locales activas
-        // (micrófono, tecla de grabar y reproducción). Bajo el capó sigue viviendo como
-        // "bloqueo" (AudioDeviceManager.setBlockVoiceMessages), así el resto del código
-        // (recepción de notas, sala) no cambia; aquí solo se invierte la vista.
+        // LOCAL master toggle in POSITIVE logic: ON = local voice notes active (microphone,
+        // record hotkey and playback). Under the hood it's still stored as a "block" flag
+        // (AudioDeviceManager.setBlockVoiceMessages), so the rest of the code (note receiving,
+        // waiting room) doesn't change; only the displayed value is inverted here.
         notes_local_checkbox = new JCheckBox(Translator.translate("audio.notas_de_voz_local"), !AudioDeviceManager.isBlockVoiceMessages());
         Helpers.setTranslatedToolTip(notes_local_checkbox, "tooltip.cfg.notes_local");
 
@@ -745,9 +750,9 @@ public class AudioSettingsPanel extends JPanel {
             }
         });
 
-        // Un poco más ancho: prototipo más largo que cualquier ítem real ("Siempre",
-        // "90 días") para que el combo (en BorderLayout.EAST) no quede justo. Va en la
-        // fuente del combo, así que la anchura escala con el updateFonts del host.
+        // A bit wider: prototype longer than any real item ("Always", "90 days") so the
+        // combo (in BorderLayout.EAST) doesn't end up cramped. Uses the combo's own font, so
+        // the width scales with the host's updateFonts.
         retention_combo.setPrototypeDisplayValue(Translator.translate("audio.retencion_dias", 999) + "  ");
 
         retention_panel = new JPanel(new BorderLayout(10, 0));
@@ -768,8 +773,8 @@ public class AudioSettingsPanel extends JPanel {
             }
         });
 
-        // Abre el visor de notas de voz (galería de los .wav guardados en VOICE_DIR). Siempre
-        // habilitado: se pueden revisar/escuchar/borrar notas aunque las notas estén desactivadas.
+        // Opens the voice notes viewer (gallery of the .wav files saved under VOICE_DIR).
+        // Always enabled: notes can be reviewed/played/deleted even while notes are disabled.
         JButton view_notes_button = new JButton(Translator.translate("audio.ver_notas"));
         Helpers.setTranslatedToolTip(view_notes_button, "tooltip.cfg.view_notes");
         view_notes_button.addActionListener(e -> VoiceNotesViewerDialog.open(javax.swing.SwingUtilities.getWindowAncestor(this)));
@@ -789,15 +794,15 @@ public class AudioSettingsPanel extends JPanel {
         retention_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         purge_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
-        // Contenido compacto y pegado arriba (sin glue): va en la columna derecha, bajo el
-        // "Dispositivo de entrada" (micrófono), con el que forma el bloque de VOZ/entrada. Se
-        // topa a su alto preferido en applyFontsAndSizing para no estirarse. Arriba la regla
-        // GLOBAL de la timba (server); debajo el interruptor maestro LOCAL que gobierna el resto
-        // de controles de notas de voz (ambos en positivo, ambos con el icono de micrófono).
-        // El hijo gateado por el maestro LOCAL (reproducir mis notas) va SANGRADO 22px bajo el, como
-        // el resto de sub-opciones del panel. Retencion y purga NO estan gateadas por el maestro
-        // (gestionan las notas ya guardadas), asi que se quedan a nivel base. Ritmo vertical
-        // uniforme: 6px entre sub-filas, 8px de separador maestro.
+        // Compact content pinned to the top (no glue): sits in the right column, under "Input
+        // device" (microphone), forming the VOICE/input block with it. Capped to its preferred
+        // height in applyFontsAndSizing so it doesn't stretch. GLOBAL table rule (server) on top;
+        // below it the LOCAL master toggle that gates the rest of the voice-note controls (both
+        // in positive logic, both with the microphone icon). The child gated by the LOCAL master
+        // (play my own notes) is INDENTED 22px under it, like the panel's other sub-options.
+        // Retention and purge are NOT gated by the master (they manage already-saved notes), so
+        // they stay at the base level. Uniform vertical rhythm: 6px between sub-rows, 8px around
+        // the master separator.
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
         notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), notes_local_checkbox));
@@ -808,39 +813,39 @@ public class AudioSettingsPanel extends JPanel {
         notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(purge_panel);
 
-        // --- Voz (TTS): arriba la regla GLOBAL de la timba (server); debajo el
-        // interruptor LOCAL. Ambos en lógica POSITIVA: el local sigue viviendo bajo el
-        // capó como "bloqueo" (setBlockTtsLocal), así GameFrame no cambia; aquí se invierte.
+        // --- Voice (TTS): GLOBAL table rule (server) on top; LOCAL toggle below. Both in
+        // positive logic: under the hood the local one is still stored as a "block" flag
+        // (setBlockTtsLocal), so GameFrame doesn't change; only the displayed value is inverted.
         tts_local_checkbox = new JCheckBox(Translator.translate("audio.tts_local"), !AudioDeviceManager.isBlockTtsLocal());
         tts_local_checkbox.addActionListener(e -> AudioDeviceManager.setBlockTtsLocal(!tts_local_checkbox.isSelected()));
 
         tts_panel = new JPanel();
         tts_panel.setLayout(new BoxLayout(tts_panel, BoxLayout.Y_AXIS));
         tts_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.voz_tts")));
-        // Compacto y pegado arriba (sin glue): va en la columna derecha, bajo "Notas de voz", con
-        // la que forma el bloque de VOZ; se topa a su alto preferido en applyFontsAndSizing. Arriba
-        // la regla GLOBAL de la timba (server); debajo la LOCAL, ambas con icono de voz.
+        // Compact and pinned to the top (no glue): sits in the right column, under "Voice
+        // notes", forming the VOICE block with it; capped to its preferred height in
+        // applyFontsAndSizing. GLOBAL table rule (server) on top; LOCAL below, both with the
+        // voice icon.
         tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_checkbox));
         tts_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_local_checkbox));
 
-        // Nota (solo CLIENTE en partida): las reglas GLOBALES las manda el servidor y quedan en
-        // gris (los ajustes locales no las tocan). Ambos checkboxes GLOBALES (Notas de voz y TTS)
-        // viven ahora en la columna derecha; la nota va al pie del diálogo (SOUTH), bajo ambas
-        // columnas. Invisible si no eres cliente. Ancho fijo en el HTML para que ajuste a varias
-        // líneas y no se corte.
+        // Note (CLIENT-in-game only): GLOBAL rules are sent by the server and shown greyed out
+        // (local settings don't touch them). Both GLOBAL checkboxes (Voice notes and TTS) now
+        // live in the right column; the note goes at the bottom of the dialog (SOUTH), under both
+        // columns. Hidden unless you're a client. Fixed HTML width so it wraps instead of getting
+        // cut off.
         JLabel global_note = new JLabel("<html><div style='width:240px'>" + Translator.translate("audio.ajustes_locales_ignorados") + "</div></html>");
         global_note.setForeground(java.awt.Color.GRAY);
         global_note.setVisible(global_rules_locked);
 
         refreshSoundControlsEnabled();
 
-        // --- Dos columnas para minimizar la ALTURA del diálogo: IZQUIERDA "Sonido y música" (el
-        // panel más alto, gobierna la altura); DERECHA el bloque de VOZ/entrada apilado —
-        // "Dispositivo de salida", "Dispositivo de entrada", "Notas de voz" y "Voz (TTS)"—. Las
-        // listas de dispositivos (sin tope) se estiran para llenar la columna y NIVELAR su borde
-        // inferior con el de la izquierda; "Notas de voz" y "Voz (TTS)" (topadas a su alto) caen
-        // debajo, ambas son VOZ. ---
+        // --- Two columns to minimize the dialog's HEIGHT: LEFT "Sound & music" (the tallest
+        // panel, so it drives the height); RIGHT the stacked VOICE/input block — "Output device",
+        // "Input device", "Voice notes" and "Voice (TTS)". The device lists (uncapped) stretch to
+        // fill the column and LEVEL their bottom edge with the left column's; "Voice notes" and
+        // "Voice (TTS)" (capped to their preferred height) fall below them, both being VOICE. ---
         sound_music_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         output_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         mic_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
@@ -851,8 +856,8 @@ public class AudioSettingsPanel extends JPanel {
         left_col.setLayout(new BoxLayout(left_col, BoxLayout.Y_AXIS));
         left_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
         left_col.add(sound_music_panel);
-        // "Sonido y música" es compacto (topado a su alto preferido); esta cola absorbe el alto
-        // sobrante si la columna derecha resulta la más alta, dejándolo pegado arriba.
+        // "Sound & music" is compact (capped to its preferred height); this tail absorbs the
+        // leftover height if the right column ends up taller, keeping it pinned to the top.
         left_col.add(Box.createVerticalGlue());
 
         JPanel right_col = new JPanel();
@@ -865,22 +870,22 @@ public class AudioSettingsPanel extends JPanel {
         right_col.add(notes_panel);
         right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
         right_col.add(tts_panel);
-        // Sin cola al pie: las listas de dispositivos (output/mic, sin tope de alto) absorben el
-        // alto sobrante estirándose, con lo que "Notas de voz" y "Voz (TTS)" quedan abajo y el
-        // borde inferior de la columna se nivela con el de la izquierda (efectos).
+        // No tail at the bottom: the device lists (output/mic, height uncapped) absorb the
+        // leftover height by stretching, so "Voice notes" and "Voice (TTS)" end up below them and
+        // the column's bottom edge levels with the left column's (effects).
 
-        // GridBagLayout (no GridLayout): cada columna toma su ANCHO PREFERIDO —ya NO se fuerza a
-        // que ambas midan lo mismo, que ensanchaba el diálogo estirando la derecha (listas de
-        // dispositivos) en balde— pero AMBAS se estiran a la MISMA ALTURA (fill=BOTH, weighty=1),
-        // así sus bordes inferiores siguen alineados. Al empaquetar, el ancho es exactamente el
-        // necesario; weightx=1 reparte por igual cualquier sobre-ancho (no deja huecos centrados).
+        // GridBagLayout, not GridLayout: each column takes its PREFERRED width — no longer
+        // forced equal, which used to widen the dialog by needlessly stretching the right column
+        // (device lists) — but BOTH stretch to the SAME height (fill=BOTH, weighty=1), so their
+        // bottom edges stay aligned. On pack, the width is exactly what's needed; weightx=1
+        // splits any leftover width evenly (no centered dead space).
         JPanel center_panel = new JPanel(new java.awt.GridBagLayout());
         java.awt.GridBagConstraints center_gbc = new java.awt.GridBagConstraints();
         center_gbc.gridy = 0;
         center_gbc.fill = java.awt.GridBagConstraints.BOTH;
         center_gbc.weighty = 1.0;
-        // Ambas columnas con weightx=1: el sobre-ancho (al ensanchar el diálogo) se reparte por
-        // igual entre las dos, así crecen a la par en vez de estirarse solo la derecha.
+        // Both columns at weightx=1: leftover width (from widening the dialog) is split evenly
+        // between them, so they grow together instead of only the right one stretching.
         center_gbc.weightx = 1.0;
         center_gbc.gridx = 0;
         center_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(12 * Helpers.DIALOG_ZOOM));
@@ -892,11 +897,11 @@ public class AudioSettingsPanel extends JPanel {
 
         add(volume_panel, BorderLayout.NORTH);
         add(center_panel, BorderLayout.CENTER);
-        // Nota de reglas globales al pie, bajo ambas columnas: afecta a los checkboxes GLOBALES
-        // de las dos (Voz TTS a la izquierda, Notas de voz a la derecha). Solo se AÑADE si eres
-        // cliente en partida; a diferencia de BoxLayout, BorderLayout.SOUTH reserva el alto del
-        // componente aunque esté invisible, así que fuera de partida no lo colgamos (para no
-        // dejar una franja vacía que se comería el alto ganado).
+        // Global-rules note at the bottom, under both columns: covers the GLOBAL checkboxes of
+        // both (TTS on the left, Voice notes on the right). Only ADDED when you're a client in a
+        // game; unlike BoxLayout, BorderLayout.SOUTH reserves the component's height even while
+        // invisible, so outside of a game it's not added at all (to avoid an empty strip eating
+        // into the height we saved).
         if (global_rules_locked) {
             add(global_note, BorderLayout.SOUTH);
         }
@@ -906,15 +911,18 @@ public class AudioSettingsPanel extends JPanel {
         INSTANCE = this;
     }
 
-    // Aplica la fuente escalada del audio (1.2x, como el antiguo diálogo) y los
-    // arreglos que dependen de ella: fuentes de los títulos de borde (updateFonts
-    // no los alcanza) y altos máximos de las filas/paneles que no deben estirarse.
-    // El host debe llamarlo DESPUÉS de su propio updateFonts general.
+    /**
+     * Applies the scaled audio font (1.2x, like the old dialog) and the fixes that depend
+     * on it: border-title fonts (updateFonts doesn't reach them) and max heights for
+     * rows/panels that shouldn't stretch.
+     *
+     * <p>The host must call this AFTER its own general updateFonts.
+     */
     public void applyFontsAndSizing() {
 
-        // Nota: la fuente la aplica el HOST antes de llamar aquí (el diálogo
-        // independiente del altavoz usa updateFonts 1.2x; el diálogo unificado usa su
-        // tamaño homogéneo). Aquí solo se arreglan los títulos de borde y los altos.
+        // Note: the HOST applies the font before calling this (the standalone speaker dialog
+        // uses updateFonts at 1.2x; the unified dialog uses its own uniform size). This only
+        // fixes the border titles and the heights.
         ((TitledBorder) volume_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) sound_music_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) output_panel.getBorder()).setTitleFont(volume_value_label.getFont());
@@ -922,26 +930,29 @@ public class AudioSettingsPanel extends JPanel {
         ((TitledBorder) notes_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) tts_panel.getBorder()).setTitleFont(volume_value_label.getFont());
 
-        // En el BoxLayout vertical, la fila de retención y la de purga deben
-        // conservar su alto natural en vez de estirarse hasta llenar el hueco.
+        // In the vertical BoxLayout, the retention and purge rows must keep their natural
+        // height instead of stretching to fill the gap.
         retention_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, retention_panel.getPreferredSize().height));
         purge_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, purge_panel.getPreferredSize().height));
 
-        // "Sonido y música", "Notas de voz" y "Voz (TTS)" solo llevan checkboxes y filas de alto
-        // natural: se topan a su alto preferido para NO estirarse en vertical (quedan compactos).
-        // Las listas de "Dispositivo de salida/entrada" SÍ se estiran (sin tope) para llenar la
-        // columna derecha y NIVELAR su borde inferior con el de la izquierda (efectos, la más alta),
-        // absorbiendo el alto sobrante; el JScrollPane cubre si hay más dispositivos que filas.
-        // DESPUÉS de updateFonts, para que el alto preferido ya refleje la fuente escalada.
+        // "Sound & music", "Voice notes" and "Voice (TTS)" only hold checkboxes and rows of
+        // natural height: capped to their preferred height so they DON'T stretch vertically
+        // (stay compact). The "Output/input device" lists DO stretch (uncapped) to fill the right
+        // column and LEVEL their bottom edge with the left column's (effects, the tallest),
+        // absorbing the leftover height; the JScrollPane covers any extra devices. Done AFTER
+        // updateFonts, so the preferred height already reflects the scaled font.
         sound_music_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, sound_music_panel.getPreferredSize().height));
         tts_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, tts_panel.getPreferredSize().height));
         notes_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, notes_panel.getPreferredSize().height));
     }
 
-    // El host DEBE llamarlo al cerrarse: persistir el volumen maestro y soltar la referencia viva.
+    /**
+     * The host MUST call this on close: persists the master volume and releases the live
+     * instance reference.
+     */
     public void cleanup() {
 
-        // Corta cualquier audición en curso (el botón play de una pista o efecto) al cerrar.
+        // Stops any preview in progress (a track's or effect's play button) on close.
         Audio.stopPreview();
 
         Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
@@ -952,8 +963,12 @@ public class AudioSettingsPanel extends JPanel {
         }
     }
 
-    // ¿Hay cambios de audio respecto al estado de apertura? Lo usa el host para
-    // preguntar antes de descartar al cancelar.
+    /**
+     * Whether any audio setting differs from the state captured on open. Used by the host
+     * to confirm before discarding on cancel.
+     *
+     * @return {@code true} if something changed since the panel was opened
+     */
     public boolean isDirty() {
         return Audio.MASTER_VOLUME != snap_master_volume
                 || GameFrame.SONIDOS != snap_sonidos
@@ -998,9 +1013,9 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDO_AVISO != snap_sonido_aviso
                 || GameFrame.SONIDO_ERROR != snap_sonido_error
                 || GameFrame.SONIDO_ERROR_RED != snap_sonido_error_red
-                // Reglas globales (TTS/notas): si eres CLIENTE las manda el servidor (no
-                // las posees); ignorarlas para no dar "¿descartar?" espurio ni revertir
-                // sobre un broadcast del host.
+                // Global rules (TTS/notes): as a CLIENT they're sent by the server (you don't
+                // own them); ignored here to avoid a spurious "discard changes?" prompt or
+                // reverting over a host broadcast.
                 || (!global_rules_locked && GameFrame.TTS_SERVER != snap_tts_server)
                 || (!global_rules_locked && GameFrame.VOICE_MESSAGES != snap_voice_messages)
                 || !java.util.Objects.equals(snap_output_device, AudioDeviceManager.getOutputDevice())
@@ -1012,9 +1027,11 @@ public class AudioSettingsPanel extends JPanel {
                 || AudioDeviceManager.isBlockTtsLocal() != snap_block_tts_local;
     }
 
-    // Revierte (al CANCELAR el diálogo transaccional) los ajustes de audio al estado
-    // capturado al abrir, re-aplicando cada uno por su setter normal (los cambios
-    // globales re-emiten su broadcast, restaurando también a los clientes).
+    /**
+     * Reverts audio settings to the state captured on open (CANCEL of the transactional
+     * dialog), re-applying each one through its normal setter — global changes re-emit
+     * their broadcast, restoring clients too.
+     */
     public void revert() {
 
         if (Audio.MASTER_VOLUME != snap_master_volume) {
@@ -1149,8 +1166,8 @@ public class AudioSettingsPanel extends JPanel {
         if (GameFrame.SONIDO_ERROR_RED != snap_sonido_error_red) {
             GameFrame.setSonidoErrorRed(snap_sonido_error_red);
         }
-        // Reglas globales (TTS/notas): solo las revierte el HOST (que las posee). Para un
-        // cliente las gobierna el servidor por broadcast; revertirlas lo desincronizaría.
+        // Global rules (TTS/notes): only the HOST reverts them (it owns them). For a client
+        // they're governed by the server's broadcast; reverting them here would desync it.
         if (!global_rules_locked && GameFrame.TTS_SERVER != snap_tts_server) {
             GameFrame.setTTSGlobal(snap_tts_server);
         }
@@ -1181,20 +1198,22 @@ public class AudioSettingsPanel extends JPanel {
         }
     }
 
-    // Restaura TODOS los ajustes de audio a sus valores de fábrica, aplicándolos EN VIVO como una
-    // edición más (diálogo transaccional: GUARDAR los conserva, Cancelar los revierte al estado de
-    // apertura). Incluye volumen maestro, todos los toggles de sonido/música/coña, dispositivos,
-    // micrófono, notas de voz, retención y voz TTS local. Las reglas
-    // GLOBALES de la timba (TTS y notas de voz) solo se resetean si NO eres cliente (a un cliente
-    // se las manda el servidor). Lo invoca el botón "Restaurar predeterminados" del diálogo.
+    /**
+     * Restores ALL audio settings to their factory values, applying them LIVE like any
+     * other edit (transactional dialog: SAVE keeps them, Cancel reverts to the state on
+     * open). Covers master volume, every sound/music/joke toggle, devices, microphone,
+     * voice notes, retention and local TTS. GLOBAL table rules (TTS and voice notes) are
+     * only reset when NOT a client (a client gets them from the server). Invoked by the
+     * dialog's "Restore defaults" button.
+     */
     public void restoreDefaults() {
 
-        // Volumen maestro (0.8 = valor de fábrica). setValue dispara el listener, que aplica
-        // el volumen y lo persiste (loading es false en tiempo de ejecución).
+        // Master volume (0.8 = factory value). setValue triggers the listener, which applies
+        // and persists it (loading is false at this point).
         volume_slider.setValue(80);
 
-        // Toggles: fijamos el flag por su setter (aplica en vivo + persiste) y sincronizamos la
-        // casilla (setSelected NO dispara el listener, así no hay doble aplicación).
+        // Toggles: set the flag through its setter (applies live + persists) and sync the
+        // checkbox (setSelected does NOT fire the listener, avoiding a double apply).
         applyDefault(GameFrame::setSonidos, sonidos_checkbox, true);
         applyDefault(GameFrame::setSonidosChorra, sonidos_chorra_checkbox, false);
         applyDefault(GameFrame::setMusica, musica_master_checkbox, true);
@@ -1238,28 +1257,28 @@ public class AudioSettingsPanel extends JPanel {
         applyDefault(GameFrame::setSonidoError, sonido_error_checkbox, true);
         applyDefault(GameFrame::setSonidoErrorRed, sonido_error_red_checkbox, true);
 
-        // --- Dispositivos y voz: también vuelven a fábrica ("incluir todo") ---
-        // Dispositivo de salida/entrada → predeterminado del sistema (índice 0). setSelectedIndex
-        // dispara el listener (aplica + persiste; la salida además reinicia los loops de música).
+        // --- Devices and voice: reset to factory too ("include everything") ---
+        // Output/input device -> system default (index 0). setSelectedIndex fires the listener
+        // (applies + persists; output also restarts the music loops).
         output_list.setSelectedIndex(0);
         capture_list.setSelectedIndex(0);
-        // Micrófono: por defecto activo si el sistema tiene algún dispositivo de captura.
+        // Microphone: on by default if the system has any capture device.
         boolean mic_def = !AudioDeviceManager.getCaptureDevices().isEmpty();
         AudioDeviceManager.setMicEnabled(mic_def);
         mic_checkbox.setSelected(mic_def);
-        // Notas de voz locales activas (bloqueo=false → casilla marcada) y reproducir mis notas (true).
+        // Local voice notes active (block=false -> checkbox checked) and play-my-own-notes (true).
         AudioDeviceManager.setBlockVoiceMessages(false);
         notes_local_checkbox.setSelected(true);
         AudioDeviceManager.setPlayOwnVoiceMessages(true);
         play_own_checkbox.setSelected(true);
-        // Retención de notas: 90 días (índice 3 de VOICE_NOTE_RETENTION_OPTIONS). setSelectedIndex
-        // dispara el listener, que la persiste.
+        // Note retention: 90 days (index 3 of VOICE_NOTE_RETENTION_OPTIONS). setSelectedIndex
+        // fires the listener, which persists it.
         retention_combo.setSelectedIndex(3);
-        // Voz TTS local activa (bloqueo=false → casilla marcada).
+        // Local TTS voice active (block=false -> checkbox checked).
         AudioDeviceManager.setBlockTtsLocal(false);
         tts_local_checkbox.setSelected(true);
-        // Reglas GLOBALES de la timba (TTS y notas de voz): solo si NO eres cliente (a un cliente
-        // se las manda el servidor y resetearlas lo desincronizaría), igual que en revert/isDirty.
+        // GLOBAL table rules (TTS and voice notes): only if NOT a client (a client gets them
+        // from the server, and resetting them here would desync it), same as in revert/isDirty.
         if (!global_rules_locked) {
             GameFrame.setTTSGlobal(true);
             tts_checkbox.setSelected(true);
@@ -1267,28 +1286,29 @@ public class AudioSettingsPanel extends JPanel {
             voice_messages_checkbox.setSelected(true);
         }
 
-        // Re-sincroniza los habilitados (los maestros quedan ON; el micrófono/notas rehabilitan
-        // sus controles dependientes).
+        // Re-syncs the enabled states (masters end up ON; microphone/notes re-enable their
+        // dependent controls).
         refreshVoiceControlsEnabled();
         refreshSoundControlsEnabled();
     }
 
-    // Fija un flag booleano por su setter (aplica en vivo + persiste) y sincroniza su casilla
-    // SIN disparar de nuevo el listener (setSelected no lo hace), evitando doble aplicación.
+    // Sets a boolean flag through its setter (applies live + persists) and syncs its
+    // checkbox WITHOUT re-firing the listener (setSelected doesn't), avoiding a double apply.
     private static void applyDefault(java.util.function.Consumer<Boolean> setter, JCheckBox cb, boolean def) {
         setter.accept(def);
         cb.setSelected(def);
     }
 
-    // El sonido maestro gobierna coña y música. Las reglas globales (TTS y notas de
-    // voz) se pueden preseleccionar siempre, salvo cuando eres cliente en partida:
-    // ahí mandan las del servidor y quedan en gris.
+    // The sound master governs jokes and music. Global rules (TTS and voice notes) can
+    // always be pre-set, except as a client in a running game: there the server's values
+    // win and they show greyed out.
     private void refreshSoundControlsEnabled() {
 
         boolean on = sonidos_checkbox.isSelected();
 
         sonidos_chorra_checkbox.setEnabled(on);
-        // Música: el maestro cuelga de "Sonidos"; las cuatro pistas del maestro (como los efectos).
+        // Music: the master depends on "Sound"; the four tracks depend on the music master
+        // (like the effects).
         musica_master_checkbox.setEnabled(on);
         boolean music_on = on && musica_master_checkbox.isSelected();
         musica_checkbox.setEnabled(music_on);
@@ -1296,11 +1316,11 @@ public class AudioSettingsPanel extends JPanel {
         musica_about_checkbox.setEnabled(music_on);
         musica_stats_checkbox.setEnabled(music_on);
 
-        // Efectos de sonido: el maestro cuelga de "Sonidos"; los efectos individuales del
-        // maestro, y "mis cartas" además de "Destapar".
+        // Sound effects: the master depends on "Sound"; individual effects depend on the
+        // effects master, and "my cards" also depends on "Reveal".
         sonido_efectos_checkbox.setEnabled(on);
         boolean fx_on = on && sonido_efectos_checkbox.isSelected();
-        // Cabeceras de categoría ("Acciones", "Cartas"...): se agrisan como sus efectos.
+        // Category headers ("Actions", "Cards"...): greyed out along with their effects.
         for (JLabel header : fx_type_headers) {
             header.setEnabled(fx_on);
         }
@@ -1343,9 +1363,9 @@ public class AudioSettingsPanel extends JPanel {
         voice_messages_checkbox.setEnabled(!global_rules_locked);
     }
 
-    // El interruptor maestro LOCAL de notas de voz gobierna todos sus controles; la lista
-    // de captura además necesita el micrófono activado. (La retención y el vaciado son
-    // independientes: puedes gestionar el disco aunque las notas estén desactivadas.)
+    // The LOCAL master toggle for voice notes governs all its controls; the capture list
+    // additionally needs the microphone enabled. (Retention and purge are independent: you
+    // can manage the disk even while notes are disabled.)
     private void refreshVoiceControlsEnabled() {
 
         boolean local_on = notes_local_checkbox.isSelected();
@@ -1377,11 +1397,11 @@ public class AudioSettingsPanel extends JPanel {
     // and enabled state still operate on the same object.
     private static JComponent iconRow(javax.swing.Icon icon, JComponent control) {
 
-        // Alto MÁXIMO = preferido: en un BoxLayout vertical la fila NUNCA se estira para
-        // rellenar el hueco. El glue horizontal interno (empuja el control a la izquierda)
-        // tiene alto máximo ilimitado y, sin este tope, arrastraría a la fila entera y
-        // separaría los controles al repartirse el hueco sobrante (era el caso de los dos
-        // checkboxes de "Ajustes globales", que quedaban muy espaciados).
+        // MAX height = preferred: in a vertical BoxLayout the row NEVER stretches to fill the
+        // gap. The internal horizontal glue (pushes the control left) has unlimited max height
+        // and, without this cap, would drag the whole row along and space the controls apart
+        // when the leftover height gets distributed (this was the case for the two "Global
+        // settings" checkboxes, which ended up too far apart).
         JPanel row = new JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -1423,15 +1443,15 @@ public class AudioSettingsPanel extends JPanel {
         }
     }
 
-    // Escala un icono para que QUEPA dentro de la caja indicada sin deformarlo. Para los dibujos
-    // que no son cuadrados: el interruptor de luces (256x120) y las ciegas (43x32) metidos en un
-    // cuadrado de 24 salían aplastados, el primero a menos de la mitad de su ancho.
+    // Scales an icon to FIT inside the given box without distorting it. For non-square
+    // artwork: the lights switch (256x120) and the blinds icon (43x32) came out squashed
+    // when forced into a 24px square, the former to less than half its width.
     private static javax.swing.ImageIcon fitIcon(String resource, int max_width, int max_height) {
 
         java.net.URL url = AudioSettingsPanel.class.getResource(resource);
 
         if (url == null) {
-            // Como scaledIcon con una ruta mal escrita: sin icono, no reventando el panel entero.
+            // Same as scaledIcon with a bad path: no icon, not blowing up the whole panel.
             return null;
         }
 
@@ -1446,18 +1466,18 @@ public class AudioSettingsPanel extends JPanel {
         return scaledIcon(resource, Math.max(1, Math.round(raw.getIconWidth() * scale)), Math.max(1, Math.round(raw.getIconHeight() * scale)));
     }
 
-    // Recuadro fino redondeado (mismo estilo que los grupos de la pestaña "Apariencia"):
-    // agrupa el maestro "Efectos de sonido" con sus toggles individuales. Transparente para
-    // que el fondo del panel se vea a través; alto máximo = preferido (no se estira en el
-    // BoxLayout vertical de "Sonido y música").
+    // Thin rounded box (same style as the groups in the "Appearance" tab): groups the
+    // "Sound effects" master with its individual toggles. Transparent so the panel's
+    // background shows through; max height = preferred (doesn't stretch in the vertical
+    // BoxLayout of "Sound & music").
     private static JPanel groupBox() {
         return groupBox(false);
     }
 
-    // fill_width=true: el recuadro OCUPA el ancho disponible de la columna (alto topado a su
-    // preferido) en lugar de ceñirse a su contenido — lo usa el recuadro de efectos para que el
-    // sobre-ancho al ensanchar el diálogo se reparta como separación entre sus dos columnas y no
-    // quede como hueco muerto a su derecha.
+    // fill_width=true: the box OCCUPIES the column's available width (height capped to
+    // preferred) instead of hugging its content — used by the effects box so that widening
+    // the dialog turns into spacing between its two columns instead of dead space to its
+    // right.
     private static JPanel groupBox(boolean fill_width) {
         JPanel p = new JPanel() {
             @Override
@@ -1471,10 +1491,11 @@ public class AudioSettingsPanel extends JPanel {
                 g2.dispose();
             }
 
-            // Por defecto ciñe el recuadro a su contenido (no ocupa todo el ancho de la columna):
-            // así, sangrado bajo el maestro, se lee como un subgrupo y no como una franja. Con
-            // fill_width deja crecer el ancho (alto topado al preferido) para estirarse con la
-            // columna. En vivo (getPreferredSize), no un valor cacheado con la fuente vieja.
+            // By default the box hugs its content (doesn't take the column's full width): that
+            // way, indented under the master, it reads as a subgroup rather than a stripe. With
+            // fill_width it's allowed to grow in width (height capped to preferred) to stretch
+            // with the column. Computed live (getPreferredSize), not a value cached with a stale
+            // font.
             @Override
             public java.awt.Dimension getMaximumSize() {
                 java.awt.Dimension pref = getPreferredSize();
@@ -1488,16 +1509,16 @@ public class AudioSettingsPanel extends JPanel {
         return p;
     }
 
-    // Caja del icono de cada fila de efecto: EXACTAMENTE el tamaño que ya ocupaban los iconos
-    // (todos son de 24 en origen), para que las casillas no se muevan ni un píxel de donde estaban
-    // y el ancho del diálogo tampoco cambie. Los apaisados se encajan dentro conservando su
-    // proporción, así que salen más bajos que los cuadrados pero sin aplastar.
+    // Icon cell for each effect row: EXACTLY the size the icons already occupied (all 24px
+    // originally), so the checkboxes don't shift a single pixel and the dialog's width
+    // doesn't change either. Non-square artwork is fitted inside keeping its aspect ratio, so
+    // it comes out shorter than the square icons but never squashed.
     private static final int EFFECT_ICON_CELL_W = 24;
     private static final int EFFECT_ICON_CELL_H = 24;
 
-    // Fila de un efecto/pista individual dentro de su recuadro, sangrada bajo el maestro (deep =
-    // sangría mayor, para la subopción "mis cartas" que cuelga de "Destapar"). trailing (o null):
-    // el botón de audición, que va A LA DERECHA del label.
+    // Row for a single effect/track inside its box, indented under the master (deep = extra
+    // indent, for the "my cards" suboption hanging off "Reveal"). trailing (or null): the
+    // preview button, placed to the RIGHT of the label.
     private static JComponent effectRow(javax.swing.Icon icon, JCheckBox cb, boolean deep, JComponent trailing) {
         JPanel row = new JPanel() {
             @Override
@@ -1508,14 +1529,15 @@ public class AudioSettingsPanel extends JPanel {
         row.setOpaque(false);
         row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
         row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        // Margen superior: da aire entre filas de efectos (iban pegadas) y bajo el maestro, sin
-        // subir el alto del diálogo (esta columna es la más corta y le sobra vertical).
+        // Top margin: adds air between effect rows (were touching) and under the master,
+        // without growing the dialog's height (this column is the shortest and has room to
+        // spare).
         row.setBorder(BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), 0, 0, 0));
         row.add(Box.createHorizontalStrut(Math.round((deep ? 34 : 18) * Helpers.DIALOG_ZOOM)));
         JLabel icon_label = new JLabel(icon);
-        // Celda de ancho FIJO para el icono, con el dibujo centrado: así todas las casillas de la
-        // columna arrancan en la misma x aunque el icono sea apaisado. Sin ella, devolverle su
-        // proporción al interruptor de luces empujaría su casilla ~27 px a la derecha.
+        // FIXED-width cell for the icon, with the artwork centered: this way every checkbox in
+        // the column starts at the same x even for a wide icon. Without it, giving the lights
+        // switch back its aspect ratio would push its checkbox ~27px to the right.
         java.awt.Dimension icon_cell = new java.awt.Dimension(Math.round(EFFECT_ICON_CELL_W * Helpers.DIALOG_ZOOM), Math.round(EFFECT_ICON_CELL_H * Helpers.DIALOG_ZOOM));
         icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         icon_label.setPreferredSize(icon_cell);
@@ -1526,8 +1548,8 @@ public class AudioSettingsPanel extends JPanel {
         row.add(icon_label);
         row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         row.add(cb);
-        // Botón de audición a la derecha del label (tras un pequeño hueco). El glue posterior
-        // empuja todo a la izquierda, así que el botón queda pegado al texto de la casilla.
+        // Preview button to the right of the label (after a small gap). The trailing glue
+        // pushes everything left, so the button ends up right next to the checkbox text.
         if (trailing != null) {
             row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
             trailing.setAlignmentY(JComponent.CENTER_ALIGNMENT);
@@ -1537,9 +1559,9 @@ public class AudioSettingsPanel extends JPanel {
         return row;
     }
 
-    // Botón de audición (play/stop) junto a una casilla de sonido: un JButton pequeño y sin marco,
-    // con el triángulo de play (o el cuadrado de stop en la música mientras suena). SIEMPRE queda
-    // habilitado aunque la casilla esté en gris — el maestro de sonido apagado no impide escuchar.
+    // Preview button (play/stop) next to a sound checkbox: a small, borderless JButton with
+    // the play triangle (or the stop square while it's playing). ALWAYS enabled even if the
+    // checkbox is greyed out — the sound master being off doesn't prevent previewing.
     private static JButton previewButtonBase() {
         JButton b = new JButton(previewGlyph(false));
         b.setMargin(new java.awt.Insets(0, 0, 0, 0));
@@ -1555,10 +1577,11 @@ public class AudioSettingsPanel extends JPanel {
         return b;
     }
 
-    // Botón de audición unificado (música o efecto, según la extensión del recurso): al pulsar
-    // suena máx. 10 s y el botón pasa a "stop" para cortarlo antes; al terminar (fin natural, 10 s
-    // o stop) vuelve a "play". Una sola audición a la vez: empezar otra (aquí o en cualquier otro
-    // botón) corta la anterior, cuyo botón se devuelve solo a "play" por su propio on_stop.
+    // Unified preview button (music or effect, depending on the resource): pressing it
+    // plays up to 10s and the button switches to "stop" to cut it short; it returns to "play"
+    // when it ends (natural end, 10s timeout, or stop). Only one preview at a time: starting
+    // another (here or on any other button) stops the previous one, whose button reverts to
+    // "play" on its own via its on_stop callback.
     private static JButton previewButton(String sound) {
         JButton b = previewButtonBase();
         final boolean[] playing = {false};
@@ -1579,14 +1602,14 @@ public class AudioSettingsPanel extends JPanel {
         return b;
     }
 
-    // Icono de audición play/stop: delega en el glyph compartido de Helpers (lo reutiliza también
-    // el visor de notas de voz), para que ambos diálogos usen exactamente el mismo par.
+    // Play/stop preview icon: delegates to the glyph shared in Helpers (also reused by the
+    // voice notes viewer), so both dialogs use exactly the same pair of icons.
     private static javax.swing.Icon previewGlyph(boolean stop) {
         return Helpers.playStopGlyph(stop);
     }
 
-    // Columna vertical (transparente) para agrupar tipos de efectos dentro del recuadro; en un
-    // GridLayout se estira a su celda y sus filas quedan pegadas arriba (top-aligned).
+    // Vertical (transparent) column that groups effect types inside the box; in a
+    // GridLayout it stretches to its cell with its rows pinned to the top (top-aligned).
     private static JPanel effectsColumn() {
         JPanel col = new JPanel();
         col.setOpaque(false);
@@ -1596,9 +1619,10 @@ public class AudioSettingsPanel extends JPanel {
         return col;
     }
 
-    // Cabecera de un subgrupo de efectos (Acciones, Cartas...): etiqueta en NEGRITA al borde de
-    // la columna, con las casillas del grupo sangradas debajo (effectRow ya las sangra). El BOLD
-    // sobrevive al updateFonts del host (deriveFont conserva el estilo). Alto máximo = preferido.
+    // Header for an effects subgroup (Actions, Cards...): BOLD label flush with the
+    // column's edge, with the group's checkboxes indented below (effectRow already indents
+    // them). The BOLD style survives the host's updateFonts (deriveFont keeps the style). Max
+    // height = preferred.
     private JComponent typeHeader(String key) {
         JPanel row = new JPanel() {
             @Override
@@ -1609,21 +1633,21 @@ public class AudioSettingsPanel extends JPanel {
         row.setOpaque(false);
         row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
         row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        // Aire arriba para separar el subgrupo del anterior.
+        // Top spacing to separate this subgroup from the previous one.
         row.setBorder(BorderFactory.createEmptyBorder(Math.round(7 * Helpers.DIALOG_ZOOM), 0, Math.round(1 * Helpers.DIALOG_ZOOM), 0));
         JLabel lbl = new JLabel(Translator.translate(key));
         lbl.setFont(lbl.getFont().deriveFont(java.awt.Font.BOLD));
-        // Registrada para agrisarse cuando los efectos se desactivan (como sus casillas).
+        // Registered so it greys out when effects are disabled (like its checkboxes).
         fx_type_headers.add(lbl);
         row.add(lbl);
         row.add(Box.createHorizontalGlue());
         return row;
     }
 
-    // Sangra un componente para colgarlo visualmente del checkbox maestro "SONIDO": lo
-    // desplaza a la derecha con un hueco fijo. Alto máximo = preferido (no se estira en el
-    // BoxLayout Y del panel); el glue final absorbe el ancho sobrante a la derecha cuando el
-    // componente ciñe su contenido (el recuadro de efectos).
+    // Indents a component to visually hang it off the "SOUND" master checkbox: shifts it
+    // right by a fixed gap. Max height = preferred (doesn't stretch in the panel's vertical
+    // BoxLayout); the trailing glue absorbs any leftover width on the right when the
+    // component hugs its content (the effects box).
     private static JComponent indent(JComponent comp) {
         JPanel wrap = new JPanel() {
             @Override
@@ -1641,11 +1665,11 @@ public class AudioSettingsPanel extends JPanel {
         return wrap;
     }
 
-    // Como indent() pero SIN glue final: el componente OCUPA el ancho de la columna en lugar de
-    // ceñirse a su contenido (para el recuadro de efectos, que debe estirarse con la columna y
-    // repartir el sobre-ancho entre sus dos columnas en vez de dejar hueco muerto a su derecha).
-    // Mantiene la sangría de 22px bajo el maestro; alto máximo = preferido (no se estira en el
-    // BoxLayout Y del panel).
+    // Like indent() but WITHOUT the trailing glue: the component OCCUPIES the column's
+    // width instead of hugging its content (for the effects box, which must stretch with the
+    // column and split the leftover width between its two subcolumns instead of leaving dead
+    // space to its right). Keeps the 22px indent under the master; max height = preferred
+    // (doesn't stretch in the panel's vertical BoxLayout).
     private static JComponent indentFill(JComponent comp) {
         JPanel wrap = new JPanel() {
             @Override

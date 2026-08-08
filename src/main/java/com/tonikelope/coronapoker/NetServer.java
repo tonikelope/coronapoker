@@ -45,11 +45,11 @@ import java.util.logging.Logger;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Lado servidor (host) de la sala de espera. Gestiona el ServerSocket, el accept
- * loop de conexiones entrantes, el alta/baja de Participants y los broadcasts
- * pre-game a todos los clientes conectados.
+ * Host side of the waiting room's networking. Owns the {@code ServerSocket}, the accept
+ * loop for incoming connections, Participant add/remove, and pre-game broadcasts to
+ * connected clients.
  *
- * Se instancia desde WaitingRoomFrame cuando server == true.
+ * <p>Instantiated by {@code WaitingRoomFrame} when {@code server == true}.
  */
 public class NetServer {
 
@@ -105,9 +105,15 @@ public class NetServer {
         }
     }
 
-    // --- Transporte: lectura/escritura cifrada por socket de cliente ---
-    // La clase representa el lado servidor; el destino/origen es siempre un cliente
-    // identificado por el Socket que recibe la llamada.
+    // --- Transport: encrypted read/write on a client socket ---
+    // This class is the server side, so the destination is always a specific client,
+    // identified by the Socket passed in.
+    /**
+     * Encrypts and writes a text command to a specific client socket.
+     *
+     * @param command the plaintext command to send
+     * @param socket the destination client's socket
+     */
     public void writeCommand(String command, Socket socket) {
         try {
             synchronized (socket.getOutputStream()) {
@@ -119,6 +125,14 @@ public class NetServer {
         }
     }
 
+    /**
+     * Reads and decrypts the next text command from a specific client socket.
+     *
+     * @param socket the client's socket to read from
+     * @param key session AES key
+     * @param hmac_key session HMAC key
+     * @return the decrypted command, or {@code null} on end of stream / I/O failure
+     */
     public String readCommand(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) {
         try {
             synchronized (socket.getInputStream()) {
@@ -133,10 +147,16 @@ public class NetServer {
         return null;
     }
 
-    // --- Broadcasts pre-game a los Participants conectados ---
-    // Envía un comando GAME a todos los Participants excepto `except`. Si confirmation=true,
-    // el comando se encola en el writer queue del Participant (se procesa con ACK); si false,
-    // se escribe directamente al socket (fire-and-forget).
+    // --- Pre-game broadcasts to connected Participants ---
+    /**
+     * Sends a GAME command to every connected Participant except {@code except}.
+     *
+     * @param command the game command to send (without the GAME# envelope)
+     * @param except a Participant to skip (e.g. the sender), or {@code null}
+     * @param confirmation if {@code true}, queues the command on each Participant's
+     * pre-game writer queue for ACK'd processing; if {@code false}, writes directly to
+     * the socket (fire-and-forget)
+     */
     public void broadcastASYNCGAMECommand(String command, Participant except, boolean confirmation) {
         ArrayList<Participant> targets = new ArrayList<>();
         Map<String, Participant> participantes = waiting_room.getParticipantes();
@@ -173,7 +193,15 @@ public class NetServer {
         broadcastASYNCGAMECommand(command, except, true);
     }
 
-    // Envío puntual a un Participant. Misma semántica de confirmation.
+    /**
+     * Sends a GAME command to a single Participant. Same confirmation semantics as
+     * {@link #broadcastASYNCGAMECommand(String, Participant, boolean)}.
+     *
+     * @param command the game command to send
+     * @param p the recipient Participant
+     * @param confirmation queue for ACK'd processing ({@code true}) or write directly,
+     * fire-and-forget ({@code false})
+     */
     public void sendASYNCGAMECommand(String command, Participant p, boolean confirmation) {
         if (!confirmation) {
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
@@ -191,15 +219,17 @@ public class NetServer {
         sendASYNCGAMECommand(command, p, true);
     }
 
-    // --- Gestión de Participants ---
+    // --- Participant lifecycle ---
 
     /**
-     * Le envía a un Participant recién conectado el USERSLIST con todos los demás
-     * Participants ya presentes (excluyendo al propio destinatario). El host NO
-     * va aquí: su identidad ya viaja en el intro síncrono del handshake.
+     * Sends a newly connected Participant the USERSLIST of every other Participant
+     * already present (excluding the recipient itself). The host is NOT included here:
+     * its identity already travels in the handshake's synchronous intro.
      *
-     * Wire format per entry: {@code nickB64|unsecureFlag|avatarB64_or_*|pubkeyB64_or_*|selfSigB64_or_*}
-     * Entries are joined with {@code @}. Bots have no identity → {@code *|*}.
+     * <p>Wire format per entry: {@code nickB64|unsecureFlag|avatarB64_or_*|pubkeyB64_or_*|selfSigB64_or_*}
+     * Entries are joined with {@code @}. Bots have no identity ({@code *|*}).
+     *
+     * @param par the newly connected Participant to send the list to
      */
     public void enviarListaUsuariosToNewUser(Participant par) {
         StringBuilder commandBuilder = new StringBuilder("USERSLIST#");
@@ -253,8 +283,19 @@ public class NetServer {
     }
 
     /**
-     * Alta de un nuevo Participant: lo añade al mapa, arranca su thread de socket
-     * (si no es CPU) y delega en WaitingRoomFrame la parte de actualización de UI.
+     * Adds a new Participant: puts it in the map, starts its socket thread (unless it's
+     * a CPU/bot), and delegates the UI-update side to WaitingRoomFrame.
+     *
+     * <p>Currently dead code: nothing calls this. {@code WaitingRoomFrame.nuevoParticipante()}
+     * is the add path actually in use, for both host and client.
+     *
+     * @param nick nickname/key under which the Participant is registered
+     * @param avatar avatar image file, or {@code null}
+     * @param socket the client socket, or {@code null} for a CPU/bot participant
+     * @param aes_k session AES key
+     * @param hmac_k session HMAC key
+     * @param cpu whether this Participant is a bot (no socket thread is started)
+     * @param unsecure whether the peer connected without identity verification
      */
     public synchronized void addParticipant(String nick, java.io.File avatar, Socket socket,
             SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu, boolean unsecure) {
@@ -268,23 +309,24 @@ public class NetServer {
             Helpers.threadRun(participante);
         }
 
-        // Callback a la UI
+        // UI callback
         waiting_room.onParticipantAdded(nick, avatar, cpu);
     }
 
     /**
-     * Baja de un Participant: lo quita del mapa, broadcast DELUSER al resto y
-     * delega en WaitingRoomFrame la parte de actualización de UI.
+     * Removes a Participant: takes it out of the map, broadcasts DELUSER to the rest,
+     * and delegates the UI-update side to WaitingRoomFrame.
+     *
+     * <p>Currently dead code: nothing calls this. The removal path actually in use is
+     * {@code WaitingRoomFrame.borrarParticipante()}, for both host and client.
+     *
+     * @param nick nickname/key of the Participant to remove
      */
     public synchronized void removeParticipant(String nick) {
         Map<String, Participant> participantes = waiting_room.getParticipantes();
-        // Se quita en UNA operacion y se mira lo que devuelve, en vez de preguntar si esta,
-        // cogerlo y quitarlo por separado: sobre un mapa sincronizado cada operacion suelta
-        // es atomica, pero la secuencia no.
-        //
-        // Hoy no hay carrera que temer, porque los dos unicos sitios que mutan el mapa de
-        // verdad estan sincronizados sobre la sala. De hecho este metodo no lo llama nadie:
-        // el que se usa es el borrado de la sala, que sigue haciendo la secuencia suelta.
+        // map.remove()'s return value is used instead of contains+get+remove, which would be
+        // a check-then-act race on a merely-synchronized map — moot in practice since this
+        // method is dead code (see above), but worth keeping if it's ever revived.
         Participant pToDel;
 
         synchronized (participantes) {
@@ -301,13 +343,13 @@ public class NetServer {
 
         String avatar_src = pToDel.getAvatar_chat_src();
 
-        // Callback a la UI (también desabilita botones, etc.)
+        // UI callback (also disables buttons, etc.)
         waiting_room.onParticipantRemoved(nick, avatar_src);
 
         if (!waiting_room.isPartida_empezada() && !waiting_room.isExit()) {
             try {
                 String comando = "DELUSER#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
-                // Pasamos pToDel para excluirlo del broadcast aunque ya no esté en el map
+                // Pass pToDel so it's excluded from the broadcast even though it's already gone from the map
                 broadcastASYNCGAMECommand(comando, pToDel);
             } catch (UnsupportedEncodingException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);

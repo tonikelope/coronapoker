@@ -68,6 +68,10 @@ import javax.swing.JLabel;
 import javax.swing.Timer;
 
 /**
+ * Static audio subsystem: WAV/MP3 playback (including background music loops), Google
+ * Translate TTS and voice-message playback, the volume/mute state machine (master switch,
+ * per-window mutes, TTS ducking, voice-recording silence), the Settings-dialog preview
+ * ("audition") player, and the looping danger alert used by fatal-error popups.
  *
  * @author tonikelope
  */
@@ -101,8 +105,8 @@ public class Audio {
     public static final Timer VOLUME_TIMER;
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_WAV = false;
-    // Estado DERIVADO (ver refreshMp3LoopMuteState): no se fija a mano desde ningun sitio, y como
-    // solo lo consulta esta clase, deja de ser publico.
+    // Derived state (see refreshMp3LoopMuteState): never set directly from anywhere, and only
+    // this class reads it, so it stays private.
     private volatile static boolean MUTED_MP3_LOOP = false;
     // Total local silence while recording a voice message (the mic must not
     // pick up music, effects or other voices). Derived state: every volume
@@ -115,22 +119,23 @@ public class Audio {
     // the newer one. Counting keeps VOICE_RECORDING true while ANY recording is
     // live, regardless of which thread increments/decrements first.
     private final static AtomicInteger VOICE_RECORDING_COUNT = new AtomicInteger(0);
-    // Cuantos silencios TEMPORALES de la musica de fondo hay vivos a la vez, y si el interruptor
-    // global de sonido la tiene callada (ver refreshMp3LoopMuteState).
+    // How many TEMPORARY background-music silences are live at once, combined with whether the
+    // global sound switch has it muted (see refreshMp3LoopMuteState).
     private final static AtomicInteger MP3_LOOP_MUTE_COUNT = new AtomicInteger(0);
     private volatile static boolean MUTED_MP3_LOOP_GLOBAL = false;
     public volatile static CoronaMP3FilePlayer TTS_PLAYER = null;
 
-    // Audición del diálogo de Ajustes (botón play junto a cada sonido): una sola a la vez, sea
-    // música (reproductor de streaming) o efecto (clip). null = sin audición de ese tipo en curso.
-    // El token del efecto distingue audiciones del MISMO wav (destape/mis cartas comparten uncover).
+    // Settings-dialog "audition" (the play button next to each sound): only one at a time,
+    // whether music (streaming player) or effect (clip). null = no audition of that kind in
+    // progress. The effect token distinguishes auditions of the SAME wav (card-uncover and
+    // my-cards share uncover.wav).
     private volatile static CoronaMP3FilePlayer PREVIEW_MP3_PLAYER = null;
     private volatile static String PREVIEW_WAV_SOUND = null;
     private volatile static Object PREVIEW_WAV_TOKEN = null;
 
-    // Alerta de peligro en bucle mientras está abierto un popup de error grave (mano anulada /
-    // violación de seguridad). El flag distingue "se pidió sonar" del clip ya abierto para no dejar
-    // un bucle huérfano si el popup se cierra antes de que la carga asíncrona del clip termine.
+    // Looping danger alert while a fatal-error popup (voided hand / security violation) is
+    // open. The flag distinguishes "playback was requested" from "the clip is already open" so
+    // the loop isn't left orphaned if the popup closes before the clip's async load finishes.
     private static final Object DANGER_ALERT_LOCK = new Object();
     private volatile static boolean DANGER_ALERT_ON = false;
     private volatile static Clip DANGER_ALERT_CLIP = null;
@@ -401,14 +406,19 @@ public class Audio {
 
     }
 
+    /**
+     * Computes the effective playback volume for a background music loop, applying every mute
+     * source. Each track has its own per-window toggle (in-game music governed by
+     * {@code MUSICA_AMBIENTAL}, waiting-room music by {@code MUSICA_SALA}, etc.) — living here
+     * rather than in {@link #MP3_LOOP_MUTED} lets those flags take effect from startup and be
+     * read from anywhere in the game. A track is off if its own toggle is off OR the music
+     * MASTER ({@code MUSICA}) is off.
+     *
+     * @param sound the loop's resource key (its map entry key in {@link #MP3_LOOP})
+     * @return the volume to apply, 0 when muted
+     */
     public static float effectiveLoopVolume(String sound) {
 
-        // Cada pista de fondo tiene su propio toggle: la del juego la gobierna
-        // "Música ambiente" (MUSICA_AMBIENTAL) y la de la sala de espera "Música
-        // sala de espera" (MUSICA_SALA). Vivir aquí (y no en MP3_LOOP_MUTED) hace
-        // que los flags valgan desde el arranque y controlen su pista desde
-        // cualquier parte del juego.
-        // Cada pista se apaga si su toggle individual está off O el MAESTRO de música (MUSICA) lo está.
         boolean game_music_off = ASCENSOR_VOLUME.getKey().equals(sound) && (!GameFrame.MUSICA || !GameFrame.MUSICA_AMBIENTAL);
         boolean room_music_off = WAITING_ROOM_VOLUME.getKey().equals(sound) && (!GameFrame.MUSICA || !GameFrame.MUSICA_SALA);
         boolean about_music_off = ABOUT_VOLUME.getKey().equals(sound) && (!GameFrame.MUSICA || !GameFrame.MUSICA_ABOUT);
@@ -434,9 +444,11 @@ public class Audio {
 
     }
 
-    // Re-aplica el volumen efectivo a un loop que esté sonando (no-op si no
-    // está activo). Lo usa el toggle de música ambiente para que el cambio se
-    // oiga al instante sin parar ni reabrir la línea.
+    /**
+     * Re-applies the effective volume to a loop that's currently playing (no-op if inactive).
+     * Used by the ambient-music toggle so the change is heard instantly without stopping or
+     * reopening the line.
+     */
     public static void refreshLoopVolume(String sound) {
 
         CoronaMP3FilePlayer player = MP3_LOOP.get(sound);
@@ -454,14 +466,19 @@ public class Audio {
         setClipVolume(sound, clip, bypass_muted, force_silent, false);
     }
 
-    // force_silent: mutea ESTE clip concreto (como si el sonido estuviera muteado) pero SIN
-    // saltarse la reproducción, así playWavResourceAndWait sigue esperando su duración completa.
-    // Lo usan los efectos BLOQUEANTES desactivables (fin de partida, timeout) para quedar en
-    // silencio conservando el ritmo/gracia que marca la espera del wav.
-    // force_preview: AUDICIÓN (botón play de Ajustes). Fuerza que suene a su volumen normal
-    // saltándose TODOS los gates (SONIDOS maestro apagado, muteos, force_silent, grabación), para
-    // poder escuchar un efecto aunque su casilla esté deshabilitada. Solo enmudece si el volumen
-    // maestro es 0 (nada que oír).
+    /**
+     * Applies the effective volume (or mute) to an open clip.
+     *
+     * @param bypass_muted skip {@code MUTED_ALL}/{@code MUTED_WAV} (other silence sources still
+     * apply)
+     * @param force_silent mutes THIS specific clip (as if the sound were muted) WITHOUT skipping
+     * playback, so {@code playWavResourceAndWait} still waits out its full duration. Used by
+     * disable-able BLOCKING effects (game over, timeout) to go silent while keeping the pacing
+     * the wav's wait imposes.
+     * @param force_preview AUDITION (Settings play button): forces normal volume, skipping ALL
+     * gates (master SONIDOS off, mutes, force_silent, recording), so an effect can be heard even
+     * with its checkbox disabled. Only goes silent if the master volume is 0.
+     */
     public static void setClipVolume(String sound, Clip clip, boolean bypass_muted, boolean force_silent, boolean force_preview) {
 
         FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
@@ -502,14 +519,25 @@ public class Audio {
         return playWavResourceAndWait(sound, force_close, bypass_muted, false);
     }
 
-    // force_silent: reproduce el wav en SILENCIO (clip muteado) pero espera su duración igual.
-    // Para efectos bloqueantes desactivables cuyo tiempo de espera hay que conservar.
+    /**
+     * @param force_silent play the wav in SILENCE (clip muted) but still wait out its full
+     * duration; for disable-able blocking effects whose wait time must be preserved
+     */
     public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted, boolean force_silent) {
         return playWavResourceAndWait(sound, force_close, bypass_muted, force_silent, false);
     }
 
-    // force_preview: AUDICIÓN. Suena a su volumen normal saltándose los gates de sonido (ver
-    // setClipVolume). Lo usa previewWav (audición de efectos) para el botón play de Ajustes.
+    /**
+     * Plays a WAV resource synchronously, waiting for it to finish (or to be stopped).
+     *
+     * @param force_close stop and clear any other clips already playing this sound first
+     * @param bypass_muted skip {@code MUTED_ALL}/{@code MUTED_WAV} (see {@link #setClipVolume})
+     * @param force_silent see the 4-arg overload
+     * @param force_preview AUDITION: plays at normal volume, skipping the sound gates (see
+     * {@link #setClipVolume}); used by {@link #previewWav} for the Settings play button
+     * @return true if playback (or its silent/emulated equivalent) completed; false if the
+     * sound couldn't be found/opened
+     */
     public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted, boolean force_silent, boolean force_preview) {
         if (!GameFrame.TEST_MODE) {
 
@@ -529,10 +557,10 @@ public class Audio {
                     float frameRate = audioInputStream.getFormat().getFrameRate();
                     long durationMicros = (long) (1000000.0f * frames / frameRate);
 
-                    // El Clip solo abre audio PCM: si el WAV viene en un encoding comprimido
-                    // (mu-law / A-law, como las notas de voz), lo convertimos a PCM_SIGNED 16 bit al
-                    // vuelo. Los efectos del juego ya son PCM, así que este bloque ni se activa para
-                    // ellos (encoding PCM => clip_input == audioInputStream, sin coste).
+                    // Clip only opens PCM audio: if the WAV arrives in a compressed encoding
+                    // (mu-law / A-law, like voice notes), convert it to 16-bit PCM_SIGNED on the
+                    // fly. Game effects are already PCM, so this block doesn't even trigger for
+                    // them (PCM encoding => clip_input == audioInputStream, no cost).
                     final javax.sound.sampled.AudioFormat src_format = audioInputStream.getFormat();
                     final javax.sound.sampled.AudioFormat.Encoding enc = src_format.getEncoding();
                     javax.sound.sampled.AudioInputStream clip_input = audioInputStream;
@@ -898,9 +926,9 @@ public class Audio {
 
                         muteAllExceptMp3Loops();
 
-                        // El silencio se levanta SIEMPRE: si reventara la creacion del reproductor
-                        // (fuera del try de abajo) el juego se quedaba mudo el resto de la sesion,
-                        // con el altavoz diciendo que el sonido esta encendido.
+                        // The silence is ALWAYS lifted: if creating the player blew up (outside
+                        // the try below) the game stayed mute for the rest of the session, while
+                        // the speaker icon still claimed sound was on.
                         try {
                             Helpers.GUIRun(() -> {
                                 chat_notify_label.setVisible(true);
@@ -943,9 +971,9 @@ public class Audio {
                         }
 
                     } else {
-                        // El temporal solo se borraba si la voz habia salido bien. Cuando el
-                        // servicio falla, lo que queda a medias en el disco se quedaba ahi
-                        // para siempre, y de esos hay uno por cada mensaje que no cuaje.
+                        // The temp file used to be deleted only on success. When the service
+                        // fails, whatever's left half-written on disk stuck around forever — one
+                        // per message that didn't come through.
                         try {
                             Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
 
@@ -1011,8 +1039,8 @@ public class Audio {
 
             muteAllExceptMp3Loops();
 
-            // El silencio se levanta SIEMPRE (mismo motivo que en el TTS de arriba): un fallo al
-            // crear el reproductor dejaba el juego mudo el resto de la sesion.
+            // The silence is ALWAYS lifted (same reason as the TTS above): a failure creating
+            // the player used to leave the game mute for the rest of the session.
             try {
                 Helpers.GUIRun(() -> {
                     if (chat_notify_label != null) {
@@ -1118,17 +1146,19 @@ public class Audio {
 
     }
 
-    // --- Audición (botón play del diálogo de Ajustes) ---
+    // --- Audition (the play button in the Settings dialog) ---
     //
-    // Un recurso (música mp3 o efecto wav) suena a su volumen normal saltándose TODOS los gates de
-    // sonido (suena aunque su casilla o el maestro estén apagados; solo respeta el volumen maestro),
-    // con un tope de max_millis. Una sola audición a la vez: empezar otra corta la anterior. El botón
-    // pasa a "stop" mientras suena y vuelve a "play" al terminar (fin natural, tope o stop manual)
-    // vía on_stop. La música usa el reproductor de streaming; los efectos, un clip.
+    // A resource (mp3 music or wav effect) plays at normal volume, skipping ALL sound gates (it
+    // plays even with its checkbox or the master off; only the master volume is honored), capped
+    // at max_millis. Only one audition at a time: starting another cuts the previous one. The
+    // button flips to "stop" while playing and back to "play" when it ends (natural end, cap or
+    // manual stop) via on_stop. Music uses the streaming player; effects use a clip.
 
-    // Corta cualquier audición en curso (música o efecto). Su hilo corre el on_stop (que devuelve el
-    // botón a "play") y, en música, restaura la pista de fondo. Lo llaman el botón stop, cambiar de
-    // audición y el cierre del diálogo de Ajustes.
+    /**
+     * Cuts off any audition in progress (music or effect). Its thread runs on_stop (which flips
+     * the button back to "play") and, for music, restores the background track. Called by the
+     * stop button, by switching auditions, and by closing the Settings dialog.
+     */
     public static void stopPreview() {
 
         CoronaMP3FilePlayer p = PREVIEW_MP3_PLAYER;
@@ -1142,8 +1172,10 @@ public class Audio {
         }
     }
 
-    // Enruta por extensión: .mp3 = música (streaming), resto = efecto (clip). Corta antes cualquier
-    // otra audición para que solo suene una.
+    /**
+     * Routes by extension: {@code .mp3} = music (streaming), anything else = effect (clip).
+     * Stops any other audition first so only one plays at a time.
+     */
     public static void previewResource(String sound, int max_millis, Runnable on_stop) {
 
         if (GameFrame.TEST_MODE) {
@@ -1162,8 +1194,8 @@ public class Audio {
         }
     }
 
-    // Música: reproductor de streaming propio. Silencia SOLO la pista de fondo que coincida (si
-    // sonaba) para no oírla doblada; NO toca el mute global de loops (lo usa Crupier).
+    // Music: own streaming player. Silences ONLY the matching background track (if it was
+    // playing) to avoid hearing it doubled; does NOT touch the global loop mute (used by Crupier).
     private static void previewMp3(String sound, int max_millis, Runnable on_stop) {
 
         final CoronaMP3FilePlayer player = new CoronaMP3FilePlayer();
@@ -1176,8 +1208,8 @@ public class Audio {
             muteLoopMp3(sound);
         }
 
-        // Tope de duración: para la audición a los max_millis (play() bloquea hasta fin/stop).
-        // Single-shot; si otra audición ya la reemplazó, el disparo no hace nada.
+        // Duration cap: stops the audition at max_millis (play() blocks until end/stop).
+        // Single-shot; if another audition already replaced it, the firing is a no-op.
         Timer cap = new Timer(max_millis, null);
         cap.setRepeats(false);
         cap.addActionListener((java.awt.event.ActionEvent ev) -> {
@@ -1211,9 +1243,9 @@ public class Audio {
         });
     }
 
-    // Efecto: clip vía playWavResourceAndWait (force_preview salta los gates). El token distingue
-    // esta audición de otra del MISMO sonido (destape/mis cartas comparten uncover.wav) para no
-    // limpiar el marcador de la que haya tomado el relevo.
+    // Effect: clip via playWavResourceAndWait (force_preview skips the gates). The token tells
+    // this audition apart from another one of the SAME sound (card-uncover and my-cards share
+    // uncover.wav) so it doesn't clear the marker of whichever one has taken over.
     private static void previewWav(String sound, int max_millis, Runnable on_stop) {
 
         final Object token = new Object();
@@ -1222,8 +1254,8 @@ public class Audio {
         PREVIEW_WAV_SOUND = sound;
 
         Helpers.threadRun(() -> {
-            // Tope de duración: corta el efecto a los max_millis si dura más (game_over, iwtsth...).
-            // Single-shot; si el efecto acaba antes, el finally cancela el timer.
+            // Duration cap: cuts the effect at max_millis if it runs longer (game_over,
+            // iwtsth...). Single-shot; if the effect finishes first, the finally cancels the timer.
             Timer cap = new Timer(max_millis, null);
             cap.setRepeats(false);
             cap.addActionListener((java.awt.event.ActionEvent ev) -> {
@@ -1247,12 +1279,14 @@ public class Audio {
         });
     }
 
-    // --- Alerta de peligro en bucle (popup de mano anulada / error de seguridad) ---
+    // --- Looping danger alert (voided-hand / security-violation popup) ---
 
-    // Arranca la alerta EN BUCLE (Clip.LOOP_CONTINUOUSLY) hasta stopDangerAlertLoop: suena mientras
-    // esté abierto el popup de error grave. Respeta volumen y mutes como cualquier efecto
-    // (setClipVolume). No-op en TEST_MODE / archivo muerto / sin dispositivo. Idempotente: corta
-    // una alerta previa antes de arrancar.
+    /**
+     * Starts the alert LOOPING (Clip.LOOP_CONTINUOUSLY) until {@link #stopDangerAlertLoop()}:
+     * plays for as long as the fatal-error popup stays open. Honors volume and mutes like any
+     * other effect ({@link #setClipVolume}). No-op in TEST_MODE / dead file / no device.
+     * Idempotent: stops any previous alert before starting.
+     */
     public static void startDangerAlertLoop(String sound) {
 
         stopDangerAlertLoop();
@@ -1280,8 +1314,8 @@ public class Audio {
                 setClipVolume(sound, clip, false);
 
                 synchronized (DANGER_ALERT_LOCK) {
-                    // stopDangerAlertLoop pudo pedir parar mientras cargábamos el clip: no arrancar
-                    // el bucle (quedaría huérfano) y cerrar.
+                    // stopDangerAlertLoop may have requested a stop while we were loading the
+                    // clip: don't start the loop (it would be orphaned) — just close it.
                     if (!DANGER_ALERT_ON) {
                         clip.close();
                         return;
@@ -1296,7 +1330,9 @@ public class Audio {
         });
     }
 
-    // Corta la alerta de peligro (si suena) y libera su línea. Lo llama el cierre del popup.
+    /**
+     * Stops the danger alert (if playing) and releases its line. Called when the popup closes.
+     */
     public static void stopDangerAlertLoop() {
 
         synchronized (DANGER_ALERT_LOCK) {
@@ -1318,14 +1354,15 @@ public class Audio {
         }
     }
 
-    // El SO tarda en "despertar" el endpoint de audio la PRIMERA vez que se abre
-    // y arranca una línea en el proceso (en Windows, decenas a cientos de ms), y
-    // durante esa activación se comía los primeros samples del primer sonido
-    // audible: el init.wav del arranque salía cortado de vez en cuando. Esto
-    // reproduce una línea de SILENCIO síncrona para pagar ese arranque en frío
-    // sin que se oiga nada, dejando el dispositivo activo para que el primer
-    // sonido real salga entero. Best-effort: si no hay dispositivo o el formato
-    // no se soporta, se omite (el sonido saldrá como antes, sin empeorar nada).
+    /**
+     * The OS takes time to "wake up" the audio endpoint the first time it's opened and a line
+     * is started in this process (tens to hundreds of ms on Windows), and during that
+     * activation it used to eat the first samples of the first audible sound — the startup
+     * init.wav would occasionally come out clipped. This synchronously plays a line of SILENCE
+     * to pay for that cold start without anything being heard, leaving the device active so the
+     * first real sound plays in full. Best-effort: if there's no device or the format isn't
+     * supported, it's skipped (the sound plays as before, nothing gets worse).
+     */
     public static void warmAudioDevice() {
 
         if (GameFrame.TEST_MODE) {
@@ -1342,8 +1379,8 @@ public class Audio {
                 line.open(format);
                 line.start();
 
-                // ~30 ms de silencio: un ciclo de reproducción real completo,
-                // suficiente para que el endpoint termine de activarse.
+                // ~30 ms of silence: one full real playback cycle, enough for the endpoint to
+                // finish activating.
                 byte[] silence = new byte[format.getFrameSize() * Math.round(format.getFrameRate() * 0.03f)];
                 line.write(silence, 0, silence.length);
                 line.drain();
@@ -1357,9 +1394,11 @@ public class Audio {
         }
     }
 
-    // Open (once) and keep a reusable clip for a sound. Idempotent; safe to call
-    // off the EDT before an animation. No-op in TEST_MODE, for blacklisted/missing
-    // files, or when no audio device is available.
+    /**
+     * Opens (once) and keeps a reusable clip for a sound. Idempotent; safe to call off the EDT
+     * before an animation. No-op in TEST_MODE, for blacklisted/missing files, or when no audio
+     * device is available.
+     */
     public static void preloadWav(String sound) {
 
         if (GameFrame.TEST_MODE || BLACKLISTED_SOUNDS.contains(sound) || PRELOADED_WAVS.containsKey(sound)) {
@@ -1399,8 +1438,10 @@ public class Audio {
         }
     }
 
-    // (Re)start a preloaded sound from frame 0 — instant, no line acquisition, so
-    // it never loses a race against a concurrent stop. Lazily preloads if needed.
+    /**
+     * (Re)starts a preloaded sound from frame 0 — instant, no line acquisition, so it never
+     * loses a race against a concurrent stop. Lazily preloads if needed.
+     */
     public static void playPreloadedWav(String sound) {
 
         Clip clip = PRELOADED_WAVS.get(sound);
@@ -1430,9 +1471,9 @@ public class Audio {
         if (clip != null) {
             synchronized (clip) {
                 if (clip.isOpen()) {
-                    // stop + flush: descarta el buffer de salida pendiente para que
-                    // el corte sea EXACTO (sin cola que se oiga después del frame de
-                    // corte), igual que CoronaMP3FilePlayer.stop() hace con su línea.
+                    // stop + flush: discards the pending output buffer so the cut is EXACT (no
+                    // tail audible after the cut frame), same as CoronaMP3FilePlayer.stop() does
+                    // with its line.
                     clip.stop();
                     clip.flush();
                 }
@@ -1566,9 +1607,8 @@ public class Audio {
 
         MUTED_ALL = true;
 
-        // Interruptor global: NO pasa por el contador de silencios temporales (ver
-        // refreshMp3LoopMuteState); el juego lo llama tambien para sincronizar estado, no solo
-        // para conmutar.
+        // Global switch: does NOT go through the temporary-silence counter (see
+        // refreshMp3LoopMuteState); the game also calls this to sync state, not only to toggle it.
         MUTED_MP3_LOOP_GLOBAL = true;
 
         refreshMp3LoopMuteState();
@@ -1577,6 +1617,10 @@ public class Audio {
 
     }
 
+    /**
+     * Mutes everything except MP3 loops, which are ducked instead so the music stays audible but
+     * lowered under the TTS voice.
+     */
     public static void muteAllExceptMp3Loops() {
 
         MUTED_ALL = true;
@@ -1588,16 +1632,19 @@ public class Audio {
 
     }
 
-    // Pareja de muteAllExceptMp3Loops. NO usar unmuteAll aqui: aquel suelta tambien el silencio
-    // de la musica, que este nunca puso (solo la agacha), asi que un sting del crupier que
-    // estuviera silenciandola se quedaba sin su silencio a mitad y la musica volvia encima.
+    /**
+     * Counterpart of {@link #muteAllExceptMp3Loops()}. Do NOT use {@link #unmuteAll()} here:
+     * that one also lifts the music's silence, which this method never applied (it only ducks
+     * it) — so a Crupier sting that was silencing the music mid-play would lose its silence
+     * and the music would come back over it.
+     */
     public static void unmuteAllExceptMp3Loops() {
 
         MUTED_ALL = false;
 
         unmuteAllWav();
 
-        // Deshace el agachado: el volumen vuelve a lo que digan las banderas que sigan vivas.
+        // Undoes the duck: volume returns to whatever the still-live flags dictate.
         refreshALLMP3LoopVolume();
 
     }
@@ -1633,17 +1680,17 @@ public class Audio {
         }
     }
 
-    // El silencio de la musica tiene DOS origenes y este es el unico sitio donde se juntan:
+    // Music silence has TWO sources, and this is the only place where they're combined:
     //
-    // 1) El interruptor GLOBAL de sonido del jugador (muteAll / unmuteAll), que dura hasta que lo
-    //    cambie. NO se puede contar, porque el juego lo aplica tambien como sincronizacion de
-    //    estado y no solo como conmutador: al terminar cada timba, RESET_GAME vuelve a llamar a
-    //    muteAll si el sonido esta apagado. Contandolo, dos muteAll seguidos dejaban la cuenta
-    //    alta y la musica muda para el resto de la sesion.
-    // 2) Los silencios TEMPORALES de los stings del crupier (badbeat, suertudo, perdedor), que si
-    //    se cuentan: cada uno va en su hilo y en un badbeat multiway sale uno POR CADA perdedor,
-    //    asi que con un booleano el primero en terminar devolvia la musica encima de los demas.
-    //    Es lo mismo que ya hace VOICE_RECORDING_COUNT con las notas de voz.
+    // 1) The player's GLOBAL sound switch (muteAll / unmuteAll), which lasts until changed. It
+    //    can't be counted, because the game also applies it as a state sync and not only as a
+    //    toggle: at the end of every hand, RESET_GAME calls muteAll again if sound is off.
+    //    Counting it, two muteAll calls in a row would leave the count high and the music mute
+    //    for the rest of the session.
+    // 2) The TEMPORARY silences from Crupier stings (badbeat, lucky winner, losing player), which
+    //    ARE counted: each runs on its own thread, and a multiway badbeat fires one PER loser,
+    //    so with a plain boolean the first to finish would bring the music back over the rest.
+    //    Same approach VOICE_RECORDING_COUNT already uses for voice notes.
     private static void refreshMp3LoopMuteState() {
 
         MUTED_MP3_LOOP = MUTED_MP3_LOOP_GLOBAL || MP3_LOOP_MUTE_COUNT.get() > 0;
@@ -1707,8 +1754,8 @@ public class Audio {
 
         MUTED_ALL = false;
 
-        // Se levanta el silencio GLOBAL. Si aun queda algun sting sonando, la musica sigue callada
-        // hasta que lo suelte el ultimo: eso lo decide refreshMp3LoopMuteState, no este metodo.
+        // Lifts the GLOBAL silence. If a sting is still playing, the music stays muted until
+        // the last one releases it — that's decided by refreshMp3LoopMuteState, not this method.
         MUTED_MP3_LOOP_GLOBAL = false;
 
         refreshMp3LoopMuteState();

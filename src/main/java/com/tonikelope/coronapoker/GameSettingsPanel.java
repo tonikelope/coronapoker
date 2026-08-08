@@ -19,12 +19,11 @@ package com.tonikelope.coronapoker;
 import javax.swing.SpinnerNumberModel;
 
 /**
- * Contenido de "Ajustes de partida" como JPanel (pestaña del diálogo unificado):
- * las REGLAS de juego a la izquierda (sin subpanel) y las CIEGAS a la derecha (en
- * un subpanel titulado). Para clientes se construye en SOLO-LECTURA. Toda la lógica
- * de ciegas (dinero-sensible) es la del antiguo EditBlindsDialog. Se aplica con
- * {@link #applyToGame()} (lo dispara el botón GUARDAR del diálogo unificado);
- * apariencia y audio se aplican en vivo, las reglas/ciegas solo al guardar.
+ * "Game settings" tab content as a JPanel (page of the unified dialog): game RULES on the
+ * left (no subpanel) and BLINDS on the right (in a titled subpanel). Built READ-ONLY for
+ * clients. All blind logic (money-sensitive) comes from the old EditBlindsDialog. Applied
+ * via {@link #applyToGame()} (triggered by the unified dialog's SAVE button); appearance
+ * and audio apply live, rules/blinds only on save.
  *
  * @author tonikelope
  */
@@ -34,31 +33,31 @@ public class GameSettingsPanel extends javax.swing.JPanel {
 
     private final boolean read_only;
 
-    // Firma de los valores de los controles al ABRIR; isDirty() compara con la actual
-    // para saber si Partida tiene cambios sin guardar (la pestaña aplica al GUARDAR).
+    // Signature of control values when OPENED; isDirty() diffs against the current one to
+    // tell if the tab has unsaved changes (this tab only applies on SAVE).
     private String snap_signature;
 
-    // Selector de estructura de ciegas: permite ELEGIR (no crear) una estructura ya
-    // guardada o "Por defecto" durante la partida; al GUARDAR fija ACTIVE_BLIND_STRUCTURE
-    // y la propaga a los clientes. pending_structure = elegida (null = por defecto).
+    // Blind-structure selector: lets the user PICK (not create) an already-saved structure
+    // or "Default" during the game; SAVE sets ACTIVE_BLIND_STRUCTURE and propagates it to
+    // clients. pending_structure = the picked one (null = default).
     private String item_estructura_por_defecto;
     private String item_estructura_actual;
     private BlindStructure pending_structure;
-    // Estructura ACTIVA no guardada (ítem sintético "(actual)"); se guarda aparte para
-    // poder restaurarla si el usuario navega Por defecto -> (actual) sin perderla.
+    // Unsaved ACTIVE structure (synthetic "(current)" item); kept separately so it can be
+    // restored if the user navigates Default -> (current) without losing it.
     private BlindStructure actual_structure;
 
-    // Reglas (izquierda, sin subpanel)
+    // Rules (left side, no subpanel)
     private javax.swing.JPanel rules_panel;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JLabel manos_label;
     private javax.swing.JSpinner manos_spinner;
-    // Tiempo de pensar: SOLO lectura en partida (no cambiable una vez empezada).
+    // Think time: READ-ONLY in-game (not changeable once the game has started).
     private javax.swing.JCheckBox think_time_checkbox;
     private javax.swing.JLabel think_time_label;
     private javax.swing.JSpinner think_time_spinner;
-    // Tiempo de showdown: SOLO lectura en partida (no cambiable una vez empezada). Sin casilla:
-    // la pausa no se puede desactivar.
+    // Showdown time: READ-ONLY in-game (not changeable once started). No checkbox: the pause
+    // cannot be disabled.
     private javax.swing.JLabel showdown_time_label;
     private javax.swing.JSpinner showdown_time_spinner;
     private javax.swing.JCheckBox iwtsth_checkbox;
@@ -68,7 +67,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JLabel rabbit_label;
     private javax.swing.JComboBox<String> rabbit_combo;
 
-    // Ciegas (derecha, subpanel titulado)
+    // Blinds (right side, titled subpanel)
     private javax.swing.JPanel ciegas_panel;
     private javax.swing.JLabel estructura_label;
     private javax.swing.JComboBox<String> estructura_combobox;
@@ -87,9 +86,10 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox straddle_checkbox;
     private javax.swing.JLabel straddle_label;
 
-    // Bots (subpanel, debajo de reglas|ciegas). Dificultad y recompra en SOLO LECTURA en partida (no
-    // cambiables una vez empezada); "repartir saldo" SÍ es editable (inocuo: solo afecta a la 2ª tabla
-    // del registro al terminar, no toca la auditoría). Para clientes todo va en solo-lectura.
+    // Bots (subpanel, below rules|blinds). Difficulty and rebuy are READ-ONLY in-game (not
+    // changeable once started); "balance payout" IS editable (harmless: only affects the 2nd
+    // table of the end-of-game log, doesn't touch the audit). For clients everything is
+    // read-only.
     private javax.swing.JPanel bots_panel;
     private javax.swing.JLabel bots_avatar_label;
     private javax.swing.JLabel bots_label;
@@ -97,8 +97,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox bot_rebuy_checkbox;
     private javax.swing.JCheckBox bot_balance_checkbox;
 
-    // Compra + recompra (subpanel, SOLO INFORMATIVO en partida: el buy-in y la economía de recompra
-    // quedan fijados al empezar la timba; se muestran DESHABILITADOS como información).
+    // Buy-in + rebuy (subpanel, INFO-ONLY in-game: buy-in and rebuy economics are fixed once
+    // the game starts; shown DISABLED, for information only).
     private javax.swing.JPanel compra_panel;
     private javax.swing.JLabel buyin_label;
     private javax.swing.JSpinner buyin_spinner;
@@ -114,8 +114,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JLabel rebuy_cap_label;
     private javax.swing.JComboBox<String> rebuy_cap_combo;
 
-    // Tooltips i18n (setTranslatedToolTip => se re-traducen al cambiar idioma) de los controles de
-    // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents().
+    // i18n tooltips (setTranslatedToolTip => re-translated on language change) for settings
+    // controls whose function isn't obvious from their label. Called after initComponents().
     private void setupTooltips() {
         Helpers.setTranslatedToolTip(manos_checkbox, "tooltip.cfg.hand_limit");
         Helpers.setTranslatedToolTip(manos_label, "tooltip.cfg.hand_limit");
@@ -159,16 +159,21 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         Helpers.setTranslatedToolTip(rebuy_cap_combo, "rebuy.tope_recompra_tooltip");
     }
 
+    /**
+     * Builds the panel and seeds every control from the current game state.
+     *
+     * @param read_only {@code true} to build a client (read-only) view
+     */
     public GameSettingsPanel(boolean read_only) {
         this.read_only = read_only;
         initComponents();
 
         setupTooltips();
 
-        // ============================ CIEGAS ============================
-        // El combo de niveles refleja SIEMPRE la escalera efectiva (la estructura
-        // activa o, sin ella, la escalera por defecto), no la lista fija del
-        // diseñador, para que incluya todos los niveles de defaultLevels().
+        // ============================ BLINDS ============================
+        // The levels combo always reflects the effective ladder (the active structure, or
+        // the default ladder if none), not the designer's fixed list, so it includes every
+        // level from defaultLevels().
         {
             double[][] levels = GameFrame.ACTIVE_BLIND_STRUCTURE != null
                     ? GameFrame.ACTIVE_BLIND_STRUCTURE : BlindStructure.defaultLevels();
@@ -190,8 +195,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             updateAnteStraddleLabels();
         });
 
-        // Estructura de ciegas: refleja la activa y permite ELEGIR otra ya guardada
-        // durante la partida (no crear). Al cambiar, repuebla el combo de niveles.
+        // Blind structure: reflects the active one and lets the user PICK another
+        // already-saved one during the game (not create). Changing it repopulates the
+        // levels combo.
         initStructureCombo();
         estructura_combobox.addActionListener((java.awt.event.ActionEvent e) -> {
             if (init) {
@@ -257,7 +263,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         this.blind_cap_spinner.setEnabled(ciegas_double > 0 && GameFrame.BLIND_CAP > 0f);
         this.blind_cap_label.setEnabled(ciegas_double > 0 && GameFrame.BLIND_CAP > 0f);
 
-        // ============================ PARTIDA (reglas) ============================
+        // ============================ GAME (rules) ============================
         int mano_actual = GameFrame.getInstance().getCrupier().getMano();
         int manos_min = Math.max(1, mano_actual + 1);
         boolean manos_on = GameFrame.MANOS != -1;
@@ -267,8 +273,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         manos_checkbox.setSelected(manos_on);
         manos_spinner.setEnabled(manos_on);
 
-        // Tiempo de pensar: SOLO lectura en partida (no cambiable una vez empezada). Muestra
-        // el valor vigente y se DESHABILITA para host y cliente (no entra en el apply).
+        // Think time: READ-ONLY in-game (not changeable once started). Shows the current
+        // value and is DISABLED for both host and client (excluded from apply).
         think_time_checkbox.setSelected(GameFrame.THINK_TIME_ENABLED);
         think_time_spinner.setModel(new SpinnerNumberModel(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, GameFrame.THINK_TIME)), GameFrame.THINK_TIME_MIN, GameFrame.THINK_TIME_MAX, 5));
         Helpers.makeNumericSpinnerEditable(think_time_spinner, false);
@@ -276,8 +282,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         think_time_checkbox.setEnabled(false);
         think_time_spinner.setEnabled(false);
 
-        // Tiempo de showdown: SOLO lectura en partida (no cambiable una vez empezada). Muestra el
-        // valor vigente y se DESHABILITA (no entra en ningún apply). Sin casilla: no desactivable.
+        // Showdown time: READ-ONLY in-game (not changeable once started). Shows the current
+        // value and is DISABLED (excluded from any apply). No checkbox: not disable-able.
         showdown_time_spinner.setModel(new SpinnerNumberModel(Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, GameFrame.SHOWDOWN_TIME)), GameFrame.SHOWDOWN_TIME_MIN, GameFrame.SHOWDOWN_TIME_MAX, 5));
         Helpers.makeNumericSpinnerEditable(showdown_time_spinner, false);
         ((javax.swing.JSpinner.DefaultEditor) showdown_time_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
@@ -298,26 +304,27 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         ciegas_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("newgame.grupo_ciegas")));
         ((javax.swing.border.TitledBorder) ciegas_panel.getBorder()).setTitleFont(title_font);
 
-        // Las reglas (límite de manos, IWTSTH, RIT, rabbit) van en un subpanel "Varios".
+        // Rules (hand limit, IWTSTH, RIT, rabbit) go in a "Misc" subpanel.
         rules_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("settings.varios")));
         ((javax.swing.border.TitledBorder) rules_panel.getBorder()).setTitleFont(title_font);
 
-        // Bots: dificultad, "recomprar bots" y "repartir saldo entre humanos" son EDITABLES en partida
-        // (la dificultad se lee en vivo en cada decisión —perBotDifficulty nunca se fija—; recomprar se
-        // lee al arruinarse un bot; repartir solo afecta a la liquidación final). Para el CLIENTE todo va
-        // en solo-lectura (los bots son del host): lo deshabilita el bloque read_only.
+        // Bots: difficulty, "rebuy bots" and "balance payout among humans" are EDITABLE in-game
+        // (difficulty is read live on every decision -- perBotDifficulty is never fixed;
+        // rebuy is read when a bot busts; balance payout only affects the final settlement).
+        // For the CLIENT everything is read-only (bots belong to the host): disabled by the
+        // read_only block below.
         bots_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("newgame.grupo_bots")));
         ((javax.swing.border.TitledBorder) bots_panel.getBorder()).setTitleFont(title_font);
         bots_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{
             Translator.translate("ui.bots_facil"), Translator.translate("ui.bots_media"), Translator.translate("ui.bots_dificil")}));
         bots_combobox.setSelectedIndex(Bot.DIFFICULTY == Bot.Difficulty.EASY ? 0 : (Bot.DIFFICULTY == Bot.Difficulty.HARD ? 2 : 1));
         bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
-        // "Recomprar bots" solo aplica si la recompra está activa (REBUY, fijo en partida); si no, moot.
+        // "Rebuy bots" only applies if rebuy is active (REBUY, fixed in-game); otherwise moot.
         bot_rebuy_checkbox.setEnabled(GameFrame.REBUY);
         bot_balance_checkbox.setSelected(GameFrame.BOT_BALANCE_TO_HUMANS);
 
-        // Compra + recompra: SOLO INFORMATIVO (todo fijado al empezar la timba). Se puebla con la config
-        // vigente y se deshabilita entero (host y cliente).
+        // Buy-in + rebuy: INFO-ONLY (everything fixed once the game starts). Populated with the
+        // current config and disabled entirely (host and client).
         compra_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("newgame.grupo_compra")));
         ((javax.swing.border.TitledBorder) compra_panel.getBorder()).setTitleFont(title_font);
         buyin_spinner.setModel(new SpinnerNumberModel(Math.max(1, GameFrame.BUYIN), 1, null, 1));
@@ -336,9 +343,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
 
         Helpers.translateComponents(this, false);
 
-        // Importe ACTUAL de ante (= ciega pequeña) y straddle (= 2x ciega grande) entre
-        // paréntesis, igual que en el diálogo de nueva timba; se refresca al cambiar el
-        // nivel de ciegas (listener del combo).
+        // Current ante (= small blind) and straddle (= 2x big blind) amounts shown in
+        // parentheses, same as the new-game dialog; refreshed when the blind level changes
+        // (combo listener).
         updateAnteStraddleLabels();
 
         init = true;
@@ -361,7 +368,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             rit_checkbox.setEnabled(false);
             rabbit_combo.setEnabled(false);
             estructura_combobox.setEnabled(false);
-            // Cliente: los bots son del host, así que dificultad/recomprar/repartir van en solo-lectura.
+            // Client: bots belong to the host, so difficulty/rebuy/balance-payout are read-only.
             bots_combobox.setEnabled(false);
             bot_rebuy_checkbox.setEnabled(false);
             bot_balance_checkbox.setEnabled(false);
@@ -372,8 +379,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         snap_signature = controlsSignature();
     }
 
-    // Firma compacta de TODOS los controles editables; comparar dos firmas dice si algo
-    // cambió. (deshabilitar controles no cambia sus valores, así que es estable.)
+    // Compact signature of ALL editable controls; comparing two signatures tells if
+    // anything changed. (Disabling controls doesn't change their values, so it's stable.)
     private String controlsSignature() {
         return manos_checkbox.isSelected() + "|" + manos_spinner.getValue() + "|"
                 + iwtsth_checkbox.isSelected() + "|" + rit_checkbox.isSelected() + "|"
@@ -388,12 +395,19 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 + bots_combobox.getSelectedIndex() + "|" + bot_rebuy_checkbox.isSelected();
     }
 
-    // ¿Hay cambios sin guardar en la pestaña Partida? Lo usa el diálogo para preguntar
-    // antes de descartar al cancelar.
+    /**
+     * Whether the Game tab has unsaved changes. Used by the dialog to confirm before
+     * discarding on cancel.
+     *
+     * @return {@code true} if any control differs from its value when the tab was opened
+     */
     public boolean isDirty() {
         return !controlsSignature().equals(snap_signature);
     }
 
+    /**
+     * @return {@code true} if this panel was built read-only (client view)
+     */
     public boolean isReadOnly() {
         return read_only;
     }
@@ -403,11 +417,12 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         setLayout(new java.awt.BorderLayout());
         setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM)));
 
-        // Ambos subpaneles (reglas | ciegas) van lado a lado en un BoxLayout X (ver 'row'): dejamos su
-        // alto MÁXIMO libre (solo capamos el ancho) para que el MÁS CORTO de los dos se estire hasta
-        // igualar el alto del más alto, de modo que sus bordes titulados queden alineados también por
-        // abajo. El hueco sobrante cae DENTRO del borde del más corto (su contenido queda pegado arriba).
-        // El maxWidth se hereda intacto (no toca el reparto horizontal de la fila).
+        // Both subpanels sit side by side in a GridBagLayout row (rules | blinds, see 'grid'
+        // below); we leave their MAXIMUM height unbounded (only the width is capped) so that
+        // fill=BOTH can stretch the SHORTER of the two up to the taller one's height, keeping
+        // their titled borders aligned at the bottom too. Any leftover space falls INSIDE the
+        // shorter one's border (its content stays pinned at the top). maxWidth is inherited
+        // unchanged (doesn't affect the row's horizontal split).
         rules_panel = new javax.swing.JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -429,8 +444,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         rabbit_label = new javax.swing.JLabel();
         rabbit_combo = new javax.swing.JComboBox<>();
 
-        // Mismo criterio que rules_panel: alto máximo libre para que, si resulta el más corto de la
-        // fila, se estire hasta igualar al más alto y ambos bordes titulados queden alineados por abajo.
+        // Same idea as rules_panel: unbounded maximum height so that, if it ends up the
+        // shorter one in the row, it stretches to match the taller one and both titled
+        // borders stay aligned at the bottom.
         ciegas_panel = new javax.swing.JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -476,7 +492,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         rebuy_cap_label = new javax.swing.JLabel();
         rebuy_cap_combo = new javax.swing.JComboBox<>();
 
-        // ---------------- Reglas (izquierda, sin subpanel) ----------------
+        // ---------------- Rules (left side, no subpanel) ----------------
         manos_label.setFont(new java.awt.Font("Dialog", 1, 16));
         manos_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
         manos_label.setText("Límite de manos:");
@@ -572,10 +588,10 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             .addGroup(rules_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // Limite de manos / Tiempo de pensar / Tiempo de showdown comparten tres
-                    // columnas (casilla | etiqueta | spinner) para que los tres spinners queden
-                    // alineados por su borde izquierdo (igual que en la sala). Showdown no tiene
-                    // casilla: deja el hueco y alinea su etiqueta con las otras dos.
+                    // Hand limit / think time / showdown time share three columns
+                    // (checkbox | label | spinner) so the three spinners line up on their left
+                    // edge (same as in the waiting room). Showdown has no checkbox: it leaves
+                    // the gap and aligns its label with the other two.
                     .addGroup(rules_panelLayout.createSequentialGroup()
                         .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(manos_checkbox)
@@ -636,7 +652,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        // ---------------- Ciegas (derecha, subpanel titulado) ----------------
+        // ---------------- Blinds (right side, titled subpanel) ----------------
         estructura_label.setFont(new java.awt.Font("Dialog", 1, 14));
         estructura_label.setText("Estructura:");
         estructura_label.putClientProperty("i18n.key", "blinds.estructura");
@@ -741,8 +757,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
 
         straddle_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        // Ficha del straddle como los demas iconos de regla (checkbox sin texto + label
-        // con icono y texto). El icono es straddle.png reducido, al tamano de menu (24px).
+        // Straddle control styled like the other rule icons (text-less checkbox + label
+        // with icon and text). Icon is straddle.png downscaled to menu size (24px).
         straddle_label.setFont(new java.awt.Font("Dialog", 1, 16));
         straddle_label.setIcon(new javax.swing.ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_small.png")).getImage().getScaledInstance(24, 24, java.awt.Image.SCALE_SMOOTH)));
         straddle_label.setText("Straddle");
@@ -775,7 +791,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
                         .addComponent(doblar_checkbox)
                         .addGap(0, 0, Short.MAX_VALUE))
-                    // Sub-opciones de "Aumentar ciegas" (manos/minutos + tope) sangradas
+                    // "Increase blinds" sub-options (hands/minutes + cap), indented
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
                         .addGap(Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM))
                         .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -827,7 +843,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        // ---------------- Compra + recompra (SOLO INFORMATIVO en partida) ----------------
+        // ---------------- Buy-in + rebuy (INFO-ONLY in-game) ----------------
         buyin_label.setFont(new java.awt.Font("Dialog", 1, 16));
         buyin_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png")));
         buyin_label.setText("Compra inicial:");
@@ -897,7 +913,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                         .addComponent(buyin_range_sep_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                    // "Recomprar" = cabecera; sus sub-opciones (limite + tope) van sangradas
+                    // "Rebuy" = header; its sub-options (limit + cap) go indented
                     .addGroup(compra_panelLayout.createSequentialGroup()
                         .addComponent(rebuy_checkbox)
                         .addGap(0, 0, 0)
@@ -944,7 +960,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        // ---------------- Bots (subpanel, debajo de reglas|ciegas) ----------------
+        // ---------------- Bots (subpanel, below rules|blinds) ----------------
         Helpers.setScaledIconLabel(bots_avatar_label, getClass().getResource("/images/avatar_bot.png"), 48, 48);
 
         bots_label.setFont(new java.awt.Font("Dialog", 1, 16));
@@ -996,12 +1012,13 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        // Rejilla 2x2 con el MISMO orden y disposición que la pestaña "Partida" de la SALA DE ESPERA
-        // (WaitingGameSettingsPanel): Compra | Ciegas / Varios(reglas) | Bots. GridBagLayout liga el
-        // ancho de cada columna ENTRE las dos filas (col. izquierda idéntica en Compra y Varios; col.
-        // derecha idéntica en Ciegas y Bots) y fill BOTH estira cada subpanel hasta el alto de su vecino
-        // de fila, de modo que los bordes titulados queden alineados. weighty 0 -> las filas quedan a su
-        // alto natural y el sobrante vertical del diálogo cae limpio DEBAJO (al CENTER).
+        // 2x2 grid with the SAME order and layout as the "Game" tab of the WAITING ROOM
+        // (WaitingGameSettingsPanel): Buy-in | Blinds / Misc(rules) | Bots. GridBagLayout ties
+        // each column's width ACROSS the two rows (left column identical in Buy-in and Misc;
+        // right column identical in Blinds and Bots), and fill=BOTH stretches each subpanel to
+        // match its row neighbor's height, keeping the titled borders aligned. weighty 0 keeps
+        // each row at its natural height and lets the dialog's leftover vertical space fall
+        // cleanly BELOW (at CENTER).
         javax.swing.JPanel grid = new javax.swing.JPanel(new java.awt.GridBagLayout());
         java.awt.GridBagConstraints gc = new java.awt.GridBagConstraints();
         gc.fill = java.awt.GridBagConstraints.BOTH;
@@ -1025,30 +1042,32 @@ public class GameSettingsPanel extends javax.swing.JPanel {
 
         add(grid, java.awt.BorderLayout.NORTH);
 
-        // i18n de las etiquetas con icono (se traducen en translateComponents).
+        // i18n for icon labels (translated in translateComponents).
         manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
         iwtsth_label.putClientProperty("i18n.key", "menu.regla_iwtsth");
         rit_label.putClientProperty("i18n.key", "menu.regla_run_it_twice");
         rabbit_label.putClientProperty("i18n.key", "menu.rabbit_hunting");
     }
 
-    // ===================== Aplicar (lo dispara GUARDAR del diálogo unificado) =====================
+    /**
+     * Applies pending Game-tab changes (rules + blinds) to the live game. Triggered by the
+     * unified dialog's SAVE button; does nothing when {@link #isReadOnly()}.
+     */
     public void applyToGame() {
 
         if (read_only) {
             return;
         }
 
-        // ---- Estructura de ciegas elegida (null = escalera por defecto). Se fija ANTES
-        // de las ciegas (el combo de niveles ya refleja esta estructura) y se propaga a
-        // los clientes dentro de UPDATEBLINDS; el crupier la lee directo para la subida
-        // automática. ----
+        // ---- Chosen blind structure (null = default ladder). Set BEFORE the blinds (the
+        // levels combo already reflects this structure) and propagated to clients inside
+        // UPDATEBLINDS; the dealer reads it directly for the automatic raise. ----
         double[][] new_structure = selectedStructureLevels();
         boolean structure_changed = !java.util.Arrays.deepEquals(new_structure, GameFrame.ACTIVE_BLIND_STRUCTURE);
         GameFrame.ACTIVE_BLIND_STRUCTURE = new_structure;
         final String structure_str = (new_structure != null) ? BlindStructure.levelsToString(new_structure) : "";
 
-        // ---- Ciegas (idéntico a EditBlindsDialog) ----
+        // ---- Blinds (identical to EditBlindsDialog) ----
         int ciegas_double, ciegas_double_type;
 
         if (this.doblar_checkbox.isSelected()) {
@@ -1072,10 +1091,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         boolean straddle_nuevo = this.straddle_checkbox.isSelected();
         final boolean ante_straddle_changed = GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo;
 
-        // El ante/straddle se siguen aplicando y difundiendo al instante (más abajo,
-        // en UPDATEBLINDS); si cambian, además, se marca el aviso diferido para que
-        // salga el indicador amarillo y el popup en la próxima mano, igual que con
-        // las ciegas.
+        // Ante/straddle are still applied and broadcast immediately (further below, in
+        // UPDATEBLINDS); if they change, the deferred notice is also flagged so the yellow
+        // indicator and popup show up on the next hand, same as with blinds.
         if (ante_straddle_changed) {
             GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
         }
@@ -1087,7 +1105,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
 
         GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Double.valueOf(valores_ciegas[0].trim()), Double.valueOf(valores_ciegas[1].trim()), ciegas_double, ciegas_double_type);
 
-        // ---- Límite de manos: misma semántica que CommunityCardsPanel.click_max_hands ----
+        // ---- Hand limit: same semantics as CommunityCardsPanel.click_max_hands ----
         int old_manos = GameFrame.MANOS;
         int desired_manos;
         if (!manos_checkbox.isSelected()) {
@@ -1127,8 +1145,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             GameFrame.setRabbitHunting(rabbit);
         }
 
-        // Bots (editables en partida). Dificultad: server-local (los bots son del host), se lee en vivo;
-        // no se difunde, se persiste en recover. Recomprar y repartir: setters que difunden + persisten.
+        // Bots (editable in-game). Difficulty: server-local (bots belong to the host), read live;
+        // not broadcast, persisted on recover. Rebuy and balance-payout: setters that broadcast + persist.
         Bot.Difficulty new_diff = bots_combobox.getSelectedIndex() == 0 ? Bot.Difficulty.EASY
                 : (bots_combobox.getSelectedIndex() == 2 ? Bot.Difficulty.HARD : Bot.Difficulty.MEDIUM);
         boolean diff_changed = new_diff != Bot.DIFFICULTY;
@@ -1141,16 +1159,14 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         if (bot_balance_checkbox.isSelected() != GameFrame.BOT_BALANCE_TO_HUMANS) {
             GameFrame.setBotBalanceToHumans(bot_balance_checkbox.isSelected());
         }
-        // Fósil de recover: todo lo que serializeRecoverSettings incluye tiene que
-        // persistirse para que sobreviva a un detener+recuperar. Faltaban cuatro reglas
-        // (el tope de ciegas, el ante, el straddle y el limite de manos), que se editaban
-        // en partida y volvian a su valor viejo al recuperar mientras sus siete hermanas
-        // de este mismo metodo si aguantaban.
+        // Recover fossil: everything serializeRecoverSettings includes must be persisted so it
+        // survives a stop+recover cycle. Four rules (blind cap, ante, straddle, hand limit)
+        // used to be editable in-game but reverted to their old value on recover, while their
+        // seven siblings in this same method already persisted correctly.
         //
-        // Va FUERA del hilo grafico y en UNA sola escritura: persistir aqui mismo apunta
-        // a la base de datos desde el boton de GUARDAR, que es justo el camino por el que
-        // el hilo grafico se queda esperando al cerrar la partida. Mismo patron que los
-        // gemelos de recomprar y repartir saldo.
+        // Runs OFF the EDT and in a SINGLE write: persisting right here hits the database from
+        // the SAVE button, which is exactly the path where the EDT blocks while the game is
+        // being stopped. Same pattern as the rebuy/balance-payout persistence above.
         final boolean recover_settings_changed = diff_changed || structure_changed
                 || blind_cap_changed || ante_straddle_changed || manos_changed;
 
@@ -1246,9 +1262,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         updateBlindCapLabel();
     }
 
-    // Texto informativo de ante/straddle con su importe ACTUAL entre paréntesis (ante =
-    // ciega pequeña, straddle = 2x ciega grande), leído del nivel de ciegas seleccionado.
-    // Mismo criterio que NewGameDialog.updateAnteStraddleLabels().
+    // Informational ante/straddle text with its CURRENT amount in parentheses (ante = small
+    // blind, straddle = 2x big blind), read from the selected blind level. Same approach as
+    // NewGameDialog.updateAnteStraddleLabels().
     private void updateAnteStraddleLabels() {
         Object sel = ciegas_combobox.getSelectedItem();
         if (sel == null) {
@@ -1267,9 +1283,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         }
     }
 
-    // Inicializa el selector de estructura desde la ACTIVA, sin tocar el combo de
-    // niveles (ya poblado en el constructor). Si la activa no coincide con ninguna
-    // guardada, la representa con un ítem sintético "(actual)" para no perderla.
+    // Initializes the structure selector from the ACTIVE one, without touching the levels
+    // combo (already populated in the constructor). If the active one doesn't match any
+    // saved structure, represents it with a synthetic "(current)" item so it isn't lost.
     private void initStructureCombo() {
         pending_structure = null;
         item_estructura_actual = null;
@@ -1295,8 +1311,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         populateStructureCombo(selectName);
     }
 
-    // (Re)llena el combo: "Por defecto" + (estructura activa no guardada, si la hay) +
-    // estructuras guardadas. NO incluye "Gestionar…": aquí solo se ELIGE.
+    // (Re)fills the combo: "Default" + (unsaved active structure, if any) + saved
+    // structures. Does NOT include "Manage...": this is pick-only.
     private void populateStructureCombo(String selectName) {
         boolean prev_init = init;
         init = false;
@@ -1304,8 +1320,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             item_estructura_por_defecto = Translator.translate("blinds.estructura_por_defecto");
             estructura_combobox.removeAllItems();
             estructura_combobox.addItem(item_estructura_por_defecto);
-            // Salvo que ya exista una guardada con ese mismo nombre: el combo mostraria la entrada
-            // dos veces y la guardada quedaria inseleccionable.
+            // Unless a saved one already has that exact name: the combo would show the entry
+            // twice and the saved one would become unselectable.
             if (item_estructura_actual != null && !BlindStructure.loadAll().containsKey(item_estructura_actual)) {
                 estructura_combobox.addItem(item_estructura_actual);
             }
@@ -1324,28 +1340,27 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         }
     }
 
-    // Aplica al combo de NIVELES la estructura elegida, conservando el ESCALÓN actual
-    // por POSICIÓN (no por valor). Si la timba va por el nivel N de la escalera vieja
-    // (índice N del combo = número de subidas de ciega si se arrancó desde el primer
-    // nivel), el combo salta al nivel N de la nueva estructura, topado al último si es
-    // más corta. Así el cambio mantiene el mismo número de saltos en lugar del valor
-    // exacto; si el usuario quiere otro nivel, lo ajusta a mano antes de guardar.
-    // Fija pending_structure.
+    // Applies the chosen structure to the LEVELS combo, keeping the current STEP by
+    // POSITION (not by value): if the game is at level N of the old ladder (combo index N
+    // = number of blind raises since level one), the combo jumps to level N of the new
+    // structure, capped to the last one if it's shorter. This keeps the same number of
+    // jumps rather than the exact value; the user can adjust the level by hand before
+    // saving. Sets pending_structure.
     private void applySelectedStructure() {
         Object sel = estructura_combobox.getSelectedItem();
         if (sel == null) {
             return;
         }
-        // Escalón actual en la escalera que el combo muestra AHORA (antes de repoblar).
+        // Current step in the ladder the combo shows NOW (before repopulating).
         int prev_index = Math.max(0, ciegas_combobox.getSelectedIndex());
         double[][] levels;
         if (sel.equals(item_estructura_por_defecto)) {
             pending_structure = null;
             levels = BlindStructure.defaultLevels();
         } else {
-            // Las GUARDADAS mandan sobre la entrada sintetica (ver el gemelo de la sala): si hay
-            // una con ese nombre es la que muestra el combo, asi que se resuelve primero por
-            // nombre y solo se cae a la escalera en uso cuando no exista ninguna.
+            // Saved structures take priority over the synthetic entry (see the waiting-room
+            // twin): if one exists with that name, it's the one the combo shows, so it's
+            // resolved by name first and only falls back to the in-use ladder when none exists.
             BlindStructure bs = BlindStructure.loadAll().get((String) sel);
 
             if (bs == null && item_estructura_actual != null && sel.equals(item_estructura_actual)) {
@@ -1368,13 +1383,13 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         } finally {
             init = prev_init;
         }
-        // Recalcular el tope de ciega grande para la nueva escalera + etiquetas.
+        // Recompute the big-blind cap for the new ladder + labels.
         modelBlindCapSpinner(((Number) blind_cap_spinner.getValue()).intValue());
         updateAnteStraddleLabels();
     }
 
-    // Niveles de la estructura ELEGIDA (null = escalera por defecto), para aplicarlos a
-    // GameFrame.ACTIVE_BLIND_STRUCTURE al guardar.
+    // Levels of the CHOSEN structure (null = default ladder), applied to
+    // GameFrame.ACTIVE_BLIND_STRUCTURE on save.
     private double[][] selectedStructureLevels() {
         return pending_structure != null ? pending_structure.getLevels() : null;
     }

@@ -65,10 +65,14 @@ public class VoiceMessageManager {
     private static final AtomicBoolean WARNING_SHOWING = new AtomicBoolean(false);
 
     /**
-     * Global hook (EDT): reacts to the configured key only in game. Returns
-     * true when the event has been consumed. The key is read live from the central
-     * shortcut registry (see {@link KeyboardShortcuts#VOICE_RECORD}); while the shortcuts tab is
-     * capturing, the Init dispatcher already bails before calling this, so nothing to guard here.
+     * Global hook (EDT): reacts to the configured key only in game. The key is
+     * read live from the central shortcut registry (see
+     * {@link KeyboardShortcuts#VOICE_RECORD}); while the shortcuts tab is
+     * capturing, the Init dispatcher already bails before calling this, so
+     * nothing to guard here.
+     *
+     * @param e the key event dispatched by the global KeyEventDispatcher
+     * @return true when the event has been consumed
      */
     public static boolean handleKeyEvent(KeyEvent e) {
 
@@ -404,8 +408,11 @@ public class VoiceMessageManager {
 
     /**
      * Plays a stored voice note when its chat line is clicked. The line shows
-     * [Reproduciendo...] while it plays and reverts afterwards; clicking
+     * a "playing" label while it plays and reverts afterwards; clicking
      * another note cuts the current one (whose label reverts on its own).
+     *
+     * @param filename voice note file name (validated, resolved under
+     * {@code Init.VOICE_DIR})
      */
     public static void playFromChat(String filename) {
 
@@ -527,8 +534,8 @@ public class VoiceMessageManager {
 
             JProgressBar bar = new JProgressBar();
 
-            // Mismo estilo que el resto de diálogos in-game: fondo blanco con borde
-            // naranja (línea exterior + relleno interior) y título en naranja.
+            // Same style as the other in-game dialogs: white background with an
+            // orange border (outer line + inner padding) and an orange title.
             JPanel panel = new JPanel(new BorderLayout(15, 15));
             panel.setBackground(Color.WHITE);
             panel.setBorder(BorderFactory.createCompoundBorder(

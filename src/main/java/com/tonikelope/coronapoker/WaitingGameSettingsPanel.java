@@ -21,23 +21,20 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 
 /**
- * Contenido de "Ajustes de partida" para la SALA DE ESPERA, como pestaña del diálogo
- * unificado (la rueda). Sustituye al antiguo atajo de "click sobre las ciegas" que abría
- * el constructor UPDATE de {@link NewGameDialog}: aquí el HOST configura la timba antes de
- * empezar (ciegas + reglas, COMO la pestaña Partida en vivo, MÁS buy-in, recompra, bots y
- * presets, que no se pueden tocar a mitad de partida).
+ * "Game settings" content for the WAITING ROOM, as a tab of the unified settings dialog. Lets
+ * the HOST configure the game before it starts: blinds + rules (like the live Game tab), plus
+ * buy-in, rebuy, bots and presets, none of which can change mid-game.
  *
- * <p>A diferencia de {@link GameSettingsPanel} (pestaña Partida EN VIVO, que opera sobre el
- * Crupier y difunde en caliente), aquí NO hay Crupier ni instancia de GameFrame: se trabaja
- * sobre los campos estáticos {@code GameFrame.*} (igual que hacía la rama UPDATE de
- * NewGameDialog). El carrier {@link GamePreset.Settings} es la fuente única: el HOST puebla
- * desde {@link GamePreset.Settings#fromGameFrame()} y, al GUARDAR, escribe con
- * {@link GamePreset.Settings#applyToGameFrame(boolean)} + difunde la config completa a los
- * clientes (espejo). Para los CLIENTES el panel es de SOLO-LECTURA y se puebla desde el
- * espejo recibido ({@link WaitingRoomFrame#GAMECONFIG_MIRROR}).
+ * <p>Unlike {@link GameSettingsPanel} (the live Game tab, which operates on the Crupier and
+ * broadcasts changes immediately), there is no Crupier or GameFrame instance here: the panel
+ * works directly on the static {@code GameFrame.*} fields. {@link GamePreset.Settings} is the
+ * single carrier: the HOST populates it via {@link GamePreset.Settings#fromGameFrame()} and,
+ * on SAVE, writes it back with {@link GamePreset.Settings#applyToGameFrame(boolean)} and
+ * broadcasts the full config to clients (mirror). For CLIENTS the panel is READ-ONLY, populated
+ * from the received mirror ({@link WaitingRoomFrame#GAMECONFIG_MIRROR}).
  *
- * <p>Toda la lógica de ciegas/buy-in/estructura/presets es la (crupier-free) de
- * NewGameDialog, portada aquí; el layout de ciegas/varios replica el de GameSettingsPanel.
+ * <p>The blinds/buy-in/structure/preset logic is the (Crupier-free) logic from NewGameDialog,
+ * ported here; the blinds/misc layout mirrors {@link GameSettingsPanel}.
  *
  * @author tonikelope
  */
@@ -47,38 +44,38 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
 
     private final boolean read_only;
 
-    // Modo recover parcial (host que reengancha una timba parada para admitir jugadores): la
-    // economía (compra/recompra/ciegas/estructura/ante/straddle) queda BLOQUEADA con los valores
-    // recuperados, pero los ajustes de "Partida" (reglas + tiempo de pensar) y la dificultad de
-    // bots SON editables. Solo aplica cuando read_only es false (host).
+    // Partial recover mode (host reattaching a stopped game to admit players): the economy
+    // (buy-in/blinds/structure/ante/straddle) stays LOCKED to the recovered values, but the
+    // "Game" settings (rules + think time), rebuy, and bot difficulty ARE editable. Only applies
+    // when read_only is false (host).
     private final boolean recover;
 
-    // Firma de los valores de los controles al ABRIR; isDirty() compara con la actual
-    // para saber si la pestaña tiene cambios sin guardar (se aplica al GUARDAR).
+    // Signature of the control values when the tab OPENS; isDirty() compares it against the
+    // current one to tell whether there are unsaved changes (applied on SAVE).
     private String snap_signature;
 
-    // Estructura de ciegas elegida (null = escalera por defecto). Determina los niveles
-    // del combo de ciegas y, al GUARDAR, GameFrame.ACTIVE_BLIND_STRUCTURE.
+    // Chosen blind structure (null = default ladder). Drives the blinds combo's levels and,
+    // on SAVE, GameFrame.ACTIVE_BLIND_STRUCTURE.
     private BlindStructure pending_structure = null;
     private String item_por_defecto;
     private String item_gestionar;
-    // Entrada sintética "(actual)" para la escalera en uso cuando NO coincide con ninguna guardada
-    // (viene de un preset, o de una estructura que se edito o borro despues). Sin ella el combo
-    // decia "Por defecto" mientras la partida arrancaba con la escalera personalizada: el mismo
-    // mecanismo que ya tiene el panel gemelo de la pantalla de inicio.
+    // Synthetic "(current)" entry for the active ladder when it doesn't match any saved one (came
+    // from a preset, or from a structure that was edited/deleted afterwards). Without it the combo
+    // would show "Default" while the game actually ran on a custom ladder — same mechanism as the
+    // twin panel on the start screen.
     private String item_estructura_actual;
     private BlindStructure actual_structure;
 
-    // Paso del spinner de buy-in (derivado de la magnitud de la ciega pequeña).
+    // Buy-in spinner step (derived from the small blind's magnitude).
     private int buyin_spinner_step = 1;
     private static final int BUYIN_RANGE_STEP = 5;
     private boolean adjusting_buyin_range = false;
 
-    // Almacén de trabajo LOCAL del rango de buy-in (min/max BB) y de la política de tope de
-    // recompra. Antes se usaban los estáticos GameFrame.BUYIN_MIN_BB/MAX_BB/REBUY_CAP_POLICY como
-    // scratch de estos controles, lo que ROMPÍA el modelo transaccional: tocar los spinners mutaba
-    // el estado global al vuelo y Cancelar (o "descartar cambios") no lo revertía. Ahora la lógica
-    // viva opera sobre estos campos y GameFrame solo se escribe al GUARDAR (captureSettingsFromControls).
+    // LOCAL working store for the buy-in range (min/max BB) and the rebuy-cap policy. These used
+    // to be scratch-written directly into the static GameFrame.BUYIN_MIN_BB/MAX_BB/REBUY_CAP_POLICY,
+    // which broke the transactional model: touching the spinners mutated global state on the fly
+    // and Cancel ("discard changes") never reverted it. Now the live logic operates on these
+    // fields and GameFrame is only written on SAVE (captureSettingsFromControls).
     private int working_min_bb;
     private int working_max_bb;
     private int working_rebuy_cap_policy;
@@ -86,7 +83,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private static final int MAX_PRESET_NAME_LENGTH = 40;
     private boolean suppress_preset_combo = false;
 
-    // ---------------- Reglas (izquierda, subpanel "Varios") ----------------
+    // ---------------- Rules (left, "Misc" subpanel) ----------------
     private javax.swing.JPanel rules_panel;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JLabel manos_label;
@@ -94,7 +91,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox think_time_checkbox;
     private javax.swing.JLabel think_time_label;
     private javax.swing.JSpinner think_time_spinner;
-    // Tiempo de showdown: sin casilla (la pausa no se puede desactivar).
+    // Showdown time: no checkbox (the pause can't be disabled).
     private javax.swing.JLabel showdown_time_label;
     private javax.swing.JSpinner showdown_time_spinner;
     private javax.swing.JCheckBox iwtsth_checkbox;
@@ -104,7 +101,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JLabel rabbit_label;
     private javax.swing.JComboBox<String> rabbit_combo;
 
-    // ---------------- Ciegas (derecha, subpanel titulado) ----------------
+    // ---------------- Blinds (right, titled subpanel) ----------------
     private javax.swing.JPanel ciegas_panel;
     private javax.swing.JLabel estructura_label;
     private javax.swing.JComboBox<String> estructura_combobox;
@@ -123,7 +120,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox straddle_checkbox;
     private javax.swing.JLabel straddle_label;
 
-    // ---------------- Compra + recompra ----------------
+    // ---------------- Buy-in + rebuy ----------------
     private javax.swing.JPanel compra_panel;
     private javax.swing.JCheckBox fixed_buyin_checkbox;
     private javax.swing.JLabel buyin_label;
@@ -155,8 +152,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JButton preset_save_button;
     private javax.swing.JButton preset_delete_button;
 
-    // Tooltips i18n (setTranslatedToolTip => se re-traducen al cambiar idioma) de los controles de
-    // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents().
+    // i18n tooltips (setTranslatedToolTip re-translates them on language change) for controls
+    // whose purpose isn't obvious from their label alone. Called after initComponents().
     private void setupTooltips() {
         Helpers.setTranslatedToolTip(manos_checkbox, "tooltip.cfg.hand_limit");
         Helpers.setTranslatedToolTip(manos_label, "tooltip.cfg.hand_limit");
@@ -198,7 +195,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         Helpers.setTranslatedToolTip(bot_balance_checkbox, "tooltip.cfg.bot_balance");
         Helpers.setTranslatedToolTip(bots_label, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
-        // rebuy_cap_combo ya tiene su tooltip propio ("rebuy.tope_recompra_tooltip") en initComponents.
+        // rebuy_cap_combo's tooltip is re-applied in initBuyinRangeAndCapUI, whose combo rebuild
+        // would otherwise leave it tooltip-less.
     }
 
     public WaitingGameSettingsPanel(boolean read_only, boolean recover) {
@@ -208,9 +206,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
 
         setupTooltips();
 
-        // Fuente única: el HOST lee la config viva (estáticos); el cliente lee el espejo
-        // recibido por la red (puede ser null si abre la rueda antes del primer sync ->
-        // defaults). applySettingsToControls puebla TODOS los controles.
+        // Single source of truth: the HOST reads the live config (statics); the client reads the
+        // mirror received over the network (may be null if the wheel opens before the first
+        // sync, falling back to defaults). applySettingsToControls populates ALL controls.
         applySettingsToControls(read_only
                 ? GamePreset.Settings.parse(WaitingRoomFrame.GAMECONFIG_MIRROR)
                 : GamePreset.Settings.fromGameFrame());
@@ -224,7 +222,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         Helpers.translateComponents(this, false);
         updateAnteStraddleLabels();
 
-        // Presets: el combo se rellena siempre (también en solo-lectura no se muestran).
+        // Presets: the combo is always populated (even though it stays hidden in read-only mode).
         populatePresetsCombo(null);
 
         init = true;
@@ -248,14 +246,18 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         return read_only;
     }
 
-    // ¿Hay cambios sin guardar? Lo usa el diálogo para preguntar antes de descartar al
-    // cancelar. En solo-lectura nunca está dirty (los controles no cambian).
+    /**
+     * Whether there are unsaved changes. Used by the dialog to confirm before discarding on
+     * Cancel. Never dirty in read-only mode (its controls never change).
+     *
+     * @return {@code true} if the controls differ from the snapshot taken on open
+     */
     public boolean isDirty() {
         return !read_only && !controlsSignature().equals(snap_signature);
     }
 
-    // Firma compacta de TODOS los controles editables; comparar dos firmas dice si algo
-    // cambió. (Deshabilitar controles no cambia sus valores, así que es estable.)
+    // Compact signature of ALL editable controls; comparing two signatures says whether
+    // anything changed. (Disabling controls doesn't change their values, so it stays stable.)
     private String controlsSignature() {
         return manos_checkbox.isSelected() + "|" + manos_spinner.getValue() + "|"
                 + think_time_checkbox.isSelected() + "|" + think_time_spinner.getValue() + "|"
@@ -275,8 +277,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 + rebuy_cap_combo.getSelectedIndex() + "|" + bots_combobox.getSelectedIndex();
     }
 
-    // Refresca el panel de un cliente (solo-lectura) con el espejo recién recibido por la
-    // red. Lo dispara WaitingRoomFrame al procesar un GAMECONFIG, vía SettingsDialog.
+    /**
+     * Refreshes a client's (read-only) panel with the mirror just received over the network.
+     * Triggered by {@code WaitingRoomFrame} processing a GAMECONFIG, via {@code SettingsDialog}.
+     */
     public void refreshFromMirror() {
         if (!read_only) {
             return;
@@ -286,17 +290,19 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         applyReadOnlyState();
     }
 
-    // ===================== Aplicar (lo dispara GUARDAR del diálogo unificado) =====================
-    // Solo el HOST aplica: escribe los estáticos GameFrame.* (como la vieja rama UPDATE) y
-    // difunde la config completa a los clientes (espejo) + refresca las etiquetas de la sala.
+    // ===================== Apply (triggered by SAVE in the unified dialog) =====================
+    /**
+     * Only the HOST applies: writes the static {@code GameFrame.*} fields (like the old UPDATE
+     * branch) and broadcasts the full config to clients (mirror) + refreshes the room's labels.
+     */
     public void applyToGame() {
         if (read_only) {
             return;
         }
 
         if (recover) {
-            // Recover: SOLO se aplican los ajustes EDITABLES (Partida + bots). La economía se
-            // mantiene tal cual de la timba recuperada (sus controles están bloqueados).
+            // Recover: ONLY the EDITABLE settings (Game + bots) are applied. The economy stays
+            // whatever the recovered game had (its controls are locked).
             applyRecoverEditableToGame();
         } else {
             GamePreset.Settings s = captureSettingsFromControls();
@@ -309,9 +315,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         }
     }
 
-    // Recover: aplica a GameFrame SOLO los ajustes editables (subpanel "Partida" + dificultad de
-    // bots), sin tocar la economía (que se restaura de la timba recuperada). Anula los overrides
-    // *_RECOVER de iwtsth/rit/rabbit para que el re-guardado use el valor editado, no el original.
+    // Recover: applies to GameFrame ONLY the editable settings ("Game" subpanel + bot
+    // difficulty), without touching the economy (restored from the recovered game). Clears the
+    // *_RECOVER overrides for iwtsth/rit/rabbit so a re-save uses the edited value, not the
+    // original one.
     private void applyRecoverEditableToGame() {
         GameFrame.MANOS = manos_checkbox.isSelected() ? ((Number) manos_spinner.getValue()).intValue() : -1;
         GameFrame.THINK_TIME = Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, ((Number) think_time_spinner.getValue()).intValue()));
@@ -323,20 +330,20 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         GameFrame.IWTSTH_RULE_RECOVER = null;
         GameFrame.RUN_IT_TWICE_RECOVER = null;
         GameFrame.RABBIT_HUNTING_RECOVER = null;
-        // Recompra (editable al recuperar): permitir / límite por jugador / recomprar bots / tope.
+        // Rebuy (editable on recover): allow / per-player limit / bot rebuy / cap.
         GameFrame.REBUY = rebuy_checkbox.isSelected();
         GameFrame.REBUY_LIMIT = rebuy_limit_checkbox.isSelected() ? ((Number) rebuy_limit_spinner.getValue()).intValue() : 0;
         GameFrame.BOT_REBUY = bot_rebuy_checkbox.isSelected();
         GameFrame.BOT_BALANCE_TO_HUMANS = bot_balance_checkbox.isSelected();
         GameFrame.REBUY_CAP_POLICY = rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
-        // "Permitir recomprar" no viaja en recover_settings: se persiste en game.rebuy para que
-        // el resume no revierta la edición (ver GameFrame.persistRecoverRebuy).
+        // "Allow rebuy" doesn't travel in recover_settings: it's persisted to game.rebuy so a
+        // resume doesn't revert the edit (see GameFrame.persistRecoverRebuy).
         GameFrame.persistRecoverRebuy(GameFrame.RECOVER_ID, GameFrame.REBUY);
         Bot.DIFFICULTY = botDifficultyFromComboIndex(bots_combobox.getSelectedIndex());
     }
 
-    // Deshabilita todos los controles (cliente) y oculta el panel de presets. Se reaplica
-    // tras cada refresco del espejo, porque applySettingsToControls reactiva enables.
+    // Disables all controls (client) and hides the presets panel. Re-applied after every mirror
+    // refresh, since applySettingsToControls re-enables things.
     private void applyReadOnlyState() {
         boolean e = false;
         manos_checkbox.setEnabled(e);
@@ -376,10 +383,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         presets_panel.setVisible(false);
     }
 
-    // Recover parcial (host): bloquea SOLO la economía (compra/rango/recompra/ciegas/estructura/
-    // aumento/tope/ante/straddle), dejando editables los ajustes de "Partida" (manos, IWTSTH,
-    // run-it-twice, rabbit, tiempo de pensar) y la dificultad de bots, que ya quedaron con su
-    // estado correcto en applySettingsToControls. Oculta los presets (no aplican al recuperar).
+    // Partial recover (host): locks ONLY the economy (buy-in/range/blinds/structure/increase/
+    // cap/ante/straddle), leaving editable the "Game" settings (hand limit, IWTSTH, run-it-twice,
+    // rabbit, think time), rebuy, and bot difficulty, all already set correctly by
+    // applySettingsToControls. Hides the presets panel (doesn't apply when recovering).
     private void applyRecoverLockState() {
         boolean e = false;
         estructura_combobox.setEnabled(e);
@@ -398,13 +405,13 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         buyin_spinner.setEnabled(e);
         buyin_min_bb_spinner.setEnabled(e);
         buyin_max_bb_spinner.setEnabled(e);
-        // La recompra (permitir / límite / recomprar bots / tope) queda EDITABLE al recuperar:
-        // NO se bloquea aquí; su estado de enable lo fija applySettingsToControls según "permitir
-        // recomprar" y lo mantiene rebuy_checkboxActionPerformed.
+        // Rebuy (allow / limit / bot rebuy / cap) stays EDITABLE on recover: it is NOT locked
+        // here; its enabled state is set by applySettingsToControls from "allow rebuy" and kept
+        // in sync by rebuy_checkboxActionPerformed.
         presets_panel.setVisible(false);
     }
 
-    // ===================== Construcción de la UI =====================
+    // ===================== UI construction =====================
     private void initComponents() {
 
         setLayout(new java.awt.BorderLayout());
@@ -473,7 +480,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         preset_save_button = new javax.swing.JButton();
         preset_delete_button = new javax.swing.JButton();
 
-        // ---------------- Reglas (subpanel "Varios") ----------------
+        // ---------------- Rules ("Misc" subpanel) ----------------
         manos_label.setFont(new java.awt.Font("Dialog", 1, 16));
         manos_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
         manos_label.setText("Límite de manos:");
@@ -573,9 +580,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             .addGroup(rules_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // manos/pensar/showdown comparten columnas (casilla | etiqueta | spinner)
-                    // para alinear los tres spinners (igual que sala y partida). Showdown, sin
-                    // casilla, deja el hueco y alinea su etiqueta con las otras dos.
+                    // hand-limit/think-time/showdown share columns (checkbox | label | spinner)
+                    // to line up the three spinners (same as room and game tabs). Showdown, with
+                    // no checkbox, leaves the gap and aligns its label with the other two.
                     .addGroup(rules_panelLayout.createSequentialGroup()
                         .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(manos_checkbox)
@@ -636,7 +643,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        // ---------------- Ciegas (subpanel titulado) ----------------
+        // ---------------- Blinds (titled subpanel) ----------------
         estructura_label.setFont(new java.awt.Font("Dialog", 1, 14));
         estructura_label.setText("Estructura:");
         estructura_label.putClientProperty("i18n.key", "blinds.estructura");
@@ -680,9 +687,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         doblar_ciegas_spinner_minutos.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
         doblar_ciegas_spinner_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        // Caja de aumento (line-border) que ENGLOBA todo el grupo "Aumentar ciegas" (checkbox +
-        // radios manos/minutos + spinners + tope ciega grande), IGUAL que el diálogo de nueva
-        // timba (antes solo el tope iba enmarcado y "Aumentar ciegas" + radios quedaban sueltos).
+        // Increase box (line border) that WRAPS the whole "Increase blinds" group (checkbox +
+        // hands/minutes radios + spinners + big-blind cap), same as the new-game dialog (it used
+        // to be that only the cap was boxed, with "Increase blinds" + radios left loose).
         aumento_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
 
         blind_cap_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
@@ -706,7 +713,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             .addGroup(aumento_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // "Aumentar ciegas" = cabecera (sin sangrar); sus sub-opciones van sangradas
+                    // "Increase blinds" = header (not indented); its sub-options are indented
                     .addComponent(doblar_checkbox)
                     .addGroup(aumento_panelLayout.createSequentialGroup()
                         .addGap(22, 22, 22)
@@ -750,8 +757,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
 
         straddle_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        // Ficha del straddle como los demas iconos de regla (checkbox sin texto + label
-        // con icono y texto). El icono es straddle.png reducido, al tamano de menu (24px).
+        // Straddle chip like the other rule icons (textless checkbox + label with icon and
+        // text). The icon is straddle.png scaled down to the menu size (24px).
         straddle_label.setFont(new java.awt.Font("Dialog", 1, 16));
         straddle_label.setIcon(new javax.swing.ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_small.png")).getImage().getScaledInstance(24, 24, java.awt.Image.SCALE_SMOOTH)));
         straddle_label.setText("Straddle");
@@ -811,7 +818,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        // ---------------- Compra + recompra ----------------
+        // ---------------- Buy-in + rebuy ----------------
         fixed_buyin_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
         fixed_buyin_checkbox.setText("Buy-in fijo");
         fixed_buyin_checkbox.putClientProperty("i18n.key", "newgame.buyin_fijo");
@@ -845,12 +852,12 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         buyin_max_bb_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         buyin_max_bb_spinner.addChangeListener((javax.swing.event.ChangeEvent e) -> onBuyinRangeChanged(false));
 
-        // recompra (subpanel line-border)
+        // rebuy (line-border subpanel)
         recompra_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
 
-        // Checkbox DESNUDO (sin texto) + label "Recomprar" con icono al lado, IGUAL que el diálogo
-        // de nueva timba: setIcon sobre el checkbox rompe la casilla, así que el icono+texto van en
-        // un label aparte que hace clic sobre el checkbox al pulsarlo.
+        // BARE checkbox (no text) + "Rebuy" label with icon next to it, same as the new-game
+        // dialog: setIcon on the checkbox breaks the checkbox rendering, so the icon+text live in
+        // a separate label that clicks the checkbox when pressed.
         rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
         rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_checkbox.addActionListener(this::rebuy_checkboxActionPerformed);
@@ -904,12 +911,12 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             .addGroup(recompra_panelLayout.createSequentialGroup()
                 .addGap(10, 10, 10)
                 .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // "Recomprar" = cabecera del bloque (sin sangrar)
+                    // "Rebuy" = block header (not indented)
                     .addGroup(recompra_panelLayout.createSequentialGroup()
                         .addComponent(rebuy_checkbox)
                         .addGap(0, 0, 0)
                         .addComponent(recomprar_label))
-                    // Sub-opciones de "Recomprar" (limite + tope) sangradas a la derecha
+                    // "Rebuy" sub-options (limit + cap) indented to the right
                     .addGroup(recompra_panelLayout.createSequentialGroup()
                         .addGap(22, 22, 22)
                         .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -989,7 +996,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         );
 
         // ---------------- Bots ----------------
-        // Retrato del bot (como en nueva timba), escalado a la izquierda de la dificultad.
+        // Bot portrait (as in new-game), scaled, to the left of the difficulty combo.
         Helpers.setScaledIconLabel(bots_avatar_label, getClass().getResource("/images/avatar_bot.png"), 48, 48);
 
         bots_label.setFont(new java.awt.Font("Dialog", 1, 16));
@@ -1057,9 +1064,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         preset_delete_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         preset_delete_button.addActionListener(this::preset_delete_buttonActionPerformed);
 
-        // El combo se estira a lo ancho (crece hasta el borde y empuja Guardar/Borrar a la
-        // derecha), a la misma anchura que en el diálogo de nueva timba; el antiguo FlowLayout
-        // lo dejaba estrecho con un prototipo fijo.
+        // The combo stretches to fill the width (grows to the edge and pushes Save/Delete to the
+        // right), matching the new-game dialog's width; the old FlowLayout left it narrow with a
+        // fixed prototype.
         javax.swing.GroupLayout presets_panelLayout = new javax.swing.GroupLayout(presets_panel);
         presets_panel.setLayout(presets_panelLayout);
         presets_panelLayout.setHorizontalGroup(
@@ -1087,19 +1094,18 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap())
         );
 
-        // ---------------- Ensamblado ----------------
-        // Rejilla 2x2 con el MISMO orden que el diálogo de nueva timba (CREAR TIMBA):
-        //   Compra | Ciegas
-        //   Varios | Bots
-        // GridBagLayout liga el ancho de cada columna ENTRE las dos filas (col. izquierda
-        // idéntica en Compra y Varios; col. derecha idéntica en Ciegas y Bots), de modo que
-        // todo queda alineado en vez de que cada fila calcule su propio corte (antes cada
-        // BoxLayout medía el ancho por separado y "Varios" sobresalía de "Compra"). fill BOTH:
-        // cada subpanel RELLENA su celda (mismo alto que su vecino de fila), así el borde
-        // titulado llega hasta abajo y no queda un hueco vació debajo del más corto (p. ej.
-        // "Compra" bajo "Tope recompra"). weighty 0 -> las filas quedan a su alto natural y el
-        // sobrante vertical del diálogo cae limpio DEBAJO de la rejilla (va al CENTER, no dentro
-        // de los paneles).
+        // ---------------- Assembly ----------------
+        // 2x2 grid with the SAME order as the new-game dialog (CREATE GAME):
+        //   Buy-in | Blinds
+        //   Misc   | Bots
+        // GridBagLayout ties each column's width ACROSS the two rows (left column identical for
+        // Buy-in and Misc; right column identical for Blinds and Bots), so everything lines up
+        // instead of each row computing its own cut (a separate BoxLayout per row used to measure
+        // width independently and let "Misc" overhang "Buy-in"). fill BOTH: each subpanel FILLS
+        // its cell (same height as its row neighbor), so the titled border reaches the bottom
+        // with no empty gap under the shorter one (e.g. "Buy-in" under "Rebuy cap"). weighty 0
+        // keeps the rows at their natural height, so leftover vertical space falls cleanly BELOW
+        // the grid (goes to CENTER, not inside the panels).
         javax.swing.JPanel grid = new javax.swing.JPanel(new java.awt.GridBagLayout());
         java.awt.GridBagConstraints gc = new java.awt.GridBagConstraints();
         gc.fill = java.awt.GridBagConstraints.BOTH;
@@ -1133,7 +1139,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         add(north, java.awt.BorderLayout.NORTH);
     }
 
-    // ===================== Listeners (crupier-free, portados de NewGameDialog) =====================
+    // ===================== Listeners (Crupier-free, ported from NewGameDialog) =====================
     private void manos_checkboxActionPerformed(java.awt.event.ActionEvent evt) {
         manos_spinner.setEnabled(manos_checkbox.isSelected());
     }
@@ -1192,8 +1198,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     }
 
     private void ciegas_comboboxActionPerformed(java.awt.event.ActionEvent evt) {
-        // Etiqueta informativa ante/straddle FUERA del gate init (también al cargar
-        // preset/estructura). El recálculo de buy-in/tope solo dentro de init.
+        // Ante/straddle info label OUTSIDE the init gate (also when loading a preset/structure).
+        // Buy-in/cap recalculation only happens inside init.
         updateAnteStraddleLabels();
         if (init) {
             String[] valores = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
@@ -1218,15 +1224,15 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             return;
         }
         if (sel.equals(item_gestionar)) {
-            // Editor de estructuras; al cerrar, recargar conservando la activa (si fue
-            // borrada/renombrada, caer a "Por defecto").
+            // Structure editor; on close, reload keeping the active one (fall back to
+            // "Default" if it was deleted/renamed).
             String previous = pending_structure != null ? pending_structure.getName() : item_por_defecto;
             java.awt.Window owner = SwingUtilities.getWindowAncestor(this);
             BlindStructureManagerDialog mgr = new BlindStructureManagerDialog(owner);
             mgr.setVisible(true);
-            // La entrada sintetica de la escalera en uso NO esta entre las guardadas, pero sigue
-            // siendo una seleccion valida: sin esta excepcion, abrir y cerrar el gestor la perdia
-            // y dejaba el combo en "Por defecto".
+            // The synthetic entry for the active ladder is NOT among the saved ones, but it's
+            // still a valid selection: without this exception, opening and closing the manager
+            // would lose it and leave the combo on "Default".
             if (!item_por_defecto.equals(previous)
                     && !previous.equals(item_estructura_actual)
                     && !BlindStructure.loadAll().containsKey(previous)) {
@@ -1239,7 +1245,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         applySelectedStructure();
     }
 
-    // ===================== Estructura de ciegas =====================
+    // ===================== Blind structure =====================
     private void populateStructureCombo(String selectName) {
         boolean prev_init = init;
         init = false;
@@ -1248,8 +1254,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             item_gestionar = Translator.translate("blinds.gestionar");
             estructura_combobox.removeAllItems();
             estructura_combobox.addItem(item_por_defecto);
-            // Salvo que ya exista una guardada con ese mismo nombre: el combo mostraria la entrada
-            // dos veces y la guardada quedaria inseleccionable.
+            // Unless a saved structure already has that same name: the combo would show the
+            // entry twice and the saved one would become unselectable.
             if (item_estructura_actual != null && !BlindStructure.loadAll().containsKey(item_estructura_actual)) {
                 estructura_combobox.addItem(item_estructura_actual);
             }
@@ -1274,10 +1280,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             pending_structure = null;
             levels = BlindStructure.defaultLevels();
         } else {
-            // Las GUARDADAS mandan sobre la entrada sintetica: si hay una con ese nombre, es la
-            // que el combo esta mostrando (la sintetica ni siquiera se anade), asi que resolver
-            // primero por nombre y solo caer a la escalera en uso cuando no exista ninguna. Al
-            // reves, una guardada que se llamara igual quedaba inseleccionable.
+            // SAVED structures take priority over the synthetic entry: if one exists with that
+            // name, it's the one the combo is showing (the synthetic entry isn't even added), so
+            // resolve by name first and only fall back to the active ladder when none exists.
+            // The other way around, a saved structure with the same name became unselectable.
             BlindStructure bs = BlindStructure.loadAll().get((String) sel);
 
             if (bs == null && item_estructura_actual != null && sel.equals(item_estructura_actual)) {
@@ -1293,13 +1299,13 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         }
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
         ciegas_combobox.setSelectedIndex(0);
-        // Recalcular buy-in + tope para la nueva escalera (setModel no dispara el listener
-        // de forma fiable).
+        // Recalculate buy-in + cap for the new ladder (setModel doesn't reliably fire the
+        // listener).
         ciegas_comboboxActionPerformed(null);
     }
 
-    // Refleja la estructura activa (parámetro; null = escalera por defecto) en el combo de
-    // niveles y selecciona/sintetiza su entrada en el combo de estructuras.
+    // Reflects the active structure (parameter; null = default ladder) in the levels combo,
+    // and selects/synthesizes its entry in the structures combo.
     private void initBlindStructureUIFrom(double[][] active) {
         pending_structure = null;
         item_estructura_actual = null;
@@ -1316,8 +1322,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             if (pending_structure == null) {
                 try {
                     pending_structure = new BlindStructure(Translator.translate("blinds.estructura_actual"), active);
-                    // Se recuerda para poder OFRECERLA en el combo: si no, el desplegable
-                    // seleccionaba "Por defecto" y mentia sobre la escalera con la que se juega.
+                    // Remembered so it can be OFFERED in the combo: otherwise the dropdown would
+                    // select "Default" and lie about the ladder actually being played.
                     item_estructura_actual = pending_structure.getName();
                     actual_structure = pending_structure;
                     selectName = item_estructura_actual;
@@ -1325,9 +1331,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 }
             }
         }
-        // Poblar SIEMPRE el combo desde la escalera efectiva (la estructura en uso
-        // o, sin ella, la por defecto) para que incluya todos los niveles de
-        // defaultLevels() y no la lista fija del diseñador.
+        // ALWAYS populate the combo from the effective ladder (the active structure or,
+        // without one, the default), so it includes every level from defaultLevels() rather
+        // than the designer's fixed list.
         double[][] levels = pending_structure != null ? pending_structure.getLevels() : BlindStructure.defaultLevels();
         String[] items = new String[levels.length];
         for (int k = 0; k < levels.length; k++) {
@@ -1337,7 +1343,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         populateStructureCombo(selectName);
     }
 
-    // ===================== Tope de ciega grande (nº de subidas) =====================
+    // ===================== Big-blind cap (number of increases) =====================
     private double parseBlindLevelBB(String item) {
         return Double.parseDouble(item.replace(",", ".").split("/")[1].trim());
     }
@@ -1380,7 +1386,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         updateBlindCapLabel();
     }
 
-    // ===================== Buy-in (rango + spinner) =====================
+    // ===================== Buy-in (range + spinner) =====================
     private void initBuyinRangeAndCapUI() {
         int lo = Math.max(BuyinRules.FLOOR_MIN_BB, Math.min(working_min_bb, BuyinRules.CEIL_MAX_BB - BUYIN_RANGE_STEP));
         int hi = Math.max(lo + BUYIN_RANGE_STEP, Math.min(working_max_bb, BuyinRules.CEIL_MAX_BB));
@@ -1456,7 +1462,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         repaint();
     }
 
-    // ===================== Ante / straddle (texto informativo) =====================
+    // ===================== Ante / straddle (informational text) =====================
     private void updateAnteStraddleLabels() {
         Object sel = ciegas_combobox.getSelectedItem();
         if (sel == null) {
@@ -1596,7 +1602,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         return name.length() > MAX_PRESET_NAME_LENGTH ? name.substring(0, MAX_PRESET_NAME_LENGTH) : name;
     }
 
-    // ===================== Controles <-> Settings =====================
+    // ===================== Controls <-> Settings =====================
     private void selectCurrentBlindLevel(double sb, double bg) {
         String ciegas = BlindStructure.formatLevel(sb, bg);
         int t = ciegas_combobox.getModel().getSize();
@@ -1608,8 +1614,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         }
     }
 
-    // Lee los controles a un Settings (sin tocar GameFrame). Mismo mapeo que la vieja rama
-    // UPDATE / captureSettingsFromControls de NewGameDialog.
+    // Reads the controls into a Settings (without touching GameFrame). Same mapping as
+    // NewGameDialog's old UPDATE branch / captureSettingsFromControls.
     private GamePreset.Settings captureSettingsFromControls() {
         GamePreset.Settings s = new GamePreset.Settings();
         String[] v = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
@@ -1651,9 +1657,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         return s;
     }
 
-    // Vuelca un Settings a los controles SIN tocar GameFrame (el rango de buy-in y la política de
-    // tope usan campos de trabajo locales working_*). Mismo orden que NewGameDialog:
-    // toggles/enable y al final estructura -> nivel -> buy-in/tope.
+    // Applies a Settings to the controls WITHOUT touching GameFrame (the buy-in range and cap
+    // policy use the local working_* fields). Same order as NewGameDialog: toggles/enable, then
+    // finally structure -> level -> buy-in/cap.
     private void applySettingsToControls(GamePreset.Settings s) {
         boolean prev_init = init;
         init = false;
@@ -1688,8 +1694,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, s.thinkTime)));
             Helpers.makeNumericSpinnerEditable(think_time_spinner, false);
 
-            // Sin casilla (la pausa siempre está activa); el estado read-only lo fija después
-            // applyReadOnlyState (cliente) / applyRecoverLockState lo deja editable (host recover).
+            // No checkbox (the pause is always on); the read-only state is set afterwards by
+            // applyReadOnlyState (client) / applyRecoverLockState leaves it editable (host recover).
             showdown_time_spinner.setEnabled(true);
             showdown_time_spinner.setValue(Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, s.showdownTime)));
             Helpers.makeNumericSpinnerEditable(showdown_time_spinner, false);
@@ -1713,8 +1719,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             fixed_buyin_checkbox.setSelected(s.fixedBuyin);
             buyin_spinner.setEnabled(s.fixedBuyin);
 
-            // Rango de buy-in + política de tope: almacén de trabajo LOCAL (no GameFrame), para no
-            // romper el modelo transaccional; GameFrame solo se escribe al GUARDAR.
+            // Buy-in range + cap policy: LOCAL working store (not GameFrame), to avoid breaking
+            // the transactional model; GameFrame is only written on SAVE.
             working_min_bb = s.minBb;
             working_max_bb = s.maxBb;
             working_rebuy_cap_policy = s.rebuyCapPolicy;

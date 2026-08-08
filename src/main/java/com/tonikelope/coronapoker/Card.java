@@ -43,21 +43,19 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
-import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JMenu;
 import javax.swing.SwingUtilities;
 
 /**
+ * Swing component rendering a single playing card: face/back image, zoom,
+ * rabbit-hunting overlay and the showdown highlight tint.
  *
  * @author tonikelope
  */
 public class Card extends JLayeredPane implements ZoomableInterface, Comparable {
 
     public final static ConcurrentHashMap<String, Object[]> BARAJAS = new ConcurrentHashMap<>(Map.ofEntries(new HashMap.SimpleEntry<>("coronapoker", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("interstate60", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat", new Object[]{1.345f, false, null}), new HashMap.SimpleEntry<>("goliat4", new Object[]{1.345f, false, null})));
-    // La trasera es un ajuste GLOBAL que guarda el NOMBRE DE LA BARAJA cuyo dorso
-    // (trasera.jpg) se usa (juego o mod). Por defecto sigue a la baraja elegida
-    // (reset al cambiar de baraja), pero se puede cambiar a la de otra baraja.
     public final static int DEFAULT_HEIGHT = 200;
     public final static String[] PALOS = {"P", "C", "T", "D"};
     public final static String PALOS_STRING = "PCTD";
@@ -86,10 +84,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     private volatile boolean iniciada = false;
     private volatile boolean tapada = true;
     private volatile boolean desenfocada = false;
-    // Tinte amarillento (overlay semitransparente) pintado ENCIMA de la carta en el showdown,
-    // al pasar el ratón por la etiqueta de un perdedor, para señalar qué cartas componen su
-    // jugada (RESALTAR_JUGADA_SHOWDOWN). No toca la imagen ni el enfoque: el pintado real ocurre
-    // en paint(). Se limpia en resetearCarta().
+    // Semi-transparent yellow overlay painted over the card during showdown, on hovering a
+    // losing player's hand label, to highlight which cards make up that hand
+    // (RESALTAR_JUGADA_SHOWDOWN). Doesn't touch the image or focus state; actual painting happens
+    // in paint(). Cleared in resetearCarta().
     private volatile boolean tinte_showdown = false;
     private final static java.awt.Color TINTE_SHOWDOWN_COLOR = new java.awt.Color(255, 236, 0, 80);
     private volatile boolean visible_card = false;
@@ -144,10 +142,13 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return visible_card;
     }
 
-    // Imagen que la carta muestra AHORA MISMO (la que pinta card_image): boca
-    // arriba es la cara, boca abajo el dorso. La usan los overlays de animación
-    // (p.ej. el cruce del swap al ordenar la mano) para que la carta voladora sea
-    // pixel-idéntica a la estática. null si aún no hay icono. Llamar en el EDT.
+    /**
+     * Image currently shown by card_image (front face-up, back face-down). Used by animation
+     * overlays (e.g. the hole-card sort swap) so the flying card is pixel-identical to the static
+     * one.
+     *
+     * @return the current image, or {@code null} if no icon is set yet; must be called on the EDT
+     */
     public java.awt.Image getDisplayedImage() {
         javax.swing.Icon ic = card_image.getIcon();
         return (ic instanceof ImageIcon) ? ((ImageIcon) ic).getImage() : null;
@@ -183,6 +184,13 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return CARD_CORNER;
     }
 
+    /**
+     * Recomputes all zoom-dependent card/chip images and clears the front/disabled image caches
+     * when {@code zoom} changes (or unconditionally if {@code force}); no-op otherwise.
+     *
+     * @param zoom  target zoom factor
+     * @param force recompute even if {@code zoom} matches the currently cached value
+     */
     public static synchronized void updateCachedImages(float zoom, boolean force) {
 
         if (force || CURRENT_ZOOM != zoom) {
@@ -261,9 +269,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     }
 
-    // Ficha del bote (pot.png) ya escalada al tamaño de carta vigente, para la
-    // animación de fichas voladoras que viajan al bote cuando un jugador mete
-    // dinero. Mismo criterio de tamaño que las fichas de posición.
+    // Pot chip (pot.png), scaled to the current card size, for the flying-chip animation
+    // played when a player puts money in. Same sizing rule as the position chips.
     private static ImageIcon createPotChipImageIcon() {
 
         return new ImageIcon(new ImageIcon(Card.class.getResource("/images/pot.png")).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Image.SCALE_SMOOTH));
@@ -291,17 +298,19 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     }
 
-    // Dorso de la baraja actual, ya escalado al tamaño de carta vigente (lo
-    // mantiene updateCachedImages con el zoom). Lo usa la animación de reparto
-    // (carta viajera) para mostrar la misma imagen que la carta tapada que va a
-    // aparecer en el asiento, de modo que el relevo viajera→asiento es idéntico.
+    /**
+     * Current deck's back image, scaled to the current card size (kept in sync with the zoom by
+     * {@link #updateCachedImages}). Used by the deal animation so the flying card matches the
+     * covered card that lands in the seat.
+     *
+     * @return the cached back-of-card icon
+     */
     public static ImageIcon getBackImage() {
         return IMAGEN_TRASERA;
     }
 
-    // Carga la trasera seleccionada (GameFrame.TRASERA), escalada y redondeada al
-    // tamaño de carta vigente. Del juego (recurso back/) o de un mod
-    // ("mod-{baraja}" -> mod/decks/{baraja}/trasera.jpg). disabled la dessatura.
+    // Loads the selected back (GameFrame.TRASERA), scaled and corner-rounded to the current card
+    // size, from the game assets or a mod (mod/decks/{baraja}/trasera.jpg). disabled desaturates it.
     private static ImageIcon createBackImageIcon(boolean disabled) {
 
         java.awt.image.BufferedImage rounded = Helpers.makeImageRoundedCorner(
@@ -310,12 +319,12 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return disabled ? new ImageIcon(Helpers.desaturate(rounded, DISABLED_CARD_OPACITY)) : new ImageIcon(rounded);
     }
 
-    // Imagen fuente (resolución nativa) de la trasera seleccionada. Del juego
-    // (recurso back/) o de un mod (mod/decks/{baraja}/trasera.jpg). Fallback: naranja.
+    // Native-resolution source image of the selected back, from the game assets or a mod
+    // (mod/decks/{baraja}/trasera.jpg). Falls back to the default deck's back.
     private static Image loadTraseraSource() {
         String baraja = GameFrame.TRASERA;
-        // "default" (o un valor que no sea una baraja conocida): la trasera SIGUE a la
-        // baraja actual. Así no hace falta resetear TRASERA al cambiar de baraja.
+        // "default" (or an unknown deck name): the back follows the current deck, so TRASERA
+        // doesn't need resetting when the deck changes.
         if (baraja == null || !BARAJAS.containsKey(baraja)) {
             baraja = GameFrame.BARAJA;
         }
@@ -338,13 +347,12 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return new ImageIcon(Card.class.getResource("/images/decks/" + GameFrame.BARAJA_DEFAULT + "/trasera.jpg")).getImage();
     }
 
-    // Imagen fuente HQ (carpeta hq/) de la trasera seleccionada, para el visor. Del
-    // juego (/images/decks/{baraja}/hq/trasera.jpg) o de un mod
-    // (mod/decks/{baraja}/hq/trasera.jpg). Si no hay versión hq cae a la normal.
+    // HQ-folder source image of the selected back, for the viewer (/images/decks/{baraja}/hq/
+    // trasera.jpg or the mod equivalent). Falls back to the normal version if no HQ asset exists.
     private static Image loadTraseraSourceHQ() {
         String baraja = GameFrame.TRASERA;
-        // "default" (o un valor que no sea una baraja conocida): la trasera SIGUE a la
-        // baraja actual. Así no hace falta resetear TRASERA al cambiar de baraja.
+        // "default" (or an unknown deck name): the back follows the current deck, so TRASERA
+        // doesn't need resetting when the deck changes.
         if (baraja == null || !BARAJAS.containsKey(baraja)) {
             baraja = GameFrame.BARAJA;
         }
@@ -364,17 +372,23 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                 return new ImageIcon(res).getImage();
             }
         }
-        // Sin versión hq (p. ej. un mod que no la trae): usamos la normal.
+        // No HQ version (e.g. a mod that doesn't ship one): fall back to the normal image.
         return loadTraseraSource();
     }
 
-    // ImageIcon a alta resolución de la trasera seleccionada (para el visor HQ).
+    /**
+     * @return a high-resolution icon of the selected back, for the zoom viewer
+     */
     public static ImageIcon traseraSourceIcon() {
         return new ImageIcon(loadTraseraSourceHQ());
     }
 
-    // Traseras para el desplegable de ajustes: una por baraja disponible (juego + mods),
-    // identificada por el nombre de la baraja. Misma fuente que el combo de barajas.
+    /**
+     * Deck backs offered in the settings dropdown: one per available deck (built-in + mods),
+     * keyed by deck name. Same source as the deck combo box.
+     *
+     * @return the available deck names
+     */
     public static java.util.List<String> listTraseras() {
         return new java.util.ArrayList<>(BARAJAS.keySet());
     }
@@ -435,14 +449,12 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     }
 
-    // Vista compacta: la carta se recorta a su mitad superior por el clip del propio
-    // componente (el icono se muestra a altura completa). Ese corte deja el borde inferior
-    // RECTO. Este helper devuelve el MISMO icono a altura completa pero mordiendo sus dos
-    // esquinas en la linea de corte (y = CARD_HEIGHT/2) con el mismo radio (CARD_CORNER),
-    // para que la carta partida ensene las esquinas inferiores redondeadas identicas a las
-    // superiores. La mitad inferior queda intacta (no se ve, fuera del recorte). El swap de
-    // las hole cards hereda esto gratis (recorta esta misma franja superior ya mordida via
-    // getDisplayedImage). Imagen nueva: NO muta el icono cacheado compartido.
+    // Compact view clips the card to its top half via the component's own clip (the icon is
+    // shown at full height), which leaves a FLAT bottom edge. Returns the SAME full-height icon
+    // with its bottom two corners pre-rounded at the cut line (y = CARD_HEIGHT/2, radius
+    // CARD_CORNER), so the clipped card shows rounded corners matching the top ones. The bottom
+    // half stays intact (it's outside the clip, never shown). The hole-card swap inherits this
+    // for free via getDisplayedImage(). Returns a new image; never mutates the shared cached icon.
     private static ImageIcon roundCompactBottomCorners(ImageIcon full) {
 
         if (full == null) {
@@ -463,14 +475,13 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         try {
             g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Mascara de conservacion (patron SrcIn, igual que makeImageRoundedCorner y que el
-            // topHalf del flip): mitad superior redondeada a las 4 esquinas + mitad inferior
-            // intacta. La union deja las muescas de las esquinas inferiores justo encima de la
-            // linea de corte (el rectangulo inferior arranca en ella y no las tapa), asi el clip
-            // a CARD_HEIGHT/2 muestra las 4 esquinas iguales. Se pinta la mascara PRIMERO y el
-            // icono despues con SrcIn: lo que cae fuera de la mascara queda transparente. (Con
-            // DstIn + fill no se borraba: fill solo rasteriza DENTRO de la forma y las esquinas
-            // de fuera se quedaban intactas.)
+            // Keep-mask (SrcIn pattern, like makeImageRoundedCorner and the flip's topHalf): top
+            // half rounded on all 4 corners + intact bottom half. Their union leaves the bottom
+            // corner notches just above the cut line (the bottom rectangle starts there and
+            // doesn't cover them), so clipping at CARD_HEIGHT/2 shows all 4 corners alike. The
+            // mask is painted FIRST, then the icon on top with SrcIn so anything outside the mask
+            // becomes transparent. (DstIn + fill didn't work: fill only rasterizes INSIDE the
+            // shape, leaving the outer corners untouched.)
             java.awt.geom.Area keep = new java.awt.geom.Area(
                     new java.awt.geom.RoundRectangle2D.Float(0, 0, w, cut, CARD_CORNER, CARD_CORNER));
             keep.add(new java.awt.geom.Area(new java.awt.Rectangle(0, cut, w, fh - cut)));
@@ -487,7 +498,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * Creates new form PlayingCard
+     * Creates new form PlayingCard.
+     *
+     * @param g {@code false} to skip GUI refreshes ({@link #refreshCard} becomes a no-op), for
+     *          cards used only as data holders (e.g. offline hand generation / stats)
      */
     public Card(boolean g) {
 
@@ -581,6 +595,14 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         refreshCard(true, null);
     }
 
+    /**
+     * Recomputes and applies this card's displayed icon off the EDT, then applies it on the EDT.
+     * When {@code notifier} is non-null the update runs synchronously: this thread's id is pushed
+     * to it once the icon is applied, so a caller can wait on it (see {@link #destaparSync}).
+     *
+     * @param pre_cache reuse the front/disabled image cache instead of forcing a reload
+     * @param notifier  queue signalled on completion, or {@code null} to fire-and-forget
+     */
     public void refreshCard(boolean pre_cache, final ConcurrentLinkedQueue<Long> notifier) {
         if (this.gui) {
             Helpers.threadRun(() -> {
@@ -631,9 +653,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                         setPreferredSize(targetSize);
                     }
 
-                    // Partida: mismo icono a altura completa pero con las esquinas inferiores
-                    // redondeadas en la linea de corte, para que el clip del componente muestre
-                    // las 4 esquinas iguales en vez del borde inferior recto.
+                    // Compact: same icon at full height but with the bottom corners rounded at
+                    // the cut line, so the component's clip shows all 4 corners alike instead of
+                    // a flat bottom edge.
                     card_image.setIcon(compact ? roundCompactBottomCorners(finalImg) : finalImg);
                     card_image.setVisible(isVisible_card());
 
@@ -759,6 +781,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         refreshCard();
     }
 
+    /**
+     * @return the cards' {@link #toString()} forms joined with spaces, or {@code null} if the
+     *         list is null/empty
+     */
     public static String collection2String(List<Card> cartas) {
 
         if (cartas != null && !cartas.isEmpty()) {
@@ -772,6 +798,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return null;
     }
 
+    /**
+     * @return the cards' {@link #toShortString()} forms joined with "#", or {@code null} if the
+     *         list is null/empty
+     */
     public static String collection2ShortString(List<Card> cartas) {
 
         if (cartas != null && !cartas.isEmpty()) {
@@ -785,6 +815,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return null;
     }
 
+    /** Sorts descending, ranking the ace low (1). */
     public static void sortAceLowCollection(List<Card> cartas) {
         if (cartas != null) {
             Collections.sort(cartas, new Card.AceLowSortingComparator());
@@ -793,6 +824,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         }
     }
 
+    /** Sorts descending, ranking the ace high (14) — the natural order. */
     public static void sortCollection(List<Card> cartas) {
 
         if (cartas != null) {
@@ -807,10 +839,15 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return "[" + this.valor + Card.UNICODE_TABLE.get(this.palo) + "]";
     }
 
+    /** @return the compact "VALUE_SUIT" form used as a cache/lookup key */
     public String toShortString() {
         return this.valor + "_" + this.palo;
     }
 
+    /**
+     * @param id card index 0-51 (id/13 selects the suit, id%13 the rank)
+     * @return the short-form string ("VALUE_SUIT"), or {@code null} if out of range
+     */
     public static String shortStringFromIndex(int id) {
         if (id < 0 || id > 51) {
             return null;
@@ -880,13 +917,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void actualizarConValorNumerico(int value) {
         if (value < 1 || value > 52) {
-            // Defensa: valor fuera del rango 1..52 (típicamente porque una
-            // mano abortada por MISDEAL guardó VISUAL@ -1,-1 en el fósil y
-            // un caller hizo (byte -1 & 0xFF) + 1 = 256). Sin esta gate la
-            // PALOS[(value-1)/13] = PALOS[19] lanza
-            // ArrayIndexOutOfBoundsException que escapa al try-catch
-            // genérico de Crupier.run y dispara el error fatal del Crupier +
-            // System.exit(1) (server muere). Mejor no actualizar.
+            // Guard: out-of-range value (typically a MISDEAL-aborted hand that stored
+            // VISUAL@ -1,-1, later read back as (byte) -1 & 0xFF + 1 = 256). Without this check
+            // PALOS[(value-1)/13] = PALOS[19] throws ArrayIndexOutOfBoundsException, escaping
+            // Crupier.run's generic try-catch and killing the server. Skip the update instead.
             return;
         }
         actualizarValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
@@ -894,20 +928,29 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void iniciarConValorNumerico(int value) {
         if (value < 1 || value > 52) {
-            // Ver nota en actualizarConValorNumerico.
+            // See note in actualizarConValorNumerico.
             return;
         }
         iniciarConValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
     }
 
+    /**
+     * @return this card encoded as 1-52 (ace-low), the same encoding consumed by
+     *         {@link #actualizarConValorNumerico(int)} / {@link #iniciarConValorNumerico(int)}
+     */
     public int getCartaComoEntero() {
         return PALOS_STRING.indexOf(getPalo()) * 13 + getValorNumerico(true);
     }
 
+    /** @return this card's rank (2-14, ace high), or -1 if unset */
     public int getValorNumerico() {
         return getValorNumerico(false);
     }
 
+    /**
+     * @param sort_low_ace {@code true} to rank the ace as 1 instead of 14
+     * @return this card's rank as a number, or -1 if unset
+     */
     public int getValorNumerico(boolean sort_low_ace) {
 
         int valor_num = -1;
@@ -964,17 +1007,17 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         this.iwtsth_candidate = null;
     }
 
-    // Destape síncrono y sin sonido: no retorna hasta que la cara delantera
-    // está aplicada en el EDT. Lo usa el giro de las comunitarias para colar
-    // la carta estática DEBAJO del último frame del GIF antes de ocultarlo,
-    // de forma que el relevo GIF→carta nunca pinte el hueco vacío (el destape
-    // asíncrono clásico deja una ventana variable con el sitio en blanco). El
-    // deadline cubre el único camino en que el worker de refresco muere sin
-    // señalizar (excepción cargando el recurso de la carta): antes que
-    // congelar la mano se continúa con el mismo resultado visual que el
-    // destape asíncrono. Llamar SIEMPRE fuera del EDT: el worker necesita el
-    // EDT para aplicar el icono y desde el EDT esto esperaría el deadline
-    // entero en vano.
+    /**
+     * Synchronous, silent reveal: doesn't return until the front face is applied on the EDT. Used
+     * by the community-card flip animation to splice the static card in UNDER the GIF's last
+     * frame before hiding it, so the handoff never shows a blank gap (the classic async reveal
+     * leaves a variable-length window with nothing there). The deadline covers the one path where
+     * the refresh worker dies without signalling (an exception loading the card image): rather
+     * than freeze the hand, it falls back to the same visual result as the async reveal.
+     *
+     * <p>Must always be called off the EDT: the worker needs the EDT to apply the icon, so calling
+     * this from the EDT would just burn the whole deadline waiting on itself.
+     */
     public void destaparSync() {
 
         if (isIniciadaConValor() && this.tapada) {
@@ -1037,9 +1080,11 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     }
 
-    // Tinte amarillento del showdown: se pinta encima de la carta (sin tocar la imagen ni el
-    // enfoque) al pasar el ratón por la etiqueta de la jugada de un jugador (ganador o perdedor).
-    // Basta un repaint del Card completo — no hay que reconstruir el icono.
+    /**
+     * Marks this card for the showdown yellow tint, painted over the card (see {@link #paint})
+     * without touching the image or focus state, while the mouse hovers a losing player's hand
+     * label. A full repaint of this Card is enough — no need to rebuild the icon.
+     */
     public void marcarTinteShowdown() {
         if (!this.tinte_showdown) {
             this.tinte_showdown = true;
@@ -1047,6 +1092,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         }
     }
 
+    /** Clears the tint set by {@link #marcarTinteShowdown()}. */
     public void desmarcarTinteShowdown() {
         if (this.tinte_showdown) {
             this.tinte_showdown = false;
@@ -1058,11 +1104,11 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return tinte_showdown;
     }
 
-    // El tinte amarillento se pinta DESPUÉS de super.paint() (imagen + rabbit incluidos), así que
-    // queda por encima de la carta sin alterarla. Relleno redondeado con el mismo radio que la
-    // esquina de la imagen (getCardCorner()) y alpha bajo (TINTE_SHOWDOWN_COLOR). Persiste
-    // mientras el Card no reciba un repaint dirigido solo al hijo card_image; en show_time
-    // parado no ocurre (enfocar/desenfocar hacen this.repaint() del Card completo).
+    // The yellow tint is painted AFTER super.paint() (image + rabbit included), so it sits above
+    // the card without altering it: a rounded fill using the same corner radius as the image
+    // (getCardCorner()) at low alpha (TINTE_SHOWDOWN_COLOR). It persists until this Card gets a
+    // repaint that isn't scoped to just the card_image child — enfocar()/desenfocar() already call
+    // this.repaint() on the whole Card, so a stalled show_time doesn't leave it stuck.
     @Override
     public void paint(java.awt.Graphics g) {
         super.paint(g);
@@ -1121,6 +1167,12 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return desenfocada;
     }
 
+    /**
+     * Plays the deck's configured sound effect if this card is one of its special/easter-egg
+     * cards ({@code CARTAS_SONIDO}) and that setting is enabled.
+     *
+     * @return {@code true} if a sound was triggered
+     */
     public boolean checkSpecialCardSound() {
 
         if (GameFrame.SONIDOS_CHORRA && CARTAS_SONIDO != null) {
@@ -1190,9 +1242,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     private void card_imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_card_imageMouseClicked
         // TODO add your handling code here:
 
-        // Migrado a mouseReleased para no perder clics (izq: ampliar/girar carta,
-        // rabbit hunting, iwtsth; dcho: cambiar de baraja): exigimos que el botón se
-        // haya soltado DENTRO del componente, conservando las ramas por botón de abajo.
+        // Moved to mouseReleased to avoid dropping clicks (left: zoom/flip card, rabbit hunting,
+        // IWTSTH; right: change deck) — require the button to have been released INSIDE the
+        // component, keeping the per-button branches below unchanged.
         if (!Helpers.isReleaseInsideComponent(evt)) {
             return;
         }

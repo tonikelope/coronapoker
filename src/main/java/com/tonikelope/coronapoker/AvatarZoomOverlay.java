@@ -52,55 +52,56 @@ import javax.swing.JLayeredPane;
 import javax.swing.SwingUtilities;
 
 /**
- * Lupa del avatar de un asiento: dejando el ratón sobre él HOVER_DELAY_MS, el
- * mismo avatar aparece AMPLIADO en un overlay centrado sobre el original, y se
- * retira en cuanto el ratón sale.
+ * Magnifier for a seat's avatar: hovering over it for HOVER_DELAY_MS shows the
+ * same avatar ENLARGED in an overlay centered on the original, removed as soon
+ * as the pointer leaves.
  *
- * El overlay vive en la capa DRAG del tapete (por encima de todo el tablero) y
- * es transparente a los eventos de ratón (contains siempre false), así que
- * taparlo no le roba el hover al avatar ni el click al identicon.
+ * The overlay lives in the table's DRAG layer (above the whole board) and is
+ * transparent to mouse events (contains always returns false), so covering the
+ * avatar steals neither its hover nor the identicon's click.
  *
- * La ampliación NO se saca del icono del asiento (~64 px): se rehace desde el
- * fichero original del avatar, que se conserva íntegro, escalando por pasos con
- * interpolación bicúbica. Los avatares por defecto y de bot son de 200x200, así
- * que a los tamaños habituales la lupa no inventa detalle.
+ * The enlargement is NOT scaled up from the seat icon (~64 px): it is rebuilt
+ * from the original avatar file, kept intact, downscaling in steps with
+ * bicubic interpolation. Default and bot avatars are 200x200, so at the usual
+ * sizes the magnifier does not invent detail.
  *
  * @author tonikelope
  */
 public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
-    // Lo que el ratón tiene que llevar dentro del avatar para que asome la lupa:
-    // cruzar la mesa con el puntero no debe ir encendiendo avatares por el camino,
-    // solo el que se está mirando de verdad. La primera de cada avatar tarda además
-    // lo que cueste decodificar su fichero (fuera del EDT); a partir de ahí sale ya
-    // cacheada, en el mismo disparo del temporizador.
+    // How long the pointer must stay inside the avatar before the magnifier shows:
+    // sweeping the pointer across the table shouldn't light up every avatar along
+    // the way, only the one actually being looked at. The first time for a given
+    // avatar also costs whatever it takes to decode its file (off the EDT); after
+    // that it comes from cache, within the same timer tick.
     public static final int HOVER_DELAY_MS = 250;
 
-    // Tamaño de la ampliación: N veces el alto del avatar del asiento, con tope
-    // en una fracción del alto del tapete para que en ventanas pequeñas (o con
-    // el zoom muy subido) no se coma la mesa.
+    // Size of the enlargement: N times the seat avatar's height, capped at a
+    // fraction of the table's height so small windows (or a high zoom level)
+    // don't have it swallow the table.
     private static final float ZOOM_FACTOR = 2f;
     private static final float MAX_TABLE_FRACTION = 0.45f;
 
-    // Radio de las esquinas del avatar del asiento (setAvatar) relativo a su
-    // alto: la lupa lo mantiene proporcional para verse como "el mismo" avatar.
+    // Corner radius of the seat avatar (setAvatar), relative to its height: the
+    // magnifier keeps it proportional so it reads as "the same" avatar.
     private static final int SEAT_CORNER_RADIUS = 20;
     private static final int SEAT_CORNER_REFERENCE = 64;
 
-    // Marco oscuro alrededor de la imagen: despega la lupa del tapete y de las
-    // cartas cuando el avatar es de tonos parecidos.
+    // Dark frame around the image: separates the magnifier from the table and
+    // the cards when the avatar's tones are similar.
     private static final float FRAME_ALPHA = 0.9f;
 
-    // Cadencia del vigilante que retira la lupa. Sondea la posición del puntero
-    // en vez de escuchar eventos porque ni el overlay los recibe (es transparente
-    // al ratón) ni el mouseExited del avatar sirve: ese salta justo al pisar la
-    // ampliación, y encima no llega si el asiento se oculta bajo el puntero
-    // (cambio de mano, vista compacta, fin de timba).
+    // Poll interval of the watchdog that removes the magnifier. It polls the
+    // pointer position instead of listening for events because the overlay never
+    // receives them (it's transparent to the mouse) and the avatar's mouseExited
+    // is useless: it fires the moment the pointer crosses onto the enlargement,
+    // and never fires at all if the seat gets hidden under the pointer (hand
+    // change, compact view, game end).
     private static final int POLL_MS = 100;
 
-    // Ampliaciones ya generadas. Por referencia blanda: sobreviven a la partida
-    // entera (rehacerlas en cada hover daría un tirón), pero el recolector puede
-    // llevárselas si hace falta memoria, y se regeneran solas.
+    // Already-generated enlargements. Soft-referenced: they survive the whole
+    // game (rebuilding on every hover would stutter), but the GC can reclaim
+    // them under memory pressure, and they regenerate on demand.
     private static final ConcurrentHashMap<String, java.lang.ref.SoftReference<BufferedImage>> CACHE = new ConcurrentHashMap<>();
 
     private static volatile AvatarZoomOverlay current = null;
@@ -110,12 +111,12 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     private final BufferedImage image;
     private final int pad;
 
-    // Stack del jugador (al lado de la foto) y nick (debajo). El stack se pinta con
-    // la fuente del asiento escalada por el mismo factor que la imagen; su texto,
-    // color de letra y píldora de resaltado (verde/cyan/amarillo/gris) se leen VIVOS
-    // del asiento en cada pintada (no una copia al abrir): el stack y su estado
-    // pueden cambiar con la lupa puesta (una apuesta, una recompra). El factor se
-    // guarda para redondear la píldora igual que el asiento.
+    // Player's stack (next to the photo) and nick (below it). The stack is painted
+    // with the seat's font scaled by the same factor as the image; its text, text
+    // color and highlight pill (green/cyan/yellow/gray) are read LIVE from the seat
+    // on every paint (not copied once on open): the stack and its state can change
+    // while the magnifier is up (a bet, a rebuy). The factor is kept to round the
+    // pill the same way the seat does.
     private final JLabel stack;
     private final java.awt.Font stack_font;
     private final float factor;
@@ -136,22 +137,22 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         this.painted_stack = stackText();
         this.name = name;
         this.name_color = name != null ? name.getForeground() : null;
-        // El nick NO se amplía: con la fuente del asiento ya se lee, y escalarlo
-        // por el factor de la foto alargaba la lupa hasta el doble por un texto
-        // que no es el motivo de ampliar nada.
+        // The nick is NOT enlarged: it already reads fine at the seat's font size,
+        // and scaling it by the photo's factor could nearly double the magnifier's
+        // width for text that isn't the point of the zoom.
         this.name_font = name != null ? name.getFont() : null;
         this.painted_name = nameText();
         setOpaque(false);
         setFocusable(false);
         setSize(preferredBox());
 
-        // La ampliación es SÓLIDA al ratón: se queda con los clicks que caen sobre
-        // ella en vez de dejarlos pasar a lo que tape (el nick del asiento, el
-        // tapete...). Y como es el mismo avatar en grande, el click se reenvía al
-        // original: sobre un humano abre su identicon, sobre un bot no hace nada,
-        // igual que pinchando el pequeño. Que el overlay se coma los eventos del
-        // avatar no afecta a la lupa: quien decide retirarla es el vigilante, que
-        // sondea la posición del puntero y no depende de entered/exited.
+        // The enlargement is SOLID to the mouse: it consumes clicks landing on it
+        // instead of passing them through to whatever it covers (the seat's nick,
+        // the table...). Since it's the same avatar just bigger, the click is
+        // forwarded to the original: opens the identicon for a human, does nothing
+        // for a bot, exactly like clicking the small one. The overlay eating the
+        // avatar's events doesn't affect removal: that's decided by the watchdog,
+        // which polls the pointer position and doesn't depend on entered/exited.
         addMouseListener(new MouseAdapter() {
 
             @Override
@@ -171,9 +172,9 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         });
     }
 
-    // Reenvía el evento al avatar que la lupa está ampliando, apuntando a su
-    // centro: pinchar cualquier punto de la imagen grande equivale a pinchar el
-    // avatar, así que los guards de "soltado dentro del componente" se cumplen.
+    // Forwards the event to the avatar the magnifier is enlarging, aimed at its
+    // center: clicking anywhere on the large image is equivalent to clicking the
+    // avatar, so "released inside the component" guards are satisfied.
     private void redispatchToAvatar(MouseEvent e) {
 
         JLabel target = current_avatar;
@@ -186,8 +187,8 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                 target.getWidth() / 2, target.getHeight() / 2, e.getClickCount(), e.isPopupTrigger(), e.getButton()));
     }
 
-    // Texto del stack tal y como lo muestra el asiento ahora mismo, o null si ese
-    // asiento no tiene stack que enseñar.
+    // The stack text as currently shown by the seat, or null if that seat has no
+    // stack to show.
     private String stackText() {
 
         if (stack == null || stack_font == null) {
@@ -199,11 +200,11 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return text != null && !text.trim().isEmpty() ? text.trim() : null;
     }
 
-    // Color de la píldora de resaltado del stack (verde normal, cyan recompra,
-    // amarillo pendiente, gris eliminado) tal y como lo luce el asiento AHORA. Lo
-    // pinta el RoundedPanel que envuelve al label del stack: su fondo es el color y
-    // el label es no-opaco, así que se lee del panel (el padre del label), no del
-    // propio label. null si ese panel no está pintando relleno.
+    // Color of the stack's highlight pill (green normal, cyan rebuy, yellow
+    // pending, gray eliminated) as the seat shows it RIGHT NOW. It's painted by
+    // the RoundedPanel wrapping the stack label: its background is the color and
+    // the label is non-opaque, so it's read from the panel (the label's parent),
+    // not the label itself. null if that panel isn't painting a fill.
     private Color stackPillColor() {
 
         if (stack == null) {
@@ -219,7 +220,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return null;
     }
 
-    // Nick tal y como lo muestra el asiento, o null si no hay.
+    // The nick as shown by the seat, or null if there is none.
     private String nameText() {
 
         if (name == null || name_font == null) {
@@ -231,10 +232,10 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return text != null && !text.trim().isEmpty() ? text.trim() : null;
     }
 
-    // La FOTO manda: va SIEMPRE pegada a la izquierda de la lupa, con el stack a
-    // su derecha y el nick debajo. Ni el nick ni el stack la mueven de sitio, así
-    // que la imagen cae exactamente sobre el avatar del asiento sea cual sea el
-    // largo de los textos.
+    // The PHOTO rules: it is ALWAYS flush against the magnifier's left edge, with
+    // the stack to its right and the nick below. Neither the nick nor the stack
+    // ever move it, so the image lands exactly over the seat's avatar regardless
+    // of how long the texts are.
     private int imageOffsetX() {
         return pad;
     }
@@ -243,20 +244,21 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return painted_name != null ? getFontMetrics(name_font).stringWidth(painted_name) : 0;
     }
 
-    // El nick se centra bajo la foto mientras quepa; si es más largo, arranca
-    // alineado con ella y sobresale hacia la derecha.
+    // The nick is centered under the photo while it fits; if longer, it starts
+    // aligned with the photo and overflows to the right.
     private int nameOffsetX() {
         return pad + Math.max(0, (image.getWidth() - nameWidth()) / 2);
     }
 
-    // El stack arranca a 2*pad de la foto: un pad de hueco negro y otro que es el
-    // relleno izquierdo de su píldora de resaltado, para que la píldora despegue de
-    // la foto con el mismo margen que la enmarca a ella.
+    // The stack starts at 2*pad from the photo: one pad of black gap, plus one
+    // pad for the pill's left padding, so the pill sits off the photo with the
+    // same margin that frames the photo itself.
     private int stackOffsetX() {
         return pad + image.getWidth() + 2 * pad;
     }
 
-    // Caja que ocupa la lupa: la foto con el stack al lado y el nick debajo.
+    // Bounding box of the magnifier: the photo with the stack beside it and the
+    // nick below.
     private java.awt.Dimension preferredBox() {
 
         int w = image.getWidth() + 2 * pad;
@@ -264,7 +266,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
         if (painted_stack != null) {
             java.awt.FontMetrics fm = getFontMetrics(stack_font);
-            // +2*pad: el relleno derecho de la píldora y el hueco negro tras ella.
+            // +2*pad: the pill's right padding plus the black gap after it.
             w = Math.max(w, stackOffsetX() + fm.stringWidth(painted_stack) + 2 * pad);
             h = Math.max(h, fm.getHeight() + 2 * pad);
         }
@@ -279,9 +281,9 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     }
 
     /**
-     * Reajusta la lupa si el stack o el nick han cambiado mientras estaba puesta
-     * (una apuesta, el reparto de un bote). Si la caja crece y eso la sacaría del
-     * tapete, se recoloca dentro.
+     * Resizes the magnifier if the stack or nick changed while it was up (a bet,
+     * a pot being awarded). If the box grows enough to push it off the table,
+     * relocates it back inside.
      */
     private void refreshIfChanged() {
 
@@ -331,17 +333,18 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
             if (painted_stack != null) {
                 g2.setFont(stack_font);
                 java.awt.FontMetrics fm = g2.getFontMetrics();
-                // Centrado en vertical respecto a la FOTO, no al componente: el
-                // nick de debajo no debe descolgar el número.
+                // Vertically centered on the PHOTO, not the component: the nick
+                // below must not drag the number down.
                 int text_top = pad + (image.getHeight() - fm.getHeight()) / 2;
                 int baseline = text_top + fm.getAscent();
                 int text_x = stackOffsetX();
                 int text_w = fm.stringWidth(painted_stack);
 
-                // Misma píldora de resaltado que el asiento, detrás del número. El
-                // hueco a la derecha (stackOffsetX = foto + 2*pad) deja sitio al
-                // borde izquierdo sin pisar la foto, y preferredBox ya reserva el
-                // margen derecho, así que la píldora entra entera en la caja.
+                // Same highlight pill as the seat, behind the number. The gap
+                // before it (stackOffsetX = photo + 2*pad) leaves room for the
+                // pill's left edge without touching the photo, and preferredBox
+                // already reserves the right margin, so the pill fits entirely
+                // inside the box.
                 Color pill = stackPillColor();
 
                 if (pill != null) {
@@ -354,9 +357,9 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
                             text_w + 2 * hpad, fm.getHeight() + 2 * vpad, pill_arc, pill_arc));
                 }
 
-                // Color de letra VIVO del asiento: blanco sobre verde, negro sobre
-                // cyan/amarillo. Leerlo aquí (no cachearlo) lo mantiene legible si la
-                // píldora cambia de color con la lupa puesta.
+                // Text color read LIVE from the seat: white on green, black on
+                // cyan/yellow. Reading it here (not caching it) keeps it legible if
+                // the pill changes color while the magnifier is up.
                 Color fg = stack.getForeground();
                 g2.setColor(fg != null ? fg : Color.WHITE);
                 g2.drawString(painted_stack, text_x, baseline);
@@ -367,11 +370,16 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     }
 
     /**
-     * Engancha la lupa al avatar de un asiento, con el stack de ese asiento para
-     * mostrarlo ampliado al lado de la foto. El proveedor devuelve la MISMA cadena
-     * que usa setAvatar para pintar el asiento (ruta del fichero, "*" para un bot
-     * o "" para el avatar por defecto) y se consulta en el momento de mostrar, no
-     * aquí: al instalarse, el asiento todavía no tiene nick.
+     * Attaches the magnifier to a seat's avatar, with that seat's stack shown
+     * enlarged next to the photo. The supplier returns the SAME string setAvatar
+     * uses to paint the seat (file path, "*" for a bot, or "" for the default
+     * avatar) and is queried at show time, not here: at install time the seat
+     * doesn't have a nick yet.
+     *
+     * @param avatar the seat's avatar label to watch for hover
+     * @param stack the seat's stack label, enlarged alongside the photo
+     * @param name the seat's nick label, shown below the photo
+     * @param source supplies the avatar source string at show time
      */
     public static void install(final JLabel avatar, final JLabel stack, final JLabel name, final Supplier<String> source) {
 
@@ -396,27 +404,28 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
             @Override
             public void mouseExited(MouseEvent e) {
-                // Solo cancela la aparición pendiente. Si la lupa YA está puesta,
-                // salir del avatar no la retira: la ampliación es más grande que
-                // él, y el ratón sigue dentro de ella. De eso decide el vigilante,
-                // que mira toda el área (avatar + ampliación).
+                // Only cancels the pending appearance. If the magnifier is ALREADY
+                // up, leaving the avatar doesn't remove it: the enlargement is
+                // bigger than the avatar and the pointer is still inside it.
+                // Removal is decided by the watchdog, which watches the whole area
+                // (avatar + enlargement).
                 delay[0].stop();
             }
         });
     }
 
-    // La lupa puede aparecer: está activada en los ajustes y la partida sigue viva.
-    // Se consulta en cada hover Y en cada sondeo del vigilante, así que desactivarla
-    // con una lupa puesta la retira sin más.
+    // Whether the magnifier is allowed to show: enabled in settings and the game
+    // is still alive. Checked on every hover AND every watchdog poll, so turning
+    // it off while one is up removes it right away.
     private static boolean canShow() {
         GameFrame gf = GameFrame.getInstance();
         return GameFrame.RESALTAR_AVATARES && gf != null && gf.getCrupier() != null && !gf.getCrupier().isFin_de_la_transmision();
     }
 
     /**
-     * Prepara la ampliación FUERA del EDT (decodificar el fichero original y
-     * reescalarlo cuesta lo suyo la primera vez de cada avatar) y la muestra
-     * después, si para entonces el puntero sigue sobre el mismo avatar.
+     * Builds the enlargement OFF the EDT (decoding the original file and
+     * rescaling it costs real time the first time for each avatar) and shows it
+     * afterward, if the pointer is still on the same avatar by then.
      */
     private static void show(final JLabel avatar, final JLabel stack, final JLabel name, final Supplier<String> source) {
 
@@ -432,8 +441,8 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
         final int size = zoomSize(avatar, tapete);
 
-        // Si el tope del tapete deja la "ampliación" en el tamaño del propio
-        // avatar (ventana muy baja, zoom muy alto), no hay nada que ampliar.
+        // If the table's cap shrinks the "enlargement" down to the avatar's own
+        // size (very short window, very high zoom), there's nothing to enlarge.
         if (size <= Math.min(avatar.getWidth(), avatar.getHeight())) {
             return;
         }
@@ -443,13 +452,14 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         try {
             src = source.get();
         } catch (Exception ex) {
-            // El asiento aún no tiene con qué resolver su avatar (sala de espera
-            // no enlazada, nick sin asignar): sin lupa, y sin ruido.
+            // The seat has nothing yet to resolve its avatar from (waiting room
+            // not wired up, nick not assigned): no magnifier, and no noise.
             return;
         }
 
-        // Ya generada: se pinta en este mismo evento del ratón, sin rebotar por un
-        // hilo y volver al EDT. Es lo normal salvo la primera vez de cada avatar.
+        // Already generated: painted right within this mouse event, with no
+        // bouncing through a thread and back to the EDT. This is the common case
+        // except the first time for each avatar.
         final BufferedImage cached = cachedImage(src, size);
 
         if (cached != null) {
@@ -469,7 +479,7 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         });
     }
 
-    // Coloca la ampliación centrada sobre su avatar. Solo en el EDT.
+    // Positions the enlargement centered over its avatar. EDT only.
     private static void display(final JLabel avatar, final JLabel stack, final JLabel name, final JLayeredPane tapete, final BufferedImage img, final int size) {
 
         if (!canShow() || !avatar.isShowing() || !pointerOver(avatar)) {
@@ -483,21 +493,22 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         AvatarZoomOverlay overlay = new AvatarZoomOverlay(img, Math.max(4, size / 24), stack, name,
                 seat > 0 ? size / (float) seat : ZOOM_FACTOR);
 
-        // Mismo cursor que el avatar que amplía: si pinchar el pequeño hace algo
-        // (identicon), la imagen grande lo anuncia igual; sobre un bot, cursor
-        // normal en los dos.
+        // Same cursor as the avatar it enlarges: if clicking the small one does
+        // something (identicon), the large image signals it the same way; for a
+        // bot, a normal cursor on both.
         overlay.setCursor(avatar.getCursor());
 
-        // La lupa tapa el avatar, así que hereda su tooltip: pasar el ratón por la
-        // imagen grande sigue explicando lo que hace el click. El del avatar se
-        // deja intacto (con la lupa puesta no puede salir de todas formas).
+        // The magnifier covers the avatar, so it inherits its tooltip: hovering
+        // over the large image still explains what the click does. The avatar's
+        // own tooltip is left untouched (it can't surface anyway while the
+        // magnifier is up).
         overlay.setToolTipText(avatar.getToolTipText());
 
         Point p = SwingUtilities.convertPoint(avatar, 0, 0, tapete);
 
-        // La FOTO va centrada sobre el avatar original (el stack sobresale a su
-        // derecha y el nick cuelga debajo), y el conjunto se acota al tapete para
-        // que en los asientos de las esquinas se vea entero.
+        // The PHOTO is centered on the original avatar (the stack extends to its
+        // right and the nick hangs below), and the whole thing is clamped to the
+        // table so corner seats still show it in full.
         int x = p.x + avatar.getWidth() / 2 - (overlay.imageOffsetX() + img.getWidth() / 2);
         int y = p.y + avatar.getHeight() / 2 - (overlay.pad + img.getHeight() / 2);
 
@@ -513,13 +524,13 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
         startWatchdog();
 
-        // Solo su rectángulo: asomar la lupa no tiene por qué costar un repintado
-        // del tapete entero.
+        // Just its rectangle: showing the magnifier shouldn't cost a repaint of
+        // the whole table.
         tapete.repaint(x, y, overlay.getWidth(), overlay.getHeight());
     }
 
     /**
-     * Retira la lupa. Idempotente y seguro desde cualquier hilo.
+     * Removes the magnifier. Idempotent and safe from any thread.
      */
     public static void hideZoom() {
 
@@ -545,11 +556,12 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         });
     }
 
-    // Mientras la lupa esté puesta, comprueba que el puntero siga dentro de su
-    // área (el avatar MÁS la propia ampliación). Es la única vía para retirarla:
-    // el overlay tapa el avatar, así que no hay entered/exited aprovechables, y el
-    // exited del avatar salta justo al pisar la ampliación, que es cuando NO hay
-    // que retirarla. De paso refresca el stack si ha cambiado con la lupa puesta.
+    // While the magnifier is up, checks that the pointer is still within its area
+    // (the avatar PLUS the enlargement itself). This is the only way to remove
+    // it: the overlay covers the avatar so entered/exited aren't usable there,
+    // and the avatar's exited fires exactly when crossing onto the enlargement,
+    // which is precisely when it must NOT be removed. Also refreshes the stack if
+    // it changed while the magnifier was up.
     private static void startWatchdog() {
 
         if (watchdog == null) {
@@ -569,8 +581,8 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         watchdog.start();
     }
 
-    // El puntero está sobre el avatar. Con MouseInfo (coordenadas de pantalla)
-    // para no depender de que llegue el evento.
+    // Whether the pointer is over the avatar. Uses MouseInfo (screen coordinates)
+    // to avoid depending on an event actually arriving.
     private static boolean pointerOver(java.awt.Component c) {
 
         if (c == null || !c.isShowing()) {
@@ -587,19 +599,20 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
             return new Rectangle(c.getLocationOnScreen(), c.getSize()).contains(pi.getLocation());
 
         } catch (java.awt.IllegalComponentStateException ex) {
-            // El componente ha dejado de estar en pantalla entre el isShowing y la
-            // consulta: cuenta como puntero fuera.
+            // The component stopped being on-screen between the isShowing check
+            // and this query: counts as the pointer being outside.
             return false;
         }
     }
 
-    // Área que mantiene viva la lupa: el avatar o la ampliación que sale de él.
+    // Area that keeps the magnifier alive: the avatar or the enlargement coming
+    // off it.
     private static boolean pointerInHoverArea(JLabel avatar) {
         return pointerOver(avatar) || pointerOver(current);
     }
 
-    // Lado de la ampliación: ZOOM_FACTOR veces el avatar del asiento, sin pasar
-    // de MAX_TABLE_FRACTION del alto del tapete.
+    // Side length of the enlargement: ZOOM_FACTOR times the seat avatar, capped
+    // at MAX_TABLE_FRACTION of the table's height.
     private static int zoomSize(JLabel avatar, JLayeredPane tapete) {
 
         int seat = Math.min(avatar.getWidth(), avatar.getHeight());
@@ -621,15 +634,15 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return (src != null ? src : "") + "@" + size;
     }
 
-    // La ampliación ya generada, o null si toca hacerla. Barato: sirve para
-    // decidir si se puede pintar en el acto o hay que salir del EDT.
+    // The already-generated enlargement, or null if it still needs to be built.
+    // Cheap: used to decide whether to paint immediately or leave the EDT.
     private static BufferedImage cachedImage(String src, int size) {
         java.lang.ref.SoftReference<BufferedImage> ref = CACHE.get(cacheKey(src, size));
         return ref != null ? ref.get() : null;
     }
 
-    // Ampliación cacheada por (origen, tamaño): el mismo avatar solo se decodifica
-    // y reescala una vez por tamaño, y el tamaño solo cambia con el zoom.
+    // Enlargement cached by (source, size): the same avatar is only decoded and
+    // rescaled once per size, and size only changes with the zoom level.
     private static BufferedImage zoomedImage(String src, int size) {
 
         String key = cacheKey(src, size);
@@ -653,8 +666,8 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
         return zoomed;
     }
 
-    // Fichero original del avatar tal cual lo mandó su dueño (hasta 256 KB), o el
-    // recurso empaquetado cuando el asiento es un bot ("*") o no tiene avatar ("").
+    // The avatar's original file exactly as its owner uploaded it (up to 256 KB),
+    // or the bundled resource when the seat is a bot ("*") or has no avatar ("").
     private static BufferedImage readOriginal(String src) {
 
         try {
@@ -686,9 +699,9 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     }
 
     /**
-     * Escalado de calidad: bicúbico, y por pasos de mitad en mitad mientras la
-     * imagen sea más del doble del destino (reducir de golpe una foto grande se
-     * come detalle y deja bordes duros).
+     * Quality downscaling: bicubic, halving step by step while the image is more
+     * than twice the target size (shrinking a large photo in one jump loses
+     * detail and leaves hard edges).
      */
     private static BufferedImage scale(BufferedImage src, int size) {
 

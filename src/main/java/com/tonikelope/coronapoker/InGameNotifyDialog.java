@@ -43,38 +43,54 @@ import javax.swing.JDialog;
 import javax.swing.Timer;
 
 /**
+ * Borderless, translucent toast used for short-lived in-game notifications (zoom level,
+ * screenshots, chat alerts, etc.), optionally with a countdown bar synced to the timeout.
+ * Showing a new instance replaces whichever one is currently visible.
  *
  * @author tonikelope
  */
 public class InGameNotifyDialog extends JDialog {
 
     public static final int NOTIFICATION_TIMEOUT = 5000;
-    // Aviso de captura de pantalla (CTRL+P): es solo una confirmación rápida, así que dura
-    // bastante menos que el aviso genérico para no tapar la mesa más de lo necesario.
+    // Screenshot confirmation (Ctrl+P) is just a quick heads-up, so it stays up much shorter
+    // than the generic notification to avoid covering the table longer than needed.
     public static final int SCREENSHOT_NOTIFICATION_TIMEOUT = 2000;
-    // El nivel de zoom se anuncia de pasada, y encima se toca a ráfagas: dura aún menos.
+    // Zoom changes fire in quick bursts, so this one is even shorter-lived.
     public static final int ZOOM_NOTIFICATION_TIMEOUT = 1500;
     private static final int COUNTDOWN_TICK_MS = 50;
-    // Aire alrededor del texto y hueco entre el icono y el texto, en proporción al
-    // cuerpo de la letra (que ya viene escalada por el zoom de la mesa). A los lados
-    // hace falta más que arriba y abajo: ahí es donde muerde la curva de la esquina.
+    // Padding around the text and icon-to-text gap, sized relative to the font (already
+    // scaled by the table zoom). Sides need more room than top/bottom, where the rounded
+    // corner cuts in.
     private static final float PAD_X_RATIO = 0.7f;
     private static final float PAD_Y_RATIO = 0.25f;
     private static final float ICON_GAP_RATIO = 0.35f;
-    // Aire extra bajo el texto cuando la notificación lleva cuenta atrás: la franja
-    // se pinta dentro de la caja y no debe rozar las letras.
+    // Extra bottom padding when the notification has a countdown bar, so the bar (painted
+    // inside the box) doesn't touch the text.
     private static final float COUNTDOWN_PAD_RATIO = 0.5f;
     public static volatile InGameNotifyDialog LATEST_NOTIFICATION = null;
     public static final Object LATEST_LOCK = new Object();
     private volatile Timer timer = null;
 
     /**
-     * Creates new form ChatNotifyDialog
+     * Same as
+     * {@link #InGameNotifyDialog(java.awt.Frame, boolean, String, Color, Color, URL, Integer, boolean)}
+     * without a countdown bar.
      */
     public InGameNotifyDialog(java.awt.Frame parent, boolean modal, String message, Color bg, Color fg, URL icon_path, Integer timeout) {
         this(parent, modal, message, bg, fg, icon_path, timeout, false);
     }
 
+    /**
+     * @param parent parent frame
+     * @param modal whether the dialog blocks input
+     * @param message notification text
+     * @param bg background color
+     * @param fg text color
+     * @param icon_path optional icon resource, or {@code null} for none
+     * @param timeout auto-dismiss delay in milliseconds, or {@code null} to stay open
+     * indefinitely
+     * @param withCountdownBar whether to paint a shrinking bar synced to {@code timeout}
+     */
     public InGameNotifyDialog(java.awt.Frame parent, boolean modal, String message, Color bg, Color fg, URL icon_path, Integer timeout, boolean withCountdownBar) {
         super(parent, modal);
 
@@ -102,9 +118,9 @@ public class InGameNotifyDialog extends JDialog {
         }
 
         if (timeout != null && withCountdownBar) {
-            // Countdown visual: franja que arranca al 100% y baja hasta 0 sincronizada
-            // con el timeout. La pinta el propio panel dentro de su caja redondeada
-            // (una JProgressBar colgada debajo rompía la silueta).
+            // Countdown bar starts at 100% and ticks down to 0 in sync with the timeout.
+            // The panel paints it itself inside its rounded box (a JProgressBar hung
+            // below it broke the silhouette).
             panel.setCountdown(1f);
 
             final long deadline = System.currentTimeMillis() + timeout;
@@ -135,10 +151,9 @@ public class InGameNotifyDialog extends JDialog {
     }
 
     /**
-     * Anuncia el nivel de zoom de la mesa por el mismo canal que el resto de
-     * avisos del juego, en la esquina superior izquierda de la ventana. Como
-     * toda notificación, releva a la que hubiera puesta. Seguro desde cualquier
-     * hilo; fuera de partida no hace nada.
+     * Announces the current table zoom level through the same notification channel as other
+     * in-game toasts, replacing whichever one is currently showing. Thread-safe; a no-op
+     * outside a game.
      */
     public static void notifyZoom() {
 
@@ -150,9 +165,9 @@ public class InGameNotifyDialog extends JDialog {
                 return;
             }
 
-            // El porcentaje se lee ya dentro del EDT: los cambios de zoom se aplican
-            // cada uno en su hilo, así el aviso canta el nivel vigente y no el que
-            // había cuando arrancó el que lo pidió.
+            // Read inside the EDT: zoom changes are applied on their own thread, so this
+            // reports the level in effect now rather than whatever it was when the
+            // triggering action started.
             InGameNotifyDialog dialog = new InGameNotifyDialog(gf, false,
                     "ZOOM: " + Math.round((1f + ZOOM_LEVEL * ZOOM_STEP) * 100f) + "%",
                     Color.BLACK, Color.WHITE, InGameNotifyDialog.class.getResource("/images/zoom_notify.png"),
@@ -164,10 +179,9 @@ public class InGameNotifyDialog extends JDialog {
         });
     }
 
-    // Estilo común a todas las notificaciones: caja redondeada (que necesita la
-    // ventana transparente por píxel, si el sistema la da), aire alrededor del
-    // texto y hueco entre el icono y el mensaje, todo a la escala de la letra ya
-    // zoomeada. El color lo pone cada aviso; aquí solo se le da forma.
+    // Style shared by all notifications: rounded box (needs per-pixel window translucency,
+    // when the platform provides it), padding around the text, and icon-to-text gap, all
+    // scaled to the already-zoomed font. Color is set by each caller; this only shapes it.
     private void applyStyle(boolean withCountdownBar) {
 
         final boolean rounded = applyTranslucentWindow();
@@ -183,10 +197,9 @@ public class InGameNotifyDialog extends JDialog {
         panel.getMsg().setIconTextGap(Math.round(font_size * ICON_GAP_RATIO));
     }
 
-    // Hace transparente el fondo de la ventana para que asomen las esquinas
-    // redondeadas del panel. Devuelve false donde el sistema no soporta
-    // translucidez por píxel: allí la notificación se queda rectangular, como
-    // siempre, en vez de enseñar cuatro esquinas del color del escritorio.
+    // Makes the window background transparent so the panel's rounded corners show through.
+    // Returns false where the platform doesn't support per-pixel translucency: the
+    // notification then stays rectangular instead of showing four desktop-colored corners.
     private boolean applyTranslucentWindow() {
 
         try {
@@ -295,11 +308,10 @@ public class InGameNotifyDialog extends JDialog {
     }//GEN-LAST:event_formComponentShown
 
     /**
-     * Limpia la static LATEST_NOTIFICATION si apunta a this antes de disponer.
-     * Sin esto, el slot global retiene el dialog (y todo su grafo: panel,
-     * iconos, parent GameFrame) incluso después de dispose; las siguientes
-     * partidas heredan referencias del juego anterior. Leak severo en
-     * sesiones largas con TTS reportado en el informe v2 (🟠-22).
+     * Clears the static {@link #LATEST_NOTIFICATION} slot if it points to this dialog before
+     * disposing. Without this the global slot keeps the whole object graph alive (panel,
+     * icons, parent GameFrame) past dispose, and the next game inherits references from the
+     * previous one — a leak reported in long TTS sessions (v2 report, 🟠-22).
      */
     @Override
     public void dispose() {

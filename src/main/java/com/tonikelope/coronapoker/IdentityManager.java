@@ -402,11 +402,11 @@ public final class IdentityManager {
     private static final byte[] SHOWDOWN_DOMAIN = "SHOWDOWN\0".getBytes(StandardCharsets.UTF_8);
 
     /**
-     * Canonical payload signed dentro de un SHOWCARDS / RESP_SHOWDOWN_KEY:
-     * {@code HAND_ID || nick_utf8 || pocketKey(32)}. La sig demuestra que la
-     * pocket-key específica del nick fue autoriza por su Ed25519 privkey, así
-     * un host MitM no puede substituirla ni atribuirla al peer equivocado. El
-     * dominio "SHOWDOWN\0" se aplica en sign/verify, no se embebe aquí.
+     * Canonical payload signed inside a SHOWCARDS / RESP_SHOWDOWN_KEY:
+     * {@code HAND_ID || nick_utf8 || pocketKey(32)}. The signature proves that
+     * this nick's specific pocket-key was authorized by its Ed25519 privkey, so
+     * a MitM host cannot substitute it or attribute it to the wrong peer. The
+     * domain "SHOWDOWN\0" is applied in sign/verify, not embedded here.
      */
     public static byte[] showdownPayload(byte[] handId, String nick, byte[] pocketKey) {
         if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
@@ -428,17 +428,17 @@ public final class IdentityManager {
     }
 
     /**
-     * Firma una SHOWCARDS reveal {@code (HAND_ID || nick || pocketKey)} con la
-     * privkey de esta instalación bajo el dominio SHOWDOWN. Devuelve la sig
-     * Ed25519 de 64 bytes que viaja en RESP_SHOWDOWN_KEY y SHOWCARDS.
+     * Signs a SHOWCARDS reveal {@code (HAND_ID || nick || pocketKey)} with this
+     * installation's privkey under the SHOWDOWN domain. Returns the 64-byte
+     * Ed25519 signature carried in RESP_SHOWDOWN_KEY and SHOWCARDS.
      */
     public byte[] signShowdownReveal(byte[] handId, String nick, byte[] pocketKey) {
         return sign(SHOWDOWN_DOMAIN, showdownPayload(handId, nick, pocketKey));
     }
 
     /**
-     * Verifica una sig de SHOWCARDS contra la pubkey raw Ed25519 del nick
-     * propietario. Devuelve false en cualquier fallo.
+     * Verifies a SHOWCARDS signature against the owner nick's raw Ed25519
+     * pubkey. Returns false on any failure.
      */
     public static boolean verifyShowdownReveal(byte[] rawPubKey, byte[] handId, String nick, byte[] pocketKey, byte[] sig) {
         try {
@@ -454,13 +454,12 @@ public final class IdentityManager {
     private static final byte[] STRADDLE_DOMAIN = "STRADDLE\0".getBytes(StandardCharsets.UTF_8);
 
     /**
-     * Payload canónico de una decisión de straddle a ciegas:
-     * {@code HAND_ID || nick_utf8 || decision(1)}. La sig demuestra que el straddler
-     * COMPROMETIÓ su decisión (POST/NO) para esta mano, y es el gate que cada peer
-     * exige antes de quitar su candado de los pocket slots del straddler: sin una
-     * firma válida no se sirve el desbloqueo diferido, así el straddler no puede ver
-     * sus cartas antes de comprometerse ni un host MitM puede forzar la revelación.
-     * El dominio "STRADDLE\0" se aplica en sign/verify, no se embebe aquí.
+     * Canonical payload for a blind-straddle decision: {@code HAND_ID || nick_utf8
+     * || decision(1)}. The signature proves the straddler committed to their
+     * decision (POST/NO) for this hand; it's the gate every peer requires before
+     * releasing its lock on the straddler's pocket slots, so the straddler cannot
+     * see their own cards before committing, nor can a MitM host force the reveal.
+     * The domain "STRADDLE\0" is applied in sign/verify, not embedded here.
      */
     public static byte[] straddlePayload(byte[] handId, String nick, int decision) {
         if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
@@ -478,10 +477,18 @@ public final class IdentityManager {
         return payload;
     }
 
+    /**
+     * Signs a straddle decision {@code (HAND_ID || nick || decision)} with this
+     * installation's privkey under the STRADDLE domain.
+     */
     public byte[] signStraddleDecision(byte[] handId, String nick, int decision) {
         return sign(STRADDLE_DOMAIN, straddlePayload(handId, nick, decision));
     }
 
+    /**
+     * Verifies a straddle-decision signature against the given raw 32-byte
+     * Ed25519 pubkey. Returns false on any error or mismatch.
+     */
     public static boolean verifyStraddleDecision(byte[] rawPubKey, byte[] handId, String nick, int decision, byte[] sig) {
         try {
             return verify(rawPubKey, STRADDLE_DOMAIN, straddlePayload(handId, nick, decision), sig);
@@ -521,10 +528,18 @@ public final class IdentityManager {
         return payload;
     }
 
+    /**
+     * Signs a seat-draw commitment {@code (nonce || nick || commit)} with this
+     * installation's privkey under the SEATDRAW domain.
+     */
     public byte[] signSeatCommit(byte[] nonce, String nick, byte[] commit) {
         return sign(SEATDRAW_DOMAIN, seatCommitPayload(nonce, nick, commit));
     }
 
+    /**
+     * Verifies a seat-draw commitment signature against the given raw 32-byte
+     * Ed25519 pubkey. Returns false on any error or mismatch.
+     */
     public static boolean verifySeatCommit(byte[] rawPubKey, byte[] nonce, String nick, byte[] commit, byte[] sig) {
         try {
             return verify(rawPubKey, SEATDRAW_DOMAIN, seatCommitPayload(nonce, nick, commit), sig);
@@ -657,22 +672,19 @@ public final class IdentityManager {
 
     private static void writeKeypair(File privFile, File pubFile, PrivateKey priv, byte[] pubRaw) throws IdentityException {
         try {
-            // ORDEN CRITICO: crear fichero vacio -> restringir ACL -> escribir bytes.
-            // Anteriormente se escribian los bytes PKCS#8 y DESPUES se aplicaba la
-            // ACL via icacls (Windows) o setPosixFilePermissions (Unix), dejando una
-            // ventana en la que el privkey existia en disco con ACL heredada del
-            // padre (legible por Authenticated Users/Users en Windows). Si la
-            // segunda escritura (pubFile) lanzaba IOException, el privkey persistia
-            // con permisos relajados y el catch elevaba IdentityException sin limpiar.
-            //
-            // La ventana ahora es de fichero VACIO: si applyOwnerOnlyPermissions
-            // se ejecuta entre createFile y la escritura de bytes, no hay material
-            // sensible que filtrar.
+            // Critical order: create empty file -> restrict ACL -> write bytes.
+            // Previously the PKCS#8 bytes were written first and the ACL applied
+            // afterwards, leaving a window where the privkey sat on disk with the
+            // inherited parent ACL (readable by Authenticated Users/Users on
+            // Windows); if the second write (pubFile) then threw, the privkey was
+            // left behind with relaxed permissions. Now the exposed window is an
+            // EMPTY file, so there's no sensitive material to leak even if
+            // applyOwnerOnlyPermissions runs before the bytes are written.
             Files.deleteIfExists(privFile.toPath());
             Files.createFile(privFile.toPath());
             applyOwnerOnlyPermissions(privFile.toPath());
             Files.write(privFile.toPath(), priv.getEncoded(), java.nio.file.StandardOpenOption.WRITE);
-            // El pubkey es publico por definicion; no requiere ACL restrictiva.
+            // The pubkey is public by definition; no restrictive ACL needed.
             Files.write(pubFile.toPath(), pubRaw);
         } catch (IOException ex) {
             throw new IdentityException("Cannot write identity keypair: " + ex.getMessage());
@@ -694,17 +706,17 @@ public final class IdentityManager {
     }
 
     /**
-     * Restringir el privkey Ed25519 al usuario actual en Windows usando icacls.
-     *   /inheritance:r  → quita las ACEs heredadas del padre (el archivo deja
-     *                     de heredar permisos genéricos como "Users:(RX)" o
-     *                     "Authenticated Users:(M)").
-     *   /grant:r USER:F → otorga FULL control al usuario actual, R reemplaza
-     *                     cualquier entrada previa para ese mismo usuario.
+     * Restricts the Ed25519 privkey to the current user on Windows via icacls.
+     *   /inheritance:r  -&gt; drops ACEs inherited from the parent (the file stops
+     *                      inheriting generic permissions like "Users:(RX)" or
+     *                      "Authenticated Users:(M)").
+     *   /grant:r USER:F -&gt; grants FULL control to the current user; /grant:r
+     *                      replaces any prior entry for that same user.
      *
-     * Resultado: solo el owner puede leer/escribir el fichero. Si la operación
-     * falla (icacls no disponible, permisos insuficientes), log WARNING — el
-     * fichero queda con permisos por defecto de Windows (peor pero no roto).
-     * En POSIX el equivalente es 0600 via setPosixFilePermissions.
+     * Result: only the owner can read/write the file. If the operation fails
+     * (icacls unavailable, insufficient permissions), logs a WARNING and leaves
+     * the file with Windows' default permissions (worse, but not broken). The
+     * POSIX equivalent is 0600 via setPosixFilePermissions.
      */
     private static void applyWindowsAclOwnerOnly(Path path) {
         String username = System.getProperty("user.name");
@@ -722,8 +734,8 @@ public final class IdentityManager {
             );
             pb.redirectErrorStream(true);
             Process p = pb.start();
-            // Drenar stdout/stderr para evitar que el proceso bloquee por buffer lleno.
-            // No nos importa el output, solo el exit code.
+            // Drain stdout/stderr so the process doesn't block on a full buffer;
+            // only the exit code matters here.
             try (java.io.InputStream is = p.getInputStream()) {
                 byte[] buf = new byte[4096];
                 while (is.read(buf) != -1) {

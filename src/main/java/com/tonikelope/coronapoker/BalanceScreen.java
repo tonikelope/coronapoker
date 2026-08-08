@@ -71,51 +71,43 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 /**
- * Pantalla final de timba: overlay a pantalla completa montado sobre el glassPane
- * del GameFrame, ENCIMA del tapete real (que se ve a través por transparencia de
- * COMPONENTE Swing, sin depender del compositor del sistema como el antiguo diálogo
- * con transparencia por píxel de ventana). De arriba a abajo (BorderLayout): barra
- * de botones, "LA TIMBA HA TERMINADO" + fecha, el resultado del jugador local en
- * GIGANTE (relleno verde/rojo/gris con borde negro, al estilo del overlay de coste
- * de igualar) con el importe debajo, y un carrusel horizontal de cajas de jugador
- * (avatar + nick + resultado + stack + buyin) con flechas de desplazamiento lateral
- * cuando hay más cajas de las que caben. Todo se auto-ajusta a la resolución
- * (responsive). GameFrame lo monta/desmonta y espera la elección del usuario
- * (continuar/menú) por un CountDownLatch, replicando la semántica del antiguo
- * diálogo modal sin usar una ventana.
+ * Full-screen end-of-session overlay mounted on {@link GameFrame}'s glassPane, on top of the
+ * real felt (seen through via Swing component transparency, not OS compositor window
+ * transparency like the old modal dialog). Layout top to bottom: button bar, title + date, the
+ * local player's result in giant text with the net amount below, and a horizontal carousel of
+ * player result cards. Fully responsive. GameFrame mounts/unmounts it and awaits the user's
+ * choice (continue / main menu) via a CountDownLatch, replacing the old modal dialog without
+ * using a window.
  *
  * @author tonikelope
  */
 public class BalanceScreen extends JPanel {
 
-    // Relleno del texto/resultado según el balance (borde siempre negro).
+    // Fill color for the giant result text, keyed to net balance (border is always black).
     private static final Color WIN = new Color(0, 200, 60);
     private static final Color LOSE = new Color(220, 30, 30);
     private static final Color NEUTRAL = new Color(140, 140, 140);
 
-    // Cajas claras sobre el tapete (como el boceto de referencia).
+    // Light card colors on the dark felt, per design reference.
     private static final Color CARD_BG = new Color(248, 248, 248);
     private static final Color CARD_TEXT = new Color(25, 25, 25);
     private static final Color CARD_TEXT_DIM = new Color(110, 110, 110);
 
     private volatile boolean recover = false;
 
-    // Altavoz (mute) a la derecha de la barra de botones (fin de timba). Icono claro
-    // (blanco) sobre el tapete oscuro. Sin rueda de ajustes a proposito: durante la pantalla
-    // final no se tocan ajustes (la timba ya termino), solo el mute global. El chip se
-    // dimensiona CUADRADO con la MISMA altura que los botones (normalizeNavButtons), y el
-    // tamaño del icono se deriva de esa altura.
+    // Mute speaker chip next to the nav bar. No settings gear on purpose: the session is over,
+    // only the global mute matters here. Sized square to the buttons' height by
+    // normalizeNavButtons(), and the icon size is derived from that height.
     private static final int SOUND_ICON_SZ = 36;
     private JLabel sound_icon;
     private JComponent sound_chip;
     private int sound_icon_sz = SOUND_ICON_SZ;
 
-    // Callback que GameFrame instala para despertar del CountDownLatch cuando el
-    // jugador elige salir (continuar la timba / menú principal). Sustituye al cierre
-    // del antiguo diálogo modal.
+    // Callback GameFrame installs to release its CountDownLatch when the player exits (continue
+    // / main menu), replacing the old modal dialog's close.
     private final Runnable on_close;
 
-    // Dimensiones derivadas de la altura de la pantalla (escalan con resolución).
+    // Sizes derived from screen height so everything scales with resolution.
     private int screen_w;
     private int screen_h;
     private int card_w;
@@ -128,38 +120,35 @@ public class BalanceScreen extends JPanel {
     private ArrowButton right_arrow;
     private final java.util.List<CardPanel> card_panels = new java.util.ArrayList<>();
 
-    // Los 4 botones de la barra superior, para uniformar su tamaño (misma
-    // anchura y altura entre todos) tras el auto-fit responsive.
+    // The 4 top-bar buttons, kept here so normalizeNavButtons() can give them all an identical
+    // size after the responsive auto-fit.
     private final java.util.List<JButton> nav_buttons = new java.util.ArrayList<>();
 
-    // Animación del importe del jugador local: un contador que sube/baja desde el buyin
-    // total hasta el stack final (estilo recuento de puntuación de videojuego) y luego se
-    // revela como +/- el neto. Solo si hay ganancia/pérdida (no en empate).
+    // Local player's amount animation: a counter that rolls from total buyin to final stack
+    // (video-game score-count style), then reveals as +/- net. Only when there's a win/loss (not
+    // on a tie).
     private OutlinedLabel amount_label;
 
-    // Timers Swing de la animación del importe (recuento + parpadeo del revelado). Se
-    // guardan para poder CORTARLOS en seco al elegir salir (menú principal / continuar)
-    // mientras el contador rueda: sus repintados por frame son caros (OutlinedLabel
-    // recalcula el contorno del texto con TextLayout.getOutline en cada tick, a pantalla
-    // completa) y, si siguen vivos tras el dispose, acaparan el EDT y retrasan el teardown
-    // (RESET_GAME) hasta que la animación acaba sola. Detenerlos hace la salida instantánea.
+    // Swing timers for the amount animation (roll + reveal blink). Kept so they can be stopped
+    // outright on exit: their per-frame repaints are expensive (OutlinedLabel recomputes the text
+    // outline via TextLayout.getOutline at full-screen size on every tick), and if left running
+    // after dispose they starve the EDT and delay teardown (RESET_GAME) until they finish on
+    // their own. Stopping them makes exit instantaneous.
     private javax.swing.Timer amount_roll_timer;
     private javax.swing.Timer amount_blink_timer;
 
-    // Captura de la pantalla final (ajuste GameFrame.SCREENSHOT_FIN_TIMBA, por defecto activo). Se
-    // toma JUSTO al terminar el contador de dinero (fin del parpadeo del neto +/-); y si el jugador
-    // SALE de la pantalla final ANTES de que termine —por cualquiera de los dos botones, menú o
-    // continuar— o el resultado es un EMPATE (sin contador), se toma al pulsar. UNA sola captura por
-    // timba: idempotencia con este flag, que arranca en false en CADA BalanceScreen (instancia nueva
-    // por timba) y solo se toca en el EDT; así no hay estado que se filtre a la timba siguiente ni
-    // carrera que sincronizar.
+    // End-of-session screenshot (GameFrame.SCREENSHOT_FIN_TIMBA, on by default). Taken right when
+    // the money counter finishes (end of the +/- reveal blink); if the player exits earlier - via
+    // either button, or on a tie with no counter - it's taken on click instead. One shot per
+    // session: this flag guards idempotency, starts false on every new BalanceScreen instance,
+    // and is only touched on the EDT, so no state leaks across sessions and there's nothing to
+    // synchronize.
     private boolean screenshot_done = false;
 
-    // Las tres piezas apiladas de la franja central, para fijar su mínimo/máximo
-    // vertical una vez finalizadas las fuentes (finalizeCenterSizing): el bloque de
-    // título es RÍGIDO (no se comprime nunca -> la fila de la fecha no se recorta en
-    // resoluciones bajas) y el mensaje gigante + el importe son los que absorben el
-    // déficit encogiendo (se auto-reescalan a su caja, OutlinedLabel).
+    // The three stacked pieces of the center strip, kept so finalizeCenterSizing() can fix their
+    // min/max height once fonts are final: the title block stays rigid (so the date line never
+    // gets clipped at low resolutions), while the hero message and amount absorb any vertical
+    // deficit by shrinking (OutlinedLabel auto-rescales to whatever box it's given).
     private JComponent title_block;
     private JComponent hero_label;
     private JComponent amount_component;
@@ -168,27 +157,33 @@ public class BalanceScreen extends JPanel {
     private double anim_stack;
     private double anim_ganancia;
 
+    /**
+     * @return {@code true} if the player chose to continue/reconnect rather than go to the main
+     * menu.
+     */
     public boolean isRecover() {
         return recover;
     }
 
+    /**
+     * Builds the end-of-session overlay for the given parent frame.
+     *
+     * @param parent screen used to size the overlay (falls back to 1280x800 if unavailable)
+     * @param on_close callback invoked once the player picks continue or main menu
+     */
     public BalanceScreen(java.awt.Frame parent, Runnable on_close) {
         super();
 
         this.on_close = on_close;
 
-        // El SFX del contador (balance_count.wav) va en lockstep con la animacion
-        // del importe (startAmountAnimation). Se precarga aqui, FUERA del camino
-        // sync-critico y off-EDT, para que la reproduccion arranque instantanea sobre
-        // una linea ya abierta. Si se abre una linea nueva en el momento de animar,
-        // ese open() se atasca cuando el dispositivo esta ocupado (p.ej. justo tras el
-        // teardown de audio de la salida, mientras las lineas del tablero aun se
-        // liberan), dejando la animacion muda y el sonido cayendo tarde. La
-        // construccion del overlay (avatares, layout) da tiempo de sobra a que la
-        // linea abra antes de startAnimations. Mismo patron que shuffle.wav.
+        // Preload the counter SFX off-EDT so playback starts instantly on an already-open line
+        // when startAmountAnimation() runs. Opening a fresh line at animation time can stall if
+        // the audio device is busy (e.g. right after the previous table's audio teardown),
+        // leaving the animation silent or the sound arriving late. Building the overlay gives the
+        // line plenty of time to open first. Same pattern as shuffle.wav.
         Helpers.threadRun(() -> Audio.preloadWav("misc/balance_count.wav"));
 
-        // Transparente: el fondo es el tapete real que se ve a través del glassPane.
+        // Transparent: the background is the real felt, seen through the glassPane.
         setOpaque(false);
         setLayout(new BorderLayout());
 
@@ -200,10 +195,8 @@ public class BalanceScreen extends JPanel {
         avatar_sz = Math.round(card_h * 0.42f);
         card_gap = 18;
 
-        // Arriba: barra de botones. Centro: "LA TIMBA HA TERMINADO" + fecha
-        // centrados sobre el mensaje gigante (a su vez centrado en la franja).
-        // Abajo: carrusel ENTERO (SOUTH siempre toma su alto preferido, nunca se
-        // corta; el centro absorbe el espacio sobrante).
+        // NORTH: button bar. CENTER: title + date over the giant result message. SOUTH: the
+        // whole carousel (always gets its preferred height; CENTER absorbs any leftover space).
         add(buildNavBar(), BorderLayout.NORTH);
         add(buildCenter(), BorderLayout.CENTER);
         add(buildCardsRegion(), BorderLayout.SOUTH);
@@ -214,9 +207,8 @@ public class BalanceScreen extends JPanel {
 
         fitTaggedLabels(this);
 
-        // Tras finalizar las fuentes (updateFonts/fitTaggedLabels cambian los tamaños
-        // preferidos): fija el reparto vertical de la franja central para que la fila de
-        // la fecha no se recorte en resoluciones bajas (ver finalizeCenterSizing).
+        // Fonts are now final (updateFonts/fitTaggedLabels changed preferred sizes): fix the
+        // center strip's vertical split so the date row never gets clipped at low resolutions.
         finalizeCenterSizing();
 
         normalizeNavButtons();
@@ -226,19 +218,19 @@ public class BalanceScreen extends JPanel {
         SwingUtilities.invokeLater(this::updateArrows);
     }
 
-    // Arranca la animación del importe (antes en windowOpened). La invoca GameFrame
-    // tras montar el overlay en el glassPane y hacerlo visible.
+    /**
+     * Starts the amount roll animation. Call after mounting the overlay on the glassPane and
+     * making it visible (previously done in windowOpened).
+     */
     public void startAnimations() {
         startAmountAnimation();
     }
 
-    // Suelta los recursos del overlay (antes en windowClosed). La invoca GameFrame
-    // una vez resuelta la elección del usuario, antes de desmontar el glassPane:
-    // corta los timers de la animación (sus repintados por frame acaparan el EDT y
-    // retrasarían el teardown), suelta la linea precargada del SFX del contador y
-    // cierra el diálogo de estadísticas si quedó abierto (es ownerless, no se cierra
-    // con nosotros; true = restaura el loop de música que silenció, ya que el control
-    // vuelve a la pantalla en curso).
+    /**
+     * Releases overlay resources: stops the animation timers, releases the preloaded counter SFX
+     * line, and closes the stats dialog if it was left open. Call once the user's choice is
+     * resolved, before unmounting the glassPane (previously done in windowClosed).
+     */
     public void cleanup() {
         stopAmountAnimation();
         Audio.closePreloadedWav("misc/balance_count.wav");
@@ -246,7 +238,7 @@ public class BalanceScreen extends JPanel {
     }
 
     // -------------------------------------------------------------------------
-    // Barra de botones (arriba, repartidos a lo ancho).
+    // Top button bar, spread across the width.
     // -------------------------------------------------------------------------
     private JComponent buildNavBar() {
         JButton log_button = navButton(Translator.translate("log.registro_de_la_timba"), scaledIcon("/images/menu/log2.png", 28));
@@ -257,10 +249,9 @@ public class BalanceScreen extends JPanel {
 
         JButton recover_button = navButton(GameFrame.getInstance().isPartida_local() ? Translator.translate("game.continuar_esta_timba") : Translator.translate("conn.reconectar_al_servidor"), scaledIcon("/images/continue.png", 28));
         recover_button.addActionListener((e) -> {
-            // Respaldo de la captura, igual que el botón de menú: si el jugador SALE de la pantalla
-            // final ANTES de que termine el contador de dinero —o en un EMPATE, que no tiene contador—,
-            // se toma AQUÍ para que la timba quede registrada (idempotente: si el contador ya la tomó,
-            // es no-op). Así cualquier salida garantiza la captura.
+            // Screenshot fallback, same as the menu button: if the player exits before the money
+            // counter finishes (or on a tie, which has no counter), take it here so the session
+            // is still recorded (idempotent no-op if the counter already took it).
             takeBalanceScreenshot();
             stopAmountAnimation();
             recover = true;
@@ -271,10 +262,9 @@ public class BalanceScreen extends JPanel {
 
         JButton menu_button = navButton(Translator.translate("ui.menu_principal"), whiteScaledIcon("/images/exit2.png", 28));
         menu_button.addActionListener((e) -> {
-            // Respaldo de la captura al SALIR (mismo criterio que el botón de continuar): si el jugador
-            // sale ANTES de que termine el contador de dinero —o en un EMPATE, sin contador—, se toma
-            // AQUÍ (idempotente: si el contador ya la tomó, es no-op). El render corre en el EDT con el
-            // overlay aún montado, antes de on_close; el volcado va en su hilo aparte.
+            // Same screenshot fallback as the continue button. Render happens on the EDT while
+            // the overlay is still mounted, before on_close; the file write happens on its own
+            // thread.
             takeBalanceScreenshot();
             stopAmountAnimation();
             recover = false;
@@ -293,9 +283,8 @@ public class BalanceScreen extends JPanel {
             row.add(cell);
         }
 
-        // Altavoz (mute) a la derecha de los botones, en su MISMA fila y alineado con ellos
-        // (mismo alto, cuadrado): discreto y donde se espera. Sin rueda: durante el fin de
-        // timba no se tocan ajustes, solo el mute.
+        // Mute speaker to the right of the nav buttons, same row and height: discreet, where
+        // expected. No settings gear here, only mute.
         JPanel line = new JPanel(new BorderLayout(20, 0));
         line.setOpaque(false);
         line.add(row, BorderLayout.CENTER);
@@ -308,10 +297,10 @@ public class BalanceScreen extends JPanel {
         return bar;
     }
 
-    // Altavoz (mute rápido) en la esquina superior derecha, dentro de un CHIP con fondo
-    // redondeado translúcido (NO transparente): da un hit-area amplio y una affordance de
-    // botón, y el icono blanco (sound.png/mute.png) resalta sobre él. El listener va en el
-    // icono Y en el chip (un clic sobre el icono lo recibe el label, no el chip).
+    // Quick-mute speaker, top-right, on a translucent (not fully transparent) rounded chip: gives
+    // it a large hit area and a button affordance, and the white icon (sound.png/mute.png) stands
+    // out against it. The listener is attached to both the icon and the chip, since a click on
+    // the icon is delivered to the label, not the chip.
     private JComponent buildSoundCorner() {
         sound_icon = new JLabel();
         refreshBalanceSoundIcon();
@@ -322,17 +311,17 @@ public class BalanceScreen extends JPanel {
                 if (!Helpers.isRealClick(e)) {
                     return;
                 }
-                // setSonidos hace el flip + persiste + mute/unmute (y refresca los iconos de
-                // altavoz que existan); aquí solo refrescamos el NUESTRO (que no conoce).
+                // setSonidos() flips + persists + mutes/unmutes (and refreshes any other speaker
+                // icons); here we just refresh our own, which it doesn't know about.
                 GameFrame.setSonidos(!GameFrame.SONIDOS);
                 refreshBalanceSoundIcon();
             }
         };
         sound_icon.addMouseListener(toggle);
 
-        // GridBagLayout: centra el icono dentro del chip cuadrado (H y V). El tamaño
-        // cuadrado (= alto de los botones) lo fija normalizeNavButtons; aquí solo se
-        // construye con la misma arc (24) que los botones para que parezca uno más.
+        // GridBagLayout centers the icon in the square chip (H and V). normalizeNavButtons() sets
+        // the square size (= button height); built here with the same corner arc (24) as the
+        // buttons so it reads as one of them.
         JPanel chip = new JPanel(new GridBagLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -350,27 +339,25 @@ public class BalanceScreen extends JPanel {
         chip.add(sound_icon);
         sound_chip = chip;
 
-        // GridBagLayout centra el chip VERTICALMENTE dentro del EAST (que toma todo el alto
-        // de la fila), de modo que queda alineado con los botones aunque la fila creciera.
+        // GridBagLayout centers the chip vertically within EAST (which spans the row's full
+        // height), keeping it aligned with the buttons even if the row grows.
         JPanel corner = new JPanel(new GridBagLayout());
         corner.setOpaque(false);
         corner.add(chip);
         return corner;
     }
 
-    // Refleja el estado de SONIDOS en el icono del altavoz (sound/mute), como in-game. El
-    // tamaño (sound_icon_sz) lo deriva normalizeNavButtons del alto de los botones.
+    // Reflects GameFrame.SONIDOS in the speaker icon (sound/mute), same as in-game. Size
+    // (sound_icon_sz) is derived from button height by normalizeNavButtons().
     private void refreshBalanceSoundIcon() {
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), sound_icon_sz, sound_icon_sz);
     }
 
     private JButton navButton(String text, javax.swing.Icon icon) {
-        // Estilo "cristal" (glassmorphism) IDÉNTICO a los botones neutrales de la pantalla de
-        // inicio (crear/unirse): cristal negro translúcido redondeado que deja ver el tapete, y
-        // al pasar el ratón solo sube la opacidad + brillo, SIN halo de color (accent = null).
-        // Antes cada botón pasaba su propio color como accent y salía un borde/halo de color en
-        // hover distinto por botón -> el autor lo quería idéntico a inicio. setUI antes de
-        // setBorder para que gane nuestro padding (installUI pone uno).
+        // Glassmorphism style identical to the home-screen buttons (create/join): translucent
+        // black glass with no color halo (accent = null) - each button used to pass its own
+        // accent color, giving a different hover halo per button, which should read as uniform
+        // instead. setUI before setBorder so our padding wins over the one installUI sets.
         JButton b = new JButton(text);
         b.setUI(new GlassButtonUI(null, false, false, 0.70f, 24));
         b.setForeground(Color.WHITE);
@@ -381,13 +368,13 @@ public class BalanceScreen extends JPanel {
             b.setIcon(icon);
             b.setIconTextGap(9);
         }
-        // Auto-fit responsive: el texto se encoge para caber en su cuarto de la
-        // barra (PCs antiguos / baja resolución no parten los botones).
+        // Responsive auto-fit: text shrinks to fit its quarter of the bar (keeps buttons intact
+        // on low resolutions).
         b.putClientProperty("fit.width", Math.max(40, screen_w / 4 - 118));
         return b;
     }
 
-    // Icono escalado desde recursos (para los botones cristal de la barra superior).
+    // Scales an icon resource for the glass nav buttons.
     private static javax.swing.ImageIcon scaledIcon(String resource, int size) {
         try {
             java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(BalanceScreen.class.getResource(resource));
@@ -397,8 +384,8 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Igual, pero tiñe de BLANCO la silueta (conserva alfa): para iconos de línea oscura que
-    // sobre el cristal oscuro quedarían invisibles (p. ej. la puerta de salida de MENÚ PRINCIPAL).
+    // Same, but tints the silhouette white (keeping alpha): for dark-line icons that would be
+    // invisible on the dark glass (e.g. the main-menu exit icon).
     private static javax.swing.ImageIcon whiteScaledIcon(String resource, int size) {
         try {
             java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(BalanceScreen.class.getResource(resource));
@@ -418,9 +405,9 @@ public class BalanceScreen extends JPanel {
     private void openLog() {
         GameLogDialog log = GameFrame.getInstance().getRegistro_dialog();
 
-        // El tamaño solo se impone la PRIMERA vez que se abre el registro en esta timba, igual que
-        // hace el menú de la mesa (isDefaultBoundsApplied): es el mismo diálogo, y si el jugador ya
-        // lo redimensionó a su gusto, abrirlo desde aquí se lo machacaba.
+        // Size is only forced the first time the log opens this session, same as the table menu
+        // (isDefaultBoundsApplied): it's the same dialog, and forcing it again would overwrite a
+        // resize the player already made.
         if (!log.isDefaultBoundsApplied()) {
             log.setPreferredSize(new Dimension(Math.round(0.7f * GameFrame.getInstance().getWidth()), Math.round(0.7f * GameFrame.getInstance().getHeight())));
             log.pack();
@@ -428,11 +415,11 @@ public class BalanceScreen extends JPanel {
             log.setDefaultBoundsApplied(true);
         }
 
-        // El registro es el MISMO diálogo que abre el menú de la mesa, y nace NO modal. Aquí hace
-        // falta modal (la pantalla final está por encima de todo), pero hay que devolverlo como
-        // estaba: el menú solo lo reconstruye si cambia de ventana padre, así que dentro de la
-        // misma timba volvía a abrirse modal y dejaba la mesa bloqueada. Se restaura ya cerrado,
-        // que es cuando setModal surte efecto.
+        // The log dialog is shared with the table menu and is non-modal by default. It needs to
+        // be modal here (the end screen sits above everything), but must be restored afterwards:
+        // the menu only rebuilds it on a parent-window change, so leaving it modal would block
+        // the table if reopened from there later in the same session. Restored only after it's
+        // closed, which is when setModal takes effect.
         log.setModal(true);
 
         try {
@@ -443,18 +430,14 @@ public class BalanceScreen extends JPanel {
     }
 
     // -------------------------------------------------------------------------
-    // Franja central (entre la barra de botones y el carrusel).
+    // Center strip (between the button bar and the carousel).
     // -------------------------------------------------------------------------
-    // Franja central: el título de fin de timba + la fecha sobre el mensaje gigante,
-    // con la cantidad justo debajo (entre la barra de botones y el carrusel).
-    //
-    // BoxLayout vertical con pegamentos (glue): el sobrante de la franja lo absorben
-    // los glue (centran el bloque de título arriba y dejan hueco bajo el importe), y
-    // el DÉFICIT (resoluciones bajas: la franja no da para todo) lo absorben SOLO el
-    // mensaje gigante y el importe encogiendo —se auto-reescalan a su caja—, mientras
-    // el bloque de título permanece RÍGIDO (su mínimo = su preferido, fijado en
-    // finalizeCenterSizing). Antes, con GridBagLayout y weighty 1/0/1, el déficit caía
-    // sobre la fila del título y RECORTABA la fecha (un JLabel plano no se reescala).
+    // Vertical BoxLayout with glue: leftover space is absorbed by the glue (centers the title
+    // block, leaves room below the amount), while any DEFICIT at low resolutions is absorbed only
+    // by the hero message and amount shrinking (they auto-rescale to their box) - the title block
+    // stays rigid (min = preferred, set in finalizeCenterSizing()). The previous GridBagLayout
+    // with weighty 1/0/1 let the deficit fall on the title row and clip the date (a plain JLabel
+    // doesn't rescale).
     private JComponent buildCenter() {
         JPanel center = new JPanel();
         center.setOpaque(false);
@@ -466,14 +449,13 @@ public class BalanceScreen extends JPanel {
         hero_label = buildHeroMessage();
         hero_label.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // La cantidad, en la misma letra gigante, justo DEBAJO del mensaje.
+        // The amount, same giant font, right below the message.
         amount_component = buildAmount();
         amount_component.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Reparto del sobrante igual que el GridBagLayout anterior (weighty 1/0/1):
-        // S/4 sobre el título, S/4 entre título y mensaje, S/2 bajo el importe (dos
-        // glue al pie) -> el bloque queda en la MISMA posición que antes en alta
-        // resolución; el resto del comportamiento (déficit, fecha sin recortar) cambia.
+        // Leftover space split like the old GridBagLayout weighty 1/0/1: 1/4 above the title, 1/4
+        // between title and message, 1/2 below the amount (two glues at the bottom) - same block
+        // position as before at high resolution; only the deficit/low-res behavior changes.
         center.add(Box.createVerticalGlue());
         center.add(title_block);
         center.add(Box.createVerticalGlue());
@@ -485,11 +467,10 @@ public class BalanceScreen extends JPanel {
         return center;
     }
 
-    // Fija el reparto vertical de la franja central UNA VEZ finalizadas las fuentes
-    // (tras updateFonts/fitTaggedLabels, que cambian los tamaños preferidos). El bloque
-    // de título queda rígido (mín = pref) para que su fila de la fecha no se recorte; el
-    // mensaje gigante y el importe pueden encoger (mín pequeño) y absorben el déficit en
-    // resoluciones bajas reescalándose. Todos con ancho máximo libre (ocupan el ancho).
+    // Fixes the center strip's vertical split once fonts are final (after updateFonts/
+    // fitTaggedLabels, which change preferred sizes). The title block is rigid (min = preferred)
+    // so its date row never gets clipped; the hero message and amount can shrink (small min) and
+    // absorb the deficit at low resolutions by rescaling. All keep an unbounded max width.
     private void finalizeCenterSizing() {
         if (title_block != null) {
             int h = title_block.getPreferredSize().height;
@@ -500,8 +481,8 @@ public class BalanceScreen extends JPanel {
         makeVerticallyShrinkable(amount_component);
     }
 
-    // Deja crecer NADA en vertical (su sobrante va a los glue) pero permite ENCOGER
-    // hasta un mínimo holgado: el OutlinedLabel se auto-reescala a la altura que le den.
+    // Never grows vertically (leftover space goes to the glue) but can shrink down to a
+    // comfortable minimum: OutlinedLabel auto-rescales to whatever height it's given.
     private static void makeVerticallyShrinkable(JComponent c) {
         if (c == null) {
             return;
@@ -511,10 +492,9 @@ public class BalanceScreen extends JPanel {
         c.setMinimumSize(new Dimension(0, Math.min(h, Math.max(24, h / 4))));
     }
 
-    // "LA TIMBA HA TERMINADO" + fecha/hora/duración: fuente normal (sin contorno) y
-    // color del fondo de tablero elegido (el de los contadores del tapete:
-    // madera/negro* -> blanco, verde/azul/rojo -> su color). Apiladas a todo el
-    // ancho con auto-fit, para cualquier resolución.
+    // Title + date/time/duration: plain font (no outline), colored to match the felt's chosen
+    // counter color (wood/black felts -> white, others -> their own color). Stacked full-width
+    // with auto-fit for any resolution.
     private JComponent buildTitleBlock() {
         Color tapete_color = Color.WHITE;
         try {
@@ -535,10 +515,9 @@ public class BalanceScreen extends JPanel {
         subtitle.setBorder(BorderFactory.createEmptyBorder(6, 24, 2, 24));
         subtitle.putClientProperty("fit.width", fit_w);
 
-        // Total de manos jugadas en la timba (acumulativo, se restaura al recuperar), tras la
-        // duración y entre corchetes: getMano() es el número de la mano en curso, que en el fin de
-        // timba equivale al total jugado. Singular/plural para no mostrar "1 manos". Formato:
-        // "fecha   (duración)   [N manos]".
+        // Total hands played this session, shown in brackets after the duration: getMano() is the
+        // current hand number, which at session end equals the total played. Singular/plural
+        // avoids "1 hands". Format: "date   (duration)   [N hands]".
         int manos = 0;
         try {
             manos = GameFrame.getInstance().getCrupier().getMano();
@@ -565,9 +544,8 @@ public class BalanceScreen extends JPanel {
         return block;
     }
 
-    // Mensaje gigante del jugador local (sin importe): HAS GANADO /
-    // HAS PERDIDO / NI GANAS NI PIERDES. Borde negro + relleno color,
-    // auto-ajustado al ancho/alto reales (OutlinedLabel.paintComponent).
+    // Local player's giant result message (no amount): won / lost / tied. Black border + colored
+    // fill, auto-fit to the real width/height (see OutlinedLabel.paintComponent).
     private JComponent buildHeroMessage() {
         double ganancia = localGanancia();
         int cmp = Helpers.doubleSecureCompare(ganancia, 0f);
@@ -593,9 +571,9 @@ public class BalanceScreen extends JPanel {
         return hero;
     }
 
-    // La cantidad del jugador local. Empieza mostrando el BUYIN total y se anima (en
-    // startAmountAnimation) hasta el stack final; al aterrizar se revela como +/- el neto,
-    // en la misma letra gigante y color (verde gana / rojo pierde). Vacía si es empate.
+    // Local player's amount. Starts showing the total buyin and animates (startAmountAnimation)
+    // to the final stack; on landing it reveals as +/- net, same giant font and win/loss color.
+    // Empty on a tie.
     private JComponent buildAmount() {
         double[] bs = localBuyinStack();
         double buyin = bs[0];
@@ -606,15 +584,15 @@ public class BalanceScreen extends JPanel {
         float amount_size = Math.max(36f, Math.min(280f, screen_h * 0.15f));
 
         if (cmp == 0) {
-            // Empate: no hay importe que mostrar (ni animación).
+            // Tie: nothing to show, and no animation.
             OutlinedLabel empty = new OutlinedLabel("", NEUTRAL);
             empty.setFont(new Font("Dialog", Font.BOLD, Math.round(amount_size)));
             empty.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 30));
             return empty;
         }
 
-        // Rueda ya en el color del resultado (verde gana / rojo pierde) en vez de en naranja;
-        // al aterrizar solo cambia el numero al +/- neto (mismo color) y parpadea.
+        // Rolls in the final win/loss color rather than orange; on landing only the number
+        // changes to +/- net (same color), then blinks.
         OutlinedLabel amount = new OutlinedLabel(Helpers.money2String(buyin), cmp > 0 ? WIN : LOSE);
         amount.setFont(new Font("Dialog", Font.BOLD, Math.round(amount_size)));
         amount.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 30));
@@ -627,7 +605,7 @@ public class BalanceScreen extends JPanel {
         return amount;
     }
 
-    // {buyin_total, stack_final} del jugador local (auditor: pasta[0]=stack, pasta[1]=buyin).
+    // {total buyin, final stack} for the local player (auditor entry: [0]=stack, [1]=buyin).
     private double[] localBuyinStack() {
         try {
             String nick = GameFrame.getInstance().getLocalPlayer().getNickname();
@@ -641,8 +619,8 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Recuento animado del importe local: rueda desde el buyin hasta el stack con
-    // desaceleración (ease-out cúbico), mantiene un instante el stack y revela el +/- neto.
+    // Animated local-amount count: rolls from buyin to stack with a cubic ease-out, holds the
+    // stack briefly, then reveals the +/- net.
     private void startAmountAnimation() {
         if (amount_label == null) {
             return;
@@ -650,8 +628,8 @@ public class BalanceScreen extends JPanel {
 
         final double from = anim_buyin;
         final double to = anim_stack;
-        // 1.5s, en sincronia con la cortinilla de llenado de stacks (Crupier.STACK_FILL_MS).
-        // La frenadita (ease-out cubico) y el parpadeo siguen intactos, son sello de esta pantalla.
+        // 1.5s, in sync with the stack-fill animation (Crupier.STACK_FILL_MS). The ease-out and
+        // the blink are this screen's signature and stay as-is.
         final long duration_ms = 1500;
         final long start_ms = System.currentTimeMillis();
 
@@ -659,10 +637,10 @@ public class BalanceScreen extends JPanel {
                 ? "+" + Helpers.money2String(anim_ganancia)
                 : "-" + Helpers.money2String(anim_ganancia * -1);
 
-        // Recuento de fin de timba OPCIONAL (Ajustes de animaciones, ON por defecto). Si esta
-        // apagado (o el maestro de animaciones), no se anima: se revela el neto +/- directo, sin
-        // roll, sin parpadeo y sin SFX (el sonido cuelga del propio recuento, ver mas abajo), y se
-        // hace la captura igual que al terminar el recuento normal.
+        // The end-of-session count animation is optional (Animation settings, on by default). If
+        // it's off, skip straight to the +/- reveal - no roll, no blink, no SFX (the sound is
+        // tied to the roll, see below) - and take the screenshot exactly as if the normal count
+        // had finished.
         if (!GameFrame.contadorFinalAnimOn()) {
             amount_label.setFill(anim_ganancia > 0 ? WIN : LOSE);
             amount_label.setText(reveal_text);
@@ -670,11 +648,10 @@ public class BalanceScreen extends JPanel {
             return;
         }
 
-        // Tick fijo del juego (GameFrame.getTickMs, 2 ms) en vez de 16 ms (60 Hz): la
-        // interpolacion es por TIEMPO (p = elapsed/duration_ms), asi que a 2 ms el recuento
-        // sale MUCHO mas fluido sin cambiar la duracion (1.5 s). El coste real por frame del
-        // OutlinedLabel esta muy por debajo de un tick de 16 ms, asi que a 2 ms el limite lo
-        // pone el render, no el timer, y se ve fluido en vez de aliaseado a 60 Hz.
+        // Uses the game's fixed tick (GameFrame.getTickMs, 2 ms) instead of 16 ms/60 Hz: since
+        // interpolation is time-based (p = elapsed/duration_ms), the finer tick makes the roll
+        // much smoother without changing the 1.5 s duration. OutlinedLabel's per-frame cost is
+        // well under a 16 ms budget, so rendering isn't the bottleneck.
         final javax.swing.Timer roll = new javax.swing.Timer(GameFrame.getTickMs(), null);
         amount_roll_timer = roll;
         roll.addActionListener((e) -> {
@@ -682,7 +659,7 @@ public class BalanceScreen extends JPanel {
 
             if (p >= 1.0) {
                 ((javax.swing.Timer) e.getSource()).stop();
-                // Sin pausa: al llegar al stack se revela el neto +/- (verde/rojo) y parpadea.
+                // No pause: on reaching the stack, reveal the +/- net (color) and blink.
                 amount_label.setFill(anim_ganancia > 0 ? WIN : LOSE);
                 amount_label.setText(reveal_text);
                 blinkAmount();
@@ -694,14 +671,13 @@ public class BalanceScreen extends JPanel {
             amount_label.setText(Helpers.money2String(Helpers.doubleClean(value)));
         });
 
-        // Retro point-counting SFX, synced to the roll: its blips decelerate with
-        // the same ease-out curve and the closing accent lands at ~1.5s, on the
-        // +/- reveal. Se reproduce sobre el clip PRECARGADO en el constructor (linea
-        // ya abierta) para arrancar instantaneo y en lockstep con el roll, sin un
-        // open() al vuelo que se atasque con el dispositivo ocupado y desincronice el
-        // sonido. Off-EDT: si la precarga aun no termino, playPreloadedWav la resuelve
-        // en este hilo (nunca en el EDT). playPreloadedWav rebobina y reaplica el
-        // volumen/mute (setClipVolume), asi que reanimar la pantalla lo reinicia limpio.
+        // Retro point-counting SFX, synced to the roll: its blips decelerate with the same
+        // ease-out curve and the closing accent lands at ~1.5s, on the +/- reveal. Plays on the
+        // clip preloaded in the constructor (line already open) to start instantly and stay in
+        // lockstep with the roll, avoiding an on-the-fly open() that could stall on a busy device
+        // and desync the sound. Off-EDT: if preload hasn't finished yet, playPreloadedWav
+        // resolves it on this thread, never the EDT. It also rewinds and reapplies volume/mute
+        // (setClipVolume), so re-animating this screen restarts it cleanly.
         if (GameFrame.conteoSonidoOn()) {
             Helpers.threadRun(() -> Audio.playPreloadedWav("misc/balance_count.wav"));
         }
@@ -709,14 +685,14 @@ public class BalanceScreen extends JPanel {
         roll.start();
     }
 
-    // Parpadeo SOLO del importe al revelar el neto: alterna un flag de "no pintar" (que solo
-    // repinta este label, sin remaquetar el resto del diálogo) y termina visible.
+    // Blinks only the amount on reveal: toggles a "don't paint" flag (repaints just this label,
+    // no relayout of the rest of the screen) and ends up visible.
     private void blinkAmount() {
         if (amount_label == null) {
             return;
         }
 
-        final int total = 6; // 3 ciclos apagar/encender
+        final int total = 6; // 3 on/off cycles
         final int[] count = {0};
 
         final javax.swing.Timer blink = new javax.swing.Timer(130, null);
@@ -727,32 +703,33 @@ public class BalanceScreen extends JPanel {
             if (count[0] >= total) {
                 ((javax.swing.Timer) e.getSource()).stop();
                 amount_label.setBlank(false);
-                // El contador de dinero ha terminado (neto +/- revelado y estable): captura automática
-                // de la pantalla final. Idempotente: si el jugador ya volvió al menú, es no-op.
+                // Money counter finished (net +/- revealed and stable): auto screenshot.
+                // Idempotent no-op if the player already left.
                 takeBalanceScreenshot();
             }
         });
         blink.start();
     }
 
-    // Captura la ventana completa (rootPane) con el overlay de la pantalla final montado sobre el
-    // glassPane, con el MISMO mecanismo que CTRL+P (Helpers.renderComponentImage: printAll de Java2D,
-    // sin Robot ni captura del SO): el render va en el EDT (obligatorio en Swing) y el volcado del PNG
-    // en un hilo aparte para NO bloquear la interfaz. Idempotente (screenshot_done). DEBE llamarse en
-    // el EDT.
+    // Captures the full window (rootPane) with the end-of-session overlay mounted on the
+    // glassPane, same mechanism as Ctrl+P (Helpers.renderComponentImage: Java2D printAll, no
+    // Robot/OS capture): rendering runs on the EDT (Swing requirement), the PNG write runs on its
+    // own thread so it doesn't block the UI. Idempotent via screenshot_done. Must be called on
+    // the EDT.
     //
-    // El volcado NO va por Helpers.threadRun (THREAD_POOL): al volver al menú, el teardown de la timba
-    // (finTransmision -> RESET_GAME) llama a Helpers.SHUTDOWN_THREAD_POOL() (shutdownNow), que
-    // descartaría la tarea encolada o interrumpiría el ImageIO.write a medias -> captura perdida o PNG
-    // corrupto. Se usa un hilo PROPIO, ajeno al pool: sobrevive al teardown, escribe el fichero (I/O
-    // breve y acotada, con su try/catch/finally en saveScreenshot) y muere -> no se queda colgando.
-    // Trabaja sobre un snapshot ya rasterizado y SCREENSHOTS_DIR (estático): no comparte estado mutable
-    // con el juego, así que ni el desmontaje del frame ni la timba siguiente pueden afectarle.
+    // The write does NOT go through Helpers.threadRun (THREAD_POOL): on returning to the menu,
+    // session teardown (finTransmision -> RESET_GAME) calls Helpers.SHUTDOWN_THREAD_POOL()
+    // (shutdownNow), which would drop a queued task or interrupt ImageIO.write mid-flight -> lost
+    // or corrupt PNG. A dedicated thread outside the pool survives teardown, writes the file
+    // (short, bounded I/O, with its own try/catch/finally in saveScreenshot) and exits. It works
+    // on an already-rasterized snapshot and the static SCREENSHOTS_DIR, sharing no mutable game
+    // state, so neither frame teardown nor the next session can affect it.
     //
-    // Best-effort: NUNCA propaga. Un fallo al rasterizar (p.ej. OOM) no debe impedir que el handler del
-    // botón de menú siga a stopAmountAnimation/on_close, o la salida se colgaría (finTransmision espera
-    // en el latch). Por eso se traga cualquier Throwable. screenshot_done se marca solo tras lanzar el
-    // volcado con éxito, así el respaldo del menú puede reintentar si el render automático hubiera fallado.
+    // Best-effort: never propagates. A rasterization failure (e.g. OOM) must not block the menu
+    // button handler from reaching stopAmountAnimation/on_close, or exit would hang
+    // (finTransmision waits on the latch) - hence the catch-all Throwable. screenshot_done is
+    // only set after successfully launching the write, so the menu-button fallback can retry if
+    // auto-capture had failed.
     private void takeBalanceScreenshot() {
         if (screenshot_done || !GameFrame.SCREENSHOT_FIN_TIMBA) {
             return;
@@ -762,10 +739,11 @@ public class BalanceScreen extends JPanel {
             return;
         }
         try {
-            // Garantiza que el importe salga VISIBLE en la captura: si se dispara desde el botón de
-            // menú mientras el neto aún PARPADEA (blinkAmount alterna blank cada 130 ms), el frame
-            // actual podría estar en blanco y la captura saldría sin el importe. printAll lee el flag
-            // blank en el acto, así que fijarlo a false aquí basta (en la ruta automática ya es false).
+            // Ensures the amount is visible in the capture: if triggered from the menu button
+            // while the net is still blinking (blinkAmount toggles blank every 130 ms), the
+            // current frame could be blank and the capture would miss the amount. printAll reads
+            // the blank flag live, so clearing it here is enough (already false on the automatic
+            // path).
             if (amount_label != null) {
                 amount_label.setBlank(false);
             }
@@ -780,14 +758,15 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Corta en seco la animación del importe (recuento + parpadeo) y su SFX. La llaman los
-    // botones de salida (menú principal / continuar) ANTES de dispose(): mientras el contador
-    // rueda, sus repintados por frame (TextLayout.getOutline recalcula el contorno del texto
-    // a pantalla completa, coste no despreciable, y ahora a 2 ms de tick aun mas) acaparan el EDT; si se dejan vivos, el teardown de la timba
-    // (RESET_GAME, que descarta el tablero y abre el menú principal vía invokeAndWait) queda
-    // famélico detrás de ellos y el menú no aparece hasta que la animación termina sola. Al
-    // pararlos, la salida es instantánea igual que si se pulsa con el recuento ya terminado.
-    // EDT-only (handlers de botón / windowClosed): stop() de un Timer no arrancado es no-op.
+    // Stops the amount animation (roll + blink) and its SFX outright. Called by the exit buttons
+    // (main menu / continue) before dispose(): while the counter is rolling, its per-frame
+    // repaints (TextLayout.getOutline recomputes the text outline at full-screen size, non
+    // negligible cost, now even more frequent at the 2 ms tick) starve the EDT; if left running,
+    // session teardown (RESET_GAME, which discards the table and opens the main menu via
+    // invokeAndWait) is stuck behind them and the menu doesn't appear until the animation finishes
+    // on its own. Stopping them makes exit instantaneous, same as if pressed after the count
+    // already finished. EDT-only (button handlers / windowClosed); stop() on a Timer that never
+    // started is a no-op.
     private void stopAmountAnimation() {
         if (amount_roll_timer != null) {
             amount_roll_timer.stop();
@@ -812,7 +791,7 @@ public class BalanceScreen extends JPanel {
     }
 
     // -------------------------------------------------------------------------
-    // Carrusel de cajas (abajo) + flechas laterales.
+    // Player card carousel (bottom) + side arrows.
     // -------------------------------------------------------------------------
     private JComponent buildCardsRegion() {
         CardsRow row = new CardsRow();
@@ -822,7 +801,7 @@ public class BalanceScreen extends JPanel {
 
         final String local_nick = GameFrame.getInstance().getLocalPlayer().getNickname();
 
-        // Orden de asientos (el mismo que recorre el auditor al cerrar cuentas).
+        // Seat order (same order the auditor walks when settling accounts).
         final ArrayList<String> seat_order = new ArrayList<>();
         for (Player p : GameFrame.getInstance().getJugadores()) {
             seat_order.add(p.getNickname());
@@ -830,8 +809,8 @@ public class BalanceScreen extends JPanel {
 
         Map<String, Double[]> auditor = GameFrame.getInstance().getCrupier().getAuditor();
 
-        // El jugador local PRIMERO; el resto, en orden de asientos (quien ya no
-        // esté sentado va al final, conservando su orden de iteración).
+        // Local player first; the rest in seat order (anyone no longer seated goes last, in
+        // iteration order).
         ArrayList<String> nicks = new ArrayList<>(auditor.keySet());
         nicks.sort(Comparator.comparingInt((String n) -> {
             if (n.equals(local_nick)) {
@@ -873,8 +852,7 @@ public class BalanceScreen extends JPanel {
 
         JPanel region = new JPanel(new BorderLayout());
         region.setOpaque(false);
-        // Mismo margen inferior que el superior de los botones (34px), para que el
-        // carrusel quede simétrico respecto a la barra de arriba.
+        // Same bottom margin as the button bar's top one, for symmetry.
         region.setBorder(BorderFactory.createEmptyBorder(0, 0, 34, 0));
         region.add(left_arrow, BorderLayout.WEST);
         region.add(cards_scroll, BorderLayout.CENTER);
@@ -889,8 +867,8 @@ public class BalanceScreen extends JPanel {
     }
 
     private JComponent buildCard(String nick, double stack, double buyin, double ganancia) {
-        // Ancho fijo; el alto se UNIFORMA luego (normalizeCardHeights) al máximo de
-        // todas, para que el carrusel tenga cajas idénticas sin cortar contenido.
+        // Fixed width; height gets unified later (normalizeCardHeights) to the tallest card so
+        // the carousel has identical boxes without clipping content.
         CardPanel card = new CardPanel(card_w);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
@@ -982,10 +960,9 @@ public class BalanceScreen extends JPanel {
         label.setMaximumSize(new Dimension(size, size));
     }
 
-    // Reescalado de avatar a la máxima calidad posible (interpolación bicúbica +
-    // hints de calidad), pensado para AGRANDAR avatares pequeños sin el aliasing
-    // de getScaledInstance(SCALE_SMOOTH). Garantiza la imagen origen ya cargada
-    // (ImageIcon usa MediaTracker) antes de pintar en el lienzo destino.
+    // High-quality avatar rescale (bicubic interpolation + quality hints), meant to upscale small
+    // avatars without the aliasing of getScaledInstance(SCALE_SMOOTH). Source image is guaranteed
+    // already loaded (ImageIcon uses MediaTracker) before drawing to the destination canvas.
     private static BufferedImage highQualityScale(Image src, int size) {
         BufferedImage out = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = out.createGraphics();
@@ -1002,7 +979,7 @@ public class BalanceScreen extends JPanel {
     }
 
     // -------------------------------------------------------------------------
-    // Desplazamiento lateral por flechas.
+    // Side-arrow horizontal scrolling.
     // -------------------------------------------------------------------------
     private void scrollCards(int dx) {
         if (cards_scroll == null) {
@@ -1039,15 +1016,15 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Uniforma los 4 botones de la barra superior a un tamaño idéntico (misma
-    // anchura Y altura entre todos), conservando el comportamiento responsive.
-    // 1) Fuente común = la más pequeña de las cuatro tras el auto-fit por botón
-    //    (fitTaggedLabels), de modo que el texto más largo siga cabiendo en su
-    //    cuarto y todas compartan el mismo cuerpo de letra (de ahí, misma altura).
-    // 2) Caja común = el máximo ancho/alto preferido de las cuatro, fijado en los
-    //    tres tamaños (pref/min/max) para que el FlowLayout las pinte idénticas.
-    // Todo deriva del tamaño de pantalla, así que en otra resolución cambian las
-    // cuatro a la vez, pero siempre iguales entre sí.
+    // Gives the 4 nav-bar buttons an identical size (same width AND height), keeping the
+    // responsive behavior:
+    // 1) Common font = the smallest of the four after per-button auto-fit (fitTaggedLabels), so
+    //    the longest label still fits its quarter and all four share one font size (hence one
+    //    height).
+    // 2) Common box = the max preferred width/height of the four, fixed on all three sizes
+    //    (pref/min/max) so FlowLayout paints them identical.
+    // Everything derives from screen size, so a different resolution changes all four together,
+    // but always equal to each other.
     private void normalizeNavButtons() {
         if (nav_buttons.isEmpty()) {
             return;
@@ -1073,9 +1050,9 @@ public class BalanceScreen extends JPanel {
             b.setMaximumSize(uniform);
         }
 
-        // El altavoz queda CUADRADO con el mismo alto que los botones (su ancho pasa a ser
-        // ese alto) y el icono se escala a ~la mitad de ese lado. Asi se alinea con la fila
-        // y parece un boton mas, redondo-cuadrado, en cualquier resolucion.
+        // The speaker chip becomes square with the same height as the buttons (its width becomes
+        // that height), and the icon is scaled to about half of that side. This keeps it aligned
+        // with the row and reading as one more button, at any resolution.
         if (sound_chip != null) {
             Dimension square = new Dimension(max_h, max_h);
             sound_chip.setPreferredSize(square);
@@ -1087,9 +1064,9 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Iguala el alto de TODAS las cajas al máximo (calculado con las fuentes ya
-    // finalizadas tras updateFonts/fitTaggedLabels), para que el carrusel sea
-    // perfectamente uniforme sin recortar el contenido de ninguna.
+    // Equalizes the height of ALL cards to the tallest one (measured with fonts already finalized
+    // after updateFonts/fitTaggedLabels), so the carousel is perfectly uniform without clipping
+    // any card's content.
     private void normalizeCardHeights() {
         int max_h = 0;
         for (CardPanel c : card_panels) {
@@ -1101,10 +1078,10 @@ public class BalanceScreen extends JPanel {
     }
 
     // -------------------------------------------------------------------------
-    // Componentes de soporte.
+    // Supporting components.
     // -------------------------------------------------------------------------
-    // Fila de cajas que rellena el viewport cuando todo cabe (las cajas quedan
-    // centradas por los glue) y solo pasa a desplazarse cuando desbordan.
+    // Row of cards that fills the viewport when everything fits (glue keeps the cards centered),
+    // and only becomes scrollable when they overflow.
     private static final class CardsRow extends JPanel implements Scrollable {
 
         @Override
@@ -1133,9 +1110,9 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Etiqueta con texto centrado pintado como contorno (borde negro) + relleno,
-    // para que se lea sobre el tapete. Misma técnica que el overlay de coste de
-    // igualar del tapete (TextLayout.getOutline: draw el halo, fill el relleno).
+    // Label with centered text painted as an outline (black border) + fill so it reads over the
+    // felt. Same technique as the table's call-cost overlay (TextLayout.getOutline: draw the
+    // halo, fill the interior).
     private static final class OutlinedLabel extends JLabel {
 
         private static final float STROKE_RATIO = 0.06f;
@@ -1153,7 +1130,7 @@ public class BalanceScreen extends JPanel {
             repaint();
         }
 
-        // Oculta/muestra el texto sin tocar el layout (solo repinta): para el parpadeo.
+        // Hides/shows the text without touching layout (repaint only): used for the blink.
         void setBlank(boolean b) {
             this.blank = b;
             repaint();
@@ -1177,8 +1154,8 @@ public class BalanceScreen extends JPanel {
                 Font base = getFont();
                 java.awt.font.FontRenderContext frc = g2.getFontRenderContext();
 
-                // Auto-fit responsive: encoge la fuente para que el texto quepa
-                // SIEMPRE en el ancho (y alto) reales, sea cual sea la resolución.
+                // Responsive auto-fit: shrinks the font so the text always fits the real width
+                // (and height), whatever the resolution.
                 TextLayout probe = new TextLayout(text, base, frc);
                 double tw = probe.getAdvance();
                 double th = probe.getAscent() + probe.getDescent();
@@ -1209,9 +1186,8 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Flecha de desplazamiento: triángulo blanco relleno pintado a mano (la
-    // fuente de la UI no garantiza glifos de flecha) sobre un disco oscuro
-    // semitransparente. Apunta a izquierda o derecha.
+    // Scroll arrow: hand-painted white filled triangle (the UI font doesn't guarantee arrow
+    // glyphs) on a translucent dark disc. Points left or right.
     private static final class ArrowButton extends JButton {
 
         private final boolean left;
@@ -1261,9 +1237,9 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Caja de jugador: relleno redondeado limpio (esquinas transparentes -> se ve
-    // el tapete), todas idénticas (sin borde especial). Ancho fijo; el alto lo fija
-    // normalizeCardHeights al máximo de todas para que el carrusel sea uniforme.
+    // Player card: clean rounded fill (transparent corners show the felt through), all identical
+    // (no special border). Fixed width; height is set by normalizeCardHeights() to the tallest
+    // card so the carousel is uniform.
     private static final class CardPanel extends JPanel {
 
         private final int fixed_width;
@@ -1310,9 +1286,8 @@ public class BalanceScreen extends JPanel {
         }
     }
 
-    // Encoge la fuente de un JLabel/JButton etiquetado con "fit.width" para que su
-    // texto quepa en ese ancho. Se llama tras updateFonts (familia final) para que
-    // el ajuste sea exacto en cualquier resolución.
+    // Shrinks the font of a JLabel/JButton tagged with "fit.width" so its text fits that width.
+    // Called after updateFonts (final font family) so the fit is exact at any resolution.
     private void fitTaggedLabels(Component c) {
         if (c instanceof JComponent) {
             Object w = ((JComponent) c).getClientProperty("fit.width");

@@ -53,6 +53,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 /**
+ * Table panel for the community cards, pot/bet/blinds labels, the hand-limit and last-hand
+ * controls, and the clock/lights/settings icon row. Also owns the pot's flash-yellow and
+ * rolling-value animations and its self-fitting font.
  *
  * @author tonikelope
  */
@@ -61,16 +64,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     public static final int SOUND_ICON_WIDTH = 30;
 
     private volatile Color color_contadores = null;
-    // Fuente base (sin encoger) del bote mientras el autofit lo tiene reducido por
-    // un desglose largo de botes laterales; null cuando el bote va a tamaño normal.
+    // Base (unshrunk) pot font while auto-fit has it reduced for a long side-pot breakdown;
+    // null when the pot is back to normal size.
     private volatile Font pot_orig_font = null;
     private volatile int hand_label_click_type = 0;
     private volatile boolean ready = false;
     private volatile Timer icon_zoom_timer = null;
     private final Object zoom_lock = new Object();
-    // Los dos iconos del interruptor de luces, ya escalados al alto de la fila del bote, y el alto
-    // con el que se escalaron: solo se rehacen si ese alto cambia, o sea al cambiar el zoom (la
-    // vista compacta no reescala los iconos de esta fila, ni antes ni ahora).
+    // The two lights-switch icons, pre-scaled to the pot row's height, plus the height they
+    // were scaled for: only rebuilt when that height changes, i.e. on zoom (the compact view
+    // never rescaled these row icons either).
     private volatile ImageIcon lights_on_icon = null;
     private volatile ImageIcon lights_off_icon = null;
     private volatile int lights_icon_height = -1;
@@ -83,10 +86,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     }
 
-    // Aplica el estado visual de las luces: icono del botón según el brillo actual
-    // + refresco de los diálogos que dependen del brillo (fastchat/notify) +
-    // repintado global. NO cambia el brillo ni reproduce sonido; eso lo decide
-    // quien llama (clic del usuario, atajo Alt+L o pausa automática).
+    // Applies the lights' visual state: the switch icon for the current brightness, a refresh
+    // of the dialogs that depend on brightness (fastchat/notify), and a global repaint. Does
+    // NOT change the brightness or play a sound; that's up to the caller (user click, Alt+L
+    // shortcut, or an automatic pause).
     public void applyLightsVisuals() {
 
         Helpers.GUIRun(() -> {
@@ -193,9 +196,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         Helpers.GUIRun(() -> {
             if (!((RoundedPanel) pot_panel).isRoundedFill()) {
-                // Cambiar el color del tapete mientras el bote parpadea en amarillo ya NO necesita
-                // nada especial: el parpadeo respeta al último que haya pintado el bote, aquí o en
-                // cualquiera de los otros sitios que lo hacen (ver flashPotLabelYellow).
+                // Changing the felt color while the pot flashes yellow needs no special handling:
+                // the flash respects whichever color was painted last, here or in any of the
+                // other places that set it (see flashPotLabelYellow).
                 pot_label.setForeground(color);
             }
 
@@ -217,10 +220,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return lights_label;
     }
 
-    // Centro en pantalla del ICONO (las fichas) del pot_label, calculado con
-    // layoutCompoundLabel para respetar alineación, insets e icon-text-gap, así
-    // las fichas voladoras aterrizan justo sobre el icono del bote (no sobre el
-    // texto). Devuelve null si el bote no está visible o no tiene icono.
+    // Screen center of the pot_label's ICON (the chips), computed with layoutCompoundLabel to
+    // respect alignment, insets and icon-text-gap, so flying chips land right on the pot icon
+    // (not the text). Returns null if the pot isn't showing or has no icon.
     public java.awt.geom.Point2D getPotIconScreenCenter() {
 
         if (pot_label == null || !pot_label.isShowing() || pot_label.getIcon() == null) {
@@ -249,21 +251,21 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     private javax.swing.Timer pot_flash_timer;
     private Color pot_flash_restore;
-    private Runnable pot_flash_done_callback; // se ejecuta al terminar el parpadeo (el ULTIMO, tras re-entradas); para esperar al fin EXACTO del flash sin tiempos arbitrarios
+    private Runnable pot_flash_done_callback; // runs when the flash ends (the LAST one, after re-entries); lets callers await the EXACT end of the flash without arbitrary delays
 
     public void flashPotLabelYellow() {
         flashPotLabelYellow(null);
     }
 
-    // Parpadeo breve del pot_label a amarillo: lo dispara la ficha voladora al
-    // aterrizar en el bote (señal de que el bote "absorbió" las fichas). Restaura
-    // el color que tenía antes del parpadeo. Reentrante: si llega otra ficha
-    // mientras parpadea, conserva el color original y reinicia la restauración.
+    // Brief yellow flash on pot_label: triggered by a flying chip landing on the pot (a signal
+    // that the pot "absorbed" the chips). Restores the color it had before the flash.
+    // Reentrant: if another chip lands mid-flash, the original color is kept and the restore
+    // is restarted.
     //
-    // value_update (si no es null) se aplica DENTRO del mismo runnable del EDT, JUSTO
-    // ANTES de poner el amarillo: así el cambio de valor del bote y el parpadeo se
-    // pintan en el MISMO ciclo (el número y el color cambian a la vez, el color no se
-    // adelanta al número). El restore captura el color YA con el valor nuevo aplicado.
+    // value_update (if not null) runs INSIDE the same EDT runnable, JUST BEFORE turning it
+    // yellow: so the pot's value change and the flash paint in the SAME cycle (the number and
+    // the color change together, the color never gets ahead of the number). The restore color
+    // is captured AFTER the new value is applied.
     public void flashPotLabelYellow(Runnable value_update) {
 
         Helpers.GUIRun(() -> {
@@ -277,9 +279,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 pot_flash_restore = pot_label.getForeground();
             } else {
                 pot_flash_timer.stop();
-                // Reentrada (otra ficha aterriza dentro de los 170 ms, que es lo normal cuando
-                // caen varias): se conserva el color de antes del parpadeo, PERO si mientras tanto
-                // alguien le ha dado otro color al bote, ese manda y es el que hay que devolver.
+                // Re-entry (another chip lands within the 170ms window, normal when several land
+                // together): keep the pre-flash color, BUT if something else set a different pot
+                // color in the meantime, that one wins and is the one to restore.
                 if (!Color.YELLOW.equals(pot_label.getForeground())) {
                     pot_flash_restore = pot_label.getForeground();
                 }
@@ -287,12 +289,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             pot_label.setForeground(Color.YELLOW);
             pot_flash_timer = new javax.swing.Timer(170, e -> {
                 ((javax.swing.Timer) e.getSource()).stop();
-                // Solo se restaura si el bote sigue con NUESTRO amarillo. La ficha voladora no
-                // bloquea a quien la lanzó, así que entre el despegue y el aterrizaje puede
-                // haberle dado otro color al bote cualquiera de la docena de sitios que lo pintan
-                // (el ganador de la mano, el showdown, un cambio de tapete). Ese color es más
-                // reciente que el que capturamos al empezar el parpadeo, y restaurar el nuestro
-                // encima lo dejaría, por ejemplo, en verde sobre el panel verde del bote.
+                // Only restore if the pot still has OUR yellow. The flying chip doesn't block
+                // whoever launched it, so between takeoff and landing any of a dozen places that
+                // paint the pot (the hand winner, showdown, a felt-color change) may have set
+                // another color. That color is more recent than the one captured when the flash
+                // started, and restoring ours over it could, e.g., leave it green on the pot's
+                // green panel.
                 if (pot_flash_restore != null && Color.YELLOW.equals(pot_label.getForeground())) {
                     pot_label.setForeground(pot_flash_restore);
                 }
@@ -307,10 +309,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         });
     }
 
-    // Registra un callback que se ejecuta cuando el parpadeo del pot_label EN CURSO
-    // termine (o de inmediato si no hay ninguno corriendo). Permite esperar al fin
-    // EXACTO del flash (170ms tras el ultimo aterrizaje) sin numeros magicos: lo usa
-    // la animacion de forzadas para no ocultar el community hasta que se vea el flash.
+    // Registers a callback that runs when the pot_label's CURRENT flash ends (or right away if
+    // none is running). Lets callers await the EXACT end of the flash (170ms after the last
+    // landing) without magic numbers: used by the forced-bets animation so it doesn't hide the
+    // community cards until the flash has been seen.
     public void onPotFlashDone(Runnable cb) {
         Helpers.GUIRun(() -> {
             if (pot_flash_timer != null && pot_flash_timer.isRunning()) {
@@ -330,15 +332,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
      * cards, never driven by the pot text), NOT the label's own width: the pot row
      * drives the panel's preferred width, so fitting against the label/panel width
      * would be circular and the font would never shrink. Must run on the EDT.
+     *
+     * @param text the pot label's new text
      */
     public void setPotLabelTextFitted(String text) {
 
         Font base_font = (pot_orig_font != null) ? pot_orig_font : pot_label.getFont();
 
-        // Ancho del bloque de las 5 comunitarias (centrado dentro de cards_panel por
-        // gaps flexibles): su anchura es fija y NO depende del texto del bote, así no
-        // hay realimentación (medir el propio label, que arrastra el panel, colapsaría
-        // la fuente). 0 si aún no hay layout -> fitFontToWidth devuelve la base.
+        // Width of the 5 community cards block (centered in cards_panel by flexible gaps):
+        // fixed and NOT dependent on the pot text, so there's no feedback loop (measuring the
+        // label itself, which drives the panel's width, would collapse the font). 0 before the
+        // first layout -> fitFontToWidth just returns the base font.
         int available_width = (river.getX() + river.getWidth()) - flop1.getX();
 
         java.awt.Insets insets = pot_label.getInsets();
@@ -353,10 +357,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             available_width -= icon.getIconWidth() + pot_label.getIconTextGap();
         }
 
-        // En apuestas la bet_label (la calle) comparte fila a la derecha del bote; si
-        // está visible su ancho también cuenta para no desbordar. En el showdown /
-        // run-out (donde aparece el desglose largo) está oculta y el bote dispone de
-        // todo el ancho.
+        // During betting, bet_label (the street) shares the row to the right of the pot; if
+        // it's visible its width also counts, to avoid overflow. During showdown / run-out
+        // (where the long breakdown appears) it's hidden and the pot gets the full width.
         if (bet_label.isVisible()) {
             available_width -= bet_label.getWidth();
         }
@@ -374,9 +377,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         pot_label.setText(text);
     }
 
-    // Rodaje vivo del bote general (EDT-confined). El valor numérico rueda a velocidad
-    // constante mientras se mantienen el prefijo ("BOTE:" / RIT) y el sufijo (beneficio);
-    // el render reconstruye la cadena completa y la pasa por el auto-fit de fuente.
+    // Live roll of the main pot (EDT-confined). The numeric value rolls at constant speed
+    // while the (localized) "pot"/RIT prefix and the profit suffix stay put; the render
+    // callback rebuilds the full string and runs it through the font auto-fit.
     private RollingCounter pot_roller;
     private String pot_roll_prefix = "";
     private String pot_roll_suffix = "";
@@ -390,18 +393,18 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return pot_roller;
     }
 
-    // Rueda el bote hasta 'value' conservando prefijo/sufijo. Con animate=false (rodaje
-    // off / recover) salta de golpe. Lo invoca GameFrame.setTapeteBote(double, Double),
-    // también desde el aterrizaje de las fichas (flashPotLabelYellow) -> el número sube
-    // rodando a la vez que el flaseo amarillo (complementa, no sustituye).
+    // Rolls the pot to 'value', keeping the prefix/suffix. With animate=false (rolling off /
+    // recover) it jumps straight there. Called from GameFrame.setTapeteBote(double, Double)
+    // and also when chips land (flashPotLabelYellow) -> the number rolls up alongside the
+    // yellow flash (complements it, doesn't replace it).
     public void rollPotValue(String prefix, double value, String suffix, boolean animate) {
         this.pot_roll_prefix = prefix;
         this.pot_roll_suffix = suffix;
         potRoller().roll(value, animate);
     }
 
-    // Fija un texto NO numérico del bote ("---", desglose RIT...): invalida el roller
-    // (el próximo rodaje saltará en vez de animar desde un valor que ya no aplica).
+    // Sets a NON-numeric pot text ("---", RIT breakdown...): invalidates the roller so the
+    // next roll jumps instead of animating from a value that no longer applies.
     public void setPotTextImmediate(String text) {
         potRoller().invalidate();
         setPotLabelTextFitted(text);
@@ -409,20 +412,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     public void restoreBetLabelicon() {
 
-        // El bet_label ya no lleva icono (muestra solo la calle): nos aseguramos de
-        // que quede sin icono al reiniciar la mano. Para volver a mostrar el icono
-        // del bote en el bet_label, reponer aquí (y en zoomIcons / runWhenLaidOut) el
-        // setScaledIconLabel(bet_label, "/images/pot.png", ...).
+        // bet_label no longer carries an icon (it shows only the street): make sure it stays
+        // icon-less when the hand resets. To bring the pot icon back on bet_label, restore the
+        // setScaledIconLabel(bet_label, "/images/pot.png", ...) call here (and in zoomIcons /
+        // runWhenLaidOut).
         Helpers.GUIRun(() -> {
             bet_label.setIcon(null);
         });
     }
 
-    /**
-     * Creates new form CommunityCards
-     */
-    // Ficha del straddle a la derecha del blinds_label (mismo panel), a la MISMA altura
-    // que el icono de ciegas. Visible solo con straddle activo.
+    // Straddle chip to the right of blinds_label (same panel), at the SAME height as the
+    // blinds icon. Visible only while a straddle is active.
     private javax.swing.JLabel straddle_label;
 
     public void refreshStraddleIcon() {
@@ -430,13 +430,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             return;
         }
         if (GameFrame.STRADDLE) {
-            // Altura tomada del icono de ciegas YA colocado (blinds_label), no recalculada
-            // desde pot_label.getHeight(): esa altura deriva por la realimentación
-            // icono->layout del pot_label y puede crecer entre el setup inicial y una
-            // llamada posterior (p.ej. refreshStraddleIcon al fijar las ciegas tras
-            // repartir), haciendo que el straddle "creciera" respecto a las ciegas.
-            // Anclarlo al icono de ciegas los mantiene SIEMPRE iguales. Fallback a
-            // 0.8*pot_label solo si el icono de ciegas aún no está puesto.
+            // Height taken from the blinds icon that's ALREADY placed (blinds_label), not
+            // recomputed from pot_label.getHeight(): that height derives from pot_label's
+            // icon->layout feedback loop and can grow between the initial setup and a later
+            // call (e.g. refreshStraddleIcon when blinds are set after dealing), which would
+            // make the straddle icon "grow" relative to the blinds one. Anchoring to the blinds
+            // icon keeps them ALWAYS equal. Falls back to 0.8*pot_label only if the blinds icon
+            // isn't set yet.
             int h = -1;
             javax.swing.Icon ciegas = blinds_label.getIcon();
             if (ciegas != null && ciegas.getIconHeight() > 0) {
@@ -451,13 +451,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         straddle_label.setVisible(GameFrame.STRADDLE);
     }
 
+    /**
+     * Creates the panel: initializes the generated components, adds the straddle icon (not
+     * part of the .form) and wires the hand-limit spinner and the zoom-debounce timer.
+     */
     public CommunityCardsPanel() {
         Helpers.GUIRunAndWait(() -> {
             initComponents();
 
-            // straddle_label no esta en el .form: se crea aqui y se reconstruye el layout
-            // del blinds_panel para colocarlo a la derecha del blinds_label, centrado en
-            // vertical (misma linea que el icono de ciegas y el texto).
+            // straddle_label isn't in the .form: created here, rebuilding blinds_panel's
+            // layout to place it right of blinds_label, vertically centered (same line as the
+            // blinds icon and text).
             straddle_label = new javax.swing.JLabel();
             straddle_label.setFocusable(false);
             straddle_label.setVisible(false);
@@ -471,18 +475,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     .addComponent(blinds_label)
                     .addComponent(straddle_label));
 
-            // La altura del panel NO debe cambiar cuando hand_label se oculta en
-            // el showdown / entre manos: comparte la fila inferior del GroupLayout
-            // y al hacerse invisible el layout dejaba de reservarle altura, la
-            // fila encogía unos píxeles y el panel daba un salto vertical.
-            // honorsVisibility=false hace que su layout reserve SIEMPRE el espacio
-            // (su preferred size, que escala con el zoom — no es una altura fija).
-            // NOTA: NO se aplica a bet_label. bet_label comparte su fila horizontal
-            // con pot_panel (pot_panel crece a MAX, luego gap, luego bet_label), y
-            // reservarle el ancho cuando se oculta impediría que la pot_label se
-            // expanda a TODO el ancho en el showdown. Como bet_label y pot_label
-            // tienen la misma fuente/icono/borde vertical, ocultar bet_label no
-            // altera la altura de esa fila, así que no necesita el honorsVisibility.
+            // The panel's height must NOT change when hand_label hides during showdown / between
+            // hands: it shares the GroupLayout's bottom row, and once invisible the layout
+            // stopped reserving it space, shrinking the row a few pixels and causing a vertical
+            // jump. honorsVisibility=false makes the layout ALWAYS reserve its space (its
+            // preferred size, which scales with zoom — not a fixed height).
+            // NOTE: NOT applied to bet_label. bet_label shares its horizontal row with pot_panel
+            // (pot_panel grows to MAX, then a gap, then bet_label), and reserving its width while
+            // hidden would stop pot_label from expanding to the FULL width during showdown. Since
+            // bet_label and pot_label share the same font/icon/vertical border, hiding bet_label
+            // doesn't change that row's height, so it needs no honorsVisibility.
             ((javax.swing.GroupLayout) hand_panel.getLayout()).setHonorsVisibility(hand_label, false);
 
             Helpers.translateComponents(this, false);
@@ -514,9 +516,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         });
 
         Helpers.runWhenLaidOut(pot_label, () -> {
-            // Guard: el Timer interno de runWhenLaidOut (2s safety net) puede dispararse
-            // tras GameFrame.resetInstance() — getCapa_brillo() lanzaria NPE. En cleanup
-            // simplemente no hay nada que pintar.
+            // Guard: runWhenLaidOut's internal Timer (2s safety net) can still fire after
+            // GameFrame.resetInstance() — getCapa_brillo() would then throw an NPE. During
+            // cleanup there's simply nothing left to paint.
             if (GameFrame.getInstance() == null) {
                 return;
             }
@@ -527,7 +529,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
             Helpers.setScaledIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
             Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
-            // bet_label sin icono (muestra solo la calle). Para reponerlo: setScaledIconLabel(bet_label, "/images/pot.png", ...).
+            // bet_label has no icon (shows only the street). To bring it back: setScaledIconLabel(bet_label, "/images/pot.png", ...).
             Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
             refreshStraddleIcon();
             refreshLightsIcon();
@@ -537,11 +539,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     }
 
-    // ÚNICO sitio que decide qué icono luce el interruptor: encendido si no hay velo, apagado si
-    // lo hay. Lo llaman el clic, los apagados automáticos y el re-escalado de iconos del tapete.
-    // Los dos iconos se escalan una vez por altura de fila y se guardan: antes cada encendido y
-    // cada apagado (incluidos los de la pausa, el game over y el recover) pagaba una decodificación
-    // del PNG y un escalado suavizado en el EDT.
+    // The ONLY place that decides which icon the switch shows: on if there's no dimming veil,
+    // off if there is. Called by the click handler, automatic dimming, and the table's icon
+    // rescale. Both icons are scaled once per row height and cached: before, every on and off
+    // (including pause, game-over and recover) paid for a PNG decode and a smoothed scale on
+    // the EDT.
     public void refreshLightsIcon() {
         Helpers.GUIRun(() -> {
 
@@ -1005,17 +1007,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             return;
         }
 
-        // Abre el diálogo unificado "Ajustes" (pestañas Apariencia / Audio / Partida).
+        // Opens the unified "Settings" dialog (Appearance / Audio / Game tabs).
         GameFrame.getInstance().openSettingsDialog();
     }
 
     private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
         // TODO add your handling code here:
 
-        // evt == null es la invocación programática (hand_label_left_click /
-        // hand_label_right_click, que fijan hand_label_click_type): se deja pasar.
-        // Para un evento real exigimos que el botón se haya soltado DENTRO del
-        // componente (migrado a mouseReleased para no perder clics con micro-arrastre).
+        // evt == null is the programmatic invocation (hand_label_left_click /
+        // hand_label_right_click, which set hand_label_click_type): let it through. For a real
+        // event we require the button to have been released INSIDE the component (migrated to
+        // mouseReleased so a tiny drag doesn't drop the click).
         if (evt != null && !Helpers.isReleaseInsideComponent(evt)) {
             return;
         }
@@ -1135,10 +1137,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (!GameFrame.getInstance().getCrupier().isIwtsthing() && !(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && (GameFrame.getInstance().isPartida_local()) && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
 
-            // El host puede pausar cuando quiera durante la partida: se elimina el popup de
-            // confirmacion "¿pausar ahora mismo?" y se pausa AL MOMENTO (equivale a responder "Si").
-            // El resto de la logica del boton (auto-pausa en el turno propio de los clientes, etc.)
-            // queda intacta; pause_now == 0 activa la rama de pausa inmediata de abajo.
+            // The host can pause whenever they want during the game: no "pause right now?"
+            // confirmation popup, it pauses IMMEDIATELY (as if "Yes" had been clicked). The
+            // rest of the button's logic (clients auto-pausing on their own turn, etc.) is
+            // unchanged; pause_now == 0 triggers the immediate-pause branch below.
             pause_now = 0;
 
         } else if (GameFrame.getInstance().getCrupier().isIwtsthing()) {
@@ -1207,23 +1209,23 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void lights_labelMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_lights_labelMouseReleased
         // TODO add your handling code here:
 
-        // Durante la pausa el botón de luces está deshabilitado: ignora tanto el
-        // clic (el JLabel deshabilitado no debería recibirlo, pero por si acaso)
-        // como el atajo Alt+L, que entra por lightsButtonClick con evt == null.
+        // The lights button is disabled during a pause: ignore both the click (a disabled
+        // JLabel shouldn't receive it, but just in case) and the Alt+L shortcut, which comes
+        // in through lightsButtonClick with evt == null.
         if (!lights_label.isEnabled()) {
             return;
         }
 
-        // El interruptor solo ocupa la parte izquierda de su etiqueta, así que el clic vale
-        // únicamente dentro del dibujo. Se mide el icono QUE HAY PUESTO en vez de recalcular la
-        // fórmula con la que se escaló (que vive en refreshLightsIcon): así no pueden divergir.
-        // Sin icono todavía no hay interruptor que pulsar; el atajo (evt == null) entra igual.
+        // The switch only occupies the left part of its label, so the click only counts inside
+        // the drawing. It measures the icon that's ACTUALLY SET rather than recomputing the
+        // formula it was scaled with (which lives in refreshLightsIcon), so they can't diverge.
+        // With no icon yet there's no switch to click; the shortcut (evt == null) still applies.
         final javax.swing.Icon lights_icon = lights_label.getIcon();
 
         if (evt == null || (lights_icon != null && new Rectangle(lights_icon.getIconWidth(), lights_icon.getIconHeight()).contains(evt.getPoint()))) {
-            // Conmuta lo que el JUGADOR tiene pedido, no el velo que se ve: si la partida está
-            // forzando el velo por su cuenta (una pausa, un game over), el interruptor sigue
-            // representando su elección y no se queda invertido al levantarse ese velo.
+            // Toggles what the PLAYER has requested, not the veil currently shown: if the game
+            // is forcing the veil on its own (a pause, a game-over), the switch keeps
+            // representing the player's choice and doesn't end up inverted once that veil lifts.
             if (GameFrame.getInstance().getCapa_brillo().isUserLightsOff()) {
 
                 if (GameFrame.interruptorSonidoOn()) {
@@ -1249,8 +1251,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             return;
         }
 
-        // Al hacer clic en las ciegas del tapete no debe pasar nada: las ciegas se
-        // editan ahora desde la pestaña "Partida" del diálogo unificado de ajustes.
+        // Clicking the blinds on the table should do nothing: blinds are now edited from the
+        // "Game" tab of the unified settings dialog.
     }//GEN-LAST:event_blinds_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -1284,11 +1286,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         Helpers.threadRun(() -> {
 
-            // awaitFirstLayout (no while-pausar polling): se bloquea off-EDT con
-            // un ComponentListener one-shot hasta que pot_label tenga altura > 0.
-            // Mantenemos el threadRun + lock pattern porque zoom_lock también lo
-            // toma zoom() (línea ~987) que llama GUIRunAndWait — tomar el lock
-            // desde EDT aquí podría deadlockear con esa ruta.
+            // awaitFirstLayout (no while-pausar polling): blocks off-EDT with a one-shot
+            // ComponentListener until pot_label's height is > 0. Keeps the threadRun + lock
+            // pattern because zoom_lock is also taken by zoom() (below), which calls
+            // GUIRunAndWait — taking the lock from the EDT here could deadlock with that path.
             try {
                 Helpers.awaitFirstLayout(pot_label);
             } catch (InterruptedException ie) {
@@ -1308,13 +1309,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     panel_barra.setVisible(true);
                     Helpers.setScaledIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
                     Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
-                    // bet_label sin icono (muestra solo la calle). Para reponerlo: setScaledIconLabel(bet_label, "/images/pot.png", ...).
+                    // bet_label has no icon (shows only the street). To bring it back: setScaledIconLabel(bet_label, "/images/pot.png", ...).
                     refreshLightsIcon();
                     Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
                     refreshStraddleIcon();
-                    // Re-ajusta la fuente del bote al nuevo zoom: el icono ya está
-                    // puesto y el layout de las comunitarias rehecho, así que si el
-                    // desglose largo de botes laterales no cabe a tamaño base, encoge.
+                    // Re-fits the pot font to the new zoom: the icon is already set and the
+                    // community-cards layout already redone, so if a long side-pot breakdown
+                    // doesn't fit at base size, it shrinks.
                     setPotLabelTextFitted(pot_label.getText());
                 });
             }
@@ -1355,10 +1356,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 lights_label.setIcon(null);
                 blinds_label.setIcon(null);
 
-                // Si el autofit tenía encogido el bote, restauramos su fuente base
-                // ANTES de zoomFonts para que escale la fuente real (no la ya
-                // encogida). El re-ajuste al nuevo zoom lo hace zoomIcons, cuando el
-                // layout de las comunitarias ya está rehecho.
+                // If auto-fit had the pot font shrunk, restore its base font BEFORE zoomFonts
+                // so it scales the real font, not the already-shrunk one. zoomIcons does the
+                // re-fit for the new zoom once the community-cards layout is redone.
                 if (pot_orig_font != null) {
                     pot_label.setFont(pot_orig_font);
                     pot_orig_font = null;

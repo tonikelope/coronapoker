@@ -48,6 +48,11 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 
 /**
+ * In-game log console: a translucent, borderless HUD showing {@link #LOG_TEXT} (the
+ * hand-by-hand plain-text log) with syntax highlighting — cards, amounts, balance
+ * tables and result lines — rendered into a styled {@link JTextPane} that replaces the
+ * generated plain {@code JTextArea}. One instance is reused for the session; hiding it
+ * just calls {@code setVisible(false)}, it's never disposed.
  *
  * @author tonikelope
  */
@@ -57,10 +62,10 @@ public final class GameLogDialog extends JDialog {
     private static volatile String LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + " " + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
     private volatile boolean auto_scroll = true;
     private volatile boolean fin_transmision = false;
-    // El tamaño/posición por defecto (1280x720 centrado) se aplica solo la PRIMERA
-    // vez que se abre este diálogo; cerrarlo solo lo oculta (no se destruye), así
-    // que reaperturas posteriores conservan lo que el usuario haya redimensionado
-    // o movido.
+    // Tracks whether the default size/position (set by the caller, e.g. GameFrame's
+    // 1280x720 centered default) has already been applied once. The dialog is only
+    // hidden on close, never disposed, so later reopens keep whatever the user resized
+    // or moved it to instead of resetting every time.
     private volatile boolean default_bounds_applied = false;
     private final Object log_lock = new Object();
     private BottomFollower main_follow;
@@ -75,15 +80,15 @@ public final class GameLogDialog extends JDialog {
     private JTextPane log_pane;
     private JCheckBoxMenuItem transparent_menu;
 
-    // Barra de titulo propia: control de maximizar/restaurar (la ventana es sin
-    // bordes, ver setupTitleBar). El icono se dibuja segun el estado y este se
-    // deriva de si los bounds cubren el area de trabajo del monitor. normal_bounds
-    // guarda el tamano/posicion previos para poder restaurar.
+    // Custom title bar's maximize/restore control (the window is undecorated, see
+    // setupTitleBar). Its icon is repainted from the "maximized" state, which is derived
+    // from whether the current bounds cover the monitor's work area. normal_bounds
+    // remembers the pre-maximize size/position so it can be restored.
     private javax.swing.JLabel max_btn;
     private java.awt.Rectangle normal_bounds;
 
     // Console look (PowerShell-ish): near-black background + a monospaced font,
-    // shared with the Debug console in Ajustes (DebugSettingsPanel) — package-visible.
+    // shared with the Debug console in Settings (DebugSettingsPanel) — package-visible.
     static final Color LOG_BG = new Color(12, 12, 12);
     static final Font LOG_FONT = new Font("Consolas", Font.PLAIN, 20);
 
@@ -95,7 +100,7 @@ public final class GameLogDialog extends JDialog {
         return s;
     }
 
-    // Variante con color de FONDO (banda): para los errores más graves (letras claras sobre rojo).
+    // Background-color variant (a highlighted band): used for the most severe errors (light text on red).
     private static SimpleAttributeSet logStyle(Color fg, Color bg, boolean bold, boolean italic) {
         SimpleAttributeSet s = logStyle(fg, bold, italic);
         StyleConstants.setBackground(s, bg);
@@ -118,8 +123,8 @@ public final class GameLogDialog extends JDialog {
     private static final SimpleAttributeSet ST_ALERT = logStyle(new Color(255, 80, 80), true, false);
     private static final SimpleAttributeSet ST_BLIND = logStyle(new Color(235, 205, 80), true, false);
     private static final SimpleAttributeSet ST_RIT = logStyle(new Color(200, 150, 235), true, false);
-    // Errores MÁS GRAVES (mano anulada / violaciones de seguridad e integridad): letras BLANCAS
-    // sobre FONDO ROJO (banda), el resalte más fuerte del registro.
+    // Most severe errors (a canceled hand / security & integrity violations): WHITE text
+    // on a RED background band, the log's strongest highlight.
     private static final SimpleAttributeSet ST_CRITICAL = logStyle(new Color(255, 255, 255), new Color(170, 20, 20), true, false);
 
     // [A♠], [10♥] — a bracketed card token (value + suit).
@@ -139,12 +144,9 @@ public final class GameLogDialog extends JDialog {
     // aligned (fixed-width marker). Tokens:
     //   "(##)" column-header row (NICK/STACK/BUYIN labels, blank marker)
     //   "(D )" dealer  "(SB)" small blind  "(BB)" big blind  "(  )" no role
-    //   "(ST)" straddle  "(DS)" dealer+straddle (3-manos: el dealer es el UTG)
-    //   "($$)" the AUDITOR DE CUENTAS totals line (money icon)
+    //   "(ST)" straddle  "(DS)" dealer+straddle (3-handed: the dealer acts as UTG)
+    //   "($$)" the account-auditor totals line (money icon)
     // Data rows are monospace-padded columns: nick / stack / buyin.
-    // The two trailing right-justified numeric columns (stack, buyin), anchored at
-    // the end so a nick containing digits can't be mistaken for them.
-    private static final Pattern BALANCE_NUMS = Pattern.compile("\\s{2,}(\\S+)\\s{2,}(\\S+)\\s*$");
     private static final int ROLE_ICON_PX = 17;
     private static final int ROLE_MARKER_W = 26;
     private static javax.swing.ImageIcon ROLE_DEALER, ROLE_SB, ROLE_BB, ROLE_MONEY, ROLE_STRADDLE, ROLE_DEALER_STRADDLE;
@@ -208,9 +210,10 @@ public final class GameLogDialog extends JDialog {
         appendNormalLine(doc, line, null);
     }
 
-    // forcedBase != null fuerza el color base de la linea (la tabla MULTIVERSO la
-    // pinta atenuada) saltandose lineBaseStyle; los overlays de cartas / importes /
-    // placeholder siguen aplicandose igual.
+    // forcedBase, when non-null, overrides the per-line base style instead of deriving it
+    // from lineBaseStyle(line); card/amount/placeholder overlays still apply on top. No
+    // caller currently passes a non-null value (the base color always comes from
+    // lineBaseStyle); kept as a hook for a future forced-style caller.
     private void appendNormalLine(StyledDocument doc, String line, SimpleAttributeSet forcedBase) {
         int len = line.length();
         if (len == 0) {
@@ -282,11 +285,11 @@ public final class GameLogDialog extends JDialog {
     // token for a small icon (role / money / blank) in the LEFT GUTTER (outside the
     // box, fixed width so the grid stays aligned whatever the role), then renders
     // the rest:
-    //   "(##)" -> bordes / cabecera / separadores de la rejilla, todo atenuado.
-    //   "(MV)" -> fila MULTIVERSO: rejilla atenuada + contenido atenuado + cartas
-    //             como fichas a la derecha del marco.
-    //   resto  -> fila de cuentas / totales / aviso del auditor: rejilla atenuada +
-    //             contenido en color normal (importes en ambar).
+    //   "(##)" -> grid borders / header / separators, all dimmed.
+    //   "(MV)" -> MULTIVERSO row: dimmed grid + dimmed content + cards rendered as
+    //             chips to the right of the frame.
+    //   other  -> balance/totals/auditor-warning row: dimmed grid + normal-color
+    //             content (amounts in amber).
     private void appendBalanceRow(StyledDocument doc, String line) throws BadLocationException {
         String token = line.substring(0, 4);
         String rest = line.substring(4);
@@ -300,15 +303,14 @@ public final class GameLogDialog extends JDialog {
         appendGridLine(doc, rest, token.equals("(MV)") ? ST_DIM : balanceContentStyle(rest));
     }
 
-    // Colorea la fila de la tabla final de resultados (NICK / RESULTADO) según su
-    // última celda: ST_WIN (verde) si el jugador GANA, ST_LOSS (rojo) si PIERDE,
-    // ST_DEFAULT (blanco) si queda igual. Mira SOLO la celda de RESULTADO (la
-    // última, entre los dos últimos '│') para no teñir la fila por un nick que
-    // contenga esas palabras (en español "NI GANA NI PIERDE" contiene ambas), y casa
-    // la frase en el idioma activo y en inglés (igual que categoryRules) para
-    // funcionar en cualquier idioma. Las demás tablas con marcador (cuentas por mano
-    // NICK/STACK/BUYIN, totales del auditor) no llevan estas frases en su última
-    // celda, así que se quedan en ST_DEFAULT como antes.
+    // Colors the final results table's row (NICK / RESULT) by its last cell: ST_WIN
+    // (green) on a win, ST_LOSS (red) on a loss, ST_DEFAULT (white) otherwise. Only the
+    // RESULT cell (last, between the final two '│') is inspected, so a nick containing
+    // one of these words can't mis-tint the row (Spanish "NI GANA NI PIERDE" contains
+    // both "gana" and "pierde"); matches both the active language and English, like
+    // categoryRules, to work in any language. Other marker tables (per-hand
+    // NICK/STACK/BUYIN, auditor totals) don't carry these phrases in their last cell, so
+    // they stay ST_DEFAULT as before.
     private static SimpleAttributeSet balanceContentStyle(String rest) {
         int last = rest.lastIndexOf('│');
         if (last <= 0) {
@@ -338,10 +340,10 @@ public final class GameLogDialog extends JDialog {
     }
 
     // Renders a table line where the box-drawing characters (the grid: ─│┌┐└┘├┤┬┴┼,
-    // rango Unicode U+2500..U+257F) van atenuados y el resto en `contentStyle`. Los
-    // importes entre parentesis se pintan en ambar (dinero / bote sobrante) y los
-    // tokens de carta [A♠] se insertan como fichas — asi una tabla con bordes
-    // conserva las fichas y resalta el importe.
+    // Unicode range U+2500..U+257F) are dimmed and the rest uses `contentStyle`.
+    // Parenthesized amounts are painted amber (money / leftover pot) and [A♠] card
+    // tokens are inserted as chips, so a bordered table still shows card chips and
+    // highlights the amount.
     private void appendGridLine(StyledDocument doc, String line, SimpleAttributeSet contentStyle) {
         int len = line.length();
         if (len == 0) {
@@ -433,9 +435,10 @@ public final class GameLogDialog extends JDialog {
         }
     }
 
-    // Los iconos de rol se encajan en un cuadrado de ROLE_ICON_PX SIN deformarse: los de dealer y
-    // ciegas son cuadrados en origen (350x350) pero el de fichas del AUDITOR DE CUENTAS es
-    // apaisado (287x211), y forzarlo al cuadrado lo estrechaba a tres cuartas partes de su ancho.
+    // Role icons are fit into a ROLE_ICON_PX square WITHOUT distortion: the dealer and
+    // blind icons are square source images (350x350), but the account-auditor chips icon
+    // is landscape (287x211) — forcing it into a square would squeeze it to three quarters
+    // of its width.
     private static javax.swing.ImageIcon scaledRoleIcon(String resource) {
         javax.swing.ImageIcon raw = new javax.swing.ImageIcon(GameLogDialog.class.getResource(resource));
 
@@ -491,11 +494,11 @@ public final class GameLogDialog extends JDialog {
             return ST_HEADER;
         }
         String t = line.stripLeading();
-        // Titulos enmarcados con caracteres de caja (en vez de tiras de asteriscos):
-        // marco SIMPLE (┌─┐/│/└) -> estilo de cabecera (cian); marco DOBLE (╔═╗/║/╚)
-        // -> estilo de alerta (rojo, p. ej. parada del server). Las tablas con bordes
-        // (cuentas/MULTIVERSO) NO llegan aqui (van por appendBalanceRow al llevar
-        // token), asi que esta deteccion por caracter de caja inicial no colisiona.
+        // Titles framed with box-drawing characters (instead of a row of asterisks):
+        // a SINGLE frame (┌─┐/│/└) -> header style (cyan); a DOUBLE frame (╔═╗/║/╚) ->
+        // alert style (red, e.g. server shutdown). Bordered tables (balance/MULTIVERSO)
+        // never reach here — they carry a marker token and go through appendBalanceRow —
+        // so this leading-box-character check can't collide with them.
         if (!t.isEmpty()) {
             char c0 = t.charAt(0);
             if (c0 == '╔' || c0 == '║' || c0 == '╚') {
@@ -523,23 +526,24 @@ public final class GameLogDialog extends JDialog {
     private static volatile String CATEGORY_RULES_LANG;
 
     // Maps a translated marker phrase -> line style, built from the SAME Translator
-    // the app uses, so detection works in ANY language without touching the 65 print
-    // callsites. Priority = list order (first match wins). Las reglas se registran
-    // en el idioma ACTIVO (+ inglés forzado); si el usuario cambia de idioma en la
-    // misma sesión (p. ej. juega una timba en inglés y otra en español) hay que
-    // RECONSTRUIRLAS, porque si no las frases del nuevo idioma no casarían y la línea
-    // saldría sin color (blanca). Por eso se cachea junto al idioma con el que se
-    // construyó y se rehace en cuanto GameFrame.LANGUAGE cambia.
+    // the app uses, so detection works in ANY language without touching every print()
+    // call site. Priority = list order (first match wins). Rules are registered in the
+    // ACTIVE language (plus forced English); if the user switches language mid-session
+    // (e.g. plays one session in English, another in Spanish) they must be REBUILT, or
+    // the new language's phrases wouldn't match and the line would render uncolored
+    // (white). Hence the cache is keyed on the language it was built with and rebuilt as
+    // soon as GameFrame.LANGUAGE changes.
     private static java.util.List<Object[]> categoryRules() {
         java.util.List<Object[]> rules = CATEGORY_RULES;
         if (rules == null || !java.util.Objects.equals(CATEGORY_RULES_LANG, GameFrame.LANGUAGE)) {
             rules = new java.util.ArrayList<>();
-            // Errores MÁS GRAVES → banda de FONDO ROJO y letras blancas (ST_CRITICAL): la mano
-            // anulada (misdeal, el error de mano más grave; casa por su cabecera "MANO ANULADA") y
-            // las violaciones de seguridad / integridad — zero_trust (incluidos los motivos de
-            // misdeal por seguridad, los mismos que disparan la sirena y abortAndExit), la
-            // verificación criptográfica de la mano y la firma de acción inválida. El resto de
-            // aborts (peer/protocolo, straddle, rit) son rutinarios y NO se resaltan.
+            // Most severe errors -> red-background band with white text (ST_CRITICAL): a
+            // canceled hand (misdeal, the worst hand-level error; matched by its "HAND
+            // CANCELED" header) and security/integrity violations — zero_trust (including
+            // the security misdeal reasons, the same ones that trigger the siren and
+            // abortAndExit), the hand's cryptographic verification and an invalid action
+            // signature. Other aborts (peer/protocol, straddle, RIT) are routine and are
+            // NOT highlighted.
             for (String k : new String[]{"game.mano_anulada",
                 "zero_trust.security_alert", "zero_trust.suspicious_alert", "zero_trust.peer_alert", "zero_trust.lockdown_activated",
                 "zero_trust.cascade_refused", "zero_trust.card_resolve_failed", "zero_trust.pocket_unlock_refused", "zero_trust.community_unlock_refused",
@@ -547,15 +551,15 @@ public final class GameLogDialog extends JDialog {
                 "game.mano_verificacion_host_sin_prueba", "game.firma_accion_invalida"}) {
                 addCategoryRule(rules, k, ST_CRITICAL);
             }
-            // Consenso + las dos líneas del barajado (verde "verificado", amarillo "sin verificar
-            // todavía"). Llevan el ordinal {0}, pero addCategoryRule ya casa por el prefijo fijo.
+            // Consensus + the two shuffle lines (green "verified", yellow "not verified yet").
+            // These carry the {0} ordinal, but addCategoryRule already matches on the fixed prefix.
             addCategoryRule(rules, "game.mano_verificada_consenso", ST_WIN);
             addCategoryRule(rules, "game.barajado_verificado", ST_WIN);
             addCategoryRule(rules, "game.barajado_pendiente", ST_BLIND);
-            // Recover: acciones reproducidas por el host que ocurrieron durante la ausencia del jugador
-            // (posteriores a su ultima accion registrada). Aviso SUAVE de precaucion -> TEXTO ROJO
-            // (ST_ALERT), el nivel que corresponde a los avisos suaves; el blanco-sobre-fondo-rojo
-            // (ST_CRITICAL) queda reservado a los errores graves. No se acusa a nadie, la mano continua.
+            // Recover: actions replayed by the host that happened while the player was away
+            // (after their last recorded action). A mild caution notice -> RED TEXT (ST_ALERT),
+            // the level reserved for soft warnings; white-on-red (ST_CRITICAL) is reserved for
+            // severe errors. Nobody is accused and the hand continues.
             addCategoryRule(rules, "game.recover_accion_ausencia", ST_ALERT);
             for (String k : new String[]{"game.gana_bote_2", "game.gana_bote_principal", "game.gana_bote_secundario", "game.gana_bote"}) {
                 addCategoryRule(rules, k, ST_WIN);
@@ -574,21 +578,22 @@ public final class GameLogDialog extends JDialog {
     }
 
     private static void addCategoryRule(java.util.List<Object[]> rules, String key, SimpleAttributeSet style) {
-        // Registra el marcador en el idioma ACTIVO y tambien en INGLES forzado (alguna linea del
-        // registro puede salir en un idioma distinto al de construccion de las reglas). El marcador
-        // es la frase hasta el primer "{": asi las claves con {0} (p. ej. el ordinal de mano) casan
-        // por su PREFIJO fijo, ya que la linea real lleva el valor formateado y no el placeholder
-        // (sin esto, cualquier mensaje de categoria con {0} quedaba SIN color).
+        // Registers the marker in the ACTIVE language and also in forced ENGLISH (some log
+        // lines can be printed in a language other than the one the rules were built with).
+        // The marker is the phrase up to the first "{": keys with {0} (e.g. the hand ordinal)
+        // then match on their fixed PREFIX, since the real line carries the formatted value,
+        // not the placeholder (without this, any category message with {0} rendered uncolored).
         addCategoryPhrase(rules, Translator.translate(key), key, style);
         addCategoryPhrase(rules, Translator.translate(key, true), key, style);
     }
 
     private static void addCategoryPhrase(java.util.List<Object[]> rules, String phrase, String key, SimpleAttributeSet style) {
         if (phrase == null || phrase.equals(key)) {
-            return; // clave no encontrada (translate devuelve la propia clave)
+            return; // key not found (translate() returns the key itself)
         }
-        // Marca solo la PRIMERA línea: las claves multilínea (p. ej. "MANO ANULADA\n\nMOTIVO:") se
-        // imprimen troceadas por \n, así que el marcador debe ser esa primera línea para casar.
+        // Only the FIRST line is used as the marker: multi-line keys (e.g. "HAND
+        // CANCELED\n\nREASON:") are printed split on \n, so the marker must be that first
+        // line to match.
         int nl = phrase.indexOf('\n');
         if (nl >= 0) {
             phrase = phrase.substring(0, nl);
@@ -598,25 +603,26 @@ public final class GameLogDialog extends JDialog {
             phrase = phrase.substring(0, brace);
         }
         phrase = phrase.trim();
-        // El marcador se detecta con line.contains(phrase) sobre el texto YA renderizado.
-        // Algunas claves de bote arrancan con puntuacion que el pipeline de render
-        // TRANSFORMA y que por tanto NO sobrevive a un re-render del registro:
-        //   ") GANA BOTE ... ("     -> el ")" es el cierre del parentesis de las hole-cards
-        //                              del GANADOR, que CARD_PAREN borra al pintar las cartas
-        //                              como fichas (asi el ganador NUNCA salia en verde).
-        //   "(---) PIERDE BOTE ... (" -> el "(---)" es el placeholder del PERDEDOR, que
-        //                              actualizarCartasPerdedores sustituye por las cartas
-        //                              reveladas tras el showdown (asi el perdedor salia en
-        //                              rojo la 1a vez y en BLANCO al re-renderizar).
-        // Descartamos ese prefijo inestable y nos quedamos con el nucleo estable
-        // ("GANA BOTE ... (", "PIERDE BOTE ... (") — presente igual en el primer print y en
-        // el re-render. El "(" final se conserva: es el del importe (que SI sobrevive) y da
-        // especificidad al marcador.
+        // The marker is detected with line.contains(phrase) against the ALREADY RENDERED
+        // text. Some pot-related keys start with punctuation that the render pipeline
+        // TRANSFORMS, so it doesn't survive a log re-render:
+        //   ") WINS POT ... ("       -> the ")" is the closing paren of the WINNER's hole
+        //                              cards, which CARD_PAREN strips when painting the
+        //                              cards as chips (so the winner would never render
+        //                              green).
+        //   "(---) LOSES POT ... (" -> the "(---)" is the LOSER's placeholder, which
+        //                              actualizarCartasPerdedores replaces with the
+        //                              revealed showdown cards (so the loser rendered red
+        //                              the first time but WHITE on re-render).
+        // That unstable prefix is dropped, keeping the stable core ("WINS POT ... (",
+        // "LOSES POT ... (") present identically on the first print and on re-render. The
+        // trailing "(" is kept: it's the amount's opening paren (which DOES survive) and
+        // gives the marker specificity.
         phrase = phrase.replaceFirst("^\\((?:---|\\*\\*\\*)\\)\\s*", "").replaceFirst("^\\)\\s*", "").trim();
         if (phrase.length() >= 3) {
             for (Object[] r : rules) {
                 if (phrase.equals(r[0])) {
-                    return; // ya registrada (misma frase en ambos idiomas)
+                    return; // already registered (same phrase in both languages)
                 }
             }
             rules.add(new Object[]{phrase, style});
@@ -630,13 +636,13 @@ public final class GameLogDialog extends JDialog {
     // initComponents() already pack()'d the dialog (making it displayable), so we
     // dispose() once before setUndecorated(true); the constructor's final pack()
     // re-realizes it and it is never shown in between. Custom chrome replaces the
-    // lost native frame: menu-bar drag, a bottom-right resize grip and a Close item.
+    // lost native frame: menu-bar drag, four corner resize grips and a Close item.
     private void setupLogPane() {
-        // El incremento de unidad de JTextComponent es visibleRect.height / 10,
-        // así que cada muesca de rueda mueve ~3 × (1/10 del viewport): varias
-        // líneas, y más cuanto mayor sea la ventana. Lo fijamos a la altura de
-        // una línea para que la rueda avance las líneas que indique el sistema
-        // (3 en Windows) sea cual sea el tamaño del panel, como un editor normal.
+        // JTextComponent's default unit increment is visibleRect.height / 10, so each
+        // wheel notch moves ~3 x (1/10 of the viewport): several lines, more the bigger
+        // the window. Pin it to one line's height instead so the wheel scrolls the
+        // system's configured line count (3 on Windows) regardless of panel size, like a
+        // normal text editor.
         log_pane = new JTextPane() {
             @Override
             public int getScrollableUnitIncrement(java.awt.Rectangle visibleRect, int orientation, int direction) {
@@ -659,7 +665,7 @@ public final class GameLogDialog extends JDialog {
         getRootPane().setOpaque(true);
         getRootPane().setBackground(LOG_BG);
 
-        // Transparency = 90% opacity (works because the window is undecorated). ON by default.
+        // Transparency = 95% opacity (works because the window is undecorated). ON by default.
         transparent_menu = new JCheckBoxMenuItem();
         transparent_menu.setFont(new Font("Dialog", Font.PLAIN, 14));
         transparent_menu.setText("Transparente");
@@ -668,10 +674,9 @@ public final class GameLogDialog extends JDialog {
         transparent_menu.addActionListener(evt -> applyLogOpacity(transparent_menu.isSelected()));
         opciones_menu.add(transparent_menu);
 
-        // Mover el HUD arrastrando el menú (y su tira de relleno) o la barra de
-        // título (ver setupTitleBar). Basado en coordenadas de pantalla para que
-        // funcione sea cual sea el subcomponente que dispare el evento. El botón de
-        // cerrar (X) vive ahora en la barra de título.
+        // Move the HUD by dragging the menu (and its filler strip) or the title bar
+        // (see setupTitleBar). Based on screen coordinates so it works no matter which
+        // subcomponent fires the event. The close (X) button now lives in the title bar.
         java.awt.event.MouseAdapter dragAdapter = windowDragAdapter();
         jMenuBar1.addMouseListener(dragAdapter);
         jMenuBar1.addMouseMotionListener(dragAdapter);
@@ -741,11 +746,10 @@ public final class GameLogDialog extends JDialog {
         placeGrips.run();
     }
 
-    // Adaptador para mover la ventana (sin bordes) arrastrando una zona-barra.
-    // Basado en coordenadas de pantalla para funcionar sea cual sea el
-    // subcomponente que dispare el evento. Cada llamada crea su propio estado
-    // (solo hay un arrastre a la vez, así que compartirlo entre componentes de la
-    // misma barra también valdría).
+    // Adapter for moving the (borderless) window by dragging a bar-like zone. Based on
+    // screen coordinates so it works no matter which subcomponent fires the event. Each
+    // call creates its own state (only one drag happens at a time, so sharing it across
+    // components of the same bar would also work).
     private java.awt.event.MouseAdapter windowDragAdapter() {
         final java.awt.Point[] off = {null};
         return new java.awt.event.MouseAdapter() {
@@ -766,11 +770,10 @@ public final class GameLogDialog extends JDialog {
                     return;
                 }
                 java.awt.Point sp = e.getLocationOnScreen();
-                // Imitar a Windows: si la ventana esta maximizada, al empezar a
-                // arrastrarla se restaura al tamano normal bajo el cursor
-                // (conservando la posicion proporcional del agarre sobre la barra) y
-                // a partir de ahi se mueve como una ventana normal. Reajustamos el
-                // offset al nuevo tamano para que el raton siga clavado a la barra.
+                // Mimic Windows: dragging a maximized window restores it to its normal
+                // size under the cursor (keeping the grab point's proportional position
+                // on the bar), then it moves like a normal window from there on. The
+                // offset is rescaled to the new size so the mouse stays pinned to the bar.
                 if (normal_bounds != null && isMaximizedToScreen()) {
                     double frac_x = getWidth() > 0 ? (double) off[0].x / getWidth() : 0.5;
                     int new_w = normal_bounds.width;
@@ -786,12 +789,12 @@ public final class GameLogDialog extends JDialog {
         };
     }
 
-    // Barra de título personalizada. La ventana es sin bordes (para poder ser
-    // semitransparente), así que no hay barra nativa: ponemos la nuestra con el
-    // nombre y el botón de cerrar. Va ENCIMA del menú — como el JMenuBar nativo
-    // ocupa el slot superior del root pane, lo sacamos de ahí (setJMenuBar(null)) y
-    // lo apilamos bajo la barra de título en el NORTH del content pane (que
-    // wrapLogInBorderLayout ya dejó en BorderLayout con el log en CENTER).
+    // Custom title bar. The window is undecorated (so it can be semi-transparent), so
+    // there's no native bar: we build our own with the name and close button. It goes
+    // ABOVE the menu — since the native JMenuBar owns the root pane's top slot, it's
+    // pulled out of there (setJMenuBar(null)) and stacked below the title bar in the
+    // content pane's NORTH (wrapLogInBorderLayout already set that up as a BorderLayout
+    // with the log in CENTER).
     private void setupTitleBar() {
         setJMenuBar(null);
 
@@ -800,18 +803,17 @@ public final class GameLogDialog extends JDialog {
         title.setFont(new Font("Dialog", Font.BOLD, Math.round(14 * Helpers.DIALOG_ZOOM)));
         title.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM)));
 
-        final Color CTRL_FG = new Color(70, 70, 70);       // barra clara -> controles oscuros
-        final Color CLOSE_HOVER = new Color(215, 40, 40);  // cerrar = rojo
-        final Color MAX_HOVER = new Color(20, 20, 20);     // maximizar/restaurar = oscurecer
+        final Color CTRL_FG = new Color(70, 70, 70);       // light bar -> dark controls
+        final Color CLOSE_HOVER = new Color(215, 40, 40);  // close = red
+        final Color MAX_HOVER = new Color(20, 20, 20);     // maximize/restore = darken
         final Color bar_bg = jMenuBar1.getBackground();
 
-        // Boton MAXIMIZAR / RESTAURAR. La ventana es sin bordes (para poder ser
-        // semitransparente), asi que no hay boton nativo: dibujamos el icono con
-        // Java2D en vez de depender de un glyph de fuente (que no todas tienen).
-        // Un cuadrado hueco = maximizar; dos cuadrados solapados (estilo Windows) =
-        // restaurar. El estado se deriva de la geometria real en
-        // refreshMaxRestoreState, asi que redimensionar por las esquinas o arrastrar
-        // tambien deja el icono coherente.
+        // MAXIMIZE / RESTORE button. The window is undecorated (so it can be
+        // semi-transparent), so there's no native button: the icon is painted with
+        // Java2D instead of relying on a font glyph (not every font has one). One hollow
+        // square = maximize; two overlapping squares (Windows-style) = restore. The
+        // state is derived from the real geometry in refreshMaxRestoreState, so resizing
+        // from a corner or dragging also keeps the icon correct.
         final int ICON = Math.max(Math.round(15 * Helpers.DIALOG_ZOOM), 13);
         final int STROKE = Math.max(Math.round(2 * Helpers.DIALOG_ZOOM), 2);
         max_btn = new javax.swing.JLabel() {
@@ -827,13 +829,13 @@ public final class GameLogDialog extends JDialog {
                 if (Boolean.TRUE.equals(getClientProperty("maximized"))) {
                     int off = Math.max(Math.round(ICON * 0.32f), 3);
                     int sq = ICON - off;
-                    g2.drawRect(x + off, y, sq, sq);            // cuadrado trasero (arriba-derecha)
+                    g2.drawRect(x + off, y, sq, sq);            // back square (top-right)
                     g2.setColor(bar_bg);
-                    g2.fillRect(x, y + off, sq + 1, sq + 1);    // limpia el solape con el color de la barra
+                    g2.fillRect(x, y + off, sq + 1, sq + 1);    // clears the overlap with the bar color
                     g2.setColor(getForeground());
-                    g2.drawRect(x, y + off, sq, sq);            // cuadrado frontal (abajo-izquierda)
+                    g2.drawRect(x, y + off, sq, sq);            // front square (bottom-left)
                 } else {
-                    g2.drawRect(x, y, ICON, ICON);              // un solo cuadrado = maximizar
+                    g2.drawRect(x, y, ICON, ICON);              // a single square = maximize
                 }
                 g2.dispose();
             }
@@ -862,11 +864,11 @@ public final class GameLogDialog extends JDialog {
         });
 
         final javax.swing.JLabel close_btn = new javax.swing.JLabel("X");
-        // La X es un control CLICABLE: se escala con el zoom pero con SUELO (fuente y padding) para que a
-        // zoom bajo (50 %) no quede diminuta y el ratón la pille bien. A 100 % el max() da el valor de
-        // diseño (22 / 12 / 14), idéntico.
+        // The X is a CLICKABLE control: it scales with zoom but has a FLOOR (font and padding) so
+        // that at low zoom (50%) it doesn't shrink to nothing and stays easy to click. At 100% the
+        // max() calls just return the original design values (22 / 12 / 14) unchanged.
         close_btn.setFont(new Font("Dialog", Font.BOLD, Math.max(Math.round(22 * Helpers.DIALOG_ZOOM), 18)));
-        close_btn.setForeground(CTRL_FG); // barra clara -> X oscura
+        close_btn.setForeground(CTRL_FG); // light bar -> dark X
         close_btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, Math.max(Math.round(12 * Helpers.DIALOG_ZOOM), 10), 0, Math.max(Math.round(14 * Helpers.DIALOG_ZOOM), 12)));
         close_btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         close_btn.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -886,9 +888,9 @@ public final class GameLogDialog extends JDialog {
             }
         });
 
-        // Los dos controles pegados a la derecha, en orden [maximizar/restaurar][X].
-        // FlowLayout (hgap/vgap 0) los centra verticalmente aunque tengan alturas
-        // distintas; el padding lateral de la X ya deja aire con el borde derecho.
+        // The two controls, flush right, in order [maximize/restore][X]. FlowLayout
+        // (hgap/vgap 0) vertically centers them even though they have different heights;
+        // the X's side padding already gives breathing room from the right edge.
         javax.swing.JPanel controls = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 0, 0));
         controls.setOpaque(false);
         controls.add(max_btn);
@@ -911,11 +913,10 @@ public final class GameLogDialog extends JDialog {
 
         getContentPane().add(north, BorderLayout.NORTH);
 
-        // Mantener el icono maximizar/restaurar coherente con la geometria real:
-        // cualquier cosa que cambie los bounds (el propio boton, los grips de
-        // esquina, el arrastre de la barra que solo MUEVE la ventana) refresca el
-        // estado. El area de trabajo puede cambiar de un monitor a otro, asi que se
-        // deriva en cada evento en vez de fiarse de un flag.
+        // Keep the maximize/restore icon in sync with the real geometry: anything that
+        // changes the bounds (the button itself, the corner grips, dragging the bar —
+        // which only MOVES the window) refreshes the state. The work area can differ
+        // between monitors, so it's derived on every event instead of trusting a flag.
         java.awt.event.ComponentAdapter geometry_watch = new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent e) {
@@ -937,8 +938,8 @@ public final class GameLogDialog extends JDialog {
         refreshMaxRestoreState();
     }
 
-    // Area de trabajo del monitor donde esta la ventana (pantalla del monitor menos
-    // barra de tareas). null si la ventana aun no tiene GraphicsConfiguration.
+    // Work area of the monitor the window is on (monitor screen minus taskbar). Null
+    // if the window doesn't have a GraphicsConfiguration yet.
     private java.awt.Rectangle currentScreenWorkArea() {
         java.awt.GraphicsConfiguration gc = getGraphicsConfiguration();
         if (gc == null) {
@@ -950,18 +951,18 @@ public final class GameLogDialog extends JDialog {
                 sb.width - ins.left - ins.right, sb.height - ins.top - ins.bottom);
     }
 
-    // true si la ventana ocupa exactamente el area de trabajo del monitor (nuestro
-    // criterio de "maximizada", ya que al no ser decorada no hay estado nativo).
+    // True if the window exactly covers the monitor's work area (our definition of
+    // "maximized", since being undecorated there's no native state to query).
     private boolean isMaximizedToScreen() {
         java.awt.Rectangle work = currentScreenWorkArea();
         return work != null && work.equals(getBounds());
     }
 
-    // Maximiza (ocupa el area de trabajo del monitor actual) o restaura los bounds
-    // previos. La ventana es sin bordes, asi que hacemos el maximizar/restaurar a
-    // mano (setExtendedState solo aplica a Frames decorados). setBounds dispara
-    // componentResized -> refreshMaxRestoreState, que reubica los grips y actualiza
-    // el icono.
+    // Maximizes (fills the current monitor's work area) or restores the previous
+    // bounds. The window is undecorated, so maximize/restore is done by hand
+    // (setExtendedState only applies to decorated Frames). setBounds triggers
+    // componentResized -> refreshMaxRestoreState, which repositions the grips and
+    // updates the icon.
     private void toggleMaximize() {
         if (isMaximizedToScreen()) {
             if (normal_bounds != null) {
@@ -977,9 +978,9 @@ public final class GameLogDialog extends JDialog {
         }
     }
 
-    // Deriva el estado maximizado de la geometria real y actualiza el icono. Asi el
-    // icono queda correcto tambien tras un resize por esquina o un arrastre, no solo
-    // tras pulsar el boton.
+    // Derives the maximized state from the real geometry and updates the icon, so it
+    // stays correct after a corner resize or a drag too, not just after clicking the
+    // button.
     private void refreshMaxRestoreState() {
         if (max_btn == null) {
             return;
@@ -1001,10 +1002,10 @@ public final class GameLogDialog extends JDialog {
         }
     }
 
-    // Margen en pixeles para "casi al fondo": si el viewport esta a menos de
-    // AT_BOTTOM_TOLERANCE_PX del fondo, lo consideramos "al fondo" para smart
-    // autoscroll (un usuario que esta a 1-2 lineas del final no ha "subido a
-    // leer", esta esperando el proximo mensaje).
+    // Pixel margin for "close enough to the bottom": if the viewport is within
+    // AT_BOTTOM_TOLERANCE_PX of the bottom, treat it as "at bottom" for smart
+    // autoscroll (a user 1-2 lines from the end hasn't "scrolled up to read", they're
+    // waiting for the next message).
     private static final int AT_BOTTOM_TOLERANCE_PX = 30;
 
     private static boolean isAtBottom(JScrollPane sp) {
@@ -1036,7 +1037,10 @@ public final class GameLogDialog extends JDialog {
     }
 
     /**
-     * Creates new form Registro
+     * Creates the game log dialog (initially hidden; the caller shows/positions it).
+     *
+     * @param parent owning frame
+     * @param modal whether the dialog blocks input to its owner
      */
     public GameLogDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
@@ -1062,10 +1066,11 @@ public final class GameLogDialog extends JDialog {
 
         setupTitleBar();
 
-        // Cada vez que el dialog se hace visible (apertura o reapertura tras
-        // dispose) saltamos al final y reanudamos el seguimiento — al abrir el
-        // registro el usuario quiere ver lo más reciente. snapToBottom() ya difiere
-        // el scroll (invokeLater) para que ocurra DESPUES del layout del viewport.
+        // Every time the dialog becomes visible (first open, or reopened as a brand new
+        // instance after GameFrame disposed the old one on a parent-window change) jump
+        // to the end and resume following — opening the log means the user wants to see
+        // the latest lines. snapToBottom() already defers the scroll (invokeLater) to
+        // happen AFTER the viewport's layout.
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentShown(java.awt.event.ComponentEvent evt) {
@@ -1077,16 +1082,16 @@ public final class GameLogDialog extends JDialog {
 
         pack();
 
-        // Compact default size (resizable from any corner). Transparency ON (90%).
+        // Compact default size (resizable from any corner). Transparency ON (95%).
         setSize(Math.round(720 * Helpers.DIALOG_ZOOM), Math.round(430 * Helpers.DIALOG_ZOOM));
         applyLogOpacity(transparent_menu.isSelected());
 
     }
 
-    // La ventana es sin bordes con barra de título propia: setupTitleBar apila título +
-    // menú en el NORTH del content pane, lo que exige que este sea BorderLayout con el log
-    // en CENTER. El debug ya no vive aquí (se movió a la pestaña Debug de Ajustes), así que
-    // el content pane vuelve a mostrar solo el registro.
+    // The window is undecorated with its own title bar: setupTitleBar stacks title + menu
+    // in the content pane's NORTH, which requires a BorderLayout with the log in CENTER.
+    // Debug output no longer lives here (moved to the Debug tab in Settings), so the
+    // content pane goes back to showing just the log.
     private void wrapLogInBorderLayout() {
         getContentPane().remove(jScrollPane1);
         getContentPane().setLayout(new BorderLayout());
@@ -1101,16 +1106,24 @@ public final class GameLogDialog extends JDialog {
         return LOG_TEXT;
     }
 
+    /**
+     * Reveals showdown cards for players who mucked (or were auto-shown) by rewriting
+     * their "(---)" hole-card placeholder(s) already printed in {@link #LOG_TEXT}, then
+     * re-renders the log. A no-op if nothing in the text actually changes.
+     *
+     * @param perdedores losers (or shown hands) for the just-finished hand, keyed by player
+     */
     public void actualizarCartasPerdedores(ConcurrentHashMap<Player, Hand> perdedores) {
 
         synchronized (log_lock) {
 
             if (perdedores != null && !perdedores.isEmpty()) {
 
-                // Texto ANTES de las sustituciones: repintar el registro entero cuesta mas
-                // cuanto mas largo es, y se hacia al cerrar CADA mano aunque no hubiera
-                // nada que sustituir (nadie enseño cartas, o ya estaban puestas). Si el
-                // texto no cambia, el repintado daria exactamente lo mismo.
+                // Text BEFORE the substitutions: re-rendering the whole log gets more
+                // expensive the longer it is, and this ran at the end of EVERY hand even
+                // when there was nothing to replace (nobody showed cards, or they were
+                // already revealed). If the text doesn't change, re-rendering would be a
+                // no-op anyway.
                 final String log_antes = GameLogDialog.LOG_TEXT;
 
                 for (Map.Entry<Player, Hand> entry : perdedores.entrySet()) {
@@ -1149,13 +1162,18 @@ public final class GameLogDialog extends JDialog {
         }
     }
 
+    /**
+     * Translates and appends a log line, unless the dialog's transmission has ended.
+     *
+     * @param msg a translator key or literal line to append
+     */
     public void print(String msg) {
 
         if (!this.fin_transmision) {
 
-            // logRun (no threadRun): un unico hilo consumidor en orden FIFO, para que
-            // las lineas del registro se apliquen en el orden en que se llamo a print()
-            // y no se reordenen entre si (el pool general multi-hilo lo permitia).
+            // logRun (not threadRun): a single FIFO consumer thread, so log lines are
+            // applied in the order print() was called and never get reordered relative
+            // to each other (the general multi-threaded pool would allow that).
             Helpers.logRun(() -> {
                 synchronized (log_lock) {
                     String message = Translator.translate(msg);
@@ -1246,7 +1264,7 @@ public final class GameLogDialog extends JDialog {
 
     private void auto_scroll_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_scroll_menuActionPerformed
         this.auto_scroll = this.auto_scroll_menu.isSelected();
-        // Al reactivar el autoscroll, ponerse al día saltando a lo más reciente.
+        // Re-enabling autoscroll catches up by jumping to the most recent line.
         if (this.auto_scroll) {
             if (main_follow != null) {
                 main_follow.snapToBottom();
@@ -1271,27 +1289,24 @@ public final class GameLogDialog extends JDialog {
         }
     }//GEN-LAST:event_formWindowDeactivated
 
-    // Autoscroll "inteligente": sigue el fondo mientras el usuario está parado
-    // ahí y deja de seguir en cuanto sube a leer — SIN el frágil muestreo
-    // "antes/después" de geometría que usaba el registro.
+    // "Smart" autoscroll: follows the bottom while the user is parked there and stops
+    // as soon as they scroll up to read — no fragile before/after geometry sampling.
     //
-    // Por qué el rediseño: el código viejo muestreaba isAtBottom() justo antes de
-    // cada append y scrolleaba SÍNCRONO. Un append con estilo puede embeber cartas
-    // o iconos de rol como componentes cuya altura no se conoce hasta que el panel
-    // se re-maqueta (un revalidate que se publica como evento POSTERIOR del EDT),
-    // así que el scroll síncrono se clampaba al panel aún pequeño y se quedaba
-    // CORTO del fondo real. El siguiente mensaje muestreaba entonces "no está al
-    // fondo" y restauraba el caret viejo, con lo que el registro se alejaba más
-    // del fondo en cada mensaje y el autoscroll parecía apagarse solo hasta que el
-    // usuario arrastraba de nuevo al fondo.
+    // Why: the old code sampled isAtBottom() right before each append and scrolled
+    // SYNCHRONOUSLY. A styled append can embed cards or role icons as components whose
+    // height isn't known until the panel re-lays out (a revalidate published as a LATER
+    // EDT event), so the synchronous scroll clamped to the still-small panel and fell
+    // SHORT of the real bottom. The next message then sampled "not at bottom" and kept
+    // the stale caret, drifting further from the bottom each message until the user
+    // dragged back down manually.
     //
-    // Esto modela la intención del usuario como estado pegajoso: `follow` empieza
-    // en true y solo cambia con un gesto real (rueda, ratón sobre la barra o
-    // teclado) — subir => deja de seguir, volver al fondo => reanuda. Los scrolls
-    // programáticos nunca lo tocan, así que un retraso transitorio de layout no
-    // puede desactivar el seguimiento. El salto al fondo va en invokeLater para
-    // ejecutarse DESPUÉS del revalidate del append y llegar al fondo de verdad.
-    // Package-visible: la reutiliza la consola de Debug de Ajustes (DebugSettingsPanel).
+    // This instead models user intent as sticky state: `follow` starts true and only
+    // changes on a real gesture (wheel, mouse on the scrollbar, or keyboard) — scrolling
+    // up stops following, returning to the bottom resumes it. Programmatic scrolls never
+    // touch it, so a transient layout delay can't turn following off. The jump to bottom
+    // runs via invokeLater so it happens AFTER the append's revalidate, landing on the
+    // real bottom.
+    // Package-visible: reused by the Debug console in Settings (DebugSettingsPanel).
     static final class BottomFollower {
 
         private final JScrollPane scroll;
@@ -1302,23 +1317,22 @@ public final class GameLogDialog extends JDialog {
             this.scroll = scroll;
             this.view = view;
 
-            // NEVER_UPDATE: un log no editable no debe auto-scrollear solo porque
-            // el documento cambió en el EDT (la política por defecto tira la vista
-            // al caret en cada append, arrastrando hacia abajo a quien está
-            // leyendo). Conducimos TODO el scroll explícitamente.
+            // NEVER_UPDATE: a non-editable log shouldn't auto-scroll just because the
+            // document changed (the default caret policy drags the view to the caret on
+            // every append, pulling down anyone who's reading). All scrolling here is
+            // driven explicitly instead.
             if (view.getCaret() instanceof javax.swing.text.DefaultCaret) {
                 ((javax.swing.text.DefaultCaret) view.getCaret()).setUpdatePolicy(javax.swing.text.DefaultCaret.NEVER_UPDATE);
             }
 
-            // Reevaluar "¿está el usuario parado al fondo?" tras cualquier gesto de
-            // ratón sobre la barra (arrastre del pulgar, clic en la pista, flechas),
-            // sobre la rueda o con el teclado (más abajo). Los scrolls programáticos
-            // no pasan por ratón/rueda/teclado, así que nunca cambian el flag: un
-            // retraso de layout no puede apagar el seguimiento.
+            // Re-evaluate "is the user parked at the bottom?" after any mouse gesture on
+            // the scrollbar (thumb drag, track click, arrows), the wheel, or the keyboard
+            // (below). Programmatic scrolls never go through mouse/wheel/keyboard, so
+            // they never flip the flag: a layout delay can't turn following off.
             java.awt.event.MouseAdapter reeval = new java.awt.event.MouseAdapter() {
                 @Override
                 public void mousePressed(java.awt.event.MouseEvent e) {
-                    follow = false; // agarró la barra: no pelear con su arrastre
+                    follow = false; // grabbed the scrollbar: don't fight the user's drag
                 }
 
                 @Override
@@ -1328,23 +1342,22 @@ public final class GameLogDialog extends JDialog {
             };
             scroll.getVerticalScrollBar().addMouseListener(reeval);
 
-            // OJO: el listener va en el JScrollPane, NO en la vista. Un
-            // MouseWheelEvent solo "burbujea" hasta el JScrollPane (que hace el
-            // scroll) si el componente bajo el cursor NO tiene MouseWheelListener;
-            // ponérselo a la vista se lo comería y la rueda dejaría de scrollear.
-            // En el JScrollPane convive con el listener de scroll por defecto.
+            // NOTE: the listener goes on the JScrollPane, NOT the view. A MouseWheelEvent
+            // only "bubbles up" to the JScrollPane (which does the scrolling) if the
+            // component under the cursor has NO MouseWheelListener; putting it on the
+            // view would swallow the event and the wheel would stop scrolling. On the
+            // JScrollPane it coexists fine with the default scroll listener.
             scroll.addMouseWheelListener((java.awt.event.MouseWheelEvent e) -> {
                 if (e.getWheelRotation() < 0) {
-                    follow = false; // subir = el usuario quiere leer; dejar de seguir ya
+                    follow = false; // scrolling up = the user wants to read; stop following now
                 }
                 SwingUtilities.invokeLater(() -> follow = isAtBottom(scroll));
             });
 
-            // Navegación con teclado sobre el panel enfocado (flechas, AvPág/RePág,
-            // Inicio/Fin): el KeyListener corre ANTES de que la acción de caret
-            // mueva/scrolee, así que las teclas "hacia arriba" paran el seguimiento
-            // al vuelo y el invokeLater reevalúa la posición ya scrolleada (así
-            // bajar de nuevo al fondo reanuda).
+            // Keyboard navigation on the focused panel (arrows, Page Up/Down, Home/End):
+            // the KeyListener runs BEFORE the caret action moves/scrolls, so the
+            // "upward" keys stop following on the spot, and invokeLater re-evaluates the
+            // position after the scroll (so going back down to the bottom resumes it).
             view.addKeyListener(new java.awt.event.KeyAdapter() {
                 @Override
                 public void keyPressed(java.awt.event.KeyEvent e) {
@@ -1353,7 +1366,7 @@ public final class GameLogDialog extends JDialog {
                         case java.awt.event.KeyEvent.VK_KP_UP:
                         case java.awt.event.KeyEvent.VK_PAGE_UP:
                         case java.awt.event.KeyEvent.VK_HOME:
-                            follow = false; // navegar hacia arriba = leer; dejar de seguir ya
+                            follow = false; // navigating upward = reading; stop following now
                             break;
                         default:
                             break;
@@ -1363,53 +1376,53 @@ public final class GameLogDialog extends JDialog {
             });
         }
 
-        // Fuerza el seguimiento y salta al fondo (al (re)mostrar el log o al
-        // reactivar la preferencia de autoscroll: debe ponerse al día).
+        // Forces following and jumps to the bottom (when (re)showing the log, or when
+        // re-enabling the autoscroll preference: it must catch up).
         void snapToBottom() {
             follow = true;
-            // Doble pasada diferida: al (re)abrir el registro el JTextPane debe
-            // re-maquetar todo el contenido acumulado más los componentes embebidos
-            // (cartas / iconos de rol), cuya altura real llega en un revalidate
-            // POSTERIOR del EDT. Un solo salto se clampa al panel aún pequeño y deja
-            // la vista ARRIBA (de ahí que el scroll apareciera arriba al entrar, de
-            // forma intermitente). La 1ª pasada empuja tras el layout inicial; la 2ª
-            // reafirma el fondo ya con getMaximum() actualizado.
+            // Deferred double pass: (re)opening the log makes the JTextPane re-lay out
+            // all its accumulated content plus the embedded components (cards / role
+            // icons), whose real height only arrives in a LATER EDT revalidate. A single
+            // jump clamps to the still-small panel and leaves the view at the TOP (hence
+            // the intermittent scroll-appears-at-top-on-open bug). The 1st pass pushes
+            // after the initial layout; the 2nd reaffirms the bottom once getMaximum() is
+            // up to date.
             SwingUtilities.invokeLater(() -> {
                 forceBottom();
                 SwingUtilities.invokeLater(this::forceBottom);
             });
         }
 
-        // Salta al fondo solo si seguimos al usuario.
+        // Jumps to the bottom only while still following the user.
         void followIfNeeded() {
             if (follow) {
                 scrollToBottomLater();
             }
         }
 
-        // Diferido para que el salto ocurra DESPUÉS de maquetar el contenido recién
-        // añadido (un append con estilo puede embeber cartas cuya altura no se
-        // conoce hasta el revalidate, publicado como evento posterior del EDT); un
-        // scroll síncrono se clamparía al panel aún pequeño y se quedaría corto.
+        // Deferred so the jump happens AFTER the newly appended content is laid out (a
+        // styled append can embed cards whose height isn't known until the revalidate,
+        // published as a later EDT event); a synchronous scroll would clamp to the
+        // still-small panel and fall short.
         private void scrollToBottomLater() {
             SwingUtilities.invokeLater(() -> {
                 try {
                     view.setCaretPosition(view.getDocument().getLength());
                 } catch (Throwable t) {
-                    // La vista puede estar entre dispose/re-show — ignorar.
+                    // The view may be between dispose/re-show — ignore.
                 }
             });
         }
 
-        // Empuja la vista al fondo por dos vías: setCaretPosition (arrastra el
-        // viewport) y setValue(getMaximum()) sobre la barra vertical (llega al fondo
-        // aun cuando el caret se quedaría corto por una geometría todavía sin
-        // actualizar tras un relayout). Lo usa el salto de (re)apertura.
+        // Pushes the view to the bottom two ways: setCaretPosition (drags the viewport)
+        // and setValue(getMaximum()) on the vertical scrollbar (reaches the bottom even
+        // when the caret would fall short due to geometry not yet updated after a
+        // relayout). Used by the (re)open jump.
         private void forceBottom() {
             try {
                 view.setCaretPosition(view.getDocument().getLength());
             } catch (Throwable t) {
-                // La vista puede estar entre dispose/re-show — ignorar.
+                // The view may be between dispose/re-show — ignore.
             }
             try {
                 javax.swing.JScrollBar vbar = scroll.getVerticalScrollBar();
@@ -1417,7 +1430,7 @@ public final class GameLogDialog extends JDialog {
                     vbar.setValue(vbar.getMaximum());
                 }
             } catch (Throwable t) {
-                // Idem: barra en transición — ignorar.
+                // Same: scrollbar mid-transition — ignore.
             }
         }
     }

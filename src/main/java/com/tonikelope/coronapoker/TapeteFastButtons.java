@@ -37,6 +37,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import javax.swing.JLabel;
 
 /**
+ * Floating fast-access button bar overlaid on the table. Collapsed, only the
+ * "menu" icon is visible; hovering it deploys the full bar, which auto-hides
+ * (after a delay, with a fade) once the mouse leaves.
  *
  * @author tonikelope
  */
@@ -47,10 +50,10 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     private volatile Dimension pref_size;
     private volatile float zoom_factor;
 
-    // Barra plegable con desvanecimiento. Se despliega SOLO al pasar el ratón por el icono "menu"
-    // (esquina inferior izquierda, el único siempre visible al plegarse). Al salir el ratón NO se
-    // pliega al instante: espera HIDE_DELAY_MS y luego se desvanece durante FADE_MS. Volver a entrar
-    // en la barra durante la espera o el desvanecimiento lo cancela y restaura la opacidad plena.
+    // Collapsible fading bar: deploys ONLY on hover over the "menu" icon (bottom-left corner, the
+    // only icon always visible while collapsed). Leaving the bar does not collapse it instantly;
+    // it waits HIDE_DELAY_MS, then fades over FADE_MS. Re-entering during either the wait or the
+    // fade cancels it and restores full opacity.
     private static final int HIDE_DELAY_MS = 1000;
     private static final int FADE_MS = 400;
     private static final int FADE_INTERVAL_MS = 16;
@@ -71,7 +74,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }
 
     /**
-     * Creates new form ChatImageTapetePanel
+     * Builds the bar, binds its icons/tooltips and starts it collapsed.
      */
     public TapeteFastButtons() {
 
@@ -86,9 +89,9 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         Helpers.setScaledIconLabel(menu, getClass().getResource("/images/fast_panel/menu.png"), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));
 
         pref_size = getPreferredSize();
-        // El panel abarca el ancho de la barra desplegada aunque esté plegado; su cursor es normal
-        // para que el hueco vacío (a la derecha del icono) NO muestre la manita. El icono "menu" y
-        // los botones conservan su propio cursor de mano.
+        // The panel spans the deployed bar's width even while collapsed; its own cursor stays
+        // DEFAULT so the empty gap to the right of the icon does NOT show a hand. The "menu" icon
+        // and the buttons each keep their own hand cursor.
         setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         hideButtons();
         setComListeners();
@@ -97,11 +100,10 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     private void zoomIcons(float factor) {
 
         Helpers.GUIRunAndWait(() -> {
-            // Con la barra desplegada NO se reescala nada: cambiar el zoom desde sus propios
-            // botones no debe reconstruirla bajo el ratón (los iconos se moverían mientras se
-            // pulsan). Se queda como está hasta que se pliegue, y showButtons la levanta ya al
-            // nuevo tamaño la próxima vez que se despliegue (compara zoom_factor con el nivel
-            // vigente).
+            // Nothing is rescaled while the bar is deployed: changing zoom from the bar's own
+            // buttons must not rebuild it under the mouse (icons would shift mid-click). It stays
+            // as-is until collapsed; showButtons() then rebuilds it at the new size next time it
+            // deploys (it compares zoom_factor against the current level).
             if (chat.isVisible()) {
                 return;
             }
@@ -118,8 +120,8 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     private void setComListeners() {
         initHoverTimers();
 
-        // El icono "menu" (esquina, siempre visible al plegarse) es el ÚNICO disparador para
-        // DESPLEGAR la barra.
+        // The "menu" icon (corner, always visible while collapsed) is the ONLY trigger that
+        // DEPLOYS the bar.
         menu.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
@@ -129,8 +131,8 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
             }
         });
 
-        // Los botones (visibles solo con la barra desplegada) la mantienen viva mientras el ratón
-        // esté encima; al salir programan el plegado con retardo (1 s + desvanecimiento).
+        // The buttons (visible only while deployed) keep the bar alive while the mouse is over
+        // them; leaving schedules the delayed collapse (1s wait + fade).
         for (Object[] b : botones) {
             ((Component) b[0]).addMouseListener(new MouseAdapter() {
 
@@ -147,10 +149,11 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         }
     }
 
-    // Crea los timers de plegado (una sola vez). El de RETARDO, al cumplirse el segundo, arranca el
-    // desvanecimiento SOLO si el ratón sigue fuera de la barra (recomprobado con MouseInfo, por si
-    // volvió durante la espera sin que llegara un mouseEntered). El de FADE baja la opacidad por
-    // frames y, al llegar a 0, pliega la barra (icono "menu") y restaura la opacidad para la próxima.
+    // Creates the collapse timers (once). The DELAY timer, once the second elapses, starts the
+    // fade ONLY if the pointer is still outside the bar (re-checked via MouseInfo, in case it
+    // came back during the wait without a mouseEntered event). The FADE timer lowers opacity
+    // frame by frame and, on reaching 0, collapses the bar (menu icon) and restores opacity for
+    // next time.
     private void initHoverTimers() {
         hide_delay_timer = new javax.swing.Timer(HIDE_DELAY_MS, e -> {
             hide_delay_timer.stop();
@@ -164,8 +167,8 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
             bar_opacity -= FADE_INTERVAL_MS / (float) FADE_MS;
             if (bar_opacity <= 0f) {
                 fade_timer.stop();
-                // hideButtons restaura la opacidad a 1 junto con el plegado (mismo bloque EDT), así
-                // el icono "menu" reaparece a opacidad plena sin destello.
+                // hideButtons() restores opacity to 1 together with the collapse (same EDT
+                // block), so the "menu" icon reappears at full opacity with no flash.
                 hideButtons();
             } else {
                 repaint();
@@ -173,14 +176,14 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         });
     }
 
-    // Despliega la barra desde el icono "menu": cancela cualquier plegado en curso, restaura la
-    // opacidad y muestra los botones.
+    // Deploys the bar from the "menu" icon: cancels any collapse in progress, restores opacity
+    // and shows the buttons.
     private void showBar() {
         cancelHide();
         showButtons();
     }
 
-    // Cancela el plegado en curso (retardo o desvanecimiento) y restaura la opacidad plena.
+    // Cancels the collapse in progress (delay or fade) and restores full opacity.
     private void cancelHide() {
         if (hide_delay_timer != null) {
             hide_delay_timer.stop();
@@ -194,23 +197,26 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         }
     }
 
-    // Arranca (o reinicia) el retardo de 1 s tras el que la barra empezará a desvanecerse. No hace
-    // nada si ya está plegada o ya se está desvaneciendo. Público: el tapete (TablePanel) lo llama
-    // al recibir el ratón (señal fiable de "he salido de la barra") en vez de plegar al instante.
+    /**
+     * Starts (or leaves running) the 1s delay before the bar begins fading out. No-op if already
+     * collapsed or already fading. Public because the table panel calls it when the mouse enters
+     * it (a reliable "left the bar" signal) instead of collapsing instantly.
+     */
     public void scheduleHide() {
         if (!chat.isVisible() || (fade_timer != null && fade_timer.isRunning())) {
             return;
         }
-        // Arranca SOLO si no está ya corriendo: el tapete emite mouseEntered cada vez que el ratón
-        // cruza sus subcomponentes, y con restart() el segundo nunca se cumpliría al mover el ratón.
-        // Así cuenta 1 s desde que se sale de la barra; volver a entrar lo cancela (cancelHide).
+        // Starts ONLY if not already running: the table panel fires mouseEntered every time the
+        // mouse crosses one of its subcomponents, and restart() would keep pushing the second
+        // back on every move. This way it counts 1s from when the mouse actually left the bar;
+        // re-entering the bar cancels it via cancelHide().
         if (hide_delay_timer != null && !hide_delay_timer.isRunning()) {
             hide_delay_timer.start();
         }
     }
 
     private void startFade() {
-        // Al empezar a desvanecerse, descarta cualquier tooltip de botón que siguiera colgado.
+        // Discard any button tooltip that might still be hanging around before fading starts.
         dismissActiveTooltip();
         bar_opacity = 1f;
         if (fade_timer != null) {
@@ -218,18 +224,18 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         }
     }
 
-    // Descarta cualquier tooltip visible de los botones. Swing NO oculta el globo del tooltip al
-    // hacer invisible el componente sobre el que se muestra (ni siempre entrega su MOUSE_EXITED), así
-    // que al plegar la barra el globo podía quedarse colgado. Apagar el ToolTipManager oculta el
-    // tooltip actual; volver a encenderlo deja los tooltips operativos para la próxima.
+    // Dismisses any visible button tooltip. Swing does NOT hide the tooltip balloon when its
+    // owning component is made invisible (and doesn't always deliver its MOUSE_EXITED), so
+    // collapsing the bar could leave the balloon hanging. Disabling the ToolTipManager hides the
+    // current tooltip; re-enabling it leaves tooltips working next time.
     private void dismissActiveTooltip() {
         javax.swing.ToolTipManager ttm = javax.swing.ToolTipManager.sharedInstance();
         ttm.setEnabled(false);
         ttm.setEnabled(true);
     }
 
-    // El puntero está fuera de la barra (o la barra no está en pantalla). Con MouseInfo (coordenadas
-    // de pantalla) para no depender del sistema de coordenadas del evento.
+    // Whether the pointer is outside the bar (or the bar isn't showing). Uses MouseInfo (screen
+    // coordinates) so it doesn't depend on the event's own coordinate system.
     private boolean pointerOutsideBar() {
         if (!isShowing()) {
             return true;
@@ -241,18 +247,19 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         return !new Rectangle(getLocationOnScreen(), getSize()).contains(pi.getLocation());
     }
 
-    // La barra puede desplegarse: la partida sigue viva y no hay un chat rápido abierto encima.
+    // Whether the bar is allowed to deploy: the game is still running and no fast-chat dialog is
+    // open on top of it.
     private boolean canShow() {
         GameFrame gf = GameFrame.getInstance();
         return !gf.getCrupier().isFin_de_la_transmision() && (gf.getFastchat_dialog() == null || !gf.getFastchat_dialog().isVisible());
     }
 
-    // El panel abarca el ancho de la barra DESPLEGADA aunque esté plegada, y vive en la POPUP_LAYER
-    // del tapete (por encima de los asientos). Plegada solo se ve el icono "menu", pero un JPanel
-    // transparente seguiría capturando el ratón en TODO su rectángulo, tapando lo que hay debajo
-    // (p. ej. la etiqueta de jugada de un jugador, que se resalta al pasar el ratón por ella).
-    // Acotamos el hit-test: plegada, solo el icono "menu" pertenece al panel; el resto deja pasar el
-    // ratón a los componentes del tapete. Desplegada (chat visible), comportamiento normal.
+    // The panel spans the DEPLOYED bar's width even while collapsed, and lives on the table's
+    // POPUP_LAYER (above the seats). Collapsed, only the "menu" icon is visible, but a
+    // transparent JPanel would still capture the mouse over its WHOLE rectangle, blocking
+    // whatever is underneath (e.g. a player's action label, which highlights on hover). So the
+    // hit-test is narrowed: collapsed, only the "menu" icon belongs to the panel and the rest
+    // lets the mouse through to the table's components; deployed (chat visible), normal behavior.
     @Override
     public boolean contains(int x, int y) {
         if (!chat.isVisible()) {
@@ -261,8 +268,8 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         return super.contains(x, y);
     }
 
-    // Pinta la barra con la opacidad actual (para el desvanecimiento). A opacidad plena delega
-    // directamente; si no, compone todo el árbol (iconos incluidos) con un AlphaComposite.
+    // Paints the bar at the current opacity (for the fade). At full opacity it delegates
+    // directly; otherwise the whole tree (icons included) is composited via an AlphaComposite.
     @Override
     public void paint(java.awt.Graphics g) {
         if (bar_opacity >= 1f) {
@@ -287,7 +294,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
                 fade_timer.stop();
             }
             bar_opacity = 1f;
-            // Descarta tooltips colgados antes de ocultar los botones (Swing no lo hace solo).
+            // Discard any hanging tooltip before hiding the buttons (Swing won't do it on its own).
             dismissActiveTooltip();
             for (Object[] b : botones) {
                 ((Component) b[0]).setVisible(false);
@@ -315,17 +322,16 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
                 }
             }
 
-            // El icono "menu" se oculta ANTES de medir: si se ocultara después, el ancho preferido
-            // incluiría el suyo (es el primero del FlowLayout, así que al desaparecer los botones se
-            // corren a la izquierda) y el panel quedaría con una franja invisible del ancho de un
-            // botón a la derecha de la barra. Estando dentro de ella no llega el mouseExited del
-            // panel ni el mouseEntered del tapete, así que había que alejar el ratón un botón entero
-            // para que se detectara la salida y arrancara el plegado.
+            // The "menu" icon is hidden BEFORE measuring: hiding it after would include its width
+            // in the preferred size (it's first in the FlowLayout, so the buttons shift left once
+            // it disappears), leaving an invisible strip one button wide on the right of the bar.
+            // Inside that strip neither the panel's mouseExited nor the table's mouseEntered
+            // fires, so the mouse would need to travel a whole extra button width before the exit
+            // was detected and the collapse started.
             menu.setVisible(false);
 
-            // El tamano preferido se compara por VALOR (antes con !=, que compara
-            // referencias y por tanto era SIEMPRE distinto). Solo redimensiona/reubica
-            // cuando de verdad cambia.
+            // Preferred size is compared by VALUE (previously with !=, comparing references, so
+            // it was ALWAYS different). Only resize/reposition when it actually changed.
             Dimension pref = getPreferredSize();
             if (!pref.equals(getPref_size())) {
                 pref_size = pref;
@@ -333,12 +339,12 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
                 setLocation(0, (int) (GameFrame.getInstance().getTapete().getHeight() - getSize().getHeight()));
             }
 
-            // Los botones acaban de pasar de invisibles a visibles: hay que relayoutar
-            // (FlowLayout) y repintar SIEMPRE, aunque el tamano preferido no cambie. Sin
-            // esto, el ULTIMO boton del FlowLayout (fullscreen, el mas a la derecha, es el
-            // ultimo add()) podia quedarse sin colocar o a medias hasta un repintado
-            // posterior: aparecia tarde, pintado raro, o no aparecia. Mas visible en modo
-            // ventana, donde el borde derecho de la barra es lo primero que sufre.
+            // The buttons just flipped from invisible to visible: relayout (FlowLayout) and
+            // repaint ALWAYS, even if the preferred size didn't change. Without this the LAST
+            // button in the FlowLayout (fullscreen, rightmost, last add()) could end up
+            // unplaced or half-placed until a later repaint: it would appear late, mis-painted,
+            // or not at all. Most visible in windowed mode, where the bar's right edge is the
+            // first to suffer.
             revalidate();
             repaint();
         });
@@ -483,8 +489,8 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }// </editor-fold>//GEN-END:initComponents
 
     private void formMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseEntered
-        // Entrar en el panel (no en el icono "menu") NO despliega la barra: solo mantiene viva la
-        // que ya esté desplegada, cancelando un plegado pendiente.
+        // Entering the panel (not the "menu" icon) does NOT deploy the bar: it only keeps an
+        // already-deployed bar alive, cancelling a pending collapse.
         cancelHide();
     }//GEN-LAST:event_formMouseEntered
 
@@ -496,7 +502,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             GameFrame.getInstance().showFastChatDialog();
@@ -534,7 +539,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             GameFrame.getInstance().getCompact_menu().doClick();
@@ -546,7 +550,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             GameFrame.getInstance().getZoom_menu_out().doClick();
@@ -558,8 +561,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
-
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             GameFrame.getInstance().getZoom_menu_reset().doClick();
@@ -570,7 +571,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             GameFrame.getInstance().getZoom_menu_in().doClick();
@@ -582,8 +582,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
-
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             GameFrame.getInstance().getFull_screen_menu().doClick();
@@ -594,8 +592,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
-
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
 
             GameFrame.getInstance().getRebuy_now_menu().doClick();
@@ -604,8 +600,8 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }//GEN-LAST:event_rebuyMouseClicked
 
     private void logMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_logMouseClicked
-        // Solo con el boton de siempre, como el resto de iconos de esta barra: este
-        // abria el registro tambien con el derecho, que en el tapete es el del menu.
+        // Left click only, like the other icons on this bar: this one used to also open the log
+        // on a right click, which on the table is the menu button's click.
         if (!Helpers.isRealClick(evt)) {
             return;
         }

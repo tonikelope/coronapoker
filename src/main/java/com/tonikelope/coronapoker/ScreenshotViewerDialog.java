@@ -58,23 +58,21 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 
 /**
- * Visor de galería de las capturas de pantalla (CTRL+P) guardadas en
- * {@link Init#SCREENSHOTS_DIR}. Arranca mostrando la más reciente y permite
- * navegar hacia atrás/adelante en el tiempo con las flechas ◀ / ▶ (o ← / →).
- * La imagen se reescala a caber en el diálogo conservando proporción y con tope
- * al 100% de su tamaño nativo (nunca se amplía). El título muestra la fecha y
- * hora de CREACIÓN del fichero según el sistema de ficheros.
+ * Screenshot gallery viewer (CTRL+P) for files saved under {@link Init#SCREENSHOTS_DIR}. Opens
+ * on the most recent screenshot; navigate back/forward in time with the ◀ / ▶ buttons (or ← / →).
+ * The image is scaled to fit the dialog, preserving aspect ratio and capped at 100% of its
+ * native size (never enlarged). The title shows the file's OS creation date/time.
  *
  * @author tonikelope
  */
 public class ScreenshotViewerDialog extends javax.swing.JDialog {
 
-    // Ventana única: reabrir desde el mismo owner reutiliza la instancia y la refresca.
+    // Single-instance window: reopening from the same owner reuses and refreshes the instance.
     private static volatile ScreenshotViewerDialog INSTANCE = null;
 
     private static final Color BACKDROP = new Color(24, 24, 24);
 
-    // Una captura + su fecha de creación (SO), resueltas al recargar la lista.
+    // A screenshot plus its creation date (from the OS), resolved when the list is reloaded.
     private static final class Shot {
 
         final File file;
@@ -90,28 +88,29 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
     private final JLabel title_label = new JLabel("", SwingConstants.CENTER);
     private final JButton prev_button = arrowButton("◀");
     private final JButton next_button = arrowButton("▶");
-    // Ítem del menú contextual para copiar: se deshabilita mientras el volcado al portapapeles está
-    // en curso (evita disparar copias concurrentes) y se rehabilita al terminar.
+    // Copy item of the context menu: disabled while the clipboard dump is in progress (avoids
+    // firing concurrent copies) and re-enabled when it finishes.
     private final JMenuItem copy_menu_item = new JMenuItem();
-    // Columnas laterales de ancho FIJO e IGUAL: reservan su sitio SIEMPRE, aunque su flecha se
-    // oculte en un extremo, de modo que el área central sea simétrica y la imagen quede SIEMPRE
-    // centrada en el diálogo (si la flecha estuviera directa en WEST/EAST, al ocultarse el CENTER
-    // ocuparía ese lado y la imagen se descentraría).
+    // Fixed, EQUAL-width side columns: they always reserve their space, even when their arrow is
+    // hidden at one end, so the central area stays symmetric and the image stays centered in the
+    // dialog (if the arrow sat directly in WEST/EAST, hiding it would let CENTER take that side
+    // and the image would go off-center).
     private final JPanel prev_slot = new JPanel(new java.awt.GridBagLayout());
     private final JPanel next_slot = new JPanel(new java.awt.GridBagLayout());
 
     private java.util.List<Shot> shots = new ArrayList<>();
     private int index = 0;
 
-    // La imagen actualmente pintada (para liberarla al cambiar) y un testigo que
-    // descarta cargas obsoletas cuando se navega rápido (una decodificación en
-    // curso puede terminar después de que el usuario ya haya cambiado de imagen).
+    // The currently painted image (freed on change) and a token that discards stale loads when
+    // navigating fast (a decode in flight can finish after the user already moved on).
     private BufferedImage current_image = null;
     private volatile long load_token = 0;
 
     /**
-     * Abre el visor (o lo trae al frente y lo refresca si ya está abierto para
-     * ese mismo owner). Debe llamarse en el EDT.
+     * Opens the viewer (or brings it to front and refreshes it if already open for the same
+     * owner). Must be called on the EDT.
+     *
+     * @param owner window that owns the dialog
      */
     public static void open(Window owner) {
 
@@ -135,7 +134,7 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
 
     private ScreenshotViewerDialog(Window owner) {
 
-        super(owner); // JDialog(Window) => NO modal: no bloquea la partida.
+        super(owner); // JDialog(Window) => not modal: does not block the game.
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         Helpers.setTranslatedTitle(this, "menu.visor_capturas");
@@ -148,18 +147,18 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
 
         buildUI();
 
-        // Tamaño inicial: cómodo pero sin pasarse (85% de la pantalla del owner),
-        // con un mínimo razonable. Redimensionable: la imagen se reajusta sola.
+        // Initial size: comfortable but not excessive (90% of the owner's screen), with a sane
+        // minimum. Resizable: the image rescales itself on repaint.
         Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
         setMinimumSize(new Dimension(640, 480));
         setSize(Math.round(screen.width * 0.9f), Math.round(screen.height * 0.9f));
 
         Helpers.zoomFonts(this, Helpers.DIALOG_ZOOM, null);
 
-        // Fija AMBAS columnas laterales al mismo ancho (el de la flecha ya escalada por zoomFonts)
-        // para que el área central sea simétrica: la imagen queda centrada aparezca o no cada flecha.
+        // Pin BOTH side columns to the same width (the arrow's, already scaled by zoomFonts) so
+        // the central area is symmetric: the image stays centered whether or not each arrow shows.
         int col_w = Math.max(prev_button.getPreferredSize().width, next_button.getPreferredSize().width);
-        Dimension col_dim = new Dimension(col_w, 1); // BorderLayout WEST/EAST usa el ancho; estira el alto
+        Dimension col_dim = new Dimension(col_w, 1); // BorderLayout WEST/EAST uses the width; height is stretched
         prev_slot.setPreferredSize(col_dim);
         prev_slot.setMinimumSize(col_dim);
         next_slot.setPreferredSize(col_dim);
@@ -168,11 +167,11 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosed(java.awt.event.WindowEvent e) {
-                // Suelta TODA la cadena que retendría la última captura tras cerrar:
-                // load_token++ descarta una decodificación en vuelo (que si no volvería a
-                // rellenar current_image); setCurrentImage(null) hace flush y deja a null
-                // tanto current_image como image_view.img (y para el timer del toast); y
-                // INSTANCE=null evita que el campo estático mantenga vivo el diálogo dispuesto.
+                // Release the whole chain that would otherwise keep the last screenshot alive:
+                // load_token++ discards any decode in flight (which would else repopulate
+                // current_image); setCurrentImage(null) flushes and nulls both current_image and
+                // image_view.img (and stops the toast timer); INSTANCE=null lets the disposed
+                // dialog be collected instead of being kept alive by the static field.
                 load_token++;
                 setCurrentImage(null);
                 if (INSTANCE == ScreenshotViewerDialog.this) {
@@ -191,7 +190,7 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
 
         title_label.setForeground(Color.WHITE);
         title_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 16, 12, 16));
-        // Fuente del juego (GUI_FONT) y grande; zoomFonts la reescala luego por DIALOG_ZOOM.
+        // Game font (GUI_FONT), large; zoomFonts rescales it later by DIALOG_ZOOM.
         java.awt.Font base_font = (Helpers.GUI_FONT != null ? Helpers.GUI_FONT : title_label.getFont());
         title_label.setFont(base_font.deriveFont(java.awt.Font.BOLD, 26f));
         content.add(title_label, BorderLayout.NORTH);
@@ -199,7 +198,7 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         image_view.setBackground(BACKDROP);
         content.add(image_view, BorderLayout.CENTER);
 
-        // Menú contextual (clic derecho) sobre la imagen: copiar la captura al portapapeles.
+        // Right-click context menu on the image: copy the screenshot to the clipboard.
         final JPopupMenu image_popup = new JPopupMenu();
         copy_menu_item.setText(Translator.translate("ui.copiar_imagen_portapapeles"));
         java.awt.Font item_font = (Helpers.GUI_FONT != null ? Helpers.GUI_FONT : copy_menu_item.getFont());
@@ -207,13 +206,13 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         try {
             copy_menu_item.setIcon(new ImageIcon(getClass().getResource("/images/menu/copy.png")));
         } catch (Exception ex) {
-            // sin icono si el recurso no está disponible: el texto basta
+            // No icon if the resource is unavailable: the text label is enough.
         }
         copy_menu_item.addActionListener(e -> copyCurrentImageToClipboard());
         image_popup.add(copy_menu_item);
 
-        // Borrar la captura visible (con confirmación). Icono = X roja dibujada a 24px, igual que
-        // copy.png del ítem de copiar, para que ambos iconos del menú tengan el mismo tamaño.
+        // Delete the visible screenshot (with confirmation). Icon = red X drawn at 24px, matching
+        // the size of the copy item's copy.png so both menu icons look consistent.
         JMenuItem delete_menu_item = new JMenuItem(Translator.translate("ui.borrar_captura"));
         delete_menu_item.setFont(item_font.deriveFont(java.awt.Font.PLAIN, 16f * Helpers.DIALOG_ZOOM));
         delete_menu_item.setIcon(Helpers.deleteGlyph(24));
@@ -231,8 +230,8 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
                 maybeShowPopup(e);
             }
 
-            // isPopupTrigger es dependiente de plataforma (Windows=released, X11/macOS=pressed):
-            // se comprueba en ambos. Sin imagen visible no hay nada que copiar => no se muestra.
+            // isPopupTrigger is platform-dependent (Windows=released, X11/macOS=pressed): checked
+            // on both. No image visible means nothing to copy, so the menu is not shown.
             private void maybeShowPopup(java.awt.event.MouseEvent e) {
                 if (e.isPopupTrigger() && current_image != null) {
                     image_popup.show(image_view, e.getX(), e.getY());
@@ -244,15 +243,15 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         next_button.addActionListener(e -> showRelative(1));
         prev_slot.setOpaque(false);
         next_slot.setOpaque(false);
-        prev_slot.add(prev_button); // GridBagLayout sin constraints => centra la flecha en su columna
+        prev_slot.add(prev_button); // GridBagLayout with no constraints centers the arrow in its column
         next_slot.add(next_button);
         content.add(prev_slot, BorderLayout.WEST);
         content.add(next_slot, BorderLayout.EAST);
 
         setContentPane(content);
 
-        // Teclas de navegación (funcionan con la ventana enfocada,
-        // independientemente del componente que tenga el foco) + ESC para cerrar.
+        // Navigation keys (work whenever the window is focused, regardless of which component
+        // has focus) plus ESC to close.
         javax.swing.JRootPane root = getRootPane();
         javax.swing.InputMap im = root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
         javax.swing.ActionMap am = root.getActionMap();
@@ -283,8 +282,8 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         reload(0);
     }
 
-    // Relee el directorio de capturas (más nueva primero) y muestra la de target_index, acotado al
-    // rango disponible; si no queda ninguna, pasa al estado "sin capturas".
+    // Rereads the screenshots directory (newest first) and shows target_index, clamped to the
+    // available range; if none remain, falls back to the "no screenshots" state.
     private void reload(int target_index) {
 
         shots = new ArrayList<>();
@@ -305,7 +304,7 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
 
         if (shots.isEmpty()) {
             index = 0;
-            load_token++; // invalida cualquier carga en vuelo
+            load_token++; // invalidates any load in flight
             title_label.setText(Translator.translate("ui.no_capturas"));
             setCurrentImage(null);
             prev_button.setVisible(false);
@@ -317,8 +316,8 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         }
     }
 
-    // Fecha de creación del fichero según el SO. Con caída a la de última
-    // modificación si el sistema de ficheros no soporta creationTime.
+    // File creation date as reported by the OS, falling back to last-modified when the
+    // filesystem does not report a creation time.
     private static long creationMillis(File f) {
         try {
             BasicFileAttributes attr = Files.readAttributes(f.toPath(), BasicFileAttributes.class);
@@ -347,15 +346,15 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         String when = DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.MEDIUM, locale).format(new Date(shot.created));
         title_label.setText(when + "     ( " + (index + 1) + " / " + shots.size() + " )");
 
-        // Las flechas DESAPARECEN en los extremos (no solo se deshabilitan): BorderLayout no
-        // reserva espacio para un componente invisible, así la imagen ocupa ese lado.
+        // Arrows DISAPPEAR at the ends (not just disabled): BorderLayout does not reserve space
+        // for an invisible component, so the image takes over that side.
         prev_button.setVisible(index > 0);
         next_button.setVisible(index < shots.size() - 1);
         getContentPane().revalidate();
         getContentPane().repaint();
 
-        // Decodificación FUERA del EDT (una captura 4K son decenas de MB); el
-        // testigo descarta el resultado si el usuario ya ha navegado a otra.
+        // Decode OFF the EDT (a 4K screenshot is tens of MB); the token discards the result if
+        // the user has already navigated elsewhere.
         final long token = ++load_token;
         final File file = shot.file;
 
@@ -374,7 +373,7 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
             Helpers.GUIRun(() -> {
                 if (token != load_token) {
                     if (loaded != null) {
-                        loaded.flush(); // carga obsoleta: se descarta
+                        loaded.flush(); // stale load: discarded
                     }
                     return;
                 }
@@ -391,18 +390,18 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         image_view.setImage(img);
     }
 
-    // Copia la captura actualmente visible al portapapeles del sistema. Confirmación con un toast
-    // centrado sobre la imagen, o diálogo de error si el portapapeles no está disponible.
+    // Copies the currently visible screenshot to the system clipboard. Confirms with a toast
+    // centered on the image, or shows an error dialog if the clipboard is unavailable.
     //
-    // El toast se pinta al instante (en el EDT) y la copia se hace FUERA del EDT: volcar una imagen
-    // grande al portapapeles del SO (conversión a DIB) es bloqueante y congelaría la ventana. Al
-    // hilo de fondo se le pasa una referencia estable a la imagen, inmune a que se navegue a otra.
+    // The toast paints instantly (on the EDT) and the copy happens OFF the EDT: dumping a large
+    // image to the OS clipboard (DIB conversion) is blocking and would freeze the window. The
+    // background thread gets a stable reference to the image, immune to navigating elsewhere.
     private void copyCurrentImageToClipboard() {
         if (current_image == null) {
             return;
         }
         final BufferedImage img = current_image;
-        copy_menu_item.setEnabled(false); // congruencia + evita disparar copias concurrentes
+        copy_menu_item.setEnabled(false); // stays consistent + avoids firing concurrent copies
         image_view.showToast(Translator.translate("ui.imagen_copiada"));
         Helpers.threadRun(() -> {
             final boolean ok = Helpers.copyImageToClipboard(img);
@@ -416,9 +415,9 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         });
     }
 
-    // Borra del disco la captura visible (tras confirmar) y REFRESCA el visor manteniéndose en la
-    // misma posición: la siguiente captura ocupa el hueco (o la anterior si se borró la última). Si
-    // no queda ninguna, pasa al estado "sin capturas".
+    // Deletes the visible screenshot from disk (after confirmation) and REFRESHES the viewer,
+    // staying at the same position: the next screenshot fills the gap (or the previous one if the
+    // last was deleted). If none remain, falls back to the "no screenshots" state.
     private void deleteCurrent() {
         if (shots.isEmpty() || index < 0 || index >= shots.size()) {
             return;
@@ -446,32 +445,29 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         return b;
     }
 
-    /**
-     * Componente que pinta una imagen escalada para caber en su área conservando
-     * proporción, centrada y con bandas del color de fondo, SIN superar el 100%
-     * de su tamaño nativo. Se reajusta solo en cada repintado (redimensionar el
-     * diálogo dispara paintComponent).
-     */
+    // Paints an image scaled to fit its area, preserving aspect ratio, centered, with background-
+    // colored bands, WITHOUT exceeding 100% of its native size. Rescales itself on every repaint
+    // (resizing the dialog triggers paintComponent).
     private static final class ScaledImageView extends JComponent {
 
-        // Duración visible del toast de confirmación (ms) antes de desvanecerse.
+        // How long the confirmation toast stays visible (ms) before fading out.
         private static final int TOAST_MILLIS = 1500;
 
         private BufferedImage img = null;
 
-        // Toast de confirmación superpuesto (p. ej. "Imagen copiada"): texto actual (null = oculto)
-        // y timer de un disparo que lo borra. Todo se toca en el EDT (setImage/showToast/paint).
+        // Confirmation toast overlay (e.g. "Image copied"): current text (null = hidden) and a
+        // one-shot timer that clears it. Everything is touched on the EDT (setImage/showToast/paint).
         private String toast_text = null;
         private javax.swing.Timer toast_timer = null;
 
         void setImage(BufferedImage image) {
             this.img = image;
-            hideToast(); // al cambiar de captura el toast de la anterior no debe arrastrarse
+            hideToast(); // the previous screenshot's toast must not carry over
             repaint();
         }
 
-        // Muestra un mensaje centrado sobre la imagen (fondo negro, texto amarillo) que desaparece
-        // solo tras TOAST_MILLIS. Llamadas sucesivas reinician el reloj sin solaparse.
+        // Shows a message centered on the image (black background, yellow text) that disappears
+        // after TOAST_MILLIS. Successive calls reset the timer without overlapping.
         void showToast(String text) {
             toast_text = text;
             if (toast_timer != null) {
@@ -510,7 +506,7 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
                 int ih = img.getHeight();
 
                 if (iw > 0 && ih > 0) {
-                    // Tope 100%: nunca se amplía por encima del tamaño nativo.
+                    // 100% cap: never enlarged past the native size.
                     double scale = Math.min(Math.min(cw / (double) iw, ch / (double) ih), 1.0);
 
                     int dw = (int) Math.round(iw * scale);
@@ -534,8 +530,8 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
             }
         }
 
-        // Rótulo redondeado centrado en el componente: caja negra + texto amarillo en GUI_FONT
-        // escalada por el zoom de diálogos.
+        // Rounded label centered on the component: black box + yellow text in GUI_FONT, scaled
+        // by the dialog zoom.
         private void paintToast(Graphics2D g, int cw, int ch) {
 
             java.awt.Font base = (Helpers.GUI_FONT != null ? Helpers.GUI_FONT : getFont());
@@ -559,7 +555,7 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
                 int by = (ch - box_h) / 2;
                 int arc = Math.round(20f * Helpers.DIALOG_ZOOM);
 
-                // Caja negra semitransparente: deja entrever la captura por debajo.
+                // Semi-transparent black box: lets the screenshot show through underneath.
                 g2.setColor(new Color(0, 0, 0, 185));
                 g2.fillRoundRect(bx, by, box_w, box_h, arc, arc);
 

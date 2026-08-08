@@ -59,6 +59,9 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 
 /**
+ * Dialog for sending a chat image by URL (or opening a Google Images search when the
+ * input isn't a URL), with a persisted history panel of past sends/receives and an
+ * anti-flood cooldown between sends.
  *
  * @author tonikelope
  */
@@ -84,7 +87,9 @@ public class ChatImageDialog extends JDialog {
     private volatile boolean exiting = false;
 
     /**
-     * Creates new form ChatImageURLDialog
+     * @param parent owner frame, used for sizing/centering
+     * @param modal whether the dialog blocks its owner
+     * @param h dialog height in pixels, applied after the initial pack()
      */
     public ChatImageDialog(java.awt.Frame parent, boolean modal, int h) {
 
@@ -154,9 +159,12 @@ public class ChatImageDialog extends JDialog {
 
     }
 
+    /**
+     * Stops the progress-bar update timer (it would otherwise keep firing and hold a
+     * reference to this dialog) before delegating to the superclass.
+     */
     @Override
     public void dispose() {
-        // Stop the timer to prevent memory leaks when the dialog is closed
         if (ui_update_timer != null && ui_update_timer.isRunning()) {
             ui_update_timer.stop();
         }
@@ -166,7 +174,7 @@ public class ChatImageDialog extends JDialog {
     private void cargarHistorialPanel() {
 
         synchronized (LOAD_IMAGES_LOCK) {
-            // Changed to asynchronous GUIRun to prevent deadlocks while holding LOAD_IMAGES_LOCK
+            // GUIRun (not GUIRunAndWait): avoid blocking on the EDT while holding LOAD_IMAGES_LOCK
             Helpers.GUIRun(ChatImageDialog.this.historial_panel::removeAll);
         }
 
@@ -181,7 +189,7 @@ public class ChatImageDialog extends JDialog {
                 // Iterate over the thread-safe snapshot
                 for (String h : historySnapshot) {
 
-                    // Prevent deadlock: run UI creation asynchronously 
+                    // Prevent deadlock: run UI creation asynchronously
                     Helpers.GUIRun(new Runnable() {
                         private volatile JLabel label;
 
@@ -355,8 +363,8 @@ public class ChatImageDialog extends JDialog {
 
                             isgif = GIF_CACHE.containsKey(url);
 
-                            // Cap a MAX (INDEPENDIENTE del zoom) para lo que se CACHEA: el caché es canónico
-                            // y no queda atado al zoom de la primera carga.
+                            // Cache the width-capped version, independent of zoom: the cache is canonical
+                            // and must not stay tied to whichever zoom was active on first load.
                             if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
                                 isgif = (isgif || Helpers.isImageGIF(new URL(url)));
                                 image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
@@ -368,8 +376,8 @@ public class ChatImageDialog extends JDialog {
                                 STATIC_IMAGE_CACHE.putIfAbsent(url, image);
                             }
 
-                            // Copia PARA MOSTRAR escalada por el zoom de diálogos (NO se cachea). Escala
-                            // TODAS (no solo las que superan el cap), así las pequeñas también encogen/crecen.
+                            // Display copy scaled by the dialog zoom (not cached). Scale ALL images, not
+                            // just the ones over the cap, so small ones also shrink/grow with the zoom.
                             ImageIcon display_image = image;
                             int display_w = Math.round(image.getIconWidth() * Helpers.DIALOG_ZOOM);
                             if (display_w > 0 && display_w != image.getIconWidth()) {
@@ -390,7 +398,7 @@ public class ChatImageDialog extends JDialog {
                             Helpers.threadRun(() -> {
                                 synchronized (LOAD_IMAGES_LOCK) {
                                     if (!exit) {
-                                        // Changed to asynchronous GUIRun to prevent deadlocks
+                                        // GUIRun: don't block on the EDT while holding LOAD_IMAGES_LOCK
                                         Helpers.GUIRun(() -> {
                                             ChatImageDialog.this.historial_panel.remove(label);
                                             ChatImageDialog.this.historial_panel.revalidate();
@@ -407,7 +415,7 @@ public class ChatImageDialog extends JDialog {
                         Helpers.threadRun(() -> {
                             synchronized (LOAD_IMAGES_LOCK) {
                                 if (!exit) {
-                                    // Changed to asynchronous GUIRun to prevent deadlocks
+                                    // GUIRun: don't block on the EDT while holding LOAD_IMAGES_LOCK
                                     Helpers.GUIRun(() -> {
                                         ChatImageDialog.this.historial_panel.remove(label);
                                         ChatImageDialog.this.historial_panel.revalidate();
@@ -435,6 +443,11 @@ public class ChatImageDialog extends JDialog {
         }
     }
 
+    /**
+     * Drops {@code url} from both image caches and from the persisted history.
+     *
+     * @param url image URL to forget
+     */
     public synchronized static void removeFromHistory(String url) {
 
         STATIC_IMAGE_CACHE.remove(url);
@@ -458,6 +471,11 @@ public class ChatImageDialog extends JDialog {
 
     }
 
+    /**
+     * Appends a received image URL to the history, if auto-receive is enabled.
+     *
+     * @param url received image URL
+     */
     public synchronized static void updateHistorialRecibidos(String url) {
 
         if (AUTO_REC && !HISTORIAL.contains(url)) {
@@ -469,6 +487,11 @@ public class ChatImageDialog extends JDialog {
         }
     }
 
+    /**
+     * Appends received image URLs to the history, if auto-receive is enabled.
+     *
+     * @param urls received image URLs
+     */
     public synchronized static void updateHistorialRecibidos(ArrayList<String> urls) {
 
         if (AUTO_REC) {
@@ -483,6 +506,10 @@ public class ChatImageDialog extends JDialog {
         }
     }
 
+    /**
+     * Persists the current history (Base64-encoded, {@code @}-joined) and the
+     * auto-receive flag to the properties file.
+     */
     public synchronized static void guardarHistorial() {
 
         String[] historial = HISTORIAL.toArray(new String[0]);
@@ -739,8 +766,7 @@ public class ChatImageDialog extends JDialog {
                 ChatImageDialog.this.barra.setVisible(true);
 
                 Helpers.threadRun(() -> {
-                    // Quick check, safe for Deque if it's just a contains operation, 
-                    // though locking on ChatImageDialog.class for strict thread safety is recommended.
+                    // HISTORIAL is also mutated from other threads, so read it under the class lock
                     boolean existsInHistory;
                     synchronized (ChatImageDialog.class) {
                         existsInHistory = HISTORIAL.contains(url);
@@ -870,13 +896,12 @@ public class ChatImageDialog extends JDialog {
 
     private void clear_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clear_buttonActionPerformed
         // TODO add your handling code here:
-        // Replaced THIS with 'this' 
         if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("chat.borrar_todas_las_imagenes_del"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
 
             STATIC_IMAGE_CACHE.clear();
             GIF_CACHE.clear();
 
-            // Added class-level synchronization to match the static static nature of HISTORIAL
+            // HISTORIAL is shared static state - guard it with the class lock, as elsewhere
             synchronized (ChatImageDialog.class) {
                 HISTORIAL.clear();
             }

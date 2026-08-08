@@ -42,9 +42,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 /*
-    "Es de bien nacidos ser agradecidos"
+    "Gratitude is the mark of noble souls"
 
-    SPECIAL THANKS TO: 
+    SPECIAL THANKS TO:
 
     https://www.java.com/
 
@@ -67,6 +67,12 @@ import javax.swing.Timer;
 
 
  */
+/**
+ * "About" dialog: credits, version/system info, an animated corona-logo (played back
+ * pre-decoded to fixed frames to avoid AWT GIF flicker, see {@link #setupLogoAnimation()}),
+ * live memory/thread stats, and optional MOD branding. Mutes whatever background music loop
+ * was already playing for its own track and restores it on close.
+ */
 public class AboutDialog extends JDialog {
 
     public static final String VERSION = "23.33";
@@ -79,12 +85,11 @@ public class AboutDialog extends JDialog {
     private volatile int c = 0;
     private volatile Timer memory_timer = null;
 
-    // Logo animado (corona_logo.gif) reproducido PRE-DECODIFICADO a fotogramas fijos
-    // en vez de con el reproductor GIF de AWT: ese GIF trae disposal
-    // "restoreToBackgroundColor" en todos sus frames y en algunos equipos Windows
-    // (segun el pipeline de render) eso destella el fondo entre frames = parpadeo.
-    // Pintar cada frame como icono estatico con el doble buffer de Swing lo elimina.
-    // Mismo motor (PreRenderedGif + frameAt por tiempo) que el GIF del barajado.
+    // Animated logo (corona_logo.gif) is played back pre-decoded to fixed frames instead of
+    // via AWT's GIF player: this GIF's disposal method is restoreToBackgroundColor on every
+    // frame, which flashes the background between frames on some Windows render pipelines.
+    // Painting each frame as a static icon under Swing's double buffering avoids that. Same
+    // engine (PreRenderedGif + time-based frameAt) as the shuffle GIF.
     private static volatile PreRenderedGif LOGO_ANIM_CACHE = null;
     private static volatile boolean LOGO_ANIM_TRIED = false;
     private PreRenderedGif logo_anim = null;
@@ -94,7 +99,8 @@ public class AboutDialog extends JDialog {
     private volatile boolean logo_clock_started = false;
 
     /**
-     * Creates new form About
+     * @param parent owner frame
+     * @param modal whether the dialog blocks input to the owner
      */
     public AboutDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
@@ -131,25 +137,26 @@ public class AboutDialog extends JDialog {
             mod_label.setVisible(false);
         }
 
-        // Familia GUI_FONT a tamaño de DISEÑO (como siempre) + pack para MEDIR el tamaño de diseño.
+        // GUI_FONT family at DESIGN size (as always) + pack to MEASURE the design size.
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
 
         pack();
 
-        // Zoom GLOBAL de diálogos: escala los adornos ANTES de que zoomDialog reempaquete (para que su
-        // tamaño escalado cuente). El logo animado (corona_logo.gif) NO usa el reproductor GIF de AWT
-        // (parpadea en algunos equipos por el disposal restoreToBackgroundColor): se reproduce
-        // pre-decodificado a fotogramas fijos escalados al tamaño de diseño × zoom (setupLogoAnimation).
-        // El resto son PNG y se escalan con scaleDialogIcon. Luego zoomDialog escala fuentes y ventana.
+        // Global dialog zoom: scale decorations BEFORE zoomDialog repacks, so their scaled size
+        // is accounted for. The animated logo (corona_logo.gif) doesn't use AWT's GIF player (it
+        // flickers on some machines, see the field comments above): it's played back pre-decoded
+        // to fixed frames scaled to design size × zoom (setupLogoAnimation). The rest are PNGs
+        // scaled with scaleDialogIcon. zoomDialog then scales fonts and the window.
         setupLogoAnimation();
         Helpers.scaleDialogIcon(dedicado, "/images/luto.png");
         Helpers.scaleDialogIcon(jLabel12, "/images/open-book.png");
         Helpers.scaleDialogIcon(jLabel9, "/images/cruz.png");
-        // El contenido va en un JScrollPane con una línea de ancho PREFIJADO en el .form (jLabel5=804);
-        // sin esto no bajaría de ese ancho al encoger (barra horizontal). Hace que el contenido siga
-        // el ancho del viewport y se recoloque. Instalar ANTES de zoomDialog (que redimensiona la ventana).
+        // The content sits in a JScrollPane with one line PREFIXED to a fixed width in the .form
+        // (jLabel5=804); without this it wouldn't shrink below that width when the window shrinks
+        // (horizontal scrollbar). This makes the content track the viewport width and re-wrap.
+        // Install BEFORE zoomDialog (which resizes the window).
         Helpers.trackViewportWidth(main_scroll_panel);
         Helpers.zoomDialog(this);
 
@@ -177,9 +184,9 @@ public class AboutDialog extends JDialog {
 
     }
 
-    // GIF del logo decodificado UNA sola vez a frames completos (cacheado; los
-    // frames son inmutables y se comparten entre aperturas). null si el decode
-    // falla: en ese caso el llamante cae al reproductor GIF nativo.
+    // Logo GIF decoded ONCE into full frames (cached; the frames are immutable and shared
+    // across dialog openings). Null if decoding fails, in which case the caller falls back
+    // to the native GIF player.
     private static PreRenderedGif logoAnim() {
         if (!LOGO_ANIM_TRIED) {
             synchronized (AboutDialog.class) {
@@ -197,20 +204,22 @@ public class AboutDialog extends JDialog {
         return LOGO_ANIM_CACHE;
     }
 
-    // Pre-decodifica corona_logo.gif en background desde el arranque (junto al resto
-    // de warmups en Init), para que la PRIMERA apertura del About no pague el decode
-    // (~120 ms) en el EDT del constructor. logoAnim() es idempotente y thread-safe,
-    // así que al abrir el About luego se reutiliza lo ya decodificado (y si el
-    // warmup aún no terminó, se decodifica en el acto sin romper nada).
+    /**
+     * Pre-decodes corona_logo.gif in the background at startup (alongside the other warmups in
+     * {@code Init}), so the first About dialog opened doesn't pay the ~120 ms decode cost on the
+     * constructor's EDT. {@link #logoAnim()} is idempotent and thread-safe, so opening the dialog
+     * later reuses the already-decoded result (and decodes on the spot if the warmup hasn't
+     * finished yet).
+     */
     public static void warmupLogoAnim() {
         Helpers.threadRun(() -> logoAnim());
     }
 
-    // Reproduce el logo animado SIN el reproductor GIF de AWT: un Icon que pinta el
-    // frame vigente (escalado a los bounds por GPU) y un Timer que avanza el frame
-    // por tiempo transcurrido, en bucle. Elimina el parpadeo del GIF (ver campos).
-    // El Timer se arranca en formWindowOpened y se para en formWindowClosed. Si el
-    // pre-render no esta disponible, cae al camino nativo (scaleDialogIcon).
+    // Plays the animated logo WITHOUT AWT's GIF player: an Icon that paints the current frame
+    // (scaled to the bounds by the GPU) and a Timer that advances the frame by elapsed time, in
+    // a loop. Avoids the GIF flicker (see the field comments). The Timer is started in
+    // formWindowOpened and stopped in formWindowClosed. Falls back to the native path
+    // (scaleDialogIcon) if pre-rendering isn't available.
     private void setupLogoAnimation() {
         PreRenderedGif anim = logoAnim();
         if (anim == null) {
@@ -244,18 +253,17 @@ public class AboutDialog extends JDialog {
             }
         });
         final long total_ms = Math.max(1L, anim.getTotalMs());
-        // Mismo tick fino que las animaciones de mesa: muestrear el frame por tiempo
-        // cada ~2 ms lo deja liso; con ticks más gruesos daba tirones.
+        // Same fine-grained tick as the table animations: sampling the frame by elapsed time
+        // every ~2 ms keeps it smooth; coarser ticks caused stutter.
         logo_timer = new javax.swing.Timer(GameFrame.getTickMs(), (ActionEvent ae) -> {
             long now = System.nanoTime();
             if (!logo_clock_started) {
-                // Ancla el reloj en el PRIMER tick REAL, no en formWindowOpened. Al abrir,
-                // el EDT aún está saturado (primer layout y pintado del diálogo, creación
-                // del peer nativo/superficie D3D, arranque del audio): anclar antes hacía
-                // que el modelo catch-up (frameAt por tiempo transcurrido) computara ya un
-                // elapsed grande en el primer tick y saltara varios frames de golpe = el
-                // tirón al arrancar el giro. Anclando aquí el giro siempre arranca liso
-                // desde el frame 0 pase lo que pase antes.
+                // Anchor the clock on the FIRST REAL tick, not in formWindowOpened. At that
+                // point the EDT is still busy (first dialog layout/paint, native peer/D3D
+                // surface creation, audio startup): anchoring earlier let the catch-up model
+                // (elapsed-time frameAt) compute a large elapsed value on the first tick and
+                // skip several frames at once, causing a stutter at startup. Anchoring here
+                // always starts the spin smoothly from frame 0.
                 logo_clock_started = true;
                 logo_t0 = now;
             }
@@ -602,7 +610,6 @@ public class AboutDialog extends JDialog {
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
         Helpers.openBrowserURL("https://github.com/tonikelope/coronapoker/raw/master/robert_rules.pdf");
     }//GEN-LAST:event_jLabel12MouseClicked
 
@@ -610,7 +617,6 @@ public class AboutDialog extends JDialog {
         if (!Helpers.isReleaseInsideComponent(evt)) {
             return;
         }
-        // TODO add your handling code here:
         if (Init.M1 != null && ++c == 5) {
 
             try {
@@ -624,8 +630,6 @@ public class AboutDialog extends JDialog {
     }//GEN-LAST:event_jvmMouseClicked
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
-        // TODO add your handling code here:
-
         if (isModal()) {
             try {
                 Init.CURRENT_MODAL_DIALOG.removeLast();
@@ -635,22 +639,17 @@ public class AboutDialog extends JDialog {
     }//GEN-LAST:event_formWindowDeactivated
 
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
-        // TODO add your handling code here:
-
         if (isModal()) {
             Init.CURRENT_MODAL_DIALOG.add(this);
         }
     }//GEN-LAST:event_formWindowActivated
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
-        // TODO add your handling code here:
-
         memory_timer.start();
 
-        // Arranca la reproducción del logo desde el frame 0. El reloj NO se ancla aquí:
-        // se ancla en el primer tick real del timer (ver setupLogoAnimation), porque en
-        // este punto el EDT todavía está ocupado abriendo el diálogo y anclar ahora hacía
-        // que el giro pegara un tirón al arrancar.
+        // Starts the logo playback from frame 0. The clock is NOT anchored here: it's anchored
+        // on the timer's first real tick (see setupLogoAnimation), because at this point the EDT
+        // is still busy opening the dialog and anchoring now made the spin stutter at startup.
         if (logo_timer != null) {
             logo_frame_idx = 0;
             logo_clock_started = false;
@@ -671,7 +670,6 @@ public class AboutDialog extends JDialog {
     }//GEN-LAST:event_formWindowOpened
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
-        // TODO add your handling code here:
         Audio.stopLoopMp3("misc/about_music.mp3");
 
         if (last_mp3_loop != null) {
@@ -686,7 +684,6 @@ public class AboutDialog extends JDialog {
     }//GEN-LAST:event_formWindowClosed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
-        // TODO add your handling code here:
         if (!mod_bar.isVisible()) {
             dispose();
         }
@@ -696,7 +693,6 @@ public class AboutDialog extends JDialog {
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
         Helpers.openBrowserURL("https://github.com/tonikelope/coronapoker");
     }//GEN-LAST:event_corona_icon_labelMouseClicked
 
@@ -704,8 +700,6 @@ public class AboutDialog extends JDialog {
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
-
         if (!mod_bar.isVisible()) {
             mod_bar.setIndeterminate(true);
             mod_bar.setVisible(true);

@@ -36,23 +36,23 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Mantiene la pantalla despierta mientras la partida está en pantalla completa.
+ * Keeps the screen awake while the game is fullscreen.
  *
  * <ul>
- *   <li><b>Windows</b>: {@code SetThreadExecutionState} (Kernel32, vía JNA). Le
- *       dice al SO "no apagues la pantalla ni suspendas" — NO simula input
- *       (no toca ratón ni teclado). Es por-hilo, así que siempre se invoca desde
- *       el mismo hilo del timer; al cerrar la app el SO libera el estado solo.</li>
- *   <li><b>Linux y macOS</b>: no hay API nativa de inhibición accesible de forma
- *       limpia y uniforme (en Linux variaría entre X11 y Wayland, y D-Bus exigiría
- *       otra dependencia), así que se usa una tecla no-op (F15) vía Robot: NO mueve
- *       el cursor —a diferencia de un "jiggle" de ratón, no dispara hover— y es
- *       inocua. Es el único punto donde se simula input, deliberadamente, por no
- *       haber alternativa nativa limpia, y funciona igual en X11 y Wayland.</li>
+ *   <li><b>Windows</b>: {@code SetThreadExecutionState} (Kernel32, via JNA). Tells the OS not to
+ *       turn off the display or suspend — it does NOT simulate input (no mouse/keyboard). The
+ *       state is per-thread, so this is always invoked from the same timer thread; the OS
+ *       releases it on its own when the app exits.</li>
+ *   <li><b>Linux and macOS</b>: there is no native inhibition API that's clean and uniform across
+ *       both (on Linux it would differ between X11/Wayland, and D-Bus would pull in another
+ *       dependency), so a no-op key (F15) is sent via Robot instead: unlike a mouse jiggle it
+ *       doesn't move the cursor or trigger hover events, and is harmless. This is the only place
+ *       where input is simulated, deliberately, for lack of a clean native alternative, and it
+ *       works the same under X11 and Wayland.</li>
  * </ul>
  *
- * Cualquier fallo de la vía nativa de Windows (JNA ausente, etc.) se captura y
- * degrada al fallback de tecla sin romper: la clase nunca propaga.
+ * Any failure on the Windows native path (JNA missing, etc.) is caught and degrades to the key
+ * fallback without breaking — this class never propagates.
  *
  * @author tonikelope
  */
@@ -66,23 +66,22 @@ public final class ScreenWakeLock {
     }
 
     /**
-     * Refresca el wake-lock según el estado de pantalla completa. Pensado para
-     * llamarse periódicamente (el timer anti-screensaver). Idempotente y
-     * silencioso ante fallos.
+     * Refreshes the wake-lock based on the fullscreen state. Meant to be called periodically (the
+     * anti-screensaver timer). Idempotent and silent on failure.
      *
-     * @param fullscreen true si el juego está en pantalla completa (único estado
-     * en el que se mantiene la pantalla despierta).
-     * @param fallback_robot Robot reutilizable para el fallback de tecla
-     * (Linux/macOS); puede ser null (entonces el fallback simplemente no actúa).
+     * @param fullscreen true if the game is fullscreen (the only state in which the screen is
+     * kept awake)
+     * @param fallback_robot reusable Robot for the key fallback (Linux/macOS); may be null, in
+     * which case the fallback simply does nothing
      */
     public static void refresh(boolean fullscreen, Robot fallback_robot) {
 
-        // Windows: API nativa, sin simular input.
+        // Windows: native API, no input simulation.
         if (Helpers.OSValidator.isWindows() && !native_unavailable) {
             try {
-                // ES_CONTINUOUS hace el estado persistente para este hilo; con
-                // los flags de display/sistema en fullscreen se mantiene
-                // despierto, y sin ellos (solo ES_CONTINUOUS) se libera.
+                // ES_CONTINUOUS makes the state persist for this thread; adding the display/system
+                // flags while fullscreen keeps the screen awake, omitting them (ES_CONTINUOUS
+                // alone) releases it.
                 int flags = WinBase.ES_CONTINUOUS
                         | (fullscreen ? (WinBase.ES_DISPLAY_REQUIRED | WinBase.ES_SYSTEM_REQUIRED) : 0);
                 Kernel32.INSTANCE.SetThreadExecutionState(flags);
@@ -93,15 +92,15 @@ public final class ScreenWakeLock {
             }
         }
 
-        // Linux / macOS (o Windows si la vía nativa falló): tecla no-op. No mueve
-        // el cursor, así que no dispara eventos de hover; solo en fullscreen.
+        // Linux / macOS (or Windows if the native path failed): no-op key. Doesn't move the
+        // cursor, so it doesn't trigger hover events; fullscreen only.
         if (fullscreen && fallback_robot != null) {
             try {
                 fallback_robot.keyPress(KeyEvent.VK_F15);
                 fallback_robot.keyRelease(KeyEvent.VK_F15);
             } catch (Exception ex) {
-                // VK_F15 puede no estar mapeada en alguna plataforma: lo dejamos
-                // pasar (ese tick no refresca el idle timer, sin más).
+                // VK_F15 may be unmapped on some platforms: ignore it (that tick simply doesn't
+                // refresh the idle timer).
                 LOGGER.log(Level.FINE, "No-op key fallback failed", ex);
             }
         }

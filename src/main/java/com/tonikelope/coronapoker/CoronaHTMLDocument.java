@@ -37,8 +37,9 @@ import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 
 /**
- *
- * T-H-A-N-K Y-O-U!!!!! --> https://stackoverflow.com/a/35012241
+ * HTMLDocument that registers the custom "tonimg" tag (used for embedded chat images/emojis) with
+ * a block action, so the parser inserts it as an element instead of dropping it as unknown.
+ * Technique from https://stackoverflow.com/a/35012241.
  */
 class CoronaHTMLDocument extends HTMLDocument {
 

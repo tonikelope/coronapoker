@@ -34,11 +34,18 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+/**
+ * Root-logger {@link Handler} that buffers formatted log records in memory (capped, oldest
+ * dropped first) and optionally forwards each one live to a single subscriber. Backs the
+ * in-app debug console ({@code DebugSettingsPanel}), which reads {@link #snapshot()} on open
+ * and {@link #subscribe(Consumer)} for live updates.
+ */
 public final class DebugLog {
 
     private static final int MAX_CHARS = 512 * 1024;
     private static final SimpleFormatter FORMATTER = new SimpleFormatter();
     private static final StringBuilder BUFFER = new StringBuilder(8192);
+    // Only one listener at a time: the debug console is the sole subscriber.
     private static volatile Consumer<String> listener = null;
 
     private static final Handler HANDLER = new Handler() {
@@ -55,6 +62,7 @@ public final class DebugLog {
             }
             synchronized (BUFFER) {
                 BUFFER.append(formatted);
+                // Cap memory use: keep only the most recent MAX_CHARS characters.
                 if (BUFFER.length() > MAX_CHARS) {
                     BUFFER.delete(0, BUFFER.length() - MAX_CHARS);
                 }
@@ -80,27 +88,35 @@ public final class DebugLog {
     private DebugLog() {
     }
 
+    /** Attaches the buffering handler to the root logger. Call once at startup. */
     public static void install() {
         Logger root = java.util.logging.LogManager.getLogManager().getLogger("");
         root.addHandler(HANDLER);
     }
 
+    /** @return the buffered log text accumulated so far. */
     public static String snapshot() {
         synchronized (BUFFER) {
             return BUFFER.toString();
         }
     }
 
+    /**
+     * Registers {@code l} to receive each formatted record as it's logged, replacing any
+     * previous subscriber.
+     */
     public static void subscribe(Consumer<String> l) {
         listener = l;
     }
 
+    /** Removes {@code l} if it is the current subscriber; no-op otherwise. */
     public static void unsubscribe(Consumer<String> l) {
         if (listener == l) {
             listener = null;
         }
     }
 
+    /** Clears the buffered log text. */
     public static void clear() {
         synchronized (BUFFER) {
             BUFFER.setLength(0);

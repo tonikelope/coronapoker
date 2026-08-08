@@ -32,16 +32,17 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * A custom OutputStream that splits the output to two different streams. Acts
- * like the UNIX 'tee' command. Now includes an inline byte-filter to remove
- * <0xa0> (Non-Breaking Spaces) and replace them with standard spaces.
+ * OutputStream that duplicates every write to two underlying streams, like
+ * the UNIX {@code tee} command, while filtering out non-breaking-space
+ * (0xA0) sequences and replacing them with a regular space.
  */
 public class TeeOutputStream extends OutputStream {
 
     private final OutputStream out1;
     private final OutputStream out2;
 
-    // Estado para rastrear el primer byte del <0xa0> en UTF-8 (0xC2)
+    // True while we're holding back a 0xC2 byte, waiting to see whether it's
+    // the first half of a UTF-8 <0xA0> (non-breaking space) sequence.
     private boolean pendingC2 = false;
 
     public TeeOutputStream(OutputStream out1, OutputStream out2) {
@@ -53,8 +54,8 @@ public class TeeOutputStream extends OutputStream {
     public void write(int b) throws IOException {
         int unsignedByte = b & 0xFF;
 
-        // El carácter <0xa0> en UTF-8 se compone de dos bytes: 0xC2 seguido de 0xA0.
-        // Si detectamos el 0xC2, lo retenemos temporalmente.
+        // UTF-8 encodes <0xA0> as two bytes: 0xC2 followed by 0xA0. On
+        // seeing 0xC2, hold it back until the next byte confirms it.
         if (unsignedByte == 0xC2) {
             pendingC2 = true;
             return;
@@ -63,35 +64,34 @@ public class TeeOutputStream extends OutputStream {
         if (pendingC2) {
             pendingC2 = false;
             if (unsignedByte == 0xA0) {
-                // ¡Cazado! Era la secuencia 0xC2 0xA0. Escribimos un espacio normal (0x20).
+                // Confirmed 0xC2 0xA0 sequence: write a regular space instead.
                 out1.write(0x20);
                 out2.write(0x20);
                 return;
             } else {
-                // Falsa alarma. Era un 0xC2 de otro carácter (como una letra acentuada).
-                // Escribimos el 0xC2 que habíamos retenido y seguimos.
+                // False alarm: the 0xC2 belonged to a different character
+                // (e.g. an accented letter). Flush the buffered byte and continue.
                 out1.write(0xC2);
                 out2.write(0xC2);
             }
         }
 
-        // Por si la consola escupe el carácter en formato ANSI puro (un solo byte 0xA0)
+        // Handle a console that emits the raw single-byte ANSI form (0xA0) instead.
         if (unsignedByte == 0xA0) {
             out1.write(0x20);
             out2.write(0x20);
             return;
         }
 
-        // Cualquier otro byte normal se escribe por la tubería en T
+        // Any other byte passes through the tee unchanged.
         out1.write(b);
         out2.write(b);
     }
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-        // Redirigimos los arrays de bytes a nuestro método write(int) para 
-        // asegurarnos de que el filtro no falle si el carácter <0xa0> 
-        // se queda cortado por la mitad entre dos paquetes.
+        // Delegate byte-by-byte to write(int) so the filter still works
+        // correctly if a <0xA0> sequence is split across two buffers.
         for (int i = off; i < off + len; i++) {
             this.write(b[i]);
         }

@@ -34,6 +34,7 @@ import java.awt.RenderingHints;
 import javax.swing.JPanel;
 
 /**
+ * JPanel with rounded corners, used for the seat/action panels.
  *
  * @author tonikelope
  */
@@ -41,13 +42,12 @@ public class RoundedPanel extends JPanel {
 
     public static final int DEFAULT_ARC = 20;
     private final int arc;
-    // Mismo patrón que el asiento (LocalPlayer/RemotePlayer.setOpaque): el panel NUNCA es opaco
-    // de verdad. Si lo fuese, Swing no repintaría el fondo detrás y las esquinas —fuera del
-    // arco— mostrarían basura: un setBackground AISLADO (fuera de un repaint grande) deja
-    // negro en ellas, porque el RepaintManager optimiza el repaint de la región cubierta por un
-    // componente opaco y no re-pinta el ancestro. Se intercepta setOpaque y se recuerda la
-    // INTENCIÓN de relleno en rounded_fill, que pintamos nosotros (redondeado) en paintComponent;
-    // Swing repinta el fondo detrás (el panel es no-opaco) y las esquinas quedan limpias.
+    // This panel is NEVER truly opaque (same pattern as LocalPlayer/RemotePlayer.setOpaque). If
+    // it were, Swing's RepaintManager would treat it as covering that region and stop repainting
+    // the ancestor behind it, so an isolated setBackground (outside a full repaint) would leave
+    // the corners outside the arc black. setOpaque only records the fill INTENT here; the actual
+    // fill is drawn (rounded) in paintComponent, while Swing still repaints the real background
+    // behind the non-opaque panel, keeping the corners clean.
     private volatile boolean rounded_fill = false;
 
     public RoundedPanel() {
@@ -66,9 +66,9 @@ public class RoundedPanel extends JPanel {
         super.setOpaque(false);
     }
 
-    // Intención de relleno (lo que se pasó a setOpaque). No usar isOpaque() para esto: el panel
-    // es SIEMPRE no-opaco de cara a Swing (para que repinte el fondo detrás), así que isOpaque()
-    // devuelve false aunque el panel esté pintando su relleno.
+    // The fill intent (what was passed to setOpaque). Don't use isOpaque() for this: the panel is
+    // ALWAYS non-opaque as far as Swing is concerned (so it keeps repainting the background
+    // behind it), so isOpaque() returns false even while the panel is painting its fill.
     public boolean isRoundedFill() {
         return rounded_fill;
     }
@@ -86,8 +86,9 @@ public class RoundedPanel extends JPanel {
             } finally {
                 g2d.dispose();
             }
-            // No se llama a super.paintComponent: Swing ya ha repintado el fondo detrás (el panel
-            // es no-opaco) y el relleno redondeado va encima; super pintaría un fondo cuadrado.
+            // super.paintComponent is deliberately not called: Swing already repainted the
+            // background behind this (non-opaque) panel, and the rounded fill goes on top of
+            // that; calling super would paint a square background over it.
         } else {
             super.paintComponent(g);
         }

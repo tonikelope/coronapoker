@@ -60,6 +60,12 @@ public final class BinaryWire {
         }
     }
 
+    /**
+     * Encodes {@code type | uint16 nicklen | nick(UTF-8) | rest} into a single payload.
+     *
+     * @throws IllegalArgumentException if {@code nick} or {@code rest} is null, or the
+     *                                  UTF-8-encoded nick is too long for the uint16 length field
+     */
     public static byte[] encode(byte type, String nick, byte[] rest) {
         if (nick == null || rest == null) {
             throw new IllegalArgumentException("nick and rest must not be null");
@@ -77,10 +83,17 @@ public final class BinaryWire {
         return out;
     }
 
+    /** {@link #encode} with {@link #TYPE_VOICE}. */
     public static byte[] encodeVoice(String nick, byte[] audio) {
         return encode(TYPE_VOICE, nick, audio);
     }
 
+    /**
+     * Decodes a payload produced by {@link #encode}.
+     *
+     * @throws IllegalArgumentException if {@code data} is too short or its nicklen field
+     *                                  is out of bounds
+     */
     public static Decoded decode(byte[] data) {
         if (data == null || data.length < 3) {
             throw new IllegalArgumentException("binary payload too short");

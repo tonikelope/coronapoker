@@ -33,6 +33,8 @@ import java.awt.Graphics;
 import javax.swing.ImageIcon;
 
 /**
+ * Panel wrapping a {@link GifLabel}, optionally painting the table's
+ * brightness overlay on top of it.
  *
  * @author tonikelope
  */
@@ -52,7 +54,7 @@ public class GifPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Creates new form NewJPanel
+     * Creates a panel with the brightness overlay enabled.
      */
     public GifPanel() {
         initComponents();
@@ -60,7 +62,7 @@ public class GifPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Creates new form NewJPanel
+     * @param b whether to paint the brightness overlay on top of the gif
      */
     public GifPanel(boolean b) {
         initComponents();
@@ -68,8 +70,8 @@ public class GifPanel extends javax.swing.JPanel {
     }
 
     public void setGifIcon(ImageIcon icon, int w, int h) {
-        // Removed the CPU-heavy getScaledInstance.
-        // We pass the raw ImageIcon to the label and let the hardware scaling handle it.
+        // Pass the icon unscaled: getScaledInstance is CPU-heavy, so scaling
+        // is left to the label/hardware instead.
         gif.setIcon(icon);
 
         gif.setPreferredSize(new Dimension(w, h));

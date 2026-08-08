@@ -26,13 +26,13 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
 /**
- * Pestaña "Debug" del diálogo de Ajustes: consola de solo lectura con el mismo volcado de
- * logs (java.util.logging, vía {@link DebugLog}) que antes vivía en el diálogo de Registro.
+ * "Debug" tab of the Settings dialog: a read-only console showing the same
+ * {@code java.util.logging} dump (via {@link DebugLog}) that used to live in the Log dialog.
  *
- * Se suscribe a {@link DebugLog} al construirse y libera la suscripción en {@link #cleanup()}
- * (lo llama SettingsDialog al cerrarse, para no retener este panel desechado a través del
- * listener estático de DebugLog). Reutiliza el aspecto de consola ({@code LOG_BG}/{@code LOG_FONT})
- * y el autoscroll pegajoso ({@code BottomFollower}) del registro (GameLogDialog).
+ * Subscribes to {@link DebugLog} on construction and unsubscribes in {@link #cleanup()}
+ * (called by SettingsDialog on close, so the static DebugLog listener doesn't keep this
+ * discarded panel alive). Reuses the console look ({@code LOG_BG}/{@code LOG_FONT}) and the
+ * sticky autoscroll ({@code BottomFollower}) from {@link GameLogDialog}.
  *
  * @author tonikelope
  */
@@ -57,10 +57,10 @@ public class DebugSettingsPanel extends JPanel {
         JScrollPane debug_scroll = new JScrollPane(debug_textarea);
         debug_scroll.setBorder(BorderFactory.createEmptyBorder());
         debug_scroll.getVerticalScrollBar().setUnitIncrement(16);
-        // Tamaño de referencia acotado: el diálogo de Ajustes se empaqueta al contenido, y
-        // un JTextArea con muchas líneas reportaría un preferido enorme que dispararía el
-        // alto del diálogo. Con un preferido fijo modesto el contenido scrollea dentro y el
-        // resto de pestañas manda en el tamaño final.
+        // Bounded preferred size: the Settings dialog packs to its content, and a JTextArea
+        // with many lines would report a huge preferred size that would blow up the dialog
+        // height. With a modest fixed preferred size the content scrolls internally instead,
+        // and the other tabs drive the final dialog size.
         debug_scroll.setPreferredSize(new Dimension(Math.round(620 * Helpers.DIALOG_ZOOM), Math.round(380 * Helpers.DIALOG_ZOOM)));
         add(debug_scroll, BorderLayout.CENTER);
 
@@ -74,24 +74,31 @@ public class DebugSettingsPanel extends JPanel {
                 debug_textarea.append(record);
                 follow.followIfNeeded();
             } catch (Throwable t) {
-                // El textarea puede estar en transición al cerrarse el diálogo — ignorar.
+                // The text area may be mid-teardown while the dialog closes — ignore.
             }
         });
         DebugLog.subscribe(listener);
     }
 
-    // Repone la fuente monoespaciada de consola: SettingsDialog aplica setUniformFont a todo
-    // el diálogo (que la pisaría con la GUI_FONT). Se llama DESPUÉS de esa pasada.
+    /**
+     * Restores the monospace console font after SettingsDialog's {@code setUniformFont} pass,
+     * which would otherwise overwrite it with {@code GUI_FONT}. Call this after that pass.
+     */
     public void reapplyConsoleFont() {
         debug_textarea.setFont(GameLogDialog.LOG_FONT.deriveFont(GameLogDialog.LOG_FONT.getSize2D() * Helpers.DIALOG_ZOOM));
     }
 
-    // Salta al fondo (al abrir el diálogo: se quiere ver lo más reciente).
+    /**
+     * Jumps to the bottom of the console. Called when the dialog opens, to show the most
+     * recent log lines.
+     */
     public void snapToBottom() {
         follow.snapToBottom();
     }
 
-    // Libera la suscripción a DebugLog al cerrar el diálogo. Idempotente.
+    /**
+     * Unsubscribes from {@link DebugLog} when the dialog closes. Idempotent.
+     */
     public void cleanup() {
         DebugLog.unsubscribe(listener);
     }

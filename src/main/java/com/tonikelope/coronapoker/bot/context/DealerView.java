@@ -13,7 +13,6 @@
  */
 package com.tonikelope.coronapoker.bot.context;
 
-import com.tonikelope.coronapoker.Card;
 import java.util.List;
 
 /**
@@ -51,9 +50,9 @@ public interface DealerView {
 
     String getUtg_nick();
 
-    // Con straddle, el "under the gun" REAL (primero en hablar) = el siguiente activo
-    // tras el straddler; null si no hay straddle. El straddler ES getUtg_nick() pero
-    // habla el ULTIMO (opcion), asi que la posicion del bot debe distinguirlos.
+    // With a straddle, the REAL under-the-gun (first to act) is the active player after the
+    // straddler; null if there's no straddle. The straddler itself is getUtg_nick(), but it
+    // acts LAST preflop (has the option), so bot position logic must distinguish the two.
     String getStraddleUtgNick();
 
     BotPlayerView getLast_aggressor();

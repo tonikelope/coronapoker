@@ -42,8 +42,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
- * T-H-A-N-K Y-O-U!!!!! --> https://stackoverflow.com/a/35012241
+ * {@link ParserDelegator} replacement that builds its own {@link DTD} instead of relying on the
+ * shared/cached one, avoiding the cross-document corruption bug described at
+ * https://stackoverflow.com/a/35012241. Also registers a custom "tonimg" element used to embed
+ * images inline in chat/log HTML.
  */
 class CoronaParserDelegator extends Parser {
 
@@ -64,11 +66,14 @@ class CoronaParserDelegator extends Parser {
         }
     }
 
+    /**
+     * Reads the packaged {@code .bdtd} resource into {@code dtd} and registers it under
+     * {@code name} so later {@code DTD.getDTD(name)} calls reuse it.
+     */
     protected static DTD createDTD(DTD dtd, String name) {
         String path = name + ".bdtd";
-        // try-with-resources: el InputStream del JAR resource queda colgando
-        // (handle a la entrada del JAR) si no se cierra explícito. Cada
-        // CoronaHTMLEditorKit (chat de partida, log de timba) crea uno.
+        // try-with-resources: an unclosed JAR-resource InputStream leaks a handle into the JAR
+        // entry. Each CoronaHTMLEditorKit (game chat, table log) creates one of these.
         try (InputStream in = ParserDelegator.class.getResourceAsStream(path)) {
             if (in != null) {
                 dtd.read(new DataInputStream(new BufferedInputStream(in)));

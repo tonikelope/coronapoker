@@ -36,6 +36,8 @@ import javax.swing.JList;
 import javax.swing.ListCellRenderer;
 
 /**
+ * List cell renderer for participants: shows nick, latency and avatar, and
+ * highlights the row based on selection or the participant's connection state.
  *
  * @author tonikelope
  */
@@ -55,7 +57,7 @@ public class ParticipantsListLabel extends JLabel implements ListCellRenderer<Pa
             return this;
         }
 
-        // Texto con nick y latencias
+        // Label text: nick, plus latency in ms when available
         String text = participant.getNick();
 
         if (participant.hasLatency()) {
@@ -64,14 +66,12 @@ public class ParticipantsListLabel extends JLabel implements ListCellRenderer<Pa
 
         setText(text);
 
-        // Icono
         setIcon(participant.getAvatar());
 
-        // Margen y fuente
         setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         setFont(list.getFont());
 
-        // Colores según estado
+        // Row color: selection wins; otherwise flag async-wait or unsecure participants
         Color background = list.getBackground();
         Color foreground = list.getForeground();
         boolean opaque = false;

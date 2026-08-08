@@ -715,8 +715,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         });
 
-        // Icono de engranaje a la izquierda del altavoz: abre el diálogo "Ajustes
-        // de partida" (gemelo del ítem del menú Preferencias y del popup del tapete).
+        // Gear icon to the left of the speaker: opens the "Game settings" dialog
+        // (twin of the Preferences menu item and the table popup).
         settings_icon.putClientProperty("i18n.tooltip_key", "settings.ajustes_partida");
         settings_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         settings_icon.setFocusable(false);

@@ -5189,10 +5189,10 @@ public class WaitingRoomFrame extends JFrame {
         main_scroll_panel.setDoubleBuffered(true);
         main_scroll_panel.setPreferredSize(new java.awt.Dimension(Math.round(700 * Helpers.DIALOG_ZOOM), Math.round(750 * Helpers.DIALOG_ZOOM)));
 
-        // SIN preferido de alto fijo (antes 700x487): panel_arriba se dimensiona a su CONTENIDO
-        // real vía el constraint del main_panel. Así el host (con AÑADIR BOT / ¡A JUGAR!) y el
-        // cliente (que los oculta) usan cada uno su alto y el cliente ya no arrastra un hueco gris
-        // por el sobrante. El ancho lo fija el constraint horizontal (688), no este preferido.
+        // No fixed preferred height (was 700x487): panel_arriba sizes to its real CONTENT via the
+        // main_panel constraint. So the host (with the ADD BOT / START buttons) and the client
+        // (which hides them) each use their own height, and the client no longer drags a grey gap
+        // from the leftover. Width is fixed by the horizontal constraint (688), not this preferred.
 
         status.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         status.setForeground(new java.awt.Color(51, 153, 0));

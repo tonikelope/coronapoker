@@ -1232,8 +1232,8 @@ public class NewGameDialog extends JDialog {
         manos_spinner.setModel(new javax.swing.SpinnerNumberModel(100, 1, null, 1));
         manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        // Tiempo de pensar: checkbox (activa/desactiva) + etiqueta con icono (reloj) + spinner
-        // de segundos (10-120, def 40). Mismo patrón que "Límite de manos".
+        // Think time: checkbox (enable/disable) + label with clock icon + seconds spinner
+        // (10-120, default 40). Same pattern as the "Hand limit" row.
         think_time_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         think_time_checkbox.setDoubleBuffered(true);
         think_time_checkbox.addActionListener(new java.awt.event.ActionListener() {
@@ -1257,8 +1257,8 @@ public class NewGameDialog extends JDialog {
         think_time_spinner.setModel(new javax.swing.SpinnerNumberModel(40, 10, 120, 5));
         think_time_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        // Tiempo de pausa del showdown: etiqueta con icono (reloj) + spinner de segundos (5-30,
-        // def 10). Sin casilla: la pausa siempre está activa, solo se ajusta su duración.
+        // Showdown pause time: label with clock icon + seconds spinner (5-30, default 10).
+        // No checkbox: the pause is always on, only its duration is adjustable.
         showdown_time_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         showdown_time_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/clock.png"))); // NOI18N
         showdown_time_label.setText("Tiempo de showdown:");
@@ -1268,8 +1268,8 @@ public class NewGameDialog extends JDialog {
         showdown_time_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, 30, 5));
         showdown_time_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        // Cada regla: checkbox (sin texto) + etiqueta con icono y texto (primero el
-        // checkbox, luego el icono), igual que la fila "Límite de manos".
+        // Each rule: checkbox (no text) + label with icon and text (checkbox first,
+        // then the icon), like the "Hand limit" row.
         iwtsth_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         iwtsth_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png"))); // NOI18N
         iwtsth_icon.setText("Regla IWTSTH");
@@ -1449,17 +1449,17 @@ public class NewGameDialog extends JDialog {
         config_partida_panelLayout.setHorizontalGroup(
             config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(config_partida_panelLayout.createSequentialGroup()
-                // Columna izquierda (Compra arriba, Partida abajo). Rellenable: absorbe el
-                // ancho sobrante en lugar de quedarse al tamaño de su contenido dejando el
-                // hueco en un muelle central + otro al final (blanco variable).
+                // Left column (Buy-in on top, Game below). Fillable: absorbs the leftover width
+                // instead of shrinking to its content and leaving the gap in a central spring +
+                // another at the end (variable whitespace).
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(compra_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                // Hueco fijo entre columnas = gap RELATED de plataforma (mismo ancho PREFERIDO que
-                // el antiguo muelle central, para NO ensanchar el diálogo); las columnas rellenables
-                // absorben el sobrante en vez de dejarlo en blanco a la derecha.
+                // Fixed gap between columns = platform RELATED gap (same PREFERRED width as the old
+                // central spring, so the dialog isn't widened); the fillable columns absorb the
+                // leftover instead of leaving whitespace on the right.
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                // Columna derecha (Ciegas arriba, Bots abajo), también rellenable
+                // Right column (Blinds on top, Bots below), also fillable
                 .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(bots_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(ciegas_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
@@ -3189,16 +3189,16 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JPanel main_panel;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
-    // Tiempo de pensar configurable/desactivable del subpanel "Partida" (creación de timba).
+    // Configurable/disableable think time in the "Game" subpanel (new-game creation).
     private javax.swing.JCheckBox think_time_checkbox;
     private javax.swing.JLabel think_time_label;
     private javax.swing.JSpinner think_time_spinner;
-    // Tiempo de pausa del showdown del subpanel "Partida" (creación de timba). Sin casilla: la
-    // pausa no se puede desactivar.
+    // Showdown pause time in the "Game" subpanel (new-game creation). No checkbox: the
+    // pause cannot be disabled.
     private javax.swing.JLabel showdown_time_label;
     private javax.swing.JSpinner showdown_time_spinner;
-    // Reglas de juego del subpanel "Partida" (creación de timba): IWTSTH, Run It
-    // Twice y Rabbit Hunting. Mismas que el diálogo "Ajustes de partida" en vivo.
+    // Game rules in the "Game" subpanel (new-game creation): IWTSTH, Run It Twice
+    // and Rabbit Hunting. Same as the live "Game settings" dialog.
     private javax.swing.JLabel iwtsth_icon;
     private javax.swing.JCheckBox iwtsth_checkbox;
     private javax.swing.JLabel rit_icon;

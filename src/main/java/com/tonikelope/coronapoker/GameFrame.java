@@ -92,8 +92,8 @@ import java.util.Base64;
 public final class GameFrame extends javax.swing.JFrame implements ZoomableInterface, MouseWheelListener {
 
     public static final int TEST_MODE_PAUSE = 250;
-    // Zoom de fábrica de la mesa: nivel 0 = 100%, el tamaño con el que está diseñado
-    // el tablero. Es también el destino del reset de zoom (CTRL+0).
+    // Factory zoom level: 0 = 100%, the size the board is designed for; also the
+    // target of the zoom reset (Ctrl+0).
     public static final int DEFAULT_ZOOM_LEVEL = 0;
     public static final float ZOOM_STEP = 0.05f;
 
@@ -101,13 +101,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int WAIT_PAUSE = 1000;
     public static final int CLIENT_RECEPTION_TIMEOUT = 10000;
     public static final int CONFIRMATION_TIMEOUT = 10000;
-    // Ventana de gracia de reconexion P2P (ms). Constante INDEPENDIENTE del tiempo de pensar:
-    // la desconexion se detecta por PING/PONG y timeouts de socket (Participant.RECIBIDO_TIMEOUT
-    // = 45s = MAX_CONSECUTIVE_PING_FAILURES * (PING_INTERVAL_MS + PING_PONG_TIMEOUT)), NUNCA por
-    // la barra de accion. 80s = holgura sobre esa ventana de deteccion (~45s) para que un peer
-    // que ya esta reconectando complete socket+handshake+HMAC antes de darlo por perdido; es
-    // tambien el umbral del Reconnect2ServerDialog en el cliente. (Antes derivaba del tiempo de
-    // pensar por defecto (2 * 40s): acoplamiento erroneo entre reconexion y pensar, ya corregido.)
+    // P2P reconnection grace window (ms), independent of think time: disconnects are
+    // detected via PING/PONG and socket timeouts (Participant.RECIBIDO_TIMEOUT = 45s =
+    // MAX_CONSECUTIVE_PING_FAILURES * (PING_INTERVAL_MS + PING_PONG_TIMEOUT)), never by the
+    // action bar. 80s gives slack over that ~45s detection window so a peer already
+    // reconnecting can finish socket+handshake+HMAC before being given up on; also the
+    // Reconnect2ServerDialog threshold on the client side.
     public static final int CLIENT_RECON_TIMEOUT = 80000; // 80 s
     public static final int CLIENT_RECON_ERROR_PAUSE = 5000;
     public static final int REBUY_TIMEOUT = 25000;
@@ -127,125 +126,124 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile double CIEGA_PEQUEÑA = 0.10;
     public static volatile double CIEGA_GRANDE = 0.20;
     public static volatile int BUYIN = 10;
-    public static volatile boolean FIXED_BUYIN = true; //true = todos arrancan con BUYIN (techo de recompra = BUYIN); false = cada jugador elige su buy-in al entrar al tablero en [BUYIN_MIN_BB, BUYIN_MAX_BB] CG (techo de recompra = BUYIN_MAX_BB CG)
-    // Rango de buy-in editable (en ciegas grandes). Por defecto 10-100 CG (rango
-    // histórico). El host puede ampliarlo para mesas deep-stack (superior hasta
-    // BuyinRules.CEIL_MAX_BB). Acota la elección de buy-in en variable y, vía el
-    // cap, el techo de recompra. Viaja a los clientes en el INIT y se persiste en
-    // recover (ver Crupier/WaitingRoomFrame y serializeRecoverSettings).
+    public static volatile boolean FIXED_BUYIN = true; //true = everyone starts with BUYIN (rebuy cap = BUYIN); false = each player picks their buy-in when joining, in [BUYIN_MIN_BB, BUYIN_MAX_BB] BB (rebuy cap = BUYIN_MAX_BB BB)
+    // Editable buy-in range (in big blinds). Defaults to 10-100 BB (historical range). The
+    // host can widen it for deep-stack tables (up to BuyinRules.CEIL_MAX_BB). Bounds the
+    // variable buy-in choice and, via the cap, the rebuy ceiling too. Travels to clients in
+    // the INIT and is persisted on recover (see Crupier/WaitingRoomFrame and serializeRecoverSettings).
     public static volatile int BUYIN_MIN_BB = BuyinRules.DEFAULT_MIN_BB;
     public static volatile int BUYIN_MAX_BB = BuyinRules.DEFAULT_MAX_BB;
-    // Política del tope máximo de recompra / top-up:
-    //  - BUYIN: el buy-in (fijo = BUYIN; variable = límite superior BUYIN_MAX_BB CG).
-    //  - HIGHEST_STACK: el stack más alto de la mesa (recomprar hasta igualar al
-    //    líder de fichas, típico de deep-stack).
-    // Por defecto BUYIN (comportamiento histórico). Solo afecta a la recompra, no
-    // a la compra inicial. Viaja en el INIT y se persiste en recover.
+    // Rebuy/top-up cap policy:
+    //  - BUYIN: the buy-in (fixed = BUYIN; variable = upper limit BUYIN_MAX_BB BB).
+    //  - HIGHEST_STACK: the table's highest stack (rebuy up to match the chip leader,
+    //    typical of deep-stack play).
+    // Defaults to BUYIN (historical behaviour). Only affects rebuys, not the initial buy-in.
+    // Travels in the INIT and is persisted on recover.
     public static final int REBUY_CAP_BUYIN = 0;
     public static final int REBUY_CAP_HIGHEST_STACK = 1;
     public static volatile int REBUY_CAP_POLICY = REBUY_CAP_BUYIN;
     public static volatile int CIEGAS_DOUBLE = 60;
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
-    public static volatile double BLIND_CAP = 0; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
-    public static volatile boolean ANTE = false; //true = cada jugador activo postea un ante (= ciega pequena) como dinero muerto al bote antes de las ciegas (opcion A: ante tradicional simetrico)
-    public static volatile boolean STRADDLE = false; //true = UTG postea un straddle obligatorio (= 2x ciega grande) live, con opcion; deshabilitado en heads-up
-    // null = escalera por defecto 1-2-3-5 x10^n (camino legacy en Crupier, infinito por decadas).
-    // non-null = estructura de ciegas personalizada (lista explicita {sb,bb}); la escalada la camina
-    // por indice y topa en el ultimo nivel. La elige el host al crear timba, viaja a los clientes y se
-    // persiste/restaura en recover. Ver BlindStructure y Crupier.doblarCiegas/simulateNextBlinds.
+    public static volatile double BLIND_CAP = 0; //0 = no cap; otherwise blinds don't double if the next level would push the big blind past this
+    public static volatile boolean ANTE = false; //true = every active player posts an ante (= small blind) as dead money before the blinds (option A: traditional symmetric ante)
+    public static volatile boolean STRADDLE = false; //true = UTG posts a mandatory live straddle (= 2x big blind), optional; disabled heads-up
+    // null = default 1-2-3 x10^n ladder (legacy path in Crupier, infinite across decades).
+    // non-null = custom blind structure (explicit {sb,bb} list); the ladder walks it by index
+    // and caps at the last level. Chosen by the host when creating the game, travels to
+    // clients and is persisted/restored on recover. See BlindStructure and
+    // Crupier.doblarCiegas/simulateNextBlinds.
     public static volatile double[][] ACTIVE_BLIND_STRUCTURE = null;
     public static volatile boolean REBUY = true;
-    public static volatile int REBUY_LIMIT = 0; //0 = sin limite de rebuys por jugador; en otro caso, max veces que un jugador puede rebuyar en la partida
-    public static volatile boolean BOT_REBUY = true; //true = bots pueden rebuyar (sujetos al limite si > 0); false = bots se quedan de espectador sin preguntar al host
-    // true = al TERMINAR la timba, el saldo conjunto de los bots (con signo) se disuelve del reparto de
-    // dinero real: todos los bots pasan a neutrales (stack := buyin) y ese saldo se reparte a partes
-    // iguales entre los jugadores humanos (el piquillo en centimos no divisible va a un humano elegido de
-    // forma DETERMINISTA, identico en todos los peers), de modo que el dinero real solo se liquide entre
-    // personas. Conserva el dinero (el auditor no descuadra). Solo afecta a la liquidacion final (tabla
-    // del registro + pantalla de balance), no al historial por mano. Por defecto OFF. Ver
-    // Crupier.redistributeBotBalanceToHumans y GameFrame.finTransmision.
+    public static volatile int REBUY_LIMIT = 0; //0 = no per-player rebuy limit; otherwise max times a player can rebuy in the game
+    public static volatile boolean BOT_REBUY = true; //true = bots can rebuy (subject to the limit if > 0); false = bots sit out as spectators without asking the host
+    // true = when the game ENDS, the bots' combined (signed) balance is dissolved out of the real
+    // money settlement: all bots become neutral (stack := buyin) and that balance is split evenly
+    // among the human players (the indivisible odd cent goes to a human chosen DETERMINISTICALLY,
+    // identical on every peer), so real money only ever settles between people. Preserves total
+    // money (the auditor stays balanced). Only affects the final settlement (ledger table +
+    // balance screen), not the per-hand history. Off by default. See
+    // Crupier.redistributeBotBalanceToHumans and GameFrame.finTransmision.
     public static volatile boolean BOT_BALANCE_TO_HUMANS = false;
-    public static volatile boolean AUTO_REBUY_ON_BROKE = false; //true = el humano local recompra automaticamente al arruinarse (importe por defecto, sin dialogo); preferencia LOCAL de sesion, por defecto false
+    public static volatile boolean AUTO_REBUY_ON_BROKE = false; //true = the local human rebuys automatically when going broke (default amount, no dialog); LOCAL session preference, false by default
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
     public static volatile int RABBIT_HUNTING = 0;
-    // Tiempo de pensar (segundos) que tiene un jugador para actuar en su turno + si esta
-    // activo. Configurable por timba (10-120) desde la creacion y la sala de espera;
-    // BLOQUEADO una vez empezada la partida. THINK_TIME_ENABLED=false => sin limite de tiempo
-    // (barra llena estatica, sin auto-fold por timeout). Esto gobierna SOLO el temporizador de
-    // ACCION: la salud de la conexion (PING/PONG, timeouts de socket, RECIBIDO_TIMEOUT,
-    // CLIENT_RECON_TIMEOUT) va por otro camino (ver Participant) y NO se toca al desactivar el
-    // tiempo de pensar; el host sigue plegando al que se DESCONECTA de verdad via isExit().
-    public static final int DEFAULT_THINK_TIME = 40; // segundos (valor inicial de THINK_TIME)
+    // Think time (seconds) a player has to act on their turn, plus whether it's active.
+    // Configurable per game (10-120) from creation and the waiting room; LOCKED once the
+    // game has started. THINK_TIME_ENABLED=false => no time limit (static full bar, no
+    // auto-fold on timeout). This governs ONLY the action timer: connection health
+    // (PING/PONG, socket timeouts, RECIBIDO_TIMEOUT, CLIENT_RECON_TIMEOUT) is handled
+    // separately (see Participant) and is unaffected by disabling think time; the host
+    // still folds a player who genuinely DISCONNECTS via isExit().
+    public static final int DEFAULT_THINK_TIME = 40; // seconds (initial value of THINK_TIME)
     public static volatile int THINK_TIME = DEFAULT_THINK_TIME;
     public static volatile boolean THINK_TIME_ENABLED = true;
-    public static final int THINK_TIME_MIN = 10;  // segundos (tope inferior del spinner + clamp)
-    public static final int THINK_TIME_MAX = 120; // segundos (tope superior del spinner + clamp)
-    // Tiempo de PAUSA del showdown (segundos): cuanto se muestra el resultado de la mano con la
-    // barra de cuenta atras antes de repartir la siguiente (la antigua Crupier.PAUSA_ENTRE_MANOS,
-    // que ademas escala x0.5/x1.5 segun side pots). Configurable por timba (5-30) desde la creacion
-    // y la sala de espera; BLOQUEADO una vez empezada la partida. A diferencia del tiempo de pensar
-    // NO se puede desactivar: siempre hay pausa (minimo 5 s; el valor por defecto sigue siendo 10 s).
-    public static final int DEFAULT_SHOWDOWN_TIME = 10; // segundos (valor inicial de SHOWDOWN_TIME)
+    public static final int THINK_TIME_MIN = 10;  // seconds (spinner lower bound + clamp)
+    public static final int THINK_TIME_MAX = 120; // seconds (spinner upper bound + clamp)
+    // Showdown PAUSE duration (seconds): how long the hand result is shown, with its
+    // countdown bar, before dealing the next hand (formerly Crupier.PAUSA_ENTRE_MANOS, which
+    // also scales x0.5/x1.5 depending on side pots). Configurable per game (5-30) from
+    // creation and the waiting room; LOCKED once the game has started. Unlike think time it
+    // can NOT be disabled: there's always a pause (minimum 5s; default stays 10s).
+    public static final int DEFAULT_SHOWDOWN_TIME = 10; // seconds (initial value of SHOWDOWN_TIME)
     public static volatile int SHOWDOWN_TIME = DEFAULT_SHOWDOWN_TIME;
-    public static final int SHOWDOWN_TIME_MIN = 5;  // segundos (tope inferior del spinner + clamp)
-    public static final int SHOWDOWN_TIME_MAX = 30;  // segundos (tope superior del spinner + clamp)
-    // Duración (ms) de la animación de destape de carta (render Swing, CardFlipAnimator).
-    public static final int DEFAULT_CARD_FLIP_DURATION = 620; // ~ la del GIF antiguo (31 frames x 20 ms)
+    public static final int SHOWDOWN_TIME_MIN = 5;  // seconds (spinner lower bound + clamp)
+    public static final int SHOWDOWN_TIME_MAX = 30;  // seconds (spinner upper bound + clamp)
+    // Duration (ms) of the card flip animation (Swing render, CardFlipAnimator).
+    public static final int DEFAULT_CARD_FLIP_DURATION = 620; // ~ the old GIF's duration (31 frames x 20 ms)
     public static final int CARD_FLIP_DURATION_MIN = 150;
     public static final int CARD_FLIP_DURATION_MAX = 1500;
-    // Acotada a MIN/MAX, que hasta ahora eran dos constantes declaradas y sin usar.
+    // Clamped to MIN/MAX, which until now were two declared-but-unused constants.
     public static volatile int CARD_FLIP_DURATION = Helpers.propInt("card_flip_duration", DEFAULT_CARD_FLIP_DURATION, CARD_FLIP_DURATION_MIN, CARD_FLIP_DURATION_MAX);
-    // Efecto "acercar": la animación de destape se renderiza a este porcentaje del tamaño de la
-    // carta estática (100 = desactivado, alineado pixel-perfect; >100 da sensación de que la carta
-    // se acerca a la pantalla y luego se asienta a su tamaño real al terminar el giro).
-    public static final int DEFAULT_CARD_FLIP_ZOOM = 100; // desactivado por defecto
+    // "Zoom in" effect: the flip animation renders at this percentage of the static card's
+    // size (100 = off, pixel-perfect alignment; >100 gives the sense of the card approaching
+    // the screen and settling to its real size as the flip finishes).
+    public static final int DEFAULT_CARD_FLIP_ZOOM = 100; // off by default
     public static volatile int CARD_FLIP_ZOOM = Helpers.propInt("card_flip_zoom", DEFAULT_CARD_FLIP_ZOOM);
-    public static final int HURRYUP_WARNING_SECONDS = 10; // aviso "date prisa" (bocina + parpadeo) cuando quedan estos segundos
+    public static final int HURRYUP_WARNING_SECONDS = 10; // "hurry up" warning (horn + blink) when this many seconds remain
 
-    // Umbral efectivo del aviso hurryup en segundos restantes. El contador de accion arranca en
-    // THINK_TIME y baja de 1 en 1 cada segundo, disparando el aviso al llegar EXACTAMENTE a este
-    // valor, por eso debe ser SIEMPRE < THINK_TIME (con un umbral fijo de 10 y THINK_TIME=10 el
-    // contador arrancaria ya por debajo y el aviso no sonaria nunca). Formula: 25% del tiempo restante
-    // redondeado a entero, capado a HURRYUP_WARNING_SECONDS (10). Equivale a "con 40s o menos escala al
-    // 25% (a 40 => los 10s clasicos; 20=>5, 10=>3); por encima de 40 se queda fijo en 10", pero SIN
-    // acoplar el corte a un valor magico: el punto donde deja de escalar emerge solo del cap y trabaja
-    // sobre el entero THINK_TIME, asi que sigue siendo correcto aunque cambien el paso, el rango o el
-    // default del spinner (THINK_TIME_MIN=10 garantiza umbral >= round(2.5)=3, siempre < THINK_TIME).
+    // Effective hurryup threshold, in seconds remaining. The action counter starts at
+    // THINK_TIME and counts down by 1 each second, firing the warning exactly when it hits
+    // this value, so it must ALWAYS be < THINK_TIME (a fixed threshold of 10 with
+    // THINK_TIME=10 would start the counter already below it and the warning would never
+    // fire). Formula: 25% of the remaining time rounded to an integer, capped at
+    // HURRYUP_WARNING_SECONDS (10) — i.e. "at 40s or less it scales at 25% (40=>the classic
+    // 10s; 20=>5; 10=>3), above 40 it stays fixed at 10", without hard-coding the cutoff: it
+    // falls out of the cap and THINK_TIME alone, so it stays correct even if the spinner's
+    // step, range or default change (THINK_TIME_MIN=10 guarantees threshold >= round(2.5)=3,
+    // always < THINK_TIME).
     public static int getHurryupThreshold() {
         return Math.min(HURRYUP_WARNING_SECONDS, (int) Math.round(THINK_TIME * 0.25));
     }
     public static volatile boolean VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("voice_messages", "true"));
     public static volatile boolean RUN_IT_TWICE = false;
-    // Congela el cambio de RUN_IT_TWICE durante el run-out del all-in (desde que
-    // arranca hasta NUEVA_MANO): el voto se decide leyendo el flag sin lock, así que
-    // no debe cambiar en esa ventana. Antes se garantizaba greyando el menú; ahora
-    // el setter no-opea y el diálogo "Ajustes de partida" deshabilita el control
-    // mientras está activo.
+    // Freezes changes to RUN_IT_TWICE during the all-in run-out (from the moment it starts
+    // until NUEVA_MANO): the vote is decided by reading the flag without a lock, so it must
+    // not change in that window. It used to be guaranteed by graying out the menu; now the
+    // setter is a no-op and the "Game settings" dialog disables the control while it's active.
     public static volatile boolean RUN_IT_TWICE_LOCKED = false;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
-    // Interruptor MAESTRO de música: apaga TODAS las pistas de fondo de un plumazo (juego, sala,
-    // Acerca de, estadísticas), igual que SONIDO_EFECTOS con los efectos. Cada pista conserva
-    // además su toggle propio; una pista suena solo si MUSICA y su flag individual están on (lo
-    // gatea Audio.effectiveLoopVolume). Activado por defecto.
+    // Music MASTER switch: turns off ALL background tracks at once (game, waiting room,
+    // About, stats), same as SONIDO_EFECTOS for sound effects. Each track also keeps its own
+    // toggle; a track plays only if MUSICA and its individual flag are both on (gated by
+    // Audio.effectiveLoopVolume). On by default.
     public static volatile boolean MUSICA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica", "true"));
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
-    // Pista de fondo de la SALA DE ESPERA, con toggle propio (independiente de la del
-    // juego, que gobierna MUSICA_AMBIENTAL). Activada por defecto.
+    // Background track for the WAITING ROOM, with its own toggle (independent of the
+    // in-game one, which is governed by MUSICA_AMBIENTAL). On by default.
     public static volatile boolean MUSICA_SALA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica_sala_espera", "true"));
-    // Pistas de fondo de los diálogos "Acerca de" (about_music.mp3) y "Estadísticas"
-    // (stats_music.mp3), cada una con su toggle propio (independiente del resto de música).
-    // Activadas por defecto; las gatea Audio.effectiveLoopVolume igual que MUSICA_AMBIENTAL/SALA.
+    // Background tracks for the "About" (about_music.mp3) and "Stats" (stats_music.mp3)
+    // dialogs, each with its own toggle (independent of the rest of the music). On by
+    // default; gated by Audio.effectiveLoopVolume just like MUSICA_AMBIENTAL/SALA.
     public static volatile boolean MUSICA_ABOUT = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica_about", "true"));
     public static volatile boolean MUSICA_STATS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("musica_stats", "true"));
-    // Efectos de sonido de mesa configurables (locales, gateados aparte por el master
-    // SONIDOS en la capa de Audio). SONIDO_EFECTOS es el interruptor maestro de este grupo:
-    // los apaga todos de un plumazo. Individualmente: barajar (shuffle.wav), repartir
-    // (deal.wav), destapar (uncover.wav) con subopción "mis cartas" (solo TUS hole cards al
-    // repartírtelas, cuelga del destape general), apostar (bet.wav), foldear (fold.wav, el
-    // efecto de retirada, NO los clips de coña de SONIDOS_CHORRA) y recuento (balance_count.wav
-    // de la pantalla final). Todos activados por defecto.
+    // Configurable table sound effects (local, separately gated by the SONIDOS master in
+    // the Audio layer). SONIDO_EFECTOS is this group's master switch: turns them all off at
+    // once. Individually: shuffle (shuffle.wav), deal (deal.wav), uncover (uncover.wav) with
+    // a "my cards" sub-option (only YOUR hole cards being dealt, depends on the general
+    // uncover setting), bet (bet.wav), fold (fold.wav, the fold effect, NOT the SONIDOS_CHORRA
+    // joke clips) and count (balance_count.wav from the final screen). All on by default.
     public static volatile boolean SONIDO_EFECTOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_efectos", "true"));
     public static volatile boolean SONIDO_BARAJADO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_barajado", "true"));
     public static volatile boolean SONIDO_REPARTO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_reparto", "true"));
@@ -254,21 +252,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDO_APOSTAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_apostar", "true"));
     public static volatile boolean SONIDO_FOLD = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_fold", "true"));
     public static volatile boolean SONIDO_CONTEO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_conteo", "true"));
-    // Entrar (laser.wav: crear/unirse partida, nuevo participante, añadir bot) y salir
-    // (toilet.wav: baja/expulsión de la sala de espera). Mismo grupo "Efectos de sonido".
+    // Enter (laser.wav: create/join game, new participant, add bot) and leave (toilet.wav:
+    // kicked/leaves the waiting room). Same "sound effects" group.
     public static volatile boolean SONIDO_ENTRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_entra", "true"));
     public static volatile boolean SONIDO_SALE = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_sale", "true"));
-    // Interruptor (button_on/off.wav): "clic" de conmutador usado en varios toggles de la UI
-    // (luces de la mesa, pausa programada, pre-pulsar acción, ficha de posición, armar recompra).
-    // Caja registradora (cash_register.wav): recompra (top-up de stack, animada o no) y el volcado
-    // del bote sobrante indivisible. Ambos en el grupo "Efectos de sonido".
+    // Switch click (button_on/off.wav): used by several UI toggles (table lights, scheduled
+    // pause, pre-select action, position chip, arm rebuy). Cash register (cash_register.wav):
+    // rebuy (stack top-up, animated or not) and dumping the indivisible leftover pot. Both in
+    // the "sound effects" group.
     public static volatile boolean SONIDO_INTERRUPTOR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_interruptor", "true"));
     public static volatile boolean SONIDO_CAJA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_caja", "true"));
-    // Resto de efectos de mesa configurables (mismo grupo). Acciones no-coña que faltaban:
-    // igualar (call.wav), pasar (check.wav), all-in (allin.wav). Eventos de partida: suben las
-    // ciegas (double_blinds.wav), marcar/desmarcar última mano (last_hand_on/off.wav), pausa
-    // (pause.wav). Sala: alguien pide entrar en la timba (new_user.wav). Turno/tiempo: te toca
-    // (yourturn.wav) y aviso "date prisa" (hurryup.wav). Todos ON por defecto.
+    // Remaining configurable table effects (same group): call (call.wav), check (check.wav),
+    // all-in (allin.wav). Game events: blinds go up (double_blinds.wav), mark/unmark last hand
+    // (last_hand_on/off.wav), pause (pause.wav). Room: someone requests to join the game
+    // (new_user.wav). Turn/time: your turn (yourturn.wav) and "hurry up" warning
+    // (hurryup.wav). All on by default.
     public static volatile boolean SONIDO_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_igualar", "true"));
     public static volatile boolean SONIDO_PASAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_pasar", "true"));
     public static volatile boolean SONIDO_ALLIN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_allin", "true"));
@@ -278,21 +276,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDO_ENTRAR_SALA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_entrar_sala", "true"));
     public static volatile boolean SONIDO_TU_TURNO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_tu_turno", "true"));
     public static volatile boolean SONIDO_AVISO_TIEMPO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_aviso_tiempo", "true"));
-    // Fin de partida (game_over/nocontinue/rebuy). Los dos primeros son BLOQUEANTES (marcan el
-    // ritmo de la pantalla final): al desactivarlos suenan en silencio pero se espera igual
-    // (Audio.playWavResourceAndWait force_silent), no se saltan. ON por defecto.
+    // Game over (game_over/nocontinue/rebuy). The first two are BLOCKING (they pace the final
+    // screen): disabling them plays silently but still waits (Audio.playWavResourceAndWait
+    // force_silent), it isn't skipped. On by default.
     public static volatile boolean SONIDO_FIN_PARTIDA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_fin_partida", "true"));
-    // Inicio de partida (startplay.wav: fanfarria al empezar/recuperar mano, solo en español),
-    // conexión al servidor (yahoo.wav: al conectar/reconectar como cliente) y la regla IWTSTH
-    // (iwtsth.wav: cinemática BLOQUEANTE al pedir ver la mano de un rival; en silencio se espera
-    // igual con force_silent). ON por defecto.
+    // Game start (startplay.wav: fanfare when starting/recovering a hand, Spanish-only),
+    // server connection (yahoo.wav: connecting/reconnecting as a client) and the IWTSTH rule
+    // (iwtsth.wav: BLOCKING cinematic when requesting to see an opponent's hand; silenced it
+    // still waits via force_silent). On by default.
     public static volatile boolean SONIDO_INICIO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_inicio", "true"));
     public static volatile boolean SONIDO_CONEXION = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_conexion", "true"));
     public static volatile boolean SONIDO_IWTSTH = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_iwtsth", "true"));
-    // Efectos de interfaz y avisos: zoom (zoom_in/out/reset.wav), cambiar tapete (mat.wav), visor
-    // de carta (card_visor.wav), cambiar volumen/dispositivo (volume_change.wav), arranque de la
-    // app (init.wav, BLOQUEANTE → force_silent), advertencia de diálogo (warning.wav), error
-    // (error.wav) y error de red (network_error_XX.wav). ON por defecto.
+    // Interface/notification effects: zoom (zoom_in/out/reset.wav), change mat (mat.wav), card
+    // viewer (card_visor.wav), change volume/device (volume_change.wav), app startup (init.wav,
+    // BLOCKING -> force_silent), dialog warning (warning.wav), error (error.wav) and network
+    // error (network_error_XX.wav). On by default.
     public static volatile boolean SONIDO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_zoom", "true"));
     public static volatile boolean SONIDO_VISTA_COMPACTA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_vista_compacta", "true"));
     public static volatile boolean SONIDO_SCREENSHOT = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_screenshot", "true"));
@@ -306,165 +304,164 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "true"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
     public static volatile boolean CONFIRM_ACTIONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("confirmar_todo", "false")) && !TEST_MODE;
-    // SIN acotar: el zoom no tiene tope en el motor y el nivel puede ser negativo (zoom out).
+    // Unbounded: the zoom engine has no ceiling and the level can go negative (zoom out).
     public static volatile int ZOOM_LEVEL = Helpers.propInt("zoom_level", GameFrame.DEFAULT_ZOOM_LEVEL);
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
-    // Trasera de las cartas: "default" (sigue a la baraja actual) o el nombre de otra
-    // baraja cuyo dorso se usa. Al ser "default" el que sigue a la baraja, no hace falta
-    // resetear nada al cambiar de baraja.
+    // Card back: "default" (follows the current deck) or the name of another deck whose
+    // back is used instead. Since "default" tracks the deck, nothing needs resetting when
+    // the deck changes.
     public static volatile String TRASERA = Helpers.PROPERTIES.getProperty("trasera", "default");
-    // Su guarda anterior era isNumeric, que valida con Double.parseDouble: "1.5", "1e3" o un valor
-    // mayor que un int pasaban el filtro y reventaban después en Integer.parseInt.
+    // Its previous guard was isNumeric, which validates via Double.parseDouble: "1.5", "1e3"
+    // or a value larger than an int would pass the filter and blow up later in Integer.parseInt.
     public static volatile int VISTA_COMPACTA = Helpers.propInt("vista_compacta", 0) % 4;
-    // Efectos de animación, con granularidad: reparto/destapes de cartas, fichas de
-    // posición (ciegas+dealer), ficha al bote (apuestas) y el rodaje de los contadores
-    // (stack/bote/apuesta + cortinilla de llenado y recompra). Estos 5 flags *_PREF
-    // guardan la PREFERENCIA CRUDA de cada efecto (NO el valor efectivo): el maestro
-    // ANIMACIONES los gatea en cada comprobación vía los helpers *On(). Combinables
-    // independientemente; por defecto los cuatro activados. "animacion_reparto" conserva
-    // la clave histórica.
+    // Animation effects, broken down by kind: dealing/uncovering cards, position chips
+    // (blinds+dealer), pot chip (bets) and the rolling counters (stack/pot/bet plus the
+    // fill wipe and rebuy). These 5 *_PREF flags hold each effect's RAW PREFERENCE (not the
+    // effective value): the ANIMACIONES master gates them on every check via the *On()
+    // helpers. Independently combinable; all four on by default. "animacion_reparto" keeps
+    // its historical key.
     public static volatile boolean ANIMACION_REPARTO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
     public static volatile boolean ANIMACION_CIEGAS_DEALER_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_ciegas_dealer", "true"));
     public static volatile boolean ANIMACION_APUESTAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_apuestas", "true"));
-    // Rodaje animado de los contadores numéricos VIVOS del juego (stack / bote). La pantalla
-    // final (BalanceScreen) NO depende de este flag: tiene el suyo propio (ANIMACION_CONTADOR_FINAL_PREF).
+    // Animated rolling of the LIVE in-game numeric counters (stack / pot). The final screen
+    // (BalanceScreen) does NOT depend on this flag: it has its own (ANIMACION_CONTADOR_FINAL_PREF).
     public static volatile boolean ANIMACION_CONTADORES_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contadores", "true"));
-    // Recuento animado de la pantalla de FIN DE TIMBA (BalanceScreen). Opcional, ON por defecto. Su
-    // SFX (balance_count.wav) cuelga ademas de este flag, asi que apagar el recuento lo silencia.
+    // Animated count-up on the END-OF-GAME screen (BalanceScreen). Optional, on by default.
+    // Its SFX (balance_count.wav) also depends on this flag, so turning off the count-up
+    // silences it too.
     public static volatile boolean ANIMACION_CONTADOR_FINAL_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contador_final", "true"));
-    // Overlay del GIF de barajado (pequeño, MUDO, en bucle) sobre cada RemotePlayer humano
-    // mientras procesa SU paso de la cascada SRA — desaparece al pasar al siguiente. Como la
-    // cascada es secuencial y su paso remoto es una llamada bloqueante, el overlay dura EXACTO
-    // lo que tarda ese cliente: sirve para localizar de un vistazo al PC más lento de la mesa.
-    // Puramente visual: no toca la cascada ni el consenso. Por defecto desactivado.
+    // Small, MUTED, looping shuffle-GIF overlay on each human RemotePlayer while it processes
+    // ITS step of the SRA cascade shuffle — disappears once it moves to the next one. Since
+    // the cascade is sequential and its remote step is a blocking call, the overlay lasts
+    // EXACTLY as long as that client takes: useful for spotting the slowest PC at the table
+    // at a glance. Purely visual: doesn't touch the cascade or the consensus. Off by default.
     public static volatile boolean ANIMACION_CASCADA_OVERLAY_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_cascada_overlay", "false"));
-    // En el showdown, al pasar el ratón por la etiqueta de jugada de un PERDEDOR que mostró,
-    // se resaltan (enfocan) SOLO las cartas que componen su jugada (sin kickers) y se atenúan
-    // (desenfocan) TODAS las demás de la mesa, incluidas las del ganador; su etiqueta pasa a
-    // fondo naranja con texto blanco. Al salir el ratón se restaura el resaltado del ganador
-    // tal cual estaba. Mismo mecanismo enfocar/desenfocar que ya usa el ganador. Puramente
-    // visual y LOCAL por cliente (no se difunde). Por defecto desactivado.
-    // Migración de clave: antes se guardaba como "resaltar_jugada_perdedor" (solo perdedores);
-    // se lee esa clave vieja como fallback para no perder el ajuste de quien ya la tenía.
+    // In the showdown, hovering the hand-strength label of a LOSER who showed highlights
+    // (focuses) ONLY the cards that make up their hand (no kickers) and dims (unfocuses) ALL
+    // other cards on the table, including the winner's; their label turns orange with white
+    // text. On mouse-out the winner's highlight is restored as it was. Same focus/unfocus
+    // mechanism the winner already uses. Purely visual and LOCAL per client (not broadcast).
+    // Off by default.
+    // Key migration: this used to be stored as "resaltar_jugada_perdedor" (losers only); that
+    // old key is read as a fallback so existing users don't lose their setting.
     public static volatile boolean RESALTAR_JUGADA_SHOWDOWN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_showdown", Helpers.PROPERTIES.getProperty("resaltar_jugada_perdedor", "true")));
-    // Al dejar el ratón sobre el avatar de un asiento, se muestra ampliado sobre la mesa junto al
-    // nick y al stack de ese jugador (AvatarZoomOverlay), y se retira al salir. Puramente visual
-    // y LOCAL por cliente (no se difunde). Por defecto DESACTIVADO (tapa parte de la mesa).
+    // Hovering a seat's avatar shows it enlarged over the table next to that player's nick and
+    // stack (AvatarZoomOverlay), and removes it on mouse-out. Purely visual and LOCAL per
+    // client (not broadcast). OFF by default (covers part of the table).
     public static volatile boolean RESALTAR_AVATARES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_avatares", "false"));
-    // Luminosidad que queda en la mesa con las luces APAGADAS, en % (100 = sin oscurecer). El velo
-    // negro que pinta BrightnessOverlay es su complemento: 50 % de luz = velo alpha 0,50. Antes
-    // estaba clavado en 0,40 (equivalente al 60 %), así que el apagado por defecto es ahora un
-    // punto más oscuro. Puramente visual y LOCAL por cliente (no se difunde). Lo aplican por igual
-    // el interruptor de la mesa, el atajo y los apagados automáticos (pausa, game over, recover,
-    // buy-in inicial).
-    // El tope NO llega a 100 a propósito: "luces apagadas" se distingue en todas partes por que
-    // el velo es > 0 (el icono del interruptor, la pausa, el chat rápido...), así que un nivel de
-    // luz del 100 % dejaría el estado apagado indistinguible del encendido.
+    // Brightness left on the table with the lights OFF, in % (100 = no darkening). The black
+    // veil BrightnessOverlay paints is its complement: 50% light = veil alpha 0.50. It used to
+    // be hardcoded at 0.40 (equivalent to 60%), so the default "off" state is now a notch
+    // darker. Purely visual and LOCAL per client (not broadcast). Applied uniformly by the
+    // table's light switch, the shortcut and the automatic light-outs (pause, game over,
+    // recover, initial buy-in).
+    // The ceiling deliberately stops short of 100: "lights off" is recognized everywhere by
+    // the veil being > 0 (the switch icon, the pause, the quick chat...), so a 100% light level
+    // would make the off state indistinguishable from on.
     public static final int DEFAULT_NIVEL_LUZ = 50;
     public static final int NIVEL_LUZ_MIN = 10;
     public static final int NIVEL_LUZ_MAX = 90;
-    // Se acota AL CARGAR (no solo al pintar el velo): así el spinner de Ajustes, el valor que se
-    // re-persiste al descartar cambios y el velo hablan siempre del mismo número, aunque la clave
-    // se haya editado a mano fuera de rango.
+    // Clamped ON LOAD (not just when painting the veil), so the settings spinner, the value
+    // re-persisted when discarding changes, and the veil always agree on the same number, even
+    // if the key was hand-edited out of range.
     public static volatile int NIVEL_LUZ = Helpers.propInt("nivel_luz", DEFAULT_NIVEL_LUZ, NIVEL_LUZ_MIN, NIVEL_LUZ_MAX);
-    // La pantalla final (BalanceScreen) guarda automáticamente una captura (mismo mecanismo que
-    // CTRL+P: printAll del rootPane, sin Robot ni captura del SO) JUSTO al terminar el contador de
-    // dinero; y si el jugador SALE de la pantalla final ANTES de que termine (por cualquiera de los
-    // dos botones, menú o continuar), se toma en ese momento. Una sola captura por timba (la que
-    // ocurra primero). Preferencia LOCAL, por defecto DESACTIVADA (puede acumular muchas capturas);
-    // se activa en Apariencia > Mesa.
+    // The final screen (BalanceScreen) automatically saves a screenshot (same mechanism as
+    // Ctrl+P: printAll on the rootPane, no Robot or OS-level capture) RIGHT when the money
+    // counter finishes; and if the player LEAVES the final screen BEFORE it finishes (via
+    // either button, the menu, or continuing), it's taken at that point instead. One
+    // screenshot per game (whichever happens first). LOCAL preference, OFF by default (can
+    // pile up many screenshots); enabled in Appearance > Table.
     public static volatile boolean SCREENSHOT_FIN_TIMBA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("screenshot_fin_timba", "false"));
-    // El antiguo checkbox "Cartas" (animacion_reparto) gobernaba a la vez el BARAJADO, el
-    // REPARTO y el DESTAPE. Se ha separado en tres preferencias independientes: "animacion_reparto"
-    // conserva su clave y ahora solo gobierna el reparto; "animacion_barajado" y "animacion_destape"
-    // son nuevas y MIGRAN del valor histórico de "animacion_reparto" la primera vez (para respetar
-    // la elección previa del usuario al actualizar).
+    // The old "Cards" checkbox (animacion_reparto) used to govern SHUFFLE, DEAL and UNCOVER
+    // all at once. It's now split into three independent preferences: "animacion_reparto"
+    // keeps its key and now only governs the deal; "animacion_barajado" and "animacion_destape"
+    // are new and MIGRATE from the historical "animacion_reparto" value the first time (to
+    // honor the user's prior choice on upgrade).
     public static volatile boolean ANIMACION_BARAJADO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_barajado", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
     public static volatile boolean ANIMACION_DESTAPE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_destape", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
-    // Intercambio animado de las dos hole cards del jugador local al ordenar la mano (la carta alta a
-    // la izquierda): cada carta se desliza a la posición de la otra (se cruzan). Off = swap seco, como
-    // siempre. Por defecto on.
+    // Animated swap of the local player's two hole cards when sorting the hand (high card to
+    // the left): each card slides into the other's position (they cross). Off = plain swap, as
+    // before. On by default.
     public static volatile boolean ANIMACION_SWAP_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_swap", "true"));
-    // Duración (ms) del cruce del swap. 320 = normal (por defecto).
+    // Duration (ms) of the swap crossing. 320 = normal (default).
     public static final int DEFAULT_SWAP_ANIM_DURATION = 320;
     public static volatile int SWAP_ANIM_DURATION = Helpers.propInt("swap_velocidad", DEFAULT_SWAP_ANIM_DURATION);
-    // Estilo del cruce: true = con arco ("saltito", una arquea arriba y la otra abajo); false =
-    // desplazamiento horizontal recto (una pasa por delante de la otra, por defecto).
+    // Crossing style: true = arced ("hop", one card arcs up and the other down); false =
+    // straight horizontal slide (one passes in front of the other, default).
     public static volatile boolean SWAP_ANIM_ARC = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("swap_arco", "false"));
-    // Recolocación animada de la mesa cuando abandonan jugadores (DynamicTablePanel): los que
-    // se van se desvanecen y los supervivientes se deslizan a su hueco en la mesa de M. On por
-    // defecto. Si off, corte seco (reconstrucción directa del tablero, como siempre).
+    // Animated table reflow when players leave (DynamicTablePanel): those who leave fade out
+    // and survivors slide into their new seat on M's table. On by default. If off, hard cut
+    // (direct board rebuild, as always).
     public static volatile boolean ANIMACION_DOWNGRADE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_downgrade", "true"));
-    // Duración (ms) de la animación de recolocación. 500 = normal (por defecto).
+    // Duration (ms) of the reflow animation. 500 = normal (default).
     public static final int DEFAULT_DOWNGRADE_VELOCIDAD = 500;
     public static volatile int DOWNGRADE_VELOCIDAD = Helpers.propInt("downgrade_velocidad", DEFAULT_DOWNGRADE_VELOCIDAD);
-    // Velocidad del reparto como % de la pausa base (Crupier.REPARTIR_PAUSA): 100 = normal (por
-    // defecto, la velocidad histórica), >100 más lento, <100 más rápido.
+    // Deal speed as a % of the base pause (Crupier.REPARTIR_PAUSA): 100 = normal (default,
+    // historical speed), >100 slower, <100 faster.
     public static final int DEFAULT_REPARTO_VELOCIDAD = 100;
     public static volatile int REPARTO_VELOCIDAD = Helpers.propInt("reparto_velocidad", DEFAULT_REPARTO_VELOCIDAD);
 
-    // Periodo (ms) del Timer de las animaciones pre-renderizadas (barajado, reparto, fichas, destape),
-    // FIJADO a 2 ms (≈500 repaints/s). El ritmo real lo marca el reloj (System.nanoTime); esto solo
-    // fija cada cuánto se reevalúa qué frame toca (el techo de repaints/s). 2 ms sobre-muestrea CON
-    // MARGEN (≥2×) cualquier refresco común (60/75/144/240 Hz): el Timer de Swing NO tiene vsync y un
-    // tick ≈ al refresco crea BATIDO (un frame se repite y otro se salta = tirones), así que va
-    // deliberadamente MÁS RÁPIDO que el refresco. Ya no es configurable: el coste en PCs lentos se
-    // recorta desactivando animaciones o con el perfil Rendimiento, no bajando esta frecuencia. Si el
-    // scheduler del SO no da 2 ms exactos, el Timer corre al tick más fino que pueda (degrada suave,
-    // nunca por debajo de ningún refresco).
+    // Period (ms) of the Timer driving pre-rendered animations (shuffle, deal, chips, uncover),
+    // FIXED at 2ms (~500 repaints/s). The real pace is set by the clock (System.nanoTime); this
+    // only sets how often it re-evaluates which frame is due (the repaints/s ceiling). 2ms
+    // oversamples WITH MARGIN (>=2x) any common refresh rate (60/75/144/240Hz): Swing's Timer
+    // has NO vsync and a tick close to the refresh rate creates BEATING (a frame repeats while
+    // another is skipped = stutter), so it deliberately runs FASTER than the refresh. No longer
+    // configurable: the cost on slow PCs is trimmed by disabling animations or via the
+    // Performance profile, not by lowering this frequency. If the OS scheduler can't deliver an
+    // exact 2ms, the Timer runs at the finest tick it can (graceful degradation, never below any
+    // refresh rate).
     public static final int ANIM_TICK_MS = 2;
-    // Perfil de calidad de las animaciones: Calidad (por defecto) vs Rendimiento. Calidad = el
-    // comportamiento ACTUAL sin cambio alguno (rotación de las cartas/fichas voladoras y supersampling
-    // SS=2 del destape). Rendimiento (para PCs poco potentes) recorta coste por frame: vuelos SIN
-    // rotación y warp del destape SIN supersampling (SS=1). MISMOS frames que Calidad en el destape:
-    // reducirlos dejaba el giro entrecortado, así que Rendimiento solo baja la nitidez, no la fluidez.
-    // Cada palanca está gateada de modo que con ANIM_CALIDAD=true el camino es EXACTAMENTE el de
-    // siempre: cero regresión para quien no lo toque.
+    // Animation quality profile: Quality (default) vs Performance. Quality = the CURRENT
+    // behaviour unchanged (rotation of flying cards/chips and SS=2 supersampling on uncover).
+    // Performance (for weaker PCs) trims cost per frame: flights WITHOUT rotation and uncover
+    // warp WITHOUT supersampling (SS=1). SAME frame count as Quality on uncover: reducing it
+    // made the flip choppy, so Performance only lowers sharpness, not fluidity. Each lever is
+    // gated so that with ANIM_CALIDAD=true the path is EXACTLY the historical one: zero
+    // regression for anyone who doesn't touch it.
     public static final boolean DEFAULT_ANIM_CALIDAD = true;
     public static volatile boolean ANIM_CALIDAD = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("anim_calidad", String.valueOf(DEFAULT_ANIM_CALIDAD)));
 
-    // Periodo (ms) del Timer de las animaciones pre-renderizadas. Se lee al CONSTRUIR cada Timer, no
-    // por frame. Método (en vez de la constante directa) para no tocar los 7 callsites de TablePanel.
+    // Period (ms) of the pre-rendered animations' Timer. Read when each Timer is BUILT, not per
+    // frame. A method (rather than the constant directly) to avoid touching TablePanel's 7 call sites.
     public static int getTickMs() {
         return ANIM_TICK_MS;
     }
 
-    // Sincronización P2P de estadísticas: dos preferencias globales independientes,
-    // ambas ON por defecto. RECIBIR = importar las partidas que me faltan al conectar
-    // a un servidor. COMPARTIR = enviar mis partidas que al otro le faltan.
+    // P2P stats sync: two independent global preferences, both on by default. RECEIVE =
+    // import games I'm missing when connecting to a server. SHARE = send my games the other
+    // side is missing.
     public static volatile boolean SYNC_STATS_RECEIVE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_receive", "true"));
     public static volatile boolean SYNC_STATS_SHARE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_share", "true"));
 
-    // Exclusiones de COMPARTIR: subconjunto de MIS partidas que quedan fuera de lo que
-    // propago, aunque COMPARTIR esté activo (se aplican en StatsSync.listShareableUgis).
-    // Privadas ON por defecto (comportamiento histórico: las timbas privadas nunca se
-    // compartían). Por nick OFF por defecto: la lista es de nicks separados por comas y
-    // excluye toda partida donde haya participado ALGUNO de ellos.
+    // SHARE exclusions: a subset of MY games left out of what I propagate, even with SHARE
+    // on (applied in StatsSync.listShareableUgis). Private games on by default (historical
+    // behaviour: private games were never shared). By-nick off by default: a comma-separated
+    // nick list that excludes any game involving ANY of them.
     public static volatile boolean SYNC_STATS_EXCLUDE_PRIVATE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_exclude_private", "true"));
     public static volatile boolean SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_exclude_nicks_enabled", "false"));
     public static volatile String SYNC_STATS_EXCLUDE_NICKS_PREF = Helpers.PROPERTIES.getProperty("sync_stats_exclude_nicks", "");
 
-    // Maestro de animaciones: GATE global. Los 5 flags *_PREF (CINEMATICAS_PREF y los 4
-    // ANIMACION_*_PREF) guardan la PREFERENCIA cruda de cada efecto, como antes de existir
-    // el maestro. Este flag los GATEA en cada comprobación vía los helpers *On() (=
-    // ANIMACIONES && preferencia): apagarlo desactiva TODAS las animaciones de un plumazo
-    // SIN tocar las preferencias. applyAnimationMaster ya NO recalcula los flags (no hay
-    // valor "efectivo" almacenado); solo habilita/deshabilita (visual) los toggles
-    // individuales cuando está off. Por defecto on.
+    // Animation master: global GATE. The 5 *_PREF flags (CINEMATICAS_PREF and the 4
+    // ANIMACION_*_PREF) hold each effect's raw preference, as before the master existed. This
+    // flag gates them on every check via the *On() helpers (= ANIMACIONES && preference):
+    // turning it off disables ALL animations at once WITHOUT touching the preferences.
+    // applyAnimationMaster no longer recomputes the flags (there's no stored "effective"
+    // value); it only enables/disables (visually) the individual toggles when off. On by default.
     public static volatile boolean ANIMACIONES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animaciones", "true"));
 
-    // Gate por efecto: una animación individual SOLO aplica si el maestro está on Y su
-    // preferencia está on. TODO read-site del código que decida ANIMAR usa estos helpers,
-    // nunca el flag *_PREF directo (que es solo la preferencia, sin gatear).
+    // Per-effect gate: an individual animation applies ONLY if the master is on AND its own
+    // preference is on. Every read site deciding whether to ANIMATE uses these helpers, never
+    // the raw *_PREF flag (which is just the preference, ungated).
     public static boolean cinematicasOn() {
         return ANIMACIONES && CINEMATICAS_PREF;
     }
 
-    // Subtipos de cinemática que cuelgan del maestro "Cinemáticas" (igual que la cascada cuelga
-    // de "Barajado"): las de ACCIÓN (GIFs de fold/call/check/bet/raise de los rivales), las de
-    // ALL-IN (secuencia a pantalla completa) y la de GAME OVER (los GIFs del arruinado mientras
-    // decide la recompra). Cada una solo aplica si el maestro de animaciones, el de cinemáticas Y
-    // su propia preferencia están on.
+    // Cinematic subtypes hanging off the "Cinematics" master (same way the cascade hangs off
+    // "Shuffle"): ACTION ones (opponents' fold/call/check/bet/raise GIFs), ALL-IN ones
+    // (fullscreen sequence) and GAME OVER (the busted-out GIFs while deciding a rebuy). Each
+    // one applies only if the animations master, the cinematics master AND its own preference
+    // are all on.
     public static boolean cinematicasAccionOn() {
         return cinematicasOn() && CINEMATICAS_ACCION_PREF;
     }
@@ -473,11 +470,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return cinematicasOn() && CINEMATICAS_ALLIN_PREF;
     }
 
-    // GAME OVER: gobierna los TRES visuales del ciclo de recompra, que deben ir siempre en el
-    // mismo modo — el GIF del GameOverDialog propio, el GIF sobre las cartas de los arruinados
-    // remotos (RemotePlayer.setRebuying) y la barra de tiempo del crupier mientras espera los
-    // REBUY (Crupier.recibirRebuys). Apagado: cartel "GAME OVER" estático con cuenta atrás,
-    // cuenta atrás numérica "¿RECOMPRA? (N)" en la action label y barra smooth.
+    // GAME OVER: governs the THREE rebuy-cycle visuals, which must always stay in sync — the
+    // local GameOverDialog GIF, the GIF over busted remote players' cards
+    // (RemotePlayer.setRebuying) and the dealer's time bar while waiting for REBUYS
+    // (Crupier.recibirRebuys). Off: static "GAME OVER" banner with countdown, numeric "REBUY?
+    // (N)" countdown in the action label, and a smooth bar.
     public static boolean cinematicasGameOverOn() {
         return cinematicasOn() && CINEMATICAS_GAMEOVER_PREF;
     }
@@ -502,13 +499,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return ANIMACIONES && ANIMACION_DOWNGRADE_PREF;
     }
 
-    // Migración one-shot del antiguo checkbox "Cartas" (animacion_reparto), que se separó en
-    // barajado/reparto/destape. ANIMACION_BARAJADO_PREF y ANIMACION_DESTAPE_PREF heredan su valor
-    // la primera vez leyendo animacion_reparto como fallback; pero ese fallback SIGUE VIVO mientras
-    // sus claves no existan en el fichero, así que un cambio posterior de animacion_reparto (p.ej.
-    // desde el item de menú de Reparto) las arrastraría de nuevo en el siguiente arranque. Este
-    // método persiste las claves nuevas con su valor ya migrado UNA sola vez, rompiendo el vínculo.
-    // Idempotente: no toca una clave que ya exista. Lo llama el arranque (Init) antes del warm-up.
+    // One-shot migration of the old "Cards" checkbox (animacion_reparto), split into
+    // shuffle/deal/uncover. ANIMACION_BARAJADO_PREF and ANIMACION_DESTAPE_PREF inherit its value
+    // the first time by reading animacion_reparto as a fallback; but that fallback STAYS LIVE as
+    // long as their own keys don't exist in the file, so a later change to animacion_reparto
+    // (e.g. from the Deal menu item) would drag them along again on the next startup. This
+    // method persists the new keys with their already-migrated value ONCE, breaking the link.
+    // Idempotent: doesn't touch a key that already exists. Called by startup (Init) before warm-up.
     public static void migrateSplitAnimationPrefs() {
         boolean changed = false;
         if (Helpers.PROPERTIES.getProperty("animacion_barajado") == null) {
@@ -536,20 +533,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return ANIMACIONES && ANIMACION_CONTADORES_PREF;
     }
 
-    // Recuento animado de la pantalla de fin de timba. Su SFX (balance_count.wav) cuelga de este
-    // gate ADEMAS de conteoSonidoOn, asi que apagar el recuento silencia tambien su sonido.
+    // Animated count-up on the end-of-game screen. Its SFX (balance_count.wav) depends on this
+    // gate IN ADDITION TO conteoSonidoOn, so turning off the count-up also silences its sound.
     public static boolean contadorFinalAnimOn() {
         return ANIMACIONES && ANIMACION_CONTADOR_FINAL_PREF;
     }
 
-    // La cascada SRA es un subajuste del BARAJADO: solo aplica si el barajado está activo.
+    // The SRA cascade is a sub-setting of SHUFFLE: only applies if the shuffle animation is on.
     public static boolean cascadaOverlayAnimOn() {
         return ANIMACIONES && ANIMACION_BARAJADO_PREF && ANIMACION_CASCADA_OVERLAY_PREF;
     }
 
-    // Gates booleanos de los efectos de sonido de mesa: cada uno cuelga del maestro
-    // SONIDO_EFECTOS (aparte del master global SONIDOS, que los apaga todos en la capa de
-    // Audio). "Mis cartas" además cuelga del destape general.
+    // Boolean gates for the table sound effects: each depends on the SONIDO_EFECTOS master
+    // (separate from the global SONIDOS master, which turns them all off in the Audio layer).
+    // "My cards" also depends on the general uncover setting.
     public static boolean barajadoSonidoOn() {
         return SONIDO_EFECTOS && SONIDO_BARAJADO;
     }
@@ -686,9 +683,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return SONIDO_EFECTOS && SONIDO_ERROR_RED;
     }
 
-    // Rutas de los wav de mesa gateadas por su preferencia (null = sin sonido, que
-    // flyCardToSeat/playCardFlipOverlays/showCentralFrames/showCentralFramesLoop ya tratan
-    // como "no suena").
+    // Table wav paths gated by their preference (null = no sound, which
+    // flyCardToSeat/playCardFlipOverlays/showCentralFrames/showCentralFramesLoop already
+    // treat as "silent").
     public static String dealSound() {
         return repartoSonidoOn() ? "misc/deal.wav" : null;
     }
@@ -705,22 +702,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return barajadoSonidoOn() ? "misc/shuffle.wav" : null;
     }
 
-    // Ruta de la caja registradora gateada (null = sin sonido, que animateStackFill trata como
-    // "no suena"): la usa el llenado animado de stacks al recomprar.
+    // Gated cash-register path (null = no sound, which animateStackFill treats as "silent"):
+    // used by the animated stack fill on rebuy.
     public static String cashRegisterSound() {
         return cajaSonidoOn() ? "misc/cash_register.wav" : null;
     }
 
-    // ---- Controlador del overlay de barajado por jugador (sincronizado vía el comando SHUFFLE_TURN)
-    // El host difunde SHUFFLE_TURN#nick por cada jugador del anillo según avanza la cascada; cada
-    // peer (incluido el host, que se auto-aplica al emitir) lo entrega aquí. Este controlador pinta
-    // el overlay+borde sobre SU jugador de ese nick (local o remoto), UN turno a la vez y con una
-    // DURACIÓN MÍNIMA: en LAN los pasos duran ~100 ms y sin el mínimo el giro sería un parpadeo
-    // imperceptible; un cliente lento mantiene su overlay el tiempo real de su paso (localizarlo).
-    // Gateado por la preferencia LOCAL de cada peer (cascadaOverlayAnimOn).
-    public static final long SHUFFLE_OVERLAY_MIN_MS = 150;    // suelo visible por turno DURANTE el barajado (los pasos reales > 150ms salen a su tiempo EXACTO)
-    public static final long SHUFFLE_OVERLAY_DRAIN_MS = 60;   // al TERMINAR, drena rápido lo que quede (no solapar con el reparto)
-    public static final long SHUFFLE_OVERLAY_WATCHDOG_MS = 60000; // red de seguridad si SHUFFLE_TURN_END nunca llega (host caído)
+    // ---- Per-player shuffle overlay controller (synchronized via the SHUFFLE_TURN command)
+    // The host broadcasts SHUFFLE_TURN#nick for each player in the ring as the cascade
+    // shuffle advances; every peer (including the host, which self-applies on emit) delivers
+    // it here. This controller paints the overlay+border over THAT nick's player (local or
+    // remote), one turn at a time, with a MINIMUM DURATION: on a LAN each step takes ~100ms and
+    // without the minimum the flip would be an imperceptible blink; a slow client keeps its
+    // overlay for the real duration of its step (making it easy to spot). Gated by each peer's
+    // LOCAL preference (cascadaOverlayAnimOn).
+    public static final long SHUFFLE_OVERLAY_MIN_MS = 150;    // visible floor per turn DURING the shuffle (real steps > 150ms run at their EXACT duration)
+    public static final long SHUFFLE_OVERLAY_DRAIN_MS = 60;   // once FINISHED, drain whatever's left quickly (don't overlap with the deal)
+    public static final long SHUFFLE_OVERLAY_WATCHDOG_MS = 60000; // safety net if SHUFFLE_TURN_END never arrives (host down)
     private final java.util.concurrent.ConcurrentLinkedQueue<String> shuffle_turn_queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private final Object shuffle_turn_lock = new Object();
     private volatile boolean shuffle_turn_ended = false;
@@ -728,9 +726,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile String shuffle_overlay_current_nick = null;
 
     /**
-     * Turno de cascada de {@code nick}: encola su overlay. Lo invoca el host (localmente al emitir)
-     * y cada cliente (al recibir SHUFFLE_TURN). Gateado por la preferencia LOCAL de este peer, así
-     * que cada usuario decide si ve la animación aunque el host la difunda siempre.
+     * Cascade turn for {@code nick}: queues its overlay. Invoked by the host (locally when
+     * emitting) and by each client (on receiving SHUFFLE_TURN). Gated by this peer's LOCAL
+     * preference, so each user decides whether to see the animation even though the host
+     * always broadcasts it.
      */
     public void onShuffleTurn(String nick) {
         if (nick == null || nick.isEmpty() || !cascadaOverlayAnimOn()) {
@@ -742,15 +741,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Fin del barajado: el reproductor drena la cola pendiente y oculta el overlay.
+     * End of the shuffle: the player thread drains the pending queue and hides the overlay.
      */
     public void onShuffleTurnEnd() {
         shuffle_turn_ended = true;
     }
 
-    // Arranca (si no lo está ya) el hilo que reproduce la cola de turnos a DURACIÓN MÍNIMA. Un solo
-    // reproductor a la vez (guardado por shuffle_turn_lock). Se re-arranca si llega un turno justo
-    // en la ventana entre que decide salir y marca playing=false.
+    // Starts (if not already running) the thread that plays the turn queue at MINIMUM
+    // DURATION. Only one player at a time (guarded by shuffle_turn_lock). Restarts if a turn
+    // arrives right in the window between deciding to exit and setting playing=false.
     private void startShuffleTurnPlayer() {
         synchronized (shuffle_turn_lock) {
             if (shuffle_turn_playing) {
@@ -766,18 +765,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (nick != null) {
                         setShuffleOverlayOn(nick);
                         last_activity = System.currentTimeMillis();
-                        // Durante el barajado, cada turno dura el mínimo visible. Una vez que el
-                        // barajado TERMINÓ (ended), se drena lo que quede a ritmo rápido para no
-                        // solaparse con el reparto/apuestas (gif sobre cartas ya repartidas / pisar
-                        // el borde de turno).
+                        // During the shuffle, each turn lasts the visible minimum. Once the
+                        // shuffle has ENDED, whatever's left is drained quickly so it doesn't
+                        // overlap with dealing/betting (GIF over already-dealt cards / stomping
+                        // on the turn border).
                         Helpers.pausar(shuffle_turn_ended ? SHUFFLE_OVERLAY_DRAIN_MS : SHUFFLE_OVERLAY_MIN_MS);
                     } else if (shuffle_turn_ended) {
-                        break; // cola vacía + barajado terminado
+                        break; // empty queue + shuffle finished
                     } else if (System.currentTimeMillis() - last_activity > SHUFFLE_OVERLAY_WATCHDOG_MS) {
-                        break; // red de seguridad: END no llegó (¿host caído?) -> no spinear eterno
+                        break; // safety net: END never arrived (host down?) -> don't spin forever
                     } else {
-                        // Cola vacía pero el barajado sigue: el jugador actual (típicamente un
-                        // remoto lento) mantiene su overlay hasta que llegue el siguiente turno.
+                        // Empty queue but the shuffle is still going: the current player
+                        // (typically a slow remote) keeps its overlay until the next turn arrives.
                         Helpers.pausar(40);
                     }
                 }
@@ -794,8 +793,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }
 
-    // Oculta el overlay del jugador anterior y lo muestra sobre el nuevo (ambos en su hilo, que
-    // hace GUIRun internamente). Corre en el hilo del reproductor, NO en el EDT.
+    // Hides the previous player's overlay and shows it on the new one (both on its own thread,
+    // which does GUIRun internally). Runs on the player thread, NOT on the EDT.
     private void setShuffleOverlayOn(String nick) {
         String prev = shuffle_overlay_current_nick;
         if (prev != null && !prev.equals(nick)) {
@@ -812,8 +811,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     private void hideShuffleOverlayAll() {
-        // Snapshot: se itera desde el hilo reproductor y la lista puede reconstruirse (clear+addAll)
-        // al encoger la mesa entre manos -> evitar ConcurrentModificationException.
+        // Snapshot: iterated from the player thread while the list can be rebuilt (clear+addAll)
+        // when the table shrinks between hands -> avoid ConcurrentModificationException.
         for (Player j : new java.util.ArrayList<>(getJugadores())) {
             if (j != null) {
                 j.hideShuffleCascadeOverlay();
@@ -833,68 +832,66 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return null;
     }
 
-    // Velocidad/topes del rodaje de los contadores VIVOS (stack/bote del jugador/
-    // bote general) durante el juego. VELOCIDAD CONSTANTE (lineal): duración de cada
-    // tramo = distancia/velocidad, acotada a [min, max]. Palancas para afinar los
-    // casos extremos (cambios enormes no se eternizan, minúsculos no son instantáneos).
-    public static final double COUNTER_ROLL_SPEED = 3000.0; // dinero/segundo
+    // Speed/limits for rolling the LIVE counters (player stack/pot, main pot) during play.
+    // CONSTANT SPEED (linear): each segment's duration = distance/speed, clamped to
+    // [min, max]. Levers to tame the extremes (huge changes don't take forever, tiny ones
+    // aren't instantaneous).
+    public static final double COUNTER_ROLL_SPEED = 3000.0; // money/second
     public static final long COUNTER_ROLL_MIN_MS = 120;
     public static final long COUNTER_ROLL_MAX_MS = 900;
 
-    // Rodaje del % de probabilidad del all-in (JUGADA + PROB en la label de accion).
-    // A diferencia de los contadores vivos (velocidad constante), este va a TIEMPO
-    // CONSTANTE: cada cambio de calle rueda en PROB_ROLL_MS fijo sin importar cuanto
-    // cambie el %, asi TODAS las probabilidades alcanzan su valor en el mismo tiempo
-    // (arrancan y terminan a la vez).
+    // Rolling the all-in probability % (HAND + PROB in the action label). Unlike the live
+    // counters (constant speed), this runs at CONSTANT TIME: each street change rolls over a
+    // fixed PROB_ROLL_MS regardless of how much the % changes, so ALL probabilities reach
+    // their value at the same time (start and finish together).
     public static final long PROB_ROLL_MS = 150;
 
-    // Gate del rodaje de contadores VIVOS: respeta la opción de Ajustes y se salta en
-    // recover (los valores recuperados se fijan de golpe, sin animar). El gate de la
-    // cortinilla/recompra es Crupier.isStackFillAnimated (añade fin de transmisión).
+    // Gate for rolling the LIVE counters: respects the Settings option and is skipped on
+    // recover (recovered values snap in at once, unanimated). The fill-wipe/rebuy gate is
+    // Crupier.isStackFillAnimated (adds end-of-transmission).
     public static boolean isCounterRollEnabled() {
         if (!contadoresAnimOn() || RECOVER) {
             return false;
         }
-        // !RECOVER cubre el recover en si; game_recovered==0 cubre la REPLICA de una mano
-        // recuperada (RECOVER ya es false pero la mano se re-ejecuta), para que los
-        // contadores SALTEN en vez de animar durante esa repeticion de arranque.
+        // !RECOVER covers the recover itself; game_recovered==0 covers the REPLAY of a
+        // recovered hand (RECOVER is already false but the hand re-runs), so counters SNAP
+        // instead of animating during that startup replay.
         GameFrame gf = getInstance();
         return gf == null || gf.getCrupier() == null || gf.getCrupier().getGame_recovered() == 0;
     }
-    // Overlay opcional sobre las comunitarias con el coste de igualar del jugador
-    // local (cuánto tendrá que poner cuando le toque). Por defecto activado.
+    // Optional overlay on the community cards showing the local player's call cost (how
+    // much they'll have to put in on their turn). On by default.
     public static volatile boolean MOSTRAR_COSTE_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("mostrar_coste_igualar", "true"));
     public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
-    // Si está activo, una pulsación de un botón AUTO sobrevive entre manos en vez
-    // de resetearse (solo aplica con AUTO_ACTION_BUTTONS activo). Activado por defecto.
+    // If on, a pressed AUTO button survives across hands instead of resetting (only applies
+    // with AUTO_ACTION_BUTTONS on). On by default.
     public static volatile boolean AUTO_ACTION_PERSIST = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_persist", "true"));
-    // Si está activo, antes de ejecutar una acción automática del pre-pulsado se
-    // muestra un diálogo modal de cuenta atrás (MODO AUTO) que permite vetarla.
+    // If on, a modal countdown dialog (AUTO MODE) is shown before executing a pre-selected
+    // automatic action, allowing it to be vetoed.
     public static volatile boolean MODO_AUTO_CONFIRM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("modo_auto_confirm", "true"));
-    // Segundos de la barra del diálogo MODO AUTO.
+    // Seconds for the AUTO MODE dialog's bar.
     public static final int AUTO_CONFIRM_SECONDS = 5;
-    // Auto-call automático. Con AUTO_CALL_ENABLED el pre-pulsado de check/call
-    // iguala cualquier apuesta cuyo coste REAL (lo que de verdad pones = el stack
-    // cuando igualar exige all-in) sea <= AUTO_CALL_MAX, en cualquier calle
-    // (generaliza el "+BB"). AUTO_CALL_MAX == 0 = SIN LÍMITE (iguala cualquier
-    // importe). Solo aplica con AUTO_ACTION_BUTTONS activo. En fichas (la ficha
-    // mínima del motor es el céntimo, 0,01).
+    // Automatic auto-call. With AUTO_CALL_ENABLED, the pre-selected check/call calls any bet
+    // whose REAL cost (what you actually put in = the stack when calling forces an all-in) is
+    // <= AUTO_CALL_MAX, on any street (generalizes the old "+BB"). AUTO_CALL_MAX == 0 = NO
+    // LIMIT (calls any amount). Only applies with AUTO_ACTION_BUTTONS on. In chips (the
+    // engine's smallest chip is the cent, 0.01).
     public static volatile boolean AUTO_CALL_ENABLED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_call_enabled", "false"));
     public static volatile double AUTO_CALL_MAX = Helpers.propDouble("auto_call_max", 0.0);
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
-    // Subajustes de "Cinemáticas": preferencia cruda de cada subtipo (gateados por CINEMATICAS_PREF
-    // vía cinematicasAccionOn()/cinematicasAllinOn()/cinematicasGameOverOn()). Por defecto on (no
-    // cambia el comportamiento).
+    // "Cinematics" sub-settings: each subtype's raw preference (gated by CINEMATICAS_PREF via
+    // cinematicasAccionOn()/cinematicasAllinOn()/cinematicasGameOverOn()). On by default (no
+    // behaviour change).
     public static volatile boolean CINEMATICAS_ACCION_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas_accion", "true"));
     public static volatile boolean CINEMATICAS_ALLIN_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas_allin", "true"));
     public static volatile boolean CINEMATICAS_GAMEOVER_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas_gameover", "true"));
     public static volatile boolean CHAT_IMAGES_INGAME = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_images_ingame", "true"));
     public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
-    // Ficha de posición del jugador local sobre sus cartas: 3 estados cíclicos por click
-    // (persistidos): 0=normal, 1=70% de opacidad, 2=oculta. parseLocalPosChipState migra
-    // el valor booleano antiguo "true"/"false" de versiones previas (true->normal, false->oculta).
+    // Local player's position chip over their cards: 3 states cycled by click (persisted):
+    // 0=normal, 1=70% opacity, 2=hidden. parseLocalPosChipState migrates the old boolean
+    // "true"/"false" value from previous versions (true->normal, false->hidden).
     public static final int LOCAL_POS_CHIP_NORMAL = 0;
     public static final int LOCAL_POS_CHIP_DIM = 1;
     public static final int LOCAL_POS_CHIP_HIDDEN = 2;
@@ -927,40 +924,36 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public final static int UGI_LENGTH = 50;
     public static volatile long GAME_START_TIMESTAMP;
     public static volatile KeyEventDispatcher key_event_dispatcher = null;
-    // Guarda anti-doble-acción: al resolver por teclado un overlay (straddle / MODO AUTO) con
-    // ESC/ESPACIO, se tragan las repeticiones de la MISMA tecla mantenida (auto-repeat del SO)
-    // y los toques inmediatos, para que ESC no acabe RETIRÁNDOSE tras cancelar el MODO AUTO (su
-    // cancel re-habilita la botonera y quita el overlay justo a tiempo para que el siguiente
-    // evento caiga en el fold normal). Se limpian al SOLTAR la tecla (KEY_RELEASED en el dispatcher).
+    // Anti-double-action guard: when a keyboard overlay (straddle / AUTO MODE) is resolved with
+    // ESC/SPACE, repeats of the SAME held key (OS auto-repeat) and immediate re-presses are
+    // swallowed, so ESC doesn't end up FOLDING right after canceling AUTO MODE (its cancel
+    // re-enables the action buttons and removes the overlay just in time for the next event to
+    // land on a normal fold). Cleared on key RELEASE (KEY_RELEASED in the dispatcher).
     private volatile boolean kbd_overlay_swallow_esc = false;
     private volatile boolean kbd_overlay_swallow_space = false;
     private static final Object ZOOM_LOCK = new Object();
 
     private static volatile GameFrame THIS = null;
 
-    // Shutdown hook que se activa cuando la JVM termina por SIGINT (Ctrl+C),
-    // SIGTERM, cierre de consola (Windows CTRL_CLOSE_EVENT, ~5s antes de
-    // TerminateProcess) o cualquier salida brusca distinta a cerrar la
-    // ventana del juego.
+    // Shutdown hook triggered when the JVM terminates via SIGINT (Ctrl+C), SIGTERM, console
+    // close (Windows CTRL_CLOSE_EVENT, ~5s before TerminateProcess), or any abrupt exit other
+    // than closing the game window.
     //
-    // - Cliente: envia "EXIT#<testamento>" al host. Sin esto, una caida abrupta
-    //   del cliente en mitad de cascade SRA disparaba MISDEAL en la mesa
-    //   (sra_unlock no llegaba). Con el hook el host aplica el testamento y
-    //   la mano termina sin MISDEAL.
-    // - Host: broadcast SERVEREXIT a todos los clientes. La partida no puede
-    //   continuar sin host, asi que no usamos SERVEREXITRECOVER (eso abriria
-    //   el recover dialog en el cliente esperando a re-conectarse a un host
-    //   que ya no existe). SERVEREXIT lleva al cliente al lobby normal:
-    //   game over limpio. Si el usuario quiere recover lo hace a mano desde
-    //   el menu. Sin el hook, los clientes veian al host caido y entraban
-    //   a reconectarCliente reintentando un servidor inexistente hasta que
-    //   el dialog modal aparecia a los 80s.
+    // - Client: sends "EXIT#<testament>" to the host. Without this, an abrupt client crash
+    //   mid-SRA-cascade triggered a MISDEAL on the table (sra_unlock never arrived). With the
+    //   hook, the host applies the testament and the hand ends without a MISDEAL.
+    // - Host: broadcasts SERVEREXIT to all clients. The game can't continue without a host, so
+    //   we don't use SERVEREXITRECOVER (that path would open the client's recover dialog,
+    //   waiting to reconnect to a host that no longer exists). SERVEREXIT sends the client back
+    //   to the normal lobby: a clean game over. If the user wants to recover they do it
+    //   manually from the menu. Without the hook, clients would see the host as down and enter
+    //   reconectarCliente, retrying a nonexistent server until the modal dialog appeared at 80s.
     private static volatile Thread SHUTDOWN_HOOK_THREAD = null;
 
     /**
-     * Registra el shutdown hook si no esta ya registrado. El hook es
-     * idempotente, se auto-comprueba (si la partida ya termino no hace nada)
-     * y discrimina internamente entre host y cliente.
+     * Registers the shutdown hook if not already registered. The hook is idempotent,
+     * self-checking (does nothing if the game already ended), and internally distinguishes
+     * host from client.
      */
     private static void registerShutdownHook() {
         if (SHUTDOWN_HOOK_THREAD != null) {
@@ -975,19 +968,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
                 Crupier c = gf.getCrupier();
                 if (c == null || c.isFin_de_la_transmision()) {
-                    return; // Partida ya cerrada limpiamente.
+                    return; // Game already ended cleanly.
                 }
                 if (!wrf.isPartida_empezada()) {
-                    return; // No hay nada que enviar (estamos en lobby/sala-espera).
+                    return; // Nothing to send (we're in the lobby/waiting room).
                 }
 
                 if (gf.isPartida_local()) {
-                    // --- HOST: broadcast SERVEREXIT a todos los clientes ---
-                    // La partida muere con el host (no hay nadie a quien re-conectarse),
-                    // asi que mandamos SERVEREXIT (game over limpio), NO SERVEREXITRECOVER
-                    // (ese path abre el recover dialog del cliente esperando reconexion
-                    // a un host inexistente). Confirmation=false: fire-and-forget. No
-                    // podemos esperar CONF durante shutdown (Windows mata a los 5s).
+                    // --- HOST: broadcast SERVEREXIT to all clients ---
+                    // The game dies with the host (there's no one to reconnect to), so we send
+                    // SERVEREXIT (clean game over), NOT SERVEREXITRECOVER (that path opens the
+                    // client's recover dialog waiting to reconnect to a nonexistent host).
+                    // Confirmation=false: fire-and-forget. We can't wait for a CONF during
+                    // shutdown (Windows kills us after 5s).
                     try {
                         c.broadcastGAMECommandFromServer("SERVEREXIT", null, false);
                     } catch (Throwable ignored) {
@@ -995,24 +988,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     return;
                 }
 
-                // --- CLIENTE: envia EXIT#testamento al host ---
+                // --- CLIENT: send EXIT#testament to the host ---
                 NetClient nc = wrf.getNet_client();
                 if (nc == null || nc.isReconnecting()) {
-                    return; // Si ya estabamos reconectando, el server YA sabe que estamos caidos.
+                    return; // If we were already reconnecting, the server ALREADY knows we're down.
                 }
                 java.net.Socket s = nc.getLocal_client_socket();
                 if (s == null || s.isClosed()) {
                     return;
                 }
-                // Construye el comando directamente para evitar reentrar en
-                // sendGAMECommandToServer (do-while con waits que durante
-                // shutdown pueden colgarnos por encima del timeout de 5s
-                // que da Windows al cerrar la consola).
+                // Builds the command directly to avoid re-entering sendGAMECommandToServer
+                // (a do-while with waits that during shutdown could hang us past the 5s
+                // timeout Windows gives on console close).
                 String testamento;
                 try {
                     testamento = c.getTestamentoCriptografico();
                 } catch (Throwable ex) {
-                    testamento = "*"; // Sin testamento valido: mejor mandar EXIT desnudo que nada.
+                    testamento = "*"; // No valid testament: better a bare EXIT than nothing.
                 }
                 String body = "GAME#" + Helpers.CSPRNG_GENERATOR.nextInt() + "#EXIT#" + testamento;
                 javax.crypto.spec.SecretKeySpec aes = nc.getLocal_client_aes_key();
@@ -1029,11 +1021,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     s.getOutputStream().flush();
                 }
             } catch (Throwable ignored) {
-                // Hook silencioso: si algo falla durante el shutdown, volvemos
-                // al comportamiento sin hook (clientes detectan caida del host
-                // por null read y entran a reconectarCliente hasta el dialog
-                // modal a los 80s; cliente caido sin testamento -> posible
-                // MISDEAL si estabamos en cascade SRA). No es regresion.
+                // Silent hook: if anything fails during shutdown, we fall back to the
+                // no-hook behaviour (clients detect the host going down via a null read and
+                // enter reconectarCliente until the modal dialog at 80s; a client dying
+                // without a testament -> possible MISDEAL if we were mid-SRA-cascade). Not a
+                // regression.
             }
         }, "CoronaPoker-Exit-Hook");
         hook.setDaemon(false);
@@ -1045,9 +1037,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Desregistra el shutdown hook cuando la partida termina limpiamente
-     * (finTransmision). Asi no queda colgando un hook que intentaria
-     * enviar EXIT por un socket ya cerrado tras volver al lobby.
+     * Unregisters the shutdown hook once the game ends cleanly (finTransmision), so no hook
+     * is left dangling trying to send EXIT over a socket already closed after returning to
+     * the lobby.
      */
     public static void unregisterShutdownHook() {
         Thread h = SHUTDOWN_HOOK_THREAD;
@@ -1055,7 +1047,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             try {
                 Runtime.getRuntime().removeShutdownHook(h);
             } catch (IllegalStateException ignored) {
-                // JVM ya en shutdown: no se puede desregistrar, ya da igual.
+                // JVM already shutting down: can't unregister, doesn't matter anymore.
             } catch (Throwable ignored) {
             }
             SHUTDOWN_HOOK_THREAD = null;
@@ -1089,19 +1081,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 + "#VOICEMSG=" + (voicemsg ? "1" : "0")
                 + "#TTS=" + (tts ? "1" : "0")
                 + "#FIXED_BUYIN=" + (FIXED_BUYIN ? "1" : "0")
-                // Estructura de ciegas personalizada (CSV sb/bb, sin '#'/'='; vacío =
-                // escalera por defecto). Imprescindible para que la escalada y el
-                // re-broadcast INIT tras recuperar usen la misma lista.
+                // Custom blind structure (CSV sb/bb, no '#'/'='; empty = default ladder).
+                // Essential so the ladder and the post-recover INIT re-broadcast use the same list.
                 + "#BLINDS=" + (ACTIVE_BLIND_STRUCTURE != null ? BlindStructure.levelsToString(ACTIVE_BLIND_STRUCTURE) : "")
-                // Rango de buy-in editable (en ciegas grandes).
+                // Editable buy-in range (in big blinds).
                 + "#BMINBB=" + BUYIN_MIN_BB
                 + "#BMAXBB=" + BUYIN_MAX_BB
-                // Política de tope de recompra (0=BUYIN, 1=stack más alto).
+                // Rebuy cap policy (0=BUYIN, 1=highest stack).
                 + "#RBCAP=" + REBUY_CAP_POLICY
                 + "#ANTE=" + (ANTE ? "1" : "0")
                 + "#STRADDLE=" + (STRADDLE ? "1" : "0")
-                // Limite de manos + tiempo de pensar: ajustes de "Partida", EDITABLES al recuperar
-                // (se persisten para que el control arranque en el valor de la timba recuperada).
+                // Hand limit + think time: "Game" settings, EDITABLE on recover (persisted so
+                // the control starts at the recovered game's value).
                 + "#MANOS=" + MANOS
                 + "#THINKT=" + THINK_TIME
                 + "#THINKON=" + (THINK_TIME_ENABLED ? "1" : "0")
@@ -1109,32 +1100,31 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public static void applyRecoverSettings(String serialized) {
-        // Borrón y cuenta nueva: recuperar parte SIEMPRE de la escalera por defecto.
-        // Si la fila recuperada no trae clave BLINDS (timba de una versión anterior
-        // a la feature), ACTIVE queda null deterministamente y no se arrastra una
-        // estructura personalizada que quedara activa de otra timba de esta sesión.
+        // Clean slate: recovery ALWAYS starts from the default ladder. If the recovered row
+        // doesn't carry a BLINDS key (a game from before this feature), ACTIVE deterministically
+        // stays null instead of carrying over a custom structure left active by another game
+        // in this session.
         ACTIVE_BLIND_STRUCTURE = null;
-        // Mismo criterio para el rango de buy-in y la política de tope de recompra:
-        // una fila de una versión anterior a esta feature no trae BMINBB/BMAXBB/RBCAP,
-        // así que se parte SIEMPRE de los valores por defecto y nunca se arrastra un
-        // rango/política obsoleto de otra timba abierta en esta misma sesión.
+        // Same rule for the buy-in range and the rebuy cap policy: a row from before this
+        // feature carries no BMINBB/BMAXBB/RBCAP, so we ALWAYS start from the defaults and
+        // never carry over a stale range/policy from another game open in this same session.
         BUYIN_MIN_BB = BuyinRules.DEFAULT_MIN_BB;
         BUYIN_MAX_BB = BuyinRules.DEFAULT_MAX_BB;
         REBUY_CAP_POLICY = REBUY_CAP_BUYIN;
-        // Mismo criterio para ante/straddle: una fila anterior a esta feature no trae
-        // las claves, asi que se parte SIEMPRE de off y no se arrastra un estado stale
-        // de otra timba abierta en esta misma sesion.
+        // Same rule for ante/straddle: a row from before this feature carries no such keys, so
+        // we ALWAYS start off instead of carrying over stale state from another game open in
+        // this same session.
         ANTE = false;
         STRADDLE = false;
-        // Limite de manos + tiempo de pensar: una fila anterior a esta feature no trae las
-        // claves, asi que se parte de sus defaults (sin limite / activo a DEFAULT_THINK_TIME).
+        // Hand limit + think time: a row from before this feature carries no such keys, so we
+        // start from their defaults (no limit / enabled at DEFAULT_THINK_TIME).
         MANOS = -1;
         THINK_TIME = DEFAULT_THINK_TIME;
         THINK_TIME_ENABLED = true;
         SHOWDOWN_TIME = DEFAULT_SHOWDOWN_TIME;
-        // Reparto del saldo de los bots entre humanos: una fila anterior a esta feature no trae la
-        // clave, asi que se parte SIEMPRE de off y no se arrastra un estado stale de otra timba
-        // abierta en esta misma sesion.
+        // Splitting bot balance among humans: a row from before this feature carries no such
+        // key, so we ALWAYS start off instead of carrying over stale state from another game
+        // open in this same session.
         BOT_BALANCE_TO_HUMANS = false;
         if (serialized == null || serialized.isEmpty()) {
             return;
@@ -1242,9 +1232,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                     break;
                 case "BLINDS":
-                    // Vacío = escalera por defecto (null). Parse defensivo: si la lista
-                    // guardada estuviese corrupta, caer a por defecto sin abortar el
-                    // recover (el motor seguiría con la escalera 1-2-3-5).
+                    // Empty = default ladder (null). Defensive parse: if the stored list were
+                    // corrupt, fall back to default instead of aborting the recover (the
+                    // engine would just continue with the 1-2-3-5 ladder).
                     if (val == null || val.isEmpty()) {
                         ACTIVE_BLIND_STRUCTURE = null;
                     } else {
@@ -1314,10 +1304,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = THIS;
         double highest = 0;
         if (gf != null && gf.getJugadores() != null) {
-            // Se recorre una COPIA: la lista de jugadores la vacia y rellena el crupier
-            // al rehacer la mesa (un jugador que se va, un tablero nuevo), y recorrerla
-            // en directo mientras eso pasa revienta el recorrido. De esto sale el tope
-            // de recompra, asi que el fallo aparecia justo al pedir fichas.
+            // Iterate over a COPY: the dealer clears and refills the player list while
+            // rebuilding the table (a player leaves, a new board), and iterating it live while
+            // that happens breaks the iteration. This feeds the rebuy cap, so the failure
+            // surfaced right when requesting chips.
             for (Player p : new java.util.ArrayList<>(gf.getJugadores())) {
                 if (p != null && !p.isExit() && !p.isSpectator() && p.getStack() > highest) {
                     highest = p.getStack();
@@ -1333,22 +1323,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // (anti-stale / anti-cheat).
     public static int rebuyHeadroom(double current_stack) {
         if (REBUY_CAP_POLICY == REBUY_CAP_HIGHEST_STACK) {
-            // Margen = tope de mesa (mayor entre el buy-in estándar y el stack más
-            // alto, ver getBuyinCap) − stack actual (en unidades enteras).
+            // Headroom = table cap (greater of the standard buy-in and the highest stack,
+            // see getBuyinCap) minus current stack (in whole units).
             return Math.max(0, getBuyinCap() - (int) Math.ceil(current_stack));
         }
         return BuyinRules.headroom(FIXED_BUYIN, BUYIN, CIEGA_GRANDE, BUYIN_MAX_BB, current_stack);
     }
 
-    // Marca CYAN del stack = el jugador ha hecho al menos una RE-compra (no la
-    // compra inicial). Cuenta recompras reales via el contador per-nick del
-    // crupier, asi que un jugador que en modo variable simplemente eligio un
-    // buy-in inicial mas profundo NO se marca. Null-safe (verde si aun no hay
-    // crupier, p.ej. durante el montaje de la mesa).
+    // CYAN stack marker = the player has made at least one RE-buy (not the initial buy).
+    // Counts actual rebuys via the dealer's per-nick counter, so a player who in variable mode
+    // simply chose a deeper initial buy-in is NOT marked. Null-safe (green if there's no dealer
+    // yet, e.g. while the table is being set up).
     public static boolean hasRebought(String nick) {
-        // nick puede ser null durante el montaje de la mesa (setStack en el
-        // constructor de GameFrame corre antes de asignar nicknames en
-        // sentarParticipantes); ConcurrentHashMap no admite clave null.
+        // nick can be null while the table is being set up (setStack in GameFrame's
+        // constructor runs before nicknames are assigned in sentarParticipantes);
+        // ConcurrentHashMap doesn't accept a null key.
         return nick != null && getInstance() != null && getInstance().getCrupier() != null
                 && getInstance().getCrupier().getRebuyCount(nick) > 0;
     }
@@ -1369,10 +1358,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Persiste SOLO la columna game.rebuy (permitir recomprar). Necesario porque esa marca es
-    // EDITABLE al recuperar y NO viaja en recover_settings (a diferencia de límite/bots/tope de
-    // recompra): sin esto, al reanudar la timba el Crupier relee game.rebuy (valor original) y
-    // pisaría la edición del usuario.
+    // Persists ONLY the game.rebuy column (allow rebuying). Needed because that flag is
+    // EDITABLE on recover and does NOT travel in recover_settings (unlike the rebuy
+    // limit/bots/cap): without this, resuming the game would have the dealer re-read
+    // game.rebuy (the original value) and overwrite the user's edit.
     public static void persistRecoverRebuy(int gameId, boolean rebuy) {
         if (gameId <= 0) {
             return;
@@ -1389,19 +1378,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Issue#9: en modo recover, NewGameDialog deja BUYIN/CIEGAS al valor por
-    // defecto del spinner (BUYIN=10, ciegas 0.10/0.20) porque los controles del
-    // form se deshabilitan pero nunca se cargan desde SQL — el form mantiene
-    // sus valores iniciales del constructor. Mas tarde recuperarDatosClavePartida
-    // arregla GameFrame.BUYIN/CIEGAS desde la fila game/hand, pero el
-    // constructor de GameFrame ya corrio antes y los slots de los Player
-    // (field initializer = GameFrame.BUYIN y el loop simetrico de setStack/
-    // setBuyin) capturaron el BUYIN stale = 10. Para los participantes
-    // originales recuperarDatosClavePartida machaca su stack/buyin desde la
-    // fila de balance en SQL, pero para un late-joiner sin fila previa el
-    // valor stale persiste: aparece sentado con stack=10 y buyin=10 en una
-    // mesa configurada a 100. Este helper resuelve la causa raiz cargando
-    // BUYIN/CIEGAS desde la fila game antes de que GameFrame se construya.
+    // Issue#9: in recover mode, NewGameDialog leaves BUYIN/CIEGAS at the spinner's default
+    // value (BUYIN=10, blinds 0.10/0.20) because the form controls get disabled but are never
+    // loaded from SQL — the form keeps its constructor's initial values. Later,
+    // recuperarDatosClavePartida fixes GameFrame.BUYIN/CIEGAS from the game/hand row, but
+    // GameFrame's constructor already ran before that and the Player slots (field initializer
+    // = GameFrame.BUYIN, plus the matching setStack/setBuyin loop) captured the stale BUYIN =
+    // 10. For the original participants, recuperarDatosClavePartida overwrites their
+    // stack/buyin from the SQL balance row, but for a late-joiner with no prior row the stale
+    // value sticks: they appear seated with stack=10 and buyin=10 at a table configured for
+    // 100. This helper fixes the root cause by loading BUYIN/CIEGAS from the game row before
+    // GameFrame gets constructed.
     public static void applyRecoveredGameStats(int gameId) {
         if (gameId <= 0) {
             return;
@@ -1425,9 +1412,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         CIEGAS_DOUBLE = rs.getInt("blinds_time");
                         int bt = rs.getInt("blinds_time_type");
                         CIEGAS_DOUBLE_TYPE = bt > 0 ? bt : 1;
-                        // REBUY (permitir recomprar) ya NO se restaura aquí: es EDITABLE al
-                        // recuperar (lo lee loadLastGame de la columna game.rebuy hacia el control
-                        // y lo aplica vamos). Restaurarlo aquí pisaría la edición del usuario.
+                        // REBUY (allow rebuying) is no longer restored here: it's EDITABLE on
+                        // recover (loadLastGame reads it from game.rebuy into the control and
+                        // applies it from there). Restoring it here would overwrite the user's edit.
                     }
                 }
             } catch (SQLException ex) {
@@ -1456,8 +1443,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile HandGeneratorDialog jugadas_dialog = null;
     private volatile GameLogDialog registro_dialog = null;
     private volatile ShortcutsDialog shortcuts_dialog = null;
-    // Acceso al visor de capturas. Se crea a mano tras initComponents (FUERA de los bloques
-    // //GEN-* de NetBeans, que se regeneran desde el .form) y se inserta en file_menu.
+    // Access to the screenshot viewer. Built by hand after initComponents (OUTSIDE NetBeans'
+    // //GEN-* blocks, which get regenerated from the .form) and inserted into file_menu.
     private javax.swing.JMenuItem screenshots_menu = null;
     private volatile FastChatDialog fastchat_dialog = null;
     private volatile RebuyDialog rebuy_dialog = null;
@@ -1468,15 +1455,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile int tapete_counter = 0;
     private volatile int i60_c = 0;
     private volatile boolean recover = false;
-    // La pantalla final (BalanceScreen) es un overlay montado sobre el glassPane de
-    // ESTE frame (ya no un JDialog modal aparte). Mientras está activo, el
-    // KeyEventDispatcher ignora frame.isActive() para que los atajos del tablero no se
-    // disparen bajo la pantalla final: replica que el antiguo diálogo modal dejaba el
-    // frame INACTIVO. El glassPane visible ya intercepta el ratón hacia el tablero.
+    // The final screen (BalanceScreen) is an overlay mounted on THIS frame's glassPane (no
+    // longer a separate modal JDialog). While it's active, the KeyEventDispatcher ignores
+    // frame.isActive() so board shortcuts don't fire underneath the final screen: this
+    // replicates how the old modal dialog left the frame INACTIVE. The visible glassPane
+    // already intercepts mouse input to the board.
     private volatile boolean balance_overlay_active = false;
-    // Popup del tapete (menú contextual del clic derecho) guardado al mostrar la pantalla
-    // final para restaurarlo al desmontarla: durante el balance el tablero queda inerte y
-    // no debe abrir su menú contextual.
+    // The table's popup menu (right-click context menu), saved when showing the final screen
+    // so it can be restored once it's dismissed: during the balance screen the board is inert
+    // and shouldn't open its context menu.
     private volatile javax.swing.JPopupMenu balance_saved_tapete_popup = null;
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
@@ -1517,24 +1504,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         GameFrame.RUN_IT_TWICE = false;
 
-        // Reglas globales (TTS / notas de voz): NO se resetean. Si el servidor
-        // las sobreescribió durante la timba se quedan así; su valor se persiste
-        // como propiedad y es la preselección para la próxima partida.
+        // Global rules (TTS / voice notes) are NOT reset. If the server overwrote them
+        // during the game they stay that way; the value is persisted as a property and is
+        // the preselection for the next game.
 
-        // Defensivo: sin resetear estos statics, una partida que acaba con
-        // force_recover=true deja contaminada la siguiente partida fresh
-        // (el INIT del host replica RECOVER=true al cliente arrancando un
-        // recovery sin nada que recuperar). Aqui se setean al estado inicial
-        // identico a una arranque limpio del JVM.
+        // Defensive: without resetting these statics, a game that ends with
+        // force_recover=true would contaminate the next fresh game (the host's INIT
+        // replicates RECOVER=true to the client, starting a recovery with nothing to
+        // recover). Set here to the same initial state as a clean JVM startup.
         GameFrame.RECOVER = false;
         GameFrame.RECOVER_ID = -1;
         GameFrame.UGI = null;
 
         THIS.setVisible(false);
 
-        // Detener la cola de verificacion de barajado del Crupier de ESTA partida antes de descartar el
-        // GameFrame: su worker daemon queda bloqueado en take() reteniendo el Crupier entero via la Sink,
-        // fugando un hilo + su grafo por cada partida jugada en la misma sesion de la app.
+        // Stop THIS game's dealer shuffle-verify queue before discarding the GameFrame: its
+        // daemon worker sits blocked in take(), holding the whole Crupier via the Sink,
+        // leaking a thread plus its object graph for every game played in the same app session.
         if (THIS.getCrupier() != null) {
             THIS.getCrupier().shutdownShuffleVerifyQueue();
         }
@@ -1718,12 +1704,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Reposiciona el GameFrame en el monitor donde reside actualmente la
-     * WaitingRoomFrame, para que el (auto)fullscreen / MAXIMIZED_BOTH aterrice
-     * en esa pantalla en vez del monitor por defecto. Necesario en Windows
-     * porque setExtendedState(MAXIMIZED_BOTH) honra el monitor donde esta la
-     * ventana; tambien util en Mac antes del setVisible nativo. La rama X11 de
-     * toggleFullScreen ya usa el device de la sala de espera explicitamente.
+     * Repositions the GameFrame on the monitor where the WaitingRoomFrame currently sits, so
+     * (auto)fullscreen / MAXIMIZED_BOTH lands on that screen instead of the default monitor.
+     * Needed on Windows because setExtendedState(MAXIMIZED_BOTH) honors the monitor the window
+     * is currently on; also useful on Mac before the native setVisible. toggleFullScreen's X11
+     * branch already uses the waiting room's device explicitly.
      */
     private void placeOnWaitingRoomMonitor() {
         if (sala_espera == null) {
@@ -1759,9 +1744,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().setEnabled(true);
 
             if (!Init.DEV_MODE && fullscreen) {
-                // Llamada directa al toggle unificado; antes era full_screen_menu.doClick()
-                // que disparaba el listener del JMenuItem como evento sintetico —
-                // antipatron Swing que acoplaba init al comportamiento del UI.
+                // Direct call to the unified toggle; this used to be full_screen_menu.doClick(),
+                // which fired the JMenuItem's listener as a synthetic event — a Swing
+                // antipattern coupling startup to UI behaviour.
                 triggerFullScreenToggle();
             } else {
                 GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -1772,14 +1757,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
 
         if (!Init.DEV_MODE && fullscreen) {
-            // Deadline wall-clock para evitar drift por wakeups espurios del wait.
-            // Antes el contador t se incrementaba ciegamente en 1000 ms por iteracion
-            // asumiendo que wait(1000) habia esperado el periodo completo; un notify
-            // (o un spurious wakeup) violaba esa premisa.
+            // Wall-clock deadline to avoid drift from spurious wait wakeups. The counter
+            // used to be blindly incremented by 1000ms per iteration, assuming wait(1000) had
+            // waited out the full period; a notify (or a spurious wakeup) broke that assumption.
             long deadline = System.currentTimeMillis() + AUTO_ZOOM_TIMEOUT;
-            // Comprobación de full_screen DENTRO del synchronized: fuera, el
-            // toggle podía poner full_screen=true + notifyAll entre el chequeo y
-            // el wait, perdiéndose la notificación y durmiendo hasta el timeout.
+            // full_screen check INSIDE the synchronized block: outside it, the toggle could
+            // set full_screen=true + notifyAll between the check and the wait, losing the
+            // notification and sleeping until the timeout.
             synchronized (full_screen_lock) {
                 while (!full_screen) {
                     long remaining = deadline - System.currentTimeMillis();
@@ -1811,27 +1795,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.isRECOVER());
         });
 
-        // La sala de espera acaba de ocultarse y este frame es el nuevo foreground
-        // del juego. La captura se difiere a un ciclo posterior del EDT para que
-        // corra DESPUES de que el SO haya despachado los eventos de activacion
-        // asincronos del setVisible y la recreacion del peer nativo (switch a
-        // borderless); asi el pulso de foreground no compite con un WM_ACTIVATE
-        // tardio. No es una espera arbitraria: es ordenar el grab tras la
-        // realizacion de la ventana en la cola del EDT.
+        // The waiting room just hid itself and this frame is the game's new foreground. The
+        // grab is deferred to a later EDT cycle so it runs AFTER the OS has dispatched the
+        // asynchronous activation events from setVisible and the native peer recreation
+        // (switch to borderless); this way the foreground push doesn't race a late WM_ACTIVATE.
+        // Not an arbitrary wait: it orders the grab after the window's realization on the EDT queue.
         forceForegroundDeferred();
 
     }
 
     /**
-     * Captura el foreground de forma fiable. toFront()/requestFocus() estan
-     * sujetos al foreground-lock de Windows (SPI_GETFOREGROUNDLOCKTIMEOUT) y
-     * activan la ventana de forma no determinista — a veces el SO solo parpadea
-     * el boton de la taskbar y no concede el foco. Un pulso a alwaysOnTop emite
-     * un SetWindowPos(HWND_TOPMOST) que NO esta sujeto a esa restriccion: fuerza
-     * la activacion y arrastra el foco. Se restaura de inmediato el estado previo
-     * (normalmente false) para no dejar la ventana clavada por encima del resto
-     * — por eso no afecta a dialogos posteriores (GIFs de chat, etc.): el pulso
-     * es instantaneo y la ventana NO queda topmost. Debe invocarse en el EDT.
+     * Reliably grabs the foreground. toFront()/requestFocus() are subject to Windows'
+     * foreground lock (SPI_GETFOREGROUNDLOCKTIMEOUT) and activate the window
+     * non-deterministically — sometimes the OS just flashes the taskbar button without
+     * granting focus. A pulse of alwaysOnTop emits a SetWindowPos(HWND_TOPMOST), which is NOT
+     * subject to that restriction: it forces activation and drags focus along. The previous
+     * state (usually false) is restored immediately so the window isn't left pinned above
+     * everything else — which is why it doesn't affect later dialogs (chat GIFs, etc.): the
+     * pulse is instantaneous and the window does NOT stay topmost. Must be called on the EDT.
      */
     private void forceForeground() {
         boolean was_on_top = isAlwaysOnTop();
@@ -1842,11 +1823,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Programa {@link #forceForeground()} en un ciclo posterior del EDT, para que
-     * corra despues de que se hayan despachado los eventos de activacion
-     * asincronos derivados de mostrar/recrear la ventana (el switch a borderless
-     * recrea el peer nativo y la activacion del SO llega de forma diferida).
-     * Seguro de llamar desde cualquier hilo.
+     * Schedules {@link #forceForeground()} on a later EDT cycle, so it runs after the
+     * asynchronous activation events from showing/recreating the window have been dispatched
+     * (the switch to borderless recreates the native peer and OS activation arrives deferred).
+     * Safe to call from any thread.
      */
     private void forceForegroundDeferred() {
         SwingUtilities.invokeLater(this::forceForeground);
@@ -1918,8 +1898,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return screenshots_menu;
     }
 
-    // Crea e inserta el acceso al visor de capturas en el menú, justo tras "Ver registro".
-    // Manual (no en el .form): así sobrevive a la regeneración del bloque //GEN-* por NetBeans.
+    // Creates and inserts the screenshot viewer entry into the menu, right after "View log".
+    // Manual (not in the .form): this way it survives NetBeans regenerating the //GEN-* block.
     private void setupScreenshotsMenu() {
 
         screenshots_menu = new javax.swing.JMenuItem();
@@ -1984,10 +1964,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void toggleFullScreen() {
 
         Helpers.GUIRun(() -> {
-            // Calcular el target en local primero. El commit del flag se hace al
-            // final, de forma que si alguna operacion del cambio (setUndecorated,
-            // setFullScreenWindow, etc.) lanza, el flag no queda divergente del
-            // estado real de la ventana.
+            // Compute the target locally first. The flag is committed at the end, so that if
+            // any step of the change (setUndecorated, setFullScreenWindow, etc.) throws, the
+            // flag doesn't end up diverging from the window's real state.
             boolean entering_full_screen = !full_screen;
 
             if (entering_full_screen) {
@@ -2050,10 +2029,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             }
 
-            // Commit del flag DESPUES de que las operaciones de cambio hayan
-            // terminado, para que un fallo a mitad (excepcion en setUndecorated,
-            // setVisible, setFullScreenWindow) no deje full_screen divergente
-            // del estado real de la ventana.
+            // Commit the flag AFTER the switch operations have finished, so a failure midway
+            // (exception in setUndecorated, setVisible, setFullScreenWindow) doesn't leave
+            // full_screen diverging from the window's real state.
             full_screen = entering_full_screen;
 
             full_screen_menu.setEnabled(true);
@@ -2063,8 +2041,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 full_screen_lock.notifyAll();
             }
 
-            // Diferido: el dispose()/setVisible() del switch recrea el peer nativo
-            // y un requestFocus() sincrono aqui compite con el WM_ACTIVATE del SO.
+            // Deferred: the switch's dispose()/setVisible() recreates the native peer, and a
+            // synchronous requestFocus() here would race the OS's WM_ACTIVATE.
             forceForegroundDeferred();
         });
 
@@ -2101,15 +2079,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.GUIRun(jugadas_dialog::pack);
         }
 
-        // Pre-decodifica el shuffle.gif de la nueva baraja en background (la
-        // caché es de una sola entrada: reemplaza y libera la anterior)
+        // Pre-decodes the new deck's shuffle.gif in the background (the cache holds a single
+        // entry: it replaces and frees the previous one)
         Crupier.warmShuffleAnimCache();
 
     }
 
-    // Aplica en vivo una trasera nueva (ajuste GLOBAL, independiente de la baraja):
-    // persiste, invalida la caché del giro y refresca el dorso + las cartas tapadas
-    // de la mesa (mismo refresco de cartas que cambiarBaraja).
+    // Applies a new card back live (a GLOBAL setting, independent of the deck): persists it,
+    // invalidates the flip cache, and refreshes the back + face-down cards on the table (same
+    // card refresh as cambiarBaraja).
     public void setTrasera(String t) {
 
         GameFrame.TRASERA = t;
@@ -2135,13 +2113,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }
 
-    // Aplica el estado de compactación que se deriva de VISTA_COMPACTA:
-    //   - comunitarias: se parten a partir del nivel 2 (compacta+cartas).
-    //   - hole cards del local: se parten SOLO en el nivel 3 (compacta+local).
-    //   - botonera del local: rejilla 2x2 SOLO en el nivel 3.
-    // Es la fuente única de verdad; la usan el constructor, el ciclo del menú y el
-    // combo de Ajustes (vía vistaCompacta) y la replica TablePanelFactory al
-    // reconstruir el panel.
+    // Applies the compaction state derived from VISTA_COMPACTA:
+    //   - community cards: shrink from level 2 onward (compact+cards).
+    //   - local player's hole cards: shrink ONLY at level 3 (compact+local).
+    //   - local player's action buttons: 2x2 grid ONLY at level 3.
+    // The single source of truth; used by the constructor, the menu cycle and the Settings
+    // combo (via vistaCompacta), and replicated by TablePanelFactory when rebuilding the panel.
     public void applyCompactableFlags() {
 
         LocalPlayer local = tapete.getLocalPlayer();
@@ -2178,14 +2155,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             carta.refreshCard();
         }
 
-        // Las hole cards del local también cambian de tamaño (nivel 3 <-> resto).
+        // The local player's hole cards also change size (level 3 <-> the rest).
         tapete.getLocalPlayer().getHoleCard1().refreshCard();
         tapete.getLocalPlayer().getHoleCard2().refreshCard();
 
-        // Comprobación DENTRO del synchronized: fuera, la última carta podía
-        // add()+notifyAll entre el size() y el wait y se perdía la notificación
-        // (atasco de ~1s por barrera). Mismo arreglo en todas las esperas de
-        // notifier de zoom/refresco.
+        // Check INSIDE the synchronized block: outside it, the last card could
+        // add()+notifyAll between the size() check and the wait, losing the notification
+        // (a ~1s stall per barrier). Same fix applied to every zoom/refresh notifier wait.
         synchronized (notifier) {
             while (notifier.size() < players.length * 2) {
                 try {
@@ -2204,28 +2180,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 jugador.refreshSecPotLabel();
                 jugador.refreshNotifyChatLabel();
             }
-            // El GIF de game over del rebuy dura toda la decisión del
-            // arruinado: recolócalo a la geometría compacta/normal nueva.
+            // The rebuy game-over GIF lasts through the whole busted-player decision:
+            // reposition it to the new compact/normal geometry.
             jugador.refreshRebuyGifLabel();
         }
 
-        // El overlay de coste de igualar está posicionado en absoluto sobre las
-        // comunitarias: al cambiar la vista compacta (que puede mover/encoger el
-        // community panel) hay que recolocarlo/reescalarlo con la geometría nueva.
+        // The call-cost overlay is absolutely positioned over the community cards: when the
+        // compact view changes (which can move/shrink the community panel) it must be
+        // repositioned/rescaled to the new geometry.
         if (getCrupier() != null) {
             getCrupier().refreshCallCostOverlay();
 
-            // La ficha grande de posición (dealer/ciega/straddle) se oculta sobre la
-            // carta a media altura en nivel 3 y se repinta al salir. Solo aquí (toggle
-            // en partida), NUNCA desde el constructor: allí el nickname aún es null.
+            // The large position chip (dealer/blind/straddle) hides over the card at
+            // half-height in level 3 and repaints on exit. Only here (in-game toggle), NEVER
+            // from the constructor: there the nickname is still null.
             tapete.getLocalPlayer().refreshPositionChipIcons();
         }
 
-        // Recolocar los overlays in-frame anclados a la geometría (que cambia con la
-        // vista compacta) si están ABIERTOS al cambiar de vista: MODO AUTO (anclado al
-        // asiento + botonera) y straddle voluntario (anclado a las hole cards). Solo si
-        // hay alguno vivo (campos volátiles), y tras un settle para que asiento/botonera/
-        // cartas ya tengan su tamaño nuevo; re-invocar showOn recalcula sus bounds.
+        // Reposition the in-frame overlays anchored to the geometry (which changes with the
+        // compact view) if they're OPEN when the view changes: AUTO MODE (anchored to the seat
+        // + action buttons) and voluntary straddle (anchored to the hole cards). Only if one is
+        // alive (volatile fields), and after a settle so the seat/buttons/cards already have
+        // their new size; re-invoking showOn recomputes their bounds.
         final AutoActionDialog auto_dlg = tapete.getLocalPlayer().getAuto_action_dialog();
         final VoluntaryStraddleDialog straddle_dlg = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
         if (auto_dlg != null || straddle_dlg != null) {
@@ -2255,12 +2231,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             if (isPartida_local()) {
 
-                // Al PAUSAR viaja el nick de quien inicia la pausa; al REANUDAR
-                // debe viajar el pausador original (nick_pause), que es el nick
-                // que los clientes registraron al pausar y contra el que validan
-                // el resume. Si el host reanudara la pausa de otro jugador y
-                // enviara su propio nick, los clientes lo rechazarian y se
-                // quedarian colgados con el overlay de pausa.
+                // On PAUSE the nick of whoever starts the pause travels; on RESUME the
+                // original pauser (nick_pause) must travel instead, since that's the nick
+                // clients recorded when pausing and validate the resume against. If the host
+                // resumed another player's pause and sent its own nick, clients would reject
+                // it and stay stuck with the pause overlay up.
                 String pause_owner = this.timba_pausada ? this.nick_pause : (user != null ? user : getNick_local());
 
                 String userB64 = "";
@@ -2293,12 +2268,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             this.lock_pause.notifyAll();
 
-            // El bloque de abajo va al EDT de forma ASÍNCRONA, así que se captura aquí el estado
-            // que lo encola: si llegan dos cambios seguidos (pausar y reanudar, o dos jugadores a
-            // la vez), leer el campo dentro del lambda haría que los dos vieran el valor final y
-            // ejecutasen la MISMA rama dos veces. El apagado de la mesa lleva la cuenta de cuántos
-            // motivos la mantienen a oscuras, y una rama repetida la descuadra: de más, la mesa se
-            // queda negra con el interruptor muerto; de menos, se ilumina bajo un diálogo.
+            // The block below goes to the EDT ASYNCHRONOUSLY, so the state is captured here at
+            // enqueue time: if two changes arrive back to back (pause then resume, or two
+            // players at once), reading the field inside the lambda would make both see the
+            // final value and run the SAME branch twice. The table's light-out tracks how many
+            // reasons are keeping it dark, and a repeated branch throws that count off: too
+            // many leaves the table black with a dead switch; too few lights it up under a dialog.
             final boolean pausada = this.timba_pausada;
 
             Helpers.GUIRun(() -> {
@@ -2321,10 +2296,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     pausa_dialog.setLocationRelativeTo(pausa_dialog.getParent());
                     pausa_dialog.setVisible(true);
 
-                    // Al pausar, la mesa se oscurece y el interruptor se deshabilita mientras dure
-                    // la pausa. Es un apagado TEMPORAL más: si el jugador ya tenía las luces
-                    // apagadas por su cuenta, esto no cambia nada de lo que ve, y al reanudar se
-                    // respeta lo que él hubiera elegido.
+                    // On pause, the table darkens and the switch is disabled for the pause's
+                    // duration. It's just another TEMPORARY light-out: if the player already had
+                    // the lights off on their own, this changes nothing they see, and resuming
+                    // respects whatever they had chosen.
                     capa_brillo.pushForcedLightsOFF();
                     getTapete().getCommunityCards().applyLightsVisuals();
 
@@ -2345,8 +2320,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     pausa_dialog.dispose();
                     pausa_dialog = null;
 
-                    // Al reanudar se retira ese apagado temporal y el interruptor vuelve a mandar:
-                    // la mesa se enciende sola salvo que el jugador las tenga apagadas.
+                    // On resume that temporary light-out is lifted and the switch is back in
+                    // control: the table lights back up on its own unless the player has them off.
                     capa_brillo.popForcedLightsOFF();
                     getTapete().getCommunityCards().applyLightsVisuals();
 
@@ -2475,9 +2450,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void setupGlobalShortcuts() {
 
-        // Cuerpos de acción indexados por id ESTABLE del registro de atajos. El dispatcher resuelve
-        // el id de la combinación pulsada (KeyboardShortcuts.idFor) y ejecuta el cuerpo, así
-        // reasignar una tecla surte efecto EN VIVO sin reconstruir este mapa.
+        // Action bodies indexed by the STABLE id from the shortcut registry. The dispatcher
+        // resolves the id of the pressed combination (KeyboardShortcuts.idFor) and runs the
+        // body, so reassigning a key takes effect LIVE without rebuilding this map.
         HashMap<String, Action> gameActions = new HashMap<>();
 
         gameActions.put(KeyboardShortcuts.LATENCY, new AbstractAction("LATENCY_STATS") {
@@ -2615,9 +2590,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        // El chat rápido 'º' es una tecla "typed" (dead-key), frágil entre distribuciones, y ademas
-        // reasignarla a una tecla normal chocaria con escribir en el propio chat (cerrarlo se liaria):
-        // NO es reasignable, se queda fija y se resuelve por su KeyStroke, no por el registro.
+        // Quick chat 'º' is a "typed" key (dead-key), fragile across keyboard layouts, and
+        // besides, reassigning it to a normal key would clash with typing in the chat itself
+        // (closing it would get messy): it's NOT reassignable, stays fixed and is resolved by
+        // its KeyStroke, not through the registry.
         final KeyStroke fastchat_keystroke = KeyStroke.getKeyStroke('º');
         final Action fastchat_action = new AbstractAction("FASTCHAT") {
             @Override
@@ -2662,8 +2638,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e
             ) {
-                // Con el diálogo del straddle voluntario o el del MODO AUTO abiertos, ESC = CANCELAR
-                // (straddle: NO poner; auto: cancelar la acción automática) en lugar de retirarse.
+                // With the voluntary straddle dialog or AUTO MODE dialog open, ESC = CANCEL
+                // (straddle: DON'T post; auto: cancel the automatic action) instead of folding.
                 VoluntaryStraddleDialog sd = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
                 if (sd != null && sd.isShowing()) {
                     sd.cancel();
@@ -2676,9 +2652,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     kbd_overlay_swallow_esc = true;
                     return;
                 }
-                // Cancelar el MODO AUTO re-habilita la botonera y quita el overlay; si la tecla ESC
-                // sigue MANTENIDA (auto-repeat) o se repite al instante, ese evento no debe caer en
-                // el fold normal (retirada accidental). Se limpia al soltar ESC (dispatcher).
+                // Canceling AUTO MODE re-enables the action buttons and removes the overlay; if
+                // ESC is still HELD (auto-repeat) or repeats instantly, that event must not land
+                // on a normal fold (accidental fold). Cleared when ESC is released (dispatcher).
                 if (kbd_overlay_swallow_esc) {
                     return;
                 }
@@ -2693,8 +2669,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             @Override
             public void actionPerformed(ActionEvent e
             ) {
-                // Con el diálogo del straddle voluntario o el del MODO AUTO abiertos, ESPACIO = ACEPTAR
-                // (straddle: PONER; auto: ejecutar ya la acción automática) en lugar de pasar.
+                // With the voluntary straddle dialog or AUTO MODE dialog open, SPACE = ACCEPT
+                // (straddle: POST; auto: run the automatic action now) instead of checking.
                 VoluntaryStraddleDialog sd = getCrupier() != null ? getCrupier().getStraddle_local_dialog() : null;
                 if (sd != null && sd.isShowing()) {
                     sd.accept();
@@ -2707,8 +2683,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     kbd_overlay_swallow_space = true;
                     return;
                 }
-                // Igual que ESC: tras aceptar un overlay con ESPACIO mantenido/repetido, no dejar que
-                // el siguiente evento caiga en el pasar/mostrar normal. Se limpia al soltar ESPACIO.
+                // Same as ESC: after accepting an overlay with SPACE held/repeating, don't let
+                // the next event land on a normal check/show. Cleared when SPACE is released.
                 if (kbd_overlay_swallow_space) {
                     return;
                 }
@@ -2746,8 +2722,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        // BET_DOWN cubre BAJAR: su tecla primaria (↓) más el alias fijo IZQUIERDA (←), definidos en
-        // el registro. Antes había dos acciones gemelas (BET-DOWN y BET-LEFT) con el mismo cuerpo.
+        // BET_DOWN covers LOWER: its primary key (down arrow) plus the fixed LEFT alias
+        // (left arrow), defined in the registry. There used to be two twin actions (BET-DOWN and
+        // BET-LEFT) sharing the same body.
         gameActions.put(KeyboardShortcuts.BET_DOWN, new AbstractAction("BET-DOWN") {
             @Override
             public void actionPerformed(ActionEvent e
@@ -2766,8 +2743,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         );
 
-        // BET_UP cubre SUBIR: su tecla primaria (↑) más el alias fijo DERECHA (→). Antes había dos
-        // acciones gemelas (BET-UP y BET-RIGHT) con el mismo cuerpo.
+        // BET_UP covers RAISE: its primary key (up arrow) plus the fixed RIGHT alias (right
+        // arrow). There used to be two twin actions (BET-UP and BET-RIGHT) sharing the same body.
         gameActions.put(KeyboardShortcuts.BET_UP, new AbstractAction("BET-UP") {
             @Override
             public void actionPerformed(ActionEvent e
@@ -2793,15 +2770,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         GameFrame.key_event_dispatcher = (KeyEvent e) -> {
-            // Mientras la pestaña de Atajos captura una tecla, este dispatcher se aparta para que la
-            // combinación pulsada llegue al capturador y no dispare el atajo que tuviera asignado.
+            // While the Shortcuts tab is capturing a key, this dispatcher steps aside so the
+            // pressed combination reaches the capturer instead of firing whatever shortcut it
+            // was assigned to.
             if (KeyboardShortcuts.isCapturing()) {
                 return false;
             }
-            // Al SOLTAR la tecla de RETIRARSE/PASAR se limpia la guarda anti-doble-acción de los
-            // overlays (ver las acciones FOLD/CHECK): así una pulsación nueva (no una repetición de
-            // la mantenida) vuelve a comportarse con normalidad. Se compara por keyCode contra la
-            // asignación ACTUAL de esas acciones (el usuario puede haberlas reasignado).
+            // On RELEASING the fold/check key, the overlays' anti-double-action guard is cleared
+            // (see the FOLD/CHECK actions): so a fresh press (not a repeat of the held key)
+            // behaves normally again. Compared by keyCode against those actions' CURRENT
+            // assignment (the user may have reassigned them).
             if (e.getID() == KeyEvent.KEY_RELEASED) {
                 if (e.getKeyCode() == KeyboardShortcuts.keyCode(KeyboardShortcuts.FOLD)) {
                     kbd_overlay_swallow_esc = false;
@@ -2811,10 +2789,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
             JFrame frame = GameFrame.getInstance();
-            // Resolver la acción por id del registro (atajos reasignables) o, si no, por la tecla
-            // fija del chat rápido 'º'. Las combinaciones que son de Init (silenciar, volumen,
-            // captura, forzar salida) resuelven a un id que NO está en gameActions -> a = null ->
-            // este dispatcher las deja pasar y las atiende el de Init.
+            // Resolve the action by the registry's id (reassignable shortcuts) or, failing
+            // that, by quick chat's fixed 'º' key. Combinations that belong to Init (mute,
+            // volume, screenshot, force quit) resolve to an id that's NOT in gameActions -> a =
+            // null -> this dispatcher lets them through and Init's handles them.
             String id = KeyboardShortcuts.idFor(keyStroke);
             final Action a = id != null ? gameActions.get(id)
                     : (keyStroke.equals(fastchat_keystroke) ? fastchat_action : null);
@@ -2906,10 +2884,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return tapete.getCommunityCards().getCartasComunes();
     }
 
-    // Todas las cartas DESTAPADAS de la mesa (comunitarias + hole cards que han mostrado los
-    // jugadores), para el resaltado de la jugada del perdedor en el showdown
-    // (RESALTAR_JUGADA_SHOWDOWN). Se excluyen las tapadas para no atenuar un dorso (filtraría
-    // que esa carta no cuenta antes de verla).
+    // All FACE-UP cards on the table (community + hole cards players have shown), for
+    // highlighting a loser's hand in the showdown (RESALTAR_JUGADA_SHOWDOWN). Face-down cards
+    // are excluded so a card back isn't dimmed (that would tip off it doesn't count before
+    // seeing it).
     public java.util.List<Card> getShowdownVisibleCards() {
         java.util.List<Card> cartas = new java.util.ArrayList<>();
 
@@ -2995,9 +2973,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void setTapeteBote(double bote, Double beneficio) {
 
-        // Run-it-twice: marca a qué cara (CARA-A/CARA-B) corresponde lo mostrado
-        // mientras se corren los dos boards (null fuera de run-it-twice). La cara
-        // va en el PREFIJO ("BOTE (CARA-A): X") en vez de un sufijo al final.
+        // Run-it-twice: marks which board (BOARD-A/BOARD-B) the display corresponds to while
+        // running the two boards (null outside run-it-twice). The tag goes in the PREFIX
+        // ("POT (BOARD-A): X") instead of a suffix at the end.
         final String rit_tag = getCrupier() != null ? getCrupier().getRitPotBoardTag() : null;
         final String prefix = rit_tag != null
                 ? Translator.translate("runittwice.pot_label_full", rit_tag)
@@ -3006,34 +2984,34 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         final String suffix = beneficio != null ? " (" + Helpers.money2String(beneficio) + ")" : "";
 
         Helpers.GUIRun(() -> {
-            // El número del bote rueda a velocidad constante (prefijo/sufijo intactos);
-            // con el rodaje off o en recover salta de golpe.
+            // The pot number rolls at constant speed (prefix/suffix untouched); with rolling
+            // off or during recover it snaps instantly.
             tapete.getCommunityCards().rollPotValue(prefix, bote, suffix, isCounterRollEnabled());
         });
     }
 
     public void setTapeteBote(String bote) {
 
-        // Mismo prefijo RIT-aware que la sobrecarga (float, Float): el desglose
-        // por bote del run-it-twice lleva la cara ("BOTE (CARA-A): #1{..}+#2{..}").
-        // Fuera de RIT (tag null) → "BOTE:", idéntico a antes.
+        // Same RIT-aware prefix as the (float, Float) overload: run-it-twice's per-board
+        // breakdown carries the tag ("POT (BOARD-A): #1{..}+#2{..}"). Outside RIT (null tag)
+        // -> "POT:", identical to before.
         final String rit_tag = getCrupier() != null ? getCrupier().getRitPotBoardTag() : null;
         final String prefix = rit_tag != null
                 ? Translator.translate("runittwice.pot_label_full", rit_tag)
                 : Translator.translate("game.bote_2");
 
         Helpers.GUIRun(() -> {
-            // Estado textual del bote ("---", desglose RIT): se fija de golpe e invalida
-            // el roller para que el siguiente valor numérico no anime desde un valor viejo.
+            // Textual pot state ("---", RIT breakdown): set instantly and invalidates the
+            // roller so the next numeric value doesn't animate from a stale one.
             tapete.getCommunityCards().setPotTextImmediate(prefix + " " + bote);
         });
     }
 
     public void setTapeteApuestas(double apuestas) {
 
-        // El bet_label muestra SOLO la calle actual (sin importe ni icono), para
-        // reducir ruido. El bote de la calle (Crupier.apuestas) se sigue calculando
-        // y pasando aquí: para volver a mostrarlo basta reañadirlo al setText.
+        // bet_label shows ONLY the current street (no amount or icon), to reduce noise. The
+        // street's pot (Crupier.apuestas) is still computed and passed in here: to show it
+        // again, just re-add it to setText.
         Helpers.GUIRun(() -> {
             String street = STREETS[getCrupier().getStreet() - 1];
 
@@ -3046,22 +3024,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void downgradeAndRefreshTapete() {
 
-        // Si la partida ya terminó (p.ej. el server decide salir en la misma mano
-        // en que un jugador se fue y el tablero se acorta), NO reconstruir la mesa:
-        // el TablePanelFactory crea un tablero nuevo con paneles VISIBLES por
-        // defecto que, encolado en el EDT, saldría DESPUÉS del hideALL del balance
-        // final (race factoría-vs-salida → los jugadores reaparecían sobre el
-        // balance). Sin next hand, no hay nada que reconstruir.
+        // If the game already ended (e.g. the server decides to exit on the same hand a
+        // player left and the board shrinks), do NOT rebuild the table: TablePanelFactory
+        // creates a new board with panels VISIBLE by default that, queued on the EDT, would
+        // land AFTER the final balance screen's hideALL (a factory-vs-exit race -> players
+        // would reappear over the balance screen). With no next hand, there's nothing to rebuild.
         if (getCrupier() != null && getCrupier().isFin_de_la_transmision()) {
             return;
         }
 
-        // Animación de downgrade: ANTES del swap, en el tablero actual, se desvanecen
-        // los que abandonan y se deslizan los supervivientes a su hueco en la mesa de M
-        // jugadores. Bloquea este hilo (crupier) hasta terminar. El swap posterior monta
-        // el tablero nuevo con las copias en esas mismas posiciones, así que la
-        // transición es continua. Puramente visual: no toca la lógica. Configurable
-        // (checkbox + velocidad en Ajustes → Apariencia); si off, corte seco de siempre.
+        // Downgrade animation: BEFORE the swap, on the current board, players who leave fade
+        // out and survivors slide into their spot on the M-player table. Blocks this thread
+        // (dealer) until it finishes. The subsequent swap mounts the new board with copies in
+        // those same positions, so the transition is continuous. Purely visual: doesn't touch
+        // the logic. Configurable (checkbox + speed in Settings -> Appearance); if off, the
+        // usual hard cut.
         if (tapete instanceof DynamicTablePanel && GameFrame.downgradeAnimOn()) {
             ((DynamicTablePanel) tapete).animateDowngrade(GameFrame.DOWNGRADE_VELOCIDAD);
         }
@@ -3080,9 +3057,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 zoomables = new ZoomableInterface[]{tapete};
                 GameFrame.getInstance().getContentPane().add(tapete);
 
-                // TOCTOU: si la partida terminó mientras se construía/swapeaba el
-                // tablero acortado, sus paneles (visibles por defecto) NO deben
-                // aparecer sobre el balance final (la otra mitad de la race).
+                // TOCTOU: if the game ended while the shrunk board was being built/swapped in,
+                // its panels (visible by default) must NOT appear over the final balance
+                // screen (the other half of the race).
                 if (getCrupier() != null && getCrupier().isFin_de_la_transmision()) {
                     nuevo_tapete.hideALL();
                 }
@@ -3126,9 +3103,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Helpers.updateFonts(GameFrame.getInstance(), Helpers.GUI_FONT, null);
 
-                // El zoom de DIÁLOGOS también escala la barra de menú del juego (la "chrome" textual del
-                // GameFrame crece/encoge con el mismo ajuste; el popup del tapete lo hace en Helpers). No
-                // toca el zoom de la MESA. A 100 % no cambia nada.
+                // DIALOG zoom also scales the game's menu bar (the GameFrame's textual chrome
+                // grows/shrinks with the same setting; the table's popup does it in Helpers). It
+                // doesn't touch the TABLE's zoom. At 100% it changes nothing.
                 if (Helpers.isDialogZoomActive()) {
                     Helpers.updateFonts(menu_bar, Helpers.GUI_FONT, Helpers.DIALOG_ZOOM);
                     Helpers.scaleIcons(menu_bar, Helpers.DIALOG_ZOOM);
@@ -3160,8 +3137,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             tapete.getCommunityCards().getBet_label().setVisible(false);
         });
 
-        // Fin de las apuestas de la mano (showdown / run-out): el overlay de coste
-        // de igualar también deja de tener sentido.
+        // End of the hand's betting (showdown / run-out): the call-cost overlay no longer
+        // makes sense either.
         tapete.hideCallCostOverlay();
 
     }
@@ -3176,12 +3153,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             } else {
                 tapete.getCommunityCards().getBlinds_panel().setOpaque(false);
                 tapete.getCommunityCards().getBlinds_panel().setBackground(null);
-                // El color de las ciegas sigue la variable ESTABLE del color de los
-                // contadores, NO el foreground del pot_label: ese parpadea en amarillo
-                // al aterrizar una ficha (flashPotLabelYellow) y cambia a naranja/
-                // blanco/negro en el showdown. Como actualizarContadoresTapete se
-                // invoca muy a menudo, leerlo de ahí dejaba las ciegas "pegadas" a ese
-                // color transitorio (el amarillo fantasma).
+                // The blinds color follows the STABLE counters-color variable, NOT the
+                // pot_label's foreground: that one flashes yellow when a chip lands
+                // (flashPotLabelYellow) and switches to orange/white/black at showdown. Since
+                // actualizarContadoresTapete is called very often, reading it from there left the
+                // blinds "stuck" to that transient color (the ghost yellow).
                 Color counters_color = tapete.getCommunityCards().getColor_contadores();
                 if (counters_color != null) {
                     tapete.getCommunityCards().getBlinds_label().setForeground(counters_color);
@@ -3214,13 +3190,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // === Controles de audio: fuente única de verdad ===
-    // Toda la lógica de aplicar/persistir/difundir vive aquí. El diálogo de
-    // ajustes de audio y los callsites (icono de altavoz, recover, atajos de
-    // teclado) llaman a estos métodos. Ya no hay controles de audio en el menú
-    // ni en el popup, así que no se sincroniza nada con ellos. Los tres
-    // controles que NO son reglas de host (sonido, coña, música) son estáticos:
-    // valen también desde la ventana de inicio, donde aún no hay GameFrame.
+    // === Audio controls: single source of truth ===
+    // All the apply/persist/broadcast logic lives here. The
+    // audio settings dialog and the call sites (speaker icon, recover, keyboard shortcuts)
+    // call these methods. There are no longer audio controls in the menu or the popup, so
+    // nothing needs syncing with them. The three controls that are NOT host rules (sound,
+    // joke sounds, music) are static: they also work from the start window, where there's no
+    // GameFrame yet.
     public static void setSonidos(boolean on) {
 
         GameFrame.SONIDOS = on;
@@ -3234,8 +3210,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Audio.unmuteAll();
         }
 
-        // Refresca el icono de altavoz en el contexto que exista (tapete en
-        // juego, ventana de inicio en el arranque).
+        // Refresh the speaker icon wherever it exists (in-game table, start window at startup).
         if (getInstance() != null) {
             getInstance().updateSoundIcon();
         }
@@ -3260,8 +3235,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.PROPERTIES.setProperty("musica", String.valueOf(on));
         Helpers.savePropertiesFile();
 
-        // Maestro: refrescamos las CUATRO pistas de fondo que estén sonando para que el cambio
-        // se oiga al instante (effectiveLoopVolume ya combina este flag con el individual).
+        // Master: refresh the FOUR background tracks that might be playing so the change is
+        // heard instantly (effectiveLoopVolume already combines this flag with the individual one).
         Audio.refreshLoopVolume(Audio.ASCENSOR_VOLUME.getKey());
         Audio.refreshLoopVolume(Audio.WAITING_ROOM_VOLUME.getKey());
         Audio.refreshLoopVolume(Audio.ABOUT_VOLUME.getKey());
@@ -3275,9 +3250,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.PROPERTIES.setProperty("sonido_ascensor", String.valueOf(on));
         Helpers.savePropertiesFile();
 
-        // Solo gobierna la música del JUEGO (la de la sala tiene su propio toggle,
-        // MUSICA_SALA). El flag lo lee effectiveLoopVolume; aquí solo refrescamos el
-        // volumen del loop del juego que esté sonando para que se oiga al instante.
+        // Governs only the IN-GAME music (the waiting room has its own toggle, MUSICA_SALA).
+        // The flag is read by effectiveLoopVolume; here we just refresh the in-game loop's
+        // volume if it's playing so the change is heard instantly.
         Audio.refreshLoopVolume(Audio.ASCENSOR_VOLUME.getKey());
     }
 
@@ -3288,7 +3263,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.PROPERTIES.setProperty("musica_sala_espera", String.valueOf(on));
         Helpers.savePropertiesFile();
 
-        // Solo la pista de la sala de espera; refrescamos su loop si está sonando.
+        // Only the waiting room track; refresh its loop if it's playing.
         Audio.refreshLoopVolume(Audio.WAITING_ROOM_VOLUME.getKey());
     }
 
@@ -3299,7 +3274,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.PROPERTIES.setProperty("musica_about", String.valueOf(on));
         Helpers.savePropertiesFile();
 
-        // Solo la pista del diálogo "Acerca de"; refrescamos su loop si está sonando.
+        // Only the "About" dialog's track; refresh its loop if it's playing.
         Audio.refreshLoopVolume(Audio.ABOUT_VOLUME.getKey());
     }
 
@@ -3310,7 +3285,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.PROPERTIES.setProperty("musica_stats", String.valueOf(on));
         Helpers.savePropertiesFile();
 
-        // Solo la pista del diálogo de estadísticas; refrescamos su loop si está sonando.
+        // Only the stats dialog's track; refresh its loop if it's playing.
         Audio.refreshLoopVolume(Audio.STATS_VOLUME.getKey());
     }
 
@@ -3594,17 +3569,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.savePropertiesFile();
     }
 
-    // Regla global del host: habilita/deshabilita el TTS para todos. El bloqueo
-    // "solo para mí" vive aparte (AudioDeviceManager.isBlockTtsLocal). Es
-    // estático y persiste la preferencia local para poder preseleccionarla
-    // antes de la partida; solo difunde a los clientes si eres anfitrión.
+    // Global host rule: enables/disables TTS for everyone. The "just for me" block lives
+    // separately (AudioDeviceManager.isBlockTtsLocal). Static, and persists the local
+    // preference so it can be preselected before the game; only broadcasts to clients if
+    // you're the host.
     public static void setTTSGlobal(boolean on) {
 
         GameFrame.TTS_SERVER = on;
-        // Se retira el valor heredado de la timba recuperada: mientras siguiera puesto,
-        // lo que se guardaba era EL VIEJO, asi que editar la regla la revertia y encima
-        // dejaba escrita la reversion. Es lo mismo que ya hace el panel de ajustes al
-        // recuperar con las otras tres reglas.
+        // Clears the value inherited from the recovered game: while it stayed set, what got
+        // persisted was the OLD value, so editing the rule would revert it and also persist
+        // that reversion. Same fix the settings panel already applies on recover for the
+        // other three rules.
         GameFrame.TTS_SERVER_RECOVER = null;
 
         Helpers.PROPERTIES.setProperty("tts_server", String.valueOf(on));
@@ -3615,18 +3590,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         if (gf != null && gf.isPartida_local()) {
             Helpers.threadRun(() -> {
                 gf.getCrupier().broadcastGAMECommandFromServer("TTS#" + (on ? "1" : "0"), null);
-                // Persiste la regla para que sobreviva a un detener+recuperar.
+                // Persists the rule so it survives a stop+recover.
                 GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
             });
         }
     }
 
-    // Regla global del host: habilita/deshabilita las notas de voz para todos.
+    // Global host rule: enables/disables voice notes for everyone.
     public static void setVoiceMessages(boolean on) {
 
         GameFrame.VOICE_MESSAGES = on;
-        // Mismo motivo que en la regla del TTS: con el valor heredado aun puesto, editar
-        // esta regla guardaba el viejo y la edicion se perdia.
+        // Same reason as the TTS rule: with the inherited value still set, editing this rule
+        // would persist the old one and the edit would be lost.
         GameFrame.VOICE_MESSAGES_RECOVER = null;
 
         Helpers.PROPERTIES.setProperty("voice_messages", String.valueOf(on));
@@ -3642,13 +3617,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Reglas de juego del host (IWTSTH / Run It Twice / Rabbit Hunting). Antes
-    // vivían como toggles del menú Preferencias + popup; ahora la lógica está
-    // centralizada aquí y la dispara el diálogo "Ajustes de partida" (y el
-    // re-aplicado en recover). Solo difunde y persiste si eres anfitrión; en el
-    // cliente el flag lo actualiza el comando *RULE entrante. El broadcast va bajo
-    // lock_fin_mano (como hacían los handlers originales) para no cambiar la regla
-    // en mitad de la resolución de una mano.
+    // Host game rules (IWTSTH / Run It Twice / Rabbit Hunting). These used to live as
+    // toggles in the Preferences menu + popup; the logic is now centralized here and
+    // triggered by the "Game settings" dialog (and by the re-apply on recover). Only
+    // broadcasts and persists if you're the host; on the client the flag is updated by the
+    // incoming *RULE command. The broadcast happens under lock_fin_mano (as the original
+    // handlers did) so the rule doesn't change mid-hand-resolution.
     public static void setIwtsthRule(boolean on) {
 
         GameFrame gf = getInstance();
@@ -3666,9 +3640,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Reparto del saldo de bots entre humanos: EDITABLE en partida (inocuo, solo afecta a la 2ª tabla
-    // del registro al terminar; no toca la auditoría). Mismo patrón que setIwtsthRule: en el host se
-    // difunde a los clientes (BOTBALRULE) para que su liquidación final coincida y se persiste en recover.
+    // Splitting bot balance among humans: EDITABLE in-game (harmless, only affects the log's
+    // 2nd table at the end; doesn't touch the audit). Same pattern as setIwtsthRule: on the
+    // host it's broadcast to clients (BOTBALRULE) so their final settlement matches, and
+    // persisted on recover.
     public static void setBotBalanceToHumans(boolean on) {
 
         GameFrame gf = getInstance();
@@ -3686,9 +3661,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Recomprar bots: EDITABLE en partida (solo se lee al arruinarse un bot). En el host se difunde
-    // (BOTREBUYRULE) para mantener coherente el estado y se persiste en recover. Mismo patrón que las
-    // demás reglas en vivo.
+    // Bot rebuy: EDITABLE in-game (only read when a bot busts). On the host it's broadcast
+    // (BOTREBUYRULE) to keep state consistent and persisted on recover. Same pattern as the
+    // other live rules.
     public static void setBotRebuy(boolean on) {
 
         GameFrame gf = getInstance();
@@ -3708,8 +3683,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static void setRunItTwiceRule(boolean on) {
 
-        // Congelado durante el run-out del all-in: el voto ya se está decidiendo con
-        // el valor actual, no se permite cambiarlo hasta NUEVA_MANO.
+        // Frozen during the all-in run-out: the vote is already being decided with the
+        // current value, so it can't be changed until NUEVA_MANO.
         if (RUN_IT_TWICE_LOCKED) {
             return;
         }
@@ -3836,27 +3811,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         THIS = this;
 
-        // Registrar shutdown hook lo antes posible para cubrir tambien
-        // caidas tempranas (Ctrl+C / cerrar consola durante el AJUGAR).
-        // El hook discrimina internamente entre host y cliente:
-        //   - Host: broadcast SERVEREXITRECOVER (con password) a los peers.
-        //   - Cliente: envia EXIT#testamento al host.
+        // Register the shutdown hook as early as possible to also cover early crashes
+        // (Ctrl+C / closing the console during setup). The hook internally distinguishes
+        // host from client:
+        //   - Host: broadcasts SERVEREXITRECOVER (with password) to the peers.
+        //   - Client: sends EXIT#testament to the host.
         registerShutdownHook();
 
-        sala_espera = salaespera; //Esto aquí arriba para que no pete getParticipantes()
+        sala_espera = salaespera; //Up here so getParticipantes() doesn't blow up
 
         nick_local = nicklocal;
 
         partida_local = partidalocal;
 
-        // La caché de imágenes de cartas/fichas/dorsos (Card.updateCachedImages) es DERIVADA del
-        // zoom, pero el spinner de zoom del lanzador (Ajustes fuera de partida) solo fija ZOOM_LEVEL
-        // sin rebobinarla, porque el inicio no muestra cartas contra las que previsualizar. Sin esto,
-        // cambiar el zoom en el inicio y empezar timba en la MISMA sesión montaba la mesa con cartas a
-        // la escala de la caché anterior (hasta ahora solo la reconstruía Init al arrancar la app o un
-        // cambio de zoom en partida). Se sincroniza aquí, donde la caché se consume, ANTES de montar la
-        // mesa para que las cartas nazcan a su tamaño real con cualquier ZOOM_LEVEL (incluido 0, en el
-        // que el zoom() de arranque no se aplica). force=false la deja intacta si ya está correcta.
+        // The card/chip/back image cache (Card.updateCachedImages) is DERIVED from the zoom,
+        // but the launcher's zoom spinner (Settings outside a game) only sets ZOOM_LEVEL
+        // without rewinding it, since the start screen shows no cards to preview against.
+        // Without this, changing the zoom at startup and starting a game in the SAME session
+        // would mount the table with cards at the previous cache's scale (until now only Init
+        // rebuilt it, at app startup or an in-game zoom change). Synced here, where the cache
+        // is consumed, BEFORE mounting the table so cards are born at their real size for any
+        // ZOOM_LEVEL (including 0, where startup's zoom() isn't applied). force=false leaves
+        // it untouched if it's already correct.
         Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
 
         tapete = TablePanelFactory.getPanel(getParticipantes().size());
@@ -3914,9 +3890,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         auto_fullscreen_menu.setSelected(GameFrame.AUTO_FULLSCREEN);
 
-        // Defensa: si una partida anterior terminó en mitad de un run-out, el flag
-        // pudo quedar activo (solo lo limpia NUEVA_MANO). Se resetea al montar la mesa
-        // para no arrancar con Run It Twice congelado en el diálogo de ajustes.
+        // Defensive: if a previous game ended mid-run-out, the flag could have stayed on
+        // (only NUEVA_MANO clears it). Reset when mounting the table so it doesn't start with
+        // Run It Twice frozen in the settings dialog.
         GameFrame.RUN_IT_TWICE_LOCKED = false;
 
         last_hand_menu.setSelected(false);
@@ -3931,11 +3907,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         auto_fit_zoom_menu.setSelected(GameFrame.AUTO_ZOOM);
 
-        // "Ajustes": diálogo unificado con pestañas Apariencia / Audio / Partida.
-        // Único acceso a los ajustes desde el menú Preferencias (sustituye tanto a la
-        // antigua entrada de audio como al "Ajustes de partida"). Campo a mano
-        // (initComponents es generado). Tiene gemelo en el popup del tapete y en el
-        // icono de engranaje del CommunityCardsPanel.
+        // "Settings": unified dialog with Appearance / Audio / Game tabs. The only entry
+        // point to settings from the Preferences menu (replaces both the old audio entry and
+        // "Game settings"). Hand-built field (initComponents is generated). Has a twin in the
+        // table's popup menu and in the CommunityCardsPanel's gear icon.
         ajustes_partida_menu = new javax.swing.JMenuItem();
         ajustes_partida_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         ajustes_partida_menu.putClientProperty("i18n.key", "settings.ajustes");
@@ -3948,10 +3923,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
         opciones_menu.insert(ajustes_partida_menu, 0);
 
-        // Recompra automática al arruinarse: checkbox en Preferencias justo tras
-        // "RECOMPRAR (siguiente mano)". Campo a mano (initComponents es generado);
-        // preferencia LOCAL con el mismo patrón de sincronización menú↔popup que
-        // el resto.
+        // Auto-rebuy on going broke: checkbox in Preferences right after "REBUY (next
+        // hand)". Hand-built field (initComponents is generated); LOCAL preference with the
+        // same menu<->popup sync pattern as the rest.
         auto_rebuy_menu = new javax.swing.JCheckBoxMenuItem();
         auto_rebuy_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         auto_rebuy_menu.putClientProperty("i18n.key", "menu.recomprar_auto_arruinarse");
@@ -3969,12 +3943,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         generarBarajasMenu();
 
-        // === Menú "Apariencia" en el menú-bar, lo más parecido al popup del
-        // tapete: agrupa pantalla completa, zoom, vista compacta, reloj,
-        // cinemáticas, animación e imágenes del chat + confirmar + barajas y
-        // tapetes. Se re-parentan los ítems ya existentes (añadirlos a un menú
-        // nuevo los quita de su menú anterior), sin tocar el código generado. El
-        // antiguo menú Zoom desaparece del bar (sus controles van dentro). ===
+        // === "Appearance" menu on the menu bar, as close as possible to the table's popup:
+        // groups fullscreen, zoom, compact view, clock, cinematics, animation and chat
+        // images + confirm + decks and table mats. Existing items are re-parented (adding
+        // them to a new menu removes them from their previous one), without touching
+        // generated code. The old Zoom menu disappears from the bar (its controls move
+        // inside). ===
         apariencia_menu = new javax.swing.JMenu(Translator.translate("menu.apariencia"));
         apariencia_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         apariencia_menu.putClientProperty("i18n.key", "menu.apariencia");
@@ -3984,8 +3958,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         apariencia_menu.add(auto_fullscreen_menu);
         apariencia_menu.add(compact_menu);
 
-        // zoom_menu queda solo con los controles de zoom (lo demás ya se movió);
-        // quitar los separadores que arrastraban a esos ítems.
+        // zoom_menu is left with only its zoom controls (the rest has already moved);
+        // remove the separators that used to drag those items along.
         zoom_menu.remove(jSeparator5);
         zoom_menu.remove(jSeparator6);
         apariencia_menu.add(zoom_menu);
@@ -3993,8 +3967,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         apariencia_menu.add(time_menu);
         apariencia_menu.add(menu_cinematicas);
 
-        // Submenú "Efectos de animación" con tres efectos combinables (reparto,
-        // ciegas+dealer, apuestas). Sustituye al antiguo checkbox único.
+        // "Animation effects" submenu with three combinable effects (deal, blinds+dealer,
+        // bets). Replaces the old single checkbox.
         anim_reparto_menu = new javax.swing.JCheckBoxMenuItem();
         anim_reparto_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         anim_reparto_menu.putClientProperty("i18n.key", "menu.efectos_animacion_reparto");
@@ -4035,8 +4009,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         apariencia_menu.add(chat_image_menu);
 
-        // Toggle "Coste de igualar": overlay sobre las comunitarias con lo que el
-        // jugador local tendrá que poner para igualar. Por defecto activado.
+        // "Call cost" toggle: overlay on the community cards showing what the local player
+        // will have to put in to call. On by default.
         coste_igualar_menu = new javax.swing.JCheckBoxMenuItem();
         coste_igualar_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         coste_igualar_menu.putClientProperty("i18n.key", "menu.coste_igualar");
@@ -4050,24 +4024,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         apariencia_menu.add(menu_barajas);
         apariencia_menu.add(menu_tapetes);
 
-        // Preferencias pierde los ítems de apariencia; limpiar separadores sueltos.
+        // Preferences loses the appearance items; clean up now-orphaned separators.
         opciones_menu.remove(jSeparator1);
         opciones_menu.remove(jSeparator7);
         opciones_menu.remove(jSeparator8);
         opciones_menu.remove(decks_separator);
 
-        // IWTSTH/RIT/Rabbit se movieron al diálogo "Ajustes de partida": sus dos
-        // separadores en Preferencias quedan huérfanos, se quitan.
+        // IWTSTH/RIT/Rabbit moved to the "Game settings" dialog: their two separators in
+        // Preferences are now orphaned, remove them.
         opciones_menu.remove(jSeparator2);
         opciones_menu.remove(jSeparator10);
 
-        // "Confirmar todas las acciones" justo debajo de "Botones AUTO".
+        // "Confirm all actions" right below "AUTO buttons".
         opciones_menu.remove(confirmar_menu);
         int auto_action_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_action_menu);
         opciones_menu.insert(confirmar_menu, auto_action_index >= 0 ? auto_action_index + 1 : opciones_menu.getMenuComponentCount());
 
-        // "AUTO igualar" — abre el diálogo de auto-call (Activado + límite). Justo
-        // debajo de "Modo AUTO". Gris si "Modo AUTO" está off.
+        // "AUTO call" — opens the auto-call dialog (Enabled + limit). Right below
+        // "AUTO mode". Grayed out if "AUTO mode" is off.
         auto_call_menu = new javax.swing.JMenuItem();
         auto_call_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         auto_call_menu.putClientProperty("i18n.key", "menu.auto_call");
@@ -4078,8 +4052,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         int auto_call_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_action_menu);
         opciones_menu.insert(auto_call_menu, auto_call_index >= 0 ? auto_call_index + 1 : opciones_menu.getMenuComponentCount());
 
-        // "Persistir modo AUTO entre manos" debajo de "AUTO igualar". Hermano gris:
-        // solo se habilita con "Modo AUTO" activo.
+        // "Persist AUTO mode across hands" below "AUTO call". Grayed-out sibling: only
+        // enabled with "AUTO mode" on.
         auto_action_persist_menu = new javax.swing.JCheckBoxMenuItem();
         auto_action_persist_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         auto_action_persist_menu.putClientProperty("i18n.key", "menu.persistir_auto");
@@ -4091,8 +4065,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         int auto_action_persist_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_call_menu);
         opciones_menu.insert(auto_action_persist_menu, auto_action_persist_index >= 0 ? auto_action_persist_index + 1 : opciones_menu.getMenuComponentCount());
 
-        // "Confirmar acción AUTO (5s)" — toggle del diálogo MODO AUTO, en el mismo
-        // grupo, debajo de Persistir. Hermano gris: solo con "Modo AUTO" activo.
+        // "Confirm AUTO action (5s)" — AUTO MODE dialog toggle, in the same group,
+        // below Persist. Grayed-out sibling: only with "AUTO mode" on.
         modo_auto_confirm_menu = new javax.swing.JCheckBoxMenuItem();
         modo_auto_confirm_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         modo_auto_confirm_menu.putClientProperty("i18n.key", "menu.modo_auto_confirm");
@@ -4104,8 +4078,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         int modo_auto_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_action_persist_menu);
         opciones_menu.insert(modo_auto_confirm_menu, modo_auto_index >= 0 ? modo_auto_index + 1 : opciones_menu.getMenuComponentCount());
 
-        // Aísla el grupo "Botones AUTO + hijos" con separadores arriba y abajo
-        // (sin duplicar si ya hay un separador adyacente).
+        // Isolates the "AUTO buttons + children" group with separators above and below
+        // (without duplicating one if there's already an adjacent separator).
         int auto_group_start = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_action_menu);
         if (auto_group_start > 0 && !(opciones_menu.getMenuComponent(auto_group_start - 1) instanceof javax.swing.JPopupMenu.Separator)) {
             opciones_menu.insertSeparator(auto_group_start);
@@ -4115,12 +4089,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             opciones_menu.insertSeparator(auto_group_end + 1);
         }
 
-        // "Detener la timba" y "Salir" juntos, sin separador entre ambos.
+        // "Stop the game" and "Exit" together, no separator between them.
         file_menu.remove(jSeparator11);
 
-        // "Límite de manos" sale del menú (vive en la pestaña Partida del diálogo
-        // Ajustes); "Última mano" se mueve junto a Detener la timba / Salir, como la
-        // PRIMERA de ese grupo. Ambos ítems siguen construidos (estado sincronizado).
+        // "Hand limit" leaves the menu (lives in the Game tab of the Settings dialog);
+        // "Last hand" moves next to Stop game / Exit, as the FIRST item of that group.
+        // Both items are still built (state stays in sync).
         file_menu.remove(max_hands_menu);
         file_menu.remove(last_hand_menu);
         file_menu.remove(jSeparator3);
@@ -4131,11 +4105,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             file_menu.add(last_hand_menu);
         }
 
-        // El submenú "Apariencia" se construye (re-parenta sus ítems FUERA del
-        // menú-bar, para que no se dupliquen) pero YA NO se muestra: todos los
-        // ajustes de apariencia viven ahora en la pestaña "Apariencia" del diálogo
-        // "Ajustes". Sus ítems siguen vivos para que la pestaña y el popup del tapete
-        // deleguen en ellos vía doClick().
+        // The "Appearance" submenu is built (re-parenting its items OUTSIDE the menu bar, so
+        // they don't get duplicated) but is NO LONGER shown: all appearance settings now live
+        // in the "Appearance" tab of the "Settings" dialog. Its items stay alive so the tab and
+        // the table's popup can delegate to them via doClick().
 
         menu_tapete_verde.setSelected(false);
         menu_tapete_azul.setSelected(false);
@@ -4193,28 +4166,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         applyCompactableFlags();
 
-        //Metemos la pasta a todos (el BUY IN se podría parametrizar)
-        // Issue#9: el campo buyin de RemotePlayer/LocalPlayer se inicializa con
-        // un field initializer (= GameFrame.BUYIN) en el momento de instanciar
-        // el slot, lo que puede capturar un valor stale en escenarios de hot-join
-        // o recovery. Aqui — donde la mesa se inicializa con el BUYIN actual de
-        // la partida (fuente de verdad) — seteamos tanto stack como buyin de cada
-        // slot para que ambos reflejen el valor configurado. En RECOVER esto
-        // queda machacado luego por recuperarDatosClavePartida para los jugadores
-        // que tengan row de balance en SQL (preserva rebuys legitimos); los
-        // late-joiners sin row mantienen el buyin que aqui se asigna.
+        //Give everyone their stack (BUY IN could be parameterized)
+        // Issue#9: RemotePlayer/LocalPlayer's buyin field is initialized with a field
+        // initializer (= GameFrame.BUYIN) at the moment the slot is instantiated, which can
+        // capture a stale value in hot-join or recovery scenarios. Here — where the table is
+        // initialized with the game's current BUYIN (the source of truth) — both stack and
+        // buyin are set for each slot so both reflect the configured value. On RECOVER this
+        // later gets overwritten by recuperarDatosClavePartida for players with a balance row
+        // in SQL (preserving legitimate rebuys); late-joiners with no row keep the buyin
+        // assigned here.
         for (Player jugador : jugadores) {
             jugador.setStack(GameFrame.BUYIN);
             jugador.setBuyin(GameFrame.BUYIN);
         }
 
-        // Cortinilla de apertura (Crupier.animateInitialStacks): si va a haber
-        // conteo 0 -> buy-in, pintamos YA el label a 0 para que la mesa aparezca
-        // con los asientos "vacios" y no se vea un fogonazo del buy-in completo
-        // antes de que arranque la cuenta. El MODELO (stack) sigue siendo el buy-in
-        // de arriba; esto es solo el label. Mismo gate que animateInitialStacks
-        // (animaciones de contadores on + no recover) para que ambos vayan SIEMPRE
-        // emparejados.
+        // Opening fill wipe (Crupier.animateInitialStacks): if there's going to be a 0 ->
+        // buy-in count-up, paint the label to 0 RIGHT NOW so the table appears with "empty"
+        // seats and there's no flash of the full buy-in before the count-up starts. The MODEL
+        // (stack) is still the buy-in set above; this is just the label. Same gate as
+        // animateInitialStacks (counter animations on + not recover) so both always stay in sync.
         if (GameFrame.contadoresAnimOn() && !GameFrame.RECOVER) {
             for (Player jugador : jugadores) {
                 jugador.setStackDisplay(0f);
@@ -4265,10 +4235,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(false);
         }
 
-        // Maestro de animaciones (Ajustes), ya con menu-bar Y popup construidos: si
-        // "animaciones" se guardo en off, DESHABILITA los 5 toggles SIN desmarcarlos (el gate
-        // lo aplican los helpers *On() en cada read-site; los flags *_PREF no se tocan). Con el
-        // maestro on (por defecto) no cambia nada.
+        // Animation master (Settings), now that both menu bar AND popup are built: if
+        // "animaciones" was saved off, DISABLES the 5 toggles WITHOUT unchecking them (the
+        // gate is applied by the *On() helpers at each read site; the *_PREF flags aren't
+        // touched). With the master on (default) nothing changes.
         applyAnimationMaster();
 
         addMouseWheelListener(this);
@@ -4283,8 +4253,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
 
-        // El rótulo de "AUTO igualar" lleva el estado actual (ACTIVADO/DESACTIVADO)
-        // entre paréntesis; se fija aquí, tras la traducción, para que no lo pise.
+        // The "AUTO call" label carries the current state (ON/OFF) in parentheses; set here,
+        // after translation, so it doesn't get overwritten.
         refreshAutoCallMenuText();
 
     }
@@ -4309,10 +4279,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return shortcuts_dialog;
     }
 
-    // Construye la tabla final NICK / RESULTADO (rejilla con bordes, mismo estilo que la tabla de
-    // cuentas) a partir de un snapshot del auditor ({stack, buyin}). El token "(  )" deja el gutter del
-    // marcador en blanco (sin icono de rol) alineado con la cabecera "(##)". Se llama una vez con el
-    // resultado real y, si se repartió el saldo de los bots, otra con el snapshot adaptado.
+    // Builds the final NICK / RESULT table (bordered grid, same style as the accounts table)
+    // from an auditor snapshot ({stack, buyin}). The "(  )" token leaves the marker's gutter
+    // blank (no role icon), aligned with the "(##)" header. Called once with the real result
+    // and, if the bot balance was distributed, again with the adapted snapshot.
     private static String buildFinalResultTable(Map<String, Double[]> auditor) {
         ArrayList<String[]> fin_rows = new ArrayList<>();
 
@@ -4362,38 +4332,38 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void finTransmision(boolean partida_terminada) {
 
-        // Desregistrar el shutdown hook: la partida termina por la via
-        // normal (host abort, fin natural, salida voluntaria) y el EXIT
-        // que pudiera enviar el hook ya seria sobre un socket cerrado.
+        // Unregister the shutdown hook: the game is ending through the normal path (host
+        // abort, natural end, voluntary exit) and any EXIT the hook might send would already
+        // be over a closed socket.
         unregisterShutdownHook();
 
-        // Snapshot del auditor bajo lock_contabilidad ANTES de entrar al
-        // SQL_LOCK para preservar el orden global lock_contabilidad → SQL_LOCK
-        // (mismo orden que Crupier.run al cerrar una mano vía sqlUpdateHandEnd).
-        // Sin el snapshot, anidar synchronized(lock_contabilidad) dentro del
-        // SQL_LOCK invierte el orden y produce deadlock AB-BA con Crupier.run.
-        // El resultado OFICIAL de la timba (pantalla de balance + estadísticas + historial) es SIEMPRE el
-        // REAL: el auditor en vivo NO se toca. auditor_snapshot lleva ese resultado real (tabla final
-        // habitual). Si la opción BOT_BALANCE_TO_HUMANS está activa, la redistribución se calcula sobre una
-        // COPIA aparte (auditor_snapshot_adapted) y solo alimenta la SEGUNDA tabla del registro: es una
-        // liquidación de dinero real entre humanos "a posteriori", no el resultado oficial.
+        // Snapshot the auditor under lock_contabilidad BEFORE entering SQL_LOCK, to preserve
+        // the global lock_contabilidad -> SQL_LOCK ordering (same order Crupier.run uses when
+        // closing a hand via sqlUpdateHandEnd). Without the snapshot, nesting
+        // synchronized(lock_contabilidad) inside SQL_LOCK inverts the order and produces an
+        // AB-BA deadlock with Crupier.run.
+        // The OFFICIAL result of the game (balance screen + stats + history) is ALWAYS the
+        // REAL one: the live auditor is NEVER touched. auditor_snapshot carries that real
+        // result (the usual final table). If BOT_BALANCE_TO_HUMANS is on, the redistribution
+        // is computed on a SEPARATE copy (auditor_snapshot_adapted) that only feeds the log's
+        // SECOND table: it's an "after the fact" real-money settlement between humans, not the
+        // official result.
         HashMap<String, Double[]> auditor_snapshot = null;
         HashMap<String, Double[]> auditor_snapshot_adapted = null;
         boolean bot_balance_applied = false;
         if (partida_terminada && crupier != null) {
             synchronized (crupier.getLock_contabilidad()) {
-                // print=false: refrescamos el mapa del auditor para el snapshot SIN
-                // volcar la tabla de stacks (NICK/STACK/BUYIN) al registro. Esa tabla
-                // sale SOLO al arrancar cada mano; el cierre ya lo resume el marcador
-                // final NICK/RESULTADO de más abajo. Imprimirla aquí (desde este hilo
-                // de finTransmision) la metía además en medio de las acciones que el
-                // hilo del Crupier seguía logueando.
+                // print=false: refresh the auditor map for the snapshot WITHOUT dumping the
+                // stacks table (NICK/STACK/BUYIN) to the log. That table is only printed when
+                // each hand starts; the close is already summarized by the final NICK/RESULT
+                // marker further below. Printing it here (from this finTransmision thread)
+                // would also interleave it with the actions the Crupier thread kept logging.
                 crupier.auditorCuentas(false);
                 auditor_snapshot = new HashMap<>(crupier.getAuditor());
                 if (GameFrame.BOT_BALANCE_TO_HUMANS) {
-                    // Copia independiente: redistributeBotBalanceToHumans REEMPLAZA entradas con Double[]
-                    // nuevos (no muta los existentes), así que el auditor en vivo y auditor_snapshot
-                    // conservan los valores reales; solo 'adapted' lleva el reparto.
+                    // Independent copy: redistributeBotBalanceToHumans REPLACES entries with new
+                    // Double[]s (doesn't mutate existing ones), so the live auditor and
+                    // auditor_snapshot keep the real values; only 'adapted' carries the split.
                     HashMap<String, Double[]> adapted = new HashMap<>(crupier.getAuditor());
                     bot_balance_applied = Crupier.redistributeBotBalanceToHumans(adapted);
                     if (bot_balance_applied) {
@@ -4509,18 +4479,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
-                    // Iteramos el snapshot tomado bajo lock_contabilidad FUERA
-                    // del SQL_LOCK al inicio del método (ver comentario allí).
-                    // Sin retomar el lock aquí no hay anidación SQL → CONTAB y
-                    // por tanto no hay deadlock con Crupier.run.
+                    // We iterate the snapshot taken under lock_contabilidad OUTSIDE SQL_LOCK at
+                    // the start of the method (see the comment there). Without retaking the
+                    // lock here there's no SQL -> CONTAB nesting and thus no deadlock with
+                    // Crupier.run.
                     if (auditor_snapshot != null) {
 
-                        // Tabla final HABITUAL (resultado real, incluidos los bots).
+                        // The USUAL final table (real result, bots included).
                         getRegistro().print(buildFinalResultTable(auditor_snapshot));
 
-                        // Si se repartió el saldo conjunto de los bots: nota explicativa + tabla ADAPTADA
-                        // (bots a neutral, saldo repartido a partes iguales entre los humanos) DEBAJO de la
-                        // habitual. Es lo que muestra también la pantalla de balance.
+                        // If the bots' combined balance was distributed: an explanatory note +
+                        // ADAPTED table (bots neutral, balance split evenly among humans) BELOW
+                        // the usual one. This is also what the balance screen shows.
                         if (bot_balance_applied && auditor_snapshot_adapted != null) {
                             getRegistro().print("($$) " + Translator.translate("balance.saldo_bots_repartido"));
                             getRegistro().print(buildFinalResultTable(auditor_snapshot_adapted));
@@ -4535,27 +4505,26 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 DateFormat timeZoneFormat = new SimpleDateFormat("dd_MM_yyyy__HH_mm_ss");
                 Date date = new Date(ts.getTime());
                 String fecha = timeZoneFormat.format(date);
-                // Sprint deferred 🟠-24: nick saneado para uso como segmento de
-                // filename. Antes solo se reemplazaba el espacio; nicks como CON,
-                // NUL, AUX o con caracteres :/*? rompían FileOutputStream silenciosamente
-                // y el log de la timba se perdía. Reader (StatsDialog) usa el mismo
-                // saneo para encontrar el fichero — coordinación crítica.
+                // Deferred sprint 🟠-24: nick sanitized for use as a filename segment. It used
+                // to only replace spaces; nicks like CON, NUL, AUX, or containing :/*? broke
+                // FileOutputStream silently and the game's log was lost. The reader
+                // (StatsDialog) uses the same sanitizing to find the file — critical coordination.
                 String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(sala_espera.getServer_nick()) + "_" + fecha + ".log";
 
-                // Drenamos la cola del registro: print() es asincrono (LOG_POOL), asi
-                // que el footer + el marcador final recien encolados pueden no estar
-                // todavia en LOG_TEXT cuando getText() construye el .log. logFlush espera
-                // a que se apliquen para que el fichero quede completo y en orden.
+                // Drain the log queue: print() is asynchronous (LOG_POOL), so the footer +
+                // final marker just enqueued might not yet be in LOG_TEXT when getText()
+                // builds the .log. logFlush waits for them to apply so the file comes out
+                // complete and in order.
                 Helpers.logFlush();
 
                 try {
 
                     String previous_log_data = "";
 
-                    // Escritura ATOMICA. El fichero acumula el registro de TODAS las timbas
-                    // del dia: se lee entero, se le anade lo nuevo y se reescribe, asi que
-                    // truncar primero significa que un corte a mitad se lleva por delante
-                    // todo el historico, no solo lo que se estaba anadiendo.
+                    // ATOMIC write. The file accumulates the log of ALL games for the day: it's
+                    // read in full, the new content appended, and rewritten, so truncating
+                    // first would mean a mid-write crash wipes out the entire history, not just
+                    // what was being appended.
                     if (Files.exists(Paths.get(log_file))) {
 
                         previous_log_data = "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>" + log_file + "\n" + Files.readString(Paths.get(log_file)) + "\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<" + log_file + "\n";
@@ -4570,7 +4539,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (!this.getSala_espera().getChat_text().toString().isEmpty()) {
 
-                    // Sprint deferred 🟠-24: nick saneado igual que log_file arriba.
+                    // Deferred sprint 🟠-24: nick sanitized the same way as log_file above.
                     String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(sala_espera.getServer_nick()) + "_" + fecha + ".html";
 
                     try {
@@ -4583,8 +4552,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                 + ".bubble-other{background-color:white;}"
                                 + "</style></head>";
 
-                        // Atomica por lo mismo que el registro: aqui tambien se reescribe
-                        // el historico entero del dia.
+                        // Atomic for the same reason as the log: the whole day's history gets
+                        // rewritten here too.
                         if (Files.exists(Paths.get(chat_file))) {
 
                             previous_chat_data = Files.readString(Paths.get(chat_file)).replaceAll("<html>(?:<head>.*?</head>)?<body.*?>(.*?)</body></html>", "$1");
@@ -4617,37 +4586,38 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     recover = getCrupier().isForce_recover();
 
                     if (!recover) {
-                        // Pantalla final como overlay sobre el glassPane (ver showBalanceOverlay).
-                        // Sustituye al antiguo diálogo modal de balance: este hilo (fin de transmisión,
-                        // fuera del EDT) espera en el latch a que el jugador elija continuar/menú,
-                        // igual que antes esperaba al cierre del diálogo modal, sin congelar el EDT.
+                        // Final screen as an overlay on the glassPane (see showBalanceOverlay).
+                        // Replaces the old modal balance dialog: this thread (end of
+                        // transmission, outside the EDT) waits on the latch for the player to
+                        // choose continue/menu, the same way it used to wait for the modal
+                        // dialog to close, without freezing the EDT.
                         final java.util.concurrent.CountDownLatch balance_latch = new java.util.concurrent.CountDownLatch(1);
                         final BalanceScreen[] balance_ref = new BalanceScreen[1];
 
                         Helpers.GUIRun(() -> {
-                            // El boton SOLO baja el contador. NO toca el candado de la base de
-                            // datos: esto corre en el hilo grafico, y pedirlo aqui lo deja
-                            // esperando a quien lo tenga. Con dos pulsaciones seguidas eso era
-                            // un abrazo mortal nuevo: la segunda se quedaba esperando el
-                            // candado mientras el hilo que acaba de despertar, que lo tiene,
-                            // esperaba al hilo grafico para quitar la pantalla. La espera de
-                            // abajo se entera igual, que mira el contador cada cuarto de
-                            // segundo; ese retardo en una pantalla final no lo nota nadie.
+                            // The button ONLY counts down the latch. It does NOT touch the
+                            // database lock: this runs on the EDT, and requesting it here would
+                            // leave it waiting for whoever holds it. With two clicks in a row that
+                            // used to be a fresh deadlock: the second click would wait for the
+                            // lock while the thread that just woke up, holding it, waited for the
+                            // EDT to dismiss the screen. The wait below finds out anyway, since it
+                            // polls the counter every quarter second; that delay on a final
+                            // screen is imperceptible.
                             BalanceScreen balance = new BalanceScreen(GameFrame.getInstance(), balance_latch::countDown);
                             balance_ref[0] = balance;
                             showBalanceOverlay(balance);
                         });
 
-                        // Esta espera es a que el JUGADOR pulse, o sea, indefinida, y estamos
-                        // DENTRO del SQL_LOCK. Esperar aqui con un latch retiene el lock todo
-                        // ese rato, y el hilo grafico se queda clavado en el mismo lock en cuanto
-                        // alguien le da a GUARDAR en los ajustes: la partida se congela entera y
-                        // ya nadie puede ni pulsar el boton que desbloquearia esto.
-                        // Dormir sobre el propio SQL_LOCK SUELTA el monitor por completo, incluso
-                        // tomado varias veces, asi que mientras esperamos los ajustes se guardan
-                        // con normalidad. Se comprueba el contador cada cuarto de segundo: nadie
-                        // nos avisa a proposito, porque avisar exigiria pedir este mismo candado
-                        // desde el hilo grafico y eso es justo lo que no puede pasar.
+                        // This wait is for the PLAYER to click, i.e. indefinite, and we're
+                        // INSIDE SQL_LOCK. Waiting here with a latch would hold the lock the
+                        // whole time, and the EDT would get stuck on that same lock the moment
+                        // anyone hits SAVE in settings: the whole game freezes and no one can
+                        // even click the button that would unblock this.
+                        // Sleeping on SQL_LOCK itself fully RELEASES the monitor, even if
+                        // acquired multiple times, so while we wait, settings save normally.
+                        // The counter is polled every quarter second: nothing notifies us on
+                        // purpose, since notifying would require requesting this same lock from
+                        // the EDT, which is exactly what must not happen.
                         synchronized (GameFrame.SQL_LOCK) {
                             while (balance_latch.getCount() > 0) {
                                 try {
@@ -4691,16 +4661,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     }
 
-    // Monta la pantalla final (BalanceScreen) como overlay sobre el glassPane de este
-    // frame, ENCIMA del tapete real (que se ve a través: transparencia de COMPONENTE
-    // Swing, sin depender del compositor del SO como el antiguo diálogo con
-    // transparencia por píxel de ventana, que en algunos Linux salía con fondo gris).
-    // Deja el tablero INERTE bajo la pantalla final (como el antiguo diálogo modal): el
-    // glassPane visible intercepta el ratón hacia el tablero, balance_overlay_active
-    // bloquea los atajos del KeyEventDispatcher (los atajos del juego pasan todos por ahí,
-    // no por aceleradores de menú), y se quita el menú contextual del tapete (clic derecho).
-    // Se rehabilita el frame porque la limpieza de fin de transmisión lo dejó deshabilitado
-    // y, sin ello, los botones del overlay (hijos del frame) no responderían.
+    // Mounts the final screen (BalanceScreen) as an overlay on this frame's glassPane, OVER
+    // the real table (visible through it: Swing COMPONENT transparency, not relying on the
+    // OS compositor like the old dialog with per-pixel window transparency, which came out
+    // with a gray background on some Linux setups). Leaves the board INERT under the final
+    // screen (like the old modal dialog): the visible glassPane intercepts the mouse toward
+    // the board, balance_overlay_active blocks the KeyEventDispatcher's shortcuts (all game
+    // shortcuts go through it, not menu accelerators), and the table's context menu
+    // (right-click) is removed. The frame is re-enabled because end-of-transmission cleanup
+    // left it disabled, and without this the overlay's buttons (children of the frame)
+    // wouldn't respond.
     private void showBalanceOverlay(BalanceScreen balance) {
         setEnabled(true);
 
@@ -4728,9 +4698,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         balance.startAnimations();
     }
 
-    // Desmonta el overlay de la pantalla final: suelta sus recursos (cleanup), oculta el
-    // glassPane y lo vacía. Tras esto el flujo continúa con RESET_GAME (que descarta este
-    // frame de todas formas).
+    // Dismounts the final screen overlay: releases its resources (cleanup), hides the
+    // glassPane and empties it. After this the flow continues with RESET_GAME (which
+    // discards this frame anyway).
     private void hideBalanceOverlay(BalanceScreen balance) {
         balance_overlay_active = false;
 
@@ -4755,10 +4725,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void RESET_GAME(boolean recover) {
 
-        // Monitor donde estaba el tablero (y la pantalla final): la ventana de
-        // inicio se creo maximizada en el primario y solo se oculta entre
-        // timbas, asi que sin esto reaparece en el primario aunque la partida
-        // estuviera en un monitor secundario. Se captura ANTES del resetInstance.
+        // Monitor the board (and final screen) were on: the start window is created
+        // maximized on the primary display and is only hidden between games, so without this
+        // it would reappear on the primary display even if the game was on a secondary
+        // monitor. Captured BEFORE resetInstance.
         final java.awt.GraphicsConfiguration return_screen = this.getGraphicsConfiguration();
 
         new Thread(() -> {
@@ -4781,23 +4751,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Audio.closeAllPreloadedWavs();
 
-            // Los avisos de chat pendientes (una nota de voz, una imagen) mueren con la
-            // timba: no se vaciaban nunca, asi que lo que quedara sin reproducir sonaba
-            // al empezar la timba SIGUIENTE, de alguien que a lo mejor ya no esta.
+            // Pending chat notifications (a voice note, an image) die with the game: they were
+            // never cleared, so whatever was left unplayed would sound off at the start of the
+            // NEXT game, from someone who might not even be there anymore.
             GameFrame.NOTIFY_CHAT_QUEUE.clear();
 
-            // SHUTDOWN antes de resetLOG (no al reves): el shutdownNow() descarta las
-            // tareas de log encoladas en LOG_POOL ANTES de vaciar LOG_TEXT, asi ninguna
-            // straggler de la timba anterior puede hacer un append fantasma sobre el log
-            // ya reseteado de la siguiente. logFlush() en finTransmision ya drena la cola
-            // mucho antes; esto es defensa en profundidad (resetLOG es solo una asignacion
-            // de String, no usa el pool, asi que moverla detras del shutdown es inocuo).
+            // SHUTDOWN before resetLOG (not the other way around): shutdownNow() discards the
+            // log tasks queued in LOG_POOL BEFORE LOG_TEXT is cleared, so no straggler from
+            // the previous game can do a ghost append onto the next game's already-reset log.
+            // logFlush() in finTransmision already drains the queue much earlier; this is
+            // defense in depth (resetLOG is just a String assignment, doesn't use the pool, so
+            // moving it after the shutdown is harmless).
             Helpers.SHUTDOWN_THREAD_POOL();
 
             GameLogDialog.resetLOG();
 
-            // El historial del chat rapido (el que se recorre con las flechas) tampoco se
-            // vaciaba: los mensajes escritos en una timba seguian saliendo en la siguiente.
+            // Quick chat's history (browsed with the arrow keys) wasn't cleared either:
+            // messages typed in one game kept showing up in the next.
             FastChatDialog.resetHistorial();
 
             //Reiniciamos
@@ -4843,12 +4813,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void AJUGAR() {
 
-        // La cabecera de LOG_TEXT ("[CoronaPoker X.Y - REGISTRO...]") se construye en un
-        // inicializador estatico que se evalua al CARGAR la clase GameLogDialog, momento en
-        // que GameFrame.LANGUAGE puede no ser aun el idioma elegido por el usuario (queda
-        // "horneada" en el idioma por defecto). Aqui, al arrancar la timba, el idioma ya
-        // esta fijado y todavia no puede haber ningun print (registro_dialog era null), asi
-        // que regeneramos la cabecera en el idioma correcto sin perder nada del registro.
+        // LOG_TEXT's header ("[CoronaPoker X.Y - LOG...]") is built in a static initializer
+        // that evaluates when the GameLogDialog class LOADS, at which point
+        // GameFrame.LANGUAGE might not yet be the user's chosen language (it gets "baked in"
+        // at the default language). Here, when the game starts, the language is already set
+        // and there can't be any prints yet (registro_dialog was null), so we regenerate the
+        // header in the correct language without losing any of the log.
         GameLogDialog.resetLOG();
 
         Helpers.GUIRunAndWait(() -> {
@@ -4857,12 +4827,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         TTSWatchdog();
 
-        // Telemetría: broadcaster periódico server-side (1 thread).
-        // Solo activo en el host (isPartida_local). Loop sale al final de la
-        // transmisión (mismo signal que TTSWatchdog y el resto de threads
-        // del Crupier — SHUTDOWN_THREAD_POOL al cerrar el juego también
-        // los corta de raíz). Best-effort: cualquier fallo se loguea
-        // pero NO afecta al game flow.
+        // Telemetry: periodic server-side broadcaster (1 thread). Only active on the host
+        // (isPartida_local). The loop exits at the end of transmission (same signal as
+        // TTSWatchdog and the rest of the Crupier's threads — SHUTDOWN_THREAD_POOL also cuts
+        // them all when the game closes). Best-effort: any failure is logged but does NOT
+        // affect the game flow.
         if (isPartida_local()) {
             telemetryBroadcasterWatchdog();
         }
@@ -4885,20 +4854,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Telemetría: thread server-side que dispara
-     * Crupier.broadcastTelemetryFrame() cada PING_INTERVAL_MS para que los
-     * clientes mantengan su latest_telemetry fresco.
+     * Telemetry: server-side thread that fires Crupier.broadcastTelemetryFrame() every
+     * PING_INTERVAL_MS so clients keep their latest_telemetry fresh.
      *
      * Cycle:
-     *   1. pausar PING_INTERVAL_MS al inicio (los datos de latency necesitan
-     *      al menos UNA ronda de ping/pong antes de tener algo que reportar).
+     *   1. pause PING_INTERVAL_MS at the start (latency data needs at least ONE ping/pong
+     *      round before there's anything to report).
      *   2. broadcast.
-     *   3. loop hasta crupier.isFin_de_la_transmision().
+     *   3. loop until crupier.isFin_de_la_transmision().
      *
-     * El thread vive en Helpers.THREAD_POOL — al cerrar el juego,
-     * SHUTDOWN_THREAD_POOL lo corta junto con TTSWatchdog y los demás.
-     * Si broadcast lanza, log + continuar (telemetría es best-effort,
-     * no debe abortar la cadena).
+     * The thread lives in Helpers.THREAD_POOL — when the game closes, SHUTDOWN_THREAD_POOL
+     * cuts it along with TTSWatchdog and the rest. If broadcast throws, log + continue
+     * (telemetry is best-effort, must not abort the chain).
      */
     private void telemetryBroadcasterWatchdog() {
         Helpers.threadRun(() -> {
@@ -4981,10 +4948,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     Helpers.pausar(Math.max((long) Math.ceil((double) WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
 
                                     Helpers.GUIRun(() -> {
-                                        // Dispose + null antes de soltar la referencia: el
-                                        // setVisible(false) anterior NO libera el peer nativo del
-                                        // dialog ni nada más. Sin esto, las notificaciones TTS
-                                        // acumulaban dialogs zombi en partidas largas (🟠-22 v2).
+                                        // Dispose + null before dropping the reference: the
+                                        // setVisible(false) above does NOT release the dialog's
+                                        // native peer or anything else. Without this, TTS
+                                        // notifications piled up zombie dialogs in long games (🟠-22 v2).
                                         if (notify_dialog != null) {
                                             notify_dialog.setVisible(false);
                                             notify_dialog.dispose();
@@ -5519,7 +5486,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         Helpers.threadRun(() -> {
                             try {
-                                //Hay que avisar a los clientes de que la timba ha terminado
+                                //Clients need to be told the game has ended
                                 crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" + (WaitingRoomFrame.getInstance().getPassword() != null ? "#" + Base64.getEncoder().encodeToString(WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8")) : "") : "SERVEREXIT", null, false);
                             } catch (UnsupportedEncodingException ex) {
                                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -5695,10 +5662,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (!registro_dialog.isVisible()) {
 
-            // El tamaño/posición por defecto (consola 1280x720 centrada, no 0.8x la
-            // ventana) solo se aplica la PRIMERA vez que se abre este diálogo;
-            // reaperturas posteriores conservan lo que el usuario haya
-            // redimensionado/movido (cerrar el registro solo lo oculta).
+            // The default size/position (1280x720 centered console, not 0.8x the window)
+            // applies only the FIRST time this dialog is opened; later reopenings keep
+            // whatever the user resized/moved it to (closing the log only hides it).
             if (!registro_dialog.isDefaultBoundsApplied()) {
 
                 registro_dialog.setPreferredSize(new java.awt.Dimension(1280, 720));
@@ -5784,23 +5750,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }//GEN-LAST:event_full_screen_menuActionPerformed
 
     /**
-     * Punto de entrada unificado para alternar pantalla completa, desde el
-     * listener del menu o desde rutas de inicializacion (autoZoomFullScreen).
-     * Antes autoZoomFullScreen llamaba a full_screen_menu.doClick() para
-     * disparar este flujo via el listener del JMenuItem; el doClick era un
-     * antipatron de Swing porque acoplaba la inicializacion al UI y simulaba
-     * eventos sinteticos. Ahora ambas rutas llaman directamente aqui.
+     * Unified entry point to toggle fullscreen, from the menu listener or from
+     * initialization paths (autoZoomFullScreen). autoZoomFullScreen used to call
+     * full_screen_menu.doClick() to trigger this flow through the JMenuItem's listener; that
+     * doClick was a Swing antipattern because it coupled initialization to the UI and
+     * simulated synthetic events. Both paths now call directly here.
      */
     public void triggerFullScreenToggle() {
         if (full_screen_menu.isEnabled() && !isGame_over_dialog()) {
             full_screen_menu.setEnabled(false);
             Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
 
-            // Alternar SIEMPRE invierte el estado actual, así que el destino es
-            // !full_screen. Se persiste como preferencia auto_fullscreen para que la
-            // próxima partida recuerde el modo, igual que el zoom y la vista compacta.
-            // (Al abandonar la timba, resetInstance llama a toggleFullScreen()
-            // directamente, no a este método, por lo que salir NO altera la preferencia.)
+            // Toggling ALWAYS flips the current state, so the target is !full_screen.
+            // Persisted as the auto_fullscreen preference so the next game remembers the
+            // mode, same as zoom and compact view. (When leaving the game, resetInstance calls
+            // toggleFullScreen() directly, not this method, so exiting does NOT alter the preference.)
             persistFullScreenPreference(!full_screen);
 
             if (!Helpers.OSValidator.isMac() || !GameFrame.MAC_NATIVE_FULLSCREEN) {
@@ -5812,9 +5776,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Guarda la preferencia de pantalla completa (auto_fullscreen) y sincroniza los
-    // checkboxes del menú de apariencia y del popup del tapete. NO cambia el estado
-    // de la ventana: eso lo hace el toggle correspondiente.
+    // Saves the fullscreen preference (auto_fullscreen) and syncs the checkboxes in the
+    // appearance menu and the table's popup. Does NOT change the window's state: the
+    // corresponding toggle does that.
     private void persistFullScreenPreference(boolean fullscreen) {
         GameFrame.AUTO_FULLSCREEN = fullscreen;
         Helpers.PROPERTIES.setProperty("auto_fullscreen", String.valueOf(fullscreen));
@@ -5827,24 +5791,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Modo de pantalla elegido en Ajustes > Apariencia (lista ventana / pantalla
-    // completa). GUARDA la preferencia (que se aplica también al ARRANCAR partida vía
-    // autoZoomFullScreen(AUTO_FULLSCREEN)) y la APLICA ya si el estado actual difiere.
+    // Display mode chosen in Settings > Appearance (windowed / fullscreen list). SAVES the
+    // preference (also applied when the game STARTS via autoZoomFullScreen(AUTO_FULLSCREEN))
+    // and APPLIES it right away if the current state differs.
     public void setDisplayModeFullScreen(boolean fullscreen) {
         persistFullScreenPreference(fullscreen);
         if (fullscreen != full_screen) {
-            // El toggle dispone y recrea el peer nativo del frame, lo que corrompe un
-            // diálogo modal abierto encima. Por eso el combo de Ajustes NO aplica en
-            // vivo: el diálogo invoca esto al pulsar GUARDAR (applyPendingDisplayMode),
-            // justo antes de cerrarse. Se difiere al EDT para correr tras drenar el cierre.
+            // The toggle disposes and recreates the frame's native peer, which corrupts a
+            // modal dialog open on top of it. That's why the Settings combo does NOT apply
+            // live: the dialog invokes this when SAVE is clicked (applyPendingDisplayMode),
+            // right before closing. Deferred to the EDT to run after the close is drained.
             SwingUtilities.invokeLater(this::triggerFullScreenToggle);
         }
     }
 
-    // Fija la vista compacta a un valor CONCRETO (0=off, 1=compacta, 2=compacta+cartas,
-    // 3=compacta+cartas+local), para el desplegable de Ajustes > Apariencia. Misma
-    // lógica que el ciclo del menú (compact_menuActionPerformed) pero a un destino
-    // dado en vez de (n+1)%4.
+    // Sets the compact view to a SPECIFIC value (0=off, 1=compact, 2=compact+cards,
+    // 3=compact+cards+local), for the Settings > Appearance dropdown. Same logic as the
+    // menu's cycle (compact_menuActionPerformed) but to a given target instead of (n+1)%4.
     public void setCompactView(int target) {
         target = ((target % 4) + 4) % 4;
         if (target == GameFrame.VISTA_COMPACTA) {
@@ -5861,10 +5824,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.TapetePopupMenu.COMPACTA_MENU.setSelected(target > 0);
     }
 
-    // Fija el nivel de zoom a un valor CONCRETO, para el spinner de Ajustes >
-    // Apariencia. Aplica de una sola vez (mismo trabajo que zoom_menu_in/out/reset
-    // pero al nivel destino). El factor de zoom debe quedar > 0 (misma guarda que el
-    // zoom-out del menú).
+    // Sets the zoom level to a SPECIFIC value, for the Settings > Appearance spinner.
+    // Applies it in one shot (same work as zoom_menu_in/out/reset but to the target level).
+    // The zoom factor must stay > 0 (same guard as the menu's zoom-out).
     public void setZoomLevel(int target) {
         if (Helpers.doubleSecureCompare(0f, 1f + (target * ZOOM_STEP)) >= 0) {
             return;
@@ -5896,8 +5858,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     tapete.autoZoom(false);
                 });
             }
-            // Volcado coalescido: este camino lo dispara el spinner de Ajustes, que con la flecha
-            // mantenida encadena un cambio por repetición (el zoom fuera de partida ya lo hace).
+            // Coalesced flush: this path is triggered by the Settings spinner, which chains
+            // one change per repeat while the arrow is held (the out-of-game zoom already does this).
             Helpers.savePropertiesFileDeferred();
         });
     }
@@ -5948,8 +5910,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.TapetePopupMenu.AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
 
-        // "Persistir AUTO" solo es operable con "Botones AUTO" activo: grisar/activar
-        // su checkbox en ambos menús (menú-bar y popup del tapete).
+        // "Persist AUTO" is only usable with "AUTO buttons" on: gray out/enable its
+        // checkbox in both menus (menu bar and table popup).
         if (auto_action_persist_menu != null) {
             auto_action_persist_menu.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
         }
@@ -6445,7 +6407,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         } else if (GameFrame.rebuyHeadroom(player.getStack()) < (GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin())) {
 
-            // Ya en el techo de mesa: no hay margen para recomprar.
+            // Already at the table cap: no headroom to rebuy.
             rebuy_now_menu.setEnabled(true);
             Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
             rebuy_now_menu.setSelected(false);
@@ -6455,12 +6417,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         } else {
 
-            // Top-up en vivo: max = headroom (techo - stack), min y default segun
-            // modo (fijo: [1, BUYIN]; variable: rango configurado
-            // [getBuyinMin, getBuyinDefault]), recortados al headroom para no
-            // superar el techo. SIN cuenta atras
-            // (timeout -1): la recompra intra-mano es voluntaria; el tiempo solo
-            // aplica al arranque (compra inicial) y al game-over.
+            // Live top-up: max = headroom (cap - stack), min and default depend on the mode
+            // (fixed: [1, BUYIN]; variable: configured range [getBuyinMin, getBuyinDefault]),
+            // clamped to the headroom so as not to exceed the cap. NO countdown (timeout -1):
+            // an intra-hand rebuy is voluntary; the timer only applies at startup (initial
+            // buy-in) and at game-over.
             int headroom = GameFrame.rebuyHeadroom(player.getStack());
             int rebuy_min = GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin();
             int rebuy_def = Math.min(GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault(), headroom);
@@ -6656,14 +6617,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             boolean ok = false;
 
-            // Bloqueamos modificaciones al mapa mientras iteramos
+            // Block modifications to the map while iterating
             synchronized (getParticipantes()) {
                 for (Map.Entry<String, Participant> entry : getParticipantes().entrySet()) {
 
                     if (entry.getValue() != null && !entry.getValue().isCpu()) {
-                        // Con watchdog: si el peer forzado no vuelve dentro del grace, se
-                        // libera force_reset_socket y se da por perdido (sin esto, su
-                        // transporte quedaba bloqueado para siempre).
+                        // With a watchdog: if the forced peer doesn't return within the grace
+                        // period, force_reset_socket is released and it's given up on (without
+                        // this, its transport would stay blocked forever).
                         entry.getValue().forceSocketReconnectWithWatchdog();
                         ok = true;
                     }
@@ -6687,24 +6648,22 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         exit_menuActionPerformed(evt);
     }//GEN-LAST:event_halt_game_menuActionPerformed
 
-    // Recompra automática al arruinarse: checkbox del menú Preferencias y del
-    // popup. Campo a mano (fuera del bloque generado). Preferencia LOCAL de
-    // sesión sincronizada menú↔popup.
+    // Auto-rebuy on going broke: checkbox in the Preferences menu and the popup.
+    // Hand-built field (outside the generated block). LOCAL session preference synced menu<->popup.
     private javax.swing.JCheckBoxMenuItem auto_rebuy_menu;
 
-    // "Ajustes de partida": entrada del menú Preferencias (y gemelo del popup +
-    // icono del tapete) que abre el diálogo consolidado de reglas. Campo a mano
-    // (fuera del bloque generado por el editor).
+    // "Game settings": entry in the Preferences menu (and its twin in the popup +
+    // table icon) that opens the consolidated rules dialog. Hand-built field
+    // (outside the editor-generated block).
     private javax.swing.JMenuItem ajustes_partida_menu;
 
-    // Menú "Apariencia" del menú-bar (construido a mano re-parentando ítems);
-    // es uno de los menús de nivel superior, así que el dispatcher de teclas lo
-    // consulta para no robar atajos mientras está abierto.
+    // "Appearance" menu on the menu bar (hand-built by re-parenting items); it's one of the
+    // top-level menus, so the key dispatcher checks it to avoid stealing shortcuts while it's open.
     private javax.swing.JMenu apariencia_menu;
 
-    // Submenú "Efectos de animación" (construido a mano): tres efectos
-    // combinables — reparto/destapes de cartas, fichas de posición (ciegas+dealer)
-    // y ficha al bote (apuestas). Campos a mano para sincronizar con el popup.
+    // "Animation effects" submenu (hand-built): three combinable effects — dealing/uncovering
+    // cards, position chips (blinds+dealer), and the pot chip (bets). Hand-built fields to sync
+    // with the popup.
     private javax.swing.JCheckBoxMenuItem anim_reparto_menu;
     private javax.swing.JCheckBoxMenuItem anim_ciegas_dealer_menu;
     private javax.swing.JCheckBoxMenuItem anim_apuestas_menu;
@@ -6715,10 +6674,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int ANIM_APUESTAS = 2;
     public static final int ANIM_CONTADORES = 3;
 
-    // Aplica el cambio de un efecto de animación (flag + persistencia) y refleja
-    // el estado en AMBOS menús (menú-bar y popup del tapete). El warm-up de la
-    // caché del shuffle.gif ya no cuelga de aquí: depende del BARAJADO (lo dispara
-    // su checkbox en Ajustes y el maestro), no del reparto.
+    // Applies an animation effect's change (flag + persistence) and reflects the state in
+    // BOTH menus (menu bar and table popup). The shuffle.gif cache warm-up no longer depends
+    // on this: it depends on SHUFFLE (triggered by its own checkbox in Settings and the
+    // master), not on the deal.
     public void setAnimEffect(int which, boolean value) {
         switch (which) {
             case ANIM_REPARTO:
@@ -6742,7 +6701,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         syncAnimationMenus();
     }
 
-    // Refleja las cuatro PREFERENCIAS en los ocho checkboxes (menú-bar + popup del tapete).
+    // Reflects the four PREFERENCES in the eight checkboxes (menu bar + table popup).
     public void syncAnimationMenus() {
         if (anim_reparto_menu != null) {
             anim_reparto_menu.setSelected(GameFrame.ANIMACION_REPARTO_PREF);
@@ -6770,10 +6729,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Habilita/deshabilita (SIN desmarcar) los toggles individuales -menu-bar + popup-
-    // según el maestro: con el maestro off quedan en gris pero conservan su preferencia.
-    // Ya NO recalcula ningún flag (los *_PREF son la preferencia cruda; el gate lo aplican
-    // los helpers *On() en cada read-site). Lo llaman el arranque y setAnimacionesMaster.
+    // Enables/disables (WITHOUT unchecking) the individual toggles -menu bar + popup-
+    // according to the master: with the master off they're grayed out but keep their
+    // preference. No longer recomputes any flag (the *_PREF flags are the raw preference; the
+    // gate is applied by the *On() helpers at each read site). Called by startup and setAnimacionesMaster.
     public void applyAnimationMaster() {
         boolean on = GameFrame.ANIMACIONES;
 
@@ -6799,9 +6758,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Maestro (Ajustes): enciende/apaga TODAS las animaciones de un plumazo (gate global; NO
-    // toca las preferencias individuales) y lo persiste. applyAnimationMaster solo habilita/
-    // deshabilita los toggles; el efecto lo aplican los helpers *On().
+    // Master (Settings): turns ALL animations on/off at once (global gate; does NOT touch
+    // individual preferences) and persists it. applyAnimationMaster only enables/disables the
+    // toggles; the effect is applied by the *On() helpers.
     public void setAnimacionesMaster(boolean value) {
         GameFrame.ANIMACIONES = value;
         Helpers.PROPERTIES.setProperty("animaciones", String.valueOf(value));
@@ -6812,15 +6771,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Toggle de Apariencia: overlay de coste de igualar sobre las comunitarias.
+    // Appearance toggle: call-cost overlay on the community cards.
     private javax.swing.JCheckBoxMenuItem coste_igualar_menu;
 
     public javax.swing.JCheckBoxMenuItem getCoste_igualar_menu() {
         return coste_igualar_menu;
     }
 
-    // Aplica el cambio del toggle (flag + persistencia), refleja en ambos menús
-    // (menú-bar y popup) y muestra/oculta el overlay de inmediato.
+    // Applies the toggle's change (flag + persistence), reflects it in both menus (menu bar
+    // and popup) and shows/hides the overlay immediately.
     public void setCosteIgualar(boolean value) {
         GameFrame.MOSTRAR_COSTE_IGUALAR = value;
         Helpers.PROPERTIES.setProperty("mostrar_coste_igualar", String.valueOf(value));
@@ -6836,10 +6795,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // "Persistir AUTO entre manos": cuando está activo, la pulsación de un botón
-    // AUTO sobrevive de una mano a la siguiente en vez de resetearse. Solo tiene
-    // sentido (y solo se habilita) con "Botones AUTO" activo. Campo a mano +
-    // sincronización menú↔popup, como los demás toggles.
+    // "Persist AUTO across hands": when on, a pressed AUTO button survives from one hand to
+    // the next instead of resetting. Only makes sense (and is only enabled) with "AUTO
+    // buttons" on. Hand-built field + menu<->popup sync, like the other toggles.
     private javax.swing.JCheckBoxMenuItem auto_action_persist_menu;
 
     public javax.swing.JCheckBoxMenuItem getAuto_action_persist_menu() {
@@ -6858,8 +6816,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Toggle del diálogo de confirmación MODO AUTO (cuenta atrás vetable antes de
-    // cada acción automática). Solo se habilita con "Botones AUTO" activo.
+    // Toggle for the AUTO MODE confirmation dialog (vetoable countdown before each automatic
+    // action). Only enabled with "AUTO buttons" on.
     private javax.swing.JCheckBoxMenuItem modo_auto_confirm_menu;
 
     public javax.swing.JCheckBoxMenuItem getModo_auto_confirm_menu() {
@@ -6878,8 +6836,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Ítem de menú que abre el selector del máximo de auto-call. Solo se habilita
-    // con "Botones AUTO" activo.
+    // Menu item that opens the auto-call max selector. Only enabled with "AUTO buttons" on.
     private javax.swing.JMenuItem auto_call_menu;
 
     public javax.swing.JMenuItem getAuto_call_menu() {
@@ -6895,10 +6852,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         refreshAutoCallMenuText();
     }
 
-    // Refresca el rótulo de "AUTO igualar" en la barra de menú y en el popup del
-    // tapete para que muestre entre paréntesis si está ACTIVADO o DESACTIVADO
-    // (reutiliza las claves del diálogo de auto-call). Se llama al construir el
-    // menú y cada vez que cambia AUTO_CALL_ENABLED.
+    // Refreshes the "AUTO call" label in the menu bar and the table popup so it shows in
+    // parentheses whether it's ON or OFF (reuses the auto-call dialog's keys). Called when
+    // building the menu and every time AUTO_CALL_ENABLED changes.
     public void refreshAutoCallMenuText() {
         String text = Translator.translate("menu.auto_call") + " ("
                 + Translator.translate(GameFrame.AUTO_CALL_ENABLED ? "auto_call.activado" : "auto_call.desactivado") + ")";
@@ -6912,13 +6868,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Abre el diálogo modal de AUTO CALL: checkbox Activado (on/off), checkbox Sin
-    // límite (mapea a AUTO_CALL_MAX = 0) y spinner editable del importe máximo.
+    // Opens the modal AUTO CALL dialog: an Enabled checkbox (on/off), a No limit checkbox
+    // (maps to AUTO_CALL_MAX = 0), and an editable spinner for the max amount.
     public void openAutoCallMaxDialog() {
-        // Por seguridad, al abrir el ajuste desarmamos cualquier pre-pulsado de los
-        // botones AUTO: el umbral puede estar a punto de cambiar y no queremos que un
-        // check/call ya armado dispare con el límite viejo si nos llega el turno con el
-        // diálogo abierto.
+        // As a safety measure, opening this setting disarms any pre-selected AUTO button: the
+        // threshold might be about to change, and we don't want an already-armed check/call to
+        // fire with the old limit if our turn arrives while the dialog is open.
         LocalPlayer lp = getLocalPlayer();
         if (lp != null) {
             lp.desPrePulsarAutoTodo();
@@ -6955,18 +6910,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return ajustes_partida_menu;
     }
 
-    // Abre el diálogo unificado "Ajustes" (pestañas Apariencia / Audio / Partida).
-    // Único punto de apertura para los tres accesos (menú Preferencias, popup del
-    // tapete e icono del CommunityCardsPanel).
+    // Opens the unified "Settings" dialog (Appearance / Audio / Game tabs). The single entry
+    // point for all three access paths (Preferences menu, table popup, and the
+    // CommunityCardsPanel icon).
     public void openSettingsDialog() {
         SettingsDialog dialog = new SettingsDialog(this, true);
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
     }
 
-    // Recompra automática al arruinarse: preferencia LOCAL (no se difunde al host
-    // ni cambia las reglas de la timba). Solo conmuta el flag y refleja el estado
-    // en el checkbox gemelo del popup.
+    // Auto-rebuy on going broke: LOCAL preference (not broadcast to the host, doesn't change
+    // the game's rules). Just toggles the flag and reflects the state in the popup's twin checkbox.
     private void auto_rebuy_menuActionPerformed(java.awt.event.ActionEvent evt) {
         GameFrame.AUTO_REBUY_ON_BROKE = auto_rebuy_menu.isSelected();
         Helpers.TapetePopupMenu.AUTO_REBUY_MENU.setSelected(auto_rebuy_menu.isSelected());

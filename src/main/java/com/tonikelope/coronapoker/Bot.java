@@ -38,10 +38,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * AI opponent driving one seat: preflop hand-tier ranges, postflop EV/fold-equity decisions,
+ * street plans (bet-bet-bet / bet-check-bet / check-call traps) and a per-difficulty mistake
+ * injector, layered over the shared {@link BotEvaluator} (hand strength / draw potential).
+ */
 public class Bot {
 
+    // Suit order used to index into org.alberta.poker.Card; must match the encoding
+    // its Hand/HandEvaluator expect.
     public static final String SUITS = "TDCP";
     public static final int MAX_BET_COUNT = 3;
+    // Simulated "thinking" delay (ms) before a bot's action is applied, so bot moves
+    // don't render instantly.
     public static final int BOT_THINK_TIME = 1500;
 
     // Core Alberta Engine Tools (retained as statics so legacy Crupier showdown paths keep
@@ -121,7 +130,10 @@ public class Bot {
         }
     }
 
-    // --- OPPONENT TRACKER ---
+    /**
+     * Per-opponent behavioural stats (VPIP, PFR, aggression factor) accumulated across hands,
+     * used to bias fold-equity and bet/call decisions toward an opponent's observed tendencies.
+     */
     public static class OpponentTracker {
 
         private int handsPlayed = 0;
@@ -236,7 +248,6 @@ public class Bot {
     private volatile Potential cachedPotential = null;
 
     // Advanced state
-    private volatile boolean planCheckRaise = false;
     private volatile boolean floatPlay = false;
     private volatile int streetPlan = PLAN_NONE;
     private volatile int streetPlanStartStreet = -1;
@@ -247,10 +258,16 @@ public class Bot {
 
     private static final Logger LOGGER = Logger.getLogger(Bot.class.getName());
 
+    /**
+     * Attaches this AI to a {@link RemotePlayer} seat and rolls its skill/style personality.
+     */
     public Bot(RemotePlayer player) {
         this((BotPlayerView) player);
     }
 
+    /**
+     * Attaches this AI to any {@link BotPlayerView} seat and rolls its skill/style personality.
+     */
     public Bot(BotPlayerView player) {
         this.cpuPlayer = player;
         assignPersonality();
@@ -330,17 +347,17 @@ public class Bot {
     }
 
     /**
-     * Verbose Logger for Debugging BOT Decisions.
+     * Verbose logger for debugging bot decisions.
      *
-     * Gate isLoggable evita el String.format (parseo del patrón + substitución)
-     * cuando INFO está apagado — caso normal en producción. Se llama 5-15 veces
-     * por decisión × N bots × manos; sin el gate, el coste era visible en perfilados
-     * incluso con el handler de fichero deshabilitado (ver 🟡-1 del informe v2).
+     * The {@code isLoggable} gate skips the {@code String.format} (pattern parsing +
+     * substitution) when INFO is off, the normal production case. Called 5-15 times per
+     * decision x N bots x hands, so without the gate the cost showed up in profiling even
+     * with the file handler disabled.
      *
-     * NOTA: la concatenación del 'message' en los call sites (e.g. logVerbose(
-     * "Overcard Penalty: Pair crushed by " + overcards + " cards.")) sigue
-     * ejecutándose. Para evitarla completamente habría que migrar los 87
-     * callsites a Supplier<String> — deferred.
+     * Note: the {@code message} string concatenation at each call site (e.g.
+     * {@code logVerbose("Overcard Penalty: Pair crushed by " + overcards + " cards.")}) still
+     * runs regardless. Avoiding that too would mean migrating all call sites to
+     * {@code Supplier<String>} — deferred.
      */
     private void logVerbose(String message) {
         if (!LOGGER.isLoggable(Level.INFO)) {
@@ -468,6 +485,10 @@ public class Bot {
         currentProfile = baseProfile;
     }
 
+    /**
+     * Resets all per-hand state (street plan, caches, slowplay/tilt rolls) at the start of a
+     * new hand and re-derives the current profile from stack depth.
+     */
     public void resetBot() {
         holeCard1 = new org.alberta.poker.Card(cpuPlayer.getHoleCard1Index());
         holeCard2 = new org.alberta.poker.Card(cpuPlayer.getHoleCard2Index());
@@ -485,7 +506,6 @@ public class Bot {
             logVerbose("Decided to potentially slowplay this hand.");
         }
 
-        planCheckRaise = false;
         floatPlay = false;
         cBetInitiative = false;
         previousStrength = -1.0;
@@ -516,6 +536,12 @@ public class Bot {
         }
     }
 
+    /**
+     * Updates the recreational tilt tracker after a hand resolves: a win clears the loss
+     * streak and any tilt, a loss extends the streak.
+     *
+     * @param won whether this bot won the hand
+     */
     public void recordHandResult(boolean won) {
         if (won) {
             consecutiveLosses = 0;
@@ -525,12 +551,22 @@ public class Bot {
         }
     }
 
+    /**
+     * @return the bet size computed during the last decision, NOT a freshly recomputed one: a
+     * new call would draw new RNG and bet a different amount than the one the EV was evaluated on
+     */
     public double getBetSize() {
-        // Return the size computed during the decision, NOT a fresh one: a new
-        // call would draw new RNG and bet a different amount than the EV used.
         return lastBetSize;
     }
 
+    /**
+     * Computes a bet/raise size for the current street: preflop open/3-bet sizing, or postflop
+     * sizing driven by board texture and pot fraction, then rounded to a legal small-blind
+     * multiple of the dealer's current stakes.
+     *
+     * @param effectiveStrength this bot's current hand-strength estimate (0-1)
+     * @return the target bet size, legal and aligned to the current small blind
+     */
     public double getBetSize(double effectiveStrength) {
         DealerView dealer = dealer();
         // Boundary: the dealer money is double; the bot's sizing math is float
@@ -583,9 +619,9 @@ public class Bot {
         if (randInt(100) < 30) {
             targetBet *= (1.0f + (randFloat() * 0.30f - 0.15f));
         }
-        // Redondear al chip mínimo = SB ACTUAL del dealer, no
-        // GameFrame.CIEGA_PEQUEÑA (que es la SB inicial global y no
-        // refleja doblarCiegas ni recovery).
+        // Round to the minimum chip = the dealer's CURRENT SB, not
+        // GameFrame.CIEGA_PEQUEÑA (the global initial SB, which doesn't
+        // reflect doblarCiegas or recovery).
         float sb = (float) dealer.getCiega_pequeña();
         if (sb <= 0f) {
             sb = (float) GameFrame.CIEGA_PEQUEÑA;
@@ -593,26 +629,33 @@ public class Bot {
         targetBet = (float) (Math.ceil(Helpers.floatClean(targetBet) / sb) * sb);
 
         if (Helpers.float1DSecureCompare(currentBet, 0f) == 0 || (dealer.getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(currentBet, bb) == 0)) {
-            // Apertura: bb y targetBet ya son múltiplos de sb (en la escalera por
-            // defecto bb = 2*sb, y targetBet queda alineado en la línea de Math.ceil
-            // de arriba), asi que el max final mantiene la alineación.
+            // Opening bet: bb and targetBet are already sb multiples (in the default
+            // ladder bb = 2*sb, and targetBet is aligned by the Math.ceil above), so
+            // the final max keeps the alignment.
             return Math.max(bb, targetBet);
         } else {
-            // Raise: el bet final se compone como currentBet + delta. Si
-            // currentBet viene fraccionario respecto a la sb ACTUAL — caso
-            // típico, un all-in previo con stack residual no múltiplo de la
-            // nueva sb tras doblarCiegas o tras recovery con blinds doblados
-            // — la suma no queda alineada aunque targetBet y minRaise lo
-            // estuvieran. Realineamos el total al múltiplo de sb superior
-            // para que la apuesta del bot SIEMPRE sea legal. El Math.ceil
-            // hacia arriba ya está cubierto por la siguiente comprobación
-            // de stack > 75% en el caller, que convierte el bet en ALLIN
-            // si la subida termina cerca del stack completo.
+            // Raise: the final bet is composed as currentBet + delta. If currentBet is
+            // fractional relative to the CURRENT sb — typical of a prior all-in with a
+            // residual stack that isn't a multiple of the new sb after doblarCiegas or
+            // after recovery with doubled blinds — the sum won't be aligned even though
+            // targetBet and minRaise were. Realign the total to the next sb multiple so
+            // the bot's bet is ALWAYS legal. The rounding up here is already covered by
+            // the caller's stack > 75% check, which converts the bet to ALLIN if the
+            // raise ends up close to the full stack.
             float raw_result = Math.max(currentBet + minRaise, currentBet + targetBet);
             return (float) (Math.ceil(Helpers.floatClean(raw_result) / sb) * sb);
         }
     }
 
+    /**
+     * Computes this bot's action for the current decision point: the EV/fold-equity-driven
+     * decision, possibly downgraded to a recognisable recreational mistake per
+     * {@link #mistakeRateForDifficulty()}.
+     *
+     * @param opponentsCount number of other players still live in the hand
+     * @return one of {@link Player#BET}, {@link Player#CHECK} (covers check and call) or
+     * {@link Player#FOLD}
+     */
     public int calculateBotDecision(int opponentsCount) {
         int decision = computeRawDecision(opponentsCount);
         double mistakeRate = mistakeRateForDifficulty();
@@ -1731,8 +1774,8 @@ public class Bot {
         String myNick = cpuPlayer.getNickname();
         DealerView crupier = dealer();
         String dealerNick = crupier.getDealer_nick();
-        // Con straddle el straddler (utg_nick) habla el ULTIMO preflop (opcion): es
-        // posicion tardia, no temprana; y el "under the gun" real es el siguiente.
+        // With a straddle the straddler (utg_nick) acts LAST preflop (the option): that's
+        // late position, not early; the real "under the gun" is the next player.
         String straddleUtg = crupier.getStraddleUtgNick();
         if (straddleUtg != null && myNick.equals(crupier.getUtg_nick())) {
             return Position.LATE;
@@ -1867,10 +1910,17 @@ public class Bot {
         return TRACKER_MEMORY.get(lastAggressor.getNickname());
     }
 
+    /**
+     * @return the Alberta engine's suit index for a Corona {@link Card}'s suit
+     */
     public static int coronaCardSuit2LokiCardSuit(Card carta) {
         return Bot.SUITS.indexOf(carta.getPalo());
     }
 
+    /**
+     * Converts a Corona card index (1-52) to its Alberta engine {@code org.alberta.poker.Card}
+     * equivalent.
+     */
     public static org.alberta.poker.Card coronaIntegerCard2LokiCard(int carta) {
         int v = (carta - 1) % 13;
         int val = (v == 0 ? 14 : v + 1);
@@ -1878,10 +1928,17 @@ public class Bot {
         return new org.alberta.poker.Card(val - 2, Bot.SUITS.indexOf(palo));
     }
 
+    /**
+     * @see #coronaIntegerCard2LokiCard(int)
+     */
     public static org.alberta.poker.Card coronaIntegerCard2LokiCard(Integer carta) {
         return coronaIntegerCard2LokiCard(carta.intValue());
     }
 
+    /**
+     * Converts a Corona {@link Card} to its Alberta engine {@code org.alberta.poker.Card}
+     * equivalent.
+     */
     public static org.alberta.poker.Card coronaCard2LokiCard(Card carta) {
         return new org.alberta.poker.Card(carta.getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(carta));
     }

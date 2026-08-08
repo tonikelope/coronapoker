@@ -61,6 +61,8 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
 /**
+ * Stats/history window: browse games and hands, run built-in SQL reports with sortable
+ * tables and charts, manage the "private game" flag, and configure P2P stats sync.
  *
  * @author tonikelope
  */
@@ -84,34 +86,33 @@ public class StatsDialog extends JFrame {
     private javax.swing.JSplitPane chart_split;
     private int chart_area_height = 360;
     private volatile boolean adjusting_divider = false;
-    // Barra con el spinner de "Global Chart Zoom" (escala de fuentes de las gráficas).
+    // Toolbar holding the "Global Chart Zoom" spinner (scales chart fonts).
     private javax.swing.JPanel chart_toolbar;
     private javax.swing.JSpinner chart_zoom_spinner;
-    // Sincronización P2P de estadísticas: dos checkboxes hand-añadidos (no en el
-    // .form), en una barra al pie del content pane envuelto. Recibir/Compartir al
-    // conectar a un servidor; persisten en Helpers.PROPERTIES al togglear.
+    // P2P stats sync: two hand-added checkboxes (not in the .form) in a bar
+    // wrapped around the content pane. Receive/Share on connecting to a server;
+    // persisted to Helpers.PROPERTIES on toggle.
     private javax.swing.JCheckBox receive_stats_checkbox;
     private javax.swing.JCheckBox share_stats_checkbox;
 
-    // "Partida privada": una timba marcada como privada NUNCA se comparte por la
-    // sync P2P, aunque "Compartir" esté activo (ver StatsSync.listShareableUgis).
-    // Componentes hand-añadidos (no en el .form, como el resto de extras de este
-    // diálogo): un banner sobre "Duración" (clic derecho -> quitar la marca), un
-    // botón por-timba y dos botones globales (como purgar) junto al filtro.
+    // "Private game": a game marked private is NEVER shared via P2P sync, even
+    // with "Share" on (see StatsSync.listShareableUgis). Hand-added components
+    // (not in the .form, like the rest of this dialog's extras): a banner above
+    // "Duration" (right-click to unmark), a per-game button, and two global
+    // buttons (next to purge) beside the filter.
     private javax.swing.JLabel private_game_label;
     private javax.swing.JButton private_game_button;
     private javax.swing.JButton private_all_button;
     private javax.swing.JButton unprivate_all_button;
 
-    // StatsDialog hace TODO su trabajo de fondo (consultas a la conexión SQLite
-    // compartida + lectura de logs/chat) en UN solo hilo. Antes,
-    // game_comboItemStateChanged disparaba loadGameData + loadHands + el stat A LA VEZ
-    // sobre la misma conexión, colisionando — causa del freeze histórico de la ventana
-    // de stats tras el balance (el driver serializa el acceso a la conexión y, con el
-    // ResultSet leído en el EDT, un worker retenía la conexión mientras pintaba,
-    // bloqueando a los otros hasta el timeout de 30s). Serializar en un executor de un
-    // hilo elimina la contención. Visor de instancia única; el hilo es daemon y se
-    // apaga en formWindowClosed.
+    // All background work (shared SQLite connection queries + log/chat reads) runs
+    // on a single thread. Previously game_comboItemStateChanged fired loadGameData +
+    // loadHands + the stat query concurrently on the same connection, causing the
+    // historic stats-window freeze after balance (the driver serializes connection
+    // access; a worker holding the connection while painting on the EDT blocked the
+    // others until the 30s timeout). Serializing on a single-thread executor removes
+    // the contention. Single-instance viewer; the thread is daemon and shuts down in
+    // formWindowClosed.
     private final java.util.concurrent.ExecutorService stats_db_executor = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "stats-db");
         t.setDaemon(true);
@@ -173,7 +174,8 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Creates new form Stats
+     * Builds the stats window: wires the hand-added chart/sync/privacy UI onto the
+     * generated .form layout and kicks off the initial games/stat load.
      */
     public StatsDialog() {
         super();
@@ -200,8 +202,8 @@ public class StatsDialog extends JFrame {
 
         initComponents();
 
-        // Recuadro fino de agrupación con esquinas REDONDEADAS (antes cuadradas). Se aplica aquí
-        // (tras initComponents) para no depender del .form generado; mismo gris y grosor.
+        // Thin grouping border with ROUNDED corners (previously square). Applied here
+        // (after initComponents) to avoid depending on the generated .form; same gray and thickness.
         hands_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
 
         // Chart area below the results table, built by hand instead of in the .form: a vertical
@@ -221,14 +223,13 @@ public class StatsDialog extends JFrame {
         chart_split.setResizeWeight(0.8);
         chart_split.setDividerSize(0);
 
-        // "Global Chart Zoom": spinner que escala TODAS las fuentes de las gráficas
-        // (StatsCharts.FONT_SCALE) y re-renderiza la gráfica actual al cambiar. Va en
-        // una barra propia bajo el split (no se toca el GroupLayout del .form). El
-        // listener no actúa durante la construcción (init) ni al fijar el valor inicial.
-        // El zoom por defecto de las gráficas sigue el zoom de diálogos (base × DIALOG_ZOOM); el spinner
-        // lo puede reajustar. El rango se estira si el default cae fuera (a 100% es 1.3, rango 0.8-3.0,
-        // idéntico al diseño).
-        // Redondeado a múltiplos de 0.05 para valores limpios (0.9, 0.95, 1.3...) en vez de 0.91 raros.
+        // "Global Chart Zoom": spinner that scales ALL chart fonts (StatsCharts.FONT_SCALE)
+        // and re-renders the current chart on change. Lives in its own bar under the split
+        // (the .form's GroupLayout is untouched); its listener stays inert during
+        // construction (init). The default chart zoom follows the dialog zoom (base x
+        // DIALOG_ZOOM), adjustable via the spinner; the range stretches if the default falls
+        // outside it (100% = 1.3, range 0.8-3.0, matching the design). Rounded to multiples
+        // of 0.05 for clean values (0.9, 0.95, 1.3...) instead of odd ones like 0.91.
         double chart_default = Math.round(StatsCharts.DEFAULT_FONT_SCALE * Helpers.DIALOG_ZOOM / 0.05d) * 0.05d;
         StatsCharts.setFontScale((float) chart_default);
         chart_zoom_spinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel(chart_default, Math.min(0.8d, chart_default), Math.max(3.0d, chart_default), 0.05d));
@@ -281,13 +282,12 @@ public class StatsDialog extends JFrame {
         scroll_stats_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_stats_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
-        // En resoluciones bajas el panel de estadísticas (una maquetación vertical) sacaba
-        // un scroll HORIZONTAL espurio: al ser un JPanel normal, el viewport lo dimensionaba
-        // a su ancho PREFERIDO (~1200px por los tamaños fijos del .form) y, al no caber en
-        // pantalla, mostraba la barra lateral. Lo envolvemos en un contenedor que SIGUE el
-        // ancho del viewport (Scrollable.getScrollableTracksViewportWidth) -> el GroupLayout
-        // reflota al ancho disponible y la barra horizontal ya no aparece; la vertical sigue
-        // saliendo si el contenido no cabe en alto (que es lo esperado y único razonable).
+        // At low resolutions the stats panel (a vertical layout) triggered a spurious
+        // HORIZONTAL scrollbar: as a plain JPanel, the viewport sized it to its PREFERRED
+        // width (~1200px from the .form's fixed sizes), which didn't fit on screen. Wrapping
+        // it in a container that tracks the viewport width (Scrollable.getScrollableTracksViewportWidth)
+        // lets the GroupLayout reflow to the available width, so the horizontal bar no longer
+        // appears; the vertical one still shows when content doesn't fit in height (expected).
         scroll_stats_panel.setViewportView(new FitWidthPanel(stats_panel));
         scroll_stats_panel.setHorizontalScrollBarPolicy(javax.swing.JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         res_table_warning.setVisible(false);
@@ -311,10 +311,10 @@ public class StatsDialog extends JFrame {
             stats_combo.addItem(entry.getKey());
         }
 
-        // Sincronización P2P de estadísticas: dos preferencias globales (recibir /
-        // compartir al conectar a un servidor) en una barra al pie. Se cuelga
-        // envolviendo el content pane (BorderLayout.SOUTH), sin tocar el .form ni el
-        // GroupLayout. Los listeners NO persisten durante la construcción (init).
+        // P2P stats sync: two global preferences (receive/share on connecting to a
+        // server) in a footer bar, hung by wrapping the content pane (BorderLayout.SOUTH)
+        // without touching the .form or its GroupLayout. Listeners stay inert during
+        // construction (init).
         receive_stats_checkbox = new javax.swing.JCheckBox(Translator.translate("stats.sync_receive"));
         receive_stats_checkbox.putClientProperty("i18n.key", "stats.sync_receive");
         receive_stats_checkbox.setOpaque(false);
@@ -341,15 +341,15 @@ public class StatsDialog extends JFrame {
             Helpers.savePropertiesFile();
         });
 
-        // Botón "Excluir...": abre el diálogo de exclusiones de COMPARTIR (privadas /
-        // por nick). Solo tiene sentido junto a COMPARTIR, pero se deja siempre visible
-        // (las exclusiones se persisten aunque COMPARTIR esté momentáneamente en OFF).
+        // "Exclude..." button: opens the SHARE exclusions dialog (private games / by
+        // nick). Only meaningful alongside SHARE, but always left visible (exclusions
+        // persist even while SHARE is momentarily off).
         javax.swing.JButton exclude_stats_button = new javax.swing.JButton(Translator.translate("stats.sync_exclude"));
         exclude_stats_button.putClientProperty("i18n.key", "stats.sync_exclude");
         exclude_stats_button.addActionListener(e -> showShareExclusionsDialog());
 
-        // "Compartir" + "Excluir..." forman un solo grupo (la exclusión acota lo que se
-        // comparte), enmarcado con una línea negra fina para leerse como una unidad.
+        // "Share" + "Exclude..." form one group (the exclusion scopes what's shared),
+        // framed with a thin black line to read as a single unit.
         javax.swing.JPanel share_group = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 10, 2));
         share_group.setOpaque(false);
         share_group.setBorder(new RoundedLineBorder(java.awt.Color.BLACK, 1, 12));
@@ -368,11 +368,11 @@ public class StatsDialog extends JFrame {
         setContentPane(content_wrapper);
 
         // ====================================================================
-        // "Partida privada" (hand-añadido, fuera del .form como el resto de
-        // extras de este diálogo). Se construye ANTES de updateFonts/
-        // translateComponents para que herede fuente e i18n como los demás.
+        // "Private game" (hand-added, outside the .form like the rest of this
+        // dialog's extras). Built BEFORE updateFonts/translateComponents so it
+        // inherits font and i18n like everything else.
         // ====================================================================
-        // Banner sobre "Duración" (solo visible si la timba seleccionada es privada).
+        // Banner above "Duration" (visible only when the selected game is private).
         private_game_label = new javax.swing.JLabel(Translator.translate("stats.partida_privada"),
                 new javax.swing.ImageIcon(getClass().getResource("/images/lock.png")), javax.swing.SwingConstants.LEFT);
         private_game_label.putClientProperty("i18n.key", "stats.partida_privada");
@@ -383,11 +383,11 @@ public class StatsDialog extends JFrame {
         Helpers.setTranslatedToolTip(private_game_label, "stats.quitar_privada");
         private_game_label.setVisible(false);
 
-        // Candado TACHADO (diagonal roja sobre lock.png) para las acciones de "quitar
-        // privada": candado = hacer privada, candado tachado = quitarla.
+        // Struck-through lock (red diagonal over lock.png) for "unmark private" actions:
+        // lock = mark private, struck lock = unmark.
         javax.swing.ImageIcon struck_lock = struckIcon(getClass().getResource("/images/lock.png"));
 
-        // Clic derecho sobre el banner -> "Quitar privada" (desmarca la timba seleccionada).
+        // Right-click on the banner -> "Unmark private" (unmarks the selected game).
         javax.swing.JPopupMenu unprivate_popup = new javax.swing.JPopupMenu();
         javax.swing.JMenuItem unprivate_item = new javax.swing.JMenuItem(Translator.translate("stats.quitar_privada"), struck_lock);
         unprivate_item.putClientProperty("i18n.key", "stats.quitar_privada");
@@ -411,11 +411,11 @@ public class StatsDialog extends JFrame {
             }
         });
 
-        // Inserta el banner a TODO EL ANCHO justo encima del bloque de datos de la
-        // timba (sobre "Duración"): envuelve game_data_panel en un BorderLayout con el
-        // banner al norte. replace() conserva el hueco del GroupLayout del .form sin
-        // tocarlo. El banner es hermano de game_data_panel, así que un ComponentListener
-        // lo oculta cuando el panel de datos se oculta (p.ej. al elegir "todas las timbas").
+        // Inserts the banner at FULL WIDTH just above the game data block (over
+        // "Duration"): wraps game_data_panel in a BorderLayout with the banner to the
+        // north. replace() keeps the .form's GroupLayout slot without touching it. The
+        // banner is a sibling of game_data_panel, so a ComponentListener hides it whenever
+        // the data panel hides (e.g. selecting "all games").
         javax.swing.JPanel private_banner_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout());
         private_banner_wrapper.setOpaque(false);
         ((javax.swing.GroupLayout) stats_panel.getLayout()).replace(game_data_panel, private_banner_wrapper);
@@ -428,18 +428,18 @@ public class StatsDialog extends JFrame {
             }
         });
 
-        // Botón por-timba: marcar la timba seleccionada como privada (junto a eliminar).
+        // Per-game button: mark the selected game as private (next to delete).
         private_game_button = new javax.swing.JButton(Translator.translate("stats.hacer_privada"),
                 new javax.swing.ImageIcon(getClass().getResource("/images/lock.png")));
         private_game_button.putClientProperty("i18n.key", "stats.hacer_privada");
-        private_game_button.setBackground(new java.awt.Color(123, 31, 162)); // morado
+        private_game_button.setBackground(new java.awt.Color(123, 31, 162)); // purple
         private_game_button.setForeground(new java.awt.Color(255, 255, 255));
         private_game_button.setFont(new java.awt.Font("Dialog", 1, 14));
         private_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         private_game_button.addActionListener(e -> setSelectedGamePrivateAsync(true));
 
-        // Cap a tamaño preferido: el "glue" izquierdo de la fila absorbe el espacio
-        // extra y mantiene los botones pegados a la derecha.
+        // Capped at preferred size: the row's left "glue" absorbs extra space and
+        // keeps the buttons pinned to the right.
         javax.swing.JPanel delete_button_group = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 18, 0)) {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -451,8 +451,8 @@ public class StatsDialog extends JFrame {
         delete_button_group.add(private_game_button);
         delete_button_group.add(delete_game_button);
 
-        // Botones globales (como purgar): marcar / desmarcar privadas TODAS las
-        // timbas del jugador filtrado. Activos solo con filtro de jugador.
+        // Global buttons (like purge): mark/unmark private ALL games of the filtered
+        // player. Enabled only with a player filter active.
         private_all_button = new javax.swing.JButton(Translator.translate("stats.hacer_privadas"),
                 new javax.swing.ImageIcon(getClass().getResource("/images/lock.png")));
         private_all_button.putClientProperty("i18n.key", "stats.hacer_privadas");
@@ -470,8 +470,8 @@ public class StatsDialog extends JFrame {
         unprivate_all_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         unprivate_all_button.addActionListener(e -> markFilteredGamesPrivateAsync(false));
 
-        // getMaximumSize -> preferido: que NO crezca y robe espacio al game_combo
-        // (el único que debe estirarse en esta fila).
+        // getMaximumSize -> preferred size: keeps it from growing and stealing space
+        // from game_combo (the only thing meant to stretch in this row).
         javax.swing.JPanel purge_button_group = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)) {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -484,23 +484,22 @@ public class StatsDialog extends JFrame {
         purge_button_group.add(private_all_button);
         purge_button_group.add(unprivate_all_button);
 
-        // Fuente de las tablas/textarea (contenido de datos): tambien sigue el zoom de dialogos, para que
-        // el contenido escale como el resto. A 100% es la de diseno.
+        // Font for the tables/textarea (data content): also follows the dialog zoom
+        // so content scales like everything else; at 100% it's the design font.
         Font original_dialog_font = res_table.getFont().deriveFont(res_table.getFont().getSize2D() * Helpers.DIALOG_ZOOM);
         Helpers.applyDialogZoom(this);
         Helpers.translateComponents(this, false);
 
-        // Los dos checkboxes de sync, un pelín más grandes que el resto del diálogo.
-        // updateFonts ya les puso GUI_FONT; derivamos +2pt sobre ese tamaño (debe ir
-        // DESPUÉS de updateFonts o lo sobrescribiría).
+        // The two sync checkboxes are a touch larger than the rest of the dialog.
+        // updateFonts already set GUI_FONT on them; derive +2pt on top of that size
+        // (must run AFTER updateFonts or it would overwrite this).
         Font sync_checkbox_font = receive_stats_checkbox.getFont().deriveFont(receive_stats_checkbox.getFont().getSize2D() + 2f);
         receive_stats_checkbox.setFont(sync_checkbox_font);
         share_stats_checkbox.setFont(sync_checkbox_font);
-        // El botón "Excluir..." un pelín más grande también, para casar con "Compartir"
-        // dentro de su marco.
+        // The "Exclude..." button is also a touch larger, to match "Share" inside its frame.
         exclude_stats_button.setFont(sync_checkbox_font);
 
-        // Banner "PARTIDA PRIVADA" en negrita (updateFonts lo dejó en redonda).
+        // "PRIVATE GAME" banner in bold (updateFonts left it regular).
         private_game_label.setFont(private_game_label.getFont().deriveFont(java.awt.Font.BOLD));
 
         pack();
@@ -509,8 +508,8 @@ public class StatsDialog extends JFrame {
         hand_comcards_val.setFont(original_dialog_font);
         game_textarea.setFont(original_dialog_font);
 
-        // Alturas de fila proporcionales al zoom (si no, con la fuente escalada el texto se recorta a
-        // zoom>1 o sobra hueco a zoom<1). A 100% no cambia (Math.round(rh*1.0)=rh).
+        // Row heights scaled with the zoom (otherwise the scaled font clips at zoom>1
+        // or leaves excess space at zoom<1); unchanged at 100% (Math.round(rh*1.0)=rh).
         if (Helpers.isDialogZoomActive()) {
             res_table.setRowHeight(Math.round(res_table.getRowHeight() * Helpers.DIALOG_ZOOM));
             showdown_table.setRowHeight(Math.round(showdown_table.getRowHeight() * Helpers.DIALOG_ZOOM));
@@ -529,8 +528,8 @@ public class StatsDialog extends JFrame {
 
         pack();
 
-        // Ventana redimensionable con barra de título completa (min/max/cerrar).
-        // Tamaño de restauración al 85% de la pantalla; se abre maximizada.
+        // Resizable window with a full title bar (min/max/close). Restore size is
+        // 85% of the screen; opens maximized.
         java.awt.Dimension stats_screen = Toolkit.getDefaultToolkit().getScreenSize();
         setSize(Math.round(stats_screen.width * 0.85f), Math.round(stats_screen.height * 0.85f));
 
@@ -538,13 +537,12 @@ public class StatsDialog extends JFrame {
 
         stats_db_executor.submit(() -> {
             loadGames();
-            // Vista por defecto al abrir: la última timba (la más reciente, índice 1 tras
-            // "todas las timbas") con la subconsulta de ganancias/pérdidas, consultada
-            // automáticamente. Seleccionar la timba encola loadGameData + loadHands en este
-            // mismo executor de un solo hilo; fijamos la stat en una tarea POSTERIOR para
-            // que el hand_combo ya esté poblado (índice 0) cuando corra la consulta —igual
-            // que en el flujo manual— y no se dispare dos veces. Si no hay timbas, se queda
-            // en "todas las timbas".
+            // Default view on open: the latest game (index 1, right after "all games")
+            // with the profit/loss stat, queried automatically. Selecting the game queues
+            // loadGameData + loadHands on this same single-thread executor; the stat is set
+            // in a LATER task so hand_combo is already populated (index 0) when the query
+            // runs -- matching the manual flow -- without firing twice. Stays on "all games"
+            // if there are none.
             Helpers.GUIRunAndWait(() -> {
                 if (game_combo.getItemCount() > 1) {
                     game_combo.setSelectedIndex(1);
@@ -557,9 +555,9 @@ public class StatsDialog extends JFrame {
         init = false;
     }
 
-    // Contenedor de la vista del scroll de estadísticas que SIGUE el ancho del viewport
-    // (no su propio preferido), de modo que el panel reflota a lo ancho disponible y nunca
-    // provoca scroll horizontal; en alto conserva su preferido (puede scrollear en vertical).
+    // Viewport container for the stats scroll pane that TRACKS the viewport width (not its
+    // own preferred width), so the panel reflows to the available width and never triggers
+    // horizontal scrolling; in height it keeps its preferred size (so it can scroll vertically).
     private static final class FitWidthPanel extends javax.swing.JPanel implements javax.swing.Scrollable {
 
         FitWidthPanel(java.awt.Component view) {
@@ -590,11 +588,11 @@ public class StatsDialog extends JFrame {
 
         @Override
         public boolean getScrollableTracksViewportHeight() {
-            // Rellenar el alto del viewport SOLO cuando sobra sitio (viewport más alto que
-            // el contenido preferido): así el hueco muerto bajo las gráficas desaparece y el
-            // slot de las gráficas (max=32767 en el GroupLayout) crece hasta el pie. Si el
-            // contenido NO cabe en alto (resoluciones bajas) devolvemos false -> el contenido
-            // usa su alto preferido y el scroll vertical sigue saliendo como debe.
+            // Fill the viewport height ONLY when there's room to spare (viewport taller than
+            // the preferred content): this removes the dead space below the charts and lets
+            // the charts slot (max=32767 in the GroupLayout) grow to the bottom. If the content
+            // does NOT fit in height (low resolutions) return false, so the content uses its
+            // preferred height and vertical scrolling still shows as expected.
             java.awt.Container parent = getParent();
             return parent instanceof javax.swing.JViewport && parent.getHeight() > getPreferredSize().height;
         }
@@ -619,7 +617,7 @@ public class StatsDialog extends JFrame {
 
         boolean show = added > 0;
         chart_panel.setVisible(show);
-        // La barra del zoom solo tiene sentido cuando hay gráfica visible.
+        // The zoom bar only makes sense when a chart is visible.
         if (chart_toolbar != null) {
             chart_toolbar.setVisible(show);
         }
@@ -639,11 +637,11 @@ public class StatsDialog extends JFrame {
         chart_panel.repaint();
     }
 
-    // Re-lanza la consulta de la stat actualmente seleccionada para re-renderizar su
-    // gráfica con el FONT_SCALE nuevo (lo dispara el spinner de Global Chart Zoom).
-    // Reusa el flujo normal: re-consulta + reconstruye tabla y gráfica. Como cada
-    // método de stat hace setEnabled(false) mientras consulta, el spinner queda
-    // bloqueado durante el refresco (evita encolar refrescos a lo loco).
+    // Re-runs the currently selected stat's query to re-render its chart with the new
+    // FONT_SCALE (triggered by the Global Chart Zoom spinner). Reuses the normal flow:
+    // re-query + rebuild table and chart. Since each stat method calls setEnabled(false)
+    // while querying, the spinner is locked during the refresh, preventing refreshes
+    // from piling up.
     private void refreshCurrentStat() {
         if (!init && stats_combo.getSelectedIndex() >= 0) {
             SQLStats s = sqlstats.get((String) stats_combo.getSelectedItem());
@@ -828,10 +826,10 @@ public class StatsDialog extends JFrame {
                         }
                         row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.jugada"))) {
-                        // Defensivo: solo un Integer en rango [1, NOMBRES_JUGADAS.length] se
-                        // convierte a nombre de jugada; cualquier otra cosa (null, no-Integer
-                        // por una colisión de cabeceras i18n, o fuera de rango) -> "-----".
-                        // Evita el ClassCastException/AIOOBE que dejaba la tabla sin cargar.
+                        // Defensive: only an Integer within [1, NOMBRES_JUGADAS.length] converts
+                        // to a hand name; anything else (null, non-Integer from an i18n header
+                        // collision, or out of range) -> "-----". Avoids the ClassCastException/
+                        // AIOOBE that used to leave the table unloaded.
                         row[i] = (row[i] instanceof Integer && (Integer) row[i] >= 1 && (Integer) row[i] <= Hand.NOMBRES_JUGADAS.length)
                                 ? Hand.NOMBRES_JUGADAS[(Integer) row[i] - 1] : "-----";
                     }
@@ -1251,9 +1249,9 @@ public class StatsDialog extends JFrame {
                     if (idxPlayer != -1 && idxHands != -1) {
                         for (int r = 0; r < tableModel.getRowCount(); r++) {
                             float v = safeParsePercent(String.valueOf(tableModel.getValueAt(r, idxHands)));
-                            // Excluye del grafico a quien no tiene dato en esta calle (% nulo ->
-                            // -Infinity desde safeParsePercent): no aporta barra y reventaba el
-                            // eje del grafico con "Must be finite" en cada repaint.
+                            // Excludes from the chart anyone with no data on this street (null %
+                            // -> -Infinity from safeParsePercent): contributes no bar and used to
+                            // blow up the chart axis with "Must be finite" on every repaint.
                             if (Double.isFinite(v)) {
                                 pct.put(String.valueOf(tableModel.getValueAt(r, idxPlayer)), (double) v);
                             }
@@ -1568,9 +1566,9 @@ public class StatsDialog extends JFrame {
                             playersText = players.toString().replaceAll("  \\|  $", "");
                             buyinText = String.valueOf(rs.getInt("buyin"));
                             handText = String.valueOf(rs.getInt("tot_hands"));
-                            // money2String redondea (doubleClean) + formatea como dinero, así
-                            // las ciegas de timbas antiguas guardadas como REAL (float) no
-                            // arrastran decimales basura (0.10000000149...) -> "0.10 / 0.20".
+                            // money2String rounds (doubleClean) + formats as money, so blinds
+                            // from old games stored as REAL (float) don't carry garbage decimals
+                            // (0.10000000149...) -> "0.10 / 0.20".
                             blindsText = Helpers.money2String(rs.getDouble("sb")) + " / " + Helpers.money2String(rs.getDouble("sb") * 2);
                             blindsDoubleText = rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO";
                             rebuyText = rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO";
@@ -1804,10 +1802,10 @@ public class StatsDialog extends JFrame {
                         }
                         row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.jugada"))) {
-                        // Defensivo: solo un Integer en rango [1, NOMBRES_JUGADAS.length] se
-                        // convierte a nombre de jugada; cualquier otra cosa (null, no-Integer
-                        // por una colisión de cabeceras i18n, o fuera de rango) -> "-----".
-                        // Evita el ClassCastException/AIOOBE que dejaba la tabla sin cargar.
+                        // Defensive: only an Integer within [1, NOMBRES_JUGADAS.length] converts
+                        // to a hand name; anything else (null, non-Integer from an i18n header
+                        // collision, or out of range) -> "-----". Avoids the ClassCastException/
+                        // AIOOBE that used to leave the table unloaded.
                         row[i] = (row[i] instanceof Integer && (Integer) row[i] >= 1 && (Integer) row[i] <= Hand.NOMBRES_JUGADAS.length)
                                 ? Hand.NOMBRES_JUGADAS[(Integer) row[i] - 1] : "-----";
                     }
@@ -2061,10 +2059,10 @@ public class StatsDialog extends JFrame {
             statement.setQueryTimeout(30);
             statement.executeUpdate(sql);
         } catch (SQLException ex) {
-            // Se devuelve el fallo al que llamo. Devolver que todo fue bien cuando el
-            // borrado habia fallado hacia que se anunciara "se han borrado todas las
-            // timbas" con las timbas intactas en el disco, y encima el desplegable ya
-            // vaciado arriba: parecia hecho y no lo estaba.
+            // The failure is returned to the caller. Reporting success when the delete had
+            // failed caused "all games deleted" to be announced while the games were still
+            // intact on disk -- and the combo above was already emptied: it looked done
+            // when it wasn't.
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             Helpers.GUIRunAndWait(() -> {
                 cargando.setVisible(false);
@@ -2130,19 +2128,18 @@ public class StatsDialog extends JFrame {
     }
 
     // =====================================================================
-    // "Partida privada" — una timba privada queda fuera de la sync P2P por
-    // defecto: la exclusión "Partidas privadas" viene activada (StatsSync.
-    // listShareableUgis la aplica), aunque el usuario puede desactivarla en el
-    // diálogo "Excluir...". El flag es puramente local (no viaja en el payload).
+    // "Private game" -- a private game is excluded from P2P sync by default:
+    // the "Private games" exclusion is enabled out of the box (applied by
+    // StatsSync.listShareableUgis), though the user can turn it off in the
+    // "Exclude..." dialog. The flag is purely local (never sent in the payload).
     // =====================================================================
 
     /**
-     * Diálogo modal de EXCLUSIONES de "Compartir": elige qué subconjunto de MIS
-     * partidas queda fuera de lo que propago (privadas y/o partidas donde participó
-     * ALGUNO de una lista de nicks separados por comas). Persiste las tres preferencias
-     * globales al aceptar; surten efecto en el siguiente intercambio de manifiestos
-     * (StatsSync.listShareableUgis las aplica). Construido a mano, fuera del .form,
-     * como el resto de extras de este diálogo.
+     * Modal SHARE-exclusions dialog: picks which subset of MY games is left out of
+     * what I propagate (private games and/or games any of a comma-separated list of
+     * nicks played in). Persists the three global preferences on accept; they take
+     * effect on the next manifest exchange (applied by StatsSync.listShareableUgis).
+     * Built by hand, outside the .form, like the rest of this dialog's extras.
      */
     private void showShareExclusionsDialog() {
         final javax.swing.JDialog dlg = new javax.swing.JDialog(this, Translator.translate("stats.sync_exclude_title"), true);
@@ -2157,7 +2154,7 @@ public class StatsDialog extends JFrame {
 
         javax.swing.JTextField nicks_field = new javax.swing.JTextField(GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF, 36);
         Helpers.JTextFieldRegularPopupMenu.addTo(nicks_field);
-        // La lista solo edita/aplica cuando su casilla está marcada.
+        // The nick list only edits/applies while its checkbox is checked.
         nicks_field.setEnabled(nicks_check.isSelected());
         nicks_check.addItemListener(ev -> nicks_field.setEnabled(nicks_check.isSelected()));
 
@@ -2167,9 +2164,9 @@ public class StatsDialog extends JFrame {
         cancel.putClientProperty("i18n.key", "ui.cancelar_2");
         ok.addActionListener(ev -> {
             String nicks = nicks_field.getText().trim();
-            // Blindaje de estado coherente: casilla marcada pero lista vacía no excluye
-            // nada, así que se persiste como DESACTIVADA (evita el estado engañoso
-            // "excluyo por nick" sin ningún nick). El texto tecleado se conserva.
+            // Keeps state consistent: a checked box with an empty list excludes nothing,
+            // so it's persisted as DISABLED (avoids the misleading "excluding by nick"
+            // state with no nicks). The typed text is kept.
             boolean nicks_enabled = nicks_check.isSelected() && !nicks.isEmpty();
             GameFrame.SYNC_STATS_EXCLUDE_PRIVATE_PREF = private_check.isSelected();
             GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF = nicks_enabled;
@@ -2188,7 +2185,7 @@ public class StatsDialog extends JFrame {
         private_check.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         nicks_check.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
 
-        // La caja de nicks sangrada bajo su casilla, para leerse como sub-opción.
+        // The nicks box is indented under its checkbox, to read as a sub-option.
         javax.swing.JPanel field_row = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
         field_row.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         field_row.add(javax.swing.Box.createHorizontalStrut(Math.round(26 * Helpers.DIALOG_ZOOM)));
@@ -2211,8 +2208,8 @@ public class StatsDialog extends JFrame {
 
         Helpers.setUniformFont(root, Helpers.GUI_FONT, Math.round(14 * Helpers.DIALOG_ZOOM));
         dlg.getRootPane().setDefaultButton(ok);
-        // Se crea un diálogo nuevo en cada apertura: liberarlo al cerrar con la X (el
-        // default HIDE_ON_CLOSE lo dejaría oculto en memoria, acumulándose).
+        // A new dialog is created on every open: dispose it when closed via the X (the
+        // default HIDE_ON_CLOSE would leave it hidden in memory, accumulating).
         dlg.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         dlg.pack();
         dlg.setResizable(false);
@@ -2221,9 +2218,9 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Genera un candado TACHADO: dibuja una diagonal roja (con halo blanco para que
-     * se vea sobre cualquier fondo) sobre el icono dado. Para las acciones de "quitar
-     * privada" (candado = hacer privada, candado tachado = quitarla).
+     * Builds a struck-through lock: draws a red diagonal (with a white halo so it
+     * reads over any background) across the given icon. Used for "unmark private"
+     * actions (lock = mark private, struck lock = unmark).
      */
     private static javax.swing.ImageIcon struckIcon(java.net.URL url) {
         javax.swing.ImageIcon base = new javax.swing.ImageIcon(url);
@@ -2233,7 +2230,7 @@ public class StatsDialog extends JFrame {
         java.awt.Graphics2D g = img.createGraphics();
         g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
         g.drawImage(base.getImage(), 0, 0, null);
-        // Halo blanco bajo la diagonal + diagonal roja encima, de esquina a esquina.
+        // White halo under the diagonal + red diagonal on top, corner to corner.
         g.setStroke(new java.awt.BasicStroke(4f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
         g.setColor(new java.awt.Color(255, 255, 255, 220));
         g.drawLine(3, h - 3, w - 3, 3);
@@ -2244,7 +2241,7 @@ public class StatsDialog extends JFrame {
         return new javax.swing.ImageIcon(img);
     }
 
-    /** EDT. Sincroniza los 3 botones de la barra (purgar + privadas globales) con el filtro de jugador. */
+    /** EDT. Syncs the 3 toolbar buttons (purge + global private) with the player filter. */
     private void refreshFilterButtonsEnabled() {
         boolean filter_active = game_combo_filter.getBackground() == Color.YELLOW;
         purge_games_button.setEnabled(filter_active);
@@ -2252,7 +2249,7 @@ public class StatsDialog extends JFrame {
         unprivate_all_button.setEnabled(filter_active);
     }
 
-    /** EDT. Muestra/oculta el banner y habilita el botón "HACER PRIVADA" según el estado de la timba seleccionada. */
+    /** EDT. Shows/hides the banner and enables the "MARK PRIVATE" button based on the selected game's state. */
     private void refreshPrivateUI(boolean is_private) {
         private_game_label.setVisible(is_private);
         private_game_button.setEnabled(!is_private);
@@ -2263,17 +2260,17 @@ public class StatsDialog extends JFrame {
         }
     }
 
-    /** Marca/desmarca como privada la timba seleccionada (off-EDT) y refresca el banner/botón. */
+    /** Marks/unmarks the selected game as private (off-EDT) and refreshes the banner/button. */
     private void setSelectedGamePrivateAsync(boolean priv) {
         Helpers.GUIRun(() -> private_game_button.setEnabled(false));
         stats_db_executor.submit(() -> {
             boolean ok = setSelectedGamePrivate(priv);
-            // Si falla, refleja el estado real (sin cambios).
+            // On failure, reflect the actual (unchanged) state.
             Helpers.GUIRun(() -> refreshPrivateUI(ok ? priv : !priv));
         });
     }
 
-    /** Off-EDT. UPDATE del flag private de la timba seleccionada + coherencia del mapa en memoria. */
+    /** Off-EDT. UPDATEs the selected game's private flag and keeps the in-memory map consistent. */
     private boolean setSelectedGamePrivate(boolean priv) {
         final int[] idHolder = {-1};
         Helpers.GUIRunAndWait(() -> {
@@ -2297,7 +2294,7 @@ public class StatsDialog extends JFrame {
             return false;
         }
 
-        // Mantener el mapa en memoria coherente (lo consulta la selección de timba).
+        // Keep the in-memory map consistent (queried by game selection).
         Helpers.GUIRun(() -> {
             HashMap<String, Object> g = game.get((String) game_combo.getSelectedItem());
             if (g != null) {
@@ -2308,7 +2305,7 @@ public class StatsDialog extends JFrame {
         return true;
     }
 
-    /** Marca/desmarca privadas TODAS las timbas del jugador filtrado (como purgar), con confirmación. */
+    /** Marks/unmarks private ALL games of the filtered player (like purge), with confirmation. */
     private void markFilteredGamesPrivateAsync(boolean priv) {
         Helpers.GUIRun(() -> {
             private_all_button.setEnabled(false);
@@ -2334,7 +2331,7 @@ public class StatsDialog extends JFrame {
         }
     }
 
-    /** Off-EDT. UPDATE del flag private para todas las timbas actualmente en el combo (= las del jugador filtrado). */
+    /** Off-EDT. UPDATEs the private flag for every game currently in the combo (= the filtered player's games). */
     private boolean setFilteredGamesPrivate(boolean priv) {
         final String[][] idsHolder = new String[1][];
         Helpers.GUIRunAndWait(() -> {
@@ -2351,7 +2348,7 @@ public class StatsDialog extends JFrame {
             return false;
         }
 
-        // ids vienen de nuestro propio mapa (enteros), no de texto del usuario — como en deleteAllGames.
+        // ids come from our own map (integers), not user text -- same as deleteAllGames.
         String sql = "UPDATE game SET private=" + (priv ? 1 : 0) + " WHERE id in (" + String.join(",", idsHolder[0]) + ")";
 
         try (Statement statement = Helpers.getSQLITE().createStatement()) {
@@ -3134,8 +3131,8 @@ public class StatsDialog extends JFrame {
         // TODO add your handling code here:
         INSTANCE = null;
 
-        // shutdownNow (no bloqueante): interrumpe cualquier consulta en vuelo al cerrar
-        // la ventana. El hilo es daemon, así que aunque quedara algo no impide salir.
+        // shutdownNow (non-blocking): interrupts any in-flight query when the window
+        // closes. The thread is daemon, so even leftover work never blocks exit.
         stats_db_executor.shutdownNow();
 
         Audio.stopLoopMp3("misc/stats_music.mp3");
@@ -3309,10 +3306,10 @@ public class StatsDialog extends JFrame {
                         delete_game_button.setEnabled(true);
                     });
                 } else {
-                    // El borrado ha fallado, pero el desplegable ya se vacio antes de
-                    // intentarlo: sin esto el usuario se queda mirando una lista vacia,
-                    // sin ningun aviso y con las timbas intactas en el disco. Se repuebla
-                    // con lo que de verdad hay y se avisa.
+                    // The delete failed, but the combo was already emptied before the
+                    // attempt: without this the user is left staring at an empty list, with
+                    // no warning and the games still intact on disk. Repopulate with what's
+                    // actually there and warn.
                     loadGames();
                     Helpers.GUIRun(() -> {
                         game_combo.setSelectedIndex(0);

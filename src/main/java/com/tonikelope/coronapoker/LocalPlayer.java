@@ -71,6 +71,8 @@ import javax.swing.Timer;
 import javax.swing.border.LineBorder;
 
 /**
+ * Swing panel for the local human player's seat: action buttons, bet
+ * spinner, stack/pot labels, hole cards and showdown/overlay effects.
  *
  * @author tonikelope
  */
@@ -89,8 +91,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.YELLOW, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 550;
     public static final int MIN_ACTION_HEIGHT = 45;
-    // Factor de reducción de la fuente de los botones de acción en vista compacta
-    // (rejilla 2x2): con menos ancho por botón, la fuente normal no cabe.
+    // Font shrink factor for the action buttons in compact view (2x2 grid): with
+    // less width per button, the normal font size no longer fits.
     private static final float COMPACT_ACTION_FONT_FACTOR = 0.62f;
 
     private final ConcurrentHashMap<JButton, Color[]> action_button_colors = new ConcurrentHashMap<>();
@@ -107,10 +109,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile int decision = Player.NODEC;
     private volatile boolean spectator = false;
     private volatile double pagar = 0;
-    // Línea base de 'pagar' al empezar la CARA actual del run-it-twice (0 en
-    // CARA-A, el total de CARA-A al entrar en CARA-B). El dinero ganado en la
-    // cara es 'pagar - pagar_face_base', derivado de la única contabilidad real
-    // (pagar), así que no puede desincronizarse. Fuera de RIT no se usa.
+    // Baseline of 'pagar' at the start of the current run-it-twice side (0 on
+    // SIDE-A, SIDE-A's total when entering SIDE-B). Money won on the side is
+    // 'pagar - pagar_face_base', derived from the single source of truth
+    // (pagar), so it can never drift out of sync. Unused outside RIT.
     private volatile double pagar_face_base = 0;
     private volatile double bote = 0;
     private volatile Double last_bote = null;
@@ -122,10 +124,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean boton_mostrar = false;
     private volatile boolean winner = false;
     private volatile boolean loser = false;
-    // Showdown (RESALTAR_JUGADA_SHOWDOWN): cartas de la jugada de ESTE perdedor (sin kickers) a
-    // resaltar al pasar el ratón por su etiqueta. Los tres snapshot_ guardan el estado a restaurar
-    // al salir el ratón: el enfoque de cada carta de la mesa antes del hover (el resaltado del
-    // ganador vuelve tal cual) y el color de fondo/texto de la etiqueta. Se manipulan solo en el EDT.
+    // Showdown (RESALTAR_JUGADA_SHOWDOWN): cards of THIS player's hand (no kickers) to highlight
+    // on hover over their action label. The three snapshot_ fields hold the state to restore on
+    // mouse-exit: each table card's focus before the hover (the winner's highlight comes back
+    // as-is) and the label's background/foreground colors. Touched only on the EDT.
     private volatile java.util.List<Card> showdown_hand_cards = null;
     private java.util.Map<Card, Boolean> showdown_focus_snapshot = null;
     private Color showdown_action_bg_snapshot = null;
@@ -145,30 +147,29 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean spectator_bb = false;
     private volatile Color border_color = null;
     private volatile boolean player_stack_click = false;
-    // Vista compacta del local (VISTA_COMPACTA == 3): la botonera pasa de un
-    // apilado vertical (5 filas) a una rejilla 2x2 + spinner, y los botones
-    // pierden su icono y reducen la fuente, para que quepa el texto y baje la
-    // altura del LocalPlayer.
+    // Compact local view (VISTA_COMPACTA == 3): the action button bar switches from a
+    // vertical stack (5 rows) to a 2x2 grid + spinner, and the buttons lose their icon
+    // and shrink their font, so the text fits and the LocalPlayer's height goes down.
     private volatile boolean botonera_compacta = false;
-    // Sub-layout de la botonera compacta: false = turno (rejilla 2x2), true = estado
-    // AUTO (AUTO-igualar arriba y AUTO-fold abajo, ambos a ancho completo y CON icono).
-    // Lo mantienen esTuTurno / activarPreBotones / desActivarPreBotones.
+    // Compact button-bar sub-layout: false = turn (2x2 grid), true = AUTO state
+    // (AUTO-call on top, AUTO-fold below, both full-width and WITH icon).
+    // Kept in sync by esTuTurno / activarPreBotones / desActivarPreBotones.
     private volatile boolean botonera_compacta_auto = false;
-    // Anchura de referencia del botonera (la del layout normal del .form). En compacto
-    // se fija a este valor en AMBOS sub-layouts (2x2 y auto) para que el LocalPlayer no
-    // salte de anchura al alternar turno/auto ni al entrar/salir de compacto.
+    // Reference width of the button bar (the normal .form layout's width). In compact
+    // mode it is fixed to this value in BOTH sub-layouts (2x2 and auto) so the
+    // LocalPlayer doesn't jump width when toggling turn/auto or entering/leaving compact.
     private int botonera_ref_width = -1;
-    // Tamaño de fuente base (del .form, pre-zoom) de los botones de acción,
-    // capturado en el constructor; en compacto se escala por COMPACT_ACTION_FONT_FACTOR.
+    // Base font size (from the .form, pre-zoom) of the action buttons, captured in the
+    // constructor; scaled by COMPACT_ACTION_FONT_FACTOR in compact mode.
     private int action_font_base = 22;
     private volatile String player_action_icon = null;
     private volatile Timer icon_zoom_timer = null;
     private volatile URL chat_notify_image_url = null;
     private volatile Long chat_notify_thread = null;
     private final GifLabel chat_notify_label = new GifLabel();
-    // Overlay del GIF de barajado (MUDO, en bucle) + borde blanco mientras este jugador LOCAL
-    // procesa su paso de la cascada SRA. Espejo del de RemotePlayer; lo invoca el controlador de
-    // GameFrame (onShuffleTurn) cuando el turno es del nick local. Sincronizado en todos los peers.
+    // Shuffle GIF overlay (MUTED, looping) + white border while this LOCAL player processes
+    // its step of the SRA cascade. Mirrors RemotePlayer's; invoked by GameFrame's controller
+    // (onShuffleTurn) when the turn belongs to the local nick. Synchronized across all peers.
     private final GifLabel shuffle_cascade_gif_label = new GifLabel();
     private volatile ImageIcon shuffle_cascade_icon = null;
     private volatile int shuffle_cascade_frames = 0;
@@ -196,16 +197,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (hurryup_timer != null) {
                 hurryup_timer.stop();
             }
-            // NO matar icon_zoom_timer aquí: stopActionTimer se llama entre
-            // manos y matar el timer del zoom dejaba la siguiente mano sin
-            // setAvatar (timer ya parado → zoomIcons no dispara → avatar
-            // invisible). El leak GC que justificaba el stop es preferible
-            // a un bug visible.
+            // Do NOT stop icon_zoom_timer here: stopActionTimer is called between hands,
+            // and stopping the zoom timer left the next hand without setAvatar (timer
+            // already stopped -> zoomIcons never fires -> invisible avatar). The GC leak
+            // that motivated the stop is preferable to a visible bug.
         });
     }
 
-    // Telemetría: el widget LatencyDot lo coloca el autor en el
-    // .form (NetBeans visual editor) y lo enlaza llamando setLatencyDot.
+    // Telemetry: the LatencyDot widget is placed by hand in the .form (NetBeans
+    // visual editor) and wired up by calling setLatencyDot.
     private volatile LatencyDot latency_dot = null;
 
     public LatencyDot getLatencyDot() {
@@ -217,8 +217,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Telemetría: actualiza la bolita LatencyDot. No-op si aún no
-     * se ha enlazado vía setLatencyDot.
+     * Telemetry: updates the LatencyDot widget. No-op if it hasn't
+     * been wired up yet via setLatencyDot.
      */
     public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
         LatencyDot dot = this.latency_dot;
@@ -238,13 +238,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         dot.setLatency(best, reconnectionCount);
     }
 
-    // El asiento tiene esquinas REDONDEADAS: si fuese realmente opaco, Swing no
-    // repintaría el fondo (tapete) detrás y las esquinas —fuera del arco— mostrarían
-    // basura ("el fondo sale mal en las esquinas"). Por eso el asiento NUNCA es opaco
-    // de verdad: interceptamos setOpaque y recordamos la INTENCIÓN de relleno, que
-    // pintamos nosotros (rounded) en paintComponent; Swing repinta la madera detrás y
-    // las esquinas quedan limpias. Solo afecta al estado resaltado (eliminado, rojo),
-    // que es estático → sin coste de rendimiento.
+    // The seat has ROUNDED corners: if it were truly opaque, Swing would not repaint the
+    // felt background behind it, and the corners outside the arc would show garbage. So
+    // the seat is NEVER really opaque: setOpaque is intercepted and the fill INTENT is
+    // remembered instead, painted by us (rounded) in paintComponent; Swing repaints the
+    // felt behind it and the corners stay clean. Only affects the static highlighted
+    // (eliminated, red) state, so there's no rendering-cost concern.
     private volatile boolean rounded_fill = false;
 
     @Override
@@ -265,9 +264,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             } finally {
                 g2d.dispose();
             }
-            // super.paintComponent NO se llama: Swing ya ha repintado la madera detrás
-            // (el asiento es no-opaco) y el relleno redondeado va encima; llamar a
-            // super pintaría un fondo rectangular por debajo.
+            // super.paintComponent is NOT called: Swing has already repainted the felt
+            // behind it (the seat is non-opaque) and the rounded fill goes on top; calling
+            // super would paint a rectangular background underneath.
         } else {
             super.paintComponent(g);
         }
@@ -525,10 +524,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return panel_cartas;
     }
 
-    // La ficha local reposa abajo-izquierda de la primera hole card (mismo
-    // anclaje que refreshPositionChipIcons): (0, holeCard1.height - chip.height)
-    // dentro de panel_cartas. Devuelve su centro en pantalla, o null si el
-    // asiento no está visible.
+    // The local position chip sits bottom-left of the first hole card (same
+    // anchor as refreshPositionChipIcons): (0, holeCard1.height - chip.height)
+    // inside panel_cartas. Returns its on-screen center, or null if the seat
+    // isn't showing.
     @Override
     public java.awt.geom.Point2D getPositionChipScreenCenter(int chip_w, int chip_h) {
         if (panel_cartas == null || !panel_cartas.isShowing()) {
@@ -641,12 +640,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return loser;
     }
 
-    // Mientras gira/cruza la carta que lleva la ficha de posición GRANDE encima
-    // (destape de hc1 y swap), el Crupier la fuerza OCULTA con esto. Además el clic
-    // en el nick —que cicla su dibujado (normal/70%/oculta)— queda BLOQUEADO
-    // mientras esté activo, para que no la reponga a media animación. Al desactivarlo
-    // el Crupier repone con refreshPositionChipIcons (que respeta si está desactivada).
-    // NO cambia cuándo/cómo se colocan las fichas.
+    // While the card carrying the BIG position chip is flipping/crossing (hc1 reveal and
+    // swap), the Crupier forces it HIDDEN via this flag. The nick click — which cycles
+    // its rendering (normal/70%/hidden) — is also BLOCKED while it's active, so it can't
+    // restore the chip mid-animation. Once deactivated, the Crupier restores it via
+    // refreshPositionChipIcons (which honors the flag). Doesn't change when/how chips
+    // are placed otherwise.
     private volatile boolean chip_forced_hidden = false;
 
     public void setChipForcedHidden(boolean hidden) {
@@ -662,8 +661,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void refreshPositionChipIcons() {
 
-        // Defensa: puede llegar una llamada antes de sentar al jugador (nickname aún
-        // null); sin ficha que pintar, no hay nada que hacer.
+        // Defensive: a call can arrive before the player is seated (nickname still
+        // null); with no chip to paint, there's nothing to do.
         if (this.nickname == null) {
             return;
         }
@@ -679,8 +678,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             chip_label_icon = Helpers.IMAGEN_SB;
         } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
-            // En 3-manos el dealer es el UTG; si straddlea, ficha combinada dealer+straddle
-            // (la rama DEALER gana a la de straddle de abajo, así que se resuelve aquí).
+            // Heads-up the dealer is also UTG; if they straddle, use the combined
+            // dealer+straddle chip (the DEALER branch wins over the straddle branch
+            // below, so it's resolved here).
             boolean dealer_straddle = GameFrame.getInstance().getCrupier().isStraddle_posted()
                     && this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())
                     && !GameFrame.getInstance().getCrupier().isDead_dealer();
@@ -700,17 +700,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
 
         final int chip_state = GameFrame.LOCAL_POSITION_CHIP;
-        // Suprimida durante la rotación de fichas (hasta que la viajera aterriza): NO se
-        // pinta la grande aunque nos llamen (p.ej. desde un re-layout de la mesa).
+        // Suppressed while the traveling chip is in flight (until it lands): don't paint
+        // the big chip even if called (e.g. from a table re-layout).
         final boolean suppressed = GameFrame.getInstance().getCrupier() != null
                 && GameFrame.getInstance().getCrupier().isBigChipSuppressed(this);
         Helpers.GUIRun(() -> {
-            // En vista compacta + local (nivel 3) la carta está a media altura y la
-            // ficha grande quedaría desproporcionada encima; se oculta (el icono
-            // pequeño junto al nick sí se mantiene). Al salir del nivel 3 un refresco
-            // la vuelve a pintar según la posición activa.
+            // In compact + local view (level 3) the card sits at half height and the big
+            // chip on top would look disproportionate, so it's hidden (the small icon next
+            // to the nick is kept). Leaving level 3 triggers a refresh that repaints it
+            // according to the active position.
             if (isActivo() && chip_label_icon != null && chip_state != GameFrame.LOCAL_POS_CHIP_HIDDEN && !suppressed && GameFrame.VISTA_COMPACTA != 3) {
-                // Estado intermedio: la ficha se muestra al 70% de opacidad sobre las cartas.
+                // Intermediate state: the chip is shown at 70% opacity over the cards.
                 ImageIcon shown = (chip_state == GameFrame.LOCAL_POS_CHIP_DIM)
                         ? Helpers.translucentIcon(chip_label_icon, 0.7f) : chip_label_icon;
                 chip_label.setIcon(shown);
@@ -758,10 +758,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             this.spectator = true;
             this.bote = 0f;
 
-            // El reset de mano (nuevaMano) solo corre para jugadores activos, así que la jugada
-            // resaltable de la última mano que jugó se quedaría pegada al asiento mientras esté de
-            // espectador. Se descarta sin restaurar el color de la etiqueta: el repintado de
-            // espectador de aquí abajo la deja como toca.
+            // The hand reset (nuevaMano) only runs for active players, so the highlightable
+            // hand from the last one they played would stay stuck on the seat while they're
+            // a spectator. It's discarded without restoring the label color: the spectator
+            // repaint below leaves it as it should be.
             Helpers.GUIRun(this::discardShowdownHandHighlight);
             this.showdown_hand_cards = null;
 
@@ -930,8 +930,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setVisible(true);
                 chip_label.setVisible(false);
                 sec_pot_win_label.setVisible(false);
-                // Al abandonar, el overlay de coste de igualar ya no aplica: ocultarlo
-                // (no se refrescaría solo porque el local sale del bucle de apuestas).
+                // On leaving, the call-cost overlay no longer applies: hide it (it wouldn't
+                // refresh itself just because the local player leaves the betting loop).
                 GameFrame.getInstance().getTapete().hideCallCostOverlay();
             });
         }
@@ -980,8 +980,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return stack;
     }
 
-    // Rodaje vivo del label del stack (EDT-confined). El render solo escribe el
-    // texto; el color lo siguen poniendo setStack/setStackDisplay. Creación perezosa.
+    // Live rolling animation of the stack label (EDT-confined). The renderer only writes
+    // the text; the color is still set by setStack/setStackDisplay. Lazily created.
     private RollingCounter stack_roller;
 
     private RollingCounter stackRoller() {
@@ -1000,8 +1000,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (getNickname() != null && GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
                     setPlayerStackBackground(Color.YELLOW);
                     player_stack.setForeground(Color.BLACK);
-                    // Pendiente "X + recompra": texto compuesto (no numérico) -> invalida
-                    // el roller para que el siguiente roll salte sin animar desde aquí.
+                    // Pending "X + rebuy": composite (non-numeric) text -> invalidate the
+                    // roller so the next roll jumps instead of animating from here.
                     player_stack.setText(Helpers.money2String(stack) + " + " + Helpers.money2String((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname())));
                     stackRoller().invalidate();
 
@@ -1018,10 +1018,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_stack.setForeground(Color.WHITE);
                     }
 
-                    // Rueda el número hasta el nuevo stack (velocidad constante; off/recover
-                    // salta). Si la acción va a volar una ficha (defer_counter_rolls), NO se
-                    // rueda aquí: el label se queda en su valor previo y rollCountersToModel
-                    // lo rueda al aterrizar la ficha, a la vez que el bote y la apuesta.
+                    // Rolls the number to the new stack (constant speed; off/recover jumps).
+                    // If the action is about to fly a chip (defer_counter_rolls), it does NOT
+                    // roll here: the label stays at its previous value and rollCountersToModel
+                    // rolls it when the chip lands, together with the pot and the bet.
                     if (!defer_counter_rolls) {
                         stackRoller().roll(stack, GameFrame.isCounterRollEnabled());
                     }
@@ -1030,12 +1030,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Pinta SOLO el label del stack con 'value' (sin tocar el modelo): lo usa el
-    // contador animado de llenado de stacks (apertura/recompra) para rodar el
-    // numero frame a frame. NO sincronizado a proposito (corre en el EDT desde el
-    // Timer del contador, y el caller que difiere el modelo puede tener el monitor
-    // del jugador). No usa la rama amarilla "+ recompra" de setStack: durante el
-    // conteo queremos el numero rodando, no el pendiente. Respeta player_stack_click.
+    // Paints ONLY the stack label with 'value' (without touching the model): used by the
+    // animated stack-fill counter (opening/rebuy) to roll the number frame by frame. NOT
+    // synchronized on purpose (runs on the EDT from the counter's Timer, and the caller
+    // that defers the model may hold the player's monitor). Doesn't use setStack's yellow
+    // "+ rebuy" branch: during the count we want the number rolling, not the pending
+    // amount. Honors player_stack_click.
     @Override
     public void setStackDisplay(double value) {
         if (player_stack_click) {
@@ -1049,8 +1049,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerStackBackground(new Color(51, 153, 0));
                 player_stack.setForeground(Color.WHITE);
             }
-            // De golpe (la cortinilla ya anima frame a frame); mantiene sincronizado el
-            // valor mostrado del roller para que el siguiente roll vivo arranque bien.
+            // Snaps instantly (the fill animation already animates frame by frame); keeps
+            // the roller's displayed value in sync so the next live roll starts correctly.
             stackRoller().set(value);
         });
     }
@@ -1093,14 +1093,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             action_font_base = player_check_button.getFont().getSize();
             botonera_ref_width = botonera.getPreferredSize().width;
             installShowdownHandHighlight();
-            // Lupa del avatar (con el stack del asiento al lado): mismo origen que
-            // consulta setAvatar (el avatar elegido en la sala de espera, o "" para
-            // el que viene por defecto).
+            // Avatar magnifier (with the seat's stack shown alongside): same source that
+            // setAvatar queries (the avatar chosen in the waiting room, or "" for the
+            // default one).
             AvatarZoomOverlay.install(avatar, player_stack, player_name, () -> {
                 java.io.File propio = GameFrame.getInstance().getSala_espera().getAvatar();
                 return propio != null ? propio.getAbsolutePath() : "";
             });
-            // Wire opcional al latency_dot_widget del .form (si existe).
+            // Optional wiring to the .form's latency_dot_widget (if present).
             try {
                 java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");
                 f.setAccessible(true);
@@ -1110,7 +1110,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     ((LatencyDot) widget).applyZoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
                 }
             } catch (NoSuchFieldException nsfe) {
-                // OK: aún no se ha añadido en el .form.
+                // OK: not yet added to the .form.
             } catch (Exception ex) {
                 Logger.getLogger(LocalPlayer.class.getName()).log(Level.WARNING, "Could not wire latency_dot_widget", ex);
             }
@@ -1142,8 +1142,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             panel_cartas.add(chat_notify_label, Integer.valueOf(1001));
             shuffle_cascade_gif_label.setVisible(false);
             shuffle_cascade_gif_label.setFocusable(false);
-            // Listener vacío que consume el clic (como en RemotePlayer): que no atraviese la label
-            // hasta la carta de debajo. Capa 1002 (sobre chip 1000 / chat_notify 1001).
+            // Empty listener that consumes the click (like in RemotePlayer): keeps it from
+            // passing through the label to the card below. Layer 1002 (above chip 1000 /
+            // chat_notify 1001).
             shuffle_cascade_gif_label.addMouseListener(new MouseAdapter() {
             });
             panel_cartas.add(shuffle_cascade_gif_label, Integer.valueOf(1002));
@@ -1168,11 +1169,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             action_button_armed.put(player_fold_button, false);
             disablePlayerAction();
             desactivarControles();
-            // El editor del spinner de apuesta es OPACO por defecto bajo Nimbus y
-            // su relleno blanco "asoma" rellenando la banda del spinner. Lo hacemos
-            // no-opaco YA al construir (no solo en setSpinnerColors, que corre en el
-            // primer turno) para que el spinner deshabilitado se vea igual desde el
-            // arranque que tras la primera mano.
+            // The bet spinner's editor is OPAQUE by default under Nimbus, and its white
+            // fill "shows through" the spinner's band. Made non-opaque right at
+            // construction (not only in setSpinnerColors, which runs on the first turn)
+            // so the disabled spinner looks the same from startup as after the first hand.
             bet_spinner.getEditor().setOpaque(false);
             Helpers.setScaledIconLabel(utg_icon, getClass().getResource("/images/utg.png"), 41, 31);
             utg_icon.setVisible(false);
@@ -1209,9 +1209,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Muestra el GIF de barajado (MUDO, en bucle) + borde blanco sobre este jugador LOCAL. Lo
-     * invoca el controlador de GameFrame desde su hilo serializador (NO el EDT) cuando el turno de
-     * cascada es del nick local. Carga el GIF SÍNCRONO (no llamar desde el EDT) y pinta en el EDT.
+     * Shows the shuffle GIF (MUTED, looping) + white border over this LOCAL player. Invoked by
+     * GameFrame's controller from its serializer thread (NOT the EDT) when the cascade turn
+     * belongs to the local nick. Loads the GIF SYNCHRONOUSLY (do not call from the EDT) and
+     * paints on the EDT.
      */
     @Override
     public void showShuffleCascadeOverlay() {
@@ -1227,7 +1228,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
         final int frames = shuffle_cascade_frames;
         if (frames <= 0) {
-            return; // GIF sin Graphic Control Extension (deck mod): el bucle de imageUpdate no se cortaría al ocultar
+            return; // GIF without a Graphic Control Extension (deck mod): the imageUpdate loop wouldn't stop on hide
         }
         Helpers.GUIRun(() -> {
             int max_width = panel_cartas.getWidth();
@@ -1258,7 +1259,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Oculta el overlay de barajado y restaura el borde previo. Idempotente.
+     * Hides the shuffle overlay and restores the previous border. Idempotent.
      */
     @Override
     public void hideShuffleCascadeOverlay() {
@@ -1266,8 +1267,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             shuffle_cascade_gif_label.setVisible(false);
             shuffle_cascade_gif_label.setIcon((javax.swing.Icon) null);
             if (shuffle_border_active) {
-                // Solo restaurar si el borde sigue siendo el blanco que pusimos: si otro código lo
-                // cambió mientras tanto (p.ej. el resaltado de turno de apuesta), respetarlo.
+                // Only restore if the border is still the white we set: if other code changed
+                // it meanwhile (e.g. the betting-turn highlight), honor that instead.
                 if (border_color == java.awt.Color.WHITE) {
                     border_color = shuffle_border_saved;
                     repaint();
@@ -1278,8 +1279,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Decodifica (una vez por instancia, cache-busted) el ImageIcon del shuffle.gif de la baraja
-     * actual y cuenta sus frames; null si no hay GIF. Espejo de RemotePlayer.ensureShuffleCascadeIcon.
+     * Decodes (once per instance, cache-busted) the current deck's shuffle.gif ImageIcon and
+     * counts its frames; null if there's no GIF. Mirrors RemotePlayer.ensureShuffleCascadeIcon.
      */
     private ImageIcon ensureShuffleCascadeIcon() throws Exception {
         URL url = Crupier.shuffleGifUrl();
@@ -1323,8 +1324,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return cartas;
     }
 
-    // Rodaje vivo del label de la apuesta del jugador (player_pot = 'bote', su aporte
-    // acumulado de la mano). El render muestra "----" cuando es 0. EDT-confined.
+    // Live rolling animation of the player's bet label (player_pot = 'bote', their
+    // accumulated contribution for the hand). The renderer shows "----" when it's 0.
+    // EDT-confined.
     private RollingCounter bet_roller;
 
     private RollingCounter betRoller() {
@@ -1336,9 +1338,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return bet_roller;
     }
 
-    // Flag del aplazamiento del rodaje vivo: lo activa el handler de la acción ANTES de
-    // volar la ficha, para que el stack/bet no se adelanten a ella. volatile: lo escribe
-    // el hilo de la acción y lo leen setStack/setBet (en el EDT) y rollCountersToModel.
+    // Live-roll deferral flag: set by the action handler BEFORE the chip flies, so the
+    // stack/bet don't get ahead of it. volatile: written by the action thread and read by
+    // setStack/setBet (on the EDT) and rollCountersToModel.
     private volatile boolean defer_counter_rolls = false;
 
     @Override
@@ -1369,8 +1371,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            // Si la acción va a volar ficha (defer), NO se rueda aquí: el bet se queda y
-            // rollCountersToModel lo rueda al aterrizar, a la vez que el stack y el bote.
+            // If the action is about to fly a chip (defer), it does NOT roll here: the bet
+            // stays put and rollCountersToModel rolls it when it lands, along with the
+            // stack and pot.
             if (!defer_counter_rolls) {
                 betRoller().roll(bote, GameFrame.isCounterRollEnabled());
             }
@@ -1381,7 +1384,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public synchronized double postAnte(double ante) {
 
         if (Helpers.doubleSecureCompare(0f, stack) >= 0) {
-            return 0f; // ya all-in / sin fichas: nada que antear
+            return 0f; // already all-in / no chips: nothing to ante
         }
 
         double real;
@@ -1389,7 +1392,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (Helpers.doubleSecureCompare(ante, stack) < 0) {
             real = Helpers.doubleClean(ante);
         } else {
-            // No cubre el ante completo: all-in por el ante.
+            // Doesn't cover the full ante: all-in for the ante.
             real = Helpers.doubleClean(stack);
             setDecision(Player.ALLIN);
         }
@@ -1400,8 +1403,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            // Si la ficha del ante volará al bote (defer), NO rueda aquí: se difiere y
-            // rollCountersToModel lo rueda al aterrizar, a la vez que el stack y el bote.
+            // If the ante chip is about to fly to the pot (defer), it does NOT roll here:
+            // it's deferred and rollCountersToModel rolls it when it lands, along with the
+            // stack and pot.
             if (!defer_counter_rolls) {
                 betRoller().roll(bote, GameFrame.isCounterRollEnabled());
             }
@@ -1419,7 +1423,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             return want;
         }
 
-        // No cubre el straddle completo: all-in por el straddle.
+        // Doesn't cover the full straddle: all-in for the straddle.
         double all = Helpers.doubleClean(stack);
         setBet(all);
         setDecision(Player.ALLIN);
@@ -1430,14 +1434,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return player_stack;
     }
 
-    // silent: el contador animado de recompra (Crupier.animateRebuyStacks) ya
-    // disparo la caja registradora para toda la tanda -> aqui NO se repite. En el
-    // camino sin animacion (silent=false) suena como siempre, una por recompra.
+    // silent: the animated rebuy counter (Crupier.animateRebuyStacks) already fired the
+    // cash register for the whole batch -> NOT repeated here. On the non-animated path
+    // (silent=false) it sounds as always, once per rebuy.
     public synchronized void reComprar(int cantidad, boolean silent) {
 
-        // Re-chequeo al aplicar (anti-stale / anti-trampa): nunca superar el techo
-        // de mesa aunque la cantidad solicitada fuera mayor o el stack cambiara
-        // entre la solicitud y el inicio de la mano. headroom 0 -> recompra anulada.
+        // Re-check at apply time (anti-stale / anti-cheat): never exceed the table ceiling
+        // even if the requested amount was larger or the stack changed between the request
+        // and the start of the hand. headroom 0 -> rebuy voided.
         int applied = Math.min(cantidad, GameFrame.rebuyHeadroom(this.stack));
         if (applied <= 0) {
             Logger.getLogger(LocalPlayer.class.getName()).log(Level.WARNING,
@@ -1453,9 +1457,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Audio.playWavResource("misc/cash_register.wav");
         }
 
-        // Si la cortinilla anima la recompra (silent), ELLA pinta el texto+CYAN frame a frame
-        // (setStackDisplay, que ya elige CYAN via hasRebought); pintarlo aqui tambien daria un
-        // fogonazo al valor final a mitad del rodaje.
+        // If the fill animation animates the rebuy (silent), IT paints the text+CYAN frame by
+        // frame (setStackDisplay, which already picks CYAN via hasRebought); painting it here
+        // too would flash the final value mid-roll.
         if (!player_stack_click && !silent) {
             Helpers.GUIRun(() -> {
                 player_stack.setText(Helpers.money2String(stack));
@@ -1480,15 +1484,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void esTuTurno() {
 
-        // Gate del llenado de stacks: si este jugador esta a medio llenar su stack (apertura
-        // o recompra), NO activamos su turno (borde + botones) hasta que termine. El resto del
-        // juego NO se ha frenado por la animacion; solo este turno espera.
+        // Stack-fill gate: if this player is mid-fill on their stack (opening or rebuy), do
+        // NOT activate their turn (border + buttons) until it finishes. The rest of the
+        // game isn't held up by the animation; only this turn waits.
         GameFrame.getInstance().getCrupier().awaitStackFillIfPending(this.nickname);
 
         turno = true;
 
-        // En tu turno la botonera compacta vuelve a la rejilla 2x2 (los 4 botones
-        // de acción + spinner). Sin efecto fuera del nivel 3.
+        // On your turn the compact button bar returns to the 2x2 grid (the 4 action
+        // buttons + spinner). No effect outside level 3.
         updateCompactLayout(false);
 
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
@@ -1525,7 +1529,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setForeground(Color.WHITE);
 
-                //Comprobamos si podemos ver la apuesta actual
+                //Check whether we can cover the current bet
                 if (Helpers.doubleSecureCompare(call_required, stack) < 0) {
 
                     player_check_button.setEnabled(true);
@@ -1542,7 +1546,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_fold_button.setForeground(Color.WHITE);
                     } else {
                         player_check_button.setText(Translator.translate("ui.ir_2") + " (+" + Helpers.money2String(call_required) + ")");
-                        player_check_button.putClientProperty("i18n.key", null); // Limpiamos para evitar el glitch de texto dinámico
+                        player_check_button.putClientProperty("i18n.key", null); // Cleared to avoid the dynamic-text glitch
                         player_check_button.setBackground(null);
                         player_check_button.setForeground(null);
                         player_fold_button.setBackground(Color.DARK_GRAY);
@@ -1564,25 +1568,22 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
                         || (Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.doubleSecureCompare(call_required + min_raise, stack) < 0))) {
 
-                    // Step y rango del spinner alineados a la sb ACTUAL del
-                    // Crupier (no GameFrame.CIEGA_PEQUEÑA estática, que sería
-                    // la sb inicial y queda obsoleta tras doblarCiegas o tras
-                    // un recovery con blinds doblados). Sin esto el humano
-                    // podía seleccionar incrementos múltiplos de la sb vieja
-                    // que sumados al call generaban totales fraccionarios
-                    // respecto a la sb nueva — el mismo síntoma "fractional
-                    // chip bets" del fix de Bot.java pero por la ruta del
-                    // jugador local.
+                    // Spinner step and range aligned to the Crupier's CURRENT sb (not the
+                    // static GameFrame.CIEGA_PEQUEÑA, which would be the initial sb and
+                    // goes stale after doblarCiegas or a recovery with doubled blinds).
+                    // Without this the human could pick increments that are multiples of
+                    // the old sb, which summed with the call produced totals fractional
+                    // with respect to the new sb — the same "fractional chip bets" symptom
+                    // fixed in Bot.java, but via the local player's path.
                     //
-                    // El RAISE TOTAL committed = spinner_val + bet + call_required
-                    //                          = spinner_val + apuesta_actual.
-                    // Para que ese total sea múltiplo de la sb actual cuando
-                    // apuesta_actual viene fraccionario (caso típico: all-in
-                    // previo con stack residual no alineado), spinner_min se
-                    // ajusta a (aligned_min_total - apuesta_actual) y spinner_max
-                    // a (aligned_max_total - apuesta_actual). Con step = sb
-                    // todos los valores intermedios spinner_min + k*sb mantienen
-                    // total alineado.
+                    // Committed RAISE TOTAL = spinner_val + bet + call_required
+                    //                       = spinner_val + apuesta_actual.
+                    // For that total to be a multiple of the current sb when
+                    // apuesta_actual comes in fractional (typical case: a prior all-in
+                    // with a misaligned residual stack), spinner_min is adjusted to
+                    // (aligned_min_total - apuesta_actual) and spinner_max to
+                    // (aligned_max_total - apuesta_actual). With step = sb, every
+                    // intermediate value spinner_min + k*sb keeps the total aligned.
                     double current_sb = GameFrame.getInstance().getCrupier().getCiega_pequeña();
                     if (current_sb <= 0) {
                         current_sb = GameFrame.CIEGA_PEQUEÑA;
@@ -1590,12 +1591,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     BigDecimal sb_step = new BigDecimal(current_sb).setScale(2, RoundingMode.HALF_UP);
                     BigDecimal apuesta_actual_bd = new BigDecimal(GameFrame.getInstance().getCrupier().getApuesta_actual()).setScale(2, RoundingMode.HALF_UP);
 
-                    //Actualizamos el spinner y el botón de apuestas
+                    //Update the spinner and the bet button
                     BigDecimal spinner_min;
-                    // aligned_max_total = floor((bet + stack) / sb) * sb,
-                    // que es el mayor total committed múltiplo de sb que cabe
-                    // en lo que el jugador tiene disponible. spinner_max =
-                    // aligned_max_total - apuesta_actual.
+                    // aligned_max_total = floor((bet + stack) / sb) * sb, the largest
+                    // committed total that's a multiple of sb and fits what the player
+                    // has available. spinner_max = aligned_max_total - apuesta_actual.
                     BigDecimal bet_plus_stack = new BigDecimal(bet + stack).setScale(2, RoundingMode.HALF_UP);
                     BigDecimal aligned_max_total = bet_plus_stack.divide(sb_step, 0, RoundingMode.FLOOR).multiply(sb_step);
                     BigDecimal spinner_max = aligned_max_total.subtract(apuesta_actual_bd);
@@ -1603,11 +1603,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     setActionButtonIcon(player_bet_button, "/images/action/bet.png");
 
                     if (Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
-                        // Apertura: el mínimo legal es la ciega grande (regla NL,
-                        // BetRules.minOpen). Con bb=2*sb (caso normal) coincide con
-                        // un múltiplo de sb; una estructura custom con bb no múltiplo
-                        // de sb puede dejar el mínimo desalineado del paso (no afecta
-                        // al dinero: el botón all-in cubre el resto exacto).
+                        // Opening: the legal minimum is the big blind (NL rule,
+                        // BetRules.minOpen). With bb=2*sb (the normal case) it coincides
+                        // with a multiple of sb; a custom structure with a bb that's not a
+                        // multiple of sb can leave the minimum misaligned from the step
+                        // (doesn't affect the money: the all-in button covers the exact
+                        // remainder).
                         spinner_min = new BigDecimal(BetRules.minOpen(GameFrame.getInstance().getCrupier().getCiega_grande())).setScale(2, RoundingMode.HALF_UP);
                         player_bet_button.setEnabled(true);
                         player_bet_button.setText(Translator.translate("action.apostar_2"));
@@ -1616,12 +1617,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_bet_button.setForeground(Color.BLACK);
 
                     } else {
-                        // Raise: aligned_min_total = ceil((apuesta_actual +
-                        // min_raise) / sb) * sb. spinner_min = aligned_min_total
-                        // - apuesta_actual. Puede no ser múltiplo de sb a secas
-                        // (si apuesta_actual viene fraccionario), pero spinner_min
-                        // + k*sb sumado a apuesta_actual SÍ produce total
-                        // alineado por construcción.
+                        // Raise: aligned_min_total = ceil((apuesta_actual + min_raise) /
+                        // sb) * sb. spinner_min = aligned_min_total - apuesta_actual. It may
+                        // not be a plain multiple of sb (if apuesta_actual comes in
+                        // fractional), but spinner_min + k*sb added to apuesta_actual DOES
+                        // produce an aligned total by construction.
                         BigDecimal min_raise_bd = new BigDecimal(min_raise).setScale(2, RoundingMode.HALF_UP);
                         BigDecimal aligned_min_total = apuesta_actual_bd.add(min_raise_bd).divide(sb_step, 0, RoundingMode.CEILING).multiply(sb_step);
                         spinner_min = aligned_min_total.subtract(apuesta_actual_bd);
@@ -1698,8 +1698,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_allin_button.setIcon(null);
                 }
 
-                // Tiempo de pensar configurable: si esta desactivado, barra LLENA estatica (sin
-                // cuenta atras) => tiempo ilimitado, nada auto-pliega al jugador local.
+                // Configurable think time: if disabled, static FULL bar (no countdown) => unlimited
+                // time, nothing auto-folds the local player.
                 if (GameFrame.THINK_TIME_ENABLED) {
                     Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
                 } else {
@@ -1708,11 +1708,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.setTranslatedText(player_action, "action.hablas_tu");
 
-                // NOTA: Se ha borrado la línea Helpers.translateComponents(botonera, false) que machacaba los botones dinámicos.
+                // NOTE: the Helpers.translateComponents(botonera, false) call was removed here
+                // because it was clobbering the dynamic button labels.
                 Helpers.translateComponents(player_action, false);
 
-                // Reajusta la fuente al texto traducido (preserva la clave i18n: solo
-                // re-setea el mismo texto y, si cabe, restaura el tamaño original).
+                // Refits the font to the translated text (preserves the i18n key: just
+                // re-sets the same text and, if it fits, restores the original size).
                 setActionTextFitted(player_action.getText());
 
                 setPlayerActionIcon("action/thinking.png");
@@ -1746,7 +1747,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 } else {
 
-                    //Tiempo máximo para pensar
+                    //Maximum time to think
                     response_counter = GameFrame.THINK_TIME;
 
                     if (auto_action != null) {
@@ -1761,15 +1762,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
-                                // Desactivado => NO decrementa (contador congelado): nunca llega a
-                                // 0/10, así que ni hurry-up ni auto-fold, pero el bucle sigue vivo
-                                // para la seguridad getJugadoresActivos()<2 durante todo el turno.
+                                // Disabled => does NOT decrement (counter frozen): never reaches
+                                // 0/10, so neither hurry-up nor auto-fold trigger, but the loop
+                                // stays alive for the getJugadoresActivos()<2 safety check
+                                // throughout the whole turn.
                                 if (GameFrame.THINK_TIME_ENABLED) {
                                     response_counter--;
                                 }
 
-                                // setValue(response_counter) redundante: smoothCountdown ya tiene
-                                // su Timer interno actualizando la barra cada 50ms.
+                                // setValue(response_counter) is redundant: smoothCountdown already
+                                // has its own internal Timer updating the bar every 50ms.
 
                                 if (GameFrame.THINK_TIME_ENABLED && response_counter == GameFrame.getHurryupThreshold()) {
                                     if (GameFrame.avisoTiempoSonidoOn()) {
@@ -1801,7 +1803,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 if ((GameFrame.THINK_TIME_ENABLED && response_counter == 0) || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
                                     Helpers.threadRun(() -> {
                                         if (GameFrame.THINK_TIME_ENABLED && response_counter == 0) {
-                                            Audio.playWavResourceAndWait("misc/timeout.wav", true, false, !GameFrame.avisoTiempoSonidoOn()); //Mientras dura la bocina aún estaríamos a tiempo de elegir (espera intacta aunque esté en silencio)
+                                            Audio.playWavResourceAndWait("misc/timeout.wav", true, false, !GameFrame.avisoTiempoSonidoOn()); //While the horn plays we'd still be in time to choose (the wait stays intact even if muted)
                                         }
 
                                         GameFrame.getInstance().checkPause();
@@ -1811,13 +1813,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                                 if (Helpers.doubleSecureCompare(0f, call_required) == 0) {
 
-                                                    //Pasamos automáticamente
+                                                    //Auto-check
                                                     action_button_armed.put(player_check_button, true);
                                                     player_check_button.doClick();
 
                                                 } else {
 
-                                                    //Nos tiramos automáticamente
+                                                    //Auto-fold
                                                     action_button_armed.put(player_fold_button, true);
                                                     player_fold_button.doClick();
 
@@ -1838,11 +1840,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (!auto_pause && GameFrame.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
 
-                        // Decide qué botón se auto-pulsaría (target) y la etiqueta
-                        // para el diálogo MODO AUTO. Check/Fold: si pasar es gratis
-                        // pasamos (manteniendo el armado); si hay que pagar nos
-                        // tiramos. Check/Call: pasa gratis o iguala según las reglas
-                        // del pre-pulsado de check.
+                        // Decide which button would auto-fire (target) and the label
+                        // for the AUTO MODE dialog. Check/Fold: if checking is free we
+                        // check (keeping it armed); if there's a cost we fold. Check/Call:
+                        // checks for free or calls per the check pre-press rules.
                         JButton target = null;
                         String action_key = null;
 
@@ -1862,13 +1863,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 target = player_check_button;
                                 action_key = (Helpers.doubleSecureCompare(0f, call_required) == 0) ? "modo_auto.pasar" : "modo_auto.igualar";
                             } else if (player_allin_button.isEnabled()) {
-                                // Igualar exige all-in (coste a igualar >= stack, el
-                                // check está deshabilitado): la única forma de igualar
-                                // es irse all-in. El tope ya se evaluó contra lo que
-                                // realmente se compromete —min(coste, stack), que en
-                                // este caso es el stack—, así que stack <= AUTO_CALL_MAX
-                                // y nunca se arriesga más que el tope. Es el mismo
-                                // importe que enseña el overlay de "coste de igualar".
+                                // Calling requires all-in (cost to call >= stack, check is
+                                // disabled): the only way to call is to go all-in. The cap was
+                                // already evaluated against what's actually committed —
+                                // min(cost, stack), which here equals the stack — so
+                                // stack <= AUTO_CALL_MAX and never more than the cap is risked.
+                                // Same amount shown by the "call cost" overlay.
                                 target = player_allin_button;
                                 action_key = "modo_auto.igualar";
                             }
@@ -1880,14 +1880,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         } else if (GameFrame.MODO_AUTO_CONFIRM) {
 
-                            // Veto de 5s NO modal: el resto del tablero/menú siguen
-                            // usables, pero la botonera de acción del LocalPlayer se
-                            // DESACTIVA mientras corre (el diálogo es el punto de
-                            // decisión). Guardamos su estado para restaurarlo al
-                            // resolver. La resolución va por callback (EDT): al expirar
-                            // se ejecuta; al cancelar (o si el turno se resuelve por
-                            // otra vía) se desarma SIEMPRE (re-armado manual) y se
-                            // recupera el control manual. doClick re-chequea NODEC.
+                            // Non-modal 5s veto window: the rest of the board/menu stay usable,
+                            // but the LocalPlayer's action button bar is DEACTIVATED while it
+                            // runs (the dialog is the decision point). Its state is saved to
+                            // restore it on resolution. Resolution happens via callback (EDT): it
+                            // runs on expiry; on cancel (or if the turn resolves another way) it's
+                            // ALWAYS disarmed (manual re-arming) and manual control is regained.
+                            // doClick re-checks NODEC.
                             final JButton fire_target = target;
 
                             final boolean check_en = player_check_button.isEnabled();
@@ -1896,13 +1895,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             final boolean allin_en = player_allin_button.isEnabled();
                             final boolean spinner_en = bet_spinner.isEnabled();
 
-                            // Apariencia previa (texto + icono) de la botonera. Durante
-                            // el veto los botones se DESACTIVAN con el mismo aspecto
-                            // "gris vacío" (sin texto ni icono) que cualquier otro estado
-                            // deshabilitado del tablero, en lugar de quedar atenuados
-                            // conservando su etiqueta. Se restaura al resolver (al
-                            // cancelar, el jugador recupera el control manual con las
-                            // etiquetas correctas).
+                            // Previous appearance (text + icon) of the button bar. During the
+                            // veto the buttons are DEACTIVATED with the same "empty gray" look
+                            // (no text or icon) as any other disabled board state, instead of
+                            // staying dimmed while keeping their label. Restored on resolution
+                            // (on cancel, the player regains manual control with the correct
+                            // labels).
                             final String check_text = player_check_button.getText();
                             final String fold_text = player_fold_button.getText();
                             final String bet_text = player_bet_button.getText();
@@ -1935,10 +1933,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     (cancelled) -> {
                                         auto_action_dialog = null;
 
-                                        // Restaurar la apariencia previa (texto + icono)
-                                        // antes de re-habilitar: el doClick necesita el
-                                        // botón enabled y, al cancelar, el jugador recupera
-                                        // el control manual con sus etiquetas.
+                                        // Restore the previous appearance (text + icon) before
+                                        // re-enabling: doClick needs the button enabled, and on
+                                        // cancel the player regains manual control with its labels.
                                         player_check_button.setText(check_text);
                                         player_check_button.setIcon(check_icon);
                                         player_fold_button.setText(fold_text);
@@ -1956,9 +1953,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         bet_spinner.setEnabled(spinner_en);
 
                                         if (!cancelled && getDecision() == Player.NODEC) {
-                                            // Armar check o all-in salta el doble clic de
-                                            // CONFIRM_ACTIONS (el fold ya lo salta por
-                                            // pre_pulsado==FOLD en su handler).
+                                            // Arming check or all-in skips CONFIRM_ACTIONS's
+                                            // double-click (fold already skips it via
+                                            // pre_pulsado==FOLD in its handler).
                                             if (fire_target == player_check_button || fire_target == player_allin_button) {
                                                 action_button_armed.put(fire_target, true);
                                             }
@@ -1972,8 +1969,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         } else {
 
-                            // Sin diálogo de veto: ejecutar directamente. Armar check o
-                            // all-in salta el doble clic de CONFIRM_ACTIONS.
+                            // No veto dialog: fire directly. Arming check or all-in skips
+                            // CONFIRM_ACTIONS's double-click.
                             if (target == player_check_button || target == player_allin_button) {
                                 action_button_armed.put(target, true);
                             }
@@ -2016,11 +2013,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
             }
 
-            // Tras tirarse (FOLD) también se reactivan los pre-botones AUTO para
-            // poder armarlos fuera de turno (de cara a las manos siguientes); un
-            // jugador en FOLD está saltado en el bucle de apuestas, así que el
-            // pre-pulsado nunca dispara esta mano. ALLIN sí queda fuera. Requiere
-            // el toggle "Botones AUTO" activo.
+            // After folding, the AUTO pre-buttons are also reactivated so they can be
+            // armed out of turn (for the next hands); a folded player is skipped in the
+            // betting loop, so the pre-press never fires this hand. ALLIN stays excluded.
+            // Requires the "AUTO buttons" toggle to be on.
             if (GameFrame.AUTO_ACTION_BUTTONS && getDecision() != Player.ALLIN) {
                 activarPreBotones();
             }
@@ -2041,27 +2037,26 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     ((JButton) c).setText(" ");
                     ((JButton) c).setIcon(null);
                     c.setEnabled(false);
-                    // LIMPIEZA DE ETIQUETA: Evita que el botón resucite textos antiguos
+                    // LABEL CLEANUP: prevents the button from resurrecting a stale text
                     ((JButton) c).putClientProperty("i18n.key", null);
                 }
             }
 
             desarmarBotonesAccion();
 
-            // Estado deshabilitado UNIFORME: fondo neutro (Nimbus default) en todos
-            // los botones, DESPUÉS de desarmar, para que la botonera atenuada se vea
-            // idéntica sin importar el color previo (los del .form al arrancar o los
-            // de esTuTurno tras la primera mano). Al re-habilitar, esTuTurno/
-            // activarPreBotones repintan el color que toque.
+            // UNIFORM disabled state: neutral (Nimbus default) background on all buttons,
+            // AFTER disarming, so the dimmed button bar looks identical regardless of the
+            // previous color (the .form's at startup, or esTuTurno's after the first
+            // hand). On re-enabling, esTuTurno/activarPreBotones repaint the right color.
             for (Component c : botonera.getComponents()) {
                 if (c instanceof JButton) {
                     c.setBackground(null);
                 }
             }
 
-            // El all-in conserva su fondo NEGRO característico también atenuado (es
-            // su identidad; a diferencia de check/fold/bet, esTuTurno no lo repinta),
-            // en vez de quedar gris como el resto.
+            // The all-in button keeps its characteristic BLACK background dimmed too (it's
+            // part of its identity; unlike check/fold/bet, esTuTurno doesn't repaint it),
+            // instead of turning gray like the rest.
             player_allin_button.setBackground(Color.BLACK);
         });
 
@@ -2197,17 +2192,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void activarPreBotones() {
 
-        // FOLD ya no bloquea: un jugador tirado puede ver/armar los pre-botones
-        // fuera de su turno (para las manos siguientes). ALLIN, espectador, exit y
-        // showdown sí siguen bloqueando.
+        // FOLD no longer blocks: a folded player can see/arm the pre-buttons out of
+        // turn (for the next hands). ALLIN, spectator, exit and showdown still block.
         if (!turno && decision != Player.ALLIN && !spectator && !exit && !GameFrame.getInstance().getCrupier().isShow_time()) {
 
             Helpers.GUIRunAndWait(() -> {
 
-                // Estado AUTO: en compacto la botonera pasa a 2 filas a ancho
-                // completo (AUTO-igualar arriba, AUTO-fold abajo). Se hace ANTES de
-                // fijar los iconos para que botonera_compacta_auto ya valga true y
-                // setActionButtonIcon SÍ pinte los iconos dedo-arriba/abajo.
+                // AUTO state: in compact mode the button bar switches to 2 full-width
+                // rows (AUTO-call on top, AUTO-fold below). Done BEFORE setting the icons
+                // so botonera_compacta_auto is already true and setActionButtonIcon DOES
+                // paint the thumb-up/thumb-down icons.
                 updateCompactLayout(true);
 
                 player_check_button.setBackground(null);
@@ -2263,8 +2257,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_fold_button.setEnabled(false);
                 player_fold_button.putClientProperty("i18n.key", null);
 
-                // Al salir del estado AUTO, la botonera compacta vuelve a la
-                // rejilla 2x2 por defecto (botones en blanco). Sin efecto fuera del nivel 3.
+                // On leaving the AUTO state, the compact button bar returns to the
+                // default 2x2 grid (blank buttons). No effect outside level 3.
                 updateCompactLayout(false);
             });
         }
@@ -2301,7 +2295,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void disablePlayerAction() {
 
         Helpers.GUIRun(() -> {
-            player_action.putClientProperty("i18n.key", null); // Asegura que se vacía la clave del traductor
+            player_action.putClientProperty("i18n.key", null); // Ensures the translator key is cleared
             setActionTextFitted(" ");
             player_action.setForeground(Color.LIGHT_GRAY);
             setActionBackground(new Color(204, 204, 204, 75));
@@ -2311,8 +2305,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void resetGUI() {
         Helpers.GUIRunAndWait(() -> {
-            // Restaura la fuente del action label si una jugada larga la había
-            // encogido en la mano anterior (espejo de RemotePlayer.resetGUI).
+            // Restores the action label's font if a long hand name shrank it in the
+            // previous hand (mirrors RemotePlayer.resetGUI).
             if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
                 player_action.setFont(orig_action_font);
                 orig_action_font = null;
@@ -2334,8 +2328,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             utg_icon.setVisible(false);
 
-            // Nueva mano: sincroniza el roller del bet a 0 (muestra "----") para que la
-            // primera apuesta de la mano ruede desde 0, no desde el aporte de la anterior.
+            // New hand: syncs the bet roller to 0 (shows "----") so the first bet of the
+            // hand rolls from 0, not from the previous hand's contribution.
             betRoller().set(0);
 
             setPlayerPotBackground(new Color(204, 204, 204, 75));
@@ -2370,8 +2364,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void nuevaMano() {
 
-        // Garantizar avatar pintado al inicio de cada mano (paridad con
-        // RemotePlayer.nuevaMano — fix bug primera mano post-RECOVER).
+        // Guarantee the avatar is painted at the start of every hand (parity with
+        // RemotePlayer.nuevaMano — fix for the first-hand-post-RECOVER bug).
         setAvatar();
 
         // "Persist AUTO between hands" keeps the queued pre-press across the
@@ -2393,8 +2387,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.loser = false;
 
-        // Showdown highlight: deshace cualquier resaltado que hubiera quedado colgado si la mano
-        // anterior acabó con el ratón sobre la etiqueta, y olvida la jugada resaltable.
+        // Showdown highlight: undoes any highlight left stuck if the previous hand ended
+        // with the mouse over the label, and forgets the highlightable hand.
         highlightShowdownHand(false);
         this.showdown_hand_cards = null;
 
@@ -2404,9 +2398,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.bet = 0f;
 
-        // Red de seguridad: limpia cualquier aplazamiento de rodaje de contador que se
-        // hubiera quedado colgado de una mano anterior ANTES de fijar el de la ciega de
-        // esta mano. Solo afecta al rodaje del contador.
+        // Safety net: clears any counter-roll deferral left over from a previous hand
+        // BEFORE setting this hand's blind's deferral. Only affects the counter roll.
         setCounterRollDeferred(false);
 
         resetGUI();
@@ -2417,10 +2410,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             GameFrame.getInstance().getCrupier().getRebuy_now().remove(nickname);
 
-            // Si la recompra se animo con la cortinilla (animateRebuyStacks ya rodo el
-            // stack hasta el valor final y sono la caja), reComprar no repite el sonido.
-            // Usa la decision CAPTURADA (isRebuyFillAnimated): si se apago "Contadores" a
-            // mitad del conteo, sigue mudo (no suena la caja dos veces).
+            // If the rebuy was animated by the fill effect (animateRebuyStacks already
+            // rolled the stack to the final value and rang the register), reComprar doesn't
+            // repeat the sound. Uses the CAPTURED decision (isRebuyFillAnimated): if
+            // "Counters" got turned off mid-count, it stays silent (no double cash-register).
             reComprar(rebuy, GameFrame.getInstance().getCrupier().isRebuyFillAnimated());
 
         }
@@ -2429,11 +2422,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         pagar = 0f;
 
-        // Si va a postear ciega (BB/SB) cuya ficha volará al bote, NO rueda su stack/bet en
-        // el posteo (setPosition->setBet(ciega), justo abajo): se difiere y, al ATERRIZAR su
-        // ficha (flyForcedBetsToPot.onLand -> rollCountersToModel), rueda junto al bote. La
-        // ganancia pendiente (setStack(stack+pagar) de arriba) ya rodó, NO se difiere. Mismo
-        // gate que el vuelo (aquí game_recovered==0 siempre: el bloque recover corre después).
+        // If about to post a blind (BB/SB) whose chip will fly to the pot, its stack/bet does
+        // NOT roll in the posting (setPosition->setBet(blind), right below): it's deferred, and
+        // when its chip LANDS (flyForcedBetsToPot.onLand -> rollCountersToModel) it rolls along
+        // with the pot. The pending winnings (setStack(stack+pagar) above) already rolled, NOT
+        // deferred. Same gate as the flight (here game_recovered==0 always: the recover block
+        // runs afterward).
         if (GameFrame.getInstance().getCrupier().shouldDeferCountersToChip()
                 && (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())
                 || this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick()))) {
@@ -2464,7 +2458,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             } else {
 
-                //Vamos ALLIN (setBet antes: ver nota en player_allin_buttonActionPerformed)
+                //Going ALL IN (setBet first: see note in player_allin_buttonActionPerformed)
                 setBet(stack);
                 setDecision(Player.ALLIN);
             }
@@ -2666,21 +2660,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return botonera_compacta;
     }
 
-    // Reorganiza la botonera de acción según el modo compacto del local:
-    //   compact == false -> layout vertical (reconstruye el mismo GroupLayout del .form).
-    //   compact == true  -> rejilla 2x2 (NO IR | PASAR // APOSTAR | ALL IN) + spinner
-    //                       a lo ancho, para que la botonera deje de ser el techo de
-    //                       altura del LocalPlayer.
-    // Cambia el CONTENEDOR y el LayoutManager, ajusta fuente/iconos (ver
-    // applyActionButtonsStyle) y conserva las instancias de botón (listeners,
-    // texto, colores y estado enable intactos).
+    // Reorganizes the action button bar according to the local player's compact mode:
+    //   compact == false -> vertical layout (rebuilds the same GroupLayout as the .form).
+    //   compact == true  -> 2x2 grid (FOLD | CHECK // BET | ALL IN) + full-width spinner,
+    //                       so the button bar stops being the LocalPlayer's height ceiling.
+    // Changes the CONTAINER and the LayoutManager, adjusts font/icons (see
+    // applyActionButtonsStyle) and keeps the button instances (listeners, text, colors
+    // and enabled state intact).
     public void setBotoneraCompact(boolean compact) {
 
         Helpers.GUIRunAndWait(() -> {
 
-            // El estado inicial (arranque en niveles 0/1/2 y paneles recién creados)
-            // conserva el layout vertical PRÍSTINO del .form sin tocarlo: solo se
-            // reorganiza al cruzar realmente hacia/desde el nivel 3.
+            // The initial state (startup at levels 0/1/2, and freshly created panels)
+            // keeps the .form's PRISTINE vertical layout untouched: it only reorganizes
+            // when actually crossing to/from level 3.
             if (botonera_compacta == compact) {
                 return;
             }
@@ -2690,9 +2683,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             botonera.removeAll();
 
             if (compact) {
-                // Sub-layout según el estado de juego actual (turno = 2x2,
-                // auto = 2 filas a ancho completo). El flag lo mantienen al día
-                // esTuTurno / activarPreBotones / desActivarPreBotones.
+                // Sub-layout per the current game state (turn = 2x2, auto = 2 full-width
+                // rows). Kept up to date by esTuTurno / activarPreBotones /
+                // desActivarPreBotones.
                 buildCompactLayout(botonera_compacta_auto);
             } else {
                 buildBotoneraNormalLayout();
@@ -2705,19 +2698,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             revalidate();
             repaint();
 
-            // Repone los iconos donde corresponda: en normal siempre; en compacto
-            // SOLO los botones AUTO (rejilla de 2 filas). El resto quedan sin icono
-            // (lo decide setActionButtonIcon según botonera_compacta_auto).
+            // Restores the icons where applicable: always in normal mode; in compact mode
+            // ONLY the AUTO buttons (2-row grid). The rest stay without an icon (decided
+            // by setActionButtonIcon based on botonera_compacta_auto).
             if (botonera_compacta) {
-                // Compacto: el tamaño del icono AUTO se deriva de la fuente base y el
-                // zoom (no de getHeight), así que puede reponerse ya.
+                // Compact: the AUTO icon size is derived from the base font and the zoom
+                // (not getHeight), so it can be restored right away.
                 buttonIconZoom();
             } else {
-                // Normal: el icono se dimensiona a 0.6*getHeight() del botón. El
-                // revalidate anterior aún NO ha aplicado el layout vertical, y los
-                // botones conservan la altura (mayor) de las celdas de la rejilla 2x2,
-                // con lo que los iconos saldrían agrandados. Se reponen tras dejar que
-                // el EDT asiente el layout, igual que hace el zoom con GUI_RENDER_WAIT.
+                // Normal: the icon is sized to 0.6*getHeight() of the button. The
+                // preceding revalidate has NOT applied the vertical layout yet, and the
+                // buttons still have the (taller) height of the 2x2 grid's cells, which
+                // would render oversized icons. They're restored after letting the EDT
+                // settle the layout, the same way the zoom does with GUI_RENDER_WAIT.
                 Helpers.threadRun(() -> {
                     Helpers.pausar(GUI_RENDER_WAIT);
                     buttonIconZoom();
@@ -2726,10 +2719,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Construye (removeAll + GridBag) el sub-layout de la botonera compacta:
-    //   autoLayout == false -> turno: rejilla 2x2 (NO IR | PASAR // APOSTAR | ALL IN) + spinner.
-    //   autoLayout == true  -> auto: AUTO-igualar a ancho completo arriba y AUTO-fold
-    //                          abajo (los otros botones/spinner no se muestran en ese estado).
+    // Builds (removeAll + GridBag) the compact button bar's sub-layout:
+    //   autoLayout == false -> turn: 2x2 grid (FOLD | CHECK // BET | ALL IN) + spinner.
+    //   autoLayout == true  -> auto: full-width AUTO-call on top and AUTO-fold below
+    //                          (the other buttons/spinner aren't shown in that state).
     private void buildCompactLayout(boolean autoLayout) {
 
         float zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
@@ -2781,9 +2774,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             botonera.add(bet_spinner, c);
         }
 
-        // Anchura FIJA = la del layout normal, en ambos sub-layouts, para que el
-        // LocalPlayer no salte de anchura al alternar turno/auto (el 2x2 con texto
-        // dinámico es más ancho que el auto). La altura se deja natural (2 vs 3 filas).
+        // FIXED width = the normal layout's, in both sub-layouts, so the LocalPlayer
+        // doesn't jump width when toggling turn/auto (the 2x2 with dynamic text is wider
+        // than the auto one). Height is left natural (2 vs 3 rows).
         botonera.setPreferredSize(null);
         botonera.setMinimumSize(null);
         int naturalH = botonera.getPreferredSize().height;
@@ -2793,9 +2786,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Cambia el sub-layout de la botonera compacta según el estado de juego
-    // (auto vs turno). Guarda la intención SIEMPRE (para que al entrar en compacto
-    // se pinte el sub-layout correcto); solo relayouta si ya estamos en compacto.
+    // Switches the compact button bar's sub-layout according to the game state
+    // (auto vs turn). ALWAYS saves the intent (so entering compact mode paints the
+    // right sub-layout); only relayouts if already in compact mode.
     private void updateCompactLayout(boolean autoLayout) {
 
         Helpers.GUIRunAndWait(() -> {
@@ -2806,8 +2799,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 return;
             }
 
-            // La rejilla auto tiene 2 componentes; la de turno, 5. Si ya está en el
-            // sub-layout pedido, no rehacemos nada.
+            // The auto grid has 2 components; the turn one has 5. If already on the
+            // requested sub-layout, don't redo anything.
             if (botonera.getComponentCount() == (autoLayout ? 2 : 5)) {
                 return;
             }
@@ -2821,13 +2814,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Reconstruye desde cero el GroupLayout vertical original del .form (mismos
-    // grupos que initComponents). Se crea una instancia nueva en cada transición
-    // en vez de reusar la guardada, que tras removeAll no se re-asocia bien.
-    // GroupLayout.addComponent re-añade los componentes al contenedor.
+    // Rebuilds the .form's original vertical GroupLayout from scratch (same groups as
+    // initComponents). A fresh instance is created on every transition instead of
+    // reusing the saved one, which doesn't re-associate well after removeAll.
+    // GroupLayout.addComponent re-adds the components to the container.
     private void buildBotoneraNormalLayout() {
 
-        // Suelta el tamaño fijado en compacto para que mande el GroupLayout del .form.
+        // Releases the size fixed in compact mode so the .form's GroupLayout takes over.
         botonera.setPreferredSize(null);
         botonera.setMinimumSize(null);
 
@@ -2857,15 +2850,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 .addContainerGap())
         );
 
-        // Refresca la anchura de referencia con la del layout normal actual (recoge
-        // cambios de zoom), que es la que fijaremos en compacto.
+        // Refreshes the reference width with the current normal layout's (picks up zoom
+        // changes), which is what gets fixed in compact mode.
         botonera_ref_width = botonera.getPreferredSize().width;
     }
 
-    // Fija la fuente de los 4 botones de acción según el modo (reducida en
-    // compacto) reprogramando también su tamaño base en ORIGINAL_FONT_SIZE para
-    // que zoomFonts siga derivando el tamaño correcto tras un zoom. En compacto
-    // ademas les quita el icono.
+    // Sets the font of the 4 action buttons per the mode (shrunk in compact mode),
+    // also reprogramming their base size in ORIGINAL_FONT_SIZE so zoomFonts keeps
+    // deriving the correct size after a zoom. Also strips their icon in compact mode.
     private void applyActionButtonsStyle() {
 
         float zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
@@ -2890,10 +2882,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Aplica el icono a un botón de acción. En modo normal SIEMPRE lleva icono.
-    // En compacto solo lo llevan los botones AUTO (rejilla de 2 filas, donde el
-    // icono dedo-arriba/abajo distingue igualar de fold); en la 2x2 del turno se
-    // omite para que quepa el texto.
+    // Applies the icon to an action button. In normal mode it ALWAYS has an icon.
+    // In compact mode only the AUTO buttons carry one (2-row grid, where the
+    // thumb-up/thumb-down icon distinguishes call from fold); in the turn's 2x2 it's
+    // omitted so the text fits.
     private void setActionButtonIcon(JButton boton, String resource) {
 
         if (botonera_compacta && !botonera_compacta_auto) {
@@ -2901,10 +2893,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             return;
         }
 
-        // Tamaño del icono: en compacto-auto se basa en la fuente BASE (action_font_base,
-        // no la reducida) escalada por el zoom: estable durante la mano (solo cambia con
-        // el zoom), NO usa getHeight() (los botones AUTO son filas altas cuya altura se
-        // reasienta al reflowear la mesa y hacía "bailar" el icono). Normal: 0.6*altura.
+        // Icon size: in compact-auto it's based on the BASE font (action_font_base, not
+        // the shrunk one) scaled by the zoom: stable during the hand (only changes with
+        // the zoom), does NOT use getHeight() (the AUTO buttons are tall rows whose
+        // height resettles when the table reflows, which made the icon "dance"). Normal:
+        // 0.6*height.
         int size = botonera_compacta
                 ? Math.round(2f * action_font_base * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))
                 : Math.round(0.6f * boton.getHeight());
@@ -2923,7 +2916,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     } else {
 
-                        //Vamos ALLIN (setBet antes: ver nota en player_allin_buttonActionPerformed)
+                        //Going ALL IN (setBet first: see note in player_allin_buttonActionPerformed)
                         setBet(stack);
 
                         setDecision(Player.ALLIN);
@@ -2940,7 +2933,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 } else {
 
-                    //Vamos ALLIN (setBet antes: ver nota en player_allin_buttonActionPerformed)
+                    //Going ALL IN (setBet first: see note in player_allin_buttonActionPerformed)
                     setBet(stack);
 
                     setDecision(Player.ALLIN);
@@ -2954,7 +2947,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 } else {
 
-                    //Vamos ALLIN (setBet antes: ver nota en player_allin_buttonActionPerformed)
+                    //Going ALL IN (setBet first: see note in player_allin_buttonActionPerformed)
                     setBet(stack);
 
                     setDecision(Player.ALLIN);
@@ -3459,23 +3452,23 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 }
                                 Hand jugada = new Hand(cartas_jugada);
 
-                                // Habilita el resaltado por hover de la jugada que el jugador local acaba de
-                                // enseñar voluntariamente (foldeado o perdedor tapado que pulsa MOSTRAR): sin
-                                // kickers, igual que un ganador. El gate del highlight es por !winner, así que
-                                // funciona aunque el local no sea un perdedor del showdown (p.ej. foldeó antes).
+                                // Enables hover highlighting of the hand the local player just
+                                // voluntarily showed (folded or a covered loser pressing SHOW): no
+                                // kickers, same as a winner. The highlight gate is by !winner, so it
+                                // works even if the local player isn't a showdown loser (e.g. folded
+                                // earlier).
                                 setShowdownHand(jugada.getWinners());
 
-                                // Las mutaciones de Swing deben ir en el EDT. GUIRun
-                                // (asíncrono) y NO GUIRunAndWait: estamos dentro de
-                                // lock_mostrar y bloquear el worker esperando al EDT
-                                // podría interbloquear. setActionBackground/Icon ya se
-                                // autoprotegen; aquí cubrimos setForeground/clientProperty/
-                                // setActionTextFitted, que mutaban el label en crudo.
+                                // Swing mutations must run on the EDT. GUIRun (async) and NOT
+                                // GUIRunAndWait: we're inside lock_mostrar, and blocking the worker
+                                // waiting for the EDT could deadlock. setActionBackground/Icon
+                                // already self-protect; here we cover setForeground/clientProperty/
+                                // setActionTextFitted, which mutated the label directly.
                                 Helpers.GUIRun(() -> {
                                     player_action.setForeground(Color.WHITE);
                                     setActionBackground(new Color(51, 153, 255));
 
-                                    // LIMPIEZA DE ETIQUETA: Evita el glitch de "HABLAS TÚ"
+                                    // LABEL CLEANUP: avoids the "YOUR TURN" text glitch
                                     player_action.putClientProperty("i18n.key", null);
                                     setActionTextFitted(Translator.translate("ui.muestras") + jugada.getName() + Translator.translate("ui.suffix_close"));
                                 });
@@ -3499,9 +3492,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         GameFrame.getInstance().getCrupier().setCurrent_local_cinematic_b64(null);
 
-                        // Va a volar ficha (launchChipToPot abajo, antes del threadRun que
-                        // hace setBet): NO rodamos el stack/bet en setBet; rollCountersToModel
-                        // los rueda al aterrizar, junto al bote (los tres a la vez).
+                        // A chip is about to fly (launchChipToPot below, before the threadRun
+                        // that calls setBet): stack/bet do NOT roll in setBet;
+                        // rollCountersToModel rolls them on landing, together with the pot.
                         setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
                         if (GameFrame.allinSonidoOn()) {
@@ -3524,22 +3517,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         Init.PLAYING_CINEMATIC = true;
 
                         Helpers.threadRun(() -> {
-                            // Secuenciado en UN hilo (antes eran dos en paralelo) para
-                            // cerrar la race del "*": localCinematicAllin fija
-                            // current_local_cinematic_b64 y LANZA la animación en sus
-                            // propios hilos (no bloquea), y solo después finTurno
-                            // libera al crupier — así el build del ACTION ya no puede
-                            // leer el b64 a null y difundir "*" cuando finTurno ganaba
-                            // la carrera. La acción sigue saliendo al pulsar el botón
-                            // (la selección del GIF son milisegundos).
+                            // Sequenced on ONE thread (used to be two in parallel) to close the
+                            // "*" race: localCinematicAllin sets current_local_cinematic_b64 and
+                            // LAUNCHES the animation on its own threads (non-blocking), and only
+                            // afterward does finTurno release the crupier — so the ACTION build
+                            // can no longer read a null b64 and broadcast "*" when finTurno won
+                            // the race. The action still fires as soon as the button is pressed
+                            // (GIF selection takes milliseconds).
                             try {
                                 if (!GameFrame.getInstance().getCrupier().localCinematicAllin()) {
                                     GameFrame.getInstance().getCrupier().soundAllin();
                                 }
                             } catch (Exception ex) {
-                                // La cinemática es cosmética: pase lo que pase, el
-                                // turno tiene que cerrarse y el flag apagarse (la
-                                // espera del turno del bot depende de él).
+                                // The cinematic is cosmetic: no matter what, the turn has to
+                                // close and the flag has to turn off (the bot's turn wait
+                                // depends on it).
                                 Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                                 Init.PLAYING_CINEMATIC = false;
                                 synchronized (Init.LOCK_CINEMATICS) {
@@ -3547,11 +3539,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 }
                             }
 
-                            // setBet ANTES de setDecision a propósito: el
-                            // render del all-in que setDecision encola al EDT
-                            // lee bet+stack, y así los lee ya asentados en vez
-                            // de competir con el movimiento del dinero a mitad
-                            // de setBet.
+                            // setBet BEFORE setDecision on purpose: the all-in render that
+                            // setDecision queues to the EDT reads bet+stack, so this way it
+                            // reads them already settled instead of racing the money movement
+                            // mid-setBet.
                             setBet(stack + bet);
 
                             setDecision(Player.ALLIN);
@@ -3604,9 +3595,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_allin_buttonActionPerformed(null);
                 } else {
 
-                    // Si va a volar ficha (CALL con dinero), NO rodamos el stack/bet en
-                    // setBet (corre en el threadRun de abajo): launchChipToPot los rueda al
-                    // aterrizar, junto al bote (los tres a la vez).
+                    // If a chip is about to fly (CALL with money), stack/bet do NOT roll in
+                    // setBet (runs in the threadRun below): launchChipToPot rolls them on
+                    // landing, together with the pot.
                     setCounterRollDeferred(Helpers.doubleSecureCompare(0f, call_required) < 0
                             && GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
@@ -3664,8 +3655,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     double bet_spinner_val = Helpers.doubleClean(((BigDecimal) bet_spinner.getValue()).doubleValue());
 
-                    // Va a volar ficha: NO rodamos el stack/bet en setBet (threadRun de
-                    // abajo); launchChipToPot los rueda al aterrizar, junto al bote.
+                    // A chip is about to fly: stack/bet do NOT roll in setBet (threadRun
+                    // below); launchChipToPot rolls them on landing, together with the pot.
                     setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
                     if (GameFrame.apuestaSonidoOn()) {
                         Audio.playWavResource("misc/bet.wav");
@@ -3721,8 +3712,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             return;
         }
 
-        // Con la ficha grande forzada oculta (destape de hc1 / swap), ignorar el
-        // clic que la ciclaría: la repondría a media animación.
+        // With the big chip forced hidden (hc1 reveal / swap), ignore the click that would
+        // cycle it: it would restore it mid-animation.
         if (chip_forced_hidden) {
             return;
         }
@@ -3733,7 +3724,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 || (GameFrame.getInstance().getCrupier().isStraddle_posted()
                         && nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick()))) {
 
-            // Cicla los 3 estados de la ficha de posición: normal -> 70% -> oculta -> normal.
+            // Cycles the position chip's 3 states: normal -> 70% -> hidden -> normal.
             GameFrame.LOCAL_POSITION_CHIP = (GameFrame.LOCAL_POSITION_CHIP + 1) % 3;
 
             this.refreshPositionChipIcons();
@@ -3759,8 +3750,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (!player_stack_click) {
                 player_stack_click = true;
 
-                // Muestra el buy-in fijo (no es el valor del stack): invalida el roller
-                // para que al restaurar salte al stack real sin animar desde aquí.
+                // Shows the fixed buy-in (not the stack value): invalidates the roller so
+                // restoring jumps to the real stack without animating from here.
                 stackRoller().invalidate();
                 player_stack.setText(Helpers.money2String(this.buyin));
                 setPlayerStackBackground(Color.GRAY);
@@ -3879,10 +3870,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void refreshSecPotLabel() {
 
-        // En run-it-twice la franja es POR CARA: cada cara reparte la MITAD del
-        // bote, así que muestra el dinero ganado en ELLA (pagar - pagar_face_base)
-        // y el beneficio contra la mitad del bote. Fuera de RIT (tag null) →
-        // pagar y bote enteros, como siempre.
+        // In run-it-twice the strip is PER SIDE: each side awards HALF the pot, so it
+        // shows the money won ON IT (pagar - pagar_face_base) and the profit against
+        // half the pot. Outside RIT (tag null) -> full pagar and pot, as always.
         final boolean is_rit = GameFrame.getInstance().getCrupier().getRitPotBoardTag() != null;
 
         final double fullbote = last_bote != null ? last_bote : bote;
@@ -3949,9 +3939,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.showdown_hand_cards = cartas;
     }
 
-    // Enter/exit sobre la etiqueta de jugada (instalado en el constructor): al entrar resalta la
-    // jugada de este jugador —ganador o perdedor— (enfoca sus cartas, atenúa el resto de la mesa)
-    // y pinta su etiqueta de amarillo/negro; al salir lo restaura.
+    // Enter/exit over the hand label (installed in the constructor): entering highlights
+    // this player's hand — winner or loser — (focuses their cards, dims the rest of the
+    // table) and paints their label yellow/black; exiting restores it.
     private void installShowdownHandHighlight() {
         player_action.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -3966,15 +3956,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // on=true: solo si la opción está activa, este jugador NO es espectador, tiene jugada visible
-    // (showdown_hand_cards) y seguimos en show_time. Enfoca SOLO las cartas de su jugada y desenfoca
-    // todas las demás de la mesa (guardando antes el enfoque de cada una), y pinta la etiqueta de
-    // amarillo/negro. Funciona para CUALQUIER jugador con jugada enseñada: ganador(es), perdedores y
-    // el foldeado que enseña voluntariamente (el gate ya no excluye a los ganadores). Un espectador
-    // no reparte cartas en esta mano, así que lo que tuviera guardado solo puede ser residuo de la
-    // última que jugó. Quien abandona SÍ pasa el gate: puede irse con la mano viva (all-in run-out)
-    // y su jugada se resuelve en este mismo showdown.
-    // on=false: restauración incondicional (defensiva).
+    // on=true: only if the option is enabled, this player is NOT a spectator, has a
+    // visible hand (showdown_hand_cards) and we're still in show_time. Focuses ONLY the
+    // cards of their hand and unfocuses every other table card (saving each one's focus
+    // first), and paints the label yellow/black. Works for ANY player with a shown hand:
+    // winner(s), losers, and a folded player showing voluntarily (the gate no longer
+    // excludes winners). A spectator doesn't get dealt cards this hand, so whatever they
+    // had saved can only be leftover from the last one they played. A player who left
+    // DOES pass the gate: they can leave with the hand still live (all-in run-out) and
+    // their hand gets resolved in this same showdown.
+    // on=false: unconditional (defensive) restoration.
     private void highlightShowdownHand(boolean on) {
         if (on) {
             final java.util.List<Card> cartas = showdown_hand_cards;
@@ -3985,7 +3976,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             Helpers.GUIRun(() -> {
-                // Idempotencia: si quedó un resaltado colgado, deshazlo antes de re-snapshotear.
+                // Idempotence: if a highlight was left stuck, undo it before re-snapshotting.
                 restoreShowdownHandHighlight();
 
                 java.util.List<Card> mesa = GameFrame.getInstance().getShowdownVisibleCards();
@@ -4016,9 +4007,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Devuelve las cartas de la mesa al enfoque que tenían antes del hover (el resaltado del
-    // ganador vuelve tal cual) y quita el tinte. NO toca el color de la etiqueta. Idempotente
-    // (no-op si no hay snapshot). Debe llamarse en el EDT.
+    // Returns the table cards to the focus they had before the hover (the winner's
+    // highlight comes back as-is) and removes the tint. Does NOT touch the label's color.
+    // Idempotent (no-op if there's no snapshot). Must be called on the EDT.
     private void restoreShowdownHandFocus() {
         java.util.Map<Card, Boolean> snapshot = showdown_focus_snapshot;
 
@@ -4037,8 +4028,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Restauración completa (enfoque + color de la etiqueta) para el mouseExited y el reset
-    // entre manos: la etiqueta vuelve al rojo del perdedor tal cual estaba.
+    // Full restoration (focus + label color) for mouseExited and the between-hands
+    // reset: the label goes back to the loser's red exactly as it was.
     private void restoreShowdownHandHighlight() {
         restoreShowdownHandFocus();
 
@@ -4050,9 +4041,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Descarta el hover SIN restaurar el color de la etiqueta: para el rewind de run-it-twice,
-    // donde renderDecisionVisual re-pinta la etiqueta a la decisión (ALL IN) justo después;
-    // restaurar aquí el rojo del perdedor de SIDE-A lo dejaría colgado sobre CARA-B.
+    // Discards the hover WITHOUT restoring the label color: for the run-it-twice rewind,
+    // where renderDecisionVisual repaints the label to the decision (ALL IN) right after;
+    // restoring SIDE-A's loser red here would leave it stuck over SIDE-B.
     private void discardShowdownHandHighlight() {
         restoreShowdownHandFocus();
         showdown_action_bg_snapshot = null;
@@ -4100,13 +4091,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void markFoldedOnRecover() {
-        // setDecision ya fija decision=FOLD y pinta gris (renderDecisionVisual), sin sonido ni
-        // cinematica (esos van en el handler del boton, no aqui). Justo lo que necesita el skip.
+        // setDecision already sets decision=FOLD and paints it gray (renderDecisionVisual),
+        // with no sound or cinematic (those live in the button handler, not here). Exactly
+        // what the skip needs.
         setDecision(Player.FOLD);
     }
 
-    // Render visual de una decisión (sin efectos), extraído de setDecision para
-    // poder RE-PINTAR la última acción en el rewind de run-it-twice.
+    // Visual render of a decision (no side effects), extracted from setDecision so the
+    // last action can be RE-PAINTED during the run-it-twice rewind.
     private void renderDecisionVisual(int dec) {
         switch (dec) {
             case Player.CHECK:
@@ -4126,8 +4118,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(() -> {
                     final double apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
                     final int conta_raise_snapshot = GameFrame.getInstance().getCrupier().getConta_raise();
-                    // Lectura ÚNICA del volátil bet: guard y texto deben usar
-                    // exactamente el mismo valor (ver nota en ALLIN).
+                    // SINGLE read of the volatile bet: the guard and the text must use
+                    // exactly the same value (see the note in ALLIN).
                     final double bet_snapshot = bet;
                     if (Helpers.doubleSecureCompare(apuesta_actual_snapshot, bet_snapshot) < 0 && Helpers.doubleSecureCompare(0f, apuesta_actual_snapshot) < 0) {
                         setActionTextFitted((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.money2String(bet_snapshot - apuesta_actual_snapshot) + ")");
@@ -4146,12 +4138,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
                     final double apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
-                    // Lectura ÚNICA de bet+stack para guard y texto: son
-                    // volátiles y el dinero del all-in se mueve en dos pasos
-                    // (bet sube, luego stack baja) en otro hilo. Con lecturas
-                    // separadas el guard podía ver la suma inflada a mitad de
-                    // setBet y el texto la ya asentada, colando un importe
-                    // negativo en la etiqueta ("ALL IN (+-0.90)").
+                    // SINGLE read of bet+stack for the guard and the text: they're volatile
+                    // and the all-in money moves in two steps (bet goes up, then stack goes
+                    // down) on another thread. With separate reads, the guard could see the
+                    // inflated sum mid-setBet while the text saw the already-settled one,
+                    // sneaking a negative amount into the label ("ALL IN (+-0.90)").
                     final double total_allin = bet + stack;
                     if (Helpers.doubleSecureCompare(apuesta_actual_snapshot, total_allin) < 0) {
                         setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.money2String(total_allin - apuesta_actual_snapshot) + ")");
@@ -4197,36 +4188,36 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Run-it-twice rewind: re-aplica el render de la última acción guardada y
-    // limpia el verde/rojo de ganador/perdedor de SIDE-A, dejando las hole cards
-    // reveladas. No toca pots ni stacks (el bote persiste entre sides).
+    // Run-it-twice rewind: re-applies the render of the last saved action and clears
+    // SIDE-A's winner/loser green/red, leaving the hole cards revealed. Doesn't touch
+    // pots or stacks (the pot persists across sides).
     @Override
     public void repaintLastAction() {
         this.winner = false;
         this.loser = false;
-        // Run-it-twice: olvida el resaltado por hover de SIDE-A antes del rewind (idempotente
-        // si no había hover activo). Se DESCARTA sin restaurar el color: renderDecisionVisual
-        // (más abajo) re-pinta la etiqueta a la decisión (ALL IN); restaurar aquí el rojo del
-        // perdedor de SIDE-A lo dejaría colgado sobre CARA-B. El re-enfoque de hole cards y el
-        // settle de SIDE-B reconstruyen el resto.
+        // Run-it-twice: forgets SIDE-A's hover highlight before the rewind (idempotent if
+        // no hover was active). It's DISCARDED without restoring the color:
+        // renderDecisionVisual (below) repaints the label to the decision (ALL IN);
+        // restoring SIDE-A's loser red here would leave it stuck over SIDE-B. Re-focusing
+        // the hole cards and SIDE-B's settle rebuild the rest.
         Helpers.GUIRun(this::discardShowdownHandHighlight);
         this.showdown_hand_cards = null;
-        // Limpia la franja de side pots de SIDE-A (se recalcula en SIDE-B).
+        // Clears SIDE-A's side-pot strip (recalculated on SIDE-B).
         this.botes_secundarios.clear();
-        // Línea base de CARA-B = lo acumulado en CARA-A: la franja de CARA-B
-        // muestra 'pagar - base', es decir SOLO lo que se gane en CARA-B (pagar
-        // sigue acumulando ambas caras para la contabilidad).
+        // SIDE-B's baseline = what accumulated in SIDE-A: SIDE-B's strip shows
+        // 'pagar - base', i.e. ONLY what's won on SIDE-B (pagar keeps accumulating both
+        // sides for accounting).
         this.pagar_face_base = this.pagar;
-        // Re-enfoca las hole cards: el showdown de SIDE-A atenúa las de los
-        // perdedores; en SIDE-B deben volver a verse brillantes (se reevalúan).
+        // Re-focuses the hole cards: SIDE-A's showdown dims the losers'; on SIDE-B they
+        // must look bright again (re-evaluated).
         Helpers.GUIRun(() -> {
             holeCard1.enfocar();
             holeCard2.enfocar();
             sec_pot_win_label.setVisible(false);
-            // Borde neutro: en el flujo normal lo restaura finTurno (que el
-            // rewind no llama) y renderDecisionVisual solo repinta borde en
-            // ALLIN/FOLD; sin esto el verde/rojo de ganador/perdedor de SIDE-A
-            // sobreviviría en CHECK/BET (p.ej. quien cubre el all-in).
+            // Neutral border: in the normal flow finTurno restores it (which the rewind
+            // doesn't call) and renderDecisionVisual only repaints the border on
+            // ALLIN/FOLD; without this, SIDE-A's winner/loser green/red would survive
+            // into CHECK/BET (e.g. whoever covers the all-in).
             if (decision != Player.ALLIN && decision != Player.FOLD) {
                 setPlayerBorder(new Color(204, 204, 204, 75));
             }
@@ -4234,14 +4225,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         renderDecisionVisual(this.decision);
     }
 
-    // El registro de la timba habla en 3ª persona como con el resto de jugadores
-    // ("server VA", "server SUBE (+0,30)"...), aunque la etiqueta de acción del
-    // tapete del jugador local siga en 2ª persona (esa NO se toca). Reescribimos
-    // SOLO el verbo de la etiqueta ya renderizada a su forma en 3ª persona —las
-    // mismas claves que usa RemotePlayer—, conservando los importes ("(+0,30)",
-    // " 0,50", "(+...)") y el prefijo "RE". El reemplazo es por-decisión, asi que
-    // los verbos no colisionan entre si ni con los importes (numericos). En ingles
-    // ambas personas coinciden, con lo que queda como no-op.
+    // The table log speaks in 3rd person like it does for every other player ("server
+    // CALLS", "server RAISES (+0.30)"...), even though the local player's action label on
+    // the felt stays in 2nd person (that one is NOT touched). We rewrite ONLY the verb of
+    // the already-rendered label to its 3rd-person form — the same keys RemotePlayer
+    // uses — keeping the amounts ("(+0.30)", " 0.50", "(+...)") and the "RE" prefix. The
+    // replacement is per-decision, so the verbs don't collide with each other or with the
+    // (numeric) amounts. In English both persons coincide, so this ends up a no-op.
     private String thirdPersonActionLabel() {
         String text = player_action.getText();
 
@@ -4300,7 +4290,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             } else {
                 setActionBackground(new Color(51, 153, 255));
             }
-            player_action.putClientProperty("i18n.key", null); // Limpiamos fantasma
+            player_action.putClientProperty("i18n.key", null); // Clears stale i18n key
             player_action.setForeground(Color.WHITE);
             setActionTextFitted(Translator.translate("ui.muestra_prefix") + jugada + Translator.translate("ui.suffix_close"));
         });
@@ -4314,10 +4304,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
      * the original size when it fits again. Must run on the EDT.
      */
     private void setActionTextFitted(String msg) {
-        // Cualquier texto de accion NORMAL (CALL/RAISE/pensando/se pira/reset...) invalida
-        // el rodaje del % del all-in: el proximo % saltara en vez de rodar desde un valor
-        // que ya no aplica (p.ej. el de un all-in anterior). El propio rodaje y el "(--%)"
-        // usan setActionTextFittedRaw para NO auto-invalidarse.
+        // Any NORMAL action text (CALL/RAISE/thinking/leaves/reset...) invalidates the
+        // all-in %'s rolling animation: the next % will jump instead of rolling from a
+        // value that no longer applies (e.g. a previous all-in's). The roll itself and the
+        // "(--%)" use setActionTextFittedRaw so they do NOT self-invalidate.
         if (jugada_prob_roller != null) {
             jugada_prob_roller.invalidate();
         }
@@ -4346,10 +4336,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setText(msg);
     }
 
-    // Jugada en etiqueta NEUTRA (gris en reposo, no el azul de showCards) durante el
-    // destape secuencial del showdown — espejo de RemotePlayer.showJugadaNeutral pero
-    // para la propia mano del local (que ya está boca arriba). Encoge la fuente con
-    // nombres de jugada largos, igual que los remotos.
+    // Hand shown on a NEUTRAL label (resting gray, not showCards's blue) during the
+    // showdown's sequential reveal — mirrors RemotePlayer.showJugadaNeutral, but for the
+    // local player's own hand (already face-up). Shrinks the font for long hand names,
+    // same as the remote seats.
     public void showJugadaNeutral(String jugada) {
         Helpers.GUIRun(() -> {
             setActionBackground(new Color(204, 204, 204, 75));
@@ -4442,7 +4432,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void ordenarCartas() {
         if (getHoleCard1().getValorNumerico() != -1 && getHoleCard2().getValorNumerico() != -1 && getHoleCard1().getValorNumerico() < getHoleCard2().getValorNumerico()) {
 
-            //Ordenamos las cartas para mayor comodidad
+            //Sort the cards for convenience
             String valor1 = this.holeCard1.getValor();
             String palo1 = this.holeCard1.getPalo();
             boolean desenfocada1 = this.holeCard1.isDesenfocada();
@@ -4495,10 +4485,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    // Rodaje vivo del % de probabilidad del all-in en la label de accion (JUGADA + PROB).
-    // El numero rueda a velocidad constante conservando el nombre de la jugada como
-    // prefijo; el render reconstruye "JUGADA (NN%)" via setActionTextFittedRaw (para no
-    // auto-invalidarse) y lo pasa por el auto-fit de fuente. EDT-only (creacion perezosa).
+    // Live rolling animation of the all-in win-probability % on the action label (HAND +
+    // PROB). The number rolls at constant speed keeping the hand name as a prefix; the
+    // renderer rebuilds "HAND (NN%)" via setActionTextFittedRaw (so it doesn't
+    // self-invalidate) and runs it through the font auto-fit. EDT-only (lazily created).
     private RollingCounter jugada_prob_roller;
     private String jugada_prob_prefix = "";
 
@@ -4521,22 +4511,22 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             jugada_prob_prefix = jugada.getName();
 
             if (win_per >= 0) {
-                // Rueda solo el % conservando el nombre de la jugada. Gate por la opcion
-                // "Contadores" de Apariencia (isCounterRollEnabled; salta en recover). Via el
-                // roller -> render con setActionTextFittedRaw (no se auto-invalida).
+                // Rolls only the %, keeping the hand name. Gated by the Appearance "Counters"
+                // option (isCounterRollEnabled; skipped on recover). Via the roller -> render
+                // with setActionTextFittedRaw (doesn't self-invalidate).
                 boolean animate = GameFrame.isCounterRollEnabled();
                 RollingCounter roller = jugadaProbRoller();
-                // Primer reveal del all-in: el roller no tiene valor (la accion previa lo
-                // invalido), asi que roll() saltaria de golpe SOLO la primera calle y animaria
-                // las siguientes. Sembramos 0 para que ruede 0->% en la misma duracion fija,
-                // de modo que TODAS las calles tarden igual.
+                // All-in's first reveal: the roller has no value (the previous action
+                // invalidated it), so roll() would jump straight to it on ONLY the first
+                // street and animate the rest. Seeded with 0 so it rolls 0->% over the same
+                // fixed duration, so EVERY street takes the same time.
                 if (animate && !roller.isValid()) {
                     roller.set(0);
                 }
                 roller.roll(win_per, animate);
             } else {
-                // Aun sin simulacion: "(--%)" en crudo (sin invalidar) para que el valor del
-                // roller sobreviva y el % de la calle siguiente ruede desde el actual.
+                // Still no simulation: raw "(--%)" (without invalidating) so the roller's
+                // value survives and the next street's % rolls from the current one.
                 setActionTextFittedRaw(jugada_prob_prefix + " (--%)");
             }
         });

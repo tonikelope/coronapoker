@@ -31,7 +31,6 @@ package com.tonikelope.coronapoker;
 import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Image;
 import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
@@ -49,6 +48,9 @@ import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 
 /**
+ * Base Swing panel for a poker table's felt: owns the felt background painting,
+ * table-wide animation overlays (central label, card flights, chip flights, call-cost
+ * overlays) and zoom/resize handling shared by every table layout.
  *
  * @author tonikelope
  */
@@ -56,13 +58,12 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     protected volatile TexturePaint tp = null;
 
-    // Tapete de IMAGEN ÚNICA (sufijo "*"): un JPG grande que se estira a todo el
-    // tablero. Se guarda la imagen sin escalar y se pinta con drawImage(...,0,0,w,h)
-    // en cada paint (ver paintComponent). NO se usa TexturePaint para esto: un tile
-    // del tamaño del panel rinde distinto una franja recortada que el pintado
-    // completo (costura/"deformación" por donde cruzan las fichas/cartas voladoras),
-    // mientras que drawImage con rectángulo de destino mapea siempre la fuente
-    // entera a (0,0)-(w,h) y el clip solo limita qué píxeles se escriben.
+    // Single-image felt (suffix "*"): a large JPG stretched over the whole table,
+    // kept unscaled and painted with drawImage(...,0,0,w,h) each frame (see
+    // paintComponent). NOT a TexturePaint: a panel-sized tile renders a partial
+    // repaint strip differently from a full repaint (visible seams where flying
+    // chips/cards cross), whereas drawImage always maps the whole source to
+    // (0,0)-(w,h) regardless of the clip.
     protected volatile BufferedImage secret_bg = null;
 
     protected volatile RemotePlayer[] remotePlayers;
@@ -75,26 +76,22 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     protected final GifLabel central_label = new GifLabel();
 
-    // Rótulo "BARAJANDO" que se muestra centrado donde iría el gif de barajado cuando
-    // ESE gif NO se reproduce (la baraja no trae shuffle.gif, o las animaciones están
-    // desactivadas): mismas letras que el mensaje gigante de la pantalla final (relleno
-    // blanco, borde negro), con el ancho del panel de comunitarias. Vive en su propia
-    // capa por encima de la mesa y solo está visible durante el barajado sin gif.
+    // "SHUFFLING" fallback label shown centered where the shuffle GIF would play when
+    // that GIF isn't available (deck has no shuffle.gif, or animations are off); same
+    // style as the end-of-hand banner (white fill, black outline). Own layer above the
+    // table, visible only during a GIF-less shuffle.
     protected final ShufflingTextLabel shuffling_label = new ShufflingTextLabel();
 
-    // Overlay opcional sobre las comunitarias: muestra en grande el coste de igualar
-    // del jugador local — cuánto tendrá que poner cuando le toque. Texto con relleno
-    // negro semitransparente y halo blanco para leerse sobre cualquier fondo (cartas
-    // claras, dorsos oscuros, tapete) sin tapar. Se actualiza en vivo según suben las
-    // apuestas.
+    // Optional overlay over the community cards showing the local player's call cost
+    // in large text (semi-transparent black fill + white halo, readable over any
+    // background). Updated live as bets rise.
     protected final CallCostOverlayLabel call_cost_label = new CallCostOverlayLabel();
 
-    // Overlays de coste por jugador para la ronda del RIVER: cuando ya no quedan
-    // comunitarias por destapar, el coste de igualar pasa a mostrarse sobre las hole
-    // cards TAPADAS de cada RemotePlayer que sigue en el bote (nunca sobre el local,
-    // que ve sus cartas) — el coste de igualar es ahí el coste de "destapar" las manos
-    // rivales en el showdown. Viven en DRAG_LAYER (por encima de todo el tablero) y se
-    // gestionan solo en el EDT. La clave es el RemotePlayer (objeto estable por asiento).
+    // Per-player call-cost overlays for the RIVER round: once no community card is
+    // left face down, the call cost is shown over each in-pot RemotePlayer's face-down
+    // hole cards instead (never over the local player, who sees their own cards) — it's
+    // effectively the cost of "revealing" the rival hand at showdown. Live in DRAG_LAYER,
+    // EDT-only. Keyed by RemotePlayer (stable per-seat object).
     private final java.util.Map<RemotePlayer, CallCostOverlayLabel> player_call_cost_labels = new java.util.HashMap<>();
     private final java.util.Set<RemotePlayer> player_call_overlay_listeners = new java.util.HashSet<>();
 
@@ -119,16 +116,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     abstract public LocalPlayer getLocalPlayer();
 
     /**
-     * Creates new form Tapete
+     * Loads the felt background (image or tiled texture) and wires up the table's
+     * fixed overlays (central label, shuffling label, call-cost overlay, fast buttons).
      */
     public TablePanel() {
 
         if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
 
-            // Tapete de imagen única: se guarda sin escalar y se pinta estirado a
-            // todo el panel con drawImage (ver paintComponent). NO se usa
-            // TexturePaint para evitar las costuras al repintar franjas parciales
-            // bajo las animaciones voladoras.
+            // Single-image felt: see the secret_bg field doc above for why this
+            // uses drawImage instead of TexturePaint.
             try {
                 secret_bg = Helpers.toBufferedImage(Init.I1);
 
@@ -137,10 +133,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
         } else {
             BufferedImage tile = null;
-            // try-with-resources: ImageIO.read(InputStream) NO cierra el stream
-            // (contrato JDK), así que el handle del JAR resource quedaba colgado
-            // hasta el GC. Mismo arreglo que ya se aplicó en el cambio de tapete
-            // en vivo (paintComponent, más abajo en este fichero).
+            // try-with-resources: ImageIO.read(InputStream) does NOT close the stream
+            // (JDK contract), so the JAR resource handle used to leak until GC. Same
+            // fix applied to the live felt-swap path in paintComponent below.
             try (java.io.InputStream is = getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg")) {
 
                 tile = ImageIO.read(is);
@@ -167,24 +162,24 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             central_label.setBarrier(central_label_barrier);
             add(central_label, JLayeredPane.POPUP_LAYER);
 
-            // Rótulo "BARAJANDO" (fallback sin gif de barajado): misma capa que el gif
-            // central, oculto salvo durante el barajado sin animación.
+            // "SHUFFLING" fallback label: same layer as the central GIF, hidden except
+            // during a GIF-less shuffle.
             shuffling_label.setFocusable(false);
             shuffling_label.setVisible(false);
             add(shuffling_label, JLayeredPane.POPUP_LAYER);
 
-            // Overlay de coste de igualar: por encima de las comunitarias (capa
-            // PALETTE, debajo del shuffle/flying). Pinta su propio texto con halo
-            // (centrado), así que no necesita alignment ni foreground.
+            // Call-cost overlay: above the community cards (PALETTE layer, below the
+            // shuffle/flying layers). Paints its own centered halo text, so no
+            // alignment/foreground needed here.
             call_cost_label.setFocusable(false);
             call_cost_label.setOpaque(false);
             call_cost_label.setVisible(false);
             add(call_cost_label, JLayeredPane.PALETTE_LAYER);
 
-            // Doble clic izquierdo sobre una zona libre del tapete: pasa al siguiente tapete
-            // (mismo ciclo que el menú de la barra). Se engancha en mouseReleased + isRealClick,
-            // el patrón fiable del resto de la app (mouseClicked se pierde si el ratón se mueve un
-            // pelín entre pulsar y soltar). El menú contextual usa el botón derecho, sin colisión.
+            // Double left-click on an empty felt area cycles to the next felt (same order
+            // as the menu). Hooked on mouseReleased + isRealClick, this app's reliable
+            // pattern (mouseClicked is lost if the mouse drifts slightly between press and
+            // release). No collision with the right-click context menu.
             addMouseListener(new java.awt.event.MouseAdapter() {
                 @Override
                 public void mouseReleased(java.awt.event.MouseEvent evt) {
@@ -211,9 +206,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                     fastbuttons.setLocation(0, (int) (getHeight() - fastbuttons.getSize().getHeight()));
 
-                    // El overlay de coste de igualar está posicionado en absoluto:
-                    // tras un resize/zoom hay que recolocarlo sobre las comunitarias
-                    // (o sobre las hole cards rivales, en la ronda del river).
+                    // The call-cost overlay is absolutely positioned: after a
+                    // resize/zoom it must be relaid over the community cards (or the
+                    // rivals' hole cards, on the river round).
                     if (call_cost_label.isVisible()) {
                         layoutCallCostOverlay();
                         call_cost_label.repaint();
@@ -229,11 +224,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Cicla al siguiente tapete en el mismo orden que el menú (verde -> azul -> rojo -> negro
-    // -> madera -> verde). Delega en el item de menú correspondiente, que ya fija COLOR_TAPETE,
-    // persiste la preferencia, repinta el tapete, recolorea los contadores y sincroniza ambos
-    // menús. Si el tapete actual es una variante secreta (sufijo "*"), se ignora el sufijo para
-    // saltar al siguiente color normal.
+    // Cycles to the next felt in menu order (green -> blue -> red -> black -> wood ->
+    // green) by delegating to the matching menu item, which sets COLOR_TAPETE, persists
+    // the preference, repaints the felt and syncs both menus. A secret variant (suffix
+    // "*") has its suffix stripped so cycling still lands on the next normal color.
     private void cycleNextTapete() {
         GameFrame gf = GameFrame.getInstance();
 
@@ -283,6 +277,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
+    /**
+     * Shows an animated GIF icon centered (or at its current location) in the central
+     * label, optionally playing an audio clip in sync, and blocks the caller until the
+     * animation and {@code delay_end} pause finish.
+     */
     public void showCentralImage(ImageIcon icon, int frames, int delay_end, boolean center, String audio, int audio_frame_start, int audio_frame_end) {
         central_label_thread = Thread.currentThread().threadId();
 
@@ -332,28 +331,28 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Reproduce un GIF pre-decodificado sobre la central_label con indexado por
-    // reloj (catch-up): el frame visible se elige por tiempo transcurrido con
-    // nanoTime, así la duración total es siempre la nominal del GIF aunque los
-    // ticks del timer lleguen tarde (granularidad del timer de Windows). Mismo
-    // contrato que showCentralImage: bloquea al llamante hasta el fin de la
-    // animación (con el mismo timeout) y respeta fin_de_la_transmision y el
-    // takeover de central_label_thread.
+    /**
+     * Plays a pre-decoded GIF on the central label using clock-based (catch-up) frame
+     * indexing: the visible frame is chosen from elapsed nanoTime, so total duration
+     * always matches the GIF's nominal length even if timer ticks lag (Windows timer
+     * granularity). Same contract as {@link #showCentralImage}: blocks the caller until
+     * playback ends, respecting {@code fin_de_la_transmision} and central-label takeover.
+     */
     public void showCentralFrames(PreRenderedGif anim, int display_w, int display_h, int delay_end, String audio) {
 
         showCentralFrames(anim, display_w, display_h, delay_end, audio, null, null);
     }
 
-    // on_show corre dentro del MISMO runnable del EDT que hace visible el
-    // primer frame: el llamante puede ocultar ahí la carta tapada de debajo y
-    // el relevo carta→GIF se pinta en un solo paint (con el hide en un evento
-    // EDT separado el estado intermedio con el hueco vacío llegaba a pintarse
-    // a veces — parpadeo sutil e intermitente). before_hide corre en el hilo
-    // llamante tras el último frame y ANTES de la pausa delay_end, solo si
-    // este hilo sigue siendo el dueño del label: el llamante puede destapar
-    // ahí la carta estática debajo del GIF (que aún muestra su último frame
-    // durante toda la pausa) y el relevo GIF→carta tampoco pinta nunca el
-    // hueco vacío.
+    /**
+     * Same as {@link #showCentralFrames(PreRenderedGif, int, int, int, String)} but with
+     * two hooks for gap-free handoffs. {@code on_show} runs in the SAME EDT event that
+     * paints the first frame, so the caller can hide the face-down card underneath in
+     * that single paint (doing it in a separate EDT event let the empty gap flash
+     * through intermittently). {@code before_hide} runs on the caller's thread after the
+     * last frame and BEFORE the {@code delay_end} pause, only if this thread still owns
+     * the label: the caller can reveal the static card there while the GIF still shows
+     * its last frame, so the GIF-to-card handoff never paints an empty gap either.
+     */
     public void showCentralFrames(PreRenderedGif anim, int display_w, int display_h, int delay_end, String audio, Runnable on_show, Runnable before_hide) {
 
         central_label_thread = Thread.currentThread().threadId();
@@ -421,10 +420,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         "central label pre-rendered playback", ex);
             }
 
-            // Antes de la pausa a propósito: lo que haga el llamante (destapar
-            // la carta estática) ocurre tapado por el último frame durante
-            // delay_end y no alarga la animación. Blindado para que un fallo
-            // del hook jamás deje el label visible para siempre.
+            // Runs before the intentional pause: whatever the caller does here (reveal
+            // the static card) is covered by the last frame during delay_end and doesn't
+            // extend the animation. Guarded so a hook failure can never leave the label
+            // stuck visible forever.
             if (before_hide != null && Thread.currentThread().threadId() == central_label_thread) {
                 try {
                     before_hide.run();
@@ -446,10 +445,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
         }
 
-        // Cinturón y tirantes: para ESTE player pase lo que pase con la espera
-        // (timeout del latch, fin de transmisión, takeover). El Timer ya se
-        // auto-termina al llegar al último frame; esto solo cierra los caminos
-        // exóticos sin tocar el player de un posible nuevo dueño del label.
+        // Belt and suspenders: stop THIS player no matter how the wait ended (latch
+        // timeout, end of transmission, takeover). The Timer already stops itself on
+        // the last frame; this only closes the exotic paths without touching a new
+        // label owner's player.
         Helpers.GUIRun(() -> {
             if (player_holder[0] != null) {
                 player_holder[0].stop();
@@ -457,17 +456,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Reproduce los GIFs de giro de una o varias cartas A LA VEZ sobre
-    // overlays efímeros en POPUP_LAYER (uno por carta, centrado sobre ella),
-    // con el mismo motor catch-up y los mismos relevos sin hueco que
-    // showCentralFrames: cada tapada se oculta en el MISMO evento EDT que
-    // muestra su primer frame y cada carta se destapa síncronamente DEBAJO de
-    // su último frame antes de retirar los overlays. Bloquea al llamante
-    // (NUNCA llamar desde el EDT) hasta que todas las animaciones terminan
-    // más delay_end — para destapes secuenciales (una carta aterrizada del
-    // todo antes de que gire la siguiente) el llamante encadena llamadas de
-    // una sola carta. No toca central_label ni su takeover: los overlays se
-    // crean y se retiran aquí mismo.
+    /**
+     * Plays the flip GIFs of one or more cards AT THE SAME TIME on ephemeral overlays in
+     * POPUP_LAYER (one per card, centered over it), using the same catch-up engine and
+     * gap-free handoffs as {@link #showCentralFrames}: each face-down card is hidden in
+     * the SAME EDT event that shows its overlay's first frame, and each card is revealed
+     * synchronously under its overlay's last frame before the overlays are removed.
+     * Blocks the caller (NEVER call from the EDT) until all animations finish plus
+     * {@code delay_end}; for sequential reveals (one card fully landed before the next
+     * flips) the caller chains single-card calls. Independent of {@code central_label}
+     * and its takeover — overlays are created and torn down here only.
+     */
     public void playCardFlipOverlays(Card[] cartas, PreRenderedGif[] anims, int[] dws, int[] dhs, int delay_end, String audio) {
 
         final GifLabel[] overlays = new GifLabel[cartas.length];
@@ -504,17 +503,16 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                         overlays[i] = overlay;
 
-                        // Mismo evento EDT que muestra el primer frame: el relevo
-                        // carta→GIF se pinta de una pieza.
+                        // Same EDT event that shows the first frame: the card-to-GIF
+                        // handoff paints as a single unit.
                         cartas[i].setVisibleCard(false);
                     }
 
                     if (audio != null) {
-                        // Clip pre-abierto y reutilizado (uncover.wav se precarga
-                        // al arranque): el sonido del giro arranca instantáneo y
-                        // sincronizado con el primer frame del overlay, sin un open
-                        // de línea por destape que llegue tarde. Off-EDT porque
-                        // playPreloadedWav puede resolver una precarga perezosa.
+                        // Clip pre-opened and reused (uncover.wav is preloaded at
+                        // startup): the flip sound starts instantly in sync with the
+                        // overlay's first frame, with no late per-flip line open. Off-EDT
+                        // because playPreloadedWav may resolve a lazy preload.
                         Helpers.threadRun(() -> Audio.playPreloadedWav(audio));
                     }
 
@@ -555,9 +553,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     finished.countDown();
                 }
             } catch (Exception ex) {
-                // P.ej. IllegalComponentStateException si una carta dejó de
-                // estar en pantalla justo ahora: limpiar lo añadido y soltar
-                // al llamante, que destapa en seco con el destaparSync de abajo.
+                // E.g. IllegalComponentStateException if a card just stopped being on
+                // screen: clean up what was added and release the caller, who reveals
+                // the cards outright via destaparSync below.
                 Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
                 for (GifLabel overlay : overlays) {
                     if (overlay != null) {
@@ -576,9 +574,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     "card flip overlays playback", ex);
         }
 
-        // Igual que en showCentralFrames: el destape síncrono ocurre tapado por
-        // el último frame durante delay_end, así el relevo GIF→carta nunca
-        // pinta el hueco vacío.
+        // Same as showCentralFrames: the synchronous reveal happens covered by the
+        // overlay's last frame during delay_end, so the GIF-to-card handoff never
+        // paints an empty gap.
         for (Card carta : cartas) {
             carta.destaparSync();
         }
@@ -598,8 +596,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             repaint();
         });
 
-        // Cinturón y tirantes (mismo patrón que showCentralFrames): parar el
-        // timer pase lo que pase con la espera.
+        // Belt and suspenders (same pattern as showCentralFrames): stop the timer no
+        // matter how the wait ended.
         Helpers.GUIRun(() -> {
             if (player_holder[0] != null) {
                 player_holder[0].stop();
@@ -607,37 +605,37 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Animación de reparto: una carta TAPADA viaja desde el asiento del DEALER
-    // de la mano (carta-ancla origin) hasta el destino, ROTADA según el ángulo
-    // origen→destino, y describiendo un arco suave con easeOut (arranque rápido,
-    // frenada suave). Si origin es null parte del centro de la mesa (retrocompat).
-    // Al aterrizar ejecuta onLand (que sienta la carta tapada en el asiento) y,
-    // tras un breve dwell de relevo, retira la viajera SIN hueco: la viajera
-    // muestra el MISMO dorso (Card.getBackImage) y aterriza recta y centrada
-    // sobre el asiento, así el relevo viajera→carta es pixel-idéntico.
-    //
-    // Geometría-agnóstica: lee la posición real de target (y de origin) en
-    // pantalla, así sirve para los 9 tableros, con zoom y HiDPI sin tocar nada.
-    // Bloquea al llamante (hilo del crupier, NUNCA EDT) hasta el aterrizaje +
-    // dwell. Si algo impide la animación (sin dorso, target fuera de pantalla,
-    // fin de transmisión) ejecuta onLand en seco y vuelve.
+    /**
+     * Deal animation: a face-down card travels from the hand's dealer seat (anchor
+     * {@code origin}) to {@code target}, rotated to the origin-to-target angle, along a
+     * smooth easeOut arc (fast start, gentle landing). If {@code origin} is null it
+     * starts from the table center (back-compat). On landing runs {@code onLand} (which
+     * seats the face-down card) and, after a brief handoff dwell, removes the traveling
+     * card with no gap: it shows the same back image (Card.getBackImage) and lands
+     * straight and centered on the seat, so the handoff is pixel-identical.
+     * <p>
+     * Geometry-agnostic: reads target's (and origin's) real on-screen position, so it
+     * works for all 9 tables under any zoom/HiDPI. Blocks the caller (crupier thread,
+     * NEVER the EDT) until landing + dwell. If the animation can't run (no back image,
+     * target off-screen, end of transmission) runs {@code onLand} immediately and returns.
+     */
     public void flyCardToSeat(final Card target, final Card origin, final int duration_ms, final String audio, final Runnable onLand) {
 
-        // --- Afinado de la animación (tunables) ---
-        // Offset (rad) sumado al ángulo origen→destino (0 = la carta se alinea
-        // con la dirección de viaje; +PI/2 alinea el eje largo con el trayecto).
+        // --- Animation tuning knobs ---
+        // Offset (rad) added to the origin-to-target angle (0 = card aligns with the
+        // travel direction; +PI/2 aligns the long axis with the path).
         final double ROT_OFFSET = 0.0;
-        // Endereza a vertical al final del viaje para encajar con la carta del
-        // asiento (que está recta) y que el relevo no tenga pop de rotación. Si
-        // se desea que aterrice girada, poner a false.
+        // Straightens to vertical at the end of the flight to match the seated card
+        // (which sits straight) so the handoff has no rotation pop. Set to false to
+        // land rotated.
         final boolean STRAIGHTEN_ON_LAND = true;
-        // Velocidad constante: la duración se deriva de la distancia recorrida,
-        // medida en ALTURAS DE CARTA (invariante al zoom), así todas las cartas
-        // viajan a la misma velocidad visual sin importar el asiento (parece que
-        // el crupier las tira todas con la misma fuerza). Con false se usa
-        // duration_ms (duración fija por carta, comportamiento anterior).
+        // Constant speed: duration is derived from travel distance measured in CARD
+        // HEIGHTS (zoom-invariant), so every card travels at the same visual speed
+        // regardless of seat (looks like the crupier throws them all with equal force).
+        // With false, duration_ms is used instead (fixed duration per card, legacy
+        // behavior).
         final boolean CONSTANT_SPEED = false;
-        final double MS_PER_CARDHEIGHT = 120.0; // ms por cada altura-de-carta de distancia
+        final double MS_PER_CARDHEIGHT = 120.0; // ms per card-height of distance
         final int SPEED_MIN_MS = 120;
         final int SPEED_MAX_MS = 320;
 
@@ -653,8 +651,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         final int dw = back.getIconWidth();
         final int dh = back.getIconHeight();
-        // Cuadrado que contiene la carta a CUALQUIER ángulo (su diagonal), para
-        // no redimensionar la viajera mientras gira.
+        // Square that contains the card at ANY angle (its diagonal), so the traveling
+        // component never needs resizing while it rotates.
         final int box = (int) Math.ceil(Math.hypot(dw, dh));
 
         final java.util.concurrent.CountDownLatch finished = new java.util.concurrent.CountDownLatch(1);
@@ -671,12 +669,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     return;
                 }
 
-                // Centros en coordenadas locales del tapete.
+                // Centers in the table's local coordinates.
                 final double toCx = target.getLocationOnScreen().getX() + target.getWidth() / 2.0 - getLocationOnScreen().getX();
                 final double toCy = target.getLocationOnScreen().getY() + target.getHeight() / 2.0 - getLocationOnScreen().getY();
-                // Origen: asiento del dealer (carta-ancla); si no se da o no
-                // está en pantalla (p.ej. dealer retirado), el centro de la
-                // mesa (comportamiento anterior).
+                // Origin: the dealer seat (anchor card); if not given or off-screen
+                // (e.g. dealer left), falls back to the table center (legacy behavior).
                 final double fromCx, fromCy;
                 if (origin != null && origin.isShowing()) {
                     fromCx = origin.getLocationOnScreen().getX() + origin.getWidth() / 2.0 - getLocationOnScreen().getX();
@@ -688,8 +685,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 final double theta = Math.atan2(toCy - fromCy, toCx - fromCx) + ROT_OFFSET;
 
-                // Punto de control del arco: medio del trayecto desplazado
-                // perpendicular, con altura acotada.
+                // Arc control point: path midpoint offset perpendicular, with a
+                // clamped height.
                 final double mx = (fromCx + toCx) / 2.0, my = (fromCy + toCy) / 2.0;
                 final double vx = toCx - fromCx, vy = toCy - fromCy;
                 final double len = Math.hypot(vx, vy);
@@ -699,8 +696,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final double ctrlX = mx + nx * arc;
                 final double ctrlY = my + ny * arc;
 
-                // Duración efectiva: con velocidad constante, proporcional a la
-                // distancia en alturas-de-carta (acotada); si no, la pasada.
+                // Effective duration: with constant speed, proportional to distance in
+                // card-heights (clamped); otherwise the passed-in value.
                 final int eff_dur = CONSTANT_SPEED
                         ? (int) Math.round(Math.max(SPEED_MIN_MS,
                                 Math.min(SPEED_MAX_MS, (len / dh) * MS_PER_CARDHEIGHT)))
@@ -726,15 +723,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     long elapsed = (System.nanoTime() - t0) / 1_000_000L;
                     double u = Math.min(1.0, (double) elapsed / Math.max(1, eff_dur));
 
-                    // easeOut cuadrático para la posición.
+                    // Quadratic easeOut for position.
                     double s = 1.0 - (1.0 - u) * (1.0 - u);
                     double is = 1.0 - s;
                     double x = is * is * fromCx + 2 * is * s * ctrlX + s * s * toCx;
                     double y = is * is * fromCy + 2 * is * s * ctrlY + s * s * toCy;
 
-                    // Enderezado: mantiene theta el grueso del viaje y baja a 0
-                    // al final (smoothstep 0.55→1) para aterrizar recta como el
-                    // asiento (relevo sin pop de rotación).
+                    // Straightening: holds theta for most of the flight and eases to 0
+                    // at the end (smoothstep 0.55->1) to land straight like the seated
+                    // card (no rotation pop on handoff).
                     double st = STRAIGHTEN_ON_LAND ? smoothstep(0.55, 1.0, u) : 0.0;
                     traveler.setAngle(theta * (1.0 - st));
                     traveler.setCenter(x, y);
@@ -743,8 +740,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     if (u >= 1.0 || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                         player.stop();
                         if (onLand != null) {
-                            // Sienta la carta (refresco async); la viajera sigue
-                            // encima mostrando el mismo dorso → sin hueco.
+                            // Seats the card (async refresh); the traveling card stays
+                            // on top showing the same back image -> no visible gap.
                             onLand.run();
                         }
                         finished.countDown();
@@ -754,8 +751,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 player.start();
 
             } catch (Exception ex) {
-                // P.ej. IllegalComponentStateException si el target dejó de
-                // estar en pantalla: limpiar y sentar en seco.
+                // E.g. IllegalComponentStateException if target just stopped being on
+                // screen: clean up and seat the card outright.
                 Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
                 if (travelerHolder[0] != null) {
                     remove(travelerHolder[0]);
@@ -775,9 +772,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     "deal flying card", ex);
         }
 
-        // Dwell de relevo: la carta del asiento se pinta async bajo la viajera
-        // (mismo dorso, misma posición) y al retirarla el relevo es idéntico.
-        // No es un timeout defensivo: es el solape del relevo sin hueco.
+        // Handoff dwell: the seated card is painted async underneath the traveling one
+        // (same back image, same position), so removing it later is a clean handoff.
+        // Not a defensive timeout — it's the deliberate gap-free overlap.
         Helpers.parkThreadMillis(40);
 
         final FlyingCard traveler = travelerHolder[0];
@@ -796,21 +793,23 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Anima el "swap" de las dos hole cards del jugador local al ordenar la mano:
-    // cada carta se desliza a la posición de la otra (se cruzan, con un arco
-    // opuesto para que se vea el giro alrededor sin taparse). Al terminar aplica
-    // el intercambio lógico (onSwapApply) con las estáticas aún ocultas bajo los
-    // overlays y las retira sin hueco. BLOQUEA al llamante hasta terminar, así que
-    // se invoca desde un hilo de fondo (Helpers.threadRun), NUNCA desde el EDT ni
-    // desde el hilo del Crupier (el orden de la mano es solo visual, no hay que
-    // esperarlo). Geometría-agnóstica (lee las posiciones reales en pantalla,
-    // sirve para los 9 tableros con zoom/HiDPI). Si algo impide la animación (fin
-    // de transmisión, cartas fuera de pantalla, sin imagen) ejecuta onSwapApply en
-    // seco y vuelve.
-    // chip: la ficha de posición grande del local (o null). Si se pasa y está visible,
-    // se clona en un overlay ESTÁTICO en una capa POR ENCIMA de las voladoras del cruce,
-    // en su misma posición, para que las cartas crucen POR DEBAJO de la ficha sin
-    // parpadeos (la ficha real sigue en su sitio; este overlay solo la mantiene arriba).
+    /**
+     * Animates swapping the local player's two hole cards when reordering the hand:
+     * each card slides to the other's position (crossing, with opposing arcs so the
+     * swap is visible without overlapping). On completion applies the logical swap
+     * ({@code onSwapApply}) while the static cards are still hidden under the overlays,
+     * then removes the overlays with no gap. BLOCKS the caller until done, so it must be
+     * invoked from a background thread (Helpers.threadRun), NEVER the EDT or the crupier
+     * thread (hand ordering is purely visual, nothing needs to wait on it).
+     * Geometry-agnostic (reads real on-screen positions; works for all 9 tables under
+     * zoom/HiDPI). If the animation can't run (end of transmission, off-screen cards, no
+     * image) runs {@code onSwapApply} immediately and returns.
+     *
+     * @param chip the local player's large position chip (or null); if visible, it's
+     * cloned into a static overlay on a layer ABOVE the swap's flying cards, in the same
+     * position, so cards cross UNDER the chip with no flicker (the real chip stays put;
+     * this overlay just keeps it on top).
+     */
     public void playHoleCardSwap(final Card left, final Card right, final int duration_ms, final boolean arc, final javax.swing.JLabel chip, final Runnable onSwapApply) {
 
         final CountDownLatch finished = new CountDownLatch(1);
@@ -836,24 +835,24 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final int lw = left.getWidth(), lh = left.getHeight();
                 final int rw = right.getWidth(), rh = right.getHeight();
 
-                // Centros en coordenadas locales del tapete.
+                // Centers in the table's local coordinates.
                 final double lx = left.getLocationOnScreen().getX() + lw / 2.0 - getLocationOnScreen().getX();
                 final double ly = left.getLocationOnScreen().getY() + lh / 2.0 - getLocationOnScreen().getY();
                 final double rx = right.getLocationOnScreen().getX() + rw / 2.0 - getLocationOnScreen().getX();
                 final double ry = right.getLocationOnScreen().getY() + rh / 2.0 - getLocationOnScreen().getY();
 
-                // Estilo del cruce. Con "saltito" (arc=true) un arco vertical opuesto: la
-                // izquierda arquea hacia arriba y la derecha hacia abajo, así se cruzan sin
-                // solaparse. En horizontal (arc=false) arc_amt=0: van rectas y la izquierda
-                // (capa POPUP) pasa por delante de la derecha (capa DRAG).
+                // Crossing style. With the "hop" (arc=true), opposing vertical arcs: left
+                // arches up and right arches down, so they cross without overlapping. In
+                // straight mode (arc=false) arc_amt=0: both travel straight and left
+                // (POPUP layer) passes in front of right (DRAG layer).
                 final double arc_amt = arc ? Math.max(lh, rh) * 0.55 : 0.0;
 
-                // En vista compacta la carta estática muestra su MITAD SUPERIOR (la "mini
-                // carta", con el índice), recortada a native res (no escalada). Recortamos
-                // esa misma mitad superior y se la damos a la voladora a tamaño ½, para que
-                // el cruce se vea idéntico a la estática (ni aplastada ni banda central). En
-                // modo normal la imagen es de altura completa: topHalfIfShorter la devuelve
-                // tal cual y no cambia nada.
+                // In compact view the static card shows only its TOP HALF (the "mini
+                // card" with the index), cropped at native resolution (not scaled). We
+                // crop that same top half and give it to the traveling card at half size,
+                // so the crossing looks identical to the static card (not squashed or
+                // showing a middle band). In normal mode the image is full height:
+                // topHalfIfShorter returns it unchanged.
                 final java.awt.Image leftDraw = topHalfIfShorter(leftFace, lw, lh);
                 final java.awt.Image rightDraw = topHalfIfShorter(rightFace, rw, rh);
 
@@ -864,17 +863,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 fr.setSize(rw, rh);
                 fr.setCenter(rx, ry);
 
-                // La izquierda (arco arriba) por delante; la derecha por detrás.
+                // Left (arcs up) goes in front; right goes behind.
                 add(fr, JLayeredPane.DRAG_LAYER);
                 add(fl, JLayeredPane.POPUP_LAYER);
                 ovLeft[0] = fl;
                 ovRight[0] = fr;
 
-                // Ficha de posición grande POR ENCIMA de las voladoras (capa DRAG+1): un
-                // overlay estático con su icono, en su misma posición, para que las cartas
-                // crucen por debajo sin parpadeo. La ficha real de LocalPlayer sigue en su
-                // sitio (queda tapada por las voladoras durante el cruce, pero este overlay
-                // la mantiene arriba). Si no se ve (desactivada o sin rol), no se pinta.
+                // Large position chip ABOVE the flying cards (DRAG+1 layer): a static
+                // overlay with its icon, in the same position, so cards cross underneath
+                // without flicker. The real LocalPlayer chip stays put (hidden behind the
+                // flying cards during the crossing, but this overlay keeps it visually on
+                // top). Not painted if it isn't showing (disabled or no chip role).
                 if (chip != null && chip.isShowing() && chip.getIcon() != null) {
                     javax.swing.Icon ci = chip.getIcon();
                     javax.swing.JLabel co = new javax.swing.JLabel(ci);
@@ -886,7 +885,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     chipOv[0] = co;
                 }
 
-                // Oculta las estáticas en el mismo evento EDT que muestra los overlays.
+                // Hides the static cards in the same EDT event that shows the overlays.
                 left.setVisibleCard(false);
                 right.setVisibleCard(false);
 
@@ -897,9 +896,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 player.addActionListener(e -> {
                     long elapsed = (System.nanoTime() - t0) / 1_000_000L;
                     double u = Math.min(1.0, (double) elapsed / Math.max(1, duration_ms));
-                    // easeInOut cúbico para un cruce con arranque y frenada suaves.
+                    // Cubic easeInOut for a crossing with a smooth start and stop.
                     double s = (u < 0.5) ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
-                    double bump = Math.sin(Math.PI * s); // 0 en los extremos, 1 en el cruce
+                    double bump = Math.sin(Math.PI * s); // 0 at the ends, 1 at the crossing
 
                     fl.setCenter(lx + (rx - lx) * s, ly + (ry - ly) * s - arc_amt * bump);
                     fr.setCenter(rx + (lx - rx) * s, ry + (ly - ry) * s + arc_amt * bump);
@@ -908,9 +907,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                     if (u >= 1.0 || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                         player.stop();
-                        // Intercambio lógico con las estáticas aún ocultas: la izquierda pasa a
-                        // mostrar la carta alta y la derecha la baja, casando EXACTO con dónde
-                        // han aterrizado los overlays (relevo sin salto).
+                        // Logical swap while the static cards are still hidden: left now
+                        // shows the high card and right the low one, matching EXACTLY
+                        // where the overlays landed (no visual jump on handoff).
                         if (!applied[0]) {
                             onSwapApply.run();
                             applied[0] = true;
@@ -947,8 +946,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     "hole card swap", ex);
         }
 
-        // Dwell de relevo: las estáticas (ya con los valores intercambiados) se pintan
-        // async bajo los overlays en su posición final; al retirarlas el relevo es limpio.
+        // Handoff dwell: the static cards (already swapped) are painted async under the
+        // overlays at their final position; removing the overlays is then a clean handoff.
         Helpers.parkThreadMillis(40);
 
         Helpers.GUIRunAndWait(() -> {
@@ -967,7 +966,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             repaint();
         });
 
-        // Cinturón y tirantes: parar el timer pase lo que pase con la espera.
+        // Belt and suspenders: stop the timer no matter how the wait ended.
         Helpers.GUIRun(() -> {
             if (holder[0] != null) {
                 holder[0].stop();
@@ -975,10 +974,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Si la imagen es más alta que el hueco (vista compacta: hueco a ½, imagen a
-    // altura completa), devuelve un recorte de su MITAD SUPERIOR a native res (w×h),
-    // igual que muestra la carta estática compacta. Si no (altura completa), la
-    // devuelve tal cual. Evita que la voladora del swap aplaste la carta entera.
+    // If the image is taller than the slot (compact view: slot at 1/2, image at full
+    // height), returns a crop of its TOP HALF at native resolution (w x h), matching
+    // what the compact static card shows. Otherwise (full height) returns it unchanged.
+    // Keeps the swap's traveling card from squashing the whole card into the slot.
     private java.awt.Image topHalfIfShorter(java.awt.Image img, int w, int h) {
         if (img == null || w <= 0 || h <= 0) {
             return img;
@@ -993,20 +992,25 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
         java.awt.image.BufferedImage cut = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         java.awt.Graphics2D g = cut.createGraphics();
-        // dest (0,0,w,h) <- src franja SUPERIOR (0,0,imgW,h): mitad superior, sin
-        // escalar en vertical (native res); en horizontal encaja imgW->w (idénticos).
+        // dest (0,0,w,h) <- src TOP strip (0,0,imgW,h): top half, unscaled vertically
+        // (native res); horizontally imgW->w fits exactly (same width).
         g.drawImage(img, 0, 0, w, h, 0, 0, imgW, h, null);
         g.dispose();
         return cut;
     }
 
-    // Clona la ficha de posición grande en un overlay ESTÁTICO en el tapete, en una
-    // capa POR ENCIMA de las voladoras del reparto (DRAG+1) y en su misma posición, para
-    // que la carta que vuela pase/aterrice POR DEBAJO de la ficha sin parpadeo. NO toca
-    // la animación de reparto (flyCardToSeat): solo pinta la ficha por encima. La ficha
-    // real sigue en su sitio (tapada por la viajera al aterrizar, pero el overlay la
-    // mantiene arriba). Llamar con la ficha AÚN visible; devuelve el overlay (o null si
-    // no se ve) para retirarlo con removeTopOverlay justo antes del giro.
+    /**
+     * Clones the large position chip into a STATIC overlay on the table, on a layer
+     * ABOVE the deal's flying cards (DRAG+1) and in the same position, so a flying card
+     * passes/lands UNDER the chip without flicker. Does not touch the deal animation
+     * ({@link #flyCardToSeat}) itself — it only paints the chip on top; the real chip
+     * stays put (hidden by the traveling card on landing, but this overlay keeps it
+     * visually on top).
+     *
+     * @param chip the chip to clone; must still be visible when called
+     * @return the overlay to remove via {@link #removeTopOverlay} right before the flip,
+     * or null if {@code chip} isn't showing
+     */
     public javax.swing.JLabel addChipTopOverlay(final javax.swing.JLabel chip) {
         final javax.swing.JLabel[] out = new javax.swing.JLabel[1];
         Helpers.GUIRunAndWait(() -> {
@@ -1025,6 +1029,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         return out[0];
     }
 
+    /**
+     * Removes an overlay previously added by {@link #addChipTopOverlay} (or similar), a
+     * no-op if {@code overlay} is null.
+     */
     public void removeTopOverlay(final javax.swing.JComponent overlay) {
         if (overlay == null) {
             return;
@@ -1036,15 +1044,18 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Muestra/actualiza el overlay de coste de igualar centrado SOBRE las cartas
-    // comunitarias (geometría-agnóstico: lee la posición real de cards_panel en
-    // pantalla, así sirve para los 9 tableros con zoom y HiDPI). La fuente escala
-    // con la altura de las comunitarias para verse grande sin tapar nada (gris 50%).
+    /**
+     * Shows/updates the call-cost overlay. Before the river it's centered over the
+     * face-down community cards (geometry-agnostic: reads the real on-screen position of
+     * the community cards panel, works for all 9 tables under zoom/HiDPI); on the river
+     * it switches to per-player overlays over the rivals' hole cards. Font scales with
+     * community-card height so it reads clearly without covering anything.
+     */
     public void updateCallCostOverlay(String text) {
         Helpers.GUIRun(() -> {
             if (hasFaceDownCommunityCards()) {
-                // Preflop/flop/turn: aún quedan comunitarias por destapar → overlay
-                // único sobre las tapadas.
+                // Preflop/flop/turn: community cards are still face down -> single
+                // overlay over them.
                 hidePlayerCallCostOverlays();
                 call_cost_label.setText(text);
                 if (layoutCallCostOverlay()) {
@@ -1054,14 +1065,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     call_cost_label.setVisible(false);
                 }
             } else {
-                // River: ya no hay comunitarias que destapar → el coste se reparte
-                // sobre las hole cards tapadas de cada RemotePlayer que sigue en el bote.
+                // River: no community cards left to reveal -> the cost is shown over
+                // each in-pot RemotePlayer's face-down hole cards instead.
                 call_cost_label.setVisible(false);
                 updatePlayerCallCostOverlays(text);
             }
         });
     }
 
+    /** Hides the call-cost overlay (both the shared one and the per-player ones). */
     public void hideCallCostOverlay() {
         Helpers.GUIRun(() -> {
             call_cost_label.setVisible(false);
@@ -1069,9 +1081,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // ¿Queda alguna comunitaria boca abajo? Determina el modo del overlay de coste:
-    // si sí → overlay único sobre las comunitarias; si no (ronda del river) → overlays
-    // por RemotePlayer.
+    // Is any community card still face down? Decides the call-cost overlay mode:
+    // yes -> single overlay over the community cards; no (river round) -> per-player
+    // overlays.
     private boolean hasFaceDownCommunityCards() {
         CommunityCardsPanel cc = getCommunityCards();
         if (cc == null) {
@@ -1091,12 +1103,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     private volatile boolean call_overlay_listener_attached = false;
 
-    // Recoloca y reescala el overlay para cubrir las comunitarias (posición =
-    // cards_panel) con una fuente proporcional a la altura REAL de una carta
-    // comunitaria — así el texto SIGUE a las comunitarias: encoge con la vista
-    // compacta y crece al ampliarse, y escala con el zoom. Devuelve false si las
-    // comunitarias no están en pantalla (entonces el overlay se oculta). Debe
-    // llamarse en el EDT.
+    // Relocates and rescales the overlay to cover the community cards (position =
+    // cards_panel) with a font proportional to a community card's REAL height — so the
+    // text follows the community cards: shrinks in compact view, grows when expanded,
+    // and scales with zoom. Returns false if the community cards aren't on screen (the
+    // overlay is then hidden). Must be called on the EDT.
     private boolean layoutCallCostOverlay() {
         try {
             javax.swing.JPanel cards = getCommunityCards().getCards_panel();
@@ -1105,19 +1116,19 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 return false;
             }
             final Card ref = comunes[0];
-            // Escucha cambios de geometría para reescalar/recolocar el overlay solo.
+            // Listens for geometry changes to rescale/reposition the overlay on its own.
             attachCallOverlayResizeListener(ref);
             if (!cards.isShowing() || !isShowing()) {
                 return false;
             }
 
-            // El overlay solo cubre las comunitarias que SIGUEN TAPADAS: el coste de
-            // igualar es a la vez el coste de "destapar" la(s) carta(s) que faltan
-            // (preflop → las 5; tras el flop → turn + river; tras el turn → river), y
-            // así no estorba la visión de las cartas ya descubiertas. Como se reparten
-            // en fila (flop1·flop2·flop3·turn·river) las tapadas son siempre un sufijo.
-            // Si no queda ninguna tapada (ronda del river) cae al conjunto entero para
-            // no perder el dato del coste.
+            // The overlay only covers the community cards that are STILL FACE DOWN: the
+            // call cost is effectively the cost of "revealing" the remaining card(s)
+            // (preflop -> all 5; after the flop -> turn + river; after the turn ->
+            // river), so it never covers already-revealed cards. Since cards are dealt
+            // in a row (flop1-flop2-flop3-turn-river), the face-down ones are always a
+            // trailing suffix. If none are face down (river round), falls back to the
+            // whole set so the cost is still shown somewhere.
             java.awt.Rectangle box = unionCardBounds(comunes, true);
             if (box == null) {
                 box = unionCardBounds(comunes, false);
@@ -1130,9 +1141,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             java.awt.Point origin = getLocationOnScreen();
             call_cost_label.setBounds(cp.x - origin.x + box.x, cp.y - origin.y + box.y, box.width, box.height);
 
-            // Fuente proporcional a la altura REAL de una carta, pero ENCOGIDA si hace
-            // falta para que el número quepa en el ancho del área cubierta: con una sola
-            // carta (river) el texto se ajusta para no desbordar sobre las descubiertas.
+            // Font proportional to a card's REAL height, but SHRUNK if needed so the
+            // number fits within the covered area's width: with a single card (river)
+            // the text shrinks to avoid overflowing onto revealed cards.
             int card_h = ref.getHeight();
             float base = card_h > 0 ? card_h : box.height;
             float size = base * 0.9f;
@@ -1150,16 +1161,16 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             call_cost_label.setFont(call_cost_label.getFont().deriveFont(java.awt.Font.BOLD, size));
             return true;
         } catch (Exception ex) {
-            // P.ej. IllegalComponentStateException si cards_panel dejó de estar en
-            // pantalla justo ahora.
+            // E.g. IllegalComponentStateException if cards_panel just stopped being on
+            // screen.
             Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
             return false;
         }
     }
 
-    // Bounding box (en coordenadas de cards_panel, el padre de las cartas) de las
-    // comunitarias: si only_tapadas, solo las que siguen boca abajo; si no, todas.
-    // Devuelve null si no hay ninguna que contar.
+    // Bounding box (in cards_panel's coordinates, the cards' parent) of the community
+    // cards: if only_tapadas, only the ones still face down; otherwise all of them.
+    // Returns null if none qualify.
     private static java.awt.Rectangle unionCardBounds(Card[] comunes, boolean only_tapadas) {
         java.awt.Rectangle box = null;
         for (Card c : comunes) {
@@ -1171,13 +1182,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         return box;
     }
 
-    // Engancha (una sola vez) listeners que reescalan/recolocan el overlay cuando la
-    // geometría cambia, mientras esté visible. Escucha DOS cosas:
-    //   - la carta comunitaria: capta cambios de TAMAÑO (zoom, compacta que achica
-    //     las cartas) para recalcular la fuente.
-    //   - la CommunityCardsPanel entera: capta cambios de POSICIÓN/tamaño del conjunto
-    //     (p.ej. compacta MEDIA: solo encogen los remotes y el panel SUBE sin que la
-    //     carta cambie de tamaño ni de posición relativa → solo este lo detecta).
+    // Attaches (once) listeners that rescale/reposition the overlay when the geometry
+    // changes, while it's visible. Listens to TWO things:
+    //   - the community card: catches SIZE changes (zoom, compact view shrinking cards)
+    //     to recompute the font.
+    //   - the whole CommunityCardsPanel: catches POSITION/size changes of the group
+    //     (e.g. MEDIUM compact: only the remotes shrink and the panel moves up without
+    //     the card itself changing size or relative position -> only this catches that).
     private void attachCallOverlayResizeListener(final Card ref) {
         if (call_overlay_listener_attached) {
             return;
@@ -1207,21 +1218,21 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // --- Overlays de coste por RemotePlayer (ronda del river) ----------------------
+    // --- Per-RemotePlayer call-cost overlays (river round) -------------------------
 
-    // Pinta/actualiza un overlay de coste sobre las hole cards de cada RemotePlayer que
-    // sigue en el bote con sus cartas tapadas. Reutiliza una etiqueta por jugador.
-    // Debe llamarse en el EDT.
+    // Paints/updates a call-cost overlay over the hole cards of each RemotePlayer still
+    // in the pot with face-down cards. Reuses one label per player. Must be called on
+    // the EDT.
     private void updatePlayerCallCostOverlays(String text) {
         RemotePlayer[] rps = remotePlayers;
         if (rps == null) {
             hidePlayerCallCostOverlays();
             return;
         }
-        // El overlay del river va SOLO sobre el ÚLTIMO AGRESOR (quien hizo la última subida o
-        // resubida que el local tiene que igualar), no sobre todos los que igualan antes de mi
-        // turno. current_bet se mantiene como guarda de robustez (el agresor fijó la apuesta
-        // actual, así que su bet coincide) + para las comprobaciones de cartas en el bote.
+        // The river overlay goes ONLY over the LAST AGGRESSOR (whoever made the raise or
+        // re-raise the local player must call), not over everyone who calls before my
+        // turn. current_bet is kept as a robustness guard (the aggressor set the current
+        // bet, so it matches theirs) plus for the in-pot card checks.
         double current_bet = GameFrame.getInstance().getCrupier().getApuesta_actual();
         Player last_aggressor = GameFrame.getInstance().getCrupier().getLast_aggressor();
         for (RemotePlayer rp : rps) {
@@ -1235,8 +1246,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     lbl.setFocusable(false);
                     lbl.setOpaque(false);
                     lbl.setVisible(false);
-                    // DRAG_LAYER: por encima de todo lo que vive en el asiento (cartas,
-                    // ficha de posición, GIFs de chat/rebuy, franja de bote).
+                    // DRAG_LAYER: above everything living at the seat (cards, position
+                    // chip, chat/rebuy GIFs, pot strip).
                     add(lbl, JLayeredPane.DRAG_LAYER);
                     player_call_cost_labels.put(rp, lbl);
                 }
@@ -1254,12 +1265,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Guarda de "sigue en el bote con cartas ocultas + ya igualó la apuesta": (a) el RemotePlayer
-    // sigue en el bote con sus dos hole cards visibles en mesa (al foldear se ocultan con
-    // setVisibleCard(false)) y boca abajo —eso excluye foldeados, all-in revelados y, por usar
-    // remotePlayers, al jugador local— y (b) su bet coincide con apuesta_actual. El caller
-    // (updatePlayerCallCostOverlays) ADEMÁS exige que sea el ÚLTIMO AGRESOR, así que el overlay
-    // del river sale SOLO sobre el que subió/resubió, no sobre cada uno que iguala.
+    // Guard for "still in the pot with hidden cards + already matched the bet": (a) the
+    // RemotePlayer is still in the pot with both hole cards shown on the table (folding
+    // hides them via setVisibleCard(false)) and face down — which excludes folded
+    // players, revealed all-ins, and (by iterating remotePlayers) the local player — and
+    // (b) their bet matches current_bet. The caller (updatePlayerCallCostOverlays) ALSO
+    // requires the LAST AGGRESSOR, so the river overlay appears ONLY over whoever
+    // raised/re-raised, not over every player who just calls.
     private static boolean isPotPlayerMatchingCurrentBet(RemotePlayer rp, double current_bet) {
         Card c1 = rp.getHoleCard1();
         Card c2 = rp.getHoleCard2();
@@ -1269,17 +1281,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 || c1.isSecure_hidden() || c2.isSecure_hidden()) {
             return false;
         }
-        // apuesta_actual > 0 está garantizado (el overlay solo se pide cuando el local
-        // tiene algo que igualar), pero lo comprobamos por robustez.
+        // current_bet > 0 is guaranteed (the overlay is only requested when the local
+        // player has something to call), but we check it anyway for robustness.
         return Helpers.doubleSecureCompare(current_bet, 0f) > 0
                 && Helpers.doubleSecureCompare(current_bet, rp.getBet()) == 0;
     }
 
-    // Recoloca/reescala el overlay de un RemotePlayer para cubrir, centrado, sus dos
-    // hole cards (lee posiciones reales en pantalla → sirve para los 9 tableros, zoom,
-    // HiDPI y la vista compacta que encoge los remotes). Fuente proporcional a la altura
-    // de la carta y encogida para que el número quepa en el ancho de las dos cartas.
-    // Devuelve false si no están en pantalla. Debe llamarse en el EDT.
+    // Relocates/rescales a RemotePlayer's overlay to cover, centered, both their hole
+    // cards (reads real on-screen positions -> works for all 9 tables, zoom, HiDPI, and
+    // the compact view that shrinks remote players). Font proportional to card height,
+    // shrunk to fit the number within the two cards' width. Returns false if they aren't
+    // on screen. Must be called on the EDT.
     private boolean layoutPlayerCallCostOverlay(RemotePlayer rp, CallCostOverlayLabel lbl) {
         try {
             Card c1 = rp.getHoleCard1();
@@ -1297,9 +1309,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
             lbl.setBounds(box.x - origin.x, box.y - origin.y, box.width, box.height);
 
-            // La familia de fuente la tomamos de la etiqueta de las comunitarias
-            // (que ya pasó por el font pass del tapete) para que el overlay por
-            // jugador use EXACTAMENTE la misma fuente, no la de por defecto del JLabel.
+            // The font family comes from the community-cards label (which already went
+            // through the table's font pass), so the per-player overlay uses EXACTLY the
+            // same font instead of JLabel's default.
             java.awt.Font base_font = call_cost_label.getFont();
             int card_h = c1.getHeight();
             float base = card_h > 0 ? card_h : box.height;
@@ -1329,10 +1341,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Engancha (una vez por RemotePlayer) listeners que reescalan/recolocan sus overlays
-    // cuando cambia su geometría mientras estén visibles. Igual que con las comunitarias,
-    // escucha el asiento entero (POSICIÓN: la vista compacta lo sube) y panel_cartas +
-    // hole cards (TAMAÑO: la compacta achica los remotes).
+    // Attaches (once per RemotePlayer) listeners that rescale/reposition their overlays
+    // when the geometry changes while visible. Like with the community cards, listens to
+    // the whole seat (POSITION: compact view moves it up) and panel_cartas + hole cards
+    // (SIZE: compact view shrinks remote players).
     private void attachPlayerCallOverlayResizeListener(final RemotePlayer rp) {
         if (!player_call_overlay_listeners.add(rp)) {
             return;
@@ -1377,14 +1389,14 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Etiqueta del overlay de coste de igualar: pinta el texto centrado con relleno
-    // negro semitransparente y un contorno (halo) blanco, para que se lea sobre
-    // CUALQUIER fondo (cartas claras, dorsos oscuros, tapete) sin tapar. Hereda de
-    // JLabel para reutilizar setText/setFont/setBounds del posicionado; sobreescribe
-    // el pintado para dibujar el contorno (el JLabel normal no lo soporta).
+    // Call-cost overlay label: paints centered text with a semi-transparent black fill
+    // and a yellow outline (halo), readable over ANY background (light cards, dark card
+    // backs, felt) without obscuring it. Extends JLabel to reuse setText/setFont/
+    // setBounds for positioning; overrides painting to draw the outline (plain JLabel
+    // doesn't support that).
     private static final class CallCostOverlayLabel extends javax.swing.JLabel {
 
-        // Tunables de contraste/visibilidad.
+        // Contrast/visibility tunables.
         private final java.awt.Color fill = new java.awt.Color(0, 0, 0, 204);
         private final java.awt.Color halo = new java.awt.Color(255, 255, 0, 204);
         private static final float STROKE_RATIO = 0.05f; 
@@ -1421,15 +1433,14 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Rótulo "BARAJANDO": texto centrado pintado como contorno (borde negro) + relleno
-    // blanco, igual que el mensaje gigante de la pantalla final (HAS GANADO). La fuente se
-    // REESCALA en cada paint para LLENAR el ancho del componente (que se fija al ancho del
-    // panel de comunitarias), limitada por el alto. Sustituto visual del gif de barajado
-    // cuando ese gif no se reproduce.
+    // "SHUFFLING" label: centered text painted as an outline (black border) + fill,
+    // same style as the end-of-hand banner (YOU WON). The font is RESCALED on every
+    // paint to FILL the component's width (set to the community-cards panel's width),
+    // capped by height. Visual substitute for the shuffle GIF when that GIF isn't played.
     private static final class ShufflingTextLabel extends javax.swing.JLabel {
 
-        // Relleno = color de los contadores del tapete (blanco en tapete oscuro/madera,
-        // su color en verde/azul/rojo); borde negro fijo. setFill lo actualiza al mostrar.
+        // Fill = the table's counter color (white on dark/wood felt, its own color on
+        // green/blue/red); border is fixed black. setFill updates it when shown.
         private java.awt.Color fill = java.awt.Color.WHITE;
         private final java.awt.Color halo = new java.awt.Color(0, 0, 0, 235);
         private static final float STROKE_RATIO = 0.06f;
@@ -1459,9 +1470,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 java.awt.Font base = getFont();
                 java.awt.font.FontRenderContext frc = g2.getFontRenderContext();
 
-                // Reescala la fuente para que el texto LLENE el ancho disponible (96%),
-                // limitada por el alto: así "BARAJANDO" ocupa el ancho del panel de
-                // comunitarias sea cual sea la resolución.
+                // Rescales the font so the text FILLS the available width (96%), capped
+                // by height: this way "SHUFFLING" spans the community-cards panel's
+                // width regardless of resolution.
                 java.awt.font.TextLayout probe = new java.awt.font.TextLayout(text, base, frc);
                 double tw = probe.getAdvance();
                 double th = probe.getAscent() + probe.getDescent();
@@ -1491,17 +1502,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // smoothstep clásico (Hermite): 0 en x≤a, 1 en x≥b, suave en medio.
+    // Classic (Hermite) smoothstep: 0 for x<=a, 1 for x>=b, smooth in between.
     private static double smoothstep(double a, double b, double x) {
         double t = Math.max(0.0, Math.min(1.0, (x - a) / (b - a)));
         return t * t * (3.0 - 2.0 * t);
     }
 
-    // Componente efímero de la carta viajera: pinta un dorso (ya rasterizado y
-    // escalado) rotado un ángulo arbitrario sobre un lienzo cuadrado, centrado.
-    // Transparente fuera de la carta. Sin estado de Swing pesado. Admite además
-    // escala (1.0 = tamaño nominal) y opacidad (1.0 = opaco), por defecto neutras,
-    // para el efecto de reducción-y-desvanecido del aterrizaje de fichas en el bote.
+    // Ephemeral traveling-card component: paints a (pre-rasterized, pre-scaled) back
+    // image rotated by an arbitrary angle on a square canvas, centered, transparent
+    // outside the card. No heavy Swing state. Also supports scale (1.0 = nominal size)
+    // and opacity (1.0 = opaque), neutral by default, for the shrink-and-fade effect
+    // when chips land in the pot.
     private static final class FlyingCard extends javax.swing.JComponent {
 
         private final java.awt.Image img;
@@ -1548,8 +1559,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 }
                 int w = getWidth();
                 int h = getHeight();
-                // Rendimiento: sin rotación (blit directo, sin resampleo del bitmap por frame). En
-                // Calidad (por defecto) se rota EXACTAMENTE igual que siempre.
+                // Performance mode: no rotation (direct blit, no per-frame bitmap
+                // resampling). Quality mode (default) rotates exactly as before.
                 if (GameFrame.ANIM_CALIDAD) {
                     g2.rotate(angle, w / 2.0, h / 2.0);
                 }
@@ -1565,9 +1576,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Vuelo de una ficha de posición (dealer/ciega): su sprite (ya escalado),
-    // el asiento de origen (portador anterior; null = centro de la mesa, p.ej.
-    // primera mano) y el de destino (portador nuevo).
+    /**
+     * A position chip's flight (dealer/blind): its already-scaled sprite, the origin
+     * seat (previous carrier; null = table center, e.g. the first hand), and the
+     * destination seat (new carrier).
+     */
     public static final class ChipFlight {
 
         private final Player from;
@@ -1581,16 +1594,19 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Desliza VARIAS fichas de posición a la vez (dealer + ciegas) de su asiento
-    // anterior al nuevo, justo antes del barajado central. Reutiliza la cinemática
-    // del vuelo de reparto (easeOut cuadrático + arco bezier perpendicular acotado,
-    // tick de 10 ms con nanoTime, duración fija = misma velocidad que las cartas),
-    // pero todas las fichas viajan en paralelo (una sola Timer) para no encadenar
-    // pausas. Geometría-agnóstica: lee la posición real de cada asiento en pantalla.
-    // Bloquea al llamante (hilo del crupier, NUNCA EDT) hasta el aterrizaje + dwell.
-    // onLand (si no es null) se ejecuta en el EDT al tocar todas el destino, ANTES
-    // del dwell, para reponer las fichas estáticas bajo las viajeras (relevo sin
-    // hueco). Si la animación está desactivada o no hay vuelos, no hace nada.
+    /**
+     * Slides SEVERAL position chips at once (dealer + blinds) from their previous seat
+     * to the new one, right before the central shuffle. Reuses the deal flight's
+     * kinematics (quadratic easeOut + clamped perpendicular bezier arc, nanoTime-driven
+     * ticks, fixed duration = same speed as cards), but all chips travel in parallel (a
+     * single Timer) so pauses don't chain. Geometry-agnostic: reads each seat's real
+     * on-screen position. Blocks the caller (crupier thread, NEVER the EDT) until
+     * landing + dwell.
+     *
+     * @param onLand runs on the EDT once all chips reach their destination, BEFORE the
+     * dwell, to put the static chips back under the traveling ones (gap-free handoff);
+     * a no-op if the animation is disabled or there are no flights
+     */
     public void flyChipsToSeats(final java.util.List<ChipFlight> flights, final int duration_ms, final Runnable onLand) {
 
         if (flights == null || flights.isEmpty()
@@ -1617,7 +1633,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final double originX = getLocationOnScreen().getX();
                 final double originY = getLocationOnScreen().getY();
 
-                // Trayectoria precomputada por ficha: {fromX, fromY, ctrlX, ctrlY, toX, toY}.
+                // Precomputed path per chip: {fromX, fromY, ctrlX, ctrlY, toX, toY}.
                 final java.util.List<double[]> paths = new java.util.ArrayList<>();
 
                 for (ChipFlight f : flights) {
@@ -1647,8 +1663,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         fromCy = tableCy;
                     }
 
-                    // Punto de control del arco: medio del trayecto desplazado
-                    // perpendicular, acotado (idéntico al vuelo de cartas).
+                    // Arc control point: path midpoint offset perpendicular, clamped
+                    // (identical to the card flight).
                     final double mx = (fromCx + toCx) / 2.0, my = (fromCy + toCy) / 2.0;
                     final double vx = toCx - fromCx, vy = toCy - fromCy;
                     final double len = Math.hypot(vx, vy);
@@ -1686,7 +1702,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     long elapsed = (System.nanoTime() - t0) / 1_000_000L;
                     double u = Math.min(1.0, (double) elapsed / Math.max(1, duration_ms));
 
-                    // easeOut cuadrático para la posición (mismo que el reparto).
+                    // Quadratic easeOut for position (same as the deal).
                     double s = 1.0 - (1.0 - u) * (1.0 - u);
                     double is = 1.0 - s;
 
@@ -1703,8 +1719,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         player.stop();
                         if (!landed[0]) {
                             landed[0] = true;
-                            // Repone las fichas estáticas bajo las viajeras (mismo
-                            // sprite, misma posición) → relevo sin hueco al retirarlas.
+                            // Puts the static chips back under the traveling ones (same
+                            // sprite, same position) -> gap-free handoff on removal.
                             if (onLand != null) {
                                 onLand.run();
                             }
@@ -1735,8 +1751,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     "chip flight", ex);
         }
 
-        // Dwell de relevo: la ficha estática (repuesta en onLand) se pinta async
-        // bajo la viajera, así al retirarla el relevo es idéntico (sin parpadeo).
+        // Handoff dwell: the static chip (restored in onLand) is painted async under
+        // the traveling one, so removing it later is identical (no flicker).
         Helpers.parkThreadMillis(40);
 
         Helpers.GUIRunAndWait(() -> {
@@ -1754,37 +1770,36 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Vuelo de UNA ficha (sprite del bote) desde el asiento del jugador que acaba
-    // de meter dinero hasta el icono del pot_label (el bote). Misma cinemática que el vuelo
-    // de reparto/posición (easeOut cuadrático + arco bezier perpendicular acotado,
-    // tick de 10 ms con nanoTime, velocidad constante por altura de sprite para que
-    // todas las fichas viajen igual de rápido sin importar el asiento). A diferencia
-    // del relevo de las fichas de posición, aquí NO hay ficha estática que reponer:
-    // al aterrizar la viajera se ENCOGE y se desvanece (efecto de reducción), el
-    // pot_label parpadea en amarillo (señal de que absorbió las fichas) y la viajera
-    // se retira. Geometría-agnóstica: lee la posición real del asiento y del bote en
-    // pantalla, así sirve para los 9 tableros con zoom y HiDPI.
-    //
-    // NO bloquea: arranca en el EDT y devuelve el control de inmediato (la limpieza,
-    // el flash y onLand ocurren en el último tramo del propio timer). Pueden coexistir
-    // varias fichas en vuelo.
-    //
-    // onLand (si no es null) se ejecuta EXACTAMENTE UNA VEZ: en el instante en que la
-    // ficha toca el bote (a la vez que el parpadeo amarillo), para que el valor del
-    // pot_label se actualice justo al aterrizar. Si la animación no puede correr (sin
-    // sprite/origen visible o fin de transmisión) se ejecuta de inmediato para no dejar
-    // el pot_label sin actualizar.
+    /**
+     * Flies ONE chip (pot sprite) from the seat of the player who just put in money to
+     * the pot_label icon (the pot). Same kinematics as the deal/position flights
+     * (quadratic easeOut + clamped perpendicular bezier arc, nanoTime-driven ticks,
+     * constant speed by sprite height so every chip travels equally fast regardless of
+     * seat). Unlike the position-chip handoff, there's no static chip to restore here:
+     * on landing the traveling chip shrinks and fades out, pot_label flashes yellow
+     * (signaling it absorbed the chip), and the traveler is removed. Geometry-agnostic:
+     * reads the seat's and pot's real on-screen positions, works for all 9 tables under
+     * zoom/HiDPI.
+     * <p>
+     * Does NOT block: starts on the EDT and returns control immediately (cleanup, the
+     * flash, and {@code onLand} happen in the timer's final stretch). Several chips can
+     * be in flight at once.
+     *
+     * @param onLand runs EXACTLY ONCE, the instant the chip touches the pot (together
+     * with the yellow flash) so pot_label's value updates right on landing. If the
+     * animation can't run (no sprite/visible origin, or end of transmission) it runs
+     * immediately instead, so pot_label is never left stale.
+     */
     public void flyChipToPot(final Player from, final ImageIcon sprite, final int shrink_ms, final Runnable onLand) {
 
-        // Velocidad constante medida en ALTURAS DE SPRITE (invariante al zoom),
-        // como el vuelo de reparto, para que todas las fichas viajen a la misma
-        // velocidad visual sin importar el asiento.
+        // Constant speed measured in SPRITE HEIGHTS (zoom-invariant), like the deal
+        // flight, so every chip travels at the same visual speed regardless of seat.
         final double MS_PER_CHIPHEIGHT = 120.0;
         final int SPEED_MIN_MS = 120;
         final int SPEED_MAX_MS = 320;
 
-        // Garantía de ejecución única de onLand pase lo que pase (aterrizaje real o
-        // cualquier salida temprana), para no congelar el valor del pot_label.
+        // Guarantees onLand runs exactly once no matter what happens (a real landing or
+        // any early exit), so pot_label's value never gets stuck.
         final Runnable[] land_holder = {onLand};
 
         if (sprite == null || from == null
@@ -1810,8 +1825,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final double originX = getLocationOnScreen().getX();
                 final double originY = getLocationOnScreen().getY();
 
-                // Origen: asiento del jugador (mismo anclaje que su ficha de
-                // posición). Si no está visible (asiento retirado, etc.) no animamos.
+                // Origin: the player's seat (same anchor as their position chip). If
+                // it's not visible (seat vacated, etc.) we skip the animation.
                 final java.awt.geom.Point2D fromScr = from.getPositionChipScreenCenter(w, h);
                 if (fromScr == null) {
                     runOnce(land_holder);
@@ -1820,8 +1835,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final double fromCx = fromScr.getX() - originX;
                 final double fromCy = fromScr.getY() - originY;
 
-                // Destino: el ICONO (fichas) del pot_label. Si no está visible,
-                // el centro de la mesa.
+                // Destination: the pot_label's chip ICON. Falls back to the table center
+                // if it isn't visible.
                 final double toCx, toCy;
                 final java.awt.geom.Point2D potIcon = getCommunityCards().getPotIconScreenCenter();
                 if (potIcon != null) {
@@ -1832,8 +1847,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     toCy = getHeight() / 2.0;
                 }
 
-                // Punto de control del arco: medio del trayecto desplazado
-                // perpendicular, acotado (idéntico al vuelo de cartas/fichas).
+                // Arc control point: path midpoint offset perpendicular, clamped
+                // (identical to the card/chip flights).
                 final double mx = (fromCx + toCx) / 2.0, my = (fromCy + toCy) / 2.0;
                 final double vx = toCx - fromCx, vy = toCy - fromCy;
                 final double len = Math.hypot(vx, vy);
@@ -1864,7 +1879,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     boolean done = GameFrame.getInstance().getCrupier().isFin_de_la_transmision();
 
                     if (!done && elapsed < fly_dur) {
-                        // Fase 1: vuelo al bote (easeOut cuadrático, como el reparto).
+                        // Phase 1: flight to the pot (quadratic easeOut, like the deal).
                         double u = (double) elapsed / Math.max(1, fly_dur);
                         double s = 1.0 - (1.0 - u) * (1.0 - u);
                         double is = 1.0 - s;
@@ -1873,12 +1888,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         traveler.setCenter(x, y);
                         traveler.repaint();
                     } else if (!done) {
-                        // Fase 2: aterrizaje en el bote → encoge y se desvanece
-                        // (smoothstep para una reducción suave). Al tocar el bote
-                        // (primer tick de esta fase) el valor del pot_label se
-                        // actualiza Y parpadea en amarillo en el MISMO runnable del
-                        // EDT (número y color cambian a la vez, el color no se
-                        // adelanta al número).
+                        // Phase 2: landing on the pot -> shrinks and fades out
+                        // (smoothstep for a smooth shrink). On touching the pot (this
+                        // phase's first tick) pot_label's value updates AND flashes
+                        // yellow in the SAME EDT runnable (number and color change
+                        // together, color never gets ahead of the number).
                         if (!flashed[0]) {
                             flashed[0] = true;
                             final Runnable land = land_holder[0];
@@ -1900,8 +1914,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         java.awt.Rectangle b = traveler.getBounds();
                         remove(traveler);
                         repaint(b);
-                        // Salida por fin de transmisión antes de tocar el bote: onLand
-                        // no se ejecutó en la fase 2; ejecútalo ahora (no-op si ya corrió).
+                        // Exit via end-of-transmission before touching the pot: onLand
+                        // never ran in phase 2; run it now (no-op if it already ran).
                         runOnce(land_holder);
                     }
                 });
@@ -1909,17 +1923,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 player.start();
 
             } catch (Exception ex) {
-                // P.ej. IllegalComponentStateException si el asiento dejó de estar
-                // en pantalla: simplemente no animamos.
+                // E.g. IllegalComponentStateException if the seat just stopped being on
+                // screen: simply skip the animation.
                 Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
                 runOnce(land_holder);
             }
         });
     }
 
-    // Ejecuta el Runnable del holder a lo sumo una vez (lo anula tras correr). Las
-    // rutas que lo invocan son mutuamente excluyentes (salida temprana en el hilo
-    // llamante, o ticks del timer en el EDT), así que no hay acceso concurrente.
+    // Runs the holder's Runnable at most once (clears it after running). The call sites
+    // are mutually exclusive (early exit on the caller's thread, or timer ticks on the
+    // EDT), so there's no concurrent access.
     private static void runOnce(Runnable[] holder) {
         Runnable r = holder[0];
         if (r != null) {
@@ -1928,14 +1942,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Variante en bucle de showCentralFrames para el GIF de barajado: repite la
-    // animación (centrada, con el audio re-disparado en cada ciclo y cortado en
-    // audio_stop_frame, mismo contrato que addAudio(1, stop)) hasta que el
-    // predicado caiga. El predicado solo se consulta al llegar al último frame,
-    // así que siempre se reproduce al menos un ciclo completo, igual que el
-    // do-while legacy sobre showCentralImage. Bloquea al llamante hasta el fin
-    // del bucle y respeta fin_de_la_transmision y el takeover de
-    // central_label_thread.
+    /**
+     * Looping variant of {@link #showCentralFrames} for the shuffle GIF: repeats the
+     * animation (centered, with audio re-triggered each cycle and cut at
+     * {@code audio_stop_frame}, same contract as addAudio(1, stop)) until
+     * {@code keep_looping} turns false. The predicate is only checked on reaching the
+     * last frame, so at least one full cycle always plays, matching the legacy do-while
+     * over showCentralImage. Blocks the caller until the loop ends, respecting
+     * {@code fin_de_la_transmision} and central-label takeover.
+     */
     public void showCentralFramesLoop(PreRenderedGif anim, int display_w, int display_h, String audio, int audio_stop_frame, java.util.function.BooleanSupplier keep_looping) {
 
         central_label_thread = Thread.currentThread().threadId();
@@ -1955,11 +1970,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 getCentral_label().setFrameOverride(anim.getFrame(0));
                 getCentral_label().setVisible(true);
 
-                // El audio del barajado va SINCRONIZADO a la vuelta del gif:
-                // arranca con el primer frame y se corta al final de la vuelta;
-                // si el gif da otra vuelta, vuelve a arrancar de cero. Clip
-                // pre-abierto y reutilizado -> arrancar/parar es instantaneo, sin
-                // un open por ciclo que pueda perder la carrera y quedarse mudo.
+                // The shuffle audio is SYNCED to the GIF's cycle: starts with the first
+                // frame and stops at the end of the cycle; if the GIF loops again, it
+                // restarts from zero. Clip pre-opened and reused -> start/stop is
+                // instant, with no per-cycle open that could lose the race and go silent.
                 if (audio != null) {
                     Audio.playPreloadedWav(audio);
                 }
@@ -1989,10 +2003,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                     int idx = anim.frameAt(elapsed);
 
-                    // Corte temprano del audio en audio_stop_frame (antes del último
-                    // frame): deja que el buffer de salida del dispositivo drene
-                    // antes de que la vuelta acabe visualmente, para que el sonido no
-                    // se oiga un pelín después de que la animación desaparezca.
+                    // Early audio cutoff at audio_stop_frame (before the last frame):
+                    // lets the device's output buffer drain before the cycle visually
+                    // ends, so the sound doesn't linger a beat after the animation
+                    // disappears.
                     if (audio_on[0] && idx + 1 >= audio_stop_frame) {
                         audio_on[0] = false;
                         Audio.stopPreloadedWav(audio);
@@ -2003,15 +2017,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         getCentral_label().setFrameOverride(anim.getFrame(idx));
                     }
 
-                    // Fin de ciclo cuando el ÚLTIMO frame ha consumido también su
-                    // delay (no al entrar en él), para que el ciclo dure siempre
-                    // el total nominal del GIF.
+                    // Cycle ends once the LAST frame has also consumed its own delay
+                    // (not upon entering it), so the cycle always lasts the GIF's
+                    // nominal total duration.
                     if (elapsed >= total_ms) {
 
                         if (keep_looping.getAsBoolean()) {
-                            // Nueva vuelta del gif: rebobinado exacto de tiempos y
-                            // el audio vuelve a arrancar de cero (se cortará otra vez
-                            // en audio_stop_frame de esta vuelta).
+                            // Another GIF cycle: exact time rewind, and the audio starts
+                            // again from zero (it will be cut again at this cycle's
+                            // audio_stop_frame).
                             t0[0] = System.nanoTime();
                             painted[0] = 0;
                             getCentral_label().setFrameOverride(anim.getFrame(0));
@@ -2020,8 +2034,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                                 Audio.playPreloadedWav(audio);
                             }
                         } else {
-                            // Fin del barajado: el audio ya se cortó en
-                            // audio_stop_frame; cierre defensivo por si no se alcanzó.
+                            // End of shuffle: the audio was already cut at
+                            // audio_stop_frame; this is a defensive close in case it
+                            // wasn't reached.
                             if (audio != null && audio_on[0]) {
                                 audio_on[0] = false;
                                 Audio.stopPreloadedWav(audio);
@@ -2042,13 +2057,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().threadId() == central_label_thread) {
 
             try {
-                // El bucle dura lo que dure el predicado (la cascada SRA puede ir
-                // para largo), así que la espera normal es indefinida: el único
-                // exit normal es el countDown del player. El timeout por ronda es
-                // solo defensivo: si el predicado ya cayó (o hay fin de
-                // transmisión) y el player no ha contado el latch tras una ronda
-                // ENTERA adicional, es que ya no hay EDT vivo que lo cuente
-                // (shutdown) y seguir esperando bloquearía el hilo del crupier.
+                // The loop lasts as long as the predicate holds (the SRA cascade can run
+                // long), so the normal wait is indefinite: the only normal exit is the
+                // player's countDown. The per-round timeout is purely defensive: if the
+                // predicate already fell (or there's an end of transmission) and the
+                // player hasn't counted the latch after one FULL extra round, no EDT is
+                // alive to count it (shutdown), and continuing to wait would block the
+                // crupier thread.
                 boolean stopping_observed = false;
 
                 while (!finished.await(GifLabel.GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS)) {
@@ -2075,9 +2090,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
         }
 
-        // Mismo cinturón y tirantes que showCentralFrames para los caminos
-        // exóticos (timeout defensivo, takeover): parar ESTE player sin tocar
-        // el de un posible nuevo dueño del label.
+        // Same belt and suspenders as showCentralFrames for the exotic paths (defensive
+        // timeout, takeover): stop THIS player without touching a new label owner's.
         Helpers.GUIRun(() -> {
             if (player_holder[0] != null) {
                 player_holder[0].stop();
@@ -2089,22 +2103,24 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         return central_label;
     }
 
-    // Muestra "BARAJANDO" centrado donde iría el gif de barajado, con el ANCHO del panel
-    // de comunitarias (las letras se reescalan para llenar ese ancho). Es el sustituto
-    // visual cuando el gif de barajado NO se reproduce (baraja sin shuffle.gif o
-    // animaciones desactivadas). EDT-safe; la mantiene visible hasta hideShufflingText().
+    /**
+     * Shows "SHUFFLING" centered where the shuffle GIF would play, sized to the
+     * community-cards panel's width (the text rescales to fill it). Visual substitute
+     * for when the shuffle GIF isn't played (deck has no shuffle.gif, or animations are
+     * off). EDT-safe; stays visible until {@link #hideShufflingText()}.
+     */
     public void showShufflingText() {
         Helpers.GUIRun(() -> {
-            // El ancho se fija como fracción del TAPETE (no del panel de comunitarias):
-            // es la única referencia INVARIANTE por mano. El ancho del panel de
-            // comunitarias depende del estado de layout/zoom, que se asienta tras la
-            // primera mano -> antes daba un rótulo grande la primera vez y más pequeño
-            // las siguientes. El tapete no cambia con el zoom, así que el rótulo sale
-            // SIEMPRE igual. 0.35 del ancho del tapete = tamaño elegido por el usuario.
+            // The width is set as a fraction of the TABLE (not the community-cards
+            // panel): it's the only reference that's INVARIANT per hand. The community-
+            // cards panel's width depends on layout/zoom state, which settles after the
+            // first hand -> this used to produce a large label the first time and
+            // smaller ones after. The table doesn't change with zoom, so the label is
+            // ALWAYS the same size. 0.35 of the table's width is the chosen size.
             int w = Math.round(getWidth() * 0.35f);
             int h = Math.max(40, Math.round(w * 0.30f));
-            // Relleno = color de los contadores del tapete (se adapta al fondo elegido);
-            // blanco si aún no está definido. Borde negro fijo (lo pone el propio label).
+            // Fill = the table's counter color (adapts to the chosen felt); white if
+            // not yet defined. Border is fixed black (the label itself paints it).
             java.awt.Color tapete_color = null;
             try {
                 tapete_color = getCommunityCards().getColor_contadores();
@@ -2112,7 +2128,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             }
             shuffling_label.setFill(tapete_color);
             shuffling_label.setText(Translator.translate("game.barajando"));
-            // Fuente base; el propio paint la reescala para llenar el ancho.
+            // Base font; paintComponent itself rescales it to fill the width.
             shuffling_label.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, Math.max(12, h)));
             shuffling_label.setSize(w, h);
             shuffling_label.setLocation(Math.round((getWidth() - w) / 2f), Math.round((getHeight() - h) / 2f));
@@ -2121,6 +2137,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
+    /** Hides the "SHUFFLING" fallback label. */
     public void hideShufflingText() {
         Helpers.GUIRun(() -> {
             shuffling_label.setVisible(false);
@@ -2128,6 +2145,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
+    /**
+     * Hides every table element (players, community cards, overlays) and cancels any
+     * pending local-player auto-action dialog.
+     */
     public void hideALL() {
 
         Helpers.GUIRun(() -> {
@@ -2139,20 +2160,21 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
             central_label.setVisible(false);
 
-            // Rótulo "BARAJANDO": vive en su capa, fuera del flujo normal de la mesa; al
-            // ocultar el tapete (salir, game over, balance) quedaría flotando en el centro.
+            // "SHUFFLING" label: lives in its own layer, outside the table's normal
+            // flow; hiding the table (leave, game over, balance) would otherwise leave
+            // it floating in the center.
             shuffling_label.setVisible(false);
 
-            // El overlay de coste de igualar vive en una capa propia del tapete:
-            // sin esto quedaría flotando en el centro al ocultarse la mesa (salir,
-            // game over, balance). Lo mismo para los overlays por jugador del river.
+            // The call-cost overlay lives in its own table layer: without this it would
+            // stay floating in the center when the table is hidden (leave, game over,
+            // balance). Same for the per-player river overlays.
             call_cost_label.setVisible(false);
             hidePlayerCallCostOverlays();
 
-            // El MODO AUTO ahora es un overlay dentro del propio tapete (capa POPUP).
-            // Al ocultar la mesa —salir de la timba, fin de partida— lo cerramos como
-            // cancelado (la mano ya terminó, no ejecuta ninguna acción); cancel() lo
-            // quita del tapete y restaura la botonera.
+            // AUTO mode is now an overlay inside the table itself (POPUP layer). When
+            // hiding the table -leaving the game, end of match- we close it as canceled
+            // (the hand already ended, so it takes no action); cancel() removes it from
+            // the table and restores the button bar.
             LocalPlayer local_player = GameFrame.getInstance().getLocalPlayer();
 
             if (local_player != null && local_player.getAuto_action_dialog() != null) {
@@ -2162,6 +2184,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     }
 
+    /** Plays the felt "thud" sound (if enabled) and forces a full repaint. */
     public void refresh() {
 
         if (GameFrame.tapeteSonidoOn()) {
@@ -2177,9 +2200,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // El velo de "apagar las luces" lo pinta la propia mesa, encima de todo lo que hay en ella.
-    // paint() y no paintComponent(): tiene que ir DESPUÉS de los hijos (cartas, asientos, botes),
-    // no debajo. Antes lo pintaba un JLayer que envolvía la mesa entera.
+    // The "lights out" veil is painted by the table itself, on top of everything on it.
+    // paint(), not paintComponent(): it must come AFTER the children (cards, seats,
+    // pots), not underneath. It used to be painted by a JLayer wrapping the whole table.
     @Override
     public void paint(Graphics g) {
 
@@ -2190,10 +2213,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Con el velo puesto, el repintado de cualquier componente de la mesa tiene que arrancar AQUÍ
-    // para que el velo se vuelva a pintar por encima de lo que se acaba de redibujar. Con las
-    // luces encendidas no hace falta y la mesa se repinta como cualquier JLayeredPane, componente
-    // a componente: eso es lo que costaba tener el velo en un JLayer, que lo exigía SIEMPRE.
+    // With the veil on, any child component's repaint must originate HERE so the veil
+    // gets repainted on top of whatever was just redrawn. With the lights on this isn't
+    // needed and the table repaints component-by-component like any JLayeredPane — that
+    // was the cost of the old JLayer-based veil, which needed this ALWAYS.
     @Override
     protected boolean isPaintingOrigin() {
 
@@ -2212,14 +2235,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
 
-                    // Tapete de imagen única: se estira al panel con drawImage y
-                    // rectángulo de destino. A diferencia de un TexturePaint con un
-                    // tile del tamaño del panel, drawImage mapea SIEMPRE la fuente
-                    // completa a (0,0)-(w,h); el clip de un repintado parcial solo
-                    // limita QUÉ píxeles se escriben, nunca el muestreo, así que la
-                    // franja que repinta una ficha/carta voladora a su paso queda
-                    // idéntica al pintado completo (sin costuras ni "deformación"
-                    // del fondo por donde cruzan las animaciones).
+                    // Single-image felt: see the secret_bg field doc above for why
+                    // drawImage avoids seams under partial repaints from flying chips
+                    // and cards.
                     if (secret_bg == null) {
                         try {
                             secret_bg = Helpers.toBufferedImage(Init.I1);
@@ -2245,13 +2263,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                     Helpers.threadRun(() -> {
                         synchronized (paint_lock) {
-                            // El tapete de imagen única (sufijo "*") se pinta arriba con
-                            // drawImage y nunca llega aquí; este rebuild es solo para los
-                            // tapetes de TEXTURA en mosaico (JPG pequeño que se repite).
+                            // The single-image felt (suffix "*") is painted above with
+                            // drawImage and never reaches here; this rebuild is only for
+                            // TILED texture felts (a small JPG repeated).
                             BufferedImage tile = null;
-                            // try-with-resources: ImageIO.read(InputStream) NO cierra el
-                            // stream (contrato JDK). Cada cambio de tapete dejaba colgado
-                            // el handle del JAR resource hasta GC.
+                            // try-with-resources: ImageIO.read(InputStream) does NOT
+                            // close the stream (JDK contract). Every felt change used to
+                            // leak the JAR resource handle until GC.
                             try (java.io.InputStream is = getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg")) {
 
                                 tile = ImageIO.read(is);
@@ -2264,13 +2282,12 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                                     Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
                                 }
                             }
-                            // Sprint deferred 🟡-32: snapshot del tile anterior para
-                            // flush DIFERIDO post-repaint. El EDT lee tp sin
-                            // sincronización (no toma paint_lock), así que si
-                            // hiciéramos flush() aquí mientras paintComponent del EDT
-                            // pinta con el mismo tp, render inconsistente. invokeLater
-                            // garantiza que el flush corra después de que la pintura
-                            // con el tp viejo haya terminado.
+                            // Snapshots the previous tile for a DEFERRED post-repaint
+                            // flush. The EDT reads tp without synchronization (no
+                            // paint_lock), so flushing it here while the EDT's
+                            // paintComponent is still painting with that same tp would
+                            // produce an inconsistent render. invokeLater guarantees the
+                            // flush runs only after painting with the old tp is done.
                             final java.awt.Image oldImage = (tp != null) ? tp.getImage() : null;
                             Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
                             tp = new TexturePaint(tile, tr);
@@ -2344,9 +2361,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     }// </editor-fold>//GEN-END:initComponents
 
     private void formMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_formMouseEntered
-        // Entrar en el tapete = el ratón ha salido de la barra rápida: programa su plegado con
-        // retardo + desvanecimiento (no la pliega al instante). scheduleHide no hace nada si la
-        // barra ya está plegada.
+        // Mouse entering the felt = it left the fast-buttons bar: schedules its collapse
+        // with a delay + fade-out (doesn't collapse instantly). scheduleHide is a no-op
+        // if the bar is already collapsed.
         fastbuttons.scheduleHide();
     }//GEN-LAST:event_formMouseEntered
 
@@ -2361,10 +2378,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             });
         }
 
-        // La comprobación va DENTRO del synchronized: si quedara fuera, el último
-        // zoomable podía hacer add()+notifyAll justo entre el size() y el wait, se
-        // perdía la notificación y se dormía el 1000ms completo → atasco aleatorio
-        // de ~1s en el arranque (zoom inicial) mientras los zoomables rescalan.
+        // The check must be INSIDE the synchronized block: outside it, the last
+        // zoomable could add()+notifyAll right between the size() check and the wait,
+        // losing the notification and sleeping the full 1000ms -> a random ~1s stall on
+        // startup (initial zoom) while the zoomables rescale.
         synchronized (mynotifier) {
             while (mynotifier.size() < zoomables.length) {
                 try {
@@ -2392,6 +2409,12 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         return fastbuttons;
     }
 
+    /**
+     * Zooms out (optionally after resetting to default zoom first) until every player
+     * seat fits within the table bounds.
+     *
+     * @param reset if true, resets to the default zoom level before zooming out again
+     */
     public synchronized void autoZoom(boolean reset) {
 
         for (Player jugador : getPlayers()) {

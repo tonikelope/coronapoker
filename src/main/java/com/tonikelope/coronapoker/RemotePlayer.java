@@ -92,10 +92,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean utg = false;
     private volatile boolean spectator = false;
     private volatile double pagar = 0;
-    // Línea base de 'pagar' al empezar la CARA actual del run-it-twice (0 en
-    // CARA-A, el total de CARA-A al entrar en CARA-B). El dinero ganado en la
-    // cara es 'pagar - pagar_face_base', derivado de la única contabilidad real
-    // (pagar), así que no puede desincronizarse. Fuera de RIT no se usa.
+    // Baseline of 'pagar' at the start of the current run-it-twice FACE (0 on
+    // FACE-A, FACE-A's total when entering FACE-B). Money won on this face is
+    // 'pagar - pagar_face_base', derived from the single source of truth
+    // (pagar), so it can't drift out of sync. Unused outside RIT.
     private volatile double pagar_face_base = 0;
     private volatile double bote = 0;
     private volatile Double last_bote = null;
@@ -104,11 +104,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean timeout = false;
     private volatile boolean winner = false;
     private volatile boolean loser = false;
-    // Showdown (RESALTAR_JUGADA_SHOWDOWN): cartas de la jugada de ESTE perdedor (sin kickers) a
-    // resaltar al pasar el ratón por su etiqueta; null si no mostró. Los tres snapshot_ guardan
-    // el estado a restaurar al salir el ratón: el enfoque de cada carta de la mesa antes del
-    // hover (el resaltado del ganador vuelve tal cual) y el color de fondo/texto de la etiqueta.
-    // Se manipulan solo en el EDT (dentro de Helpers.GUIRun).
+    // Showdown hover highlight (RESALTAR_JUGADA_SHOWDOWN): this player's hand cards (no kickers)
+    // to highlight on mouseover of their label; null if they didn't show. The three snapshot_
+    // fields hold what to restore on mouse-exit: each table card's pre-hover focus state (the
+    // winner's highlight is left as-is) and the label's background/foreground colors. Touched
+    // only on the EDT (inside Helpers.GUIRun).
     private volatile java.util.List<Card> showdown_hand_cards = null;
     private java.util.Map<Card, Boolean> showdown_focus_snapshot = null;
     private Color showdown_action_bg_snapshot = null;
@@ -124,41 +124,39 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer icon_zoom_timer = null;
     private volatile Timer iwtsth_blink_timer = null;
     private volatile Timer rebuy_countdown_timer = null;
-    // Cinemática de bet/call: el hilo de la acción espera SOLO a que la ficha despegue
-    // (frame 32 del GIF), no a que el GIF entero termine. Lo cuenta atrás el addAudio al
-    // lanzar la ficha; awaitChipLaunch lo espera con tope.
+    // Bet/call cinematic: the action thread waits ONLY for the chip to launch (GIF frame 32),
+    // not for the whole GIF to finish. addAudio counts it down when it throws the chip;
+    // awaitChipLaunch waits on it with a timeout.
     private volatile CountDownLatch chip_launch_latch = null;
     private volatile String rebuy_countdown_saved_text = null;
-    // Overlay del GIF de barajado (pequeño, MUDO, en bucle) + borde blanco de resaltado sobre
-    // este jugador mientras procesa SU paso de la cascada SRA. Sincronizado en TODOS los peers:
-    // el host difunde SHUFFLE_TURN y el controlador de GameFrame (onShuffleTurn) invoca show/hide
-    // sobre el jugador de turno. Sin audio y sin barrier: puro indicador visual. El controlador
-    // serializa los turnos (un overlay a la vez, con duración mínima), así que aquí no hace falta
-    // 'generation'. El ImageIcon se decodifica una vez por instancia (cache-busted) y se reutiliza
-    // (setIcon lo rebobina); se recarga si cambia la baraja.
+    // Shuffle-cascade GIF overlay (small, MUTE, looping) + white highlight border on this player
+    // while it processes its SRA cascade step. Synced across ALL peers: the host broadcasts
+    // SHUFFLE_TURN and GameFrame's controller (onShuffleTurn) shows/hides it on the player whose
+    // turn it is. No audio, no barrier: purely visual. The controller serializes turns (one
+    // overlay at a time, minimum duration), so no 'generation' counter is needed here. The
+    // ImageIcon is decoded once per instance (cache-busted) and reused (setIcon rewinds it);
+    // reloaded if the deck changes.
     private final GifLabel shuffle_cascade_gif_label = new GifLabel();
     private volatile ImageIcon shuffle_cascade_icon = null;
     private volatile int shuffle_cascade_frames = 0;
     private volatile String shuffle_cascade_icon_url = null;
-    // Color del borde guardado antes de ponerlo blanco (turno de cascada), para restaurarlo.
+    // Border color saved before turning it white (cascade turn), to restore afterwards.
     private volatile Color shuffle_border_saved = null;
     private volatile boolean shuffle_border_active = false;
-    // GIF de game over sobre las cartas del arruinado mientras decide la
-    // recompra (solo con la cinemática de GAME OVER on). Label dedicada (capa 1001, debajo del
-    // chat_notify_label): un meme del chat se pinta encima y al ocultarse el
-    // game over sigue debajo, sin pelear por el ownership del notify.
+    // Game-over GIF over the busted player's cards while they decide on a rebuy (only with the
+    // GAME OVER cinematic on). Dedicated label (layer 1001, below chat_notify_label): a chat meme
+    // paints over it and, once hidden, the game-over GIF is still underneath, without fighting
+    // for ownership of the notify label.
     private final GifLabel rebuy_gif_label = new GifLabel();
-    // Generación del visual de rebuy: invalida el swap al GIF de cero si el
-    // rebuy se resolvió mientras el de cuenta atrás aún corría. Solo se
-    // escribe en el EDT.
+    // Rebuy-visual generation: invalidates the swap to the zero GIF if the rebuy resolved while
+    // the countdown GIF was still running. Written only on the EDT.
     private volatile int rebuy_generation = 0;
-    // Marcador de activación del visual de rebuy (EDT-confined): hace
-    // idempotentes setRebuying(true)/setRebuying(false) en ambos modos.
+    // Rebuy-visual active flag (EDT-confined): makes setRebuying(true)/setRebuying(false)
+    // idempotent in both modes.
     private boolean rebuying_visual = false;
-    // Nº de arruinados mostrando el GIF de game over AHORA (EDT-confined,
-    // compartido entre todos los RemotePlayer): con varios simultáneos suena
-    // UN solo game_over.wav (lo engancha el primero) y se corta cuando el
-    // último se resuelve.
+    // Count of busted players currently showing the game-over GIF (EDT-confined, shared across
+    // all RemotePlayer instances): with several simultaneous, only ONE game_over.wav plays
+    // (the first one hooks it) and it stops when the last one resolves.
     private static int REBUY_GIF_ACTIVOS = 0;
     private volatile boolean notify_blocked = false;
     private volatile URL chat_notify_image_url = null;
@@ -186,9 +184,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (auto_action != null && auto_action.isRunning()) {
                 auto_action.stop();
             }
-            // NO matar icon_zoom_timer aquí — entre manos / al inicio del
-            // recover dejaba la siguiente mano sin setAvatar y el avatar
-            // quedaba invisible. Revertido el cambio b173ccf9.
+            // Do NOT stop icon_zoom_timer here — between hands / at recover start this left the
+            // next hand without setAvatar, leaving the avatar invisible. Reverted change b173ccf9.
         });
     }
 
@@ -203,10 +200,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return latency_label;
     }
 
-    // Telemetría: el widget LatencyDot lo coloca el autor en el
-    // .form (NetBeans visual editor) y lo enlaza llamando setLatencyDot
-    // en el constructor tras initComponents(). Si null → applyTelemetry
-    // es no-op silencioso (telemetría no afecta al game flow).
+    // Telemetry: the LatencyDot widget is placed in the .form (NetBeans visual editor) and
+    // wired by calling setLatencyDot in the constructor after initComponents(). If null,
+    // applyTelemetry is a silent no-op (telemetry never affects game flow).
     private volatile LatencyDot latency_dot = null;
 
     public LatencyDot getLatencyDot() {
@@ -218,10 +214,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Telemetría: actualiza la bolita con la última snapshot recibida
-     * del broadcast TELEMETRY del host. Si lat1 y lat2 ambos válidos, usa el
-     * min. Si uno es -1, usa el otro. Si ambos -1, -1 → bolita roja.
-     * No-op si latency_dot aún no se ha enlazado vía setLatencyDot.
+     * Updates the latency dot with the latest snapshot from the host's TELEMETRY broadcast.
+     * Uses the min of lat1/lat2 if both are valid, whichever is valid if only one is, or -1
+     * (red dot) if both are -1. No-op if latency_dot hasn't been wired via setLatencyDot yet.
+     *
+     * @param lat1 latency sample 1 in ms, or -1 if unavailable
+     * @param lat2 latency sample 2 in ms, or -1 if unavailable
+     * @param reconnectionCount reconnection count to display alongside the latency
      */
     public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
         LatencyDot dot = this.latency_dot;
@@ -241,13 +240,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         dot.setLatency(best, reconnectionCount);
     }
 
-    // El asiento tiene esquinas REDONDEADAS: si fuese realmente opaco, Swing no
-    // repintaría el fondo (tapete) detrás y las esquinas —fuera del arco— mostrarían
-    // basura ("el fondo sale mal en las esquinas"). Por eso el asiento NUNCA es opaco
-    // de verdad: interceptamos setOpaque y recordamos la INTENCIÓN de relleno, que
-    // pintamos nosotros (rounded) en paintComponent; Swing repinta la madera detrás y
-    // las esquinas quedan limpias. Solo afecta al estado resaltado (eliminado, rojo),
-    // que es estático → sin coste de rendimiento.
+    // The seat has ROUNDED corners: if it were really opaque, Swing wouldn't repaint the
+    // background (felt) behind it and the corners outside the arc would show garbage. So the
+    // seat is NEVER truly opaque: setOpaque is intercepted and only records the fill INTENT,
+    // which paintComponent then paints itself (rounded); Swing still repaints the felt behind it
+    // and the corners stay clean. Only affects the busted/red highlight state, which is static,
+    // so there's no performance cost.
     private volatile boolean rounded_fill = false;
 
     @Override
@@ -268,9 +266,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             } finally {
                 g2d.dispose();
             }
-            // super.paintComponent NO se llama: Swing ya ha repintado la madera detrás
-            // (el asiento es no-opaco) y el relleno redondeado va encima; llamar a
-            // super pintaría un fondo rectangular por debajo.
+            // super.paintComponent is NOT called: Swing has already repainted the felt behind
+            // (the seat is non-opaque) and the rounded fill goes on top; calling super would
+            // paint a rectangular background underneath it.
         } else {
             super.paintComponent(g);
         }
@@ -319,14 +317,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    // Recoloca/redimensiona el GIF de game over del rebuy si está visible.
-    // Lo llaman vistaCompacta y el icon_zoom_timer tras un resize (vista
-    // compacta, zoom), igual que refreshNotifyChatLabel para los GIFs del
-    // chat: este GIF dura toda la decisión del arruinado y sin esto se
-    // quedaría con la geometría del momento del show. GifLabel estira la
-    // Image a los bounds en el paint (GPU), así que basta recalcular bounds
-    // con el MISMO cálculo del show — sin recargar el icono ni tocar la
-    // animación en curso.
+    // Repositions/resizes the rebuy game-over GIF if visible. Called by vistaCompacta and by
+    // icon_zoom_timer after a resize (compact view, zoom), same as refreshNotifyChatLabel does
+    // for chat GIFs: this GIF lasts the whole rebuy decision and without this it would keep the
+    // geometry from the moment it was shown. GifLabel stretches the Image to the bounds at paint
+    // time (GPU), so it's enough to recompute bounds with the SAME calculation as the show —
+    // no icon reload, no touching the animation in progress.
     public void refreshRebuyGifLabel() {
 
         Helpers.GUIRun(() -> {
@@ -449,17 +445,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         setNotifyImageChatLabel(u, true);
     }
 
-    // caller_awaits: si true (fold y pure-check) el hilo de la acción espera en la
-    // barrera a que el GIF entero termine (3 partes). Si false (bet y call con dinero)
-    // NO: la ficha vuela igual en su frame (addAudio) pero la acción solo espera a que
-    // DESPEGUE (chip_launch_latch); el GIF se desmonta solo (2 partes: setup + fin-de-GIF)
-    // y sus frames restantes se reproducen aparte.
+    // caller_awaits: if true (fold and pure check), the action thread waits on the barrier for
+    // the whole GIF to finish (3 parties). If false (bet and call with money), it does NOT: the
+    // chip still flies on its frame (addAudio) but the action only waits for it to LAUNCH
+    // (chip_launch_latch); the GIF tears itself down (2 parties: setup + GIF-end) and its
+    // remaining frames play out separately.
     private void setNotifyImageChatLabel(URL u, boolean caller_awaits) {
 
-        // Cualquier notify (este o uno que SUPERSEDE a un GIF de bet/call en vuelo) libera
-        // el latch pendiente: si la cinemática anterior se desmonta antes de su frame 32, su
-        // hilo de accion no se queda esperando (lo hacia hasta 5 s). El latch de ESTA llamada
-        // se arma DESPUES (abajo), asi que esto solo afecta a una accion previa.
+        // Any notify (this one, or one that SUPERSEDES a bet/call GIF in flight) releases the
+        // pending latch: if the previous cinematic tears down before its frame 32, its action
+        // thread doesn't keep waiting (it used to, up to 5s). This call's own latch is armed
+        // LATER (below), so this only affects a previous action.
         signalChipLaunched();
 
         if (!this.isNotify_blocked()) {
@@ -470,9 +466,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 final boolean action_gif = isActionGif(u);
 
-                // bet/call (caller_awaits=false): arma el latch que su hilo esperara hasta que
-                // la ficha despegue en el frame 32 (lo cuenta atras el addAudio). Tras soltar
-                // el anterior, evita la ventana de fuga al supersederse antes del frame 32.
+                // bet/call (caller_awaits=false): arms the latch its thread will wait on until
+                // the chip launches on frame 32 (counted down by addAudio). Armed after releasing
+                // the previous one, to avoid a leak window if it gets superseded before frame 32.
                 if (!caller_awaits && action_gif) {
                     chip_launch_latch = new CountDownLatch(1);
                 }
@@ -487,7 +483,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     synchronized (getChat_notify_label()) {
 
-                        chat_notify_thread = Thread.currentThread().threadId(); //Nos hacemos con la propiedad del icono de notificación y avisamos a algún hilo que estuviera manipulándolo
+                        chat_notify_thread = Thread.currentThread().threadId(); // Claim ownership of the notify icon and wake up any thread that was manipulating it
 
                         getChat_notify_label().notifyAll();
 
@@ -535,24 +531,23 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                                 if (action_gif) {
 
-                                    /*Estos audios no son obligatorios para todas las acciones 
-                                        Se meten en la propia label con addaudio para sincronizar cuando es necesario que el 
-                                        audio empiece y acabe en un determinado frame exacto del gif. (El hilo que reproducirá este audio NO espera en la barrera) */
+                                    /* These sounds aren't mandatory for every action; they're hooked onto the
+                                       label itself via addAudio so playback starts/ends on an exact GIF frame.
+                                       (The thread that plays this audio does NOT wait on the barrier.) */
                                     if (getDecision() == Player.BET) {
-                                        // La ficha vuela en este frame (gesto + sonido sincronizados,
-                                        // INTACTO). signalChipLaunched suelta el hilo de la acción:
-                                        // cierra la acción y commitea el bote mientras la ficha vuela,
-                                        // así al aterrizar pot+stack+bet ruedan juntos (true).
-                                        // El sonido de apuesta se puede desactivar, pero el callback
-                                        // (lanzar la ficha al bote + soltar el hilo de la acción) DEBE
-                                        // seguir sincronizado al frame 32: por eso audio null si está off.
+                                        // The chip flies on this frame (gesture + sound in sync, INTACT).
+                                        // signalChipLaunched releases the action thread: it closes the
+                                        // action and commits the pot while the chip is in flight, so on
+                                        // landing pot+stack+bet roll together (true). The bet sound can be
+                                        // toggled off, but the callback (throw the chip + release the action
+                                        // thread) MUST stay pinned to frame 32 — hence audio null when off.
                                         getChat_notify_label().addAudio(GameFrame.apuestaSonidoOn() ? "misc/bet.wav" : null, 32, 60, () -> {
                                             GameFrame.getInstance().getCrupier().launchChipToPot(this);
                                             signalChipLaunched();
                                         });
                                     } else if (getDecision() == Player.CHECK && Helpers.doubleSecureCompare(0f, call_required) < 0) {
-                                        // Sonido de igualar desactivable, pero el callback (ficha al bote +
-                                        // soltar el hilo) DEBE seguir atado al frame 32: audio null si off.
+                                        // Call sound is toggleable, but the callback (chip to pot + release
+                                        // the thread) MUST stay pinned to frame 32: audio null when off.
                                         getChat_notify_label().addAudio(GameFrame.igualarSonidoOn() ? "misc/call.wav" : null, 32, 60, () -> {
                                             GameFrame.getInstance().getCrupier().launchChipToPot(this);
                                             signalChipLaunched();
@@ -626,10 +621,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void refreshSecPotLabel() {
 
-        // En run-it-twice la franja es POR CARA: cada cara reparte la MITAD del
-        // bote, así que muestra el dinero ganado en ELLA (pagar - pagar_face_base)
-        // y el beneficio contra la mitad del bote. Fuera de RIT (tag null) →
-        // pagar y bote enteros, como siempre.
+        // In run-it-twice the strip is PER FACE: each face splits HALF the pot, so it shows the
+        // money won ON IT (pagar - pagar_face_base) and the profit against half the pot. Outside
+        // RIT (tag null), it's the full pagar and bote, as always.
         final boolean is_rit = GameFrame.getInstance().getCrupier().getRitPotBoardTag() != null;
 
         final double fullbote = last_bote != null ? last_bote : bote;
@@ -689,9 +683,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return panel_cartas;
     }
 
-    // La ficha remota reposa en la esquina superior-izquierda de panel_cartas
-    // (mismo anclaje que refreshPositionChipIcons): (0, 0). Devuelve su centro
-    // en pantalla, o null si el asiento no está visible.
+    // The position chip sits at panel_cartas's top-left corner (0, 0) — same anchor
+    // refreshPositionChipIcons uses. Returns its on-screen center, or null if the seat isn't
+    // showing.
     @Override
     public java.awt.geom.Point2D getPositionChipScreenCenter(int chip_w, int chip_h) {
         if (panel_cartas == null || !panel_cartas.isShowing()) {
@@ -832,9 +826,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return bote;
     }
 
-    // Rodaje vivo del label del stack (EDT-confined). El render solo escribe el
-    // texto; el color lo siguen poniendo setStack/setStackDisplay. Creación perezosa
-    // (player_stack ya existe en el primer uso, siempre en el EDT).
+    // Live roll of the stack label (EDT-confined). The renderer only writes the text; the color
+    // is still set by setStack/setStackDisplay. Lazily created (player_stack already exists on
+    // first use, always on the EDT).
     private RollingCounter stack_roller;
 
     private RollingCounter stackRoller() {
@@ -862,10 +856,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_stack.setForeground(Color.WHITE);
                 }
 
-                // Rueda el número hasta el nuevo stack (velocidad constante; off/recover
-                // salta). Si la acción va a volar una ficha (defer_counter_rolls), NO se
-                // rueda aquí: el label se queda en su valor previo y rollCountersToModel lo
-                // rueda al aterrizar la ficha, a la vez que el bote y la apuesta.
+                // Rolls the number to the new stack (constant speed; off/recover jumps). If the
+                // action is about to throw a chip (defer_counter_rolls), it does NOT roll here:
+                // the label stays at its previous value and rollCountersToModel rolls it when
+                // the chip lands, together with the pot and the bet.
                 if (!defer_counter_rolls) {
                     stackRoller().roll(stack, GameFrame.isCounterRollEnabled());
                 }
@@ -873,12 +867,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Pinta SOLO el label del stack con 'value' (sin tocar el modelo ni el bote):
-    // lo usa el contador animado de llenado de stacks (apertura/recompra) para
-    // rodar el numero frame a frame. NO sincronizado a proposito: corre en el EDT
-    // (lo invoca el Timer del contador) y el caller que difiere el modelo puede
-    // tener tomado el monitor del jugador -> sincronizar aqui colgaria. Respeta el
-    // override de "ver buy-in" (player_stack_click) igual que setStack.
+    // Paints ONLY the stack label with 'value' (without touching the model or the pot): used by
+    // the animated stack-fill counter (buy-in / rebuy) to roll the number frame by frame. NOT
+    // synchronized on purpose: it runs on the EDT (invoked by the counter's Timer) and the
+    // caller deferring the model may be holding the player's monitor — synchronizing here would
+    // deadlock. Respects the "see buy-in" override (player_stack_click) just like setStack.
     @Override
     public void setStackDisplay(double value) {
         if (player_stack_click) {
@@ -892,14 +885,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerStackBackground(new Color(51, 153, 0));
                 player_stack.setForeground(Color.WHITE);
             }
-            // De golpe (la cortinilla ya anima frame a frame); mantiene sincronizado el
-            // valor mostrado del roller para que el siguiente roll vivo arranque bien.
+            // Set outright (the fill animation already goes frame by frame); keeps the roller's
+            // displayed value in sync so the next live roll starts from the right place.
             stackRoller().set(value);
         });
     }
 
-    // Rodaje vivo del label de la apuesta del jugador (player_pot = 'bote', su aporte
-    // acumulado de la mano). El render muestra "----" cuando es 0. EDT-confined.
+    // Live roll of the player's bet label (player_pot = 'bote', their accumulated
+    // contribution this hand). The renderer shows "----" when it's 0. EDT-confined.
     private RollingCounter bet_roller;
 
     private RollingCounter betRoller() {
@@ -911,10 +904,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return bet_roller;
     }
 
-    // Flag del aplazamiento del rodaje vivo: lo activa el handler de la acción ANTES de
-    // setBet cuando va a volar una ficha, para que el stack/bet no se adelanten a ella.
-    // volatile: lo escribe el hilo de la acción y lo leen setStack/setBet (en el EDT) y
-    // rollCountersToModel (en el aterrizaje).
+    // Live-roll deferral flag: set by the action handler BEFORE setBet when a chip is about to
+    // fly, so the stack/bet labels don't outrun it. volatile: written by the action thread and
+    // read by setStack/setBet (on the EDT) and rollCountersToModel (on landing).
     private volatile boolean defer_counter_rolls = false;
 
     @Override
@@ -946,8 +938,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            // Si la acción va a volar ficha (defer), NO se rueda aquí: el bet se queda y
-            // rollCountersToModel lo rueda al aterrizar, a la vez que el stack y el bote.
+            // If the action is about to throw a chip (defer), it does NOT roll here: the bet
+            // label stays put and rollCountersToModel rolls it on landing, together with the
+            // stack and the pot.
             if (!defer_counter_rolls) {
                 betRoller().roll(bote, GameFrame.isCounterRollEnabled());
             }
@@ -958,7 +951,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public synchronized double postAnte(double ante) {
 
         if (Helpers.doubleSecureCompare(0f, stack) >= 0) {
-            return 0f; // ya all-in / sin fichas: nada que antear
+            return 0f; // already all-in / no chips left: nothing to ante
         }
 
         double real;
@@ -966,7 +959,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (Helpers.doubleSecureCompare(ante, stack) < 0) {
             real = Helpers.doubleClean(ante);
         } else {
-            // No cubre el ante completo: all-in por el ante.
+            // Doesn't cover the full ante: all-in for the ante.
             real = Helpers.doubleClean(stack);
             setDecision(Player.ALLIN);
         }
@@ -977,8 +970,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            // Si la ficha del ante volará al bote (defer), NO rueda aquí: se difiere y
-            // rollCountersToModel lo rueda al aterrizar, a la vez que el stack y el bote.
+            // If the ante chip is about to fly to the pot (defer), it does NOT roll here: it's
+            // deferred and rollCountersToModel rolls it on landing, together with the stack
+            // and the pot.
             if (!defer_counter_rolls) {
                 betRoller().roll(bote, GameFrame.isCounterRollEnabled());
             }
@@ -996,7 +990,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             return want;
         }
 
-        // No cubre el straddle completo: all-in por el straddle.
+        // Doesn't cover the full straddle: all-in for the straddle.
         double all = Helpers.doubleClean(stack);
         setBet(all);
         setDecision(Player.ALLIN);
@@ -1005,9 +999,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void esTuTurno() {
-        // Gate del llenado de stacks: si este jugador esta a medio llenar su stack (apertura
-        // o recompra), NO activamos su turno (borde + botones) hasta que termine. El resto del
-        // juego NO se ha frenado por la animacion; solo este turno espera.
+        // Stack-fill gate: if this player is mid-way through a stack fill animation (buy-in or
+        // rebuy), don't activate their turn (border + buttons) until it finishes. The rest of
+        // the game isn't blocked by the animation; only this turn waits.
         GameFrame.getInstance().getCrupier().awaitStackFillIfPending(this.nickname);
         turno = true;
 
@@ -1041,8 +1035,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setPlayerActionIcon("action/thinking.png");
 
-                // Tiempo de pensar configurable: desactivado => barra LLENA estatica (sin
-                // cuenta atras). El auto-fold real lo hace el host via isExit(), no esta barra.
+                // Configurable think time: disabled => a static FULL bar (no countdown). The
+                // actual auto-fold is done by the host via isExit(), not this bar.
                 if (GameFrame.THINK_TIME_ENABLED) {
                     Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
                 } else {
@@ -1053,7 +1047,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             if (!GameFrame.TEST_MODE) {
 
-                //Tiempo máximo para pensar
+                // Maximum think time
                 Helpers.GUIRun(() -> {
                     response_counter = GameFrame.THINK_TIME;
                     if (auto_action != null) {
@@ -1068,16 +1062,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null && !GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
 
-                                // Desactivado => NO decrementa (contador congelado): la barra remota
-                                // no cuenta atrás y el auto-stop por timeout no dispara; el host
-                                // decide el turno del jugador remoto por su cuenta.
+                                // Disabled => does NOT decrement (counter frozen): the remote bar
+                                // doesn't count down and the timeout auto-stop never fires; the
+                                // host decides the remote player's turn on its own.
                                 if (GameFrame.THINK_TIME_ENABLED) {
                                     response_counter--;
                                 }
 
-                                // setValue(response_counter) redundante: smoothCountdown
-                                // ya repinta la barra en escala ms via Timer interno.
-                                // Hacer setValue aqui en escala segundos generaba parpadeo.
+                                // setValue(response_counter) would be redundant: smoothCountdown
+                                // already repaints the bar on a ms scale via its own internal
+                                // Timer. Calling setValue here on a seconds scale caused flicker.
 
                                 if (GameFrame.THINK_TIME_ENABLED && response_counter == GameFrame.getHurryupThreshold() && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                     if (GameFrame.avisoTiempoSonidoOn()) {
@@ -1150,10 +1144,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void markFoldedOnRecover() {
-        // setDecision (privado) fija decision=FOLD y pinta gris (renderDecisionVisual), SIN sonido ni
-        // cinematica (a diferencia de fold()/setDecisionFromRemotePlayer). Respeta la guarda de exit:
-        // si el peer sigue marcado como ido, deja el naranja "SE PIRA" y no lo pisa. Lo llama el skip
-        // del recover para que el asiento del que se fue quede foldeado (gris) esa mano.
+        // The private setDecision sets decision=FOLD and paints it gray (renderDecisionVisual),
+        // with NO sound or cinematic (unlike fold()/setDecisionFromRemotePlayer). Respects the
+        // exit guard: if the peer is still marked as gone, it leaves the orange "SE PIRA" badge
+        // alone. Called by the recover skip so the seat of whoever left shows folded (gray) for
+        // that hand.
         setDecision(Player.FOLD);
     }
 
@@ -1179,10 +1174,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         renderDecisionVisual(dec);
     }
 
-    // Render visual de una decisión (etiqueta/borde/icono + fondos), sin mutar
-    // estado. Extraído de setDecision para poder RE-PINTAR la última acción en el
-    // rewind de run-it-twice (restaurar el all-in negro, etc.) sin efectos
-    // colaterales (sonido, bet, finTurno) que sí tiene el flujo normal.
+    // Visual rendering of a decision (label/border/icon + backgrounds), without mutating state.
+    // Extracted from setDecision so the run-it-twice rewind can RE-PAINT the last action (restore
+    // the black all-in, etc.) without the side effects (sound, bet, finTurno) the normal flow has.
     private void renderDecisionVisual(int dec) {
         switch (dec) {
             case Player.CHECK:
@@ -1202,8 +1196,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(() -> {
                     final double apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
                     final int conta_raise_snapshot = GameFrame.getInstance().getCrupier().getConta_raise();
-                    // Lectura ÚNICA del volátil bet: guard y texto deben usar
-                    // exactamente el mismo valor (ver nota en ALLIN).
+                    // SINGLE read of the volatile bet: the guard and the text must use
+                    // exactly the same value (see the note in ALLIN).
                     final double bet_snapshot = bet;
                     if (Helpers.doubleSecureCompare(apuesta_actual_snapshot, bet_snapshot) < 0 && Helpers.doubleSecureCompare(0f, apuesta_actual_snapshot) < 0) {
                         setActionTextFitted((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.money2String(bet_snapshot - apuesta_actual_snapshot) + ")");
@@ -1223,12 +1217,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
                     final double apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
-                    // Lectura ÚNICA de bet+stack para guard y texto: son
-                    // volátiles y el dinero del all-in se mueve en dos pasos
-                    // (bet sube, luego stack baja) en otro hilo. Con lecturas
-                    // separadas el guard podía ver la suma inflada a mitad de
-                    // setBet y el texto la ya asentada, colando un importe
-                    // negativo en la etiqueta ("ALL IN (+-0.90)").
+                    // SINGLE read of bet+stack for the guard and the text: they're volatile and
+                    // the all-in money moves in two steps (bet goes up, then stack goes down) on
+                    // another thread. With separate reads the guard could see the inflated sum
+                    // mid-setBet while the text saw the already-settled one, leaking a negative
+                    // amount into the label ("ALL IN (+-0.90)").
                     final double total_allin = bet + stack;
                     if (Helpers.doubleSecureCompare(apuesta_actual_snapshot, total_allin) < 0) {
                         setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.money2String(total_allin - apuesta_actual_snapshot) + ")");
@@ -1274,10 +1267,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Run-it-twice rewind: re-aplica el render de la última acción guardada
-    // (decision) y limpia el verde/rojo de ganador/perdedor de SIDE-A, dejando
-    // las hole cards reveladas. No toca pots ni stacks (el bote persiste entre
-    // sides). Si el peer salió, conserva su visual de exit.
+    // Run-it-twice rewind: re-applies the render of the last saved action (decision) and clears
+    // SIDE-A's winner/loser green/red, leaving the hole cards revealed. Doesn't touch pots or
+    // stacks (the pot persists across sides). If the peer left, keeps their exit visual.
     @Override
     public void repaintLastAction() {
         if (this.exit) {
@@ -1285,29 +1277,29 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
         this.winner = false;
         this.loser = false;
-        // Run-it-twice: olvida el resaltado por hover de SIDE-A antes del rewind (idempotente
-        // si no había hover activo). Se DESCARTA sin restaurar el color: renderDecisionVisual
-        // (más abajo) re-pinta la etiqueta a la decisión (ALL IN); restaurar aquí el rojo del
-        // perdedor de SIDE-A lo dejaría colgado sobre CARA-B. El re-enfoque de hole cards y el
-        // settle de SIDE-B reconstruyen el resto.
+        // Run-it-twice: forgets SIDE-A's hover highlight before the rewind (idempotent if no
+        // hover was active). DISCARDED without restoring the color: renderDecisionVisual (below)
+        // re-paints the label to the decision (ALL IN); restoring SIDE-A's loser red here would
+        // leave it hanging over FACE-B. Re-focusing the hole cards and SIDE-B's settle rebuild
+        // the rest.
         Helpers.GUIRun(this::discardShowdownHandHighlight);
         this.showdown_hand_cards = null;
         // Limpia la franja de side pots de SIDE-A (se recalcula en SIDE-B).
         this.botes_secundarios.clear();
-        // Línea base de CARA-B = lo acumulado en CARA-A: la franja de CARA-B
-        // muestra 'pagar - base', es decir SOLO lo que se gane en CARA-B (pagar
-        // sigue acumulando ambas caras para la contabilidad).
+        // FACE-B's baseline = whatever accumulated on FACE-A: FACE-B's strip shows
+        // 'pagar - base', i.e. ONLY what's won on FACE-B (pagar keeps accumulating both faces
+        // for accounting).
         this.pagar_face_base = this.pagar;
-        // Re-enfoca las hole cards: el showdown de SIDE-A atenúa las de los
-        // perdedores; en SIDE-B deben volver a verse brillantes (se reevalúan).
+        // Re-focuses the hole cards: SIDE-A's showdown dims the losers' cards; on SIDE-B they
+        // must look bright again (re-evaluated).
         Helpers.GUIRun(() -> {
             holeCard1.enfocar();
             holeCard2.enfocar();
             sec_pot_win_label.setVisible(false);
-            // Borde neutro: en el flujo normal lo restaura finTurno (que el
-            // rewind no llama) y renderDecisionVisual solo repinta borde en
-            // ALLIN/FOLD; sin esto el verde/rojo de ganador/perdedor de SIDE-A
-            // sobreviviría en CHECK/BET (p.ej. quien cubre el all-in).
+            // Neutral border: in the normal flow finTurno restores it (which the rewind doesn't
+            // call), and renderDecisionVisual only repaints the border for ALLIN/FOLD; without
+            // this, SIDE-A's winner/loser green/red would survive on CHECK/BET (e.g. whoever
+            // covers the all-in).
             if (decision != Player.ALLIN && decision != Player.FOLD) {
                 setPlayerBorder(new Color(204, 204, 204, 75));
             }
@@ -1376,12 +1368,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/fold" + String.valueOf(r) + ".gif"));
 
-            // Barrera capturada en una local, igual que en check(). Leer el campo dos veces
-            // (una para el null-check y otra para el await) permitia que un notify de chat
-            // colado entre ambas lecturas reemplazara la barrera, y este hilo entraba como
-            // parte EXTRA en la nueva, que para una imagen de chat es de solo dos partes:
-            // la hacia saltar antes de tiempo y cortaba esa animacion en seco. fold() se
-            // dispara con tres GIFs distintos y mucho mas a menudo que el check puro.
+            // Barrier captured into a local, same as in check(). Reading the field twice (once
+            // for the null-check, once for the await) let a chat notify sneak in between the two
+            // reads and replace the barrier; this thread would then join as an EXTRA party in the
+            // new one, which for a chat image only has two parties — tripping it early and
+            // cutting that animation short. fold() fires with three different GIFs and much more
+            // often than a pure check.
             java.util.concurrent.CyclicBarrier fold_barrier = getChat_notify_label().getGif_barrier();
 
             if (fold_barrier != null) {
@@ -1421,12 +1413,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         finTurno();
     }
 
-    // Espera a que la ficha de la cinemática DESPEGUE (frame 32 del GIF, donde addAudio
-    // la lanza), no a que el GIF entero acabe. Así la acción cierra en cuanto la ficha
-    // está en vuelo: el bote se commitea y, al aterrizar, los contadores ruedan junto a
-    // él (los tres a la vez, limpio como sin cinemática), mientras el GIF reproduce sus
-    // frames restantes aparte. Tope = GIF_BARRIER_TIMEOUT: si la cinemática cae antes de
-    // lanzar, la acción sigue igual (sin animación de ficha) sin colgarse.
+    // Waits for the cinematic's chip to LAUNCH (GIF frame 32, where addAudio throws it), not for
+    // the whole GIF to end. This way the action closes as soon as the chip is in flight: the pot
+    // gets committed and, on landing, the counters roll along with it (all three at once, clean
+    // as if there were no cinematic), while the GIF plays out its remaining frames separately.
+    // Timeout = GIF_BARRIER_TIMEOUT: if the cinematic dies before launching, the action still
+    // proceeds (without the chip animation) instead of hanging.
     private void awaitChipLaunch() {
         CountDownLatch l = chip_launch_latch;
         if (l == null) {
@@ -1452,9 +1444,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         final boolean is_call = Helpers.doubleSecureCompare(0f, call_required) < 0;
 
-        // CALL con dinero: va a volar ficha; NO rodamos stack/bet aquí, los rueda
-        // launchChipToPot al ATERRIZAR junto al bote (los tres a la vez, como sin
-        // cinemática). Pure check: sin dinero, nada que diferir.
+        // CALL with money: a chip is about to fly; stack/bet are NOT rolled here — launchChipToPot
+        // rolls them ON LANDING together with the pot (all three at once, as if there were no
+        // cinematic). Pure check: no money, nothing to defer.
         setCounterRollDeferred(is_call && GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
         setBet(GameFrame.getInstance().getCrupier().getApuesta_actual());
@@ -1466,23 +1458,23 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (GameFrame.cinematicasAccionOn() && !this.isNotify_blocked() && !this.isExit()) {
 
             if (is_call) {
-                // La ficha vuela en el frame 32 del GIF (sincronizada, INTACTO). Esperamos
-                // SOLO a que despegue, no a que el GIF acabe: los frames que falten se
-                // reproducen solos mientras la ronda continúa.
+                // The chip flies on GIF frame 32 (in sync, INTACT). We wait ONLY for it to
+                // launch, not for the GIF to finish: the remaining frames play out on their own
+                // while the round continues.
                 int r = 1 + new Random().nextInt(4);
                 setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/call" + String.valueOf(r) + ".gif"), false);
                 awaitChipLaunch();
             } else {
-                // Pure check (sin dinero): cinemática BLOQUEANTE de siempre (no hay
-                // contadores que sincronizar; el check.wav va atado a un frame del GIF).
+                // Pure check (no money): the usual BLOCKING cinematic (no counters to sync;
+                // check.wav is tied to a GIF frame).
                 setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/check.gif"));
-                // Mismo patron que fold(): la barrera se captura en una local y se espera CON
-                // tope. Leer el campo dos veces (una para el null-check y otra para el await)
-                // permitia esperar en una barrera distinta de la que acaba de instalarse, si
-                // otro notify la reemplazaba en medio; y sin tope esa espera no termina nunca.
-                // Colgarse aqui congela la mesa ENTERA, no solo este asiento: no se llega a
-                // finTurno, `turno` no baja y el bucle de rondaApuestas que espera por este
-                // jugador no tiene deadline.
+                // Same pattern as fold(): the barrier is captured into a local and awaited WITH a
+                // timeout. Reading the field twice (once for the null-check, once for the await)
+                // could end up waiting on a different barrier than the one just installed, if
+                // another notify replaced it in between; and without a timeout that wait never
+                // ends. Hanging here freezes the WHOLE table, not just this seat: finTurno never
+                // runs, `turno` never goes down, and the rondaApuestas loop waiting on this
+                // player has no deadline.
                 java.util.concurrent.CyclicBarrier check_barrier = getChat_notify_label().getGif_barrier();
                 if (check_barrier != null) {
                     try {
@@ -1494,9 +1486,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
                                 "Animation barrier cancelled (cooperative cancellation)");
                     } catch (java.util.concurrent.TimeoutException ex) {
-                        // El notify fue reemplazado (o su GIF desmontado) antes de cerrarse
-                        // el rendezvous: no es fatal, la etiqueta la oculta quien la posea
-                        // ahora. No es una interrupcion.
+                        // The notify was superseded (or its GIF torn down) before the rendezvous
+                        // closed: not fatal, the label is hidden by whoever owns it now. Not
+                        // an interruption.
                         Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
                                 "Check animation barrier timed out (superseded notify — cooperative cancellation)");
                     } catch (Exception ex) {
@@ -1528,9 +1520,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void bet(double new_bet) {
 
-        // La ficha vuela en el frame 32 del GIF (addAudio), sincronizada con el gesto y
-        // el sonido — INTACTO. NO rodamos stack/bet aquí; launchChipToPot los rodará al
-        // ATERRIZAR junto al bote, los tres a la vez (igual que SIN cinemática).
+        // The chip flies on GIF frame 32 (addAudio), in sync with the gesture and the sound —
+        // INTACT. stack/bet are NOT rolled here; launchChipToPot rolls them ON LANDING together
+        // with the pot, all three at once (same as WITHOUT the cinematic).
         setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
         setBet(new_bet);
@@ -1542,10 +1534,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (GameFrame.cinematicasAccionOn() && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(4);
 
-            // Esperamos SOLO a que la ficha despegue (frame 32), no a que el GIF entero
-            // termine: desde ahí la ronda cierra la acción y commitea el bote mientras la
-            // ficha vuela -> al aterrizar, pot+stack+bet ruedan juntos y limpios; los
-            // frames que falten del GIF se reproducen solos.
+            // We wait ONLY for the chip to launch (frame 32), not for the whole GIF to finish:
+            // from there the round closes the action and commits the pot while the chip is
+            // flying -> on landing, pot+stack+bet roll together, cleanly; the GIF's remaining
+            // frames play out on their own.
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"), false);
             awaitChipLaunch();
 
@@ -1568,10 +1560,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void allin() {
 
-        // Va a volar ficha (launchChipToPot justo abajo, ANTES de setBet): NO rodamos el
-        // stack/bet en setBet; rollCountersToModel (en el aterrizaje) los rueda junto al
-        // bote. setBet corre antes de que la ficha aterrice, así que el modelo ya está al
-        // día cuando onLand lo lee. Los tres a la vez.
+        // A chip is about to fly (launchChipToPot right below, BEFORE setBet): stack/bet are NOT
+        // rolled in setBet; rollCountersToModel (on landing) rolls them together with the pot.
+        // setBet runs before the chip lands, so the model is already current when onLand reads
+        // it. All three at once.
         setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
         if (GameFrame.allinSonidoOn()) {
@@ -1587,10 +1579,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        // setBet ANTES de setDecision a propósito (mismo orden que bet() y
-        // check()): el render del all-in que setDecision encola al EDT lee
-        // bet+stack, y así los lee ya asentados en vez de competir con el
-        // movimiento del dinero a mitad de setBet.
+        // setBet BEFORE setDecision on purpose (same order as bet() and check()): the all-in
+        // render that setDecision queues to the EDT reads bet+stack, so it reads them already
+        // settled instead of racing the money movement mid-setBet.
         setBet(this.stack + this.bet);
 
         setDecision(Player.ALLIN);
@@ -1632,7 +1623,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Creates new form JugadorInvitadoView
+     * Creates a new remote-player seat.
      */
     public RemotePlayer() {
 
@@ -1641,17 +1632,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setOpaque(false);
             setBackground(null);
             installShowdownHandHighlight();
-            // Lupa del avatar (con el stack del asiento al lado): el proveedor
-            // devuelve lo MISMO que consulta setAvatar (ruta del fichero, "*" para
-            // un bot, "" sin avatar) y se evalúa al mostrarla, no ahora: aquí el
-            // asiento todavía no tiene nick.
+            // Avatar magnifier (with the seat's stack alongside): the provider returns the SAME
+            // thing setAvatar looks up (file path, "*" for a bot, "" for no avatar) and is
+            // evaluated when shown, not now — at this point the seat has no nick yet.
             AvatarZoomOverlay.install(avatar, player_stack, player_name, () -> nickname == null ? "" : GameFrame.getInstance().getNick2avatar().get(nickname));
             latency_label.setVisible(false);
-            // Placeholder traducido hasta que llegue el primer PING (el texto del .form
-            // es solo el default de diseño).
+            // Translated placeholder until the first PING arrives (the .form's text is
+            // just the design-time default).
             latency_label.setText(Translator.translate("conn.latencia_format", "*", "*"));
-            // Si el .form contiene un latency_dot_widget colocado
-            // por el autor en NetBeans, lo enlazamos aquí. Si no, no-op.
+            // If the .form contains a latency_dot_widget placed by hand in NetBeans, wire it
+            // up here. Otherwise, no-op.
             try {
                 java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");
                 f.setAccessible(true);
@@ -1661,7 +1651,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     ((LatencyDot) widget).applyZoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
                 }
             } catch (NoSuchFieldException nsfe) {
-                // OK: aún no se ha añadido en el .form.
+                // OK: not added to the .form yet.
             } catch (Exception ex) {
                 Logger.getLogger(RemotePlayer.class.getName()).log(Level.WARNING, "Could not wire latency_dot_widget", ex);
             }
@@ -1698,20 +1688,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             panel_cartas.add(chat_notify_label, Integer.valueOf(1002));
             rebuy_gif_label.setVisible(false);
             rebuy_gif_label.setFocusable(false);
-            // A diferencia del chat_notify_label, este GIF NO se oculta con
-            // click: listener vacío que además consume el evento (sin él, el
-            // click atravesaría la label y abriría el visor de la carta de
-            // debajo). Lo retira solo setRebuying(false).
+            // Unlike chat_notify_label, this GIF does NOT hide on click: an empty listener that
+            // also consumes the event (without it, the click would fall through to the card
+            // viewer underneath). Only setRebuying(false) removes it.
             rebuy_gif_label.addMouseListener(new MouseAdapter() {
             });
             panel_cartas.add(rebuy_gif_label, Integer.valueOf(1001));
             shuffle_cascade_gif_label.setVisible(false);
             shuffle_cascade_gif_label.setFocusable(false);
-            // Igual que rebuy_gif_label: listener vacío que consume el clic para que no
-            // atraviese la label y abra el visor de la carta de debajo. El listener es
-            // permanente; hideShuffleCascadeOverlay solo oculta la label (setVisible(false) +
-            // setIcon(null)). Capa 1002 (sobre chip/rebuy 1001): durante el barajado no hay
-            // notify de chat activo con el que competir por la vista.
+            // Same as rebuy_gif_label: an empty listener that consumes the click so it doesn't
+            // fall through to the card viewer underneath. The listener is permanent;
+            // hideShuffleCascadeOverlay only hides the label (setVisible(false) + setIcon(null)).
+            // Layer 1002 (above chip/rebuy at 1001): during the shuffle there's no active chat
+            // notify to compete with for visibility.
             shuffle_cascade_gif_label.addMouseListener(new MouseAdapter() {
             });
             panel_cartas.add(shuffle_cascade_gif_label, Integer.valueOf(1002));
@@ -2136,8 +2125,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (!player_stack_click) {
             player_stack_click = true;
 
-            // Muestra el buy-in fijo (no es el valor del stack): el roller queda
-            // invalidado para que al restaurar salte al stack real sin animar desde aquí.
+            // Shows the fixed buy-in (not the stack value): the roller is left invalidated so
+            // that restoring jumps straight to the real stack instead of animating from here.
             stackRoller().invalidate();
             player_stack.setText(Helpers.money2String(this.buyin));
             setPlayerStackBackground(Color.GRAY);
@@ -2167,8 +2156,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_actionMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseClicked
 
-        // evt es null cuando se invoca por codigo desde playerActionClick(); en ese caso no hay
-        // click real que validar. Para un click de usuario exigimos boton izquierdo soltado dentro.
+        // evt is null when invoked programmatically from playerActionClick(); in that case there's
+        // no real click to validate. For a user click we require the left button released inside.
         if (evt != null && !Helpers.isRealClick(evt)) {
             return;
         }
@@ -2433,13 +2422,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.showdown_hand_cards = cartas;
     }
 
-    // Enter/exit sobre la etiqueta de jugada (instalado en el constructor): al entrar resalta la
-    // jugada de este jugador —ganador o perdedor— (enfoca sus cartas, atenúa el resto de la mesa) y
-    // pinta su etiqueta de amarillo/negro; al salir lo restaura. Aplica a cualquiera cuya jugada sea
-    // visible: ganador(es), perdedor que mostró en el showdown, o perdedor/foldeado que enseñó
-    // después (IWTSTH forzado o botón MOSTRAR voluntario) — en todos ellos el revelado fija
-    // showdown_hand_cards. Convive con el listener de click IWTSTH ya presente en player_action
-    // (mientras el candidato IWTSTH no muestra, showdown_hand_cards es null y el enter no hace nada).
+    // Enter/exit on the hand label (installed from the constructor): on enter, highlights this
+    // player's hand — winner or loser — (focuses their cards, dims the rest of the table) and
+    // paints their label yellow/black; on exit, restores it. Applies to anyone whose hand is
+    // visible: winner(s), a loser who showed at showdown, or a loser/folded player who showed
+    // later (forced IWTSTH or the voluntary SHOW button) — in all of them, revealing sets
+    // showdown_hand_cards. Coexists with the IWTSTH click listener already on player_action
+    // (while an IWTSTH candidate hasn't shown, showdown_hand_cards is null and enter is a no-op).
     private void installShowdownHandHighlight() {
         player_action.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -2454,15 +2443,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // on=true: solo si la opción está activa, este jugador NO es espectador, tiene jugada visible
-    // (showdown_hand_cards) y seguimos en show_time. Enfoca SOLO las cartas de su jugada y desenfoca
-    // todas las demás de la mesa (guardando antes el enfoque de cada una), y pinta la etiqueta de
-    // amarillo/negro. Funciona para CUALQUIER jugador con jugada enseñada: ganador(es) y perdedores
-    // (el gate ya no excluye a los ganadores; en run-it-twice mixto resalta la jugada que tenga en
-    // showdown_hand_cards). Un espectador no reparte cartas en esta mano, así que lo que tuviera
-    // guardado solo puede ser residuo de la última que jugó. Quien abandona SÍ pasa el gate: puede
-    // irse con la mano viva (all-in run-out) y su jugada se resuelve en este mismo showdown.
-    // on=false: restauración incondicional (defensiva).
+    // on=true: only if the option is enabled, this player is NOT a spectator, has a visible hand
+    // (showdown_hand_cards) and we're still in show_time. Focuses ONLY their hand's cards and
+    // dims every other table card (saving each one's prior focus first), and paints the label
+    // yellow/black. Works for ANY player with a shown hand: winner(s) and losers alike (the gate
+    // no longer excludes winners; in a mixed run-it-twice it highlights whatever hand is in
+    // showdown_hand_cards). A spectator deals no cards this hand, so anything left there can only
+    // be a leftover from the last hand they played. Someone who left DOES pass the gate: they can
+    // leave with a live hand (all-in run-out) and it gets resolved in this same showdown.
+    // on=false: unconditional (defensive) restore.
     private void highlightShowdownHand(boolean on) {
         if (on) {
             final java.util.List<Card> cartas = showdown_hand_cards;
@@ -2473,7 +2462,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             Helpers.GUIRun(() -> {
-                // Idempotencia: si quedó un resaltado colgado, deshazlo antes de re-snapshotear.
+                // Idempotency: if a highlight was left hanging, undo it before re-snapshotting.
                 restoreShowdownHandHighlight();
 
                 java.util.List<Card> mesa = GameFrame.getInstance().getShowdownVisibleCards();
@@ -2504,9 +2493,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Devuelve las cartas de la mesa al enfoque que tenían antes del hover (el resaltado del
-    // ganador vuelve tal cual) y quita el tinte. NO toca el color de la etiqueta. Idempotente
-    // (no-op si no hay snapshot). Debe llamarse en el EDT.
+    // Returns the table cards to the focus they had before the hover (the winner's highlight
+    // comes back as-is) and removes the tint. Does NOT touch the label's color. Idempotent
+    // (no-op if there's no snapshot). Must be called on the EDT.
     private void restoreShowdownHandFocus() {
         java.util.Map<Card, Boolean> snapshot = showdown_focus_snapshot;
 
@@ -2525,8 +2514,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Restauración completa (enfoque + color de la etiqueta) para el mouseExited y el reset
-    // entre manos: la etiqueta vuelve al rojo del perdedor tal cual estaba.
+    // Full restore (focus + label color) for mouseExited and the between-hands reset: the label
+    // goes back to the loser's red exactly as it was.
     private void restoreShowdownHandHighlight() {
         restoreShowdownHandFocus();
 
@@ -2538,9 +2527,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Descarta el hover SIN restaurar el color de la etiqueta: para el rewind de run-it-twice,
-    // donde renderDecisionVisual re-pinta la etiqueta a la decisión (ALL IN) justo después;
-    // restaurar aquí el rojo del perdedor de SIDE-A lo dejaría colgado sobre CARA-B.
+    // Discards the hover WITHOUT restoring the label color: for the run-it-twice rewind, where
+    // renderDecisionVisual re-paints the label to the decision (ALL IN) right after; restoring
+    // SIDE-A's loser red here would leave it hanging over FACE-B.
     private void discardShowdownHandHighlight() {
         restoreShowdownHandFocus();
         showdown_action_bg_snapshot = null;
@@ -2579,7 +2568,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     } else {
 
-                        //Vamos ALLIN (setBet antes: ver allin())
+                        // Going ALL IN (setBet first: see allin())
                         setBet(stack);
 
                         setDecision(Player.ALLIN);
@@ -2596,7 +2585,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 } else {
 
-                    //Vamos ALLIN (setBet antes: ver allin())
+                    // Going ALL IN (setBet first: see allin())
                     setBet(stack);
 
                     setDecision(Player.ALLIN);
@@ -2610,7 +2599,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 } else {
 
-                    //Vamos ALLIN (setBet antes: ver allin())
+                    // Going ALL IN (setBet first: see allin())
                     setBet(stack);
 
                     setDecision(Player.ALLIN);
@@ -2628,14 +2617,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    // silent: el contador animado de recompra (Crupier.animateRebuyStacks) ya
-    // disparo la caja registradora para toda la tanda -> aqui NO se repite. En el
-    // camino sin animacion (silent=false) suena como siempre, una por recompra.
+    // silent: the animated rebuy counter (Crupier.animateRebuyStacks) already fired the
+    // cash-register sound for the whole batch -> it does NOT repeat here. On the non-animated
+    // path (silent=false) it plays as always, once per rebuy.
     public synchronized void reComprar(int cantidad, boolean silent) {
 
-        // Re-chequeo al aplicar (anti-stale / anti-trampa): nunca superar el techo
-        // de mesa aunque la cantidad solicitada fuera mayor o el stack cambiara
-        // entre la solicitud y el inicio de la mano. headroom 0 -> recompra anulada.
+        // Re-check at apply time (anti-stale / anti-cheat): never exceed the table ceiling even
+        // if the requested amount was larger or the stack changed between the request and the
+        // start of the hand. headroom 0 -> rebuy voided.
         int applied = Math.min(cantidad, GameFrame.rebuyHeadroom(this.stack));
         if (applied <= 0) {
             Logger.getLogger(RemotePlayer.class.getName()).log(Level.WARNING,
@@ -2653,9 +2642,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Audio.playWavResource("misc/cash_register.wav");
         }
 
-        // Si la cortinilla anima la recompra (silent), ELLA pinta el texto+CYAN frame a frame
-        // (setStackDisplay, que ya elige CYAN via hasRebought); pintarlo aqui tambien daria un
-        // fogonazo al valor final a mitad del rodaje.
+        // If the fill animation is rolling the rebuy (silent), IT paints the text+CYAN frame by
+        // frame (via setStackDisplay, which already picks CYAN via hasRebought); painting it here
+        // too would flash the final value mid-roll.
         if (!player_stack_click && !silent) {
             Helpers.GUIRun(() -> {
                 player_stack.setText(Helpers.money2String(stack));
@@ -2665,14 +2654,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Accesores LOCK-FREE: stack/bote/pagar/exit son volatile, así que estos getters/setters
-    // simples NO necesitan synchronized. CLAVE anti-deadlock: el EDT los lee (display de la
-    // mesa, menú de recompra, setSpectator, etc.); si fueran synchronized cogerían el monitor
-    // del jugador, y con el hilo de juego manteniéndolo a través de un GUIRunAndWait (setBet/
-    // setStack postean ciegas a la vez que el llenado de stacks rueda en el EDT) -> deadlock
-    // permanente EDT<->worker. Lock-free lo hace IMPOSIBLE en cualquier sitio. Solo los
-    // mutadores COMPUESTOS del dinero (setStack/setBet/postAnte/postStraddle/reComprar) siguen
-    // synchronized; el EDT no los invoca (los dispara el hilo de juego).
+    // LOCK-FREE accessors: stack/bote/pagar/exit are volatile, so these plain getters/setters
+    // don't need synchronized. Anti-deadlock KEY: the EDT reads them (table display, rebuy menu,
+    // setSpectator, etc.); if they were synchronized they'd grab the player's monitor, and with
+    // the game thread holding it across a GUIRunAndWait (setBet/setStack post blindly while the
+    // stack fill rolls on the EDT) -> permanent EDT<->worker deadlock. Lock-free makes that
+    // IMPOSSIBLE anywhere. Only the money's COMPOUND mutators (setStack/setBet/postAnte/
+    // postStraddle/reComprar) stay synchronized; the EDT never calls them (only the game thread
+    // does).
     @Override
     public double getStack() {
         return stack;
@@ -2707,8 +2696,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             utg_icon.setVisible(false);
 
-            // Nueva mano: sincroniza el roller del bet a 0 (muestra "----") para que la
-            // primera apuesta de la mano ruede desde 0, no desde el aporte de la anterior.
+            // New hand: syncs the bet roller to 0 (shows "----") so this hand's first bet rolls
+            // from 0 instead of from the previous hand's contribution.
             betRoller().set(0);
 
             setPlayerPotBackground(new Color(204, 204, 204, 75));
@@ -2745,12 +2734,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void nuevaMano() {
 
-        // Garantizar que el avatar esté pintado al inicio de CADA mano.
-        // En el flow normal el zoom inicial dispara setAvatar vía
-        // icon_zoom_timer, pero en RECOVER esa cadena no se ejecuta
-        // (el SHUTDOWN_THREAD_POOL entre partidas mata el thread spawnado
-        // del zoom inicial) → primera mano post-recover queda sin avatar.
-        // Llamarlo aquí es idempotente y barato.
+        // Guarantee the avatar is painted at the start of EVERY hand. In the normal flow the
+        // initial zoom triggers setAvatar via icon_zoom_timer, but on RECOVER that chain doesn't
+        // run (SHUTDOWN_THREAD_POOL between games kills the spawned initial-zoom thread) → the
+        // first hand post-recover would be left without an avatar. Calling it here is idempotent
+        // and cheap.
         setAvatar();
 
         this.decision = Player.NODEC;
@@ -2765,8 +2753,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         this.loser = false;
 
-        // Showdown highlight: deshace cualquier resaltado que hubiera quedado colgado si la mano
-        // anterior acabó con el ratón sobre la etiqueta, y olvida la jugada resaltable.
+        // Showdown highlight: undoes any highlight left hanging if the previous hand ended with
+        // the mouse over the label, and forgets the highlightable hand.
         highlightShowdownHand(false);
         this.showdown_hand_cards = null;
 
@@ -2776,11 +2764,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         this.bet = 0f;
 
-        // Red de seguridad: limpia cualquier aplazamiento de rodaje de contador que se
-        // hubiera quedado colgado de una mano anterior (p.ej. cinemática de acción
-        // interrumpida antes de lanzar su ficha) ANTES de fijar el de la ciega de esta
-        // mano. Sin esto, un flag pegado haría que setStack/setBet de este jugador no
-        // rodaran hasta su siguiente ficha. Solo afecta al rodaje del contador.
+        // Safety net: clears any counter-roll deferral left hanging from a previous hand (e.g. an
+        // action cinematic interrupted before launching its chip) BEFORE setting this hand's
+        // blind deferral. Without this, a stuck flag would leave this player's setStack/setBet
+        // not rolling until their next chip. Only affects the counter roll.
         setCounterRollDeferred(false);
 
         resetGUI();
@@ -2791,10 +2778,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             GameFrame.getInstance().getCrupier().getRebuy_now().remove(nickname);
 
-            // Si la recompra se animo con la cortinilla (animateRebuyStacks ya rodo el
-            // stack hasta el valor final y sono la caja), reComprar no repite el sonido.
-            // Usa la decision CAPTURADA (isRebuyFillAnimated): si se apago "Contadores" a
-            // mitad del conteo, sigue mudo (no suena la caja dos veces).
+            // If the rebuy was animated by the fill (animateRebuyStacks already rolled the stack
+            // to its final value and played the cash-register sound), reComprar doesn't repeat
+            // the sound. Uses the CAPTURED decision (isRebuyFillAnimated): if "Counters" got
+            // toggled off mid-count, it stays silent (no double cash-register sound).
             reComprar(rebuy, GameFrame.getInstance().getCrupier().isRebuyFillAnimated());
 
         }
@@ -2803,11 +2790,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         pagar = 0f;
 
-        // Si va a postear ciega (BB/SB) cuya ficha volará al bote, NO rueda su stack/bet en
-        // el posteo (setPosition->setBet(ciega), justo abajo): se difiere y, al ATERRIZAR su
-        // ficha (flyForcedBetsToPot.onLand -> rollCountersToModel), rueda junto al bote. La
-        // ganancia pendiente (setStack(stack+pagar) de arriba) ya rodó, NO se difiere. Mismo
-        // gate que el vuelo (aquí game_recovered==0 siempre: el bloque recover corre después).
+        // If about to post a blind (BB/SB) whose chip will fly to the pot, don't roll its
+        // stack/bet at posting time (setPosition->setBet(blind), right below): it's deferred and,
+        // when its chip LANDS (flyForcedBetsToPot.onLand -> rollCountersToModel), it rolls
+        // together with the pot. The pending winnings (setStack(stack+pagar) above) already
+        // rolled, NOT deferred. Same gate as the flight (here game_recovered==0 always: the
+        // recover block runs afterwards).
         if (GameFrame.getInstance().getCrupier().shouldDeferCountersToChip()
                 && (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())
                 || this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick()))) {
@@ -2838,7 +2826,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
             } else {
 
-                //Vamos ALLIN (setBet antes: ver allin())
+                // Going ALL IN (setBet first: see allin())
                 setBet(stack);
                 setDecision(Player.ALLIN);
 
@@ -2861,8 +2849,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             chip_label_icon = Helpers.IMAGEN_SB;
         } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
-            // En 3-manos el dealer es el UTG; si straddlea, ficha combinada dealer+straddle
-            // (la rama DEALER gana a la de straddle de abajo, así que se resuelve aquí).
+            // In 3-handed games the dealer is the UTG; if they straddle, use the combined
+            // dealer+straddle chip (the DEALER branch wins over the straddle branch below,
+            // so it's resolved here).
             boolean dealer_straddle = GameFrame.getInstance().getCrupier().isStraddle_posted()
                     && this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())
                     && !GameFrame.getInstance().getCrupier().isDead_dealer();
@@ -2881,8 +2870,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             chip_label_icon = null;
         }
 
-        // Suprimida durante la rotación de fichas (hasta que la viajera aterriza): NO se
-        // pinta la grande aunque nos llamen (p.ej. desde un re-layout de la mesa).
+        // Suppressed during the chip rotation (until the traveling chip lands): the position
+        // chip is NOT painted even if we're called (e.g. from a table re-layout).
         final boolean suppressed = GameFrame.getInstance().getCrupier() != null
                 && GameFrame.getInstance().getCrupier().isBigChipSuppressed(this);
         Helpers.GUIRun(() -> {
@@ -2948,15 +2937,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public String getLastActionString() {
 
-        // El texto de la accion se pinta en player_action via GUIRun (asincrono, en el
-        // EDT) desde renderDecisionVisual; el hilo del juego llega aqui en cuanto finTurno
-        // pone turno=false y notifica, y podia LEER la etiqueta ANTES de que el EDT la
-        // repintara —cuando todavia decia "PENSANDO"— colando "PENSANDO (n)" en el registro
-        // en vez de "RETIRARSE/PASO/...". Con las cinematicas OFF el fold ni siquiera espera
-        // a la barrera del GIF (que antes daba tiempo de sobra al EDT), asi que la carrera la
-        // ganaba el hilo del juego de forma sistematica. Leer la etiqueta EN el EDT respeta
-        // el orden FIFO de la cola: el setActionTextFitted de ESTA accion ya se encolo antes
-        // de que finTurno notificara, con lo que se aplica antes que esta lectura.
+        // The action text is painted on player_action via GUIRun (async, on the EDT) from
+        // renderDecisionVisual; the game thread gets here as soon as finTurno sets turno=false
+        // and notifies, and could READ the label BEFORE the EDT repainted it — while it still
+        // said "THINKING" — leaking "THINKING (n)" into the log instead of "FOLD/CHECK/...".
+        // With cinematics OFF, fold doesn't even wait on the GIF barrier (which used to give the
+        // EDT plenty of time), so the game thread won the race systematically. Reading the label
+        // ON the EDT respects the queue's FIFO order: THIS action's setActionTextFitted was
+        // already queued before finTurno notified, so it applies before this read.
         final String[] label = new String[]{""};
         Helpers.GUIRunAndWait(() -> label[0] = player_action.getText());
 
@@ -2988,10 +2976,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             this.spectator = true;
             this.bote = 0f;
 
-            // El reset de mano (nuevaMano) solo corre para jugadores activos, así que la jugada
-            // resaltable de la última mano que jugó se quedaría pegada al asiento mientras esté de
-            // espectador. Se descarta sin restaurar el color de la etiqueta: el repintado de
-            // espectador de aquí abajo la deja como toca.
+            // The hand reset (nuevaMano) only runs for active players, so the highlightable hand
+            // from the last hand they played would stay stuck to the seat while they're a
+            // spectator. Discarded without restoring the label color: the spectator repaint
+            // below leaves it as it should be.
             Helpers.GUIRun(this::discardShowdownHandHighlight);
             this.showdown_hand_cards = null;
 
@@ -3055,9 +3043,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Straddle voluntario: mientras el UTG decide (a ciegas) si pone el straddle, los
-    // demás peers pintan en su asiento el icono pensativo y "STRADDLE?" — mismo look que
-    // el "PENSANDO" del turno normal, pero sin arrancar la cuenta atrás del turno.
+    // Voluntary straddle: while UTG decides (blind to everyone) whether to post it, the other
+    // peers paint the thinking icon and "STRADDLE?" on their seat — same look as a normal turn's
+    // "THINKING", but without starting the turn countdown.
     public void showStraddleThinking() {
         Helpers.GUIRun(() -> {
             setPlayerBorder(Color.ORANGE);
@@ -3068,9 +3056,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Limpia el visual "pensando" del straddle: vuelve el asiento al estado neutro (sin
-    // acción + borde neutro), igual que disablePlayerAction. Si el straddle se posteó, la
-    // ficha roja la pinta refreshPositionChipIcons aparte (en applyStraddlePost).
+    // Clears the straddle's "thinking" visual: returns the seat to its neutral state (no action
+    // + neutral border), same as disablePlayerAction. If the straddle was posted, the red chip
+    // is painted separately by refreshPositionChipIcons (from applyStraddlePost).
     public void clearStraddleThinking() {
         disablePlayerAction();
         Helpers.GUIRun(() -> setPlayerBorder(new Color(204, 204, 204, 75)));
@@ -3160,9 +3148,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setAvatar() {
 
-        // Fallback robusto si player_pot aún no está layouted: usa
-        // preferredSize, luego iconHeight del avatar actual, finalmente
-        // un default razonable. Evita BufferedImage(0,0) -> exception.
+        // Robust fallback if player_pot isn't laid out yet: try preferredSize, then the current
+        // avatar's iconHeight, finally a reasonable default. Avoids BufferedImage(0,0) -> exception.
         int h = player_pot.getHeight();
         if (h <= 0) {
             java.awt.Dimension prefDim = player_pot.getPreferredSize();
@@ -3223,25 +3210,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.pagar = pagar;
     }
 
-    // Serializa destapes animados concurrentes del mismo jugador (p.ej. un
-    // SHOWCARDS duplicado/echo procesado en dos workers): el clásico era
-    // idempotente vía el isTapada() dentro del EDT, el animado re-chequea
-    // bajo este lock. Lock dedicado a propósito: NO sincronizar sobre this
-    // (los métodos synchronized del jugador, como setPagar, no deben esperar
-    // una animación).
+    // Serializes concurrent animated reveals of the same player (e.g. a duplicate/echoed
+    // SHOWCARDS processed by two workers): the classic reveal was idempotent via isTapada() on
+    // the EDT; the animated one re-checks under this lock. Dedicated lock on purpose: do NOT
+    // synchronize on this (the player's synchronized methods, like setPagar, must never wait
+    // on an animation).
     private final Object destape_animado_lock = new Object();
 
     public Object getDestape_animado_lock() {
         return destape_animado_lock;
     }
 
-    // Muestra la jugada en el action label con estilo NEUTRO (el gris
-    // translúcido del label en reposo): la usa la pasada de destapes del
-    // showdown para enseñar QUÉ lleva el jugador sin adelantar el veredicto.
-    // El azul de showCards queda reservado al botón MOSTRAR voluntario de los
-    // foldeados. Mismo ajuste de fuente para jugadas largas que
-    // setWinner/setLoser (que la repintarán encima en la pasada de
-    // veredictos).
+    // Shows the hand on the action label with a NEUTRAL style (the label's resting translucent
+    // gray): used by the showdown's reveal pass to show WHAT the player has without giving away
+    // the verdict yet. showCards' blue stays reserved for the folded players' voluntary SHOW
+    // button. Same font-shrink handling for long hand names as setWinner/setLoser (which will
+    // repaint over it in the verdict pass).
     public void showJugadaNeutral(String jugada) {
 
         Helpers.GUIRun(() -> {
@@ -3252,12 +3236,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Efectos colaterales del destape clásico que deben ocurrir al ARRANCAR el
-    // giro animado (Crupier.mostrarAnimacionDestaparCartasJugador): ocultar la
-    // ficha de apuesta y, si el parpadeo IWTSTH estaba activo, pararlo con su
-    // recoloreado de loser (la etiqueta PIERDE ya estaba puesta y parpadeando,
-    // no revela nada por adelantado). Réplica exacta de destaparCartas(boolean)
-    // sin el destape de las cartas, que lo pone el motor animado.
+    // Side effects of the classic reveal that must happen when the animated flip STARTS
+    // (Crupier.mostrarAnimacionDestaparCartasJugador): hide the position chip, and if the
+    // IWTSTH blink was active, stop it with its loser re-coloring (the LOSES label was already
+    // showing and blinking, so this gives nothing away early). Exact replica of
+    // destaparCartas(boolean) minus the actual card flip, which the animation engine handles.
     public void prepararDestapeAnimado() {
 
         Helpers.GUIRunAndWait(() -> {
@@ -3308,17 +3291,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // synchronized: el swap permuta los valores entre los dos componentes Card
-    // en varios pasos y puede llamarse desde hilos distintos (crupier, worker
-    // de SHOWCARDS, worker de IWTSTH). Dos swaps concurrentes podrían dejar
-    // las dos cartas con el mismo valor; serializado es idempotente (el
-    // segundo ve c1 >= c2 y no toca nada). Monitor de this a propósito: es un
-    // intercambio de microsegundos, nunca se anima ni se bloquea aquí dentro.
+    // synchronized: the swap permutes values between the two Card components in several steps
+    // and can be called from different threads (crupier, SHOWCARDS worker, IWTSTH worker). Two
+    // concurrent swaps could leave both cards with the same value; serialized it's idempotent
+    // (the second one sees c1 >= c2 and does nothing). Locks on this on purpose: it's a
+    // microsecond-scale swap, never animated or blocked inside here.
     @Override
     public synchronized void ordenarCartas() {
         if (getHoleCard1().getValorNumerico() != -1 && getHoleCard2().getValorNumerico() != -1 && getHoleCard1().getValorNumerico() < getHoleCard2().getValorNumerico()) {
 
-            //Ordenamos las cartas para mayor comodidad
+            // Sort the cards for readability
             String valor1 = this.holeCard1.getValor();
             String palo1 = this.holeCard1.getPalo();
             boolean desenfocada1 = this.holeCard1.isDesenfocada();
@@ -3346,30 +3328,27 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    // Cuenta atrás visual "¿RECOMPRA? (N)" en la action label mientras este
-    // humano remoto decide EN SU máquina si recompra (GameOverDialog/
-    // RebuyDialog locales). Puramente cosmética y solo para humanos: la
-    // activa/apaga recibirRebuys (en el host los bots ni entran en la espera
-    // y en los clientes su REBUY llega al instante desde el host). Mantiene
-    // la calavera de checkGameOver (no toca el icono); temporizador LOCAL de
-    // 1 seg, aproximado (sin sincronía con el diálogo real del remoto):
-    // cuenta los mismos segundos que el RebuyDialog del game over y al agotar
-    // se queda fijo en "¿RECOMPRA?" a secas (nunca muestra el cero) — para
-    // entonces el remoto normalmente ya habrá pulsado y su REBUY estará al
-    // llegar. Al apagarse restaura el texto previo (la jugada con la que
-    // perdió); si la decisión fue quedarse de espectador, setSpectator ya
-    // puso this.spectator y el restore se omite (su repaint manda). Todo
-    // corre en el EDT (Timer de Swing).
+    // Visual "REBUY? (N)" countdown on the action label while this remote human decides ON THEIR
+    // OWN machine whether to rebuy (local GameOverDialog/RebuyDialog). Purely cosmetic and humans
+    // only: toggled by recibirRebuys (on the host, bots never enter this wait, and on clients
+    // their REBUY arrives instantly from the host). Keeps checkGameOver's skull (doesn't touch
+    // the icon); a LOCAL 1s timer, approximate (not synced with the remote's actual dialog):
+    // counts the same seconds as the game-over RebuyDialog and, once it runs out, freezes on
+    // "REBUY?" alone (never shows zero) — by then the remote will normally have already clicked
+    // and their REBUY will be arriving. On turning off, restores the previous text (the hand they
+    // lost with); if the decision was to become a spectator, setSpectator has already set
+    // this.spectator and the restore is skipped (its repaint wins). All of this runs on the EDT
+    // (a Swing Timer).
     public void setRebuying(boolean rebuying) {
         setRebuying(rebuying, false);
     }
 
-    // 'recompro' solo aplica al apagar: true si la decisión del arruinado fue
-    // RECOMPRAR — la action label pasa a "¡RECOMPRA!" como feedback del
-    // desenlace (con un solo arruinado la espera acaba al instante y sin esto
-    // no daría tiempo a ver qué pasó) y ahí se queda hasta el repintado de la
-    // mano siguiente. Con false (espectador/exit/timeout) se restaura el texto
-    // previo, y si procede setSpectator repinta encima.
+    // 'recompro' only applies when turning off: true if the busted player's decision was to
+    // REBUY — the action label switches to "REBOUGHT!" as feedback of the outcome (with a
+    // single busted player the wait ends instantly, and without this there'd be no time to see
+    // what happened) and it stays that way until the next hand's repaint. With false
+    // (spectator/exit/timeout), the previous text is restored, and setSpectator repaints over
+    // it if applicable.
     public void setRebuying(boolean rebuying, boolean recompro) {
         Helpers.GUIRun(() -> {
             if (rebuying) {
@@ -3378,24 +3357,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
                 rebuying_visual = true;
                 rebuy_countdown_saved_text = player_action.getText();
-                // Snapshot LOCAL de la cinemática de GAME OVER al empezar: decide
-                // el modo para toda la espera (toggles posteriores no afectan).
+                // LOCAL snapshot of the GAME OVER cinematic setting when starting: decides the
+                // mode for the whole wait (later toggles don't affect it).
                 if (GameFrame.cinematicasGameOverOn()) {
-                    // Modo GIF: la label queda FIJA en "¿RECOMPRA?" (sin número)
-                    // y la cuenta atrás la pone el GIF de game over sobre las
-                    // cartas — entero UNA vez (por frames, sin reloj) y con su
-                    // audio; al terminar queda fijo el de cero hasta que el
-                    // rebuy se resuelva.
+                    // GIF mode: the label stays FIXED on "REBUY?" (no number) and the countdown
+                    // is driven by the game-over GIF over the cards — plays once in full (by
+                    // frames, no clock) with its own audio; once done, the zero GIF stays frozen
+                    // until the rebuy resolves.
                     setActionTextFitted(Translator.translate("rebuy.recompra_3"));
-                    // repaint() del slot completo tras cada setText (mismo idiom
-                    // que setPlayerActionIcon): el slot y el action panel son
-                    // rounded rects opacos que NO pintan sus esquinas
-                    // (RoundedPanel / paintComponent de esta clase) y un repaint
-                    // parcial deja píxeles huérfanos en las 4 esquinas.
+                    // repaint() the whole slot after each setText (same idiom as
+                    // setPlayerActionIcon): the slot and the action panel are opaque rounded
+                    // rects that don't paint their own corners (RoundedPanel / this class's
+                    // paintComponent), and a partial repaint leaves orphan pixels in the 4 corners.
                     repaint();
                     mostrarRebuyGameOverGif(++rebuy_generation);
                 } else {
-                    // Modo sin cinemáticas: cuenta atrás numérica en la label.
+                    // No-cinematics mode: numeric countdown on the label.
                     final int[] count = {GameOverDialog.REBUY_DIALOG_COUNTDOWN};
                     setActionTextFitted(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
                     repaint();
@@ -3422,14 +3399,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
                 if (rebuy_gif_label.isVisible()) {
                     rebuy_gif_label.setVisible(false);
-                    // setIcon(null) resetea el audio pendiente de la GifLabel:
-                    // sin esto, un REBUY que llegara entre el show y el PRIMER
-                    // frame del GIF dejaría el wav huérfano (el stop de abajo
-                    // correría antes de que el frame 1 lo disparase). Además
-                    // suelta la referencia a la Image del GIF.
+                    // setIcon(null) resets the GifLabel's pending audio: without this, a REBUY
+                    // arriving between the show and the GIF's FIRST frame would leave the wav
+                    // orphaned (the stop below would run before frame 1 ever triggered it). It
+                    // also releases the reference to the GIF's Image.
                     rebuy_gif_label.setIcon((javax.swing.Icon) null);
-                    // Con varios arruinados a la vez suena UN solo game_over.wav:
-                    // se corta cuando el último visual del grupo se retira.
+                    // With several busted players at once, only ONE game_over.wav plays:
+                    // it stops when the last visual in the group is removed.
                     if (--REBUY_GIF_ACTIVOS <= 0) {
                         REBUY_GIF_ACTIVOS = 0;
                         Audio.stopWavResource("misc/game_over.wav");
@@ -3438,8 +3414,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 if (rebuy_countdown_saved_text != null) {
                     if (!this.exit && !this.spectator) {
                         if (recompro) {
-                            // Feedback del desenlace: recompró — fuera la
-                            // calavera, gafas de sol.
+                            // Outcome feedback: they rebought — skull off,
+                            // sunglasses on.
                             setActionTextFitted(Translator.translate("rebuy.recompra_4"));
                             setPlayerActionIcon("action/glasses.png");
                         } else {
@@ -3453,11 +3429,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Muestra SOLO el desenlace del rebuy (RECOMPRA con gafas) sin haber lanzado
-    // antes la cuenta atrás. Se usa cuando el jugador LOCAL también estaba
-    // arruinado: en ese caso recibirRebuys corre DESPUÉS de su game-over modal y
-    // un GIF de cuenta atrás remoto saldría desincronizado, así que no se lanza;
-    // basta con reflejar el resultado. El caso "no recompra" lo pinta setSpectator.
+    // Shows ONLY the rebuy outcome (REBOUGHT with sunglasses) without ever having launched the
+    // countdown. Used when the LOCAL player was also busted: in that case recibirRebuys runs
+    // AFTER their game-over modal and a remote countdown GIF would come out desynced, so it's
+    // never launched — just reflecting the result is enough. The "didn't rebuy" case is painted
+    // by setSpectator.
     public void showRebuyOutcome(boolean recompro) {
         Helpers.GUIRun(() -> {
             if (recompro && !this.exit && !this.spectator) {
@@ -3468,16 +3444,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // GIF de game over sobre las cartas mientras este arruinado decide la
-    // recompra (solo lo lanza setRebuying con la cinemática de GAME OVER on). El de cuenta
-    // atrás se reproduce entero UNA vez, gobernado por sus frames (sin reloj)
-    // y con su audio (solo el PRIMER arruinado del grupo lo engancha); al
-    // terminar se fija el de cero hasta que setRebuying(false) lo retire
-    // (REBUY recibido, exit o timeout del crupier). Escalado/centrado como
-    // las notificaciones del chat. URLs cache-busted con fragmento único:
-    // Toolkit cachea las Image por URL y dos arruinados simultáneos
-    // compartirían la animación pisándose los contadores de frames. 'gen'
-    // invalida el show/swap si el rebuy se resolvió entre medias.
+    // Game-over GIF over the cards while this busted player decides on a rebuy (only launched by
+    // setRebuying with the GAME OVER cinematic on). The countdown GIF plays once in full, driven
+    // by its frames (no clock) and with its own audio (only the FIRST busted player in the group
+    // hooks it); once it ends, the zero GIF stays fixed until setRebuying(false) removes it
+    // (REBUY received, exit, or crupier timeout). Scaled/centered like the chat notifications.
+    // URLs are cache-busted with a unique fragment: the Toolkit caches Image by URL, and two
+    // simultaneous busted players would share the animation and step on each other's frame
+    // counters. 'gen' invalidates the show/swap if the rebuy resolved in the meantime.
     private void mostrarRebuyGameOverGif(int gen) {
         Helpers.threadRun(() -> {
             try {
@@ -3507,14 +3481,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     rebuy_gif_label.setBarrier(barrier);
                     rebuy_gif_label.setIcon(gif, frames);
                     rebuy_gif_label.setRepeat(1);
-                    // El audio se engancha DESPUÉS de setIcon (setIcon lo
-                    // resetea); end_frame -1 = el wav suena entero y lo corta
-                    // setRebuying(false) si el rebuy se resuelve antes. Solo el
-                    // primero del grupo: UN audio aunque haya varios GIFs. No hay
-                    // riesgo de doblarlo con el game over del propio jugador: si
-                    // el LOCAL también se arruinó, su diálogo modal corre antes y
-                    // estos GIF remotos ni se lanzan (recibirRebuys los salta con
-                    // skip_countdown y solo refleja el desenlace).
+                    // Audio is hooked AFTER setIcon (setIcon resets it); end_frame -1 = the wav
+                    // plays in full and setRebuying(false) cuts it off if the rebuy resolves
+                    // first. Only for the first in the group: ONE audio even with several GIFs.
+                    // No risk of it doubling with the local player's own game-over sound: if the
+                    // LOCAL player also busted, their modal dialog runs first and these remote
+                    // GIFs never even launch (recibirRebuys skips them via skip_countdown and
+                    // just reflects the outcome).
                     if (REBUY_GIF_ACTIVOS == 0) {
                         rebuy_gif_label.addAudio(GameFrame.finPartidaSonidoOn() ? "misc/game_over.wav" : null, 1, -1);
                     }
@@ -3526,9 +3499,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     rebuy_gif_label.setVisible(true);
                 });
 
-                // GifLabel dispara la barrera al completar la única pasada del
-                // GIF; cap defensivo generoso por si el recurso no llegara a
-                // animar (el gen-check de abajo aborta el swap si ya no toca).
+                // GifLabel trips the barrier on completing the GIF's single pass; generous
+                // defensive cap in case the resource never gets to animate (the gen-check below
+                // aborts the swap if it's no longer relevant).
                 try {
                     barrier.await(60, TimeUnit.SECONDS);
                 } catch (InterruptedException ex) {
@@ -3548,8 +3521,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     if (gen != rebuy_generation || !rebuy_gif_label.isVisible()) {
                         return;
                     }
-                    // Cero FIJO: una pasada y GifLabel deja de pedir frames
-                    // (se congela en el último); lo retira setRebuying(false).
+                    // FIXED zero: one pass and GifLabel stops requesting frames (freezes on the
+                    // last one); removed by setRebuying(false).
                     rebuy_gif_label.setBarrier(null);
                     rebuy_gif_label.setIcon(zero, zero_frames);
                     rebuy_gif_label.setRepeat(1);
@@ -3562,10 +3535,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Muestra el GIF de barajado (MUDO, en bucle) + borde blanco de resaltado sobre este jugador.
-     * Lo invoca el controlador de GameFrame desde su hilo serializador (NO el EDT), que garantiza
-     * un overlay a la vez y su duración mínima. Carga el GIF de forma SÍNCRONA (por eso NO debe
-     * llamarse desde el EDT) y luego pinta en el EDT.
+     * Shows the shuffle GIF (MUTE, looping) + white highlight border on this player. Invoked by
+     * GameFrame's controller from its serializer thread (NOT the EDT), which guarantees one
+     * overlay at a time and its minimum duration. Loads the GIF SYNCHRONOUSLY (hence must NOT be
+     * called from the EDT) and then paints on the EDT.
      */
     @Override
     public void showShuffleCascadeOverlay() {
@@ -3581,7 +3554,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
         final int frames = shuffle_cascade_frames;
         if (frames <= 0) {
-            return; // GIF sin Graphic Control Extension (deck mod): el bucle de imageUpdate no se cortaría al ocultar
+            return; // GIF with no Graphic Control Extension (deck mod): the imageUpdate loop wouldn't stop on hide
         }
         Helpers.GUIRun(() -> {
             int max_width = panel_cartas.getWidth();
@@ -3589,7 +3562,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (icon.getIconHeight() <= 0 || new_height <= 0) {
                 return;
             }
-            // GifLabel estira la Image a los bounds por GPU, así que basta el tamaño del label.
+            // GifLabel stretches the Image to the bounds via GPU, so the label's size is enough.
             int new_width = (int) Math.round((icon.getIconWidth() * (double) new_height) / icon.getIconHeight());
             if (max_width > 0 && new_width > max_width) {
                 new_height = (int) Math.round(((double) new_height * max_width) / new_width);
@@ -3597,13 +3570,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
             shuffle_cascade_gif_label.setBarrier(null);
             shuffle_cascade_gif_label.setIcon(icon, frames);
-            shuffle_cascade_gif_label.setRepeat(Integer.MAX_VALUE); // bucle hasta hideShuffleCascadeOverlay
+            shuffle_cascade_gif_label.setRepeat(Integer.MAX_VALUE); // loops until hideShuffleCascadeOverlay
             shuffle_cascade_gif_label.setSize(new_width, new_height);
             shuffle_cascade_gif_label.setPreferredSize(shuffle_cascade_gif_label.getSize());
             shuffle_cascade_gif_label.setOpaque(false);
             shuffle_cascade_gif_label.setLocation(Math.round((panel_cartas.getWidth() - new_width) / 2f), Math.round((getHoleCard1().getHeight() - new_height) / 2f));
             shuffle_cascade_gif_label.setVisible(true);
-            // Borde blanco de resaltado del turno (guarda el color previo para restaurarlo en hide).
+            // White turn-highlight border (saves the previous color to restore it on hide).
             if (!shuffle_border_active) {
                 shuffle_border_saved = border_color;
                 shuffle_border_active = true;
@@ -3614,8 +3587,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Oculta el overlay de barajado y restaura el borde previo. Idempotente: seguro aunque no
-     * haya overlay visible. setIcon(null) resetea a 1 el repeat de la GifLabel (corta el bucle).
+     * Hides the shuffle overlay and restores the previous border. Idempotent: safe even if no
+     * overlay is visible. setIcon(null) resets the GifLabel's repeat count to 1 (stops the loop).
      */
     @Override
     public void hideShuffleCascadeOverlay() {
@@ -3623,8 +3596,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             shuffle_cascade_gif_label.setVisible(false);
             shuffle_cascade_gif_label.setIcon((javax.swing.Icon) null);
             if (shuffle_border_active) {
-                // Solo restaurar si el borde sigue siendo el blanco que pusimos: si otro código lo
-                // cambió mientras tanto (p.ej. el resaltado de turno de apuesta), respetarlo.
+                // Only restore if the border is still the white we set: if other code changed it
+                // in the meantime (e.g. the betting-turn highlight), respect it.
                 if (border_color == java.awt.Color.WHITE) {
                     border_color = shuffle_border_saved;
                     repaint();
@@ -3635,12 +3608,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Decodifica (una vez por instancia, cache-busted) el ImageIcon del shuffle.gif de la
-     * baraja ACTUAL y cuenta sus frames; null si no hay GIF de barajado o no llegó a
-     * dimensionarse. Se recarga si cambia la baraja. Bloquea el hilo (de fondo) hasta que la
-     * Image reporta tamaño, con tope duro de 3 s. Cache-bust con fragmento único: el Toolkit
-     * cachea las Image por URL para toda la vida de la JVM y compartir la del central_label del
-     * barajado pisaría los contadores de frames.
+     * Decodes (once per instance, cache-busted) the CURRENT deck's shuffle.gif ImageIcon and
+     * counts its frames; null if there's no shuffle GIF or it never got dimensioned. Reloaded if
+     * the deck changes. Blocks the (background) thread until the Image reports a size, with a
+     * hard 3s cap. Cache-busted with a unique fragment: the Toolkit caches Image by URL for the
+     * JVM's whole lifetime, and sharing the shuffle central_label's would step on its frame
+     * counters.
      */
     private ImageIcon ensureShuffleCascadeIcon() throws Exception {
         URL url = Crupier.shuffleGifUrl();
@@ -3698,10 +3671,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
      * the original size when it fits again. Must run on the EDT.
      */
     private void setActionTextFitted(String msg) {
-        // Cualquier texto de accion NORMAL (CALL/RAISE/pensando/se pira/reset...) invalida
-        // el rodaje del % del all-in: el proximo % saltara en vez de rodar desde un valor
-        // que ya no aplica (p.ej. el de un all-in anterior). El propio rodaje y el "(--%)"
-        // usan setActionTextFittedRaw para NO auto-invalidarse.
+        // Any NORMAL action text (CALL/RAISE/thinking/leaving/reset...) invalidates the all-in
+        // %-roll: the next % will jump instead of rolling from a value that no longer applies
+        // (e.g. a previous all-in's). The roll itself and "(--%)" use setActionTextFittedRaw
+        // so they do NOT self-invalidate.
         if (jugada_prob_roller != null) {
             jugada_prob_roller.invalidate();
         }
@@ -3730,10 +3703,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setText(msg);
     }
 
-    // Rodaje vivo del % de probabilidad del all-in en la label de accion (JUGADA + PROB).
-    // El numero rueda a velocidad constante conservando el nombre de la jugada como
-    // prefijo; el render reconstruye "JUGADA (NN%)" via setActionTextFittedRaw (para no
-    // auto-invalidarse) y lo pasa por el auto-fit de fuente. EDT-only (creacion perezosa).
+    // Live roll of the all-in win-probability % on the action label (HAND + PROB). The number
+    // rolls at constant speed while keeping the hand name as a prefix; the renderer rebuilds
+    // "HAND (NN%)" via setActionTextFittedRaw (so it doesn't self-invalidate) and runs it
+    // through the font auto-fit. EDT-only (lazily created).
     private RollingCounter jugada_prob_roller;
     private String jugada_prob_prefix = "";
 
@@ -3759,22 +3732,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             jugada_prob_prefix = jugada.getName();
 
             if (win_per >= 0) {
-                // Rueda solo el % conservando el nombre de la jugada. Gate por la opcion
-                // "Contadores" de Apariencia (isCounterRollEnabled; salta en recover). Via el
-                // roller -> render con setActionTextFittedRaw (no se auto-invalida).
+                // Rolls only the %, keeping the hand name. Gated by the Appearance "Counters"
+                // option (isCounterRollEnabled; skipped on recover). Goes through the roller ->
+                // rendered with setActionTextFittedRaw (doesn't self-invalidate).
                 boolean animate = GameFrame.isCounterRollEnabled();
                 RollingCounter roller = jugadaProbRoller();
-                // Primer reveal del all-in: el roller no tiene valor (la accion previa lo
-                // invalido), asi que roll() saltaria de golpe SOLO la primera calle y animaria
-                // las siguientes. Sembramos 0 para que ruede 0->% en la misma duracion fija,
-                // de modo que TODAS las calles tarden igual.
+                // First all-in reveal: the roller has no value yet (the previous action
+                // invalidated it), so roll() would jump straight to the value on ONLY the first
+                // street and animate the rest. Seed it at 0 so it rolls 0->% over the same fixed
+                // duration, so EVERY street takes the same time.
                 if (animate && !roller.isValid()) {
                     roller.set(0);
                 }
                 roller.roll(win_per, animate);
             } else {
-                // Aun sin simulacion: "(--%)" en crudo (sin invalidar) para que el valor del
-                // roller sobreviva y el % de la calle siguiente ruede desde el actual.
+                // Still no simulation yet: raw "(--%)" (without invalidating) so the roller's
+                // value survives and the next street's % rolls from the current one.
                 setActionTextFittedRaw(jugada_prob_prefix + " (--%)");
             }
         });

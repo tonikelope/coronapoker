@@ -48,89 +48,83 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
+/**
+ * Host-side handle for a single peer's connection: owns its socket, the reader /
+ * writer / ping-pong threads, the reconnect grace-period state machine, per-peer
+ * anti-DoS rate limiting, and dispatches incoming GAME subcommands into the
+ * Crupier's command queue.
+ */
 public class Participant implements Runnable {
 
     private static final Logger LOGGER = Logger.getLogger(Participant.class.getName());
 
     public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
-    // Periodo de gracia tras el primer null read del socket de un peer.
-    // Si llega resetSocket() en este margen el reader continua sin marcar
-    // exit=true.
-    //
-    // Grace base del host tras detectar la caida de un peer (null-read), cuando
-    // todavia NO ha llegado ningun intento de reconexion autenticado.
-    //   RECIBIDO_TIMEOUT      = 45s -> ANCLADO a la ventana de deteccion peor-caso
-    //       del socket mudo: MAX_CONSECUTIVE_PING_FAILURES * (PING_INTERVAL_MS +
-    //       PING_PONG_TIMEOUT) = 3 * (5s + 10s) = 45s. Hacer el grace >= esa ventana
-    //       garantiza que el host no se rinda ANTES de que el propio peer pueda
-    //       siquiera enterarse de que se cayo y empezar a reconectar (antes eran
-    //       40s, justo por debajo de los 45s de deteccion).
-    //   CLIENT_RECON_TIMEOUT  = 80s (constante propia, INDEPENDIENTE del tiempo de pensar) ->
-    //       grace EXTENDIDO tras un intent autenticado / umbral del dialogo manual en el cliente.
-    //
-    // Si durante el grace base el cliente consigue abrir socket + handshake + HMAC
-    // contra hmac_key_orig (intent autenticado criptograficamente),
-    // signalReconnectIntent() refresca el deadline a CLIENT_RECON_TIMEOUT desde ese
-    // momento, dando al peer legitimo tiempo a completar resetSocket aunque el
-    // handshake tarde en redes lentas.
+
+    // Base grace period after the reader's first null-read on a peer socket, before any
+    // authenticated reconnect attempt has arrived. 45s is anchored to the worst-case "mute
+    // socket" detection window: MAX_CONSECUTIVE_PING_FAILURES * (PING_INTERVAL_MS +
+    // PING_PONG_TIMEOUT) = 3 * (5s + 10s) = 45s, so the host never gives up before the peer
+    // itself could even notice it dropped and start reconnecting (it used to be 40s, just
+    // under that 45s detection window). signalReconnectIntent() extends the deadline to
+    // GameFrame.CLIENT_RECON_TIMEOUT (80s, independent of think-time) once an HMAC-
+    // authenticated reconnect attempt lands, giving a legit peer time to finish resetSocket
+    // even over a slow handshake.
     public static final int RECIBIDO_TIMEOUT = 45000;
 
-    // ZERO-TRUST: subcomandos de respuesta cuyo partes[3] es el nick del EMISOR. Antes de
-    // encolarlos en received_commands (donde el Crupier los empareja por ese nick), el reader
-    // exige que partes[3] == el nick que posee ESTA conexión autenticada. Sin esto un peer podía
-    // inyectar la respuesta de OTRO (force-fold del rival, framear en la cascada, suprimir su
-    // showdown, override económico de REBUY/BUYIN, secuestrar el voto RIT, envenenar el reparto).
-    // HANDVERIFY y STRADDLE_RESP ya llevaban este guard con case propio; aquí se generaliza.
+    // ZERO-TRUST: response subcommands whose parts[3] is the SENDER's nick. Before queueing
+    // them into received_commands (where the Crupier matches them by that nick), the reader
+    // requires parts[3] == the nick owning THIS authenticated connection — otherwise a peer
+    // could inject a response on behalf of another (force-fold a rival, frame the deck
+    // cascade, hide their showdown, forge a REBUY/BUYIN, hijack an RIT vote, poison the deal).
+    // HANDVERIFY and STRADDLE_RESP already had this guard inline; it's generalized here.
     private static final java.util.Set<String> NICK_BOUND_SUBCOMMANDS = java.util.Set.of(
             "ACTION", "REBUY", "BUYIN", "RESP_SHOWDOWN_KEY",
             "DECK_CASCADE_RESP", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP",
             "SEAT_COMMIT", "SEAT_REVEAL");
 
-    // F2 ANTI-DoS: cota de tamaño por comando de texto + token-bucket de frecuencia POR PEER. Los
-    // umbrales son ENORMES respecto al tráfico legítimo (un comando de juego real pesa < 10 KB y un
-    // cliente honesto manda un puñado por segundo), así que en juego normal NUNCA disparan; solo bajo
-    // flood/OOM. Exceso -> SILENT-REFUSE (se descarta) + strike; strikes acumulados -> AUTO-EXPEL (se
-    // echa a ESTE peer y la mesa sigue para el resto). El reader es UN hilo por peer, así que estos
-    // campos los toca un solo hilo -> sin sincronización.
-    private static final int MAX_INBOUND_COMMAND_CHARS = 512 * 1024;  // corta el OOM de 12 MB/entrada (legit << 10 KB)
-    private static final double INBOUND_BURST = 2000.0;               // ráfaga tolerada de golpe
-    private static final double INBOUND_REFILL_PER_SEC = 500.0;       // sostenido tolerado (legit: unos pocos/s)
-    private static final int MAX_ABUSE_STRIKES = 50;                  // faltas antes de expulsar
+    // F2 ANTI-DoS: per-peer size cap + frequency token-bucket for text commands. Thresholds
+    // are huge relative to legit traffic (a real game command is < 10 KB, a few per second),
+    // so they never trigger in normal play — only under flood/OOM. Over the limit -> SILENT-
+    // REFUSE (drop) + strike; accumulated strikes -> AUTO-EXPEL (only this peer is kicked, the
+    // table continues). One reader thread per peer touches these fields -> no lock needed.
+    private static final int MAX_INBOUND_COMMAND_CHARS = 512 * 1024;  // caps the ~12 MB/entry OOM (legit << 10 KB)
+    private static final double INBOUND_BURST = 2000.0;               // tolerated burst
+    private static final double INBOUND_REFILL_PER_SEC = 500.0;       // tolerated sustained rate (legit: a few/s)
+    private static final int MAX_ABUSE_STRIKES = 50;                  // strikes before expulsion
     private double inbound_tokens = INBOUND_BURST;
     private long inbound_last_refill_ns = 0L;
     private int abuse_strikes = 0;
 
-    // F2 ANTI-DoS (canal BINARIO: voz + sync de stats). Los frames binarios se manejan INLINE en el hilo
-    // lector (handleBinaryFromClient), NO en el bucle de run(), así que NO pasan por inboundAbuse/strikes.
-    // Cada uno dispara trabajo pesado async (StatsSync = 1 hilo+DB por frame; nota de voz = escritura a
-    // disco + relay a N peers). Como el trabajo por-frame ya está acotado (tamaño por WireFrame, gzip-bomb
-    // cerrado), acotar la TASA de llegada acota el crecimiento de hilos/CPU/disco/relay a una constante.
-    // Presupuesto generoso pero MUY por encima del uso legítimo (voz humana ~1/s; ráfaga de stats al
-    // conectar << burst). Exceso -> DROP silencioso (SILENT-REFUSE), SIN strike/expulsión: una ráfaga
-    // legítima de stats (backlog grande) es indistinguible de abuso y descartar es inofensivo (import
-    // idempotente, resync la próxima sesión). La expulsión de floods sigue viva en el path de texto (F2).
-    // Único hilo (el lector del peer) -> sin sincronización.
-    private static final double BINARY_INBOUND_BURST = 128.0;            // ráfaga binaria tolerada de golpe
-    private static final double BINARY_INBOUND_REFILL_PER_SEC = 8.0;     // sostenido binario (legit: << 1/s)
+    // F2 ANTI-DoS (BINARY channel: voice + stats sync). Binary frames are handled INLINE on
+    // the reader thread (handleBinaryFromClient), not in run()'s loop, so they skip
+    // inboundAbuse/strikes. Each one triggers heavy async work (StatsSync = a thread+DB write
+    // per frame; a voice note = disk write + relay to N peers). Per-frame work is already
+    // bounded (WireFrame size cap, gzip-bomb closed), so capping the arrival RATE bounds
+    // thread/CPU/disk/relay growth to a constant. The budget is generous but well above legit
+    // use (human voice ~1/s; the stats burst on connect is << the burst allowance). Over the
+    // limit -> silent DROP, no strike/expulsion: a legit stats burst (large backlog) is
+    // indistinguishable from abuse, and dropping is harmless (import is idempotent, it resyncs
+    // next session). Flood expulsion still lives on the text path (F2 above). Single thread
+    // (the peer's reader) -> no lock needed.
+    private static final double BINARY_INBOUND_BURST = 128.0;            // tolerated binary burst
+    private static final double BINARY_INBOUND_REFILL_PER_SEC = 8.0;     // tolerated binary sustained rate (legit: << 1/s)
     private double binary_inbound_tokens = BINARY_INBOUND_BURST;
     private long binary_inbound_last_refill_ns = 0L;
 
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
-    // Tope de nombres de subcomando distintos en la tabla anti-repeticion. Los que
-    // existen de verdad son unas pocas decenas; este numero solo lo alcanza quien se
-    // los invente para hacerla crecer.
+    // Cap on distinct subcommand names in the de-dup table below. Real subcommands number a
+    // few dozen; only someone making up names to grow the table unboundedly hits this.
     public static final int MAX_DEDUP_SUBCOMMANDS = 256;
 
     private final HashMap<String, Integer> last_received = new HashMap<>();
     private final ConcurrentLinkedQueue<String> pre_game_socket_writer_queue = new ConcurrentLinkedQueue<>();
-    // Cola ACOTADA. Sin tope crece hasta donde llegue la memoria, y el anti-abuso que
-    // deberia frenar una inundacion corre al CONSUMIR, o sea, por detras: un peer que
-    // vomite comandos mas rapido de lo que se procesan tumba el proceso por memoria
-    // antes de que nadie le pare los pies. Llena, el lector de ESE peer se queda
-    // esperando sitio, deja de vaciar su socket y la contrapresion de TCP hace el
-    // resto. El tope es holgadisimo para el juego, donde las rafagas legitimas son de
-    // decenas de mensajes.
+    // BOUNDED queue. Unbounded, it would grow until memory ran out, and the abuse guard that
+    // should throttle a flood runs at CONSUME time — i.e. behind it: a peer spamming commands
+    // faster than they're processed would OOM the process before anything stops it. Once full,
+    // that peer's reader blocks waiting for room, stops draining its socket, and TCP
+    // backpressure does the rest. The cap is generous for normal play, where legit bursts are
+    // dozens of messages.
     public static final int SOCKET_READER_QUEUE_CAPACITY = 10000;
 
     private final LinkedBlockingQueue<String> socket_reader_queue = new LinkedBlockingQueue<>(SOCKET_READER_QUEUE_CAPACITY);
@@ -155,91 +149,84 @@ public class Participant implements Runnable {
     private volatile boolean async_wait = false;
     private volatile boolean force_reset_socket = false;
 
-    // ¿este peer esta en su PERIODO DE GRACIA? Lo enciende el lector al detectar la
-    // caida y lo apaga cuando el peer vuelve a hablar. Era una variable suelta dentro
-    // del lector, asi que nadie mas podia consultarlo: los escritores no se enteraban
-    // de que habia una gracia en curso y echaban al peer en cuanto una escritura fallaba.
+    // Is this peer in its GRACE PERIOD? Set by the reader on detecting a drop, cleared when
+    // the peer speaks again. Used to be a local variable inside the reader, so writers
+    // couldn't see a grace was in progress and would kick the peer on the first failed write.
     private volatile boolean timeout = false;
-    // Generación del "force reconnect": cada forceSocketReconnectWithWatchdog la
-    // incrementa (bajo lock). El watchdog captura la suya al arrancar y solo actúa si
-    // sigue vigente -> un watchdog viejo no expulsa un peer por un force MÁS NUEVO
-    // (p.ej. doble clic del menú "Forzar reconexión" dentro del grace).
+    // "Force reconnect" generation: each forceSocketReconnectWithWatchdog bumps it (under
+    // lock). The watchdog captures its own at start and only acts if still current, so a
+    // stale watchdog can't expel a peer over a NEWER force call (e.g. a double-click on the
+    // "Force reconnect" menu within the grace window).
     private volatile int force_reset_generation = 0;
     private volatile int latency;
     private volatile int latency2;
     private volatile int pong_timeout_counter = 0;
-    // Veces SEGUIDAS que la escritura del latido no ha vuelto dentro del plazo. Se exige
-    // mas de una por lo mismo que con los PONGs: una sola puede ser un envio binario
-    // largo en curso, que retiene el turno de salida del socket con todo el mundo sano.
+    // Consecutive times the heartbeat write hasn't returned in time. More than one is
+    // required for the same reason as the PONGs below: a single stall can just be a long
+    // binary send in flight, holding the socket's write turn while everything's fine.
     private volatile int ping_write_stall_counter = 0;
 
-    // Lo que se espera antes de reintentar un comando de pre-partida cuya escritura ha
-    // fallado. Ver el bucle de runPreGameSocketWriterQueueThread.
+    // Wait before retrying a pre-game command whose write failed. See the loop in
+    // runPreGameSocketWriterQueueThread.
     private static final int PRE_GAME_WRITE_RETRY_MS = 1000;
 
-    // Instante en que cerramos NOSOTROS el socket por escritura atascada. Ese cierre no es
-    // motivo para echar a nadie: un peer que no lee no estorba a los demas, y al que si
-    // estorba ya lo echan los plazos de progreso (arranque de mano y reparto), que expulsan
-    // justo al que retiene a la mesa. Cerrar solo sirve para despertar al lector, que es
-    // quien abre el periodo de gracia. Sin esta marca, la escritura que estaba parada
-    // despierta con error al cerrar y SU captura da al peer por ido antes de que al lector
-    // le de tiempo a abrir nada, asi que la ventana para volver no llegaba a existir.
+    // Timestamp when WE closed the socket ourselves over a stalled write. That close is not
+    // grounds to kick anyone: a peer that isn't reading doesn't block the others, and one that
+    // does is already caught by the progress deadlines (hand start, deal), which kick whoever
+    // is actually holding up the table. Closing only wakes the reader, which is what opens the
+    // grace period. Without this marker, the stalled write wakes up with an error on close and
+    // its catch block would give up on the peer before the reader had a chance to open any
+    // grace window, so the reconnect window would never exist.
     //
-    // Es un instante y no un si/no A PROPOSITO: caduca sola. La limpia el lector en cuanto
-    // toma el relevo, pero si ese hilo muriera por lo que sea, un si/no se quedaria puesto
-    // para siempre y entonces NADIE podria dar por ido a este peer nunca, ni por escritura
-    // fallida ni por nada: quedaria de zombi el resto de la partida. Caducando, lo peor que
-    // pasa es que se vuelva al comportamiento de siempre unos segundos despues.
+    // It's a timestamp rather than a boolean ON PURPOSE: it expires on its own. The reader
+    // clears it as soon as it takes over, but if that thread ever died, a boolean would stay
+    // set forever and NOBODY could ever give up on this peer again — it'd be a zombie for the
+    // rest of the game. Expiring, the worst case is just falling back to normal behavior a few
+    // seconds later.
     private static final long NO_STALL_CLOSE = Long.MIN_VALUE;
     private volatile long stall_close_ns = NO_STALL_CLOSE;
-    // Lo que se le concede al lector para tomar el relevo tras ese cierre. De sobra: solo
-    // tiene que despertar de su lectura y abrir el periodo de gracia, cosa de milisegundos.
-    // Se mide con reloj MONOTONO, como las latencias de aqui abajo: con el de pared, un
-    // ajuste de hora hacia atras (NTP, volver de suspension) dejaba la resta en negativo y
-    // la marca se quedaba puesta justo lo que la caducidad venia a evitar.
+    // Time given to the reader to take over after that close. Plenty: it only needs to wake
+    // from its read and open the grace period, a matter of milliseconds. Measured with a
+    // MONOTONIC clock, like the latencies below: with wall-clock time, a backward adjustment
+    // (NTP, waking from suspend) could make the subtraction negative and leave the marker
+    // stuck set — exactly what the expiry is meant to avoid.
     private static final long STALL_CLOSE_GRACE_NS = 10_000_000_000L;
-    // Ultimo cambio de contrasena de la sala que se le ha llegado a escribir a ESTE peer, y
-    // su cerrojo. Ver writeRoomPassword.
+    // Last room-password change actually written to THIS peer, plus its lock. See
+    // writeRoomPassword.
     private final Object password_write_lock = new Object();
     private volatile long last_password_version = 0;
     private volatile int pong2_timeout_counter = 0;
-    // Telemetría: cuenta de reconexiones exitosas del peer al server.
-    // Incrementado en resetSocket() tras setear reset_socket=true. Cubre tanto
-    // reconexiones naturales (peer cae + vuelve) como las forzadas vía menú
-    // "FORZAR RECONEXIÓN" — ambas indican inestabilidad de enlace observable.
+    // Telemetry: count of this peer's successful reconnects to the server. Incremented in
+    // resetSocket() after reset_socket is set true. Covers both natural reconnects (peer drops
+    // + returns) and ones forced via the "Force reconnect" menu — both signal observable link
+    // instability.
     private volatile int reconnection_count = 0;
     private volatile byte[] received_token = null;
     private volatile int new_hand_ready = 0;
 
-    // Suelo de deadline para el wait de grace en runSocketReaderThread.
-    // signalReconnectIntent() lo eleva a now()+CLIENT_RECON_TIMEOUT cuando
-    // un intento de reconexion entrante valida HMAC contra hmac_key_orig:
-    // el reader, al rearmarse el wait, usara max(deadline_actual, grace_deadline_floor)
-    // y asi el grace se prolonga el tiempo necesario para que el cliente
-    // legitimo complete el handshake aunque la red sea lenta. Solo crece,
-    // nunca decrece (monotonico).
+    // Deadline floor for the grace wait in runSocketReaderThread. signalReconnectIntent()
+    // raises it to now()+CLIENT_RECON_TIMEOUT when an incoming reconnect attempt passes HMAC
+    // verification against hmac_key_orig: the reader, on rearming its wait, uses
+    // max(current_deadline, grace_deadline_floor), extending the grace as needed for a legit
+    // client to finish the handshake over a slow network. Monotonic — only grows.
     private volatile long grace_deadline_floor = 0L;
 
-    // Marca si runPingPongThread está corriendo. El thread se mata
-    // intencionalmente con break tras socketClose() cuando el peer pierde
-    // MAX_CONSECUTIVE_PING_FAILURES PONGs; si después el peer reconecta y
-    // resetSocket repone el canal, los contadores se resetean pero el thread
-    // sigue muerto -> el peer queda sin supervisión activa via PING hasta que su
-    // socket vuelva a fallar via write (o nunca, si nadie escribe). resetSocket
-    // comprueba este flag y relanza el thread cuando hace falta. (Enfoque del
-    // commit local 5e5a9734 del autor, integrado sobre el resetSocket refactor.)
+    // Whether runPingPongThread is currently running. The thread deliberately dies via break
+    // after socketClose() once the peer misses MAX_CONSECUTIVE_PING_FAILURES PONGs; if the
+    // peer later reconnects and resetSocket restores the channel, the counters reset but the
+    // thread stays dead -> the peer loses active PING supervision until its socket next fails
+    // on write (or never, if nobody writes). resetSocket checks this flag and relaunches the
+    // thread when needed.
     private volatile boolean ping_pong_thread_alive = false;
 
     // --- SRA ZERO-TRUST VARIABLES ---
-    // sra_unlock: scalar para POCKET pieces. Antes era la única clave del peer;
-    // tras el refactor dual-lock (Opción G) sigue siendo válido para pockets
-    // pero NUNCA debe entregarse vía testamento — su exposición permitiría al
-    // host descifrar las pocket cards del peer que sale.
+    // sra_unlock: scalar for POCKET pieces. Used to be the peer's only key; after the dual-
+    // lock refactor it's still valid for pockets but must NEVER be handed over via the
+    // testament — exposing it would let the host decrypt the leaving peer's pocket cards.
     private volatile byte[] sra_unlock = null;
-    // sra_unlock_community: scalar para community pieces tras la fase de
-    // rotación. Es la única mitad que se incluye en el testamento al hacer
-    // EXIT, así el juego puede continuar revelando comunitarias sin exponer
-    // pockets.
+    // sra_unlock_community: scalar for community pieces after the rotation phase. The only
+    // half included in the testament on EXIT, so the game can keep revealing community cards
+    // without exposing pockets.
     private volatile byte[] sra_unlock_community = null;
 
     public byte[] getSra_unlock() {
@@ -306,14 +293,25 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Telemetría: nº de reconexiones exitosas de este peer al server
-     * desde que se creó el Participant (inicio de partida o entrada a la sala).
-     * Sólo cuenta reconexiones que llegaron hasta reset_socket=true.
+     * Telemetry: number of successful reconnects of this peer to the server since this
+     * Participant was created (game start or joining the room). Only counts reconnects that
+     * reached reset_socket=true.
+     *
+     * @return the reconnect count
      */
     public int getReconnectionCount() {
         return reconnection_count;
     }
 
+    /**
+     * @param espera the waiting room this peer belongs to
+     * @param nick the peer's authenticated nick
+     * @param avatar the peer's avatar image file, or {@code null} for the default avatar
+     * @param socket the peer's already-connected socket
+     * @param aes_k session AES key for this peer's channel
+     * @param hmac_k session HMAC key for this peer's channel
+     * @param cpu whether this Participant represents a bot seat rather than a real peer
+     */
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
         this.nick = nick;
         this.setSocket(socket);
@@ -349,12 +347,17 @@ public class Participant implements Runnable {
         return force_reset_socket;
     }
 
-    // Anti-DoS: true si el socket de este peer esta CAIDO o en plena reconexion (reset en curso, reconexion
-    // forzada por el host, o socket nulo/cerrado). Un peer que RETIENE (vivo, contestando PING pero sin
-    // enviar lo que se espera) da FALSE: su socket sigue abierto. Los deadlines de progreso de broadcast/
-    // recuperacion lo usan para NO expulsar a un peer que legitimamente esta reconectando (le dan su grace),
-    // pero SI expulsar a uno vivo que retiene. No se usa el flag Player.timeout porque esos bucles lo ponen
-    // ellos mismos a true en los pendientes (mostrar "esperando"), contaminandolo.
+    /**
+     * Anti-DoS: true if this peer's socket is DOWN or mid-reconnect (reset in progress, host-
+     * forced reconnect, or a null/closed socket). A peer that's STALLING (alive, answering
+     * PING but not sending what's expected) returns false — its socket is still open.
+     * Broadcast/recovery progress deadlines use this to NOT expel a peer that's legitimately
+     * reconnecting (give it its grace) but DO expel a live one that's stalling. Player.timeout
+     * isn't used here because those loops set it themselves on pending players (to show
+     * "waiting"), which would contaminate the signal.
+     *
+     * @return true if the socket is down or reconnecting
+     */
     public boolean isSocketDownOrReconnecting() {
         if (resetting_socket || force_reset_socket) {
             return true;
@@ -397,22 +400,21 @@ public class Participant implements Runnable {
                 latency2 = -1;
                 long pingStartNs = System.nanoTime();
 
-                // El PING se manda con TOPE. Escribir a un socket cuyo peer no lee acaba
-                // llenando el buffer del sistema y ahi el write se queda quieto, sin fecha
-                // de caducidad y RETENIENDO el monitor de salida del socket: el vigilante
-                // que tiene que cazar precisamente a ese peer se quedaba clavado dentro
-                // del write que iba a vigilar, y de paso bloqueaba a cualquiera que
-                // quisiera escribirle.
+                // The PING write is capped. Writing to a socket whose peer isn't reading
+                // eventually fills the OS buffer and the write just hangs, with no deadline,
+                // holding the socket's write monitor: the very watchdog meant to catch that
+                // peer would get stuck inside the write it was supposed to be watching, and
+                // block anyone else trying to write to it too.
                 //
-                // OJO con el tope: ese monitor lo comparten los envios BINARIOS (una nota de
-                // voz, un avatar, los datos de recuperacion, un lote de estadisticas), que
-                // con varios peers y poca subida tardan lo suyo con todo el mundo sano; y
-                // mientras hay una reconexion en marcha la escritura espera POR DISENO. Por
-                // eso el plazo es holgado, no cuenta si el peer esta reconectando y hacen
-                // falta VARIAS seguidas, con el mismo umbral que el cierre por PONGs
-                // perdidos de aqui abajo. La cuenta se pone a cero al reconectar, para que
-                // los atascos del socket viejo no se hereden al nuevo. Y al agotarse NO se
-                // echa a nadie: solo se cierra el socket para que el lector abra la gracia.
+                // Mind the cap: that monitor is shared with BINARY sends (a voice note, an
+                // avatar, recovery data, a stats batch), which with several peers and thin
+                // upload can legitimately take a while even when everyone's healthy; and while
+                // a reconnect is in progress, the write is SUPPOSED to wait. So the timeout is
+                // generous, doesn't count while the peer is reconnecting, and needs SEVERAL in
+                // a row — same threshold as the lost-PONGs close below. The counter resets on
+                // reconnect so stalls on the old socket aren't inherited by the new one. And
+                // hitting the limit doesn't kick anyone: it just closes the socket so the
+                // reader can open the grace period.
                 java.util.concurrent.Future<?> ping_write;
 
                 try {
@@ -431,17 +433,18 @@ public class Participant implements Runnable {
                         LOGGER.log(Level.SEVERE,
                                 "PING write to {0} stalled {1} times in a row ({2} ms each) — peer is not reading; closing its socket",
                                 new Object[]{nick, ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
-                        // NO se le da por ido: esto solo cierra el socket, igual que el gemelo
-                        // de los latidos sin respuesta de aqui abajo. Cerrar despierta al
-                        // lector, que es quien abre el periodo de gracia y le da su ventana
-                        // para volver; a un portatil que se suspende un rato no se le echa por
-                        // dejar de leer. Y si ademas estuviera reteniendo a la mesa, de eso ya
-                        // se encargan los plazos de progreso, que expulsan al que retiene.
+                        // The peer is NOT given up on here: this only closes the socket, same
+                        // as the lost-heartbeat twin below. Closing wakes the reader, which is
+                        // what opens the grace period and gives the peer its window to return
+                        // — a laptop that suspends for a while shouldn't be kicked for not
+                        // reading. And if it were actually holding up the table, that's
+                        // already handled by the progress deadlines, which expel whoever's
+                        // stalling.
                         //
-                        // La marca es imprescindible: la escritura que acaba de agotar el
-                        // plazo sigue parada en este socket y cerrar la despierta con
-                        // IOException, cuya captura daria al peer por ido antes de que al
-                        // lector le diera tiempo a abrir la gracia.
+                        // The marker is essential: the write that just timed out is still
+                        // stuck on this socket, and closing it wakes it with an IOException
+                        // whose catch block would give up on the peer before the reader got a
+                        // chance to open the grace period.
                         ping_pong_thread_alive = false;
                         stall_close_ns = System.nanoTime();
                         try {
@@ -451,10 +454,11 @@ public class Participant implements Runnable {
                         break;
                     }
 
-                    // La escritura sigue su curso (cancelarla no desbloquea un write parado,
-                    // y el socket puede estar reinstalandose). No se toca el contador de
-                    // PONGs: sin PING no puede haber PONG, y apuntarlo como perdido echaria
-                    // al peer por la otra via. Se espera el intervalo normal y se reintenta.
+                    // The write is left to run its course (cancelling it wouldn't unblock a
+                    // stuck write, and the socket may be mid-reinstall). The PONG counter is
+                    // left alone: without a PING there can be no PONG, and counting it as lost
+                    // would kick the peer through the other path. Wait the normal interval and
+                    // retry.
                     Helpers.pausar(WaitingRoomFrame.PING_INTERVAL_MS);
                     continue;
                 } catch (Exception ex) {
@@ -465,12 +469,12 @@ public class Participant implements Runnable {
 
                 while (!exit && (pong == null || pong2 == null) && System.currentTimeMillis() < end) {
                     synchronized (ping_pong_lock) {
-                        // Re-check dentro del monitor antes de dormir: un PONG que llega
-                        // entre la condición del while y la toma del lock perdería su
-                        // notify y dormiríamos hasta PING_PONG_TIMEOUT completo (lo que
-                        // puede disparar un cierre de socket espurio). El guard remaining>0
-                        // evita además wait(0)=espera indefinida y wait(<0)=IAE en la
-                        // ventana de carrera del cálculo del tiempo restante.
+                        // Re-check inside the monitor before sleeping: a PONG arriving between
+                        // the while condition and acquiring the lock would lose its notify and
+                        // we'd sleep the full PING_PONG_TIMEOUT (which can trigger a spurious
+                        // socket close). The remaining>0 guard also avoids wait(0)=indefinite
+                        // wait and wait(<0)=IAE in the race window of computing the remaining
+                        // time.
                         long remaining = end - System.currentTimeMillis();
                         if ((pong == null || pong2 == null) && remaining > 0) {
                             try {
@@ -498,34 +502,32 @@ public class Participant implements Runnable {
                     pong2_timeout_counter = 0;
                 }
 
-                // Red de seguridad para sockets "mudos" (peer killed sin RST, particion
-                // unidireccional, GC stall infinito). La via primaria sigue siendo la
-                // IOException en writeCommandFromServer , pero si el peer
-                // SOLO recibe sin que nadie le escriba nada distinto al PING, ese write
-                // del PING SI dispara IOException... a menos que el SO mantenga el envio
-                // bufferizado sin ack y no genere error. En ese borde, este threshold
-                // (N=3 PONGs perdidos consecutivos) cierra el socket por nuestra cuenta
-                // y deja que runSocketReaderThread entre por la via de grace normal.
+                // Safety net for "mute" sockets (peer killed without RST, one-way partition,
+                // infinite GC stall). The primary path is still the IOException in
+                // writeCommandFromServer, but if the peer only ever receives without anyone
+                // writing anything besides PING, that PING write DOES throw IOException...
+                // unless the OS keeps buffering the send unacked with no error. In that edge
+                // case, this threshold (N=3 consecutive lost PONGs) closes the socket on our
+                // own initiative and lets runSocketReaderThread take the normal grace path.
                 //
-                // Guarda anti-race: si estamos en mitad de un resetSocket/forceSocketReconnect
-                // los contadores pueden estar acumulados contra el socket viejo. Cerrar
-                // ahora cerraria el socket nuevo recien instalado por error.
+                // Anti-race guard: mid-resetSocket/forceSocketReconnect the counters may still
+                // be accumulated against the old socket. Closing now would wrongly close the
+                // newly installed socket instead.
                 if (!exit && !resetting_socket && !force_reset_socket
                         && (pong_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES
                         || pong2_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES)) {
                     LOGGER.log(Level.WARNING,
                             "PEER: Participant {0} lost {1}/{2} consecutive PONGs — closing socket",
                             new Object[]{nick, pong_timeout_counter, pong2_timeout_counter});
-                    // alive=false ANTES de cerrar: así la resurrección de resetSocket ve el
-                    // thread muerto y lo relanza. Sin esto, en la ventana break->finally el
-                    // chequeo veía alive=true y se saltaba la resurrección. El finally lo
-                    // vuelve a poner false (idempotente).
-                    // Este cierre NO se marca como propio, al contrario que el de la escritura
-                    // atascada de aqui arriba, y es a proposito aunque parezca una
-                    // inconsistencia: marcarlo se probo y se revirtio, porque la ventana que
-                    // abre interactua mal con la forma en que los plazos de progreso del
-                    // crupier se congelan y reinician. Antes de cambiarlo, mirar las notas de
-                    // mantenimiento.
+                    // alive=false BEFORE closing: so resetSocket's resurrection check sees the
+                    // thread dead and relaunches it. Without this, in the break->finally
+                    // window the check would see alive=true and skip the resurrection. The
+                    // finally block sets it false again (idempotent).
+                    // This close is deliberately NOT marked as our own stall close, unlike the
+                    // stalled-write one above, even though that looks inconsistent: marking it
+                    // was tried and reverted, because the window it opens interacts badly with
+                    // how the Crupier's progress deadlines freeze and resume. Don't change
+                    // this without understanding why.
                     ping_pong_thread_alive = false;
                     socketClose();
                     break;
@@ -578,16 +580,15 @@ public class Participant implements Runnable {
                         }
                     } else {
                         switch (partes_comando[0]) {
-                            // Control frames mal formados (PING/PONG/PONG2 sin el
-                            // contador numérico) NO deben tumbar este hilo lector:
-                            // un Integer.parseInt sobre un frame corrupto lanzaba
-                            // NumberFormatException/AIOOBE que rompía el reader y
-                            // dejaba al peer ZOMBIE — sin el markExitAndNotify ni el
-                            // broadcast TIMEOUT del camino de desconexión normal, así
-                            // que el resto de la mesa seguía esperándolo. Un peer
-                            // honesto (misma versión) siempre manda el contador;
-                            // ignorar el frame corrupto es estrictamente más seguro
-                            // que matar la conexión a medias.
+                            // Malformed control frames (PING/PONG/PONG2 without the numeric
+                            // counter) must NOT bring down this reader thread: an
+                            // Integer.parseInt on a corrupt frame used to throw
+                            // NumberFormatException/AIOOBE that killed the reader and left the
+                            // peer ZOMBIE — without the markExitAndNotify or the TIMEOUT
+                            // broadcast of the normal disconnect path, so the rest of the
+                            // table kept waiting on it. An honest peer (same version) always
+                            // sends the counter; ignoring the corrupt frame is strictly safer
+                            // than tearing down the connection half-way.
                             case "PING":
                                 if (partes_comando.length >= 2) {
                                     try {
@@ -639,39 +640,40 @@ public class Participant implements Runnable {
                     }
                 }
 
-                // One-shot reset_socket: si este null es el socket VIEJO cerrándose por la
-                // reconexión (resetSocket puso reset_socket=true bajo lock), lo consumimos
-                // AQUÍ —en el reader, que es quien reacciona a la señal— y saltamos el
-                // manejo de caída. Antes lo limpiaba run() (otro hilo, sin lock): si lo
-                // borraba entre el set de resetSocket y este chequeo, la señal se perdía y
-                // un peer YA reconectado era expulsado tras esperar el grace completo. El
-                // grace wait de abajo (bajo lock) sigue siendo la red de seguridad si la
-                // reconexión llega DURANTE la espera.
+                // One-shot reset_socket: if this null is the OLD socket closing because of a
+                // reconnect (resetSocket set reset_socket=true under lock), consume it HERE —
+                // in the reader, which is what reacts to the signal — and skip the drop
+                // handling. This used to be cleared by run() (a different, unlocked thread):
+                // if it cleared between resetSocket's set and this check, the signal was lost
+                // and an ALREADY reconnected peer got expelled after waiting out the full
+                // grace. The grace wait below (under lock) remains the safety net if the
+                // reconnect lands DURING the wait.
                 if (mensaje_recibido == null && reset_socket) {
                     reset_socket = false;
                 } else if (mensaje_recibido == null && !exit && !WaitingRoomFrame.getInstance().isExit()
                         && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null
                         || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
 
-                    // Este cierre lo hemos hecho NOSOTROS por escritura atascada, asi que no
-                    // es que a este peer se le haya acabado la ventana: es que se la estamos
-                    // abriendo ahora. Sin esto se iba en el acto, porque la marca de ventana
-                    // abierta sobrevive a una reconexion (solo la baja LEER un frame, y el
-                    // que no lee no lee), asi que un peer que ya la tuviera puesta caia
-                    // directo en el else de mas abajo y se le echaba con el mismo cierre con
-                    // el que se le iba a dar su oportunidad.
+                    // This close was done by US over a stalled write, so it's not that this
+                    // peer's window ran out — it's that we're opening it right now. Without
+                    // this it would be kicked on the spot: the "window open" marker survives a
+                    // reconnect (only reading a frame clears it, and a peer that isn't reading
+                    // isn't reading), so a peer that already had it set would fall straight
+                    // into the else branch below and get kicked by the very close meant to
+                    // give it a chance.
                     if (isStallClose()) {
                         timeout = false;
                     }
 
                     if (!timeout) {
-                        // El marcado de la caida se hace bajo el MISMO candado con el que
-                        // resetSocket instala el socket nuevo (baja reset_socket y timeout y
-                        // llama setPlayerTimeoutSafe(false), todo bajo este lock). Sin esto el
-                        // lector podia leer reset_socket=false arriba, correr resetSocket entero
-                        // por medio, y marcar la caida (borde magenta + sonido de error) de un
-                        // peer que ya habia vuelto. Comprobar y marcar juntos bajo el lock lo
-                        // hace atomico frente a la reconexion: si esta ya entro, no se marca nada.
+                        // Marking the drop happens under the SAME lock that resetSocket uses
+                        // to install the new socket (it clears reset_socket and timeout and
+                        // calls setPlayerTimeoutSafe(false), all under this lock). Without
+                        // this, the reader could read reset_socket=false above, have a full
+                        // resetSocket run in between, and then mark the drop (magenta border +
+                        // error sound) of a peer that had already returned. Checking and
+                        // marking together under the lock makes it atomic against the
+                        // reconnect: if it already landed, nothing gets marked.
                         boolean reconecto;
                         synchronized (getParticipant_socket_lock()) {
                             reconecto = reset_socket;
@@ -680,10 +682,10 @@ public class Participant implements Runnable {
                             } else {
                                 timeout = true;
                                 setPlayerTimeoutSafe(true);
-                                // El lector ya ha tomado el relevo: a partir de aqui es timeout
-                                // quien protege la gracia, asi que la marca del cierre por atasco
-                                // deja de hacer falta y no debe quedarse puesta tapando una salida
-                                // legitima mas adelante.
+                                // The reader has taken over now: from here on it's `timeout`
+                                // protecting the grace window, so the stall-close marker is no
+                                // longer needed and shouldn't stay set, masking a legitimate
+                                // drop later on.
                                 stall_close_ns = NO_STALL_CLOSE;
                             }
                         }
@@ -692,11 +694,12 @@ public class Participant implements Runnable {
                             long graceMs = (resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT;
                             LOGGER.log(Level.INFO, "PEER: Participant {0} entered TIMEOUT state — waiting {1}ms for reconnect", new Object[]{nick, graceMs});
 
-                            // La difusion va FUERA del candado: difundir toma el candado de socket
-                            // de los demas peers, y hacerlo dentro trabaria dos caidas simultaneas
-                            // (cada lector esperando el candado del otro). El re-chequeo de
-                            // reset_socket estrecha la ventana restante: si la reconexion entra
-                            // aqui, no se difunde una caida ya superada (y el latido la curaria).
+                            // The broadcast happens OUTSIDE the lock: broadcasting takes other
+                            // peers' socket locks, and doing it inside would deadlock two
+                            // simultaneous drops (each reader waiting on the other's lock).
+                            // Re-checking reset_socket narrows the remaining window: if the
+                            // reconnect lands right here, we don't broadcast a drop that's
+                            // already resolved (and the heartbeat would heal it anyway).
                             if (!this.force_reset_socket && !this.reset_socket) {
                                 try {
                                     GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
@@ -704,12 +707,12 @@ public class Participant implements Runnable {
                                 }
                             }
 
-                            // Wait con deadline rearmable: signalReconnectIntent() puede
-                            // elevar grace_deadline_floor durante este wait y el bucle
-                            // recogera la extension en la siguiente iteracion. Asi un
-                            // peer con red lenta que tarda mas que el grace base en
-                            // completar el handshake no es expulsado mientras siga
-                            // demostrando criptograficamente su identidad.
+                            // Wait with a rearmable deadline: signalReconnectIntent() can raise
+                            // grace_deadline_floor during this wait and the loop picks up the
+                            // extension on its next iteration. So a peer on a slow network
+                            // that takes longer than the base grace to finish the handshake
+                            // isn't expelled as long as it keeps cryptographically proving its
+                            // identity.
                             if (!reset_socket) {
                                 long deadline = System.currentTimeMillis() + graceMs;
                                 synchronized (getParticipant_socket_lock()) {
@@ -731,15 +734,15 @@ public class Participant implements Runnable {
                                         } catch (Exception ex) {
                                         }
                                     }
-                                    // Si salimos del grace porque LLEGÓ el reconnect
-                                    // (reset_socket=true), consumimos la señal aquí: ya
-                                    // cumplió su función (sacarnos de la espera). Si no se
-                                    // consume, persiste y el one-shot de arriba se comería
-                                    // el primer null del SIGUIENTE drop real como si fuera
-                                    // el cierre del socket viejo —retrasando la detección
-                                    // de esa caída una iteración del reader—. resetSocket ya
-                                    // no depende de reset_socket (usa su 'ok' local), así
-                                    // que limpiarlo aquí no afecta a su resultado.
+                                    // If we exit the grace because the reconnect ARRIVED
+                                    // (reset_socket=true), consume the signal here: it already
+                                    // did its job (getting us out of the wait). Left
+                                    // unconsumed, it would persist and the one-shot check above
+                                    // would eat the first null of the NEXT real drop as if it
+                                    // were the old socket closing — delaying detection of that
+                                    // drop by one reader iteration. resetSocket no longer
+                                    // depends on reset_socket (it uses its own local 'ok'), so
+                                    // clearing it here doesn't affect its result.
                                     if (reset_socket) {
                                         reset_socket = false;
                                     }
@@ -763,8 +766,8 @@ public class Participant implements Runnable {
                     ArrayList<String> pendientes = new ArrayList<>();
                     pendientes.add(getNick());
 
-                    // El id se mantiene a lo largo de los reintentos para que el cliente pueda deduplicar
-                    // por (subcomando, id) si una retransmisión llega cuando ya procesó la primera copia.
+                    // The id is kept across retries so the client can dedupe by (subcommand, id) if a
+                    // retransmission arrives after it already processed the first copy.
                     int id = Helpers.CSPRNG_GENERATOR.nextInt();
                     String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
@@ -772,15 +775,14 @@ public class Participant implements Runnable {
                         if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
                             waitPreGameCommandConfirmations(id, pendientes);
                         } else {
-                            // La escritura ha fallado, tipicamente porque el socket esta
-                            // cerrado mientras al peer se le da su ventana para volver. La
-                            // unica espera del bucle es la de las confirmaciones, y esa se
-                            // salta justo cuando falla, asi que sin esta pausa se reintentaba
-                            // a pelo, cifrando en cada vuelta, durante los cuarenta y cinco
-                            // segundos que dura la ventana: un nucleo al maximo sin avanzar
-                            // nada. Con ella se reintenta a un ritmo razonable, que es lo que
-                            // se quiere: cuando el peer vuelva, el comando sigue pendiente y
-                            // se le entrega.
+                            // The write failed, typically because the socket is closed while
+                            // the peer is getting its window to return. The loop's only wait
+                            // is for confirmations, and that's skipped exactly when the write
+                            // fails, so without this pause it would busy-retry, re-encrypting
+                            // every lap, for the whole 45-second window — a core pegged at
+                            // 100% making no progress. With it, retries happen at a sane rate:
+                            // when the peer returns, the command is still pending and gets
+                            // delivered.
                             Helpers.pausar(PRE_GAME_WRITE_RETRY_MS);
                         }
                     } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
@@ -808,6 +810,12 @@ public class Participant implements Runnable {
         return unsecure_player;
     }
 
+    /**
+     * Marks this peer as running a modified/unsecure client build. Setting it true for the
+     * first time pops a warning in the room and flags the player as a cheater.
+     *
+     * @param val whether the peer's game binary is untrusted
+     */
     public void setUnsecure_player(boolean val) {
         if (!this.unsecure_player && val) {
             Helpers.threadRun(() -> {
@@ -833,6 +841,11 @@ public class Participant implements Runnable {
         return hmac_key_orig;
     }
 
+    // The wait((resetting_socket||force_reset_socket)&&!exit) loop below (repeated by every
+    // socket-state accessor in this class) blocks callers while a socket swap is in flight
+    // (resetSocket / forceSocketReconnect), so nobody ever observes a mid-swap socket, stream
+    // or key. resetSocket's finally always calls notifyAll(), so this normally wakes promptly;
+    // the 1s timeout is just a defensive fallback.
     public SecretKeySpec getHmac_key() {
         while ((resetting_socket || force_reset_socket) && !exit) {
             synchronized (getParticipant_socket_lock()) {
@@ -877,6 +890,10 @@ public class Participant implements Runnable {
         this.exit = exit;
     }
 
+    /**
+     * Marks this Participant exited and, if connected, tells the peer (pre-game only, via a
+     * plain EXIT command) and closes its socket.
+     */
     public void exitAndCloseSocket() {
         this.exit = true;
         if (this.socket != null) {
@@ -903,16 +920,16 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Encola lo leido del socket respetando el tope de la cola.
+     * Queues what was read from the socket, respecting the queue cap.
      *
-     * <p>NO descarta nada mientras el peer siga en la partida: reintenta cada segundo
-     * mientras la cola este llena, y la contrapresion de TCP hace el resto (dejamos de
-     * leer del socket, su ventana se cierra y el emisor frena). Un {@code put} a secas
-     * haria lo mismo pero en silencio y sin salida: con el peer ya dado por ido, aquel se
-     * quedaba esperando sitio para siempre en una cola que nadie iba a vaciar. El unico
-     * mensaje que se pierde es el de un peer al que ya se le ha dado por ido.
+     * <p>Drops nothing while the peer is still in the game: retries every second while the
+     * queue is full, letting TCP backpressure do the rest (we stop reading the socket, its
+     * window closes, the sender backs off). A plain {@code put} would do the same but silently
+     * and without an exit: once the peer is given up on, it would wait for room forever in a
+     * queue nobody will drain. The only message actually lost is one from a peer already given
+     * up on.
      *
-     * <p>Para la senal de cierre NO vale esto: usar {@link #encolarSenalCierre()}.
+     * <p>Not suitable for the close signal — use {@link #encolarSenalCierre()} for that.
      */
     private void encolarLeido(String mensaje) {
         try {
@@ -930,26 +947,25 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Entrega a ESTE peer la contrasena nueva de la sala, descartando las que lleguen
-     * tarde.
+     * Delivers the room's new password to THIS peer, discarding late arrivals.
      *
-     * <p>El cerrojo es por peer, no de toda la sala. Escribir a un peer puede quedarse
-     * parado un buen rato (mientras el este reconectando, o detras de una nota de voz que
-     * retiene el turno de salida del socket), asi que un cerrojo global dejaba a TODOS los
-     * demas sin la contrasena nueva durante ese rato, y cualquiera que se cayera en esa
-     * ventana ya no podia volver a entrar. Quien reparte lanza ademas un hilo por peer, que
-     * es lo que de verdad impide que el atascado retenga a los demas: el cerrojo por si solo
-     * no bastaba, porque el bucle iba de uno en uno.
+     * <p>The lock is per-peer, not room-wide. Writing to a peer can stall for a while (while
+     * it's reconnecting, or stuck behind a voice note holding the socket's write turn), so a
+     * global lock would leave EVERYONE ELSE without the new password for that whole stretch,
+     * and anyone who dropped in that window couldn't rejoin. The caller also spawns one thread
+     * per peer, which is what actually stops a stuck peer from blocking the others — the lock
+     * alone wasn't enough, since the old loop went one peer at a time.
      *
-     * <p>Y el orden queda garantizado donde importa, que es en cada socket: el numero se
-     * apunta DENTRO del cerrojo, asi que da igual quien lo consiga primero. Si entra antes
-     * el cambio nuevo, el viejo se encuentra el numero ya subido y no escribe; si entra
-     * antes el viejo, el nuevo escribe detras y deja la buena. Comprobar el numero fuera de
-     * la escritura no valia: la espera larga esta DENTRO, asi que dos hilos podian pasar la
-     * comprobacion, quedarse los dos parados ahi y salir en cualquier orden.
+     * <p>Ordering is guaranteed where it matters — per socket: the version number is recorded
+     * INSIDE the lock, so it doesn't matter which caller gets there first. If the new change
+     * enters first, the old one finds the number already bumped and doesn't write; if the old
+     * one enters first, the new one writes right after and leaves the correct password in
+     * place. Checking the version outside the write wasn't safe: the long wait is INSIDE the
+     * lock, so two threads could both pass the check, both stall there, and exit in either
+     * order.
      *
-     * @param version numero de cambio, para descartar los que lleguen tarde
-     * @param payload la contrasena en base64, o el centinela de que ya no hay
+     * @param version change number, to discard late arrivals
+     * @param payload the base64 password, or the sentinel meaning "no password anymore"
      */
     public void writeRoomPassword(long version, String payload) {
         synchronized (password_write_lock) {
@@ -957,14 +973,14 @@ public class Participant implements Runnable {
                 return;
             }
 
-            // Se apunta el numero SIEMPRE, haya salido la escritura o no, y es lo correcto
-            // aunque parezca lo contrario. Se probo a apuntarlo solo cuando salia bien, para
-            // no dar por servida una contrasena que no habia llegado, y eso reabria el
-            // agujero que este metodo existe para tapar: si falla la escritura de la nueva,
-            // el numero no sube, y un reparto viejo que venga detras se encuentra la puerta
-            // abierta y le mete la contrasena ANTIGUA encima. Ademas no se ganaba nada,
-            // porque nadie reintenta un envio fallido: el proximo cambio traera un numero
-            // mayor y escribira igual.
+            // The version is recorded ALWAYS, whether the write succeeded or not, and that's
+            // correct even though it looks backwards. Recording it only on success was tried,
+            // to avoid marking a password "delivered" that never arrived, but that reopened
+            // the exact hole this method exists to close: if the new write fails, the number
+            // doesn't advance, and an older delivery arriving later finds the door open and
+            // overwrites it with the OLD password. Nothing was gained either way, since nobody
+            // retries a failed send: the next change will carry a higher number and write
+            // regardless.
             last_password_version = version;
 
             try {
@@ -980,9 +996,11 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Si el socket lo acabamos de cerrar nosotros por escritura atascada, y por tanto el
-     * error que eso provoque en las escrituras que estaban paradas no cuenta como que el
-     * peer se haya ido. Ver {@link #stall_close_ns}.
+     * Whether we just closed the socket ourselves over a stalled write, so the error that
+     * causes in any writes that were stuck doesn't count as the peer having left. See
+     * {@link #stall_close_ns}.
+     *
+     * @return true if within the stall-close grace window
      */
     private boolean isStallClose() {
         long cerrado = stall_close_ns;
@@ -991,22 +1009,22 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Encola la senal de cierre pase lo que pase.
+     * Queues the close signal no matter what.
      *
-     * <p>Es lo unico que saca al consumidor de su {@code take()}, y de ahi salen el cierre
-     * del descriptor y la muerte de su propio hilo. Por eso aqui no se mira {@code exit}:
-     * cuando la salida la ordena otro hilo (una expulsion, un plazo vencido, el fallo de
-     * una escritura) {@code exit} ya vale true al llegar aqui, y esperar a que dejara de
-     * valerlo dejaba la senal sin encolar y al consumidor dormido para siempre, con su
-     * hilo y su socket colgados el resto de la partida.
+     * <p>It's the only thing that gets the consumer out of its {@code take()}, and from there
+     * flow the descriptor close and the death of its own thread. That's why {@code exit} isn't
+     * checked here: when another thread orders the exit (an expulsion, an expired deadline, a
+     * failed write), {@code exit} is already true by the time this runs, and waiting for it to
+     * go false would leave the signal unqueued and the consumer asleep forever, with its
+     * thread and socket hanging for the rest of the game.
      *
-     * <p>Y de ese teardown sale tambien el aviso al resto de la mesa de que este jugador se
-     * ha ido, que es hoy lo mas importante de todo esto: sin la senal, el consumidor no
-     * despierta, no se llama a {@code remotePlayerQuit} y nadie difunde nada, con lo que la
-     * mesa se queda esperando el turno de alguien que ya no esta.
+     * <p>That teardown is also where the rest of the table learns this player left, which is
+     * the most important part today: without the signal, the consumer never wakes,
+     * {@code remotePlayerQuit} is never called, and nobody broadcasts anything, leaving the
+     * table waiting on the turn of someone who's already gone.
      *
-     * <p>Si la cola estuviera llena se hace hueco tirando lo mas viejo: son comandos de un
-     * peer que ya se ha ido y ninguno importa mas que la propia senal.
+     * <p>If the queue were full, room is made by dropping the oldest entry: those are commands
+     * from a peer that's already gone, and none of them matter more than the signal itself.
      */
     private void encolarSenalCierre() {
         for (int intentos = 0; intentos < SOCKET_READER_QUEUE_CAPACITY && !socket_reader_queue.offer(POISON_PILL); intentos++) {
@@ -1014,6 +1032,13 @@ public class Participant implements Runnable {
         }
     }
 
+    /**
+     * Writes a text command to this peer's socket.
+     *
+     * @param command the plaintext (or already-encrypted) command line to send
+     * @return {@code true} if the write failed (peer likely dropped); {@code false} on
+     *         success — note the inverted sense, callers read it as "did this fail?"
+     */
     public boolean writeCommandFromServer(String command) {
         while ((resetting_socket || force_reset_socket) && !exit) {
             synchronized (getParticipant_socket_lock()) {
@@ -1030,28 +1055,28 @@ public class Participant implements Runnable {
                 return false;
             }
         } catch (IOException ex) {
-            // Socket cerrado / peer caido detectado en el write. markExitAndNotify
-            // marca Participant.exit Y Player.exit Y despierta los waits del
-            // Crupier sobre received_commands. Sin propagar a Player.exit, el
-            // do-while que espera DECISION (Crupier.java ~5476) queda colgado
-            // porque chequea jugador.isExit() = Player, no Participant.
+            // Closed socket / dropped peer detected on write. markExitAndNotify marks
+            // Participant.exit AND Player.exit, and wakes the Crupier's waits on
+            // received_commands. Without propagating to Player.exit, the do-while waiting on
+            // a decision in Crupier hangs forever, since it checks jugador.isExit() on Player,
+            // not Participant.
             //
-            // Con el peer en su PERIODO DE GRACIA (timeout) no se le echa: el lector ya
-            // esta gestionando su caida y esperando a que vuelva, y sera el quien decida
-            // cuando venza el plazo. Sin mirar eso, cualquier escritura al socket ya
-            // cerrado se cargaba la gracia antes de tiempo y el peer perdia su ventana
-            // para reconectar.
+            // A peer in its GRACE PERIOD (timeout) isn't given up on here: the reader is
+            // already handling its drop and waiting for it to return, and it's the reader's
+            // call when the deadline expires. Without this check, any write to the already-
+            // closed socket would cut the grace short and the peer would lose its reconnect
+            // window.
             //
-            // Y con stall_close pasa lo mismo un instante ANTES: el socket lo acabamos de
-            // cerrar nosotros para que el lector abra esa gracia, y esta excepcion es
-            // consecuencia de ese cierre, no de un peer que se haya ido. El lector todavia
-            // no ha podido izar timeout, asi que sin mirar esto le ganabamos la carrera y
-            // lo echabamos justo cuando le ibamos a dar su ventana.
-            // El orden importa: stall_close se mira ANTES que timeout porque el lector los
-            // escribe al reves (iza timeout y luego limpia la marca). Preguntando en este
-            // orden, o vemos la marca puesta, o si ya esta limpia es que el lector paso por
-            // ahi y timeout ya vale true. Al reves cabia leer los dos en el unico momento
-            // en que ninguno protegia.
+            // Same story with stall_close, an instant EARLIER: we just closed this socket
+            // ourselves so the reader can open that grace period, and this exception is a
+            // consequence of that close, not of the peer actually leaving. The reader hasn't
+            // had a chance to raise `timeout` yet, so without this check we'd win the race and
+            // give up on the peer right when we meant to grant its window.
+            // Order matters: stall_close is checked BEFORE timeout because the reader writes
+            // them in the opposite order (raises timeout, then clears the marker). Checking in
+            // this order, either we see the marker still set, or if it's already clear the
+            // reader has already been through there and timeout is already true. Checking the
+            // other way round could catch both in the single moment when neither protects.
             if (!exit && !isStallClose() && !timeout && !resetting_socket && !force_reset_socket) {
                 markExitAndNotify("write failed (socket closed)");
             }
@@ -1064,6 +1089,10 @@ public class Participant implements Runnable {
      * {@link WireFrame} (a voice/avatar blob) to this peer. Synchronizes on the same
      * OutputStream monitor as the text writers, so a binary frame and a text line can
      * never interleave on the socket.
+     *
+     * @param frameBody the raw binary payload to send
+     * @return {@code true} if the write failed; {@code false} on success (same inverted
+     *         convention as {@link #writeCommandFromServer(String)})
      */
     public boolean writeBinaryFromServer(byte[] frameBody) {
         while ((resetting_socket || force_reset_socket) && !exit) {
@@ -1080,12 +1109,12 @@ public class Participant implements Runnable {
                 return false;
             }
         } catch (IOException ex) {
-            // Mismo criterio que el gemelo de texto, stall_close INCLUIDO, y aqui importa
-            // todavia mas: el que se atasca de verdad es este. Una nota de voz son cientos
-            // de kilobytes y retiene el turno de salida del socket mientras el peer no lea,
-            // que es justo lo que agota el plazo del latido. Si esta captura no mirara
-            // nuestra propia marca de cierre, el cierre con el que se le abre la ventana
-            // para volver acabaria echandolo por esta puerta.
+            // Same criteria as the text twin, stall_close included, and it matters even more
+            // here: this is the one that actually tends to stall. A voice note is hundreds of
+            // kilobytes and holds the socket's write turn while the peer doesn't read, which
+            // is exactly what exhausts the heartbeat deadline. If this catch block didn't
+            // check our own close marker, the very close meant to open the peer's reconnect
+            // window would end up kicking it through this door instead.
             if (!exit && !isStallClose() && !timeout && !resetting_socket && !force_reset_socket) {
                 markExitAndNotify("binary write failed (socket closed)");
             }
@@ -1093,23 +1122,13 @@ public class Participant implements Runnable {
         return true;
     }
 
-    /**
-     * Marca este Participant como exit=true Y propaga al Player asociado
-     * (RemotePlayer.setExit), notifica todos los waits posibles, y despierta
-     * la queue de comandos del Crupier para que cualquier wait que espere
-     * DECISION/ACTION/RESP_SRA_UNLOCK del peer caido salga inmediatamente.
-     *
-     * Sin esto, marcar solo Participant.exit dejaba el bucle del Crupier
-     * (que checa Player.isExit, no Participant.isExit) colgado indefinido,
-     * y el wait sobre received_commands sin notificar.
-     */
-    // Marca/desmarca el indicador visual de TIMEOUT del jugador de este nick,
-    // tolerando que TODAVIA no exista GameFrame/Crupier/Player (caida PRE-partida,
-    // o jugador ya retirado del mapa). Antes el reader hacia
-    // GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(...)
-    // a pelo: una caida no-limpia en la sala de espera (GameFrame==null) o un nick
-    // ya borrado lanzaba NPE que MATABA el hilo lector -> el peer quedaba zombie
-    // (sin grace, sin broadcast TIMEOUT, y el resto de la mesa esperandolo).
+    // Sets/clears the visual TIMEOUT indicator for the player with this nick, tolerating that
+    // GameFrame/Crupier/Player may not exist yet (a PRE-game drop, or a nick already removed
+    // from the map). The reader used to call
+    // GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(...) directly:
+    // a non-clean drop in the waiting room (GameFrame==null) or an already-removed nick threw
+    // an NPE that KILLED the reader thread, leaving the peer a zombie (no grace, no TIMEOUT
+    // broadcast, the rest of the table left waiting on it).
     private void setPlayerTimeoutSafe(boolean value) {
         try {
             GameFrame gf = GameFrame.getInstance();
@@ -1124,6 +1143,18 @@ public class Participant implements Runnable {
         }
     }
 
+    /**
+     * Marks this Participant exit=true AND propagates it to the associated Player
+     * (RemotePlayer.setExit), notifies every relevant wait, and wakes the Crupier's command
+     * queue so any wait on DECISION/ACTION/RESP_SRA_UNLOCK from the dropped peer returns
+     * immediately.
+     *
+     * <p>Without this, marking only Participant.exit left the Crupier's loop (which checks
+     * Player.isExit, not Participant.isExit) hanging indefinitely, with the wait on
+     * received_commands never notified.
+     *
+     * @param reason short description of why this peer is being marked exited, for logs
+     */
     public void markExitAndNotify(String reason) {
         if (exit) {
             return;
@@ -1156,22 +1187,28 @@ public class Participant implements Runnable {
             }
         } catch (Exception ignored) {
         }
-        // Y se despierta al consumidor, que es el unico que no se entera por ninguno de
-        // los avisos de arriba: espera en su cola y solo la senal de cierre lo saca de
-        // ahi. Sin esto se quedaba dormido para siempre, y con el sin correr el cierre de
-        // su descriptor y la muerte de su hilo.
+        // And the consumer is woken up, since it's the only thing none of the notifications
+        // above reach: it waits on its queue and only the close signal gets it out. Without
+        // this it would sleep forever, and with it goes the descriptor close and the death of
+        // its own thread.
         //
-        // El caso que lo hace imprescindible es la expulsion que NO cierra el socket (la
-        // violacion zero-trust de la cascada): ahi el lector sigue parado en su lectura,
-        // el siguiente mensaje que llegue lo devuelve al bucle, lo encuentra ya marcado y
-        // muere sin encolar nada, dejando al consumidor esperando. En los caminos que si
-        // cierran el socket, el lector despierta con un nulo y la encola el mismo.
+        // The case that makes this essential is an expulsion that does NOT close the socket
+        // (the zero-trust cascade violation): there the reader is still parked in its read,
+        // the next incoming message returns it to the loop, finds itself already marked, and
+        // dies without queueing anything, leaving the consumer waiting. On paths that do close
+        // the socket, the reader wakes up with a null and queues the signal itself.
         try {
             encolarSenalCierre();
         } catch (Exception ignored) {
         }
     }
 
+    /**
+     * Blocks reading the next decrypted text command from this peer's socket, handling binary
+     * frames inline and dropping frames that fail authentication.
+     *
+     * @return the decrypted command line, or {@code null} on EOF/read failure
+     */
     public String readCommandFromClient() {
         while ((resetting_socket || force_reset_socket) && !exit) {
             synchronized (getParticipant_socket_lock()) {
@@ -1201,12 +1238,12 @@ public class Participant implements Runnable {
                     try {
                         return Helpers.decryptCommand(frame.text(), getAes_key(), getHmac_key());
                     } catch (java.security.KeyException ke) {
-                        // Frame que no supera el canal (HMAC malo, manipulado, o sin cifrar
-                        // sin ser keepalive): se DESCARTA y se sigue leyendo, que es lo que
-                        // documenta SECURITY.md ("the receiver drops the frame"). Dejarlo
-                        // caer hasta el return null de abajo lo convertiria en EOF y tiraria
-                        // la conexion entera, de modo que un solo byte inyectado bastaria
-                        // para echar a un jugador de la mesa.
+                        // A frame that fails the channel check (bad/tampered HMAC, or
+                        // unencrypted without being a keepalive) is DISCARDED and reading
+                        // continues, as documented in SECURITY.md ("the receiver drops the
+                        // frame"). Letting it fall through to the return null below would turn
+                        // it into an EOF and tear down the whole connection, so a single
+                        // injected byte would be enough to kick a player from the table.
                         LOGGER.log(Level.WARNING, "PEER: dropping unauthenticated frame from {0} ({1})",
                                 new Object[]{nick, ke.getMessage()});
                         continue;
@@ -1225,12 +1262,14 @@ public class Participant implements Runnable {
      * A malformed or HMAC-failing frame is dropped without tearing down the reader.
      */
     private void handleBinaryFromClient(byte[] frameBody) {
-        // F2 ANTI-DoS: rate-limit del canal binario ANTES de descifrar/procesar. Corta el flood de frames
-        // binarios (voz/stats) que NO pasa por el bucket de texto de run() y cada uno dispara trabajo pesado
-        // async. Exceso -> DROP silencioso (SIN strike/expulsión; ver campos BINARY_INBOUND_*).
+        // F2 ANTI-DoS: rate-limit the binary channel BEFORE decrypting/processing. Cuts off a
+        // flood of binary frames (voice/stats) that bypasses run()'s text bucket, each of
+        // which triggers heavy async work. Over the limit -> silent DROP (no strike/expulsion;
+        // see the BINARY_INBOUND_* fields).
         if (binaryInboundAbuse()) {
-            // Visibilidad §8 uniforme: registro EN ROJO + popup (dedup por partida en warnMaliciousPeer, asi
-            // que bajo un flood sostenido sale UNA sola vez, no por frame). Solo si hay partida en curso.
+            // Uniform §8 visibility: RED log entry + popup (deduped per game in
+            // warnMaliciousPeer, so a sustained flood only produces ONE, not one per frame).
+            // Only when a game is in progress.
             try {
                 if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                     GameFrame.getInstance().getCrupier().warnMaliciousPeer(this.nick, "zero_trust.peer_binary_flood");
@@ -1258,6 +1297,9 @@ public class Participant implements Runnable {
         }
     }
 
+    /**
+     * Closes this peer's socket, if open. Idempotent.
+     */
     public void socketClose() {
         synchronized (getParticipant_socket_lock()) {
             if (this.socket != null && !this.socket.isClosed()) {
@@ -1270,17 +1312,15 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Senaliza que ha llegado un intento de reconexion autenticado
-     * criptograficamente (HMAC del nick contra hmac_key_orig verificado).
-     * Eleva grace_deadline_floor a now()+CLIENT_RECON_TIMEOUT (monotonico)
-     * y despierta el wait del reader para que rearme su deadline al
-     * nuevo suelo.
+     * Signals that a cryptographically authenticated reconnect attempt has arrived (the nick's
+     * HMAC verified against hmac_key_orig). Raises grace_deadline_floor to
+     * now()+CLIENT_RECON_TIMEOUT (monotonic) and wakes the reader's wait so it rearms its
+     * deadline to the new floor.
      *
-     * Solo debe llamarse desde serverSocketHandler una vez verificada
-     * la identidad: jamas con HMAC invalido, jamas por simple coincidencia
-     * de IP. Asi un peer caido pero con su clave de sesion original puede
-     * extender el grace todas las veces que necesite mientras reintenta
-     * el handshake, sin que un atacante externo pueda hacerlo.
+     * <p>Must only be called from the server socket handler after identity is verified: never
+     * on an invalid HMAC, never on IP match alone. This lets a dropped peer that still holds
+     * its original session key extend the grace as many times as it needs while retrying the
+     * handshake, without an outside attacker being able to do the same.
      */
     public void signalReconnectIntent() {
         long candidate = System.currentTimeMillis() + GameFrame.CLIENT_RECON_TIMEOUT;
@@ -1292,11 +1332,13 @@ public class Participant implements Runnable {
         }
     }
 
-    // Sincronizado en participant_socket_lock: cierra el socket actual (y un
-    // recon_socket pendiente si lo hubiera) y marca force_reset_socket. Antes
-    // mutaba socket/recon_socket/force_reset_socket SIN lock, lo que carreaba con
-    // resetSocket y con el menú "Forzar reconexión" (que lo llama en paralelo sobre
-    // todos los peers). Re-entrante: resetSocket lo invoca teniendo ya el lock.
+    /**
+     * Synchronized on participant_socket_lock: closes the current socket (and a pending
+     * recon_socket, if any) and sets force_reset_socket. Used to mutate
+     * socket/recon_socket/force_reset_socket WITHOUT a lock, racing with resetSocket and with
+     * the "Force reconnect" menu (which calls it in parallel across all peers). Re-entrant:
+     * resetSocket invokes it while already holding the lock.
+     */
     public void forceSocketReconnect() {
         synchronized (getParticipant_socket_lock()) {
             if (this.recon_socket != null) {
@@ -1315,15 +1357,17 @@ public class Participant implements Runnable {
         }
     }
 
-    // Llamado por el menú "Forzar reconexión" del host (GameFrame). Cierra el socket
-    // para forzar al peer a reconectar Y arranca un watchdog: si el peer NO vuelve
-    // dentro del grace (CLIENT_RECON_TIMEOUT), libera force_reset_socket y da el peer
-    // por perdido. Sin esto, un peer forzado que no reconecta dejaba
-    // readCommandFromClient (el propio hilo lector), writers y getters BLOQUEADOS PARA
-    // SIEMPRE en while((resetting_socket||force_reset_socket)&&!exit): force_reset_socket
-    // solo lo limpia un resetSocket exitoso (que aquí no ocurre) y el lector, bloqueado
-    // en esa espera, jamás llega a markExit -> exit nunca se ponía. El watchdog es
-    // daemon: no retiene la salida de la JVM aunque esté durmiendo el grace.
+    /**
+     * Called by the host's "Force reconnect" menu (GameFrame). Closes the socket to force the
+     * peer to reconnect AND starts a watchdog: if the peer does NOT return within the grace
+     * (CLIENT_RECON_TIMEOUT), it clears force_reset_socket and gives up on the peer. Without
+     * this, a forced peer that never reconnects left readCommandFromClient (the reader thread
+     * itself), writers, and getters BLOCKED FOREVER in
+     * while((resetting_socket||force_reset_socket)&&!exit): force_reset_socket is only cleared
+     * by a successful resetSocket (which never happens here), and the reader, blocked in that
+     * wait, never reaches markExit -> exit was never set. The watchdog is a daemon thread: it
+     * doesn't hold up JVM shutdown even while sleeping through the grace.
+     */
     public void forceSocketReconnectWithWatchdog() {
         final int myGen;
         synchronized (getParticipant_socket_lock()) {
@@ -1332,20 +1376,21 @@ public class Participant implements Runnable {
         }
         Thread wd = new Thread(() -> {
             boolean giveUp = false;
-            // Espera rearmable que honra grace_deadline_floor EXACTAMENTE como el reader
-            // (runSocketReaderThread, la espera de gracia): dormir un plazo FIJO expulsaba a
-            // un peer que, reconectando con su identidad de sesion valida, extendia su gracia
-            // via signalReconnectIntent justo en el borde del plazo — el reader le daba mas
-            // tiempo pero este watchdog lo daba por perdido igual. Ahora ambos comparten el
-            // mismo suelo autenticado. grace_deadline_floor es monotonico, asi que un suelo de
-            // un ciclo anterior nunca extiende este (la base ahora+CLIENT_RECON_TIMEOUT ya lo
-            // supera): solo un intento de reconexion NUEVO de este ciclo puede ampliarlo.
+            // Rearmable wait that honors grace_deadline_floor EXACTLY like the reader's grace
+            // wait (runSocketReaderThread): sleeping a FIXED period used to expel a peer that,
+            // reconnecting with a valid session identity, extended its grace via
+            // signalReconnectIntent right at the edge of the deadline — the reader gave it
+            // more time but this watchdog gave up on it anyway. Now both share the same
+            // authenticated floor. grace_deadline_floor is monotonic, so a floor from an
+            // earlier cycle never extends this one (the base now+CLIENT_RECON_TIMEOUT already
+            // exceeds it): only a NEW reconnect attempt from this cycle can raise it.
             //
-            // Decisión BAJO el lock: si hay una reconexión en curso, resetSocket tiene el
-            // lock y esperamos a que acabe; si tuvo éxito, force_reset_socket ya es false
-            // -> no damos el peer por perdido (cierra el boundary race con resetSocket).
-            // force_reset_generation==myGen evita que este watchdog actúe sobre un force
-            // MÁS NUEVO (doble clic del menú dentro del grace, reconectando ya).
+            // Decision made UNDER the lock: if a reconnect is in progress, resetSocket holds
+            // the lock and we wait for it to finish; if it succeeded, force_reset_socket is
+            // already false -> we don't give up on the peer (closes the boundary race with
+            // resetSocket). force_reset_generation==myGen stops this watchdog from acting on a
+            // NEWER force call (a double-click on the menu within the grace, already
+            // reconnecting).
             synchronized (getParticipant_socket_lock()) {
                 long deadline = System.currentTimeMillis() + GameFrame.CLIENT_RECON_TIMEOUT;
                 while (force_reset_socket && !reset_socket && !exit && force_reset_generation == myGen
@@ -1364,26 +1409,27 @@ public class Participant implements Runnable {
                         break;
                     }
                 }
-                // Se da por perdido SOLO si el plazo (con sus extensiones autenticadas) venció
-                // y el peer sigue forzado, sin reconectar, sin salir y en la misma generación
-                // de force. Misma condición de siempre, ahora tras respetar el suelo de gracia.
+                // The peer is given up on ONLY if the deadline (with its authenticated
+                // extensions) expired and it's still forced, not reconnected, not exited, and
+                // in the same force generation. Same condition as always, now honoring the
+                // grace floor.
                 if (force_reset_socket && !reset_socket && !exit && force_reset_generation == myGen) {
                     giveUp = true;
                 }
             }
-            // markExitAndNotify FUERA del lock (adquiere otros monitores; evitamos anidar),
-            // solo si la decisión bajo lock dijo giveUp.
+            // markExitAndNotify OUTSIDE the lock (it acquires other monitors; avoid nesting),
+            // only if the decision made under the lock said giveUp.
             if (giveUp) {
                 LOGGER.log(Level.WARNING, "PEER: Participant {0} forced-reconnect watchdog: peer did not return within grace, giving up", nick);
-                // markExit PRIMERO (pone exit=true y notifica) ANTES de limpiar los flags.
-                // Si limpiáramos force_reset_socket/resetting_socket con exit aún en false,
-                // el reader —despertado por ese notifyAll— vería los flags a false y exit a
-                // false y entraría en el ramo de TIMEOUT, emitiendo un broadcast TIMEOUT
-                // espurio de un peer que YA damos por perdido. Con exit=true primero, su
-                // else-if (que exige !exit) no entra. Los loops de transporte
-                // while((resetting||force)&&!exit) salen igual por exit con el notifyAll de
-                // markExit; el clear de abajo es solo higiene de estado (no dejar los flags
-                // a true en un peer muerto) y por eso no necesita su propio notifyAll.
+                // markExit FIRST (sets exit=true and notifies) BEFORE clearing the flags. If
+                // we cleared force_reset_socket/resetting_socket while exit was still false,
+                // the reader — woken by that notifyAll — would see the flags false and exit
+                // false and enter the TIMEOUT branch, emitting a spurious TIMEOUT broadcast
+                // for a peer we've ALREADY given up on. With exit=true first, its else-if
+                // (which requires !exit) doesn't trigger. The transport loops
+                // while((resetting||force)&&!exit) exit just the same via exit thanks to
+                // markExit's notifyAll; the clear below is just state hygiene (don't leave the
+                // flags true on a dead peer) and needs no notifyAll of its own.
                 markExitAndNotify("forced reconnect watchdog: no return within grace");
                 synchronized (getParticipant_socket_lock()) {
                     force_reset_socket = false;
@@ -1407,19 +1453,28 @@ public class Participant implements Runnable {
         }
     }
 
+    /**
+     * Installs a new socket/keys for this peer after a successful reconnect. The ENTIRE swap
+     * happens under participant_socket_lock — the prologue used to run OUTSIDE the lock
+     * (resetting_socket, forceSocketReconnect, recon_socket): two concurrent reconnects for
+     * the SAME nick, or the "Force reconnect" menu running in parallel, would interleave and
+     * leave socket/stream/keys inconsistent (NPE on recon_socket==null, crossed keys). Now
+     * it's atomic: the latest reconnect cleanly wins, without corrupting the Participant's
+     * state.
+     *
+     * @param sock the peer's newly accepted socket
+     * @param aes_k new session AES key
+     * @param hmac_k new session HMAC key
+     * @return true if the reconnect was installed successfully
+     */
     public boolean resetSocket(Socket sock, SecretKeySpec aes_k, SecretKeySpec hmac_k) {
-        // TODO el swap bajo participant_socket_lock. Antes el prólogo (resetting_socket,
-        // forceSocketReconnect, recon_socket) corría FUERA del lock: dos reconexiones
-        // concurrentes del MISMO nick, o el menú "Forzar reconexión" en paralelo,
-        // interleaveaban y dejaban socket/stream/keys inconsistentes (NPE sobre
-        // recon_socket==null, claves cruzadas). Ahora es atómico: la última reconexión
-        // gana limpiamente, sin corromper el estado del Participant.
         synchronized (getParticipant_socket_lock()) {
-            // TOCTOU: si el peer ya está saliendo (grace expirado / markExitAndNotify
-            // llamado, pero aún no borrado del mapa participantes) NO aceptamos el
-            // reconnect — el handler lo deniega y run() termina de retirarlo. Sin esto,
-            // se instalaba el socket nuevo + RECONNECT_OK y acto seguido run() borraba
-            // al jugador: el cliente se creía dentro y el host lo había echado (+leak).
+            // TOCTOU: if the peer is already leaving (grace expired / markExitAndNotify
+            // already called, but not yet removed from the participant map) we do NOT accept
+            // the reconnect — the handler denies it and run() finishes removing it. Without
+            // this, the new socket would get installed + RECONNECT_OK sent, and right after
+            // run() would remove the player: the client believed it was in while the host had
+            // already kicked it out (plus a leak).
             if (exit) {
                 LOGGER.log(Level.WARNING, "PEER: Participant {0} resetSocket refused — peer is exiting", nick);
                 return false;
@@ -1427,16 +1482,16 @@ public class Participant implements Runnable {
             this.resetting_socket = true;
             forceSocketReconnect();
             this.recon_socket = sock;
-            // ok: resultado LOCAL del reset, INMUNE a que el reader limpie this.reset_socket
-            // (su one-shot, SIN lock) en la ventana entre que lo ponemos a true y el
-            // return/resurrección de aquí. Sin esto, ese clear concurrente hacía que
-            // resetSocket devolviera false -> el handler mandaba RESET_FAIL y cerraba el
-            // socket NUEVO de un reconnect que SÍ tuvo éxito (y se saltaba la resurrección).
+            // ok: LOCAL result of the reset, IMMUNE to the reader clearing this.reset_socket
+            // (its one-shot read, WITHOUT a lock) in the window between us setting it true and
+            // the return/resurrection here. Without this, that concurrent clear made
+            // resetSocket return false -> the handler sent RESET_FAIL and closed the NEW
+            // socket of a reconnect that actually DID succeed (and skipped the resurrection).
             boolean ok = false;
             try {
-                // Swap transaccional: construimos el stream nuevo ANTES de comprometer
-                // socket/keys. Si getInputStream() lanza, this.socket/stream/keys quedan
-                // como estaban (viejos), no a medio cambiar (socket nuevo + stream viejo).
+                // Transactional swap: build the new stream BEFORE committing socket/keys. If
+                // getInputStream() throws, this.socket/stream/keys stay as they were (the old
+                // ones), not half-changed (new socket + old stream).
                 BufferedInputStream nuevo_stream = new BufferedInputStream(this.recon_socket.getInputStream());
                 this.socket = this.recon_socket;
                 this.input_stream_reader = nuevo_stream;
@@ -1447,26 +1502,26 @@ public class Participant implements Runnable {
                 }
                 this.reset_socket = true;
                 ok = true;
-                // Telemetría: contador por peer de reconexiones exitosas.
-                // Sólo se incrementa cuando llegamos aquí (reset_socket=true ya
-                // garantiza que el socket nuevo está instalado y los streams
-                // listos). El TELEMETRY broadcast del host expone este valor
-                // a todos los clientes para mostrar inestabilidad de enlace.
+                // Telemetry: per-peer count of successful reconnects. Only incremented once
+                // we get here (reset_socket=true already guarantees the new socket is
+                // installed and the streams are ready). The host's TELEMETRY broadcast
+                // exposes this value to all clients to show link instability.
                 this.reconnection_count++;
-                // Reseteo de contadores ping defensivo: si llevaban fallos acumulados
-                // contra el socket viejo, el primer fail contra el nuevo (que puede
-                // ser legitimo por jitter post-reconexion) no debe alcanzar el
-                // threshold ni cerrar el socket recien instalado.
+                // Defensive ping counter reset: if failures had accumulated against the old
+                // socket, the first failure against the new one (which can be legit jitter
+                // right after reconnecting) shouldn't reach the threshold or close the
+                // freshly installed socket.
                 this.pong_timeout_counter = 0;
                 this.pong2_timeout_counter = 0;
                 this.ping_write_stall_counter = 0;
                 this.stall_close_ns = NO_STALL_CLOSE;
-                // Y la marca de ventana abierta, que es del socket viejo igual que los
-                // contadores de aqui arriba. Se quedaba puesta porque solo la baja LEER un
-                // frame, y el primero tarda hasta el siguiente latido: si al peer se le iba
-                // la red otra vez en ese hueco, el lector lo encontraba ya marcado, daba su
-                // ventana por agotada y lo echaba en el acto, sin concederle nada. Justo al
-                // de enlace inestable, que es el que mas reconecta.
+                // And the "window open" marker, which belongs to the old socket just like the
+                // counters above. It used to stay set because only reading a frame clears it,
+                // and the first one can take until the next heartbeat: if the peer's network
+                // dropped again in that gap, the reader would find it already marked,
+                // consider its window exhausted, and kick it on the spot, granting nothing.
+                // Hitting exactly the peers with unstable links, which are the ones
+                // reconnecting the most.
                 this.timeout = false;
                 setPlayerTimeoutSafe(false);
                 LOGGER.log(Level.INFO, "PEER: Participant {0} resetSocket OK — reconnect succeeded within grace period (exit stays false)", nick);
@@ -1479,12 +1534,12 @@ public class Participant implements Runnable {
                 this.resetting_socket = false;
             }
             getParticipant_socket_lock().notifyAll();
-            // Si el ping defensivo murió por socketClose+break (threshold superado
-            // contra el socket viejo) lo resucitamos tras un reset OK: sin esto el peer
-            // reconectado queda sin supervisión activa via PING (si el socket nuevo se
-            // queda mudo, nadie lo detecta hasta un write fail, que con grace activo
-            // puede no markar exit). reset_socket=true: no relanzar si el reset falló;
-            // !exit: no resucitar peers ya expulsados.
+            // If the ping watchdog died via socketClose+break (threshold exceeded against the
+            // old socket), resurrect it after a successful reset: without this, the
+            // reconnected peer loses active PING supervision (if the new socket goes mute,
+            // nobody detects it until a write fails, which with an active grace might not
+            // mark exit). reset_socket=true: don't relaunch if the reset failed; !exit: don't
+            // resurrect already-expelled peers.
             if (ok && !this.exit && !this.ping_pong_thread_alive) {
                 LOGGER.log(Level.INFO, "PEER: Participant {0} runPingPongThread was dead after reset — resurrecting", nick);
                 runPingPongThread();
@@ -1493,6 +1548,14 @@ public class Participant implements Runnable {
         }
     }
 
+    /**
+     * Waits for this peer to confirm the pre-game command with the given id, removing
+     * confirmed nicks from {@code pending} as they arrive.
+     *
+     * @param id command id (confirmations carry id+1, see the "CONF" case in {@link #run()})
+     * @param pending nicks still awaiting confirmation; mutated in place
+     * @return {@code true} if the confirmation deadline expired with peers still pending
+     */
     public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending) {
         long start_time = System.currentTimeMillis();
         boolean plazo_vencido = false;
@@ -1532,8 +1595,8 @@ public class Participant implements Runnable {
         return !pending.isEmpty();
     }
 
-    // F2 ANTI-DoS: true si este frame excede el tope de tamaño o la frecuencia tolerada (token-bucket).
-    // Umbrales enormes: en juego normal jamás devuelve true. Único hilo (el reader del peer) -> sin lock.
+    // F2 ANTI-DoS: true if this frame exceeds the size cap or the tolerated frequency (token-bucket).
+    // Thresholds are huge: in normal play this never returns true. Single thread (the peer's reader) -> no lock.
     private boolean inboundAbuse(String frame) {
         if (frame.length() > MAX_INBOUND_COMMAND_CHARS) {
             return true;
@@ -1549,11 +1612,12 @@ public class Participant implements Runnable {
             inbound_tokens -= 1.0;
             return false;
         }
-        return true; // sin tokens -> exceso de frecuencia
+        return true; // no tokens left -> over the rate limit
     }
 
-    // F2 ANTI-DoS (binario): true si este frame binario excede la frecuencia tolerada (token-bucket propio,
-    // ver campos BINARY_INBOUND_*). Solo lo llama handleBinaryFromClient en el hilo lector -> sin lock.
+    // F2 ANTI-DoS (binary): true if this binary frame exceeds the tolerated rate (its own
+    // token-bucket, see the BINARY_INBOUND_* fields). Only called from handleBinaryFromClient
+    // on the reader thread -> no lock.
     private boolean binaryInboundAbuse() {
         long now = System.nanoTime();
         if (binary_inbound_last_refill_ns == 0L) {
@@ -1567,10 +1631,10 @@ public class Participant implements Runnable {
             binary_inbound_tokens -= 1.0;
             return false;
         }
-        return true; // sin tokens -> exceso de frecuencia
+        return true; // no tokens left -> over the rate limit
     }
 
-    // F2 ANTI-DoS: suma una falta a ESTE peer; true si alcanzó el umbral de expulsión.
+    // F2 ANTI-DoS: adds one strike to THIS peer; true once it reaches the expulsion threshold.
     private boolean registerAbuseStrike(String reason) {
         abuse_strikes++;
         if (abuse_strikes == 1 || abuse_strikes % 25 == 0) {
@@ -1580,9 +1644,10 @@ public class Participant implements Runnable {
         return abuse_strikes >= MAX_ABUSE_STRIKES;
     }
 
-    // F2 ANTI-DoS: expulsa a ESTE peer sin tocar a los demás — marca exit + propaga a Player.exit +
-    // despierta los waits del Crupier (markExitAndNotify) y CORTA el socket (para el flood). La mesa
-    // sigue: el resto ve el EXIT por el teardown normal (remotePlayerQuit al salir del bucle reader).
+    // F2 ANTI-DoS: expels THIS peer without touching the others — marks exit + propagates to
+    // Player.exit + wakes the Crupier's waits (markExitAndNotify) and CUTS the socket (to stop
+    // the flood). The table continues: the rest see the EXIT through normal teardown
+    // (remotePlayerQuit when the reader loop exits).
     private void autoExpel(String reason) {
         LOGGER.log(Level.SEVERE, "ZERO-TRUST DoS: AUTO-EXPEL peer {0} — {1}", new Object[]{this.nick, reason});
         markExitAndNotify("auto-expel: " + reason);
@@ -1590,8 +1655,9 @@ public class Participant implements Runnable {
             socketClose();
         } catch (Exception ignored) {
         }
-        // Visibilidad §8 uniforme: registro EN ROJO + popup nombrando al jugador expulsado (dedup por
-        // partida en warnMaliciousPeer). Solo si hay partida en curso (en la sala no hay Crupier/registro).
+        // Uniform §8 visibility: RED log entry + popup naming the expelled player (deduped per
+        // game in warnMaliciousPeer). Only when a game is in progress (the waiting room has no
+        // Crupier/log).
         try {
             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                 GameFrame.getInstance().getCrupier().warnMaliciousPeer(this.nick, "zero_trust.peer_expelled_flood");
@@ -1609,16 +1675,17 @@ public class Participant implements Runnable {
 
             String recibido;
             do {
-                // reset_socket ya NO se limpia aquí: lo consume el reader (dueño de la
-                // señal) en su null-read. Limpiarlo desde ESTE hilo, sin lock, perdía la
-                // señal de reconexión y expulsaba peers ya reconectados. Ver
+                // reset_socket is no longer cleared here: the reader (which owns the signal)
+                // consumes it on its null-read. Clearing it from THIS thread, without a lock,
+                // used to lose the reconnect signal and expel already-reconnected peers. See
                 // runSocketReaderThread (one-shot reset_socket).
                 try {
                     recibido = socket_reader_queue.take();
                     if (!POISON_PILL.equals(recibido)) {
-                        // F2 ANTI-DoS: cota de tamaño + rate-limit por peer ANTES de procesar nada. Exceso
-                        // -> descartar el frame (SILENT-REFUSE) + strike; strikes acumulados -> AUTO-EXPEL
-                        // (echar a ESTE peer, la mesa sigue). Umbrales enormes -> nunca afecta a un honesto.
+                        // F2 ANTI-DoS: size cap + per-peer rate limit BEFORE processing
+                        // anything. Over the limit -> discard the frame (SILENT-REFUSE) +
+                        // strike; accumulated strikes -> AUTO-EXPEL (kick THIS peer, the table
+                        // continues). Thresholds are huge -> never affects an honest client.
                         if (inboundAbuse(recibido)) {
                             if (registerAbuseStrike("inbound flood/oversize")) {
                                 autoExpel("inbound flood/oversize");
@@ -1662,8 +1729,9 @@ public class Participant implements Runnable {
                                 String subcomando = partes_comando[2];
                                 int command_id = Integer.parseInt(partes_comando[1]);
 
-                                // El paquete CONF tiene que ir cifrado: el cliente espera siempre comandos cifrados
-                                // y un CONF en claro provoca fallo de descifrado y deadlock en su lectura.
+                                // The CONF packet must be encrypted: the client always expects encrypted
+                                // commands, and a plaintext CONF causes a decrypt failure and deadlocks its
+                                // read loop.
                                 try {
                                     String confMsg = "CONF#" + String.valueOf(command_id + 1) + "#OK";
                                     this.writeCommandFromServer(Helpers.encryptCommand(confMsg, this.aes_key, this.hmac_key));
@@ -1672,12 +1740,12 @@ public class Participant implements Runnable {
                                 }
 
                                 if (!last_received.containsKey(subcomando) || !last_received.get(subcomando).equals(command_id)) {
-                                    // La clave es el NOMBRE del subcomando, que lo elige quien
-                                    // manda: inventandose nombres distintos se hace crecer esta
-                                    // tabla sin fin, y no se vacia nunca. El tope va muy por encima
-                                    // de los subcomandos que existen de verdad, asi que solo puede
-                                    // alcanzarlo alguien inventandoselos; al llegar se vacia, que
-                                    // esta tabla solo sirve para no repetir lo que acaba de llegar.
+                                    // The key is the subcommand NAME, chosen by the sender: making up
+                                    // distinct names grows this table without bound, since it's never
+                                    // otherwise cleared. The cap sits well above the subcommands that
+                                    // actually exist, so only someone inventing names can reach it; on
+                                    // hitting it the table is cleared, since it only exists to avoid
+                                    // repeating what just arrived.
                                     if (last_received.size() >= MAX_DEDUP_SUBCOMMANDS) {
                                         LOGGER.log(Level.WARNING,
                                                 "De-dup table for {0} hit {1} distinct subcommands — clearing it (peer sending made-up names?)",
@@ -1707,14 +1775,15 @@ public class Participant implements Runnable {
                                             }
                                             break;
                                         case "RABBIT": {
-                                            // Gating por HAND_ID en vez de por show_time: aplicamos el
-                                            // rabbit (fee + revelado) si pertenece a la mano en curso,
-                                            // para que sea determinista en TODOS los peers y no diverja
-                                            // el dinero (que provocaba un DIVERGENT falso en la mano
-                                            // siguiente). Antes el host lo aplicaba SIEMPRE (sin guard) y
-                                            // un cliente cuyo show_time ya cerro lo descartaba -> asimetria.
-                                            // Fallback a show_time solo si el peer no manda HAND_ID (version
-                                            // antigua). Ademas gatea contra una rabbit de una mano pasada.
+                                            // Gated by HAND_ID instead of show_time: apply the rabbit
+                                            // hunt (fee + reveal) if it belongs to the current hand, so
+                                            // it's deterministic across ALL peers and money doesn't
+                                            // diverge (which used to trigger a false DIVERGENT on the
+                                            // next hand). The host used to apply it ALWAYS (no guard),
+                                            // while a client whose show_time had already closed would
+                                            // discard it -> asymmetry. Falls back to show_time only if
+                                            // the peer doesn't send a HAND_ID (older client version).
+                                            // Also guards against a rabbit request from a past hand.
                                             String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
                                             boolean acceptRabbit = (rabbitHid != null)
                                                     ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
@@ -1725,15 +1794,16 @@ public class Participant implements Runnable {
                                             break;
                                         }
                                         case "REBUYNOW":
-                                            // En hilo aparte, como PAUSE/SHOWCARDS: rebuyNow (rama host) hace un
-                                            // broadcastGAMECommandFromServer CON confirmacion, que BLOQUEA a ESTE
-                                            // hilo lector esperando los CONF de los clientes; y esos CONF los lee
-                                            // este MISMO hilo (case "CONF" arriba). Ademas rebuyNow retiene
-                                            // lock_rebuynow durante todo el broadcast. En linea, dos rebuys casi a
-                                            // la vez se autobloquean en cruz: el lector de X, dentro del broadcast
-                                            // de X con el lock tomado, espera el CONF de Y; el lector de Y esta
-                                            // bloqueado en lock_rebuynow y nunca lee ese CONF -> deadlock que cuelga
-                                            // la timba (misma clase que la pausa). Sacarlo del lector lo cierra.
+                                            // On a separate thread, like PAUSE/SHOWCARDS: rebuyNow (host branch)
+                                            // does a broadcastGAMECommandFromServer WITH confirmation, which
+                                            // BLOCKS THIS reader thread waiting on clients' CONFs — and those
+                                            // CONFs are read by this SAME thread (the "CONF" case above).
+                                            // rebuyNow also holds lock_rebuynow for the whole broadcast. Inline,
+                                            // two near-simultaneous rebuys would deadlock each other: X's reader,
+                                            // inside X's broadcast holding the lock, waits on Y's CONF; Y's reader
+                                            // is blocked on lock_rebuynow and never reads that CONF -> a deadlock
+                                            // that hangs the table (same class of bug as the pause one). Taking it
+                                            // off the reader thread closes this.
                                             final int rebuy_buyin = Integer.parseInt(partes_comando[3]);
                                             Helpers.threadRun(() -> GameFrame.getInstance().getCrupier().rebuyNow(nick, rebuy_buyin));
                                             break;
@@ -1741,11 +1811,12 @@ public class Participant implements Runnable {
                                             Helpers.threadRun(() -> {
                                                 try {
                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                    // ZERO-TRUST: un SHOWCARDS solo puede revelar las cartas del nick que
-                                                    // posee ESTA conexión autenticada (paridad con HANDVERIFY/STRADDLE_RESP).
-                                                    // Si no, un peer podría nombrar a otro y, vía showPlayerCards, disparar el
-                                                    // LOCKDOWN del host con una firma ausente/inválida -> matar la timba con un
-                                                    // solo mensaje. Se descarta.
+                                                    // ZERO-TRUST: a SHOWCARDS can only reveal the cards of the nick
+                                                    // owning THIS authenticated connection (parity with
+                                                    // HANDVERIFY/STRADDLE_RESP). Otherwise a peer could name another
+                                                    // player and, via showPlayerCards, trigger the host's LOCKDOWN
+                                                    // with a missing/invalid signature -> kill the table with a
+                                                    // single message. Discarded.
                                                     if (!shNick.equals(this.nick)) {
                                                         LOGGER.log(Level.SEVERE,
                                                                 "ZERO-TRUST: dropping SHOWCARDS with nick mismatch on connection {0} (claimed {1})",
@@ -1753,18 +1824,21 @@ public class Participant implements Runnable {
                                                         return;
                                                     }
                                                     String sraKeyB64 = partes_comando[4];
-                                                    // PHASE A.1: la sig Ed25519 acompaña a la SRA key. El host NO puede
-                                                    // modificarla — es la prueba de que viene de la privkey del nick.
+                                                    // PHASE A.1: the Ed25519 signature travels alongside the SRA
+                                                    // key. The host CANNOT tamper with it — it's the proof that it
+                                                    // came from that nick's private key.
                                                     String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
 
-                                                    // 1. El servidor verifica firma + descifra localmente. En el HOST un
-                                                    // SHOWCARDS de un peer con firma ausente/inválida NO hace lockdown
-                                                    // (SILENT-REFUSE): devuelve false y NO se rebota.
+                                                    // 1. The server verifies the signature + decrypts locally. On
+                                                    // the HOST, a SHOWCARDS from a peer with a missing/invalid
+                                                    // signature does NOT trigger lockdown (SILENT-REFUSE): it
+                                                    // returns false and is NOT relayed.
                                                     boolean revealed = GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
 
-                                                    // 2. Efecto Espejo: rebotamos SOLO un SHOWCARDS VERIFICADO al resto, con la
-                                                    // sig intacta (los receptores re-verifican). Nunca rebotamos uno sin verificar:
-                                                    // los clientes lo leerían como host hostil y harían lockdown (kill amplificado).
+                                                    // 2. Mirror effect: only a VERIFIED SHOWCARDS is relayed to the
+                                                    // rest, signature intact (receivers re-verify it). An
+                                                    // unverified one is never relayed: clients would read that as a
+                                                    // hostile host and lock down (an amplified kill).
                                                     if (revealed && GameFrame.getInstance().isPartida_local()) {
                                                         String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + sraKeyB64 + "#" + sigB64;
                                                         GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(rebroadcastCmd, shNick);
@@ -1803,11 +1877,12 @@ public class Participant implements Runnable {
                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                         try {
                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                            // Dual-lock: el testamento entrega SOLO la mitad community.
-                                                            // La mitad pocket del peer que sale permanece secreta.
-                                                            // Se exige un escalar USABLE, no solo del tamano correcto:
-                                                            // 32 ceros pasaban la medida y al invertirlos reventaba el
-                                                            // hilo del crupier, que se lleva el proceso por delante.
+                                                            // Dual-lock: the testament hands over ONLY the community
+                                                            // half. The leaving peer's pocket half stays secret. A
+                                                            // USABLE scalar is required, not just one of the right
+                                                            // size: 32 zero bytes passed the size check and inverting
+                                                            // them crashed the Crupier's thread, taking the whole
+                                                            // process down with it.
                                                             if (RistrettoSRA.isValidScalar(testament)) {
                                                                 p.setSra_unlock_community(testament);
                                                             }
@@ -1844,10 +1919,10 @@ public class Participant implements Runnable {
                                             }
                                             break;
                                         case "STRADDLE_RESP":
-                                            // ZERO-TRUST: la respuesta de straddle voluntario debe pertenecer
-                                            // al nick que posee ESTA conexión autenticada. Si no, un peer podría
-                                            // falsificar el RESP del UTG y forzarle a postear un straddle (2x la
-                                            // ciega grande de SU stack) que nunca aceptó. Mismo guard que HANDVERIFY.
+                                            // ZERO-TRUST: a voluntary straddle response must belong to the nick
+                                            // owning THIS authenticated connection. Otherwise a peer could forge
+                                            // the UTG's RESP and force them to post a straddle (2x the big blind,
+                                            // out of THEIR stack) they never accepted. Same guard as HANDVERIFY.
                                             try {
                                                 if (partes_comando.length >= 5
                                                         && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
@@ -1864,9 +1939,10 @@ public class Participant implements Runnable {
                                             }
                                             break;
                                         default:
-                                            // ZERO-TRUST: si es un subcomando de respuesta con nick de emisor,
-                                            // atarlo a ESTA conexión (partes[3] == this.nick). Si no coincide (o
-                                            // viene malformado), se descarta: un peer NO puede hablar por otro.
+                                            // ZERO-TRUST: if this is a response subcommand carrying the
+                                            // sender's nick, tie it to THIS connection (parts[3] == this.nick).
+                                            // If it doesn't match (or is malformed), it's discarded: a peer must
+                                            // NOT be able to speak for another.
                                             if (NICK_BOUND_SUBCOMMANDS.contains(partes_comando[2])) {
                                                 boolean nickOk;
                                                 try {
@@ -1879,7 +1955,7 @@ public class Participant implements Runnable {
                                                     LOGGER.log(Level.SEVERE,
                                                             "ZERO-TRUST: dropping {0} with nick mismatch on connection {1}",
                                                             new Object[]{partes_comando[2], this.nick});
-                                                    // Hablar por otro es abuso deliberado -> strike (y expulsión si reincide).
+                                                    // Speaking for someone else is deliberate abuse -> strike (and expulsion on repeat).
                                                     if (registerAbuseStrike("nick spoof " + partes_comando[2])) {
                                                         autoExpel("repeated nick spoofing");
                                                     }
@@ -1913,10 +1989,10 @@ public class Participant implements Runnable {
                 }
             }
             exit = true;
-            // Cierra el FD del socket en el teardown: antes el camino terminal de run()
-            // no lo cerraba y, en un EXIT limpio (el peer mandó EXIT y nuestro lado nunca
-            // cerró), el descriptor quedaba half-open hasta GC/RST -> fuga de FDs en
-            // sesiones largas con muchas altas/bajas. socketClose() es idempotente.
+            // Closes the socket's FD during teardown: run()'s terminal path used to skip this,
+            // and on a clean EXIT (the peer sent EXIT and our side never closed) the descriptor
+            // stayed half-open until GC/RST -> an FD leak in long sessions with lots of
+            // joins/leaves. socketClose() is idempotent.
             socketClose();
             synchronized (ping_pong_lock) {
                 ping_pong_lock.notifyAll();

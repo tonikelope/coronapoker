@@ -116,25 +116,24 @@ public class WaitingRoomFrame extends JFrame {
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
-    // Read deadline aplicado al socket durante el handshake (magic bytes + ECDH +
-    // session_id + JOIN + NICKOK/intro/chat-history). Un peer legitimo completa
-    // este intercambio en <1s; el unico caso real que se aproxima al limite es una
-    // primera generacion de Ed25519 keypair en CPU muy lenta. Damos 30s de margen.
+    // Read deadline applied to the socket during the handshake (magic bytes + ECDH +
+    // session_id + JOIN + NICKOK/intro/chat history). A legitimate peer finishes this
+    // exchange in <1s; the only real case that gets close is a first-time Ed25519
+    // keypair generation on a very slow CPU. 30s of margin.
     //
-    // Critico para defender contra peers que abren socket pero NUNCA mandan bytes
-    // (DoS local con sockets mudos) o que mandan bytes goteando uno-a-uno (eternizan
-    // el thread del handshake). El timeout se RESETEA a 0 (sin limite) en cuanto el
-    // handshake completa con exito y antes de que el reader normal del Participant
-    // tome control, asi las pausas legitimas inter-mano nunca lo disparan.
+    // Critical to defend against peers that open a socket but NEVER send bytes (local
+    // DoS via mute sockets) or that trickle bytes one at a time (starving the handshake
+    // thread forever). The timeout is RESET to 0 (no limit) as soon as the handshake
+    // succeeds and before the Participant's normal reader takes over, so legitimate
+    // inter-hand pauses never trip it.
     public static final int HANDSHAKE_TIMEOUT_MS = 30000;
-    // Cap del int de longitud que el peer envía en cada read del handshake.
-    // El pubkey EC X.509 (P-256) real son ~91 bytes; permitimos 256 de margen
-    // por si alguna vez se sube de curva. Sin este cap un peer hostil puede
-    // mandar Integer.MAX_VALUE y forzar new byte[2GB] → OOM instantáneo.
+    // Cap on the length-prefix int the peer sends on each handshake read. The real EC
+    // X.509 (P-256) pubkey is ~91 bytes; 256 leaves room in case the curve ever changes.
+    // Without this cap a hostile peer could send Integer.MAX_VALUE and force a
+    // new byte[2GB] -> instant OOM.
     public static final int HANDSHAKE_MAX_PUBKEY_BYTES = 256;
-    // session_id que el server emite tiene tamaño fijo 16 (ver línea 712:
-    // this.session_id = new byte[16];). Cap a 64 da margen futuro sin
-    // permitir abuso.
+    // The session_id the server issues is a fixed 16 bytes. 64 leaves future headroom
+    // without allowing abuse.
     public static final int HANDSHAKE_MAX_SESSIONID_BYTES = 64;
 
     // Pre-compiled patterns used per chat message in txtChat2HTML and its helpers.
@@ -154,19 +153,19 @@ public class WaitingRoomFrame extends JFrame {
     private static final Pattern CHAT_VOICE_NOTE_PATTERN = Pattern.compile("@@voicenote:([A-Za-z0-9._-]+)@@");
 
     public static final long PING_INTERVAL_MS = 5000;
-    // Umbral de PONGs consecutivos perdidos antes de cerrar el socket por nuestra cuenta.
-    // Red de seguridad para sockets "mudos" (peer killed sin RST, particion unidireccional,
-    // GC stall infinito del peer). Con N=3, PING_INTERVAL_MS=5s y PING_PONG_TIMEOUT=10s,
-    // la deteccion peor caso es ~3*(10+5)=45s. La via primaria sigue siendo la IOException
-    // capturada en write (deteccion ~0ms en el siguiente PING saliente) y el SO_KEEPALIVE
-    // del socket.
+    // Threshold of consecutive missed PONGs before we close the socket ourselves. Safety
+    // net for "mute" sockets (peer killed without RST, one-way network partition, peer
+    // stuck in an infinite GC pause). With N=3, PING_INTERVAL_MS=5s and
+    // PING_PONG_TIMEOUT=10s, worst-case detection is ~3*(10+5)=45s. The primary path is
+    // still the IOException caught on write (~0ms detection on the next outgoing PING)
+    // and the socket's SO_KEEPALIVE.
     public static final int MAX_CONSECUTIVE_PING_FAILURES = 3;
 
-    // Plazo de la ESCRITURA del latido (distinto del de espera del PONG). Holgado a
-    // proposito: ese turno de salida lo comparten los envios binarios (nota de voz de
-    // 320 KB, avatares, datos de recuperacion, lotes de estadisticas), que con varios
-    // peers y poca subida tardan decenas de segundos con todo el mundo sano. Solo se
-    // cierra tras MAX_CONSECUTIVE_PING_FAILURES seguidas, y nunca durante una reconexion.
+    // Deadline for WRITING the heartbeat (distinct from waiting on the PONG). Deliberately
+    // generous: that outgoing turn is shared with binary sends (320 KB voice notes,
+    // avatars, recovery data, stats batches), which with several peers and slow upload
+    // can take tens of seconds even when everyone is healthy. Only closes after
+    // MAX_CONSECUTIVE_PING_FAILURES in a row, and never during a reconnect.
     public static final int PING_WRITE_STALL_TIMEOUT = 60000;
     public static final int PRE_GAME_COMMANDS_LOCK = 15000;
     public static final int EC_KEY_LENGTH = 256;
@@ -182,10 +181,12 @@ public class WaitingRoomFrame extends JFrame {
     private final File local_avatar;
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
 
-    // Anti-DoS pre-auth: tope de handshakes (keygen EC + hilo) SIMULTANEOS. El accept loop reserva un slot
-    // ANTES de gastar recursos; agotados, la conexion entrante se descarta al instante (sin hilo ni keygen).
-    // El slot se libera al terminar el handshake (finally en serverSocketHandler). Generoso para una timba
-    // entre colegas (los joins legitimos son pocos); acota un flood de conexiones a MAX_CONCURRENT_HANDSHAKES.
+    // Pre-auth anti-DoS: cap on SIMULTANEOUS handshakes (EC keygen + thread). The accept
+    // loop reserves a slot BEFORE spending resources; once exhausted, the incoming
+    // connection is dropped instantly (no thread, no keygen). The slot is released when
+    // the handshake finishes (finally in serverSocketHandler). Generous for a game among
+    // friends (legitimate joins are few); bounds a connection flood to
+    // MAX_CONCURRENT_HANDSHAKES.
     public static final int MAX_CONCURRENT_HANDSHAKES = 16;
     private final java.util.concurrent.Semaphore handshake_slots = new java.util.concurrent.Semaphore(MAX_CONCURRENT_HANDSHAKES);
     private final Object ping_pong_lock = new Object();
@@ -195,47 +196,47 @@ public class WaitingRoomFrame extends JFrame {
     // Stats DB sync (P2P): the protocol logic lives in StatsSyncManager; the
     // per-peer channel keys and TYPE_DB framing glue live in this class.
     private final StatsSyncManager stats_sync_manager = new StatsSyncManager(this);
-    private volatile String server_ip_port;  // ip:port — host (para parsear puerto local) y cliente (para conectar).
+    private volatile String server_ip_port;  // ip:port — host (to parse the local port) and client (to connect).
     private volatile String server_nick;
     private volatile String gameinfo_original = null;
-    // Tag en el campo buyin de gameinfo_original cuando la partida es de buy-in
-    // variable: la sala de espera oculta la caracteristica de buyin (la bolsa),
-    // porque cada jugador elige su buy-in al entrar al tablero.
+    // Tag in gameinfo_original's buyin field when the game uses a variable buy-in: the
+    // waiting room hides the buy-in feature (the pot) because each player picks their
+    // own buy-in when sitting down at the table.
     private static final String VARIABLE_BUYIN_TAG = "VAR";
-    // Espejo COMPLETO de la config de timba que el HOST difunde (GamePreset.Settings
-    // serializado) para que la pestaña "Partida" de la rueda en SOLO-LECTURA del cliente
-    // muestre todo el detalle. Llega en el handshake (NICKOK) y se refresca con cada
-    // GAMECONFIG. El cliente NO escribe GameFrame.* con esto (la config real le llega en el
-    // INIT al arrancar); solo lo lee el panel read-only. null hasta el primer sync.
+    // FULL mirror of the game config the HOST broadcasts (serialized
+    // GamePreset.Settings) so the client's READ-ONLY "Game" tab in the settings wheel
+    // can show every detail. Arrives in the handshake (NICKOK) and refreshes on every
+    // GAMECONFIG. The client does NOT write GameFrame.* from this (the real config
+    // arrives in the INIT at startup); only the read-only panel reads it. null until
+    // the first sync.
     public static volatile String GAMECONFIG_MIRROR = null;
     private volatile boolean chat_enabled = true;
     private volatile boolean upnp = false;
     private volatile int server_port = 0;
     private volatile boolean booting = false;
     private volatile boolean partida_empezada = false;
-    // Telemetría: última snapshot recibida desde el host. Actualizada
-    // en la rama "TELEMETRY" del GAME sub-switch de cliente(). Lectores
-    // (futuro LatencyDot, F7 label) acceden via getLatest_telemetry().
+    // Telemetry: latest snapshot received from the host. Updated in the "TELEMETRY"
+    // branch of cliente()'s GAME sub-switch. Readers (future LatencyDot, F7 label)
+    // access it via getLatest_telemetry().
     private volatile Helpers.TelemetryFrame latest_telemetry = null;
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
     private final java.util.concurrent.atomic.AtomicLong password_version = new java.util.concurrent.atomic.AtomicLong();
     private volatile boolean exit = false;
-    // El host ha iniciado una salida LIMPIA (game over o "detener timba" con
-    // force_recover): llega como GAME#<id>#SERVEREXIT[RECOVER] y el host cierra el
-    // socket justo despues (confirmation=false), asi que el reader ve un null-read
-    // casi de inmediato. Se marca en cuanto el reader LEE ese frame, antes del
-    // null-read, para que este NO lo confunda con una caida de red y dispare una
-    // reconexion espuria: el consumidor conduce el cierre ordenado (finTransmision
-    // -> sala de espera) al desencolar el frame. La reconexion automatica queda solo
-    // para las caidas de red de verdad.
+    // The host has started a CLEAN exit (game over or "stop game" with force_recover):
+    // arrives as GAME#<id>#SERVEREXIT[RECOVER] and the host closes the socket right
+    // after (confirmation=false), so the reader sees a null-read almost immediately.
+    // Set as soon as the reader READS that frame, before the null-read, so the null-read
+    // does NOT mistake it for a network drop and fire a spurious reconnect: the consumer
+    // drives the ordered shutdown (finTransmision -> waiting room) when it dequeues the
+    // frame. Automatic reconnection is reserved for real network drops.
     private volatile boolean server_graceful_exit = false;
     private volatile StringBuffer chat_text = new StringBuffer();
     private final String background_chat_src;
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
 
-    // Uno u otro será no-null según el rol (server flag).
+    // Exactly one of the two is non-null, depending on the role (server flag).
     private final NetServer net_server;
     private final NetClient net_client;
 
@@ -331,9 +332,8 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
-    // Refresca el icono de altavoz de la sala según SONIDOS. Lo usa
-    // GameFrame.setSonidos para que el cambio hecho desde el diálogo de ajustes
-    // de audio se vea aquí.
+    // Refreshes the waiting room's speaker icon from SONIDOS. Called by
+    // GameFrame.setSonidos so a change made in the audio settings dialog shows up here.
     public static void refreshSoundIcon() {
 
         WaitingRoomFrame sala = getInstance();
@@ -566,10 +566,10 @@ public class WaitingRoomFrame extends JFrame {
             return;
         }
 
-        // Pedir la clave BLOQUEA mientras haya una reconexión en curso, y aquí venimos
-        // del click derecho, o sea, del hilo gráfico: la sala se congelaba entera, y
-        // encima quien tiene que dar por terminada la reconexión necesita que ese mismo
-        // hilo siga atendiendo. Se pide fuera y el diálogo se abre al volver.
+        // Fetching the key BLOCKS while a reconnect is in progress, and this runs on the
+        // EDT (right-click handler): the whole room would freeze, and whoever needs to
+        // finish the reconnect needs that same thread to keep pumping events. Fetch off
+        // the EDT and open the dialog when it returns.
         Helpers.threadRun(() -> {
             SecretKeySpec my_key = getLocal_client_aes_key();
 
@@ -595,10 +595,10 @@ public class WaitingRoomFrame extends JFrame {
             try {
                 editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
                 chat.setCaretPosition(chat.getDocument().getLength());
-                // Forzar repintado completo: el clip parcial que dispara el append deja a veces
-                // el fillRoundRect de RoundedBubbleView recortado. Sin sentido cuando el
-                // componente no esta mostrando (chat oculto durante la partida): el deferred
-                // setSize en formComponentShown se encarga del relayout al reabrir.
+                // Force a full repaint: the partial clip the append triggers sometimes leaves
+                // RoundedBubbleView's fillRoundRect clipped. Pointless when the component isn't
+                // showing (chat hidden during the game): the deferred setSize in
+                // formComponentShown handles the relayout when it reopens.
                 if (chat.isShowing()) {
                     chat.revalidate();
                     chat.repaint();
@@ -969,8 +969,8 @@ public class WaitingRoomFrame extends JFrame {
 
         setTitle(Init.WINDOW_TITLE + Translator.translate("game.sala_de_espera") + nick + ")");
 
-        // Placeholder traducido hasta que llegue el primer PING (el texto del .form es solo
-        // el default de diseño; el formato real lo pone el handler de PONGs).
+        // Translated placeholder until the first PING arrives (the .form text is just the
+        // design-time default; the real format is set by the PONG handler).
         latency_label.setText(Translator.translate("ui.latencia_servidor") + " 0 ms | 0 ms");
 
         // Session-key identicon access (anti-MITM): right-click any participant in the
@@ -1085,17 +1085,17 @@ public class WaitingRoomFrame extends JFrame {
         danger_server.setVisible(false);
 
         if (GameFrame.isRECOVER()) {
-            // El buy-in y las ciegas muestran sus valores recuperados (igual que una timba nueva,
-            // vía applyGameInfoBuyinLabel en el host / GAMEINFO en el cliente); el indicador
-            // "Continuando timba anterior" va en su propia etiqueta, en la fila de debajo.
+            // Buy-in and blinds show their recovered values (same as a new game, via
+            // applyGameInfoBuyinLabel on the host / GAMEINFO on the client); the "Resuming
+            // previous game" indicator has its own label, in the row below.
             game_info_recover.setVisible(true);
         }
 
         if (server) {
 
-            // (Se elimina el tooltip "Click para actualizar datos de la timba" de buyin/ciegas/manos:
-            // era obsoleto — clicar esos labels es un no-op desde que la config se edita en la rueda,
-            // pestaña Partida; ver game_info_buyinMouseClicked.)
+            // (The "Click to refresh game data" tooltip on buyin/blinds/hands was removed:
+            // it was stale — clicking those labels is a no-op now that config is edited in
+            // the settings wheel's "Game" tab; see game_info_buyinMouseClicked.)
 
             pass_icon.setVisible(true);
 
@@ -1154,8 +1154,8 @@ public class WaitingRoomFrame extends JFrame {
 
         avatar_label.setText("");
 
-        // El avatar del cuadro de chat es decorativo (no tiene ningún listener):
-        // el cursor de mano heredado del .form prometía un click que no existe.
+        // The chat box's avatar is decorative (no listener attached): the hand cursor
+        // inherited from the .form promised a click that doesn't exist.
         avatar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
 
         server_address_label.setText(server_ip_port);
@@ -1245,15 +1245,17 @@ public class WaitingRoomFrame extends JFrame {
 
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 
-        // La sala se crea con la altura del 70% de la resolución SOLO si ese 70% es mayor que su
-        // tamaño empaquetado (así se ve más alta); si no, carga normal (el empaquetado, acotado
-        // al 90%). El ancho queda por defecto (el empaquetado, acotado al 90%). Si el contenido no
-        // cabe en la altura elegida, el main_scroll_panel cubre el resto.
+        // The room is created at 70% of screen height ONLY if that 70% is greater than
+        // its packed height (so it looks taller); otherwise, normal load (the packed
+        // size, capped at 90%). Width stays at its default (the packed size, capped at
+        // 90%). If the content doesn't fit the chosen height, main_scroll_panel covers
+        // the rest.
         int packed_h = getHeight();
         int screen_h = (int) Toolkit.getDefaultToolkit().getScreenSize().getHeight();
-        // El alto "extra" (70% de pantalla) también sigue el zoom de diálogos: si no, al encoger el
-        // contenido la ventana seguiría a 70% de pantalla y el chat se estiraría para rellenar (área
-        // enorme y vacía). A 100% es 0.7 (idéntico al diseño).
+        // The "extra" height (70% of screen) also follows the dialog zoom: otherwise,
+        // shrinking the content would leave the window at 70% of screen while the chat
+        // stretched to fill it (a huge, empty area). At 100% it's 0.7 (identical to the
+        // design).
         int screen_70 = Math.round(screen_h * 0.7f * Helpers.DIALOG_ZOOM);
         int h = (screen_70 > packed_h) ? screen_70 : Math.min(packed_h, Math.round(screen_h * 0.9f));
 
@@ -1316,35 +1318,33 @@ public class WaitingRoomFrame extends JFrame {
         return net_client.readCommand();
     }
 
-    // True si la timba YA terminó para este peer (su Crupier salió del bucle
-    // run() con fin_de_la_transmision): la reconexión automática no aplica —
-    // el cierre del socket del server es el final normal de la partida, no
-    // una caída. OJO: el flag exit de esta clase se levanta más tarde
-    // (GameFrame.finTransmision, tras el volcado de logs/SQL/chat), así que
-    // sin esta consulta el reader detecta el cierre del host ANTES de
-    // exit=true (carrera host-termina-primero, p.ej. host arruinado que pasa
-    // a espectador y deja la timba con un solo jugador) y dispara
-    // reconexiones espurias con sus banners encima del BalanceScreen.
+    // True if the game has ALREADY ended for this peer (its Crupier left run() with
+    // fin_de_la_transmision): auto-reconnect does not apply — the server closing its
+    // socket is the normal end of the game, not a drop. NOTE: this class's exit flag is
+    // set later (GameFrame.finTransmision, after logs/SQL/chat are flushed), so without
+    // this check the reader detects the host's close BEFORE exit=true (a host-finishes-
+    // first race, e.g. a busted host who becomes a spectator and leaves the game with a
+    // single player) and fires spurious reconnects with their banners over the
+    // BalanceScreen.
     private boolean timbaTerminada() {
         return isPartida_empezada() && GameFrame.getInstance() != null
                 && GameFrame.getInstance().getCrupier() != null
                 && GameFrame.getInstance().getCrupier().isFin_de_la_transmision();
     }
 
-    // Función AUTO-RECONNECT
+    // AUTO-RECONNECT function
     public boolean reconectarCliente() {
 
         net_client.setReconnecting(true);
 
         LOGGER.log(Level.WARNING, "Attempting to reconnect to server...");
 
-        // Indicador PERSISTENTE de "reconectando" (timeout=null -> sin auto-cierre):
-        // antes el toast moria a los NOTIFICATION_TIMEOUT (5s) mientras el cliente
-        // seguia reintentando en silencio hasta 80s, dejando al usuario sin ver nada
-        // ~75s. Ahora se mantiene visible toda la fase de auto-reintento y se cierra
-        // al resolver (exito, aparicion del dialogo manual que toma el relevo, o
-        // salida via finally). Holder en array de 1 para poder asignarlo dentro del
-        // GUIRun y disponerlo despues.
+        // PERSISTENT "reconnecting" indicator (timeout=null -> no auto-close): the toast
+        // used to die after NOTIFICATION_TIMEOUT (5s) while the client kept silently
+        // retrying for up to 80s, leaving the user staring at nothing for ~75s. Now it
+        // stays visible for the whole auto-retry phase and closes when it resolves
+        // (success, the manual dialog taking over, or exit via finally). Held in a
+        // 1-slot array so it can be assigned inside GUIRun and disposed later.
         final InGameNotifyDialog[] reconnect_notify = {null};
 
         Helpers.GUIRun(() -> {
@@ -1399,23 +1399,22 @@ public class WaitingRoomFrame extends JFrame {
                         newSock.setTcpNoDelay(true);
                         newSock.setKeepAlive(true);
 
-                        // Cerrojo anti-cuelgue/anti-DoS del handshake de RECONEXION, en
-                        // paridad con cliente(): sin SO_TIMEOUT los reads del intercambio
-                        // (pubkey del server, session_id) bloqueaban indefinidamente si el
-                        // server aceptaba el TCP pero no enviaba datos -- y aqui ademas con
-                        // local_client_socket_lock tomado y reconnecting=true, lo que
-                        // congelaba TODO el transporte del cliente sin recuperacion. Se
-                        // resetea a 0 (bloqueante) tras el ack, ya en estado estable.
+                        // Anti-hang/anti-DoS lock on the RECONNECT handshake, mirroring cliente():
+                        // without SO_TIMEOUT the exchange's reads (server pubkey, session_id) would
+                        // block indefinitely if the server accepted the TCP connection but sent no
+                        // data — and here that also holds local_client_socket_lock with
+                        // reconnecting=true, freezing the ENTIRE client transport with no recovery.
+                        // Reset to 0 (blocking) after the ack, once in steady state.
                         newSock.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
 
                         LOGGER.log(Level.WARNING, "Connected to server! Exchanging keys...");
 
-                        // Le mandamos los bytes "mágicos"
+                        // Send the "magic" bytes
                         newSock.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
 
                         newSock.getOutputStream().flush();
 
-                        /* INICIO INTERCAMBIO CLAVES */
+                        /* KEY EXCHANGE START */
                         KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
 
                         clientKpairGen.initialize(EC_KEY_LENGTH);
@@ -1438,9 +1437,9 @@ public class WaitingRoomFrame extends JFrame {
 
                         int length = dIn.readInt();
 
-                        // Cap defensivo (paridad con cliente()): un length malicioso/corrupto
-                        // reservaria un byte[] gigante -> OOM. El handshake de reconexion no
-                        // lo validaba.
+                        // Defensive cap (mirrors cliente()): a malicious/corrupt length would
+                        // allocate a giant byte[] -> OOM. The reconnect handshake used to skip
+                        // this validation.
                         if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
                             throw new IOException("Reconnect handshake: invalid server pubkey length " + length
                                     + " (cap " + HANDSHAKE_MAX_PUBKEY_BYTES + ")");
@@ -1478,8 +1477,8 @@ public class WaitingRoomFrame extends JFrame {
 
                         net_client.setLocal_client_hmac_key(new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256"));
 
-                        /* FIN INTERCAMBIO CLAVES */
-                        // Le mandamos nuestro nick al server autenticado con la clave HMAC antigua
+                        /* KEY EXCHANGE END */
+                        // Send our nick to the server, authenticated with the old HMAC key
                         LOGGER.log(Level.WARNING, "Sending reconnection data...");
 
                         newSock.getOutputStream().write(
@@ -1490,46 +1489,43 @@ public class WaitingRoomFrame extends JFrame {
 
                         net_client.setLocal_client_buffer_read_is(new BufferedInputStream(newSock.getInputStream()));
 
-                        // Esperar ack explícito del server: RECONNECT_OK acepta, cualquier
-                        // RECONNECT_DENIED#<reason> o cierre limpio del socket significa
-                        // que el server NO nos aceptó como reconnect. Sin este ack el
-                        // cliente marcaba ok_rec=true en base solo a que el handshake
-                        // criptográfico terminase sin excepción; cuando el server cerraba
-                        // el socket inmediatamente (rama "DENIED" en el handler — caso
-                        // típico tras halt-and-recover del server donde nuestro nick ya no
-                        // está en participantes), el reader leía null al instante y
-                        // volvía a llamar a reconectarCliente() en bucle sin pausa (la
-                        // pausa de 5s solo aplica con ok_rec=false). Cada iteración
-                        // creaba un Socket nuevo y un ECDH key exchange completo —
-                        // freeze de UI y CPU al 100% reportado por yxmgl en issue#9 20.59.
+                        // Wait for an explicit server ack: RECONNECT_OK accepts, any
+                        // RECONNECT_DENIED#<reason> or a clean socket close means the server did
+                        // NOT accept us as a reconnect. Without this ack the client marked
+                        // ok_rec=true just because the crypto handshake finished without an
+                        // exception; when the server closed the socket immediately (the "DENIED"
+                        // branch — typical after a server halt-and-recover where our nick is no
+                        // longer in participantes), the reader read null right away and looped
+                        // back into reconectarCliente() with no pause (the 5s pause only applies
+                        // when ok_rec=false). Each iteration created a new Socket and a full ECDH
+                        // key exchange — UI freeze and 100% CPU, reported by yxmgl in issue#9 20.59.
                         //
-                        // Usamos SO_TIMEOUT acotado para no quedarnos esperando un ack que
-                        // no va a llegar (server muy lento o socket muerto silenciosamente).
-                        // El finally restaura el timeout a 0 (blocking sin límite) para que
-                        // las lecturas posteriores del runSocketReaderClientThread sigan
-                        // siendo bloqueantes normales.
+                        // We use a bounded SO_TIMEOUT so we don't wait forever for an ack that
+                        // will never arrive (very slow server, or a silently dead socket). The
+                        // finally block restores the timeout to 0 (unbounded blocking) so later
+                        // reads from runSocketReaderClientThread stay normal blocking reads.
                         String ackLine;
                         try {
                             newSock.setSoTimeout(GameFrame.CLIENT_RECEPTION_TIMEOUT);
-                            // Cap defensivo igual que el resto de readers del transporte
-                            // (NetServer/NetClient/Participant). Si el server hipotético
-                            // mandase bytes sin '\n' tras el handshake de reconexion,
-                            // este readLine sin cap consumiría memoria hasta OOM. La
-                            // protección de SoTimeout cubre hangs pero NO OOM por líneas
-                            // largas.
-                            // El ack (RECONNECT_OK/DENIED) es un frame de TEXTO. Si el server
-                            // relayara un frame BINARIO (nota de voz/avatar) justo antes del
-                            // ack, ackFrame.text() sería null y el reconnect VIVO se trataría
-                            // como fallido. Saltamos los binarios (canal lateral best-effort,
-                            // igual que el reader normal) y seguimos leyendo hasta el frame de
-                            // texto (el ack) o null (socket muerto). El SO_TIMEOUT acota cada
-                            // lectura.
-                            // Saltamos hasta 8 frames binarios (canal lateral voz/avatar) antes
-                            // del ack de TEXTO. ACOTADO: el SO_TIMEOUT solo limita cada lectura
-                            // (hueco ocioso), NO el total; sin tope, un host (modelo zero-trust)
-                            // que stremea binarios colgaba este bucle CON local_client_socket_lock
-                            // tomado y reconnecting=true -> transporte del cliente congelado.
-                            // Tras 8 binarios seguidos sin ack de texto, lo damos por fallido.
+                            // Defensive cap, same as the rest of the transport's readers
+                            // (NetServer/NetClient/Participant): if a server sent bytes without a
+                            // '\n' after the reconnect handshake, an uncapped readLine would eat
+                            // memory until OOM. The SoTimeout guard covers hangs but NOT OOM from
+                            // long lines.
+                            //
+                            // The ack (RECONNECT_OK/DENIED) is a TEXT frame. If the server relayed a
+                            // BINARY frame (voice note/avatar) right before the ack, ackFrame.text()
+                            // would be null and a live reconnect would be treated as failed. We skip
+                            // binaries (best-effort side channel, same as the normal reader) and keep
+                            // reading until the text frame (the ack) or null (dead socket). SO_TIMEOUT
+                            // bounds each read.
+                            //
+                            // We skip up to 8 binary frames (voice/avatar side channel) before the
+                            // TEXT ack. BOUNDED: SO_TIMEOUT only limits each individual read (idle
+                            // gap), NOT the total; without a cap, a host streaming binaries (zero-trust
+                            // model) would hang this loop WHILE holding local_client_socket_lock with
+                            // reconnecting=true -> frozen client transport. After 8 binaries in a row
+                            // with no text ack, we treat it as failed.
                             WireFrame.Result ackFrame = null;
                             for (int bin_skip = 0; bin_skip < 8; bin_skip++) {
                                 ackFrame = WireFrame.read(
@@ -1544,11 +1540,11 @@ public class WaitingRoomFrame extends JFrame {
                             LOGGER.log(Level.WARNING, "Reconnect ack from server timed out — treating as failed reconnect");
                             ackLine = null;
                         } finally {
-                            // Estado estable: el reader lee bloqueante (sin limite). Antes se
-                            // restauraba oldTimeout (==0 en socket nuevo); ahora el socket llega
-                            // aqui con HANDSHAKE_TIMEOUT_MS puesto (cerrojo del handshake), asi
-                            // que hay que fijar 0 explicitamente. En la rama de fallo el socket
-                            // se cierra despues, por lo que el valor es irrelevante alli.
+                            // Steady state: the reader does blocking (unbounded) reads. This used to
+                            // restore oldTimeout (==0 on a new socket); now the socket arrives here
+                            // with HANDSHAKE_TIMEOUT_MS set (the handshake lock), so 0 must be set
+                            // explicitly. On the failure branch the socket is closed afterward, so the
+                            // value there doesn't matter.
                             try {
                                 newSock.setSoTimeout(0);
                             } catch (Exception ignored) {
@@ -1559,10 +1555,10 @@ public class WaitingRoomFrame extends JFrame {
                             throw new IOException("Server closed socket without sending reconnect ack");
                         }
 
-                        // El ack DEBE venir CIFRADO. decryptCommand ya rechaza los frames sin
-                        // cifrar, salvo el keepalive, que viaja en claro por diseño; esta guarda
-                        // es mas estricta y no admite ni siquiera eso aqui, porque en el ack de
-                        // una reconexion no cabe otra cosa que un frame autenticado.
+                        // The ack MUST be ENCRYPTED. decryptCommand already rejects unencrypted
+                        // frames, except the keepalive, which travels in the clear by design; this
+                        // guard is stricter and doesn't allow even that here, because a reconnect
+                        // ack can only ever be an authenticated frame.
                         if (!ackLine.trim().startsWith("*")) {
                             throw new IOException("Reconnect ack not authenticated (plaintext frame rejected)");
                         }
@@ -1577,11 +1573,11 @@ public class WaitingRoomFrame extends JFrame {
 
                         LOGGER.log(Level.INFO, "Reconnected successfully to server");
 
-                        // Reset de contadores del PING/PONG defensivo cliente: si llevaban
-                        // fallos contra el socket viejo, el primer fail contra el nuevo
-                        // (puede ser jitter post-reconexion legitimo) no debe alcanzar el
-                        // threshold ni cerrar el socket recien instalado. Equivalente al
-                        // reset que hace Participant.resetSocket en el server.
+                        // Reset the client's defensive PING/PONG counters: if they were
+                        // carrying failures against the old socket, the first failure against
+                        // the new one (could be legitimate post-reconnect jitter) must not
+                        // reach the threshold or close the freshly installed socket.
+                        // Equivalent to the reset Participant.resetSocket does on the server.
                         net_client.setReset_ping_counters(true);
 
                         ok_rec = true;
@@ -1595,12 +1591,11 @@ public class WaitingRoomFrame extends JFrame {
 
                         if (!ok_rec) {
 
-                            // (Antes aqui un toast rojo "no se pudo reconectar" por cada
-                            // intento fallido: ademas de alarmante, su slot unico
-                            // (LATEST_NOTIFICATION) ocultaba el indicador persistente de
-                            // "reconectando" y, al auto-cerrarse a los 5s, reaparecia el
-                            // hueco silencioso. El indicador persistente ya comunica que
-                            // se sigue intentando.)
+                            // (There used to be a red "could not reconnect" toast here on every
+                            // failed attempt: besides being alarming, its single slot
+                            // (LATEST_NOTIFICATION) hid the persistent "reconnecting" indicator, and
+                            // once it auto-closed after 5s, the silent gap came back. The persistent
+                            // indicator already communicates that we're still trying.)
                             Socket failedSock = net_client.getLocal_client_socket();
                             if (failedSock != null && !failedSock.isClosed()) {
 
@@ -1620,9 +1615,9 @@ public class WaitingRoomFrame extends JFrame {
                                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT
                                         && WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                                    // El dialogo manual (modal, con su propia barra) toma el
-                                    // relevo como indicador: cerramos el toast persistente
-                                    // para que no quede colgado detras del modal.
+                                    // The manual dialog (modal, with its own progress bar) takes over
+                                    // as the indicator: close the persistent toast so it doesn't hang
+                                    // around behind the modal.
                                     Helpers.GUIRun(() -> {
                                         if (reconnect_notify[0] != null) {
                                             reconnect_notify[0].dispose();
@@ -1669,16 +1664,16 @@ public class WaitingRoomFrame extends JFrame {
                                 } else if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT
                                         && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                                    // En la SALA DE ESPERA (aun sin partida) el bucle de reconexion
-                                    // no tenia estado terminal: el dialogo manual esta gateado por
-                                    // isPartida_empezada (arriba) y aqui no hay estado de juego que
-                                    // preservar ni tiene sentido ese dialogo (sus botones asumen un
-                                    // GameFrame vivo), asi que ante un host caido de forma permanente
-                                    // el cliente giraba sin fin. Pasado el mismo plazo que en partida
-                                    // nos rendimos limpio: exit corta el do-while, el reader encola la
-                                    // senal de cierre y el consumidor vuelve al menu por la via normal
-                                    // (dispose + Init.VENTANA_INICIO), sin System.exit. El toast
-                                    // persistente lo cierra el finally de este metodo.
+                                    // In the WAITING ROOM (game not started yet) the reconnect loop
+                                    // had no terminal state: the manual dialog is gated on
+                                    // isPartida_empezada (above), and here there's no game state to
+                                    // preserve, nor does that dialog make sense (its buttons assume a
+                                    // live GameFrame) — so a permanently dead host spun the client
+                                    // forever. After the same deadline used in-game we give up
+                                    // cleanly: exit breaks the do-while, the reader queues the close
+                                    // signal, and the consumer returns to the menu the normal way
+                                    // (dispose + Init.VENTANA_INICIO), no System.exit. The persistent
+                                    // toast is closed by this method's finally block.
                                     exit = true;
 
                                 } else {
@@ -1703,18 +1698,18 @@ public class WaitingRoomFrame extends JFrame {
                 }
 
                 if (ok_rec) {
-                    // Telemetría: contador de reconexiones exitosas
-                    // del cliente. Se incrementa SÓLO en la rama positiva
-                    // (la rama de fallo no entra a este if). Mirror del
-                    // Participant.reconnection_count del lado servidor.
+                    // Telemetry: client's successful-reconnection counter. Incremented ONLY on
+                    // the success branch (the failure branch never enters this if). Mirrors
+                    // Participant.reconnection_count on the server side.
                     net_client.incrementReconnectionCount();
 
-                    // Si el ping defensivo del cliente murió por el threshold de PONGs
-                    // perdidos (closeClientSocket+break), reconectar NO lo reinicia solo:
-                    // sin esto el cliente reconectado queda sin keepalive activo (un socket
-                    // nuevo que se quede mudo solo se detectaría por write-fail, o nunca).
-                    // Lo resucitamos tras un reconnect OK si murió; !exit para no arrancarlo
-                    // en teardown. (Análogo a la resurrección del host en resetSocket.)
+                    // If the client's defensive ping died from the missed-PONG threshold
+                    // (closeClientSocket+break), reconnecting does NOT restart it on its own:
+                    // without this the reconnected client is left with no active keepalive (a
+                    // new socket that goes mute would only be caught by a write failure, or
+                    // never). We resurrect it after a successful reconnect if it died; !exit so
+                    // it isn't started during teardown. (Analogous to the host's resurrection in
+                    // resetSocket.)
                     if (!exit && !net_client.isPingPongThreadAlive()) {
                         LOGGER.log(Level.INFO, "Client runPingPongThreadCliente was dead after reconnect — resurrecting");
                         runPingPongThreadCliente();
@@ -1751,21 +1746,20 @@ public class WaitingRoomFrame extends JFrame {
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             } finally {
-                // CRITICO: limpiar reconnecting + despertar a los que esperan DEBE ir en
-                // el finally. reconnecting es el flag en el que se bloquean TODOS los
-                // writes/reads y los getters de clave del cliente (NetClient +
-                // getLocal_client_*_key) con while(reconnecting) wait(); si una excepcion
-                // entre el fin del bucle y este punto (p.ej. yahoo.wav lanzando, o un NPE
-                // al evaluar la condicion del bucle durante el teardown) lo dejaba en true,
-                // el transporte del cliente quedaba colgado para SIEMPRE. El notifyAll se
-                // hace aun dentro de synchronized(getLocalClientSocketLock()).
+                // CRITICAL: clearing reconnecting + waking up waiters MUST happen in the
+                // finally block. reconnecting is the flag that blocks ALL of the client's
+                // writes/reads and key getters (NetClient + getLocal_client_*_key) via
+                // while(reconnecting) wait(); if an exception between the end of the loop and
+                // this point (e.g. yahoo.wav throwing, or an NPE evaluating the loop condition
+                // during teardown) left it true, the client transport would hang FOREVER. The
+                // notifyAll still runs inside synchronized(getLocalClientSocketLock()).
                 net_client.setReconnecting(false);
                 getLocalClientSocketLock().notifyAll();
 
-                // Cierra el indicador persistente en CUALQUIER salida (exito, excepcion, o
-                // fin del bucle por exit/timba terminada). En exito el toast verde ya lo ha
-                // sustituido visualmente; esto ademas evita que un toast magenta quede
-                // colgado tras una excepcion o una salida.
+                // Close the persistent indicator on ANY exit (success, exception, or the loop
+                // ending via exit/game-over). On success the green toast has already replaced
+                // it visually; this also prevents a magenta toast from being left hanging after
+                // an exception or an exit.
                 Helpers.GUIRun(() -> {
                     if (reconnect_notify[0] != null) {
                         reconnect_notify[0].dispose();
@@ -1825,7 +1819,7 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
-    /** Parsea un CSV de base64 (formato del DUALLOCK_BUNDLE) a una lista de byte[]. */
+    /** Parses a base64 CSV (DUALLOCK_BUNDLE format) into a list of byte[]. */
     private static java.util.List<byte[]> csvToBytes(String csv) {
         java.util.List<byte[]> out = new java.util.ArrayList<>();
         if (csv == null || csv.isEmpty()) {
@@ -1857,13 +1851,13 @@ public class WaitingRoomFrame extends JFrame {
 
                     String[] partes_comando = mensaje_recibido.split("#");
 
-                    // Salida LIMPIA iniciada por el host: game over o "detener timba" con
-                    // force_recover llegan como GAME#<id>#SERVEREXIT[RECOVER]; la cancelacion de
-                    // la timba (EXIT) y la expulsion de este cliente (KICKED) llegan como comando
-                    // de nivel superior. En los cuatro casos el host cierra el socket sin esperar
-                    // ACK, asi que marcamos ANTES del null-read para que este no lo tome por una
-                    // caida de red y reconecte: el consumidor ya tiene el frame encolado y hara el
-                    // cierre ordenado.
+                    // CLEAN exit started by the host: game over or "stop game" with force_recover
+                    // arrive as GAME#<id>#SERVEREXIT[RECOVER]; cancelling the game (EXIT) and
+                    // kicking this client (KICKED) arrive as top-level commands. In all four cases
+                    // the host closes the socket without waiting for an ACK, so we flag this
+                    // BEFORE the null-read so it doesn't mistake it for a network drop and
+                    // reconnect: the consumer already has the frame queued and will do the
+                    // ordered shutdown.
                     if (("GAME".equals(partes_comando[0]) && partes_comando.length > 2
                             && ("SERVEREXIT".equals(partes_comando[2]) || "SERVEREXITRECOVER".equals(partes_comando[2])))
                             || "KICKED".equals(partes_comando[0]) || "EXIT".equals(partes_comando[0])) {
@@ -1926,12 +1920,12 @@ public class WaitingRoomFrame extends JFrame {
                         net_client.encolarSenalCierre();
                     }
 
-                    // La tabla anti-repeticion NO se vacia aqui. Justo despues de esto viene
-                    // la reconexion, y lo primero que hace el anfitrion al volver es reenviar
-                    // lo que quedo sin confirmar CON EL MISMO identificador: vaciarla dejaba
-                    // pasar esos comandos por segunda vez, ya aplicados. Es precisamente el
-                    // momento en el que hace falta. Su crecimiento lo acota el tope de nombres
-                    // distintos, igual que en el lado del anfitrion.
+                    // The anti-replay table is NOT cleared here. A reconnect follows right after
+                    // this, and the first thing the host does when it comes back is resend
+                    // whatever was left unconfirmed WITH THE SAME identifier: clearing it would
+                    // let those already-applied commands through a second time. This is exactly
+                    // the moment it's needed for. Its growth is bounded the same way as on the
+                    // host side, by the cap on distinct names.
                 }
 
                 if (mensaje_recibido == null) {
@@ -1942,13 +1936,13 @@ public class WaitingRoomFrame extends JFrame {
                             exit = true;
                         }
                     } else {
-                        // Si ya estábamos saliendo o la reconexión no aplica, aniquilamos el hilo
+                        // If we were already exiting or reconnection doesn't apply, kill the thread
                         exit = true;
                     }
-                    // Si nos rendimos (exit), despertar al consumidor bloqueado en take():
-                    // el único POISON_PILL del null-read ya lo consumió durante el reconnect
-                    // largo, así que sin este pill el hilo consumidor quedaría colgado
-                    // (zombie de teardown).
+                    // If we're giving up (exit), wake the consumer blocked on take(): the single
+                    // POISON_PILL from the null-read was already consumed during the long
+                    // reconnect attempt, so without this pill the consumer thread would hang
+                    // (a teardown zombie).
                     if (exit) {
                         net_client.encolarSenalCierre();
                     }
@@ -1970,9 +1964,9 @@ public class WaitingRoomFrame extends JFrame {
             try {
             while (!exit && WaitingRoomFrame.getInstance() != null) {
 
-                // Si reconectarCliente completo una reconexion durante el ultimo
-                // ciclo, los contadores acumulados contra el socket viejo ya no
-                // aplican. Reseteamos antes de enviar el primer PING al socket nuevo.
+                // If reconectarCliente completed a reconnect during the last cycle, the
+                // counters accumulated against the old socket no longer apply. Reset before
+                // sending the first PING on the new socket.
                 if (net_client.isReset_ping_counters()) {
                     consecutive_ping_failures = 0;
                     ping_write_stall_counter = 0;
@@ -1988,16 +1982,16 @@ public class WaitingRoomFrame extends JFrame {
 
                 long pingStartNs = System.nanoTime();
 
-                // El write del PING va a un hilo del pool con plazo, como el gemelo del
-                // anfitrion (Participant.runPingPongThread). writeCommandToServer es SINCRONO y
-                // retiene local_client_socket_lock durante el os.write, asi que si el servidor
-                // deja de leer, ese write cuelga el hilo del latido para siempre y, con el
-                // candado tomado, tambien todo envio y el propio cierre defensivo. Al agotarse
-                // el plazo varias veces seguidas se cierra el socket para que el reader detecte
-                // el null y arranque la reconexion. El socket se captura ANTES y se cierra por
-                // referencia directa (closeStalledSocket), porque closeClientSocket tomaria el
-                // candado que el write atascado retiene; solo se cierra si sigue siendo el socket
-                // vivo, por si una reconexion lo cambio entretanto.
+                // The PING write goes to a pool thread with a deadline, like the host's twin
+                // (Participant.runPingPongThread). writeCommandToServer is SYNCHRONOUS and holds
+                // local_client_socket_lock during the os.write, so if the server stops reading,
+                // that write hangs the heartbeat thread forever and, with the lock held, every
+                // send and the defensive close itself too. After the deadline is missed several
+                // times in a row, the socket is closed so the reader detects the null and starts
+                // reconnection. The socket is captured BEFORE and closed by direct reference
+                // (closeStalledSocket), because closeClientSocket would take the lock the stuck
+                // write is holding; it's only closed if it's still the live socket, in case a
+                // reconnect swapped it out meanwhile.
                 java.net.Socket ping_socket = net_client.getLocal_client_socket();
                 java.util.concurrent.Future<?> ping_write;
                 try {
@@ -2032,9 +2026,9 @@ public class WaitingRoomFrame extends JFrame {
                 while (!exit && (net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null)
                         && System.currentTimeMillis() < end) {
                     synchronized (ping_pong_lock) {
-                        // Re-check dentro del monitor (igual que runPingPongThread del
-                        // Participant): cierra el missed-notify del PONG y evita
-                        // wait(0)/wait(<0) en la ventana de carrera del tiempo restante.
+                        // Re-check inside the monitor (same as the Participant's
+                        // runPingPongThread): closes the PONG missed-notify race and avoids
+                        // wait(0)/wait(<0) in the remaining-time race window.
                         long remaining = end - System.currentTimeMillis();
                         if ((net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null) && remaining > 0) {
                             try {
@@ -2095,10 +2089,10 @@ public class WaitingRoomFrame extends JFrame {
                                 new Object[]{net_client.getRemote_server_latency(), net_client.getRemote_server_latency2()});
                     }
 
-                    // Red de seguridad: si el socket esta mudo (PONGs perdidos N rondas
-                    // seguidas) cerramos local y dejamos que runSocketReaderClientThread
-                    // detecte el null read y arranque reconectarCliente. La via primaria
-                    // sigue siendo la IOException en write (NetClient.writeCommand).
+                    // Safety net: if the socket is mute (PONGs missed N rounds in a row) we
+                    // close locally and let runSocketReaderClientThread detect the null read
+                    // and start reconectarCliente. The primary path is still the IOException on
+                    // write (NetClient.writeCommand).
                     if (round_ok) {
                         consecutive_ping_failures = 0;
                     } else {
@@ -2107,20 +2101,19 @@ public class WaitingRoomFrame extends JFrame {
                             LOGGER.log(Level.WARNING,
                                     "Client lost {0} consecutive PONGs — closing socket to force reconnect",
                                     consecutive_ping_failures);
-                            // alive=false ANTES de cerrar: así reconectarCliente ve el thread
-                            // muerto y lo resucita. Sin esto, en la ventana break->finally el
-                            // chequeo de resurrección veía alive=true y no relanzaba.
+                            // alive=false BEFORE closing: this way reconectarCliente sees the
+                            // thread as dead and resurrects it. Without this, in the break->finally
+                            // window the resurrection check saw alive=true and never relaunched it.
                             net_client.setPingPongThreadAlive(false);
                             closeClientSocket();
                             break;
                         }
                     }
 
-                    // Telemetría: actualizar también el LatencyDot del
-                    // LocalPlayer del cliente con su propia medición al server
-                    // + su contador de reconexiones. Esto da feedback INMEDIATO
-                    // (no espera al TELEMETRY broadcast del host) sobre la
-                    // calidad del enlace local.
+                    // Telemetry: also update the client's LocalPlayer LatencyDot with its own
+                    // measurement to the server + its reconnection count. This gives IMMEDIATE
+                    // feedback (doesn't wait for the host's TELEMETRY broadcast) on local link
+                    // quality.
                     try {
                         if (GameFrame.getInstance() != null
                                 && GameFrame.getInstance().getLocalPlayer() instanceof LocalPlayer) {
@@ -2130,7 +2123,7 @@ public class WaitingRoomFrame extends JFrame {
                                     net_client.getReconnectionCount());
                         }
                     } catch (Exception ex) {
-                        // Best-effort visualization; no afecta lógica de juego.
+                        // Best-effort visualization; does not affect game logic.
                     }
 
                     Helpers.pausar(PING_INTERVAL_MS);
@@ -2163,11 +2156,11 @@ public class WaitingRoomFrame extends JFrame {
                     net_client.setLocal_client_socket(sock);
                     sock.setTcpNoDelay(true);
                     sock.setKeepAlive(true);
-                    // Cerrojo anti-DoS: si el servidor NO termina el handshake en
-                    // HANDSHAKE_TIMEOUT_MS, los reads bloqueados (pubkey server, session_id,
-                    // NICKOK/intro/chat-history) lanzan SocketTimeoutException y caemos al
-                    // catch en lugar de eternizar el thread. Se RESETEA a 0 mas abajo en
-                    // cuanto el NICKOK ha sido procesado y nuevoParticipante creado.
+                    // Anti-DoS lock: if the server does NOT finish the handshake within
+                    // HANDSHAKE_TIMEOUT_MS, the blocked reads (server pubkey, session_id,
+                    // NICKOK/intro/chat history) throw SocketTimeoutException and we fall into
+                    // the catch instead of starving the thread forever. RESET to 0 further down
+                    // once NICKOK has been processed and nuevoParticipante created.
                     sock.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
 
                     sock.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
@@ -2177,7 +2170,7 @@ public class WaitingRoomFrame extends JFrame {
                         status.setText(Translator.translate("status.intercambio_claves"));
                     });
 
-                    /* INICIO INTERCAMBIO DE CLAVES LIMPIO */
+                    /* CLEAN KEY EXCHANGE START */
                     KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
                     clientKpairGen.initialize(EC_KEY_LENGTH);
                     KeyPair clientKpair = clientKpairGen.generateKeyPair();
@@ -2217,7 +2210,7 @@ public class WaitingRoomFrame extends JFrame {
                     net_client.setLocal_client_aes_key(aesKey);
                     net_client.setLocal_client_hmac_key(hmacKey);
                     net_client.setLocal_client_hmac_key_orig(hmacKey);
-                    /* FIN INTERCAMBIO DE CLAVES */
+                    /* KEY EXCHANGE END */
 
                     byte[] avatar_bytes = null;
                     if (local_avatar != null && local_avatar.length() > 0) {
@@ -2291,9 +2284,9 @@ public class WaitingRoomFrame extends JFrame {
 
                             gameinfo_original = new String(Base64.getDecoder().decode(partes[2].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8");
 
-                            // Cuarto campo (opcional) del NICKOK: espejo COMPLETO de la config
-                            // para la pestaña Partida en solo-lectura. Solo se guarda (NO se
-                            // escribe GameFrame.*); la config real llega en el INIT al arrancar.
+                            // NICKOK's fourth (optional) field: FULL config mirror for the
+                            // read-only Game tab. Only stored (GameFrame.* is NOT written here);
+                            // the real config arrives in the INIT at startup.
                             if (partes.length > 3) {
                                 GAMECONFIG_MIRROR = new String(Base64.getDecoder().decode(partes[3].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8");
                             }
@@ -2358,9 +2351,9 @@ public class WaitingRoomFrame extends JFrame {
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
-                            // Handshake completado: los reads subsiguientes del cliente (GAME,
-                            // PING/PONG, chat) deben poder esperar indefinido. Quitamos el deadline
-                            // de handshake. La reconexion gestiona su propio timeout en su flujo.
+                            // Handshake complete: the client's subsequent reads (GAME, PING/PONG,
+                            // chat) must be able to wait indefinitely. Clear the handshake
+                            // deadline. Reconnection manages its own timeout in its own flow.
                             try {
                                 Socket localSock = net_client.getLocal_client_socket();
                                 if (localSock != null && !localSock.isClosed()) {
@@ -2426,9 +2419,9 @@ public class WaitingRoomFrame extends JFrame {
                                     try {
                                     switch (partes_comando[0]) {
                                         case "PING":
-                                            // Con la misma red que su gemelo del bucle de la partida: un
-                                            // latido al que le falte el numero, o que no lo sea, ya no se
-                                            // lleva por delante al cliente que esta en la sala.
+                                            // Same safety net as its twin in the in-game loop: a heartbeat
+                                            // missing its counter, or with a non-numeric one, no longer
+                                            // takes down the client sitting in the waiting room.
                                             if (partes_comando.length >= 2) {
                                                 try {
                                                     writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
@@ -2452,14 +2445,14 @@ public class WaitingRoomFrame extends JFrame {
                                             break;
 
                                         case "NEWPASS":
-                                            // El anfitrion ha cambiado la contrasena de la sala (al expulsar a
-                                            // alguien, al cambiarla a mano, al generar una fuerte o al
-                                            // quitarla) y nos manda la nueva. Sin esto nos quedabamos con la
-                                            // vieja, y como el canal se deriva de ella, una caida de red
-                                            // significaba no poder volver a entrar. El centinela "*" es
-                                            // "ya no hay contrasena", que tambien cambia como se deriva el
-                                            // canal. Llega por el canal ya cifrado con las claves de esta
-                                            // sesion, que no dependen de que la contrasena cambie.
+                                            // The host changed the room password (kicking someone, changing
+                                            // it by hand, generating a strong one, or clearing it) and sends
+                                            // us the new one. Without this we'd be stuck with the old one,
+                                            // and since the channel is derived from it, a network drop would
+                                            // mean we could never rejoin. The "*" sentinel means "no password
+                                            // anymore", which also changes how the channel is derived.
+                                            // Arrives over the channel already encrypted with this session's
+                                            // keys, which don't depend on the password changing.
                                             if (partes_comando.length > 1) {
                                                 try {
                                                     password = "*".equals(partes_comando[1])
@@ -2482,9 +2475,9 @@ public class WaitingRoomFrame extends JFrame {
                                             }
 
                                             if (!net_client.getCliente_last_received().containsKey(subcomando) || !net_client.getCliente_last_received().get(subcomando).equals(id)) {
-                                                // Mismo tope que en el lado del anfitrion: la clave es el
-                                                // nombre del subcomando, que lo elige quien manda, asi que
-                                                // sin cota un anfitrion hostil hace crecer esta tabla sin fin.
+                                                // Same cap as on the host side: the key is the subcommand
+                                                // name, which the sender chooses, so without a bound a hostile
+                                                // host could grow this table without limit.
                                                 if (net_client.getCliente_last_received().size() >= Participant.MAX_DEDUP_SUBCOMMANDS) {
                                                     LOGGER.log(Level.WARNING,
                                                             "Client de-dup table hit {0} distinct subcommands — clearing it",
@@ -2498,20 +2491,19 @@ public class WaitingRoomFrame extends JFrame {
                                                             final String[] partes_cascade = partes_comando;
                                                             Helpers.threadRun(() -> {
                                                                 try {
-                                                                    // ZERO-TRUST: si ya cazamos una trampa de este host en esta
-                                                                    // sesión, nunca más generamos una clave para él. La
-                                                                    // promesa zero-trust ("si detectamos trampa, no entregamos
-                                                                    // más claves") sólo se cumple si el lockdown es un gate
-                                                                    // duro, no sólo un popup.
+                                                                    // ZERO-TRUST: if we've already caught this host cheating this
+                                                                    // session, never generate a key for it again. The zero-trust
+                                                                    // promise ("once we detect cheating, we hand out no more keys")
+                                                                    // only holds if the lockdown is a hard gate, not just a popup.
                                                                     if (Crupier.SECURITY_LOCKDOWN) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ refused — security lockdown active");
                                                                         return;
                                                                     }
-                                                                    // ZERO-TRUST: refuse cascade mid-hand. Si ya tenemos un
-                                                                    // MEGAPACKET activo, aceptar un nuevo cascade sobreescribiría
-                                                                    // nuestro sra_unlock y destruiría la mano en curso. Un host
-                                                                    // honesto NUNCA pide DECK_CASCADE_REQ después del MEGAPACKET
-                                                                    // hasta NUEVA_MANO (que limpia local_mega_packet a null).
+                                                                    // ZERO-TRUST: refuse cascade mid-hand. If we already have an
+                                                                    // active MEGAPACKET, accepting a new cascade would overwrite our
+                                                                    // sra_unlock and destroy the hand in progress. An honest host
+                                                                    // NEVER requests DECK_CASCADE_REQ after the MEGAPACKET until
+                                                                    // NUEVA_MANO (which clears local_mega_packet to null).
                                                                     Crupier crupierCheck = GameFrame.getInstance().getCrupier();
                                                                     if (crupierCheck != null && crupierCheck.hasMegaPacket()) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received mid-hand (MEGAPACKET already locked) — refusing to overwrite my sra_unlock");
@@ -2519,8 +2511,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                         return;
                                                                     }
 
-                                                                    // ZERO-TRUST: wire con menos campos de los que leemos (partes_cascade[3])
-                                                                    // -> rechazar limpio en vez de AIOOBE, igual que el hermano DECK_ROTATION_REQ.
+                                                                    // ZERO-TRUST: wire with fewer fields than we read (partes_cascade[3])
+                                                                    // -> reject cleanly instead of AIOOBE, same as sibling DECK_ROTATION_REQ.
                                                                     if (partes_cascade.length < 4) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ malformed wire (parts={0}) — refusing", partes_cascade.length);
                                                                         return;
@@ -2528,24 +2520,24 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                     byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
 
-                                                                    // Dual-lock (Opción G): el cliente necesita el Crupier para guardar
-                                                                    // el lock community que aplicará durante la fase de rotación. Si por
-                                                                    // alguna razón el Crupier no existe aún, refusar — un host sano nunca
-                                                                    // pide DECK_CASCADE_REQ antes de que el cliente tenga Crupier.
+                                                                    // Dual-lock (Option G): the client needs the Crupier to store the
+                                                                    // community lock it will apply during the rotation phase. If for
+                                                                    // some reason the Crupier doesn't exist yet, refuse — a sane host
+                                                                    // never sends DECK_CASCADE_REQ before the client has a Crupier.
                                                                     if (crupierCheck == null) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received before Crupier exists — refusing");
                                                                         return;
                                                                     }
 
-                                                                    // ZERO-TRUST: el host nos pide aplicar nuestro lock al deck que envía.
-                                                                    // Si el deck no son 52 puntos válidos de Curve25519, es basura
-                                                                    // (downgrade del host: enviarnos bytes inválidos para que gastemos
-                                                                    // nuestro shuffle/lock sobre datos no recuperables, o smuggling).
-                                                                    // Rechazar antes de comprometer nuestro sra_unlock recién generado.
-                                                                    // decodeDeck valida (52 puntos exactos + cada uno en curva/canónico) en UN
-                                                                    // decode y nos deja los puntos (incomingPoints) para reutilizarlos en el
-                                                                    // lock. Se mantiene AQUÍ, antes de generar/guardar los scalars, para
-                                                                    // rechazar un deck basura sin comprometer el sra_unlock recién generado.
+                                                                    // ZERO-TRUST: the host asks us to apply our lock to the deck it
+                                                                    // sends. If the deck isn't 52 valid Curve25519 points, it's garbage
+                                                                    // (host downgrade: sending us invalid bytes so we waste our
+                                                                    // shuffle/lock on unrecoverable data, or smuggling). Reject before
+                                                                    // committing our freshly generated sra_unlock. decodeDeck validates
+                                                                    // (exactly 52 points, each on-curve/canonical) in a SINGLE decode and
+                                                                    // hands us the points (incomingPoints) to reuse for the lock. Kept
+                                                                    // HERE, before generating/storing the scalars, to reject a garbage
+                                                                    // deck without committing our freshly generated sra_unlock.
                                                                     com.tonikelope.coronapoker.crypto.EdwardsPoint[] incomingPoints =
                                                                             (incomingDeck != null && incomingDeck.length == 1664)
                                                                                     ? com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingDeck) : null;
@@ -2560,21 +2552,21 @@ public class WaitingRoomFrame extends JFrame {
                                                                     byte[] unlockScalar = RistrettoSRA.getUnlockScalar(lockScalar);
                                                                     this.participantes.get(local_nick).setSra_unlock(unlockScalar);
 
-                                                                    // Dual-lock (Opción G): segundo par de scalars para la rotación de
-                                                                    // community pieces que vendrá después de la cascade. Se guardan en
-                                                                    // el Crupier para que el handler de DECK_ROTATION_REQ los recupere
-                                                                    // sin tener que pedir más entropía nueva entonces.
+                                                                    // Dual-lock (Option G): second pair of scalars for the community
+                                                                    // pieces rotation that will come after the cascade. Stored on the
+                                                                    // Crupier so the DECK_ROTATION_REQ handler can retrieve them without
+                                                                    // needing to request fresh entropy at that point.
                                                                     byte[] communityLockScalar = RistrettoSRA.generateLockScalar();
                                                                     byte[] communityUnlockScalar = RistrettoSRA.getUnlockScalar(communityLockScalar);
                                                                     crupierCheck.local_sra_lock_community = communityLockScalar;
                                                                     crupierCheck.local_sra_unlock_community = communityUnlockScalar;
                                                                     this.participantes.get(local_nick).setSra_unlock_community(communityUnlockScalar);
-                                                                    // Anti-replay: nueva cascada (o reintento legítimo) habilita UNA
-                                                                    // rotación. Una segunda rotación sin pasar por aquí será rechazada.
+                                                                    // Anti-replay: a new cascade (or legitimate retry) enables ONE
+                                                                    // rotation. A second rotation without going through here is rejected.
                                                                     crupierCheck.rotation_served_this_cascade = false;
 
-                                                                    // Lock sobre los puntos ya decodificados y validados arriba (incomingPoints):
-                                                                    // bytes idénticos a applyCommutativeLock(incomingDeck, lockScalar), sin re-decodificar.
+                                                                    // Lock over the points already decoded and validated above (incomingPoints):
+                                                                    // bytes identical to applyCommutativeLock(incomingDeck, lockScalar), no re-decoding.
                                                                     byte[] locked = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(
                                                                             RistrettoSRA.lockPoints(incomingPoints, lockScalar));
 
@@ -2591,29 +2583,30 @@ public class WaitingRoomFrame extends JFrame {
                                                                     Helpers.CSPRNG_GENERATOR.nextBytes(mySeed);
                                                                     byte[] shuffled = DeterministicShuffle.shuffleDeck(locked, mySeed);
 
-                                                                    // (last-mile lockdown re-check eliminado — ver nota
-                                                                    // equivalente en REQ_SRA_UNLOCK. La gate al inicio del
-                                                                    // handler ya impide procesar requests nuevas
-                                                                    // post-lockdown. Mantenerla aquí dejaba al host colgado
-                                                                    // indefinidamente cuando un duplicate concurrente
-                                                                    // disparaba lockdown durante el procesamiento de la
-                                                                    // request legítima.)
+                                                                    // (last-mile lockdown re-check removed — see the equivalent note
+                                                                    // in REQ_SRA_UNLOCK. The gate at the top of the handler already
+                                                                    // stops new requests from being processed post-lockdown. Keeping
+                                                                    // it here left the host hanging indefinitely when a concurrent
+                                                                    // duplicate triggered lockdown while the legitimate request was
+                                                                    // being processed.)
 
                                                                     String b64Deck = Base64.getEncoder().encodeToString(shuffled);
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
 
                                                                     int respId = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    // Enviar los commitments K=k*B (pocket y community) junto al
-                                                                    // deck cascadeado, para que el host los agregue y se anclen en H_0.
+                                                                    // Send the K=k*B commitments (pocket and community) along with the
+                                                                    // cascaded deck, so the host can aggregate them and anchor them in H_0.
                                                                     String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
                                                                     String kCommunityB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(communityLockScalar));
-                                                                    // B1: mandar el RESP con la baraja + commitments YA (sin la prueba), para
-                                                                    // que el host NO espere el prove (132/377/8900 ms) DENTRO del reparto. La prueba
-                                                                    // de barajado (deckOut = shuffle(k·deckIn)) viaja aparte, ASYNC, en un
-                                                                    // DECK_CASCADE_PROOF emparejado por hash(deckOut) (ver Crupier.collectAsyncCascadeProofs).
-                                                                    // El host la agrega a la cadena que TODOS verifican, así un host modificado no
-                                                                    // puede colar una carta. Si su generación falla o no llega a tiempo, el host la
-                                                                    // trata como ausente (degradación = peer proofless de hoy, sin enforcement).
+                                                                    // B1: send the RESP with the deck + commitments RIGHT AWAY (without
+                                                                    // the proof), so the host does NOT wait for the prove step (132/377/8900
+                                                                    // ms) INSIDE the deal. The shuffle proof (deckOut = shuffle(k·deckIn))
+                                                                    // travels separately, ASYNC, in a DECK_CASCADE_PROOF matched by
+                                                                    // hash(deckOut) (see Crupier.collectAsyncCascadeProofs). The host appends
+                                                                    // it to the chain that EVERYONE verifies, so a modified host cannot slip
+                                                                    // a card in. If generating it fails or it doesn't arrive in time, the
+                                                                    // host treats it as absent (degrades to today's proofless-peer case, no
+                                                                    // enforcement).
                                                                     writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                     try {
                                                                         int myPermN = incomingDeck.length / 32;
@@ -2636,11 +2629,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             break;
 
                                                         case "DECK_ROTATION_REQ":
-                                                            // Dual-lock (Opción G): tras la cascade principal, el host pide a cada
-                                                            // peer en orden que aplique sobre las community pieces uPocket (quita su
-                                                            // lock pocket) + kCommunity (añade su lock community). Resultado: las
-                                                            // community pieces quedan cifradas SOLO con scalars de community y su
-                                                            // unlock se entrega luego separadamente del de pocket.
+                                                            // Dual-lock (Option G): after the main cascade, the host asks each peer
+                                                            // in order to apply uPocket (remove its pocket lock) + kCommunity (add
+                                                            // its community lock) to the community pieces. Result: the community
+                                                            // pieces end up encrypted ONLY with community scalars, and their unlock
+                                                            // is delivered later, separately from the pocket unlock.
                                                             final String[] partes_rotation = partes_comando;
                                                             Helpers.threadRun(() -> {
                                                                 try {
@@ -2654,24 +2647,24 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without community lock (Crupier or local_sra_lock_community null) — refusing");
                                                                         return;
                                                                     }
-                                                                    // Anti-replay: solo UNA rotación por cascada. Una segunda sin
-                                                                    // nueva cascada = host hostil usando la rotación como oráculo de
-                                                                    // pocket-unlock encubierto (intento de leer cartas de un peer que sale).
+                                                                    // Anti-replay: only ONE rotation per cascade. A second one without
+                                                                    // a new cascade = a hostile host using the rotation as a covert
+                                                                    // pocket-unlock oracle (attempting to read a departing peer's cards).
                                                                     if (crupierRot.rotation_served_this_cascade) {
-                                                                        // No es fatal: rechazamos la rotación extra (el oráculo no obtiene
-                                                                        // nada) y la partida PUEDE continuar con la rotación legítima ya
-                                                                        // servida. Política: avisar + continuar (presumiendo buena fe), no
-                                                                        // congelar. El usuario decide si abandona.
+                                                                        // Not fatal: we reject the extra rotation (the oracle gets nothing)
+                                                                        // and the game CAN continue with the legitimate rotation already
+                                                                        // served. Policy: warn + continue (assuming good faith), don't
+                                                                        // freeze. The user decides whether to leave.
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ replay (2nd rotation this cascade) — refusing extra rotation, warning user (game may continue)");
                                                                         crupierRot.warnSuspiciousHost(Translator.translate("zero_trust.host_rotation_replay"));
                                                                         return;
                                                                     }
-                                                                    // El unlock pocket del cliente vive en el Participant local (la cascade
-                                                                    // handler lo guarda ahí, no en el Crupier — la mitad pocket no se
-                                                                    // "publica" en Crupier hasta que el MEGAPACKET llega y el cliente
-                                                                    // lo copia desde Participant). Para la rotación necesitamos uPocket
-                                                                    // (quitar nuestro lock pocket) + kCommunity (añadir nuestro lock
-                                                                    // community), así que leemos uPocket del Participant directamente.
+                                                                    // The client's pocket unlock lives on the local Participant (the
+                                                                    // cascade handler stores it there, not on the Crupier — the pocket
+                                                                    // half isn't "published" to the Crupier until the MEGAPACKET arrives
+                                                                    // and the client copies it from Participant). For the rotation we
+                                                                    // need uPocket (remove our pocket lock) + kCommunity (add our
+                                                                    // community lock), so we read uPocket straight from Participant.
                                                                     byte[] myPocketUnlock = this.participantes.get(local_nick).getSra_unlock();
                                                                     if (myPocketUnlock == null) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without local pocket unlock (Participant.sra_unlock null) — refusing");
@@ -2682,11 +2675,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                         return;
                                                                     }
                                                                     byte[] incomingPieces = Base64.getDecoder().decode(partes_rotation[3]);
-                                                                    // ZERO-TRUST: decodeDeck valida en UN solo decode que el payload es un
-                                                                    // múltiplo de 32 bytes y que cada punto está en la curva / es canónico
-                                                                    // (null si no); reutilizamos esos puntos (inR) para el lock y la prueba
-                                                                    // sin re-decodificar. La longitud exacta depende del ring del host; no
-                                                                    // la re-derivamos, pero un payload no-curve es siempre rechazado.
+                                                                    // ZERO-TRUST: decodeDeck validates in a SINGLE decode that the
+                                                                    // payload is a multiple of 32 bytes and each point is on-curve /
+                                                                    // canonical (null otherwise); we reuse those points (inR) for the
+                                                                    // lock and the proof without re-decoding. The exact length depends
+                                                                    // on the host's ring; we don't re-derive it, but a non-curve payload
+                                                                    // is always rejected.
                                                                     com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR =
                                                                             com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingPieces);
                                                                     if (inR == null) {
@@ -2695,22 +2689,23 @@ public class WaitingRoomFrame extends JFrame {
                                                                         crupierRot.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                         return;
                                                                     }
-                                                                    // Rotación en UN solo lock: uPocket luego kCommunity = multiplicar por
-                                                                    // s = uPocket*kCommunity (mod L). Trabajamos sobre los puntos ya
-                                                                    // decodificados (inR); el resultado permanece en la curva y sus bytes
-                                                                    // son idénticos a applyCommutativeLock. El mismo s firma la prueba.
+                                                                    // Rotation in ONE lock: uPocket then kCommunity = multiply by
+                                                                    // s = uPocket*kCommunity (mod L). We work on the points already
+                                                                    // decoded (inR); the result stays on-curve and its bytes are
+                                                                    // identical to applyCommutativeLock. The same s signs the proof.
                                                                     java.math.BigInteger sRot = RistrettoSRA.bytesToScalar(myPocketUnlock)
                                                                             .multiply(RistrettoSRA.bytesToScalar(crupierRot.local_sra_lock_community))
                                                                             .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
                                                                     com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR =
                                                                             RistrettoSRA.lockPoints(inR, RistrettoSRA.scalarToBytes(sRot));
                                                                     byte[] rotated = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(outR);
-                                                                    // Rotación servida: cualquier otra esta cascada se rechaza (anti-replay).
+                                                                    // Rotation served: any other one this cascade gets rejected (anti-replay).
                                                                     crupierRot.rotation_served_this_cascade = true;
 
-                                                                    // Cierre del flanco rotacion: pruebo que mi paso es un re-key en sitio honesto
-                                                                    // (out[i]=s*in[i], s=uPocket*kCommunity), sin relocalizar ni duplicar. El host
-                                                                    // lo anexa al bundle para que todos verifiquen la cadena genesis->MEGAPACKET.
+                                                                    // Closing the rotation flank: proves our step is an honest in-place
+                                                                    // re-key (out[i]=s*in[i], s=uPocket*kCommunity), with no relocation or
+                                                                    // duplication. The host appends it to the bundle so everyone can
+                                                                    // verify the genesis->MEGAPACKET chain.
                                                                     String rotProofB64 = "";
                                                                     try {
                                                                         byte[] rp = com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
@@ -2719,7 +2714,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             rotProofB64 = Base64.getEncoder().encodeToString(rp);
                                                                         }
                                                                     } catch (Exception rotProofEx) {
-                                                                        rotProofB64 = ""; // sin prueba -> el host marca el paso como remoto-pendiente, no rompe nada
+                                                                        rotProofB64 = ""; // no proof -> host marks the step as remote-pending, nothing breaks
                                                                     }
 
                                                                     String b64Rot = Base64.getEncoder().encodeToString(rotated);
@@ -2733,38 +2728,42 @@ public class WaitingRoomFrame extends JFrame {
                                                             break;
 
                                                         case "DUALLOCK_BUNDLE":
-                                                            // Cada peer verifica POR SU CUENTA que el reparto es un
-                                                            // barajado+rotacion honesto genesis->MEGAPACKET. pocketCount se deriva
-                                                            // LOCAL (active_crypto_ring.length*2), NUNCA del host, y el genesis se
-                                                            // recomputa. Si falla -> avisar+recomendar salir pero PERMITIR seguir
-                                                            // (por si es bug), no abort duro. Background, no toca UI.
+                                                            // Each peer verifies ON ITS OWN that the deal is an honest
+                                                            // shuffle+rotation genesis->MEGAPACKET. pocketCount is derived
+                                                            // LOCALLY (active_crypto_ring.length*2), NEVER from the host, and the
+                                                            // genesis is recomputed. On failure -> warn+recommend leaving but
+                                                            // ALLOW continuing (in case it's a bug), no hard abort. Background,
+                                                            // doesn't touch the UI.
                                                             final String[] partes_bundle = partes_comando;
                                                             Helpers.threadRun(() -> {
                                                                 Crupier cruB = GameFrame.getInstance().getCrupier();
-                                                                // Estado aun no listo (carrera con el procesado del MEGAPACKET): NO es
-                                                                // sospechoso, lo ignoramos sin avisar.
+                                                                // State not ready yet (race with MEGAPACKET processing): NOT
+                                                                // suspicious, ignore silently.
                                                                 if (cruB == null || cruB.local_mega_packet == null || cruB.active_crypto_ring == null) {
                                                                     return;
                                                                 }
-                                                                // Un bundle para este mazo LLEGO del host: marcalo antes de parsear/verificar.
-                                                                // Distingue en el recibo el peer lento (recibido, cola pendiente -> benigno) del
-                                                                // host que no manda la prueba (received != mazo vivo -> aviso a la mesa). Aunque
-                                                                // venga malformado/no parseable, el host mando ALGO -> cuenta como recibido (esos
-                                                                // casos ya disparan su propio warnSuspiciousHost en vivo mas abajo).
+                                                                // A bundle for this deck ARRIVED from the host: mark it before
+                                                                // parsing/verifying. This distinguishes, on receipt, a slow peer
+                                                                // (received, queue pending -> benign) from a host that never sends the
+                                                                // proof (received != live deck -> warn the table). Even if it arrives
+                                                                // malformed/unparseable, the host sent SOMETHING -> counts as received
+                                                                // (those cases already trigger their own warnSuspiciousHost live below).
                                                                 cruB.dual_lock_bundle_received_for = cruB.local_mega_packet;
-                                                                // Un bundle RECIBIDO pero malformado (canal AES+HMAC -> vino del host
-                                                                // intacto) es anomalo: un host honesto siempre manda 7 campos validos.
+                                                                // A bundle that was RECEIVED but malformed (AES+HMAC channel -> came
+                                                                // from the host intact) is anomalous: an honest host always sends 7
+                                                                // valid fields.
                                                                 if (partes_bundle.length < 7) {
                                                                     LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformed (fields={0}) — warning user", partes_bundle.length);
                                                                     cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                     return;
                                                                 }
                                                                 try {
-                                                                    // SNAPSHOT inmutable de ESTE mazo+bundle y a la cola serial. El verify
-                                                                    // corre contra este snapshot, NO contra el local_mega_packet vivo: una
-                                                                    // mano nueva ya no puede clobbear la verificacion de esta, y un equipo
-                                                                    // lento la termina igual aunque la mano haya avanzado (cazando un
-                                                                    // smuggle pasado). El veredicto vuelve por el Sink (ver Crupier).
+                                                                    // Immutable SNAPSHOT of THIS deck+bundle, queued serially. The
+                                                                    // verify runs against this snapshot, NOT against the live
+                                                                    // local_mega_packet: a new hand can no longer clobber this
+                                                                    // verification, and a slow team still finishes it even if the hand
+                                                                    // has moved on (catching a past smuggle). The verdict comes back
+                                                                    // through the Sink (see Crupier).
                                                                     byte[] genesisB = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck();
                                                                     int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
                                                                     ShuffleVerificationQueue.Job job = new ShuffleVerificationQueue.Job(
@@ -2774,9 +2773,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                             cruB.getMano());
                                                                     cruB.getShuffleVerifyQueue().enqueue(job);
                                                                 } catch (Exception bundleEx) {
-                                                                    // No parseable (base64 invalido, etc.) = anomalo pero ambiguo -> avisar.
-                                                                    // (Solo los jobs que SI parsean y fallan la prueba se reportan como
-                                                                    // "deshonesto probado" desde la cola; esto es solo malformacion.)
+                                                                    // Unparseable (invalid base64, etc.) = anomalous but ambiguous -> warn.
+                                                                    // (Only jobs that DO parse and then fail the proof are reported as
+                                                                    // "proven dishonest" from the queue; this is just malformation.)
                                                                     LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE unparseable — warning user", bundleEx);
                                                                     cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                 }
@@ -2784,11 +2783,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             break;
 
                                                         case "REQ_SRA_UNLOCK_CHAIN":
-                                                            // Unlock batch VERIFICABLE. Por cada punto, el host envia la
-                                                            // cadena DealChain de los peers previos; este peer la verifica contra SU
-                                                            // MEGAPACKET comprometido y, si es valida, aplica su unlock con prueba
-                                                            // DLEQ y extiende la cadena. El host nunca le manda el punto a descifrar
-                                                            // (solo offset + pruebas), asi que el cegado es imposible.
+                                                            // VERIFIABLE unlock batch. For each point, the host sends the
+                                                            // DealChain of previous peers; this peer verifies it against ITS
+                                                            // committed MEGAPACKET and, if valid, applies its unlock with a DLEQ
+                                                            // proof and extends the chain. The host never sends it the point to
+                                                            // decrypt (only offset + proofs), so blinding is impossible.
                                                             final String[] partes_chain = partes_comando;
                                                             Helpers.threadRun(() -> {
                                                                 try {
@@ -2817,10 +2816,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     Crupier.UnlockWaitResult waitResult = crupier.awaitStreetForUnlockPhase(phase, hand_id, Crupier.UNLOCK_WAIT_TIMEOUT_MS);
                                                                     if (waitResult != Crupier.UnlockWaitResult.READY) {
                                                                         if (waitResult == Crupier.UnlockWaitResult.TIMEOUT) {
-                                                                            // Politica: un TIMEOUT es evidencia ambigua (host fuera de orden O simple lag de
-                                                                            // red, indistinguibles). La operacion YA se rechaza (return abajo), asi que no
-                                                                            // perdemos proteccion; bajamos de lockdown a SOFT-WARN (avisar+recomendar salir
-                                                                            // pero permitir seguir) en vez de terminar la partida por algo que podria ser lag.
+                                                                            // Policy: a TIMEOUT is ambiguous evidence (host out of order OR plain
+                                                                            // network lag, indistinguishable). The operation is ALREADY rejected
+                                                                            // (return below), so we lose no protection; we downgrade from
+                                                                            // lockdown to SOFT-WARN (warn+recommend leaving but allow continuing)
+                                                                            // instead of ending the game over something that could be lag.
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order or lag, refusing + warning", phase);
                                                                             crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_unlock_out_of_order"));
                                                                         }
@@ -2830,8 +2830,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK_CHAIN: hand advanced — dropping");
                                                                         return;
                                                                     }
-                                                                    // POCKET_STRADDLE (desbloqueo diferido del straddler) usa la mitad
-                                                                    // POCKET, igual que POCKET: se pela mi pocket-lock del slot del straddler.
+                                                                    // POCKET_STRADDLE (the straddler's deferred unlock) uses the POCKET
+                                                                    // half, same as POCKET: strips my pocket-lock from the straddler's slot.
                                                                     boolean pocketPhase = (phase == Crupier.UNLOCK_PHASE_POCKET
                                                                             || phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE);
                                                                     byte[] myUnlock = pocketPhase
@@ -2850,34 +2850,39 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
                                                                         return;
                                                                     }
-                                                                    // GATE "exigir prueba": voy a ayudar a revelar community = la ventana
-                                                                    // donde se leeria una carta colada. Si este mazo viene de un reparto FRESCO que NO he
-                                                                    // verificado como barajado honesto (el host no mando el bundle, o llego mal), aviso UNA
-                                                                    // vez. Avisar-pero-permitir: podria ser un bug/retraso de red -> recomiendo salir pero
-                                                                    // dejo seguir (no rompo la mano). El bundle llega ~1s tras repartir, mucho antes del
-                                                                    // primer unlock community -> cero falsos positivos. Recover no marca expect -> no avisa.
+                                                                    // "require proof" GATE: I'm about to help reveal community = the window
+                                                                    // where a smuggled card would be read. If this deck comes from a FRESH
+                                                                    // deal I have NOT verified as an honest shuffle (the host never sent
+                                                                    // the bundle, or it arrived broken), warn ONCE. Warn-but-allow: could be
+                                                                    // a bug/network delay -> recommend leaving but let it continue (don't
+                                                                    // break the hand). The bundle arrives ~1s after dealing, well before the
+                                                                    // first community unlock -> zero false positives. Recover doesn't mark
+                                                                    // expect -> no warning.
                                                                     if (Crupier.shouldWarnMissingShuffleProof(phase, megapacket,
                                                                             crupier.dual_lock_expect_bundle_for, crupier.dual_lock_verified_megapacket,
                                                                             crupier.dual_lock_warned_megapacket)) {
                                                                         crupier.dual_lock_warned_megapacket = megapacket;
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: revealing community without a verified honest-shuffle proof for this deck — red log entry + popup");
-                                                                        // Se sirve el unlock (la mano se juega: cartas ya repartidas). NO se bloquea
-                                                                        // ni se fuerza salida: se registra en rojo + popup (una vez por partida).
+                                                                        // The unlock is still served (the hand is being played: cards already
+                                                                        // dealt). NOT blocked or forced to exit: logged in red + popup (once
+                                                                        // per game).
                                                                         crupier.warnDeckUnverified();
                                                                     }
                                                                     java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
                                                                     if (items == null) {
-                                                                        // Malformacion ESTRUCTURAL (no parsea) -> casi seguro bug/version-mismatch.
-                                                                        // La op ya se rechaza (return); SILENT-REFUSE, no lockdown. Coherente con el
-                                                                        // gemelo malformado de este mismo handler (wire < 6 campos, tambien silent).
+                                                                        // STRUCTURAL malformation (fails to parse) -> almost certainly a
+                                                                        // bug/version mismatch. The op is already rejected (return);
+                                                                        // SILENT-REFUSE, no lockdown. Consistent with this same handler's
+                                                                        // malformed-wire twin (< 6 fields, also silent).
                                                                         LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK_CHAIN malformed items — refusing (silent: likely a bug)");
                                                                         return;
                                                                     }
-                                                                    // Mi propio slot en el ring: NUNCA debo pelar mi lock de MI pocket
-                                                                    // (megapacket[mySlot*2], [mySlot*2+1]). El host controla offsetBase
-                                                                    // independientemente de peerIdx, asi que el guard correcto es sobre el
-                                                                    // PUNTO pelado (pointIdx), no sobre la etiqueta peerIdx: si no, un host
-                                                                    // hostil manda peerIdx=otro + offsetBase=mySlot*2 y me saca mis cartas.
+                                                                    // My own slot in the ring: I must NEVER strip my own lock from MY
+                                                                    // pocket (megapacket[mySlot*2], [mySlot*2+1]). The host controls
+                                                                    // offsetBase independently of peerIdx, so the correct guard is on the
+                                                                    // stripped POINT (pointIdx), not on the peerIdx label: otherwise a
+                                                                    // hostile host sends peerIdx=someone-else + offsetBase=mySlot*2 and
+                                                                    // extracts my cards.
                                                                     int mySlot = -1;
                                                                     for (int s = 0; s < ring.length; s++) {
                                                                         if (ring[s].equals(local_nick)) {
@@ -2885,17 +2890,20 @@ public class WaitingRoomFrame extends JFrame {
                                                                             break;
                                                                         }
                                                                     }
-                                                                    // ANTI "ver el board futuro": en una fase COMMUNITY, el slot que el host me
-                                                                    // pide pelar DEBE caer en los slots que ESA fase puede tocar (derivados LOCAL:
-                                                                    // ver Crupier.communitySlotRange). El host controla offsetBase; si pide un slot
-                                                                    // de otra calle (turn/river durante el flop) está leyendo el board antes de
-                                                                    // tiempo -> ataque contra mí -> lockdown. POCKET (commRange==null) ya lo cubren
-                                                                    // el espacio de escalar disjunto + el self-strip de abajo.
+                                                                    // ANTI "peek at the future board": in a COMMUNITY phase, the slot the
+                                                                    // host asks me to strip MUST fall within the slots THAT phase is
+                                                                    // allowed to touch (derived LOCALLY: see Crupier.communitySlotRange).
+                                                                    // The host controls offsetBase; if it asks for a slot from another
+                                                                    // street (turn/river during the flop) it's reading the board ahead of
+                                                                    // time -> an attack on me -> lockdown. POCKET (commRange==null) is
+                                                                    // already covered by the disjoint scalar space + the self-strip check
+                                                                    // below.
                                                                     final int[] commRange = Crupier.communitySlotRange(phase, ring.length);
-                                                                    // Straddle ciego: en POCKET_STRADDLE el ÚNICO slot que puedo pelar es el del
-                                                                    // straddler cuya decisión FIRMADA verifiqué. El state gate ya exigió que hubiera
-                                                                    // una decisión verificada; aquí ato el slot: si el host pide otro slot bajo esta
-                                                                    // phase está intentando extraer un pocket ajeno -> lockdown.
+                                                                    // Blind straddle: under POCKET_STRADDLE the ONLY slot I may strip is
+                                                                    // the straddler's, whose SIGNED decision I verified. The state gate
+                                                                    // already required a verified decision to exist; here I pin the slot:
+                                                                    // if the host asks for a different slot under this phase, it's trying
+                                                                    // to extract someone else's pocket -> lockdown.
                                                                     int straddlePocketSlot = -1;
                                                                     if (phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE) {
                                                                         String sNick = crupier.getStraddleDecisionVerifiedNick();
@@ -2912,12 +2920,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                             return;
                                                                         }
                                                                     }
-                                                                    // Straddle ciego (defensa en el RESPONDER, cierra el bypass por fase POCKET): calculo
-                                                                    // YO MISMO el slot del straddler ciego de esta mano (tengo utg_nick vía POSITIONS,
-                                                                    // STRADDLE y el conjunto de activos). Bajo la fase POCKET normal ese slot es INTOCABLE
-                                                                    // (solo se pela bajo POCKET_STRADDLE con decisión firmada). Sin esto, un host hostil
-                                                                    // —sobre todo cuando ÉL es el UTG— pediría el unlock bajo POCKET (sin gate de firma) y
-                                                                    // resolvería sus cartas antes de comprometerse, derrotando el ciego.
+                                                                    // Blind straddle (RESPONDER-side defense, closes the POCKET-phase
+                                                                    // bypass): I compute the blind straddler's slot for this hand MYSELF
+                                                                    // (I have utg_nick via POSITIONS, STRADDLE, and the set of active
+                                                                    // players). Under the normal POCKET phase that slot is UNTOUCHABLE
+                                                                    // (only strippable under POCKET_STRADDLE with a signed decision).
+                                                                    // Without this, a hostile host — especially when IT is the UTG — could
+                                                                    // request the unlock under POCKET (no signature gate) and resolve its
+                                                                    // own cards before committing, defeating the blind.
                                                                     final int blindStraddlerSlot = crupier.blindStraddlerSlot();
                                                                     java.util.List<UnlockChainWire.RespItem> resp = new java.util.ArrayList<>();
                                                                     for (UnlockChainWire.ReqItem it : items) {
@@ -2927,13 +2937,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                             return;
                                                                         }
                                                                         if (commRange != null) {
-                                                                            // long por el mismo motivo que el bucle de abajo: offsetBase
-                                                                    // viene del wire y en int la suma se desborda a negativo,
-                                                                    // con lo que este guard de ventana daria por bueno un
-                                                                    // offset enorme. UnlockChainWire ya lo acota al parsear;
-                                                                    // esta era la ultima aritmetica del handler que seguia
-                                                                    // dependiendo de aquello.
-                                                                    long reqLast = (long) it.offsetBase + it.chains.size() - 1;
+                                                                            // long for the same reason as the loop below: offsetBase comes
+                                                                            // from the wire and in int the sum would overflow to negative,
+                                                                            // which would let this window guard wave through a huge offset.
+                                                                            // UnlockChainWire already bounds it at parse time; this was the
+                                                                            // last bit of arithmetic in the handler still depending on that.
+                                                                            long reqLast = (long) it.offsetBase + it.chains.size() - 1;
                                                                             if (it.chains.isEmpty() || it.offsetBase < commRange[0] || reqLast >= commRange[0] + commRange[1]) {
                                                                                 LOGGER.log(Level.SEVERE,
                                                                                         "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset {0}(+{1}) outside phase {2} community slots [{3},{4}) — host reading the future board, refusing",
@@ -2944,20 +2953,20 @@ public class WaitingRoomFrame extends JFrame {
                                                                         }
                                                                         java.util.List<String> outChains = new java.util.ArrayList<>();
                                                                         for (int j = 0; j < it.chains.size(); j++) {
-                                                                            // Aritmetica en long a proposito: offsetBase viene del wire y
-                                                                            // pointIdx * 32 en int se desborda con 2^27 puntos (= 2^32
-                                                                            // bytes), cayendo de nuevo dentro del rango valido y burlando
-                                                                            // a la vez este guard y las igualdades de slot de mas abajo.
-                                                                            // UnlockChainWire ya acota offsetBase al parsear; esto lo cierra
-                                                                            // tambien aqui, sin depender de aquello.
+                                                                            // Deliberate long arithmetic: offsetBase comes from the wire and
+                                                                            // pointIdx * 32 in int overflows at 2^27 points (= 2^32 bytes),
+                                                                            // wrapping back into the valid range and defeating both this
+                                                                            // guard and the slot equality checks below. UnlockChainWire
+                                                                            // already bounds offsetBase at parse time; this closes it here
+                                                                            // too, without relying on that.
                                                                             long pointIdx = (long) it.offsetBase + j;
                                                                             if (pointIdx < 0 || (pointIdx + 1) * 32L > megapacket.length) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset out of range — refusing");
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                                 return;
                                                                             }
-                                                                            // Defensa real contra el oraculo por la puerta de atras: aunque el
-                                                                            // anclaje al megapacket sea valido, NUNCA pelo un punto de MI pocket.
+                                                                            // Real defense against the back-door oracle: even if the
+                                                                            // megapacket anchoring is valid, I NEVER strip a point from MY pocket.
                                                                             if ((phase == Crupier.UNLOCK_PHASE_POCKET || phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE)
                                                                                     && mySlot >= 0
                                                                                     && (pointIdx == mySlot * 2 || pointIdx == mySlot * 2 + 1)) {
@@ -2965,18 +2974,21 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                                 return;
                                                                             }
-                                                                            // Straddle ciego: bajo POCKET_STRADDLE el punto pelado DEBE ser uno de los 2 del
-                                                                            // slot del straddler verificado; cualquier otro = extracción de un pocket ajeno.
+                                                                            // Blind straddle: under POCKET_STRADDLE the stripped point MUST be
+                                                                            // one of the 2 from the verified straddler's slot; any other one
+                                                                            // means extraction of someone else's pocket.
                                                                             if (phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE
                                                                                     && pointIdx != straddlePocketSlot * 2 && pointIdx != straddlePocketSlot * 2 + 1) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE asked to strip non-straddler slot (offset {0}) — extraction, refusing", pointIdx);
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                                 return;
                                                                             }
-                                                                            // Straddle ciego (cierre del bypass): bajo POCKET NORMAL el slot del straddler ciego
-                                                                            // es INTOCABLE — solo se pela bajo POCKET_STRADDLE con decisión firmada. Pedirlo por
-                                                                            // POCKET = intento de saltarse el gate de firma (ver las cartas antes de comprometerse,
-                                                                            // sobre todo el host-straddler sobre las suyas) -> extracción -> lockdown.
+                                                                            // Blind straddle (bypass closure): under NORMAL POCKET the blind
+                                                                            // straddler's slot is UNTOUCHABLE — it's only stripped under
+                                                                            // POCKET_STRADDLE with a signed decision. Requesting it via POCKET =
+                                                                            // an attempt to skip the signature gate (seeing the cards before
+                                                                            // committing, especially a host-straddler on its own) -> extraction
+                                                                            // -> lockdown.
                                                                             if (phase == Crupier.UNLOCK_PHASE_POCKET && blindStraddlerSlot >= 0
                                                                                     && (pointIdx == blindStraddlerSlot * 2 || pointIdx == blindStraddlerSlot * 2 + 1)) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET asked to strip the blind-straddler slot (offset {0}) — requires POCKET_STRADDLE with a signed decision, refusing", pointIdx);
@@ -2990,12 +3002,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                                 return;
                                                                             }
-                                                                            // GATE 6 (community/rabbit): tras pelar MI community-lock el residuo
-                                                                            // NUNCA debe ser genesis — eso significaría que el host me presentó la
-                                                                            // cadena "todos los locks menos el mío" para que revele la carta antes
-                                                                            // de tiempo. Con el binding el cegado es imposible, así que un genesis
-                                                                            // aquí es extracción segura. (En POCKET el self-strip guard ya cubre el
-                                                                            // flanco análogo y el residuo intermedio nunca llega a genesis.)
+                                                                            // GATE 6 (community/rabbit): after stripping MY community-lock the
+                                                                            // residual must NEVER be genesis — that would mean the host handed
+                                                                            // me the "every lock except mine" chain so I'd reveal the card ahead
+                                                                            // of time. With the binding, blinding is impossible, so a genesis
+                                                                            // here is guaranteed extraction. (Under POCKET the self-strip guard
+                                                                            // already covers the analogous flank and the intermediate residual
+                                                                            // never reaches genesis.)
                                                                             if (phase != Crupier.UNLOCK_PHASE_POCKET
                                                                                     && RistrettoSRA.resolveCardIndex(ext.residual) >= 0) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN community strip reveals genesis (offset {0}) — extraction, refusing", pointIdx);
@@ -3046,11 +3059,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "TELEMETRY":
-                                                            // Telemetría. El wire-format del payload contiene '#'
-                                                            // como separador interno (timestamp#entries), así que si el
-                                                            // split('#') del comando GAME generó más de 4 partes, hay que
-                                                            // recomponer partes[3..end] con '#' para reconstruir el payload
-                                                            // original antes de decodificar.
+                                                            // Telemetry. The payload's wire format uses '#' as an internal
+                                                            // separator (timestamp#entries), so if the GAME command's
+                                                            // split('#') produced more than 4 parts, parts[3..end] must be
+                                                            // rejoined with '#' to reconstruct the original payload before
+                                                            // decoding.
                                                             try {
                                                                 if (partes_comando.length >= 4) {
                                                                     String payload;
@@ -3131,27 +3144,25 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "IWTSTHRULE":
-                                                            // Regla global del host. El diálogo "Ajustes de partida"
-                                                            // refleja el flag al abrirse; ya no hay control en
-                                                            // menú/popup que sincronizar.
+                                                            // Global host rule. The "Game settings" dialog reflects the flag
+                                                            // when it opens; there's no menu/popup control left to sync.
                                                             GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "RUNITWICERULE":
                                                             GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "BOTBALRULE":
-                                                            // Reparto del saldo de bots entre humanos (editable en partida por el host).
-                                                            // El diálogo "Ajustes de partida" refleja el flag al abrirse.
+                                                            // Whether bots' balance is split among humans (editable mid-game by
+                                                            // the host). The "Game settings" dialog reflects the flag on open.
                                                             GameFrame.BOT_BALANCE_TO_HUMANS = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "BOTREBUYRULE":
-                                                            // Recomprar bots (editable en partida por el host).
+                                                            // Whether bots rebuy (editable mid-game by the host).
                                                             GameFrame.BOT_REBUY = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "VOICEMSGRULE":
-                                                            // Regla global del host. El diálogo de ajustes de
-                                                            // audio refleja el flag al abrirse; no hay control
-                                                            // en menú/popup que sincronizar.
+                                                            // Global host rule. The audio settings dialog reflects the flag
+                                                            // when it opens; there's no menu/popup control left to sync.
                                                             GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "RIT_VOTE_REQ":
@@ -3182,12 +3193,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             break;
                                                         case "RABBIT":
                                                             try {
-                                                                // Gating por HAND_ID (no por show_time): aplicamos el
-                                                                // rabbit si es de la mano en curso, para que el
-                                                                // fee/revelado sea determinista con el host y el resto
-                                                                // de peers (evita divergencia de dinero -> DIVERGENT
-                                                                // falso). Fallback a show_time si el peer no manda
-                                                                // HAND_ID (version antigua).
+                                                                // Gated by HAND_ID (not by show_time): we apply the rabbit if it
+                                                                // belongs to the hand in progress, so the fee/reveal stays
+                                                                // deterministic with the host and the rest of the peers (avoids a
+                                                                // money divergence -> false DIVERGENT). Falls back to show_time if
+                                                                // the peer doesn't send HAND_ID (older version).
                                                                 String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
                                                                 boolean acceptRabbit = (rabbitHid != null)
                                                                         ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
@@ -3200,14 +3210,14 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "MEGAPACKET":
-                                                            // El handler REQ_SRA_UNLOCK que sigue corre en su propio threadRun
-                                                            // y necesita ver local_mega_packet + active_crypto_ring para el
-                                                            // state machine. Si lo dejásemos para que el Crupier los setease
-                                                            // desde su queue, habría una carrera (otro thread procesa REQ_
-                                                            // SRA_UNLOCK antes y rechaza por mano-no-iniciada). Aquí los
-                                                            // populamos síncronos y reenviamos a la queue para que el resto
-                                                            // del flujo del Crupier (descifrado de mis pocket cards) siga
-                                                            // funcionando idéntico a antes.
+                                                            // The REQ_SRA_UNLOCK handler that follows runs on its own threadRun
+                                                            // and needs to see local_mega_packet + active_crypto_ring for its
+                                                            // state machine. If we left the Crupier to set them from its queue,
+                                                            // there'd be a race (another thread processes REQ_SRA_UNLOCK first
+                                                            // and rejects it for hand-not-started). We populate them
+                                                            // synchronously here and forward to the queue so the rest of the
+                                                            // Crupier's flow (decrypting my pocket cards) keeps working exactly
+                                                            // as before.
                                                             try {
                                                                 Crupier crupierMP = GameFrame.getInstance().getCrupier();
                                                                 String orderStr = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
@@ -3220,10 +3230,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 crupierMP.active_crypto_ring = ringList.toArray(new String[0]);
                                                                 crupierMP.local_mega_packet = Base64.getDecoder().decode(partes_comando[4]);
-                                                                // Poblar los commitments K de forma SINCRONA aqui. El handler
-                                                                // REQ_SRA_UNLOCK_CHAIN corre en su propio threadRun y los necesita; si
-                                                                // dependieramos de recibirMisCartas (consumer async de la cola) habria
-                                                                // carrera y el binding verificaria contra un mapa vacio -> lockdown falso.
+                                                                // Populate the K commitments SYNCHRONOUSLY here. The
+                                                                // REQ_SRA_UNLOCK_CHAIN handler runs on its own threadRun and needs
+                                                                // them; if we relied on recibirMisCartas (the queue's async
+                                                                // consumer) there'd be a race and the binding would verify against
+                                                                // an empty map -> a false lockdown.
                                                                 if (partes_comando.length >= 7) {
                                                                     crupierMP.parseCommitments(partes_comando[6]);
                                                                 }
@@ -3246,20 +3257,20 @@ public class WaitingRoomFrame extends JFrame {
                                                                 } catch (Exception e) {
                                                                 }
                                                             });
-                                                            // Reenviamos a la cola para que el Crupier pueda continuar su flujo local normal
+                                                            // Forward to the queue so the Crupier can continue its normal local flow
                                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                                 GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
                                                                 GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                             }
                                                             break;
                                                         case "REBUYNOW":
-                                                            // En hilo aparte, espejo del lado host: rebuyNow retiene
-                                                            // lock_rebuynow, y el rebuy PROPIO (rama cliente, EDT) lo
-                                                            // retiene durante un envio SINCRONO que espera el CONF del
-                                                            // host, CONF que lee ESTE hilo consumidor. Si el consumidor
-                                                            // atendiera en linea un REBUYNOW entrante de otro jugador,
-                                                            // se bloquearia en lock_rebuynow y no leeria el CONF del
-                                                            // rebuy propio -> autobloqueo (misma clase que la pausa).
+                                                            // On a separate thread, mirroring the host side: rebuyNow holds
+                                                            // lock_rebuynow, and our OWN rebuy (client-side branch, EDT) holds it
+                                                            // during a SYNCHRONOUS send that waits for the host's CONF, which
+                                                            // THIS consumer thread reads. If the consumer handled an incoming
+                                                            // REBUYNOW from another player inline, it would block on
+                                                            // lock_rebuynow and never read our own rebuy's CONF -> self-deadlock
+                                                            // (same class of bug as the pause).
                                                             try {
                                                                 String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 int rbBuyin = Integer.parseInt(partes_comando[4]);
@@ -3291,9 +3302,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                 try {
                                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                     String sraKeyB64 = partes_comando[4];
-                                                                    // PHASE A.1: SHOWCARDS lleva ahora una sig Ed25519 al final.
-                                                                    // Si vino sin sig (cliente pre-20.65 o host stripping), pasamos
-                                                                    // null → showPlayerCards rechaza sin destapar.
+                                                                    // PHASE A.1: SHOWCARDS now carries an Ed25519 sig at the end. If it
+                                                                    // arrived without one (pre-20.65 client, or the host stripping it),
+                                                                    // pass null -> showPlayerCards refuses without revealing.
                                                                     String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
                                                                     GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
                                                                 } catch (Exception e) {
@@ -3304,9 +3315,9 @@ public class WaitingRoomFrame extends JFrame {
                                                         case "RABBIT_FLOP_PIECE":
                                                         case "RABBIT_TURN_PIECE":
                                                         case "RABBIT_RIVER_PIECE": {
-                                                            // v3: el host envía a cada humano remoto su pieza
-                                                            // (RABBIT_*_PIECE#nickB64#payloadB64) con los locks de
-                                                            // los demás ya quitados. Solo descifra el destinatario.
+                                                            // v3: the host sends each remote human its piece
+                                                            // (RABBIT_*_PIECE#nickB64#payloadB64) with everyone else's locks
+                                                            // already removed. Only the recipient can decrypt it.
                                                             final String[] partes_rp = partes_comando;
                                                             final String cmdName = partes_comando[2];
                                                             Helpers.threadRun(() -> {
@@ -3317,20 +3328,21 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
                                                                     String targetNick = new String(Base64.getDecoder().decode(partes_rp[3]), "UTF-8");
                                                                     if (!targetNick.equals(local_nick)) {
-                                                                        return; // pieza ajena, drop silencioso
+                                                                        return; // someone else's piece, silent drop
                                                                     }
                                                                     byte[] piece = Base64.getDecoder().decode(partes_rp[4]);
                                                                     int expectedLen = "RABBIT_FLOP_PIECE".equals(cmdName) ? 96 : 32;
                                                                     Crupier crupierRP = GameFrame.getInstance().getCrupier();
                                                                     if (crupierRP == null || piece == null || piece.length != expectedLen) {
-                                                                        // Politica: el rabbit es un reveal COSMETICO post-mano (la mano ya esta liquidada);
-                                                                        // una pieza mala no puede robar dinero -> SILENT-REFUSE (no mostramos ese rabbit),
-                                                                        // NO terminamos la partida. Casi seguro un bug, no un ataque.
+                                                                        // Policy: the rabbit is a COSMETIC post-hand reveal (the hand is
+                                                                        // already settled); a bad piece cannot steal money ->
+                                                                        // SILENT-REFUSE (that rabbit just isn't shown), we do NOT end the
+                                                                        // game. Almost certainly a bug, not an attack.
                                                                         LOGGER.log(Level.WARNING, "rabbit piece {0} bad length {1} — refusing (cosmetic, not shown)", new Object[]{cmdName, piece == null ? -1 : piece.length});
                                                                         return;
                                                                     }
-                                                                    // Dual-lock: las rabbit pieces son comunitarias, cifradas
-                                                                    // con scalars de community tras la rotación.
+                                                                    // Dual-lock: rabbit pieces are community pieces, encrypted with
+                                                                    // community scalars after the rotation.
                                                                     byte[] unlockedRP = RistrettoSRA.applyCommutativeLock(piece, this.participantes.get(local_nick).getSra_unlock_community());
                                                                     int numCards = "RABBIT_FLOP_PIECE".equals(cmdName) ? 3 : 1;
                                                                     int[] indices = new int[numCards];
@@ -3338,7 +3350,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         byte[] chunk = Arrays.copyOfRange(unlockedRP, k * 32, (k + 1) * 32);
                                                                         int idx = RistrettoSRA.resolveCardIndex(chunk);
                                                                         if (idx < 0) {
-                                                                            // Cosmetico post-mano -> SILENT-REFUSE (no mostramos ese rabbit), no lockdown.
+                                                                            // Post-hand cosmetic -> SILENT-REFUSE (that rabbit just isn't shown), no lockdown.
                                                                             LOGGER.log(Level.WARNING, "rabbit piece {0} chunk {1} does NOT resolve to genesis — refusing (cosmetic, not shown)", new Object[]{cmdName, k});
                                                                             return;
                                                                         }
@@ -3376,20 +3388,20 @@ public class WaitingRoomFrame extends JFrame {
                                                         case "FLOP_PIECE":
                                                         case "TURN_PIECE":
                                                         case "RIVER_PIECE":
-                                                            // v3: piezas comunitarias durante una mano viva. El
-                                                            // handler se limita a re-encolar en Crupier — el
-                                                            // descifrado y la verificación viven en
-                                                            // Crupier.recibirCartasComunitarias, que bloquea en
-                                                            // rondaApuestas y consume la cola.
+                                                            // v3: community pieces during a live hand. The handler just
+                                                            // re-queues onto the Crupier — decryption and verification live in
+                                                            // Crupier.recibirCartasComunitarias, which blocks in
+                                                            // rondaApuestas and drains the queue.
                                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                                 GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
                                                                 GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                             }
                                                             break;
                                                         case "LASTHAND":
-                                                            // Guard: el reader thread puede tener LASTHAND en buffer cuando
-                                                            // RESET_GAME ya hizo GameFrame.resetInstance() — sin guard, NPE en
-                                                            // getInstance().getCrupier(). Race rara pero barata de cubrir.
+                                                            // Guard: the reader thread can have LASTHAND buffered when
+                                                            // RESET_GAME has already run GameFrame.resetInstance() — without
+                                                            // this guard, NPE in getInstance().getCrupier(). Rare race, cheap
+                                                            // to cover.
                                                             GameFrame inst_lasthand = GameFrame.getInstance();
                                                             if (inst_lasthand == null) {
                                                                 break;
@@ -3419,19 +3431,19 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.BLIND_CAP = partes_comando.length > 7 ? Double.parseDouble(partes_comando[7]) : 0;
                                                             boolean ante_nuevo = partes_comando.length > 8 && Boolean.parseBoolean(partes_comando[8]);
                                                             boolean straddle_nuevo = partes_comando.length > 9 && Boolean.parseBoolean(partes_comando[9]);
-                                                            // Mismo aviso diferido que las ciegas cuando cambia el ante/straddle:
-                                                            // el valor se aplica al instante (abajo), solo se enciende la señal.
+                                                            // Same deferred notice as the blinds when ante/straddle changes: the
+                                                            // value is applied immediately (below), this only raises the flag.
                                                             if (GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo) {
                                                                 GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
                                                             }
                                                             GameFrame.ANTE = ante_nuevo;
                                                             GameFrame.STRADDLE = straddle_nuevo;
-                                                            // El host puede cambiar la estructura de ciegas en vivo (Ajustes >
-                                                            // Partida). Cuando es la escalera POR DEFECTO el campo va vacío y el
-                                                            // split('#') de Java DESCARTA el campo final vacío, así que el guard
-                                                            // length>10 no basta: hay que resetear a null (igual que en INIT) para
-                                                            // que host y clientes escalen ciegas por la MISMA escalera (si no,
-                                                            // desincronizan al subir las ciegas).
+                                                            // The host can change the blind structure live (Settings > Game).
+                                                            // When it's the DEFAULT ladder the field is empty, and Java's
+                                                            // split('#') DROPS a trailing empty field, so the length>10 guard
+                                                            // isn't enough: it must be reset to null (same as in INIT) so host
+                                                            // and clients escalate blinds on the SAME ladder (otherwise they
+                                                            // desync as blinds go up).
                                                             if (partes_comando.length > 10 && !partes_comando[10].isEmpty()) {
                                                                 try {
                                                                     GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[10]);
@@ -3457,25 +3469,26 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "TTS":
-                                                            // El host activa o desactiva el TTS (global) para todos.
-                                                            // El diálogo de ajustes de audio refleja el flag al
-                                                            // abrirse; no hay control en menú/popup que sincronizar.
+                                                            // The host turns TTS on/off (global) for everyone. The audio
+                                                            // settings dialog reflects the flag when it opens; there's no
+                                                            // menu/popup control left to sync.
                                                             GameFrame.TTS_SERVER = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "PAUSE":
-                                                            // El host es AUTORITATIVO en la coordinacion de pausa: "0" reanuda,
-                                                            // "1" pausa, sin comparar nicks (el asiento de consenso los hace
-                                                            // identicos y atarlo a eso era fragil).
+                                                            // The host is AUTHORITATIVE for pause coordination: "0" resumes, "1"
+                                                            // pauses, with no nick comparison (the consensus seat makes them
+                                                            // identical, and tying it to that was fragile).
                                                             //
-                                                            // CLAVE (deadlock): esto se procesa en un hilo APARTE (Helpers.threadRun)
-                                                            // como el manejador del host (Participant), NO en linea en este hilo
-                                                            // consumidor. pauseTimba, cuando lo aplica el PROPIO pausador al recibir
-                                                            // el resume, hace un sendGAMECommandToServer SINCRONO que espera el CONF
-                                                            // del host, y ese CONF lo lee este MISMO hilo consumidor (case "CONF"):
-                                                            // hacerlo en linea autobloqueaba al consumidor esperando un CONF que
-                                                            // solo el podia procesar, y el pausador se quedaba colgado. El threadRun
-                                                            // libera al consumidor para leer el CONF. El check-then-act va bajo
-                                                            // lock_pause, igual que el host.
+                                                            // KEY (deadlock): this is processed on a SEPARATE thread
+                                                            // (Helpers.threadRun), like the host's handler (Participant), NOT
+                                                            // inline on this consumer thread. pauseTimba, when the pauser itself
+                                                            // applies it upon receiving the resume, does a SYNCHRONOUS
+                                                            // sendGAMECommandToServer that waits on the host's CONF, and that
+                                                            // CONF is read by this SAME consumer thread (case "CONF"): doing it
+                                                            // inline would self-deadlock the consumer waiting on a CONF only it
+                                                            // could process, leaving the pauser hanging. threadRun frees the
+                                                            // consumer to read the CONF. The check-then-act runs under
+                                                            // lock_pause, same as the host.
                                                             try {
                                                                 final String[] partes_pause = partes_comando;
                                                                 final String pauser = (partes_comando.length >= 5)
@@ -3494,10 +3507,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "SHUFFLE_TURN":
-                                                            // Overlay VISUAL del barajado: el host anuncia qué jugador procesa su
-                                                            // paso de cascada ahora, para que este peer lo pinte sobre su jugador
-                                                            // (local o remoto). Puramente de display; el controlador de GameFrame
-                                                            // respeta la preferencia local. No toca la cascada ni el consenso.
+                                                            // VISUAL shuffle overlay: the host announces which player is
+                                                            // processing its cascade step right now, so this peer can paint it
+                                                            // over that player (local or remote). Purely for display; the
+                                                            // GameFrame controller honors the local preference. Doesn't touch
+                                                            // the cascade or consensus.
                                                             try {
                                                                 if (partes_comando.length >= 4) {
                                                                     String shuffleNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
@@ -3508,13 +3522,13 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "SHUFFLE_TURN_END":
-                                                            // Fin del barajado: oculta el overlay de barajado en este peer.
+                                                            // Shuffle end: hides the shuffle overlay on this peer.
                                                             GameFrame.getInstance().onShuffleTurnEnd();
                                                             break;
                                                         case "MISDEAL":
-                                                            // El host aborta la mano. Cancelamos localmente y reenviamos
-                                                            // al queue para despertar a cualquier consumer (receiveMyCards,
-                                                            // recibirConsensoFinal, etc.) que esté esperando timeout.
+                                                            // The host aborts the hand. Cancel locally and forward to the
+                                                            // queue to wake up any consumer (receiveMyCards,
+                                                            // recibirConsensoFinal, etc.) waiting on a timeout.
                                                             try {
                                                                 String motivoMisdeal = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 GameFrame.getInstance().getCrupier().cancelarManoYDevolverApuestas(motivoMisdeal, false);
@@ -3543,11 +3557,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                                         try {
                                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                                            // Dual-lock: el testamento es la mitad community del peer que sale.
-                                                                            // La mitad pocket nunca se comparte vía EXIT.
-                                                                            // Se exige un escalar USABLE, no solo del tamano correcto:
-                                                                            // 32 ceros pasaban la medida y al invertirlos reventaba el
-                                                                            // hilo del crupier, que se lleva el proceso por delante.
+                                                                            // Dual-lock: the testament is the community half of the departing
+                                                                            // peer. The pocket half is never shared via EXIT. A USABLE
+                                                                            // scalar is required, not just one of the right size: 32 zero
+                                                                            // bytes passed the size check and blew up the Crupier thread when
+                                                                            // inverted, taking the process down with it.
                                                                             if (RistrettoSRA.isValidScalar(testament)) {
                                                                                 p.setSra_unlock_community(testament);
                                                                             }
@@ -3561,11 +3575,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "STRADDLE_DECISION":
-                                                            // Straddle ciego: el host difunde la decisión FIRMADA del straddler.
-                                                            // La verifico y, si es válida, habilito el desbloqueo diferido de su
-                                                            // slot (recordVerifiedStraddleDecision). Se despacha INMEDIATO (no se
-                                                            // encola) para desbloquear a un handler REQ_SRA_UNLOCK_CHAIN que
-                                                            // pudiera estar ya esperando el flag en awaitStreetForUnlockPhase.
+                                                            // Blind straddle: the host broadcasts the straddler's SIGNED
+                                                            // decision. I verify it and, if valid, enable the deferred unlock of
+                                                            // its slot (recordVerifiedStraddleDecision). Dispatched IMMEDIATELY
+                                                            // (not queued) to unblock a REQ_SRA_UNLOCK_CHAIN handler that might
+                                                            // already be waiting on the flag in awaitStreetForUnlockPhase.
                                                             if (GameFrame.getInstance().getCrupier() != null) {
                                                                 GameFrame.getInstance().getCrupier().onStraddleDecisionCommand(partes_comando);
                                                             }
@@ -3587,9 +3601,9 @@ public class WaitingRoomFrame extends JFrame {
                                                             });
                                                             break;
                                                         case "GAMECONFIG":
-                                                            // Espejo COMPLETO de la config (el HOST la cambió). Solo
-                                                            // se guarda en el holder (NO se escribe GameFrame.*) y, si
-                                                            // la rueda está abierta, se refresca su pestaña Partida.
+                                                            // FULL config mirror (the HOST changed it). Only stored in the
+                                                            // holder (GameFrame.* is NOT written) and, if the settings wheel
+                                                            // is open, its Game tab is refreshed.
                                                             GAMECONFIG_MIRROR = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                             Helpers.GUIRun(() -> SettingsDialog.refreshWaitingMirror());
                                                             break;
@@ -3742,38 +3756,38 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
                                                             GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
                                                             GameFrame.FIXED_BUYIN = partes_comando.length > 13 ? Boolean.parseBoolean(partes_comando[13]) : true;
-                                                            // Rango de buy-in editable y política de tope de recompra (campos
-                                                            // fijos; el cap/headroom de los clientes debe coincidir con el host).
+                                                            // Editable buy-in range and rebuy-cap policy (fixed fields; the
+                                                            // client's cap/headroom must match the host's).
                                                             GameFrame.BUYIN_MIN_BB = partes_comando.length > 14 ? Integer.parseInt(partes_comando[14]) : BuyinRules.DEFAULT_MIN_BB;
                                                             GameFrame.BUYIN_MAX_BB = partes_comando.length > 15 ? Integer.parseInt(partes_comando[15]) : BuyinRules.DEFAULT_MAX_BB;
                                                             GameFrame.REBUY_CAP_POLICY = partes_comando.length > 16 ? Integer.parseInt(partes_comando[16]) : GameFrame.REBUY_CAP_BUYIN;
-                                                            // Ante y straddle (campos fijos; el cliente debe coincidir con el host).
+                                                            // Ante and straddle (fixed fields; the client must match the host).
                                                             GameFrame.ANTE = partes_comando.length > 17 && Boolean.parseBoolean(partes_comando[17]);
                                                             GameFrame.STRADDLE = partes_comando.length > 18 && Boolean.parseBoolean(partes_comando[18]);
-                                                            // Reglas de juego elegidas al crear la timba (campos fijos; el
-                                                            // cliente debe arrancar con las mismas reglas que el host).
+                                                            // Game rules chosen when the game was created (fixed fields; the
+                                                            // client must start with the same rules as the host).
                                                             GameFrame.IWTSTH_RULE = partes_comando.length > 19 && "1".equals(partes_comando[19]);
                                                             GameFrame.RUN_IT_TWICE = partes_comando.length > 20 && "1".equals(partes_comando[20]);
                                                             GameFrame.RABBIT_HUNTING = partes_comando.length > 21 ? Integer.parseInt(partes_comando[21]) : 0;
-                                                            // Tiempo de pensar (segundos, índice 22) + si está activo (índice 23):
-                                                            // campos FIJOS antes de la estructura; el cliente debe arrancar con el
-                                                            // mismo tiempo de pensar (o sin límite) que fijó el host. Guardas de
-                                                            // longitud por si faltan (default = DEFAULT_THINK_TIME / activo).
+                                                            // Think time (seconds, index 22) + whether it's enabled (index 23):
+                                                            // FIXED fields before the structure; the client must start with the
+                                                            // same think time (or no limit) the host set. Length guards in case
+                                                            // they're missing (default = DEFAULT_THINK_TIME / enabled).
                                                             GameFrame.THINK_TIME = partes_comando.length > 22 ? Integer.parseInt(partes_comando[22]) : GameFrame.DEFAULT_THINK_TIME;
                                                             GameFrame.THINK_TIME_ENABLED = partes_comando.length <= 23 || "1".equals(partes_comando[23]);
-                                                            // Tiempo de pausa del showdown (segundos, índice 24): campo FIJO antes
-                                                            // de la estructura; el cliente muestra el resultado el mismo tiempo que
-                                                            // el host. Guarda de longitud por si falta (default = DEFAULT_SHOWDOWN_TIME).
+                                                            // Showdown pause time (seconds, index 24): FIXED field before the
+                                                            // structure; the client shows the result for the same duration as
+                                                            // the host. Length guard in case it's missing (default = DEFAULT_SHOWDOWN_TIME).
                                                             GameFrame.SHOWDOWN_TIME = partes_comando.length > 24 ? Integer.parseInt(partes_comando[24]) : GameFrame.DEFAULT_SHOWDOWN_TIME;
-                                                            // Reparto del saldo de los bots entre humanos al terminar (índice 25,
-                                                            // campo FIJO antes de la estructura): el cliente debe aplicar el mismo
-                                                            // ajuste que el host en su liquidación final. Guarda de longitud por si
-                                                            // falta (default = off).
+                                                            // Whether bots' balance is split among humans when the game ends
+                                                            // (index 25, FIXED field before the structure): the client must
+                                                            // apply the same setting the host uses in its final settlement.
+                                                            // Length guard in case it's missing (default = off).
                                                             GameFrame.BOT_BALANCE_TO_HUMANS = partes_comando.length > 25 && "1".equals(partes_comando[25]);
-                                                            // Estructura de ciegas personalizada (campo opcional al final, ahora
-                                                            // en el índice 26): el cliente recomputa la escalada con la MISMA
-                                                            // lista que el host. Ausente = escalera por defecto (null). Nunca
-                                                            // conservar una estructura stale de una partida anterior.
+                                                            // Custom blind structure (optional trailing field, now at index
+                                                            // 26): the client recomputes the ladder with the SAME list as the
+                                                            // host. Absent = default ladder (null). Never keep a stale
+                                                            // structure from a previous game.
                                                             if (partes_comando.length > 26 && !partes_comando[26].isEmpty()) {
                                                                 try {
                                                                     GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[26]);
@@ -3786,10 +3800,10 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             Helpers.GUIRunAndWait(new Runnable() {
                                                                 public void run() {
-                                                                    // Si el cliente tenía la rueda abierta (con la pestaña
-                                                                    // Partida de sala), se cierra sola al arrancar: los
-                                                                    // ajustes ya no aplican. dispose() directo = sin el
-                                                                    // diálogo de "descartar cambios".
+                                                                    // If the client had the settings wheel open (with the waiting
+                                                                    // room's Game tab), it closes itself when the game starts: those
+                                                                    // settings no longer apply. Direct dispose() = no "discard
+                                                                    // changes" dialog.
                                                                     SettingsDialog.closeIfOpen();
                                                                     new GameFrame(THIS, local_nick, false);
                                                                 }
@@ -3854,10 +3868,9 @@ public class WaitingRoomFrame extends JFrame {
                             Helpers.GUIRun(() -> {
                                 status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
                                 status.setText(Translator.translate("status.error_reconectando") + " " + j + " " + Translator.translate("status.segs"));
-                                // setValue(j) redundante: smoothCountdown ya repinta
-                                // cada 50ms via Timer interno. El loop sigue para
-                                // actualizar el texto del status cada segundo y para
-                                // detectar exit.
+                                // setValue(j) is redundant: smoothCountdown already repaints every
+                                // 50ms via its internal Timer. The loop keeps running to update the
+                                // status text every second and to detect exit.
                             });
                             if (!exit) {
                                 synchronized (net_client.getLock_client_reconnect()) {
@@ -3868,9 +3881,9 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                             }
                         }
-                        // Cancela el Timer interno tras el loop — si exit=true se
-                        // dispone WaitingRoomFrame justo despues, evitamos Timer
-                        // huerfano en background.
+                        // Cancel the internal Timer after the loop — if exit=true,
+                        // WaitingRoomFrame gets disposed right after, so this avoids an
+                        // orphaned background Timer.
                         Helpers.GUIRun(() -> Helpers.resetBarra(barra, 0));
                     } else {
                         mostrarMensajeError(THIS, Translator.translate("conn.algo_ha_fallado_has_perdido"));
@@ -3883,8 +3896,8 @@ public class WaitingRoomFrame extends JFrame {
             }
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                 Helpers.GUIRunAndWait(() -> {
-                    // Al cancelar, reabre el inicio en su mismo sitio y tamaño (o
-                    // maximizado si lo estaba) en la pantalla donde está la sala.
+                    // On cancel, reopen the launch screen at the same spot and size (or
+                    // maximized if it was) on the screen the waiting room is on.
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
                             Init.LAUNCH_FRAME_SIZE, Init.LAUNCH_FRAME_MAXIMIZED);
                     dispose();
@@ -3975,8 +3988,9 @@ public class WaitingRoomFrame extends JFrame {
 
     private void serverSocketHandler(final Socket client_socket) {
 
-        // El accept loop ya reservo un slot de handshake (handshake_slots). Este try/finally garantiza que
-        // se libere pase lo que pase (exito, rechazo, excepcion o cualquiera de los early-return del cuerpo).
+        // The accept loop already reserved a handshake slot (handshake_slots). This try/finally
+        // guarantees it's released no matter what (success, rejection, exception, or any of the
+        // body's early returns).
         Helpers.threadRun(() -> {
             try {
 
@@ -3987,20 +4001,21 @@ public class WaitingRoomFrame extends JFrame {
             try {
                 client_socket.setTcpNoDelay(true);
                 client_socket.setKeepAlive(true);
-                // Cerrojo anti-DoS: si el peer NO termina el handshake en HANDSHAKE_TIMEOUT_MS,
-                // el read bloqueado lanza SocketTimeoutException y caemos al catch que cierra
-                // el socket y libera el thread. Se RESETEA a 0 mas abajo en las dos ramas de
-                // exito (nuevoParticipante para JOIN limpio y resetSocket para reconexion).
+                // Anti-DoS lock: if the peer does NOT finish the handshake within
+                // HANDSHAKE_TIMEOUT_MS, the blocked read throws SocketTimeoutException and we
+                // fall into the catch that closes the socket and frees the thread. RESET to 0
+                // further down on the two success branches (nuevoParticipante for a clean JOIN
+                // and resetSocket for a reconnect).
                 client_socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
                 byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
-                // readFully (no read()): un magic partido por segmentación TCP dejaba el
-                // buffer a medias y rechazaba erróneamente a un cliente válido. El
-                // SoTimeout de arriba sigue cubriendo a un peer que no envíe suficiente.
+                // readFully (not read()): a magic split by TCP segmentation used to leave the
+                // buffer half-filled and wrongly reject a valid client. The SoTimeout above
+                // still covers a peer that never sends enough.
                 DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
                 dIn.readFully(magic);
                 if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
 
-                    /* INICIO INTERCAMBIO DE CLAVES LIMPIO */
+                    /* CLEAN KEY EXCHANGE START */
                     int length = dIn.readInt();
                     if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
                         throw new IOException("Handshake: invalid client pubkey length " + length
@@ -4032,7 +4047,7 @@ public class WaitingRoomFrame extends JFrame {
                     byte[] secret_hash = Helpers.deriveChannelSecret(serverSharedSecret, password);
                     SecretKeySpec aes_key = new SecretKeySpec(secret_hash, 0, 32, "AES");
                     SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
-                    /* FIN INTERCAMBIO DE CLAVES */
+                    /* KEY EXCHANGE END */
 
                     recibido = readCommandFromClient(client_socket, aes_key, hmac_key);
 
@@ -4088,18 +4103,18 @@ public class WaitingRoomFrame extends JFrame {
 
                                 LOGGER.log(Level.WARNING, "Client HMAC is authentic");
 
-                                // Refresh autenticado del grace ANTES de resetSocket:
-                                // si el reader del Participant esta en wait y el grace
-                                // base esta a punto de expirar, este intent cripto-valido
-                                // lo extiende a CLIENT_RECON_TIMEOUT. Cubre el caso de
-                                // red lenta donde handshake+payload llegan justo al borde.
+                                // Authenticated grace refresh BEFORE resetSocket: if the
+                                // Participant's reader is in wait and the base grace is about to
+                                // expire, this crypto-valid attempt extends it to
+                                // CLIENT_RECON_TIMEOUT. Covers the slow-network case where the
+                                // handshake+payload arrive right at the edge.
                                 participantes.get(client_nick).signalReconnectIntent();
 
                                 LOGGER.log(Level.WARNING, "Resetting client socket...");
 
-                                // Handshake completado: el Participant toma control del socket
-                                // y sus reads normales (PING/PONG, GAME, etc.) no deben heredar
-                                // el deadline del handshake.
+                                // Handshake complete: the Participant takes control of the
+                                // socket and its normal reads (PING/PONG, GAME, etc.) must not
+                                // inherit the handshake deadline.
                                 try {
                                     client_socket.setSoTimeout(0);
                                 } catch (Exception ex) {
@@ -4122,14 +4137,14 @@ public class WaitingRoomFrame extends JFrame {
 
                                     LOGGER.log(Level.WARNING, "Client {0} has reconnected successfully", client_nick);
 
-                                    // Ack explícito al cliente para que su reconectarCliente sepa
-                                    // que el reconnect fue aceptado de verdad. Sin este ack el
-                                    // cliente marcaba ok_rec=true en base solo a que el handshake
-                                    // criptográfico terminase sin excepción, y si el server cerraba
-                                    // el socket inmediatamente (cualquiera de las ramas DENIED),
-                                    // el reader cliente leía null y volvía a llamar a
-                                    // reconectarCliente() sin pausa — busy-loop con ECDH en cada
-                                    // iteración que freezaba la UI y disparaba el CPU al 100%.
+                                    // Explicit ack to the client so its reconectarCliente knows the
+                                    // reconnect was truly accepted. Without this ack the client
+                                    // marked ok_rec=true just because the crypto handshake finished
+                                    // without an exception, and if the server closed the socket
+                                    // immediately (any of the DENIED branches), the client's reader
+                                    // read null and looped back into reconectarCliente() with no
+                                    // pause — a busy-loop doing ECDH every iteration that froze the
+                                    // UI and spiked CPU to 100%.
                                     try {
                                         participantes.get(client_nick).writeCommandFromServer(
                                                 Helpers.encryptCommand("RECONNECT_OK", aes_key, hmac_key));
@@ -4154,8 +4169,8 @@ public class WaitingRoomFrame extends JFrame {
 
                                 } else {
                                     LOGGER.log(Level.WARNING, "Client {0} failed to reconnect", client_nick);
-                                    // Ack explícito de denegación antes de cerrar (ver nota en
-                                    // la rama OK más arriba sobre por qué hace falta el ack).
+                                    // Explicit denial ack before closing (see the note on the OK
+                                    // branch above for why the ack is needed).
                                     try {
                                         writeCommandFromServer(
                                                 Helpers.encryptCommand("RECONNECT_DENIED#RESET_FAIL", aes_key, hmac_key),
@@ -4171,17 +4186,15 @@ public class WaitingRoomFrame extends JFrame {
                                 }
 
                             } else {
-                                // BAD HMAC: el cliente trae una clave de sesión
-                                // vieja (su HMAC orig no coincide con el actual
-                                // del Participant). Caso ESPERADO tras una
-                                // interrupción larga — el Reconnect2ServerDialog
-                                // del cliente intenta automáticamente cada pocos
-                                // segundos. NO disparamos popup al host: cada
-                                // intento generaría un popup nuevo y se acumulan
-                                // hasta inutilizar el server. El cliente verá la
-                                // denegación explícita (RECONNECT_DENIED) en su
-                                // reconectarCliente y caerá en su propio dialog
-                                // con pausa entre intentos.
+                                // BAD HMAC: the client brought an old session key (its orig HMAC
+                                // doesn't match the Participant's current one). EXPECTED case
+                                // after a long interruption — the client's Reconnect2ServerDialog
+                                // retries automatically every few seconds. We do NOT pop up a
+                                // dialog on the host: every attempt would generate a new popup and
+                                // they'd pile up until the server became unusable. The client will
+                                // see the explicit denial (RECONNECT_DENIED) in its
+                                // reconectarCliente and land on its own dialog with a pause
+                                // between attempts.
                                 LOGGER.log(Level.WARNING, "Client {0} failed to reconnect (bad HMAC) — silencing popup (expected after long interruption; client will land on its own reconnect-failed dialog)", client_nick);
                                 try {
                                     writeCommandFromServer(
@@ -4205,12 +4218,12 @@ public class WaitingRoomFrame extends JFrame {
                             }
                         } else {
                             LOGGER.log(Level.WARNING, "User {0} trying to reconnect to a previous game — denied", client_nick);
-                            // Ack explícito de denegación antes de cerrar el socket. Sin esto el
-                            // cliente cree que reconectó (su handshake terminó OK), su reader
-                            // lee null inmediatamente al cerrar el server, llama a
-                            // reconectarCliente() de nuevo en busy-loop sin pausa (la pausa de
-                            // 5s solo aplica si ok_rec=false) — bug yxmgl 20.59 issue 1:
-                            // freeze + CPU spike tras "recover" del server.
+                            // Explicit denial ack before closing the socket. Without this the
+                            // client thinks it reconnected (its handshake finished OK), its
+                            // reader reads null immediately when the server closes, and it
+                            // calls reconectarCliente() again in a no-pause busy-loop (the 5s
+                            // pause only applies when ok_rec=false) — yxmgl bug, 20.59 issue 1:
+                            // freeze + CPU spike after a server "recover".
                             try {
                                 writeCommandFromServer(
                                         Helpers.encryptCommand("RECONNECT_DENIED#UNKNOWN_NICK", aes_key, hmac_key),
@@ -4284,8 +4297,8 @@ public class WaitingRoomFrame extends JFrame {
                         } catch (Exception ex) {
                         }
                     } else if (participantes.containsKey(client_nick) || nickCollisionNFC(client_nick)) {
-                        // NICKFAIL cubre el nick idéntico Y el que colisiona en forma NFC
-                        // (mismo PLAYER_ID → rompería el consenso de settlement). Ver
+                        // NICKFAIL covers both the exact-same nick AND one that collides in NFC
+                        // form (same PLAYER_ID -> would break settlement consensus). See
                         // nickCollisionNFC.
                         writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
                         try {
@@ -4332,10 +4345,10 @@ public class WaitingRoomFrame extends JFrame {
                             client_avatar = null;
                         }
 
-                        // Cuarto campo (#) AÑADIDO al mismo comando NICKOK: el espejo COMPLETO
-                        // de la config (GamePreset.Settings serializado) para que el cliente recién
-                        // unido pueble en gris su pestaña Partida. Es un campo extra del MISMO
-                        // mensaje (no un read nuevo), así no se altera la secuencia del handshake.
+                        // Fourth field (#) ADDED to the same NICKOK command: the FULL config
+                        // mirror (serialized GamePreset.Settings) so the newly joined client can
+                        // populate its Game tab greyed out. It's an extra field on the SAME
+                        // message (not a new read), so the handshake sequence is unchanged.
                         writeCommandFromServer(Helpers.encryptCommand(
                                 "NICKOK#" + (password == null ? "0" : "1") + "#"
                                 + Base64.getEncoder().encodeToString(
@@ -4380,24 +4393,21 @@ public class WaitingRoomFrame extends JFrame {
                                     revalidate();
                                     repaint();
                                 });
-                                // El containsKey de la comprobación temprana
-                                // (NICKFAIL) corre FUERA de lock_new_client y
-                                // varios JOIN simultáneos tienen un hilo cada
-                                // uno: dos clientes con el mismo nick podían
-                                // pasar aquel check antes de que ninguno
-                                // insertara y acabar sobrescribiéndose en
-                                // participantes (el primer socket/hilos quedaba
-                                // huérfano pero vivo). Se RE-comprueba el nick
-                                // aquí dentro, bajo el mismo lock que la
-                                // inserción, cerrando la ventana TOCTOU.
+                                // The containsKey from the early check (NICKFAIL) runs OUTSIDE
+                                // lock_new_client, and simultaneous JOINs each get their own
+                                // thread: two clients with the same nick could pass that check
+                                // before either inserted, and end up overwriting each other in
+                                // participantes (the first socket/thread was left orphaned but
+                                // alive). The nick is RE-checked here, under the same lock as
+                                // the insertion, closing the TOCTOU window.
                                 if (participantes.size() < MAX_PARTICIPANTES
                                         && !WaitingRoomFrame.getInstance().isPartida_empezando()
                                         && !WaitingRoomFrame.getInstance().isPartida_empezada()
                                         && !participantes.containsKey(client_nick)
                                         && !nickCollisionNFC(client_nick)) {
-                                    // Handshake completado: el Participant toma control del socket
-                                    // y sus reads normales (PING/PONG, GAME, etc.) no deben heredar
-                                    // el deadline del handshake.
+                                    // Handshake complete: the Participant takes control of the
+                                    // socket and its normal reads (PING/PONG, GAME, etc.) must not
+                                    // inherit the handshake deadline.
                                     try {
                                         client_socket.setSoTimeout(0);
                                     } catch (Exception ex) {
@@ -4414,9 +4424,10 @@ public class WaitingRoomFrame extends JFrame {
                                     }
 
                                     if (participantes.size() > 2) {
-                                        // Sólo enviamos USERSLIST cuando hay al menos otro peer
-                                        // aparte del nuevo (host + nuevo == size 2 → nada que listar;
-                                        // la identidad del host ya viaja en el intro síncrono).
+                                        // USERSLIST is only sent when there's at least one other peer
+                                        // besides the new one (host + new == size 2 -> nothing to
+                                        // list; the host's identity already travels in the
+                                        // synchronous intro).
                                         enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
 
                                         // Identity: NEWUSER carries the new peer's pubkey +
@@ -4426,10 +4437,11 @@ public class WaitingRoomFrame extends JFrame {
                                         // (nick|flag|avatar|pubkey|sig).
                                         Participant newPar = participantes.get(client_nick);
                                         if (newPar == null) {
-                                            // El recien llegado ya no esta (se cayo entre su alta y este
-                                            // anuncio). Sin esta comprobacion aqui saltaba un fallo que se
-                                            // tragaba el catch de mas abajo SIN DECIR NADA, y el alta se
-                                            // quedaba a medias: dentro de la lista pero sin anunciar al resto.
+                                            // The newcomer is already gone (dropped between joining and
+                                            // this announcement). Without this check, a failure would
+                                            // hit here that the catch below swallowed SILENTLY, and the
+                                            // join was left half-done: in the list but never announced
+                                            // to the rest.
                                             LOGGER.log(Level.WARNING,
                                                     "{0} vanished before its join could be announced — skipping the announcement",
                                                     client_nick);
@@ -4467,9 +4479,9 @@ public class WaitingRoomFrame extends JFrame {
                                     }
                                 }
                             } catch (Exception ex) {
-                                // Este catch estaba MUDO. Un alta que se rompiera por el medio dejaba
-                                // al recien llegado a medias (dentro de la lista, sin anunciar al
-                                // resto) y no habia ni rastro de por que.
+                                // This catch used to be SILENT. A join that broke midway left the
+                                // newcomer half-done (in the list, never announced to the rest)
+                                // with no trace of why.
                                 LOGGER.log(Level.SEVERE, "Failed to complete the join of " + client_nick, ex);
                             } finally {
                                 Helpers.GUIRun(() -> {
@@ -4491,12 +4503,12 @@ public class WaitingRoomFrame extends JFrame {
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
-                // Cualquier excepción que llega aquí ocurrió en el handshake temprano
-                // (lectura de magic/pubkey, ECDH, parse de versión, ramas de rechazo,
-                // verifyJoinSelfSig) — SIEMPRE antes del bloque synchronized(lock_new_client),
-                // cuyo handoff a Participant tiene su propio catch interno. Por tanto el
-                // socket nunca se entregó a un peer: cerrarlo cierra la fuga residual de FDs
-                // sin riesgo de cerrar un socket vivo ya en manos de un Participant.
+                // Any exception landing here happened in the early handshake (reading
+                // magic/pubkey, ECDH, version parsing, rejection branches,
+                // verifyJoinSelfSig) — ALWAYS before the synchronized(lock_new_client) block,
+                // whose handoff to Participant has its own inner catch. So the socket was
+                // never handed to a peer: closing it plugs the residual FD leak with no risk
+                // of closing a live socket already held by a Participant.
                 if (client_socket != null) {
                     try {
                         client_socket.close();
@@ -4505,13 +4517,15 @@ public class WaitingRoomFrame extends JFrame {
                 }
             }
             } finally {
-                // Anti-DoS pre-auth: libera el slot reservado en el accept loop, terminase como terminase
-                // el handshake. Sin esto un handshake que sale por return/excepcion filtraria el permiso.
+                // Pre-auth anti-DoS: releases the slot reserved in the accept loop, no matter
+                // how the handshake ended. Without this, a handshake exiting via return/exception
+                // would leak the permit.
                 handshake_slots.release();
-                // Y se da de baja el hilo, por lo mismo y aqui dentro: estaba fuera, asi que
-                // cualquier salida por return se lo saltaba y el hilo se quedaba apuntado para
-                // siempre. Con uno solo colgado, el cierre de la sala ve que quedan hilos vivos
-                // y se salta su manejador entero: la X deja de responder el resto de la sesion.
+                // The thread is also deregistered here, for the same reason: it used to be
+                // outside, so any exit via return skipped it and the thread stayed registered
+                // forever. With even one stuck, closing the room sees live threads remaining
+                // and skips its whole shutdown handler: the X stops responding for the rest of
+                // the session.
                 net_server.getClient_threads().remove(Thread.currentThread().threadId());
             }
         });
@@ -4549,12 +4563,12 @@ public class WaitingRoomFrame extends JFrame {
                     Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
                     Helpers.savePropertiesFile();
                     booting = false;
-                    // El socket se publica DESPUES de atarlo al puerto (y se limpia antes de
-                    // intentarlo). Publicarlo antes hacia INALCANZABLE la guarda del catch de
-                    // abajo, que mira precisamente si se quedo sin crear: con el puerto ocupado
-                    // no se avisaba de nada, no se marcaba la salida, y este bucle reintentaba
-                    // sin pausa reescribiendo el fichero de preferencias en cada vuelta. El
-                    // mensaje de "no se pudo abrir el puerto" no habia salido nunca.
+                    // The socket is published AFTER it's bound to the port (and cleared before
+                    // trying). Publishing it earlier made the catch guard below UNREACHABLE — the
+                    // one that specifically checks whether it never got created: with the port
+                    // taken, nothing was reported, exit was never set, and this loop retried
+                    // without pause, rewriting the preferences file every time around. The "could
+                    // not open the port" message had never once fired.
                     net_server.setServer_socket(null);
                     ServerSocket ss = new ServerSocket();
                     ss.setReuseAddress(true);
@@ -4562,15 +4576,17 @@ public class WaitingRoomFrame extends JFrame {
                     net_server.setServer_socket(ss);
                     while (!ss.isClosed()) {
                         Socket incoming = ss.accept();
-                        // Anti-DoS pre-auth: solo procesamos el handshake si hay slot libre. Agotados,
-                        // descartamos la conexion SIN gastar hilo ni keygen EC (el peer legitimo reintenta).
+                        // Pre-auth anti-DoS: we only process the handshake if a slot is free. Once
+                        // exhausted, we drop the connection WITHOUT spending a thread or EC keygen
+                        // (the legitimate peer retries).
                         if (handshake_slots.tryAcquire()) {
                             try {
                                 serverSocketHandler(incoming);
                             } catch (RuntimeException handoffEx) {
-                                // Si el submit del hilo de handshake fallara (p.ej. pool cerrandose en
-                                // teardown), su finally NO liberaria el slot: lo liberamos aqui para no
-                                // filtrarlo. Re-lanzamos para no alterar el manejo/log de la excepcion.
+                                // If submitting the handshake thread failed (e.g. pool shutting
+                                // down during teardown), its finally would NOT release the slot: we
+                                // release it here so it isn't leaked. Re-thrown so exception
+                                // handling/logging is unchanged.
                                 handshake_slots.release();
                                 throw handoffEx;
                             }
@@ -4599,8 +4615,8 @@ public class WaitingRoomFrame extends JFrame {
             }
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                 Helpers.GUIRun(() -> {
-                    // Al cancelar, reabre el inicio en su mismo sitio y tamaño (o
-                    // maximizado si lo estaba) en la pantalla donde está la sala.
+                    // On cancel, reopen the launch screen at the same spot and size (or
+                    // maximized if it was) on the screen the waiting room is on.
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
                             Init.LAUNCH_FRAME_SIZE, Init.LAUNCH_FRAME_MAXIMIZED);
                     dispose();
@@ -4692,10 +4708,9 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Telemetría: última snapshot recibida del host (lat1/lat2/recon
-     * por peer). Puede ser null si aún no se ha recibido ninguna. Lectores
-     * deben tolerar null y campos faltantes en el map (peer recién entrado
-     * todavía no medido).
+     * Telemetry: latest snapshot received from the host (lat1/lat2/recon per peer).
+     * Can be null if none has been received yet. Readers must tolerate null and
+     * missing map entries (a peer that just joined has not been measured yet).
      */
     public Helpers.TelemetryFrame getLatest_telemetry() {
         return latest_telemetry;
@@ -4938,8 +4953,8 @@ public class WaitingRoomFrame extends JFrame {
                     p.setLatency(latency);
                     p.setLatency2(latency2);
 
-                    // Esto fuerza que el JList se repinte
-                    model.set(i, p); // ✅ importante
+                    // This forces the JList to repaint
+                    model.set(i, p);
                     break;
                 }
             }
@@ -4947,20 +4962,19 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Baja de un participante. Delega a NetServer (estado + broadcast DELUSER + UI callback).
-     * Mantenido como facade para callers externos (Participant.java).
+     * Removes a participant. Delegates to NetServer (state + DELUSER broadcast + UI
+     * callback). Kept as a facade for external callers (Participant.java).
      *
-     * NOTA: usado tanto por host (Participant.java al desconectarse un cliente)
-     * como por cliente (al recibir DELUSER del servidor). Por eso la lógica vive
-     * aquí y no en NetServer — el cliente no tiene net_server. El broadcast
-     * DELUSER que solo aplica al host está guardado por isServer().
+     * NOTE: used both by the host (Participant.java when a client disconnects) and by
+     * the client (on receiving DELUSER from the server). That's why the logic lives
+     * here rather than in NetServer — the client has no net_server. The DELUSER
+     * broadcast, which only applies to the host, is guarded by isServer().
      */
     public synchronized void borrarParticipante(String nick) {
-        // get + null-check en vez de containsKey: en el host su propia entrada
-        // es un placeholder null por diseño (no hay Participant local) y un
-        // null aquí es siempre "nada que borrar". De paso cierra el hueco
-        // check-then-act frente al remove de NetServer, que muta el mapa
-        // fuera de este monitor.
+        // get + null-check instead of containsKey: on the host, its own entry is a
+        // null placeholder by design (no local Participant), and a null here always
+        // means "nothing to remove". This also closes the check-then-act gap against
+        // NetServer's remove, which mutates the map outside this monitor.
         Participant pToDel = participantes.get(nick);
 
         if (pToDel == null) {
@@ -4992,12 +5006,12 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Alta de un participante.
+     * Adds a participant.
      *
-     * NOTA: usado tanto por host (serverSocketHandler al aceptar un cliente
-     * nuevo, con socket no-null) como por cliente (registrar al servidor y a sí
-     * mismo en la lista local cuando el cliente recibe la info de la sala, con
-     * socket null). Por eso la lógica vive aquí y no en NetServer.
+     * NOTE: used both by the host (serverSocketHandler when accepting a new client,
+     * with a non-null socket) and by the client (registering the server and itself in
+     * the local list when the client receives the room info, with a null socket).
+     * That's why the logic lives here rather than in NetServer.
      */
     private synchronized void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k,
             SecretKeySpec hmac_k, boolean cpu, boolean unsecure) {
@@ -5007,7 +5021,7 @@ public class WaitingRoomFrame extends JFrame {
         participantes.put(nick, participante);
         participante.setUnsecure_player(unsecure);
 
-        // Solo el host arranca el thread del Participant (socket no-null → conexión real)
+        // Only the host starts the Participant's thread (non-null socket -> a real connection)
         if (socket != null) {
             Helpers.threadRun(participante);
         }
@@ -5016,8 +5030,8 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Callback de NetServer al añadir un Participant: actualiza la UI (lista de
-     * conectados, contador y notificación de chat).
+     * NetServer callback when a Participant is added: updates the UI (connected
+     * list, counter, and chat notification).
      */
     public void onParticipantAdded(String nick, File avatar, boolean cpu) {
         Helpers.GUIRun(() -> {
@@ -5055,8 +5069,8 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Callback de NetServer al eliminar un Participant: actualiza la UI (quita de
-     * la lista, ajusta contador y botones, anota salida en chat).
+     * NetServer callback when a Participant is removed: updates the UI (removes it
+     * from the list, adjusts the counter and buttons, notes the exit in chat).
      */
     public void onParticipantRemoved(String nick, String avatar_chat_src) {
         Helpers.GUIRun(() -> {
@@ -5696,9 +5710,9 @@ public class WaitingRoomFrame extends JFrame {
 
             if (!expulsado.equals(local_nick)) {
 
-                // Cambiamos la contraseña por una aleatoria FUERTE (CSPRNG +
-                // alphabet rico) — la anterior genRandomString solo usaba
-                // a-z + Random pseudoaleatorio, 47 bits con length=10.
+                // Replace the password with a STRONG random one (CSPRNG + rich alphabet) —
+                // the previous genRandomString only used a-z with a pseudo-random Random,
+                // 47 bits at length=10.
                 if (password != null && !participantes.get(expulsado).isCpu()) {
                     password = Helpers.genStrongPassword(Math.max(password.length(), GEN_PASS_LENGTH));
 
@@ -5730,8 +5744,8 @@ public class WaitingRoomFrame extends JFrame {
                     } catch (IOException ex) {
                         LOGGER.log(Level.SEVERE, null, ex);
                     }
-                    // La contrasena nueva se le pasa a QUIEN SIGUE DENTRO (el expulsado ya
-                    // no esta en la lista, asi que no se entera).
+                    // The new password only goes to WHOEVER REMAINS (the kicked player is
+                    // already off the list, so they never find out).
                     difundirNuevaPassword();
 
                     Helpers.GUIRun(() -> {
@@ -5844,8 +5858,8 @@ public class WaitingRoomFrame extends JFrame {
                         } while (ocupados);
 
                         Helpers.GUIRunAndWait(() -> {
-                            // Defensivo (en el host la rueda es modal y bloquea "Empezar",
-                            // así que normalmente no estaría abierta): cerrar sin preguntar.
+                            // Defensive (on the host the settings wheel is modal and blocks
+                            // "Start", so it normally wouldn't be open): close without asking.
                             SettingsDialog.closeIfOpen();
                             new GameFrame(WaitingRoomFrame.this, local_nick, true);
                         });
@@ -5866,7 +5880,7 @@ public class WaitingRoomFrame extends JFrame {
 
         if (!barra.isVisible() || !booting) {
 
-            // client_threads sólo existe en NetServer; en cliente no aplica (queda como "true" vacuo)
+            // client_threads only exists on NetServer; doesn't apply on the client (defaults to vacuously "true")
             boolean clientThreadsEmpty = (net_server == null) || net_server.getClient_threads().isEmpty();
             if (!booting && clientThreadsEmpty && !partida_empezando) {
 
@@ -5938,15 +5952,15 @@ public class WaitingRoomFrame extends JFrame {
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // Abre el diálogo de ajustes en modo general (Apariencia + Sonido): no hay
-        // GameFrame en la sala de espera, así que la pestaña Partida no se monta.
+        // Opens the settings dialog in general mode (Appearance + Sound): there's no
+        // GameFrame in the waiting room, so the Game tab isn't mounted.
         SettingsDialog.open(this);
     }
 
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
 
-        // evt es null cuando el toggle de sonido se invoca por codigo (atajos de teclado); en ese
-        // caso no hay click real que validar.
+        // evt is null when the sound toggle is invoked programmatically (keyboard
+        // shortcuts); in that case there's no real click to validate.
         if (evt != null && !Helpers.isRealClick(evt)) {
             return;
         }
@@ -6003,12 +6017,12 @@ public class WaitingRoomFrame extends JFrame {
                     }
 
                     synchronized (lock_new_client) {
-                        // El aforo se vuelve a mirar AQUI DENTRO, como hace el gemelo del alta
-                        // de un cliente: la comprobacion del boton se hizo antes de pedir el
-                        // turno, y en ese hueco puede haber entrado alguien por la red. Pasarse
-                        // del aforo deja la sala sin tablero para tanta gente y se queda colgada
-                        // al empezar la timba. El nick tambien se elige aqui, o dos altas a la
-                        // vez podrian quedarse con el mismo.
+                        // Capacity is checked AGAIN HERE, same as its twin for a client join: the
+                        // button's check ran before waiting for the turn, and in that gap someone
+                        // could have joined over the network. Going over capacity leaves the room
+                        // without enough seats for everyone and hangs when the game starts. The
+                        // nick is also chosen here, or two simultaneous joins could end up with
+                        // the same one.
                         if (participantes.size() >= MAX_PARTICIPANTES) {
                             LOGGER.log(Level.WARNING,
                                     "Table filled up while adding a bot ({0} participants) — not adding it",
@@ -6059,7 +6073,7 @@ public class WaitingRoomFrame extends JFrame {
         }
 
         if (javax.swing.SwingUtilities.isRightMouseButton(evt)) {
-            // Click derecho → menú contextual con 3 opciones.
+            // Right click -> context menu with 3 options.
             javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
 
             javax.swing.JMenuItem copiarItem = new javax.swing.JMenuItem(
@@ -6082,8 +6096,8 @@ public class WaitingRoomFrame extends JFrame {
             return;
         }
 
-        // Click izquierdo → atajo: copiar la actual al portapapeles
-        // (silencioso, mensaje breve). Si no hay password, genera fuerte.
+        // Left click -> shortcut: copy the current one to the clipboard (silent, brief
+        // message). If there's no password, generate a strong one.
         if (password != null) {
             copyCurrentPasswordToClipboard();
         } else {
@@ -6092,8 +6106,8 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Atajo del click izquierdo y del item "Copiar contraseña" del menú:
-     * copia la password actual al portapapeles + popup breve.
+     * Shortcut for the left click and the menu's "Copy password" item: copies the
+     * current password to the clipboard + a brief popup.
      */
     private void copyCurrentPasswordToClipboard() {
         if (password == null) {
@@ -6107,11 +6121,10 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Item "Cambiar contraseña" del menú: pide al usuario una nueva password
-     * con un JPasswordField que cambia de color (amarillo débil / verde
-     * fuerte) en tiempo real, paridad con NewGameDialog. Si el resultado
-     * tiene <60 bits de entropía, popup informativo (no bloquea).
-     * Input vacío → partida sin password.
+     * Menu's "Change password" item: prompts the user for a new password with a
+     * JPasswordField that changes color (weak yellow / strong green) live, matching
+     * NewGameDialog. If the result has &lt;60 bits of entropy, an informational popup
+     * (non-blocking). Empty input -> game without a password.
      */
     private void promptAndSetNewPassword() {
         javax.swing.JPasswordField field = new javax.swing.JPasswordField(20);
@@ -6134,8 +6147,8 @@ public class WaitingRoomFrame extends JFrame {
         String trimmed = (chars == null) ? "" : new String(chars).trim();
         if (trimmed.isEmpty()) {
             password = null;
-            // Quitarla tambien hay que contarlo: sin contrasena el canal se deriva por otro
-            // camino, asi que quien se quedara con la vieja no podria volver a entrar.
+            // Clearing it must also be announced: without a password the channel is derived
+            // a different way, so anyone left with the old one couldn't rejoin.
             difundirNuevaPassword();
             pass_icon.setEnabled(false);
             pass_icon.setToolTipText(null);
@@ -6158,26 +6171,27 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Reparte la contrasena ACTUAL de la sala (o el aviso de que ya no hay) a todos los
-     * que siguen dentro.
+     * Broadcasts the room's CURRENT password (or the notice that there is none) to
+     * everyone still connected.
      *
-     * <p>Se llama desde los CUATRO sitios que la cambian: expulsar a alguien, cambiarla a
-     * mano, generar una fuerte y quitarla. Sin esto los demas se quedan con la vieja y,
-     * como el canal se deriva de ella, al primero que se le cortara la red se quedaba
-     * fuera sin poder volver a entrar. Quitarla cuenta igual: sin contrasena el canal se
-     * deriva por otro camino, asi que tambien hay que avisar (viaja el centinela "*").
+     * <p>Called from all FOUR places that change it: kicking someone, changing it by
+     * hand, generating a strong one, and clearing it. Without this the others are left
+     * with the old one and, since the channel is derived from it, the first one to have
+     * their network drop would be locked out and unable to rejoin. Clearing it counts
+     * the same way: without a password the channel is derived a different way, so it
+     * also needs to be announced (the "*" sentinel travels for that case).
      *
-     * <p>Va SIEMPRE en un hilo aparte: escribir a un peer espera mientras ese peer este
-     * reconectando, y tres de los cuatro llamadores vienen del hilo grafico (el menu del
-     * candado), asi que hacerlo ahi congelaba la sala entera. Es el mismo motivo por el
-     * que el identicon de sesion se saco del hilo grafico al principio de esta clase.
+     * <p>ALWAYS runs on a separate thread: writing to a peer waits while that peer is
+     * reconnecting, and three of the four callers come from the EDT (the lock menu), so
+     * doing it there would freeze the whole room. Same reason the session identicon was
+     * moved off the EDT at the top of this class.
      */
     private void difundirNuevaPassword() {
 
-        // La version y la copia de la lista se toman JUNTAS, bajo el monitor del mapa (que
-        // es el suyo propio, por ser un mapa sincronizado). Separarlas dejaba colarse el
-        // orden contrario: que la version mas alta llevara la lista mas vieja, y entonces
-        // el reparto que gana es el que menos gente conoce.
+        // The version and the list snapshot are taken TOGETHER, under the map's monitor
+        // (its own, since it's a synchronized map). Taking them separately let the
+        // opposite order slip through: the higher version carrying the older list, so
+        // the broadcast that wins is the one that knows about fewer people.
         final long version;
         final java.util.ArrayList<Participant> destinatarios;
 
@@ -6187,15 +6201,16 @@ public class WaitingRoomFrame extends JFrame {
         }
 
         Helpers.threadRun(() -> {
-            // Dos cambios seguidos pueden acabar entregandose al reves, y quien se quede con
-            // la vieja no puede volver a entrar cuando se le corte la red, porque el canal se
-            // deriva de ella. De que eso no pase se encarga cada Participant por su cuenta
-            // (ver writeRoomPassword): el numero de cambio se apunta dentro de su propio
-            // cerrojo, asi que el orden queda bien en cada socket sin que un peer atascado
-            // retenga el reparto a los demas.
+            // Two changes in a row can end up delivered out of order, and whoever is left
+            // with the old one can't rejoin once their network drops, because the channel
+            // is derived from it. Each Participant takes care of that on its own (see
+            // writeRoomPassword): the change number is recorded inside its own lock, so
+            // the order stays correct on each socket without one stuck peer holding up
+            // the broadcast to everyone else.
             //
-            // Este corte de aqui es solo para no gastar el viaje: si mientras esperabamos ya
-            // ha entrado un cambio mas nuevo, ese reparte a todos y este no pinta nada.
+            // This early-out here is just to avoid a wasted trip: if a newer change
+            // already landed while we were waiting, that one broadcasts to everyone and
+            // this one has nothing to do.
             if (version != password_version.get()) {
                 return;
             }
@@ -6214,13 +6229,13 @@ public class WaitingRoomFrame extends JFrame {
                 }
             }
 
-            // Cada peer en su propio hilo. Escribir a uno puede quedarse parado un buen rato
-            // (mientras el este reconectando, o detras de una nota de voz que retiene el
-            // turno de salida de su socket), y en un bucle de uno en uno ese atascado
-            // retenia a todos los que fueran detras: se quedaban sin la contrasena nueva
-            // justo durante esas decenas de segundos, y quien se cayera ahi ya no podia
-            // volver a entrar. El orden no se pierde por repartir en paralelo: lo garantiza
-            // cada Participant con su propio cerrojo (ver writeRoomPassword).
+            // Each peer on its own thread. Writing to one can stall for quite a while
+            // (while it's reconnecting, or stuck behind a voice note holding its socket's
+            // outgoing turn), and in a one-by-one loop that stuck peer would hold up
+            // everyone behind it: they'd be left without the new password for exactly
+            // those tens of seconds, and anyone who dropped during that window could no
+            // longer rejoin. Order isn't lost by broadcasting in parallel: each
+            // Participant guarantees it with its own lock (see writeRoomPassword).
             for (Participant resto : destinatarios) {
                 if (resto != null && !resto.isCpu() && !resto.getNick().equals(local_nick)) {
                     Helpers.threadRun(() -> resto.writeRoomPassword(version, payload));
@@ -6230,8 +6245,8 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Item "Generar contraseña fuerte" del menú (y atajo si no hay
-     * password). Usa CSPRNG + alphabet rico — ~86 bits con length=14.
+     * Menu's "Generate strong password" item (and shortcut when there's no password
+     * yet). Uses CSPRNG + a rich alphabet — ~86 bits at length=14.
      */
     private void generateAndShowStrongPassword() {
         password = Helpers.genStrongPassword(GEN_PASS_LENGTH);
@@ -6262,8 +6277,8 @@ public class WaitingRoomFrame extends JFrame {
         }
 
         if (server) {
-            // El socket puede no existir todavia (o no haberse podido abrir el puerto):
-            // desde que se publica DESPUES de atarlo, aqui hay que comprobarlo.
+            // The socket might not exist yet (or the port might have failed to open):
+            // since it's published AFTER being bound, this must be checked here.
             if (net_server.getServer_socket() == null) {
                 return;
             }
@@ -6275,15 +6290,15 @@ public class WaitingRoomFrame extends JFrame {
         }
     }//GEN-LAST:event_server_address_labelMouseClicked
 
-    // Pinta las caracteristicas de la partida en la sala de espera a partir del
-    // gameinfo "BUYIN|BLINDS|HANDS". Si el campo buyin es el tag de buy-in
-    // variable, oculta la bolsa (cada jugador elige su buy-in) manteniendo ciegas
-    // y manos. Numerico -> buyin normal. No numerico -> caso recover (existente).
+    // Paints the game's characteristics in the waiting room from the gameinfo
+    // "BUYIN|BLINDS|HANDS". If the buyin field is the variable-buyin tag, hides the
+    // pot (each player picks their own buy-in) while keeping blinds and hands.
+    // Numeric -> normal buyin. Non-numeric -> the (existing) recover case.
     private void applyGameInfoBuyinLabel(String[] game_info) {
         String buyin_field = game_info[0].trim();
         if (VARIABLE_BUYIN_TAG.equals(buyin_field)) {
-            // Texto = tag (aunque oculto): asi viaja en el payload NICKOK/GAMEINFO
-            // que se reconstruye desde game_info_buyin.getText().
+            // Text = tag (even though hidden): this is how it travels in the
+            // NICKOK/GAMEINFO payload, which is rebuilt from game_info_buyin.getText().
             game_info_buyin.setText(VARIABLE_BUYIN_TAG);
             game_info_buyin.setVisible(false);
             game_info_blinds.setVisible(true);
@@ -6317,16 +6332,16 @@ public class WaitingRoomFrame extends JFrame {
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // DESACTIVADO: la config de la timba en la sala se edita ahora desde la rueda
-        // (SettingsDialog -> pestaña Partida), no haciendo click sobre las ciegas. El
-        // listener sigue registrado en el .form pero el handler es un no-op (los labels
-        // de buyin/ciegas/manos delegan en este método, así que los tres quedan inertes).
+        // DISABLED: the room's game config is now edited from the settings wheel
+        // (SettingsDialog -> Game tab), not by clicking the blinds. The listener stays
+        // registered in the .form but the handler is a no-op (the buyin/blinds/hands
+        // labels all delegate to this method, so all three are now inert).
     }//GEN-LAST:event_game_info_buyinMouseClicked
 
-    // Refresca los labels buyin/ciegas/manos de la sala desde GameFrame.* y difunde a los
-    // clientes el GAMEINFO (display) + el GAMECONFIG (espejo COMPLETO). Lo invoca el panel
-    // de la pestaña Partida de la rueda al GUARDAR (solo el HOST). Reemplaza al broadcast
-    // que hacía el viejo click sobre las ciegas.
+    // Refreshes the room's buyin/blinds/hands labels from GameFrame.* and broadcasts the
+    // GAMEINFO (display) + GAMECONFIG (FULL mirror) to clients. Called by the settings
+    // wheel's Game tab panel on SAVE (host only). Replaces the broadcast the old blinds
+    // click used to do.
     public void broadcastGameConfigAndLabels() {
 
         final String[] payload = new String[1];
@@ -6336,7 +6351,7 @@ public class WaitingRoomFrame extends JFrame {
                 game_info_buyin.setVisible(true);
                 game_info_buyin.setText(Helpers.money2String(GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
             } else {
-                // Variable: la bolsa no aplica. El tag viaja en el GAMEINFO via getText().
+                // Variable: the pot doesn't apply. The tag travels in the GAMEINFO via getText().
                 game_info_buyin.setText(VARIABLE_BUYIN_TAG);
                 game_info_buyin.setVisible(false);
             }
@@ -6351,7 +6366,7 @@ public class WaitingRoomFrame extends JFrame {
             game_info_hands.setText(GameFrame.MANOS != -1 ? String.valueOf(GameFrame.MANOS) : "");
             game_info_hands.setVisible(!"".equals(game_info_hands.getText()));
 
-            // Capturar el payload del display EN EL EDT (no leer Swing fuera de él).
+            // Capture the display payload ON THE EDT (never read Swing off it).
             payload[0] = game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|"
                     + game_info_hands.getText();
 
@@ -6485,11 +6500,12 @@ public class WaitingRoomFrame extends JFrame {
             refreshChatPanel();
         }
 
-        // Durante la partida el juego esta en borderless fullscreen; mantener la
-        // sala de espera siempre-encima mientras es visible evita que se vaya
-        // detras al clicar el juego. Es solo z-order: NO roba el foco (eso era el
-        // hide/show reclaim de formWindowDeactivated, ya eliminado). En el lobby
-        // (sin partida) queda normal para no tapar sus dialogos modales.
+        // During the game, the game itself is borderless fullscreen; keeping the
+        // waiting room always-on-top while it's visible stops it from sliding behind
+        // when the game is clicked. This is purely z-order: it does NOT steal focus
+        // (that was formWindowDeactivated's hide/show reclaim, already removed). In the
+        // lobby (no game running) it stays normal so it doesn't cover its own modal
+        // dialogs.
         setAlwaysOnTop(isPartida_empezada());
 
         main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
@@ -6501,24 +6517,23 @@ public class WaitingRoomFrame extends JFrame {
         repaint();
 
         if (isPartida_empezada()) {
-            // Durante el juego el JTextPane sigue recibiendo HTMLEditorKitAppend
-            // mientras la ventana esta oculta. Los <img> resuelven su bitmap via
-            // ImageObserver y disparan preferenceChanged, pero al no ser
-            // displayable el componente la cascada de relayout no recalcula las
-            // allocations de los RoundedBubbleView -> burbujas con imagen quedan
-            // con geometria stale al reabrir el chat desde el menu in-game.
+            // While the game is running, the JTextPane keeps receiving
+            // HTMLEditorKitAppend even while the window is hidden. The <img>s resolve
+            // their bitmap via ImageObserver and fire preferenceChanged, but since the
+            // component isn't displayable the relayout cascade never recomputes the
+            // RoundedBubbleView allocations -> image bubbles end up with stale geometry
+            // when the chat is reopened from the in-game menu.
             //
-            // Mimica exacta de lo que hace chatMouseClicked (el evento que el
-            // usuario disparaba a mano para "arreglar" el pintado): cambiar
-            // brevemente la policy del scrollpane de NEVER a AS_NEEDED fuerza
-            // a JScrollPane a recalcular layout, el viewport reentrega un
-            // setSize al chat con potencial cambio de width al mostrar/ocultar
-            // la scrollbar, y el HTMLDocument relaya el view tree con los
-            // tamanos reales ya resueltos. Tras un segundo invokeLater
-            // restauramos la policy original para no dejar barras visibles si
-            // chatFocusLost no las cubre. setSize sobre chat directamente no
-            // funciona aqui: dentro de un JScrollPane el viewport sobreescribe
-            // el size desde su extent y el HTMLDocument no se invalida.
+            // Exact mimic of what chatMouseClicked does (the event users used to
+            // trigger by hand to "fix" the rendering): briefly flipping the scrollpane's
+            // policy from NEVER to AS_NEEDED forces JScrollPane to recompute its layout,
+            // the viewport hands the chat a new setSize with a possible width change as
+            // the scrollbar shows/hides, and the HTMLDocument relays its view tree with
+            // the real, now-resolved sizes. After a second invokeLater we restore the
+            // original policy so no bars are left visible in case chatFocusLost doesn't
+            // cover it. Calling setSize on chat directly doesn't work here: inside a
+            // JScrollPane the viewport overrides the size from its extent and the
+            // HTMLDocument never gets invalidated.
             final int v_policy = chat_scroll.getVerticalScrollBarPolicy();
             final int h_policy = chat_scroll.getHorizontalScrollBarPolicy();
             javax.swing.SwingUtilities.invokeLater(() -> {
@@ -6652,10 +6667,10 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
-        // La sala de espera es una ventana normal: no se aferra al foco. Durante
-        // la partida el foco lo gestiona el GameFrame; el chat in-game es el chat
-        // rapido. (Antes aqui se ocultaba y re-mostraba para robar el foco de
-        // vuelta, lo que peleaba con el GameFrame y causaba focos erraticos.)
+        // The waiting room is a normal window: it doesn't cling to focus. During the
+        // game, focus is managed by GameFrame; the in-game chat is FastChat. (This used
+        // to hide and re-show itself to steal focus back, which fought with GameFrame
+        // and caused erratic focus behavior.)
     }//GEN-LAST:event_formWindowDeactivated
 
     private void formWindowDeiconified(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeiconified

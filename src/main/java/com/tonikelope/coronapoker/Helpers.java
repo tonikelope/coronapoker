@@ -97,7 +97,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import java.nio.file.attribute.PosixFilePermission;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.KeyException;
@@ -122,7 +121,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -226,58 +224,55 @@ import static java.beans.Beans.isDesignTime;
 import java.util.Base64;
 
 /**
+ * Grab-bag of static helpers used across the app (GUI, crypto, I/O, config, misc).
  *
  * @author tonikelope
- *
- * Too much stuff here...
- *
  */
 public class Helpers {
 
     private static final Logger LOGGER = Logger.getLogger(Helpers.class.getName());
 
     public static volatile ThreadPoolExecutor THREAD_POOL;
-    // Cola FIFO de un solo hilo para el registro (GameLogDialog.print). THREAD_POOL es
-    // multi-hilo, asi que dos print() concurrentes —o incluso secuenciales del mismo
-    // hilo— podian aplicarse al log en orden distinto al de llamada (p.ej. la tabla de
-    // fin de timba colandose entre las acciones de una mano). Un unico consumidor
-    // garantiza el orden de llegada. Mismo ciclo de vida que THREAD_POOL (creado y
-    // destruido por partida en CREATE/SHUTDOWN_THREAD_POOL), asi se drena y recrea
-    // igual y no fuga hilos ni arrastra prints entre timbas.
+    // Single-thread FIFO queue for the log (GameLogDialog.print). THREAD_POOL is
+    // multi-threaded, so two concurrent print() calls — or even sequential ones from
+    // the same thread — could land in the log out of call order (e.g. the end-of-game
+    // table slipping in between a hand's actions). A single consumer guarantees
+    // arrival order. Same lifecycle as THREAD_POOL (created/destroyed per game in
+    // CREATE/SHUTDOWN_THREAD_POOL) so it drains and recreates the same way without
+    // leaking threads or carrying prints over between games.
     public static volatile ExecutorService LOG_POOL;
     public static final int THREAD_POOL_SHUTDOWN_TIMEOUT = 5;
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
-    // Lo usan el check de versión (CoronaPoker y MOD) y el connect del
-    // descargador del updater. Holgado a propósito: en un PC/red lentos durante
-    // el arranque, un techo corto abortaba el check antes de tiempo y dejaba al
-    // usuario solo con el botón manual. El check corre en background y reintenta
-    // en silencio (Init.UPDATE_CHECK_RETRIES) sin retener nada — el usuario
-    // puede entrar a una partida mientras tanto —, así que 10 s no molestan.
+    // Used by the version check (CoronaPoker and MOD) and the updater downloader's
+    // connect. Generous on purpose: on a slow PC/network at startup, a short cap
+    // aborted the check too early and left the user with only the manual button. The
+    // check runs in the background and retries silently (Init.UPDATE_CHECK_RETRIES)
+    // without blocking anything — the user can enter a game meanwhile — so 10 s costs
+    // nothing.
     public static final int HTTP_TIMEOUT = 10000;
-    // Claves DÉBILES: un componente vivo siempre está fuertemente referenciado por
-    // su contenedor, así que su entrada permanece mientras se usa; cuando el diálogo
-    // que lo contiene se dispose()a y se deja de referenciar, el GC evicta la entrada
-    // sola. Esto evita la fuga lenta que tenía el ConcurrentHashMap (cada reapertura
-    // de PauseDialog/ShortcutsDialog dejaba clavado todo su árbol de componentes).
-    // Solo se accede por put/get/containsKey (nunca se itera), así que synchronizedMap
-    // basta para la seguridad de hilos.
+    // WEAK keys: a live component is always strongly referenced by its container, so
+    // its entry survives while it's in use; once the dialog holding it is dispose()d
+    // and dereferenced, the GC evicts the entry on its own. This closes the slow leak
+    // the ConcurrentHashMap had (every PauseDialog/ShortcutsDialog reopen pinned its
+    // whole component tree). Only accessed via put/get/containsKey (never iterated),
+    // so synchronizedMap is enough for thread safety.
     public static final Map<Component, Integer> ORIGINAL_FONT_SIZE = Collections.synchronizedMap(new WeakHashMap<>());
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
-    // Ruta de la copia de rescate si el fichero de preferencias vino ilegible, para que el
-    // arranque pueda avisar cuando ya exista el registro. null = no hubo incidente.
+    // Path of the rescue copy when the preferences file came back unreadable, so
+    // startup can warn once the log already exists. null = no incident.
     public static volatile String PROPERTIES_RESCUE_COPY = null;
-    // Tope superior de tamaño de una línea de comando (post-Base64 + cifrado + HMAC).
-    // Cubre con margen el mensaje más grande que el protocolo legítimo puede generar
-    // (MEGAPACKET SRA con 52*32 = 1664 bytes + AES padding + IV + HMAC + Base64 ronda
-    // los 2-4 KB; RECOVERDATA serializado ronda decenas de KB). 16 MB es ~1000× más
-    // que cualquier comando real y corta la vía OOM por línea infinita en readLine.
+    // Upper bound on a command line's size (post-Base64 + encryption + HMAC). Covers
+    // with margin the largest message the legitimate protocol can produce (an SRA
+    // MEGAPACKET at 52*32 = 1664 bytes + AES padding + IV + HMAC + Base64 runs 2-4 KB;
+    // a serialized RECOVERDATA runs tens of KB). 16 MB is ~1000x any real command and
+    // cuts off the infinite-line-in-readLine OOM path.
     public static final int MAX_COMMAND_LINE_CHARS = 16 * 1024 * 1024;
     public static final int DECK_ELEMENTS = 52;
     public static final int MIN_GIF_FRAME_DELAY = 3;
     public static final int DIALOG_ICON_SIZE = 70;
     public static final float MESSAGE_DIALOG_ZOOM = 1.3f;
-    // Rango del zoom GLOBAL de diálogos (preferencia del usuario). 1.0 = tamaño de diseño.
+    // Range of the GLOBAL dialog zoom (user preference). 1.0 = design size.
     public static final float DIALOG_ZOOM_MIN = 0.5f;
     public static final float DIALOG_ZOOM_MAX = 2.0f;
     public static ArrayList<String> POKER_QUOTES_ES = new ArrayList<>();
@@ -292,9 +287,9 @@ public class Helpers {
 
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = isDesignTime() ? new Properties() : loadPropertiesFile();
-    // Zoom GLOBAL de los diálogos (letra + tamaño de la ventana), preferencia del usuario en
-    // Ajustes -> Apariencia. 1.0 = tamaño de diseño (idéntico a como estaba). INDEPENDIENTE del
-    // zoom de la MESA (GameFrame.ZOOM_LEVEL), que este control NO toca.
+    // GLOBAL dialog zoom (font + window size), user preference under Settings ->
+    // Appearance. 1.0 = design size (identical to before). INDEPENDENT of the TABLE
+    // zoom (GameFrame.ZOOM_LEVEL), which this control does NOT touch.
     public volatile static float DIALOG_ZOOM = readDialogZoom();
     public volatile static Font GUI_FONT = null;
     static {
@@ -327,7 +322,7 @@ public class Helpers {
 
         public LeftClickMenuItem(Action menu_item_action) {
 
-            // Asigna acción con lógica para bloquear clic derecho
+            // Wrap the action so right-click is blocked
             setAction(new AbstractAction(
                     (String) menu_item_action.getValue(Action.NAME),
                     (Icon) menu_item_action.getValue(Action.SMALL_ICON)
@@ -344,7 +339,7 @@ public class Helpers {
 
             setAccelerator((KeyStroke) menu_item_action.getValue(Action.ACCELERATOR_KEY));
 
-            // Captura el botón del mouse
+            // Track which mouse button was pressed
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
@@ -360,7 +355,7 @@ public class Helpers {
 
         public LeftClickCheckBoxMenuItem(Action menu_item_action) {
 
-            // Asigna acción con lógica para bloquear clic derecho
+            // Wrap the action so right-click is blocked
             setAction(new AbstractAction(
                     (String) menu_item_action.getValue(Action.NAME),
                     (Icon) menu_item_action.getValue(Action.SMALL_ICON)
@@ -379,7 +374,7 @@ public class Helpers {
 
             setAccelerator((KeyStroke) menu_item_action.getValue(Action.ACCELERATOR_KEY));
 
-            // Captura el botón del mouse
+            // Track which mouse button was pressed
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
@@ -395,7 +390,7 @@ public class Helpers {
 
         public LeftClickRadioButtonMenuItem(Action menu_item_action) {
 
-            // Asigna acción con lógica para bloquear clic derecho
+            // Wrap the action so right-click is blocked
             setAction(new AbstractAction(
                     (String) menu_item_action.getValue(Action.NAME),
                     (Icon) menu_item_action.getValue(Action.SMALL_ICON)
@@ -414,7 +409,7 @@ public class Helpers {
 
             setAccelerator((KeyStroke) menu_item_action.getValue(Action.ACCELERATOR_KEY));
 
-            // Captura el botón del mouse
+            // Track which mouse button was pressed
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
@@ -432,12 +427,11 @@ public class Helpers {
 
         final JComponent editor = spinner.getEditor();
 
-        // El editor (DefaultEditor) es OPACO por defecto bajo Nimbus y rellena su
-        // fondo desde x=0, "asomando" unos píxeles por la izquierda del rectángulo
-        // de color que pintamos en fillRect(3,3,...). Lo hacemos no-opaco para que
-        // la única zona pintada sea ese rectángulo con inset 3 — exactamente el
-        // mismo inset (left=3, top=3) con el que Nimbus pinta el fondo de los
-        // botones de la botonera, de modo que el spinner queda alineado al píxel.
+        // The Nimbus DefaultEditor paints itself opaque from x=0, so its background
+        // peeks out a few pixels to the left of the rect we fill in fillRect(3,3,...).
+        // Making it non-opaque leaves that inset-3 rect as the only painted area — the
+        // same inset (left=3, top=3) Nimbus uses for the button bar background, so the
+        // spinner lines up pixel-for-pixel with it.
         editor.setOpaque(false);
 
         int c = editor.getComponentCount();
@@ -453,56 +447,51 @@ public class Helpers {
                     protected void paint(javax.swing.plaf.synth.SynthContext context, java.awt.Graphics g) {
 
                         if (comp.isEnabled()) {
-                            // Habilitar antialiasing para el texto
+                            // Enable antialiasing for the text
                             Graphics2D g2d = (Graphics2D) g;
                             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                             g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-                            // Fondo personalizado
+                            // Custom background
                             g2d.setColor(background);
                             g2d.fillRect(3, 3, getComponent().getWidth() - 6, getComponent().getHeight() - 6);
 
-                            // Cambiar color del texto
+                            // Custom text color
                             g2d.setColor(foreground);
                             g2d.setFont(getComponent().getFont());
 
-                            // Dibujar el texto manualmente
+                            // Draw the text manually
                             String text = ((JTextComponent) comp).getText();
                             FontMetrics fm = g2d.getFontMetrics();
 
-                            int alignment = JTextField.LEFT;  // Valor por defecto
+                            int alignment = JTextField.LEFT;  // Default value
 
-                            // Verificar si el componente es un JTextField
+                            // Check whether the component is a JTextField
                             if (comp instanceof JTextField) {
                                 alignment = ((JTextField) comp).getHorizontalAlignment();
                             }
 
-                            // Calcular la posición X en función de la alineación
-                            int x = 5;  // Margen izquierdo por defecto
+                            // Compute the X position from the alignment
+                            int x = 5;  // Default left margin
 
                             if (alignment == JTextField.RIGHT) {
-                                x = getComponent().getWidth() - fm.stringWidth(text) - 5;  // Alinear a la derecha
+                                x = getComponent().getWidth() - fm.stringWidth(text) - 5;  // Right-align
                             } else if (alignment == JTextField.CENTER) {
-                                x = (getComponent().getWidth() - fm.stringWidth(text)) / 2;  // Centrar el texto
+                                x = (getComponent().getWidth() - fm.stringWidth(text)) / 2;  // Center it
                             }
 
-                            int y = (getComponent().getHeight() + fm.getAscent()) / 2 - 2; // Centrado verticalmente
+                            int y = (getComponent().getHeight() + fm.getAscent()) / 2 - 2; // Vertically centered
 
-                            // Dibujar el texto
+                            // Draw the text
                             g2d.drawString(text, x, y);
 
                         } else {
                             super.paint(context, g);
                         }
                     }
-                ;
+                });
             }
-
-        
-        );
-             }
-
-            }
+        }
 
         Helpers.GUIRun(() -> {
 
@@ -534,22 +523,21 @@ public class Helpers {
         Process process = null;
         try {
             ProcessBuilder processbuilder = new ProcessBuilder(command);
-            // NO redirectErrorStream(true) — rompe los callers que parsean
-            // output[1] esperando stdout limpio del binario. En su lugar,
-            // drenamos stderr en un thread daemon paralelo para evitar el
-            // pipe-full hang sin contaminar stdout.
+            // NO redirectErrorStream(true) — that breaks callers that parse output[1]
+            // expecting clean binary stdout. Instead, stderr is drained on a parallel
+            // daemon thread to avoid the pipe-full hang without polluting stdout.
             process = processbuilder.start();
 
             long pid = process.pid();
 
-            // Stderr drain thread (daemon) — evita el bloqueo cuando el
-            // binario escribe a stderr más que el buffer del OS pipe.
+            // Stderr drain thread (daemon) — avoids the block when the binary writes
+            // more to stderr than the OS pipe buffer holds.
             final Process pRef = process;
             Thread stderrDrainer = new Thread(() -> {
                 try (BufferedReader err = new BufferedReader(
                         new InputStreamReader(pRef.getErrorStream()))) {
                     while (err.readLine() != null) {
-                        // descartar
+                        // discard
                     }
                 } catch (Exception ignored) {
                 }
@@ -559,7 +547,7 @@ public class Helpers {
 
             StringBuilder sb = new StringBuilder();
 
-            // try-with-resources: el BufferedReader anterior nunca se cerraba.
+            // try-with-resources: the previous BufferedReader was never closed.
             try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
 
                 String line;
@@ -576,8 +564,8 @@ public class Helpers {
             return new String[]{String.valueOf(pid), sb.toString()};
 
         } catch (Exception ex) {
-            // Si el process arrancó pero falló después (e.g. InterruptedException
-            // en waitFor), destruir para evitar zombi.
+            // If the process started but failed afterwards (e.g. InterruptedException
+            // in waitFor), destroy it to avoid a zombie.
             if (process != null && process.isAlive()) {
                 try {
                     process.destroy();
@@ -644,10 +632,10 @@ public class Helpers {
 
             con.setUseCaches(false);
 
-            // Sin timeouts, un GitHub colgado dejaba este hilo de descarga
-            // bloqueado para siempre (el usuario veía "preparando actualización"
-            // eterno). Connect corto; read holgado porque es una descarga real
-            // (no aborta una descarga lenta-pero-viva, sí una conexión muerta).
+            // Without timeouts, a stuck GitHub left this download thread blocked
+            // forever (the user saw "preparing update" forever). Short connect;
+            // generous read, since this is a real download (this doesn't abort a
+            // slow-but-alive download, only a dead connection).
             con.setConnectTimeout(HTTP_TIMEOUT);
             con.setReadTimeout(60000);
 
@@ -821,12 +809,11 @@ public class Helpers {
     private static final int SMOOTH_TICK_MS = 50;
 
     /**
-     * Countdown visual fluido para JProgressBar: arranca llena y baja a 0 en
-     * `seconds` segundos. Usa escala ms (max = seconds * 1000) y un Timer de
-     * 50 ms basado en deadline-now (sin drift acumulativo). El Timer queda
-     * asociado a la barra via clientProperty, así una segunda llamada o un
-     * resetBarra/barraIndeterminada lo cancelan limpiamente. seconds <= 0
-     * deja la barra a 0 sin arrancar Timer.
+     * Smooth visual countdown for a JProgressBar: starts full and drains to 0 over
+     * {@code seconds}. Uses an ms scale (max = seconds * 1000) and a 50 ms Timer based
+     * on a deadline-now diff (no cumulative drift). The Timer is stashed on the bar via
+     * clientProperty, so a second call, or resetBarra/barraIndeterminada, cancels it
+     * cleanly. seconds <= 0 leaves the bar at 0 without starting a Timer.
      */
     public static void smoothCountdown(JProgressBar barra, int seconds) {
         Helpers.GUIRunAndWait(new Runnable() {
@@ -842,15 +829,14 @@ public class Helpers {
                 final int totalMs = seconds * 1000;
                 barra.setMaximum(totalMs);
                 barra.setValue(totalMs);
-                // Issue#9: deadline mutable + lastTick para soportar pausa.
-                // Cuando GameFrame.timba_pausada esta activo, el contador logico
-                // (response_counter en Local/RemotePlayer) ya no decrementa,
-                // pero esta barra visual seguia drenando porque usa wall-clock.
-                // Al despausar, la barra estaba a 0 mientras response_counter
-                // aun tenia decenas de segundos -> desincronizacion visible.
-                // Empujamos el deadline hacia delante por el tiempo transcurrido
-                // mientras la timba esta pausada, asi la barra se "congela"
-                // visualmente y reanuda exactamente donde quedo.
+                // Issue#9: mutable deadline + lastTick to support pausing. While
+                // GameFrame.timba_pausada is active, the logical counter
+                // (response_counter in Local/RemotePlayer) stops decrementing, but this
+                // visual bar kept draining because it runs off wall-clock time. On
+                // unpause the bar was at 0 while response_counter still had tens of
+                // seconds left -> visible desync. Push the deadline forward by the time
+                // elapsed while paused, so the bar visually "freezes" and resumes
+                // exactly where it left off.
                 final long[] deadline = {System.currentTimeMillis() + totalMs};
                 final long[] lastTick = {System.currentTimeMillis()};
                 javax.swing.Timer t = new javax.swing.Timer(SMOOTH_TICK_MS, (java.awt.event.ActionEvent ae) -> {
@@ -865,8 +851,8 @@ public class Helpers {
                     long remaining = deadline[0] - now;
                     if (remaining <= 0) {
                         barra.setValue(0);
-                        // Forzar repintado completo: el delta value pequeño->0 a veces
-                        // no limpia el ultimo pixel de relleno y deja una "rayita".
+                        // Force a full repaint: the small-value->0 delta sometimes
+                        // doesn't clear the last filled pixel and leaves a thin sliver.
                         barra.repaint();
                         javax.swing.Timer self = (javax.swing.Timer) barra.getClientProperty(SMOOTH_TIMER_KEY);
                         if (self != null) {
@@ -946,9 +932,9 @@ public class Helpers {
 
     public static int getGIFLength(URL url) throws IOException, ImageProcessingException {
 
-        // try-with-resources sobre el InputStream del URL: ImageMetadataReader
-        // NO cierra el stream que recibe. Cada call (uno por GIF de chat o
-        // animación allin) filtraba el handle hasta GC.
+        // try-with-resources over the URL's InputStream: ImageMetadataReader does NOT
+        // close the stream it's given. Each call (one per chat GIF or allin animation)
+        // was leaking the handle until GC.
         Metadata metadata;
         try (InputStream s = url.openStream()) {
             metadata = ImageMetadataReader.readMetadata(s);
@@ -1006,10 +992,9 @@ public class Helpers {
                         return true;
                     }
                 } finally {
-                    // Contrato ImageIO: todo ImageReader obtenido vía
-                    // getImageReaders DEBE dispose() para liberar buffers
-                    // nativos. Función llamada por cada mensaje con imagen
-                    // en el chat (centenares por sesión).
+                    // ImageIO contract: every ImageReader obtained via getImageReaders
+                    // MUST dispose() to free native buffers. This function is called for
+                    // every image message in chat (hundreds per session).
                     read.dispose();
                 }
             }
@@ -1023,9 +1008,9 @@ public class Helpers {
     }
 
     public static void updateCoronaDialogsFont() {
-        // La fuente de los JOptionPane (mensaje y botones) sigue el zoom de diálogos: base 14 × factor.
-        // Se re-aplica al cambiar el zoom en Ajustes (AppearanceSettingsPanel) para que los mensajes
-        // simples (info/error/confirm) encojan/crezcan con el resto de diálogos.
+        // JOptionPane's font (message and buttons) follows the dialog zoom: base 14 x
+        // factor. Re-applied when the zoom changes in Settings (AppearanceSettingsPanel)
+        // so simple messages (info/error/confirm) shrink/grow with the rest of the dialogs.
         int sz = Math.round(14 * DIALOG_ZOOM);
         UIManager.put("OptionPane.messageFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), sz));
         UIManager.put("OptionPane.buttonFont", Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getStyle(), sz));
@@ -1051,10 +1036,10 @@ public class Helpers {
 
                 if (hbar.isVisible()) {
 
-                    // El modelo de la barra ya sabe cuánto contenido queda oculto a lo
-                    // ancho: maximum (ancho total) - visibleAmount (ancho visible). Ese
-                    // es exactamente lo que hay que ensanchar la ventana para que la barra
-                    // desaparezca, en un solo reajuste (sin crecer a saltos repackeando).
+                    // The bar's model already knows how much content is hidden
+                    // horizontally: maximum (total width) - visibleAmount (visible
+                    // width). That's exactly how much to widen the window for the bar to
+                    // disappear, in a single resize (no stepwise repack growth).
                     int deficit = hbar.getMaximum() - hbar.getVisibleAmount();
 
                     if (deficit > 0) {
@@ -1124,8 +1109,6 @@ public class Helpers {
      * the monitor it was centered on. Falls back to the primary work area when
      * the window overlaps no screen at all.
      */
-    // GraphicsConfiguration del monitor con el que MÁS solapa la ventana (multimonitor); null si
-    // no solapa ninguno (p. ej. ventana aún no posicionada).
     private static java.awt.GraphicsConfiguration graphicsConfigForWindow(Window window) {
 
         Rectangle window_bounds = window.getBounds();
@@ -1150,7 +1133,7 @@ public class Helpers {
         return best;
     }
 
-    // Área usable (menos barra de tareas) del monitor dado; el work-area del primario si es null.
+    // Usable area (taskbar excluded) of the given monitor; the primary's work area if null.
     private static Rectangle usableBoundsOfConfig(java.awt.GraphicsConfiguration gc) {
         if (gc == null) {
             return GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
@@ -1188,11 +1171,11 @@ public class Helpers {
     }
 
     public static void setScaledIconLabel(JLabel label, String path, int width, int height) {
-        // Image.getScaledInstance(0, 0, ...) lanza IllegalArgumentException. Cuando
-        // el caller intenta escalar antes de que el contenedor tenga tamaño
-        // (típico en zoomIcons disparado desde un re-layout que aún no se ha
-        // computado) las dimensiones llegan a 0; sin este guard la excepción
-        // sube a EDT y queda como SEVERE en JUL sin que el caller se entere.
+        // Image.getScaledInstance(0, 0, ...) throws IllegalArgumentException. When the
+        // caller tries to scale before the container has a size (typical in zoomIcons
+        // fired from a re-layout that hasn't been computed yet), the dimensions arrive
+        // as 0; without this guard the exception bubbles up on the EDT and ends up as
+        // SEVERE in JUL without the caller ever knowing.
         if (width <= 0 || height <= 0) {
             return;
         }
@@ -1223,8 +1206,8 @@ public class Helpers {
 
     }
 
-    // Copia translúcida de un icono (alpha global 0..1), para mostrar la ficha de
-    // posición del jugador local a opacidad reducida (estado intermedio del toggle).
+    // Translucent copy of an icon (global alpha 0..1), used to show the local player's
+    // position chip at reduced opacity (intermediate toggle state).
     public static ImageIcon translucentIcon(ImageIcon src, float alpha) {
         if (src == null) {
             return null;
@@ -1254,9 +1237,9 @@ public class Helpers {
         });
     }
 
-    // Pone un icono que el llamante YA tiene escalado (normalmente cacheado, para no repetir la
-    // decodificación y el escalado suavizado en cada cambio), marcándolo igual que los helpers
-    // setScaled* para que scaleIcons no lo vuelva a escalar.
+    // Sets an icon the caller has ALREADY scaled (typically cached, to avoid repeating
+    // decode + smooth scaling on every change), tagging it like the setScaled* helpers
+    // so scaleIcons doesn't scale it again.
     public static void setPreScaledIconLabel(JLabel label, ImageIcon icon) {
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
@@ -1267,21 +1250,21 @@ public class Helpers {
         });
     }
 
-    // Escala un icono y lo recolorea a BLANCO preservando el alfa (la silueta del
-    // dibujo). Para iconos pensados para fondo claro (p. ej. el engranaje del menú)
-    // que se muestran sobre el tapete oscuro, como el icono del altavoz.
+    // Scales an icon and recolors it to WHITE while preserving alpha (the drawing's
+    // silhouette). For icons meant for a light background (e.g. the menu gear) that get
+    // shown over the dark felt, like the speaker icon.
     public static void setScaledWhiteIconLabel(JLabel label, URL path, int width, int height) {
         setScaledTintedIconLabel(label, path, width, height, java.awt.Color.WHITE);
     }
 
-    // Igual que el anterior pero recoloreando a NEGRO. Para el engranaje de ajustes
-    // en la pantalla de inicio y la sala de espera, donde el altavoz es negro.
+    // Same as above but recolored to BLACK. Used for the settings gear on the start
+    // screen and waiting room, where the speaker icon is black.
     public static void setScaledBlackIconLabel(JLabel label, URL path, int width, int height) {
         setScaledTintedIconLabel(label, path, width, height, java.awt.Color.BLACK);
     }
 
-    // Escala el icono y recolorea su silueta (las zonas opacas) al color dado,
-    // preservando la transparencia vía SRC_ATOP.
+    // Scales the icon and recolors its silhouette (the opaque areas) to the given
+    // color, preserving transparency via SRC_ATOP.
     private static void setScaledTintedIconLabel(JLabel label, URL path, int width, int height, java.awt.Color tint) {
         if (width <= 0 || height <= 0) {
             return;
@@ -1294,8 +1277,8 @@ public class Helpers {
                 Graphics2D g = bi.createGraphics();
                 g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                 g.drawImage(src, 0, 0, width, height, null);
-                // SRC_ATOP pinta el color SOLO donde ya había opacidad: recolorea la
-                // silueta del icono sin tocar las zonas transparentes.
+                // SRC_ATOP paints the color ONLY where there was already opacity:
+                // recolors the icon's silhouette without touching transparent areas.
                 g.setComposite(AlphaComposite.SrcAtop);
                 g.setColor(tint);
                 g.fillRect(0, 0, width, height);
@@ -1483,35 +1466,30 @@ public class Helpers {
                 SQLiteConfig config = new SQLiteConfig();
 
                 config.enforceForeignKeys(true);
-                // Modo journal clásico (rollback journal) — el original. WAL
-                // se probó pero introducía 2 ficheros visibles en el dir de
-                // config (.db-wal + .db-shm) que confundían al autor sin
-                // beneficio práctico (CoronaPoker es single-user
-                // single-instance, no hay lectores concurrentes que se
-                // beneficien de WAL).
+                // Classic journal mode (rollback journal) — the original. WAL was tried
+                // but introduced 2 files visible in the config dir (.db-wal + .db-shm)
+                // that confused the author with no practical benefit (CoronaPoker is
+                // single-user single-instance, no concurrent readers to benefit from WAL).
                 //
-                // OJO: el journal_mode se almacena PERSISTENTEMENTE en el
-                // header de la BD. Si la BD ya estaba en WAL, simplemente
-                // omitir setJournalMode NO la cambia — sigue en WAL. Por
-                // eso ponemos DELETE explícito: la próxima vez que se abra
-                // la conexión, SQLite migra la BD a journal clásico y
-                // borra los ficheros .db-wal y .db-shm automáticamente.
+                // NOTE: journal_mode is stored PERSISTENTLY in the DB header. If the DB
+                // was already in WAL, simply omitting setJournalMode does NOT change it —
+                // it stays in WAL. Hence the explicit DELETE: the next time the
+                // connection opens, SQLite migrates the DB to the classic journal and
+                // automatically removes the .db-wal and .db-shm files.
                 config.setJournalMode(org.sqlite.SQLiteConfig.JournalMode.DELETE);
-                // synchronous=FULL: fsync del rollback journal antes de tocar la
-                // BD, y de la BD antes de borrar el journal. Es el default de
-                // SQLite, pero lo fijamos explícito para no depender del default
-                // del driver/versión: garantiza que ni un corte de luz corrompa
-                // el fichero (a lo sumo se pierde la última transacción no
-                // commiteada, nunca la BD entera).
+                // synchronous=FULL: fsync the rollback journal before touching the DB,
+                // and the DB before deleting the journal. This is SQLite's default, but
+                // set explicitly so it doesn't depend on the driver/version default: it
+                // guarantees a power cut can't corrupt the file (at most the last
+                // uncommitted transaction is lost, never the whole DB).
                 config.setSynchronous(org.sqlite.SQLiteConfig.SynchronousMode.FULL);
-                // 50 MB de cache (negativo = KB). Default es ~2MB, insuficiente
-                // para los JOINs de StatsDialog cuando hay miles de manos.
+                // 50 MB cache (negative = KB). The default is ~2MB, not enough for
+                // StatsDialog's JOINs once there are thousands of hands.
                 config.setCacheSize(-50_000);
-                // Defender / antivirus toma share-lock momentáneo en el .db
-                // durante COMMIT. Sin busy_timeout, SQLITE_BUSY se devuelve
-                // instantáneamente y el INSERT/UPDATE se pierde (catch genérico
-                // del Crupier lo loguea SEVERE pero no reintenta). 5s cubre
-                // share-locks transitorios sin colgar la UI.
+                // Defender / antivirus takes a momentary share-lock on the .db during
+                // COMMIT. Without busy_timeout, SQLITE_BUSY is returned instantly and the
+                // INSERT/UPDATE is lost (Crupier's generic catch logs SEVERE but doesn't
+                // retry). 5s covers transient share-locks without hanging the UI.
                 config.setBusyTimeout(5000);
 
                 SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE, config.toProperties());
@@ -1597,21 +1575,21 @@ public class Helpers {
     }
 
     /**
-     * @return true si la base de datos queda abierta y con el esquema al día.
+     * @return true if the database ends up open with an up-to-date schema.
      *
-     * Devuelve false (nunca propaga) ante cualquier fallo, incluidos los que no
-     * son Exception: si la librería nativa de SQLite no se puede cargar
-     * (bloqueada en el directorio temporal, o acceso nativo denegado por la JVM)
-     * lo que sale de aquí es un Error, y hasta ahora se escapaba del catch y
-     * mataba el hilo de arranque, dejando el splash congelado sin explicación.
+     * Returns false (never propagates) on any failure, including ones that
+     * aren't an Exception: if the SQLite native library can't be loaded
+     * (locked in the temp directory, or native access denied by the JVM) what
+     * comes out of here is an Error, which used to escape the catch and kill
+     * the startup thread, leaving the splash frozen with no explanation.
      */
     public static boolean initSQLITE() {
         try {
             Class.forName("org.sqlite.JDBC");
 
-            // Integridad + backup/restore antes de que ningún hilo de juego toque
-            // la BD. Si está sana, refresca el snapshot .autobak; si está corrupta,
-            // aparta el fichero y restaura el último backup (o arranca limpia).
+            // Integrity check + backup/restore before any game thread touches the
+            // DB. If healthy, refreshes the .autobak snapshot; if corrupt, moves the
+            // file aside and restores the last backup (or starts clean).
             verifyAndBackupDatabase();
 
             try (Statement statement = getSQLITE().createStatement()) {
@@ -1625,33 +1603,34 @@ public class Helpers {
                 statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
                 statement.execute("CREATE TABLE IF NOT EXISTS hand_state(id_game INTEGER PRIMARY KEY, payload TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS known_identities(nick TEXT PRIMARY KEY, pubkey BLOB NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, sessions_count INTEGER NOT NULL DEFAULT 0, verified_oob INTEGER NOT NULL DEFAULT 0)");
-                // Índices secundarios sobre las FKs que StatsDialog usa en self-joins.
-                // SQLite NO auto-indexa FKs. Sin estos, queries como rendimiento /
-                // subidasRonda / balance hacen full table scan: O(rows_action *
-                // rows_hand). Con miles de manos, segundos → milisegundos.
+                // Secondary indexes on the FKs that StatsDialog uses in self-joins.
+                // SQLite does NOT auto-index FKs. Without these, queries like
+                // performance/raisesByRound/balance do a full table scan: O(rows_action *
+                // rows_hand). With thousands of hands, seconds -> milliseconds.
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_hand_game ON hand(id_game)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_action_hand ON action(id_hand)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_showdown_hand ON showdown(id_hand)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_balance_hand ON balance(id_hand)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_showcards_hand ON showcards(id_hand)");
-                // Stats GLOBALES (todas las timbas): rendimiento/subidasRonda agregan
-                // sobre action/showdown filtrando por round/action/winner y agrupando
-                // por player SIN filtrar por timba, así que los índices por FK (id_hand)
-                // de arriba no aplican y la consulta cae a full scan de action/showdown.
-                // Con muchas timbas (y timbas viejas con muchas manos) eso bloqueaba el
-                // StatsDialog (executor de un hilo atascado). Estos índices compuestos
-                // cubren esos WHERE/GROUP BY/COUNT(DISTINCT id_hand).
+                // GLOBAL stats (all games): performance/raisesByRound aggregate over
+                // action/showdown filtering by round/action/winner and grouping by player
+                // WITHOUT filtering by game, so the FK (id_hand) indexes above don't apply
+                // and the query falls back to a full scan of action/showdown. With many
+                // games (and old games with many hands) that blocked StatsDialog (a
+                // single-thread executor getting stuck). These composite indexes cover
+                // those WHERE/GROUP BY/COUNT(DISTINCT id_hand).
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_action_round_action_player ON action(round, action, player, id_hand)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_action_player_hand ON action(player, id_hand)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_showdown_player_winner ON showdown(player, winner, id_hand)");
                 // Consensus: forensic log of hands whose end-of-hand consensus
                 // did not check out unanimously. The hand is paid out regardless — this table is
-                // signalético only (spec §6.3 / §6.4). receipts BLOB holds the concatenation of
+                // informational only (spec §6.3 / §6.4). receipts BLOB holds the concatenation of
                 // every receipt this peer collected for that hand (each receipt = HAND_ID ||
                 // H_final || sig, 16+32+64 = 112 bytes); local_h is this peer's own H_final at
                 // dispute time.
                 statement.execute("CREATE TABLE IF NOT EXISTS disputed_hands(id INTEGER PRIMARY KEY, id_hand INTEGER NOT NULL, timestamp INTEGER NOT NULL, receipts BLOB NOT NULL, local_h BLOB NOT NULL, reason TEXT, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
-                //ACTUALIZACIÓN
+                // SCHEMA MIGRATIONS — best-effort ALTER TABLE, silently ignored when the
+                // column already exists.
                 try {
                     statement.execute("ALTER TABLE game ADD ugi TEXT");
                 } catch (Exception ex) {
@@ -1659,7 +1638,7 @@ public class Helpers {
                 try {
                     statement.execute("ALTER TABLE game ADD local INTEGER DEFAULT 0");
                 } catch (Exception ex) {
-                } // set timeout to 30 sec.
+                }
                 try {
                     statement.execute("ALTER TABLE game ADD recover_settings TEXT");
                 } catch (Exception ex) {
@@ -1730,9 +1709,9 @@ public class Helpers {
      */
     private static void verifyAndBackupDatabase() {
         if (SQL_FILE == null || SQL_FILE.isBlank()) {
-            // Defensa en profundidad: nunca operar sobre una ruta nula/vacia (no
-            // generar "null"/".autobak" basura). Init garantiza que no pasa, pero
-            // si alguna ruta futura dejara SQL_FILE sin fijar, salimos sin tocar nada.
+            // Defense in depth: never operate on a null/empty path (avoid generating
+            // junk "null"/".autobak" files). Init guarantees this doesn't happen, but if
+            // some future path left SQL_FILE unset, bail out without touching anything.
             LOGGER.log(Level.SEVERE, "SQL_FILE is not set; skipping integrity check and backup");
             return;
         }
@@ -1812,10 +1791,10 @@ public class Helpers {
         try {
             java.nio.file.Path db = java.nio.file.Paths.get(SQL_FILE);
             if (java.nio.file.Files.exists(db)) {
-                // La copia va primero a un temporal y luego se mueve encima. Copiar
-                // directamente sobre la copia de seguridad la BORRA antes de empezar a
-                // escribirla: un corte por el medio destruia la unica copia que habia, y
-                // esa copia es justo de lo que se tira cuando la base de datos se rompe.
+                // The copy goes to a temp file first and is then moved into place.
+                // Copying directly over the backup ERASES it before writing starts: a
+                // power cut mid-write would destroy the only copy there was — exactly
+                // the copy you fall back to when the database breaks.
                 java.nio.file.Path bak = java.nio.file.Paths.get(SQL_FILE + ".autobak");
                 java.nio.file.Files.copy(db, tmp, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 try {
@@ -1963,11 +1942,11 @@ public class Helpers {
         }
     }
 
-    // Filtro de entrada para spinners numéricos: valida el TEXTO RESULTANTE (no solo
-    // lo insertado), así garantiza "solo dígitos" (entero) o "dígitos + una coma o
-    // punto" (decimal). Las letras y una segunda coma se ignoran AL TECLEAR (no es el
-    // "revertir al confirmar" por defecto de Swing). El acotado a [min,max] y el
-    // redondeo los hace el SpinnerNumberModel/NumberFormatter al confirmar.
+    // Input filter for numeric spinners: validates the RESULTING TEXT (not just what
+    // was inserted), so it guarantees "digits only" (integer) or "digits + one comma or
+    // dot" (decimal). Letters and a second comma are ignored WHILE TYPING (this is not
+    // Swing's default "revert on commit"). Clamping to [min,max] and rounding are done
+    // by the SpinnerNumberModel/NumberFormatter on commit.
     public static class numericInputFilter extends DocumentFilter {
 
         private final boolean allow_decimals;
@@ -2003,11 +1982,11 @@ public class Helpers {
         }
     }
 
-    // Hace un JSpinner numérico editable a teclado ignorando letras: instala el
-    // numericInputFilter en el textfield del editor. Llamar SIEMPRE tras setModel
-    // (que recrea el editor) para que el filtro y los límites min/max del formatter
-    // queden frescos contra el modelo vigente. allow_decimals=true para spinners de
-    // dinero con decimales (acepta una coma).
+    // Makes a numeric JSpinner keyboard-editable while ignoring letters: installs
+    // numericInputFilter on the editor's textfield. ALWAYS call after setModel (which
+    // recreates the editor) so the filter and the formatter's min/max limits stay fresh
+    // against the current model. allow_decimals=true for money spinners with decimals
+    // (accepts one comma).
     public static void makeNumericSpinnerEditable(javax.swing.JSpinner spinner, boolean allow_decimals) {
         if (spinner.getEditor() instanceof javax.swing.JSpinner.DefaultEditor) {
             JTextField tf = ((javax.swing.JSpinner.DefaultEditor) spinner.getEditor()).getTextField();
@@ -2040,9 +2019,9 @@ public class Helpers {
 
                 byte[] iv_cmsg = new byte[iv.length + cmsg.length];
 
-                // System.arraycopy → memcpy nativo; sustituye 4 bucles for byte-a-byte
-                // del código anterior. Cada comando GAME del Crupier (decenas por mano)
-                // y cada MEGAPACKET (52*32 = 1664 bytes) pasaba por aquí.
+                // System.arraycopy -> native memcpy; replaces the previous code's 4
+                // byte-by-byte for loops. Every Crupier GAME command (dozens per hand)
+                // and every MEGAPACKET (52*32 = 1664 bytes) went through here.
                 System.arraycopy(iv, 0, iv_cmsg, 0, iv.length);
                 System.arraycopy(cmsg, 0, iv_cmsg, iv.length, cmsg.length);
 
@@ -2084,9 +2063,10 @@ public class Helpers {
                 try {
                     full_msg = Base64.getDecoder().decode(cadena);
                 } catch (IllegalArgumentException bad_base64) {
-                    // Cuerpo no descodificable: es un frame que no supera el canal, igual que un
-                    // HMAC malo. Se lanza KeyException para que el lector lo DESCARTE y siga, no
-                    // la RuntimeException, que escaparia hasta el return null (fin de lectura).
+                    // Undecodable body: this frame doesn't make it through the channel, same
+                    // as a bad HMAC. Throw KeyException so the reader DISCARDS it and keeps
+                    // going, not the RuntimeException, which would escape up to a return null
+                    // (end of read).
                     throw new KeyException("Undecodable frame body");
                 }
 
@@ -2099,15 +2079,15 @@ public class Helpers {
                 if (hmac_key != null) {
 
                     if (full_msg.length < hmac.length + iv.length) {
-                        // Frame mas corto que HMAC+IV: mismo criterio, KeyException (descartar el
-                        // frame) en vez de la NegativeArraySizeException del new byte[negativo].
+                        // Frame shorter than HMAC+IV: same policy, KeyException (discard the
+                        // frame) instead of the NegativeArraySizeException from new byte[negative].
                         throw new KeyException("Frame shorter than HMAC and IV");
                     }
 
                     cmsg = new byte[full_msg.length - hmac.length - iv.length];
 
-                    // System.arraycopy → memcpy nativo; sustituye 5 bucles
-                    // for byte-a-byte del código anterior.
+                    // System.arraycopy -> native memcpy; replaces the previous code's 5
+                    // byte-by-byte for loops.
                     System.arraycopy(full_msg, 0, hmac, 0, hmac.length);
                     System.arraycopy(full_msg, hmac.length, iv, 0, iv.length);
                     System.arraycopy(full_msg, hmac.length + iv.length, cmsg, 0, cmsg.length);
@@ -2145,13 +2125,13 @@ public class Helpers {
 
                 return new String(msg, "UTF-8");
 
-                // OJO: KeyException NO se captura aqui, y es deliberado. Es la que se lanza
-                // unas lineas mas arriba cuando el HMAC no cuadra, o sea cuando alguien ha
-                // tocado el frame, y tiene que llegar hasta quien lee del socket para que
-                // descarte ESE frame y siga. Capturandola aqui se tragaba a si misma, se
-                // devolvia vacio, y el lector lo interpretaba como fin de conexion: bastaba
-                // un byte inyectado para tirar a un jugador de la mesa. El gemelo que
-                // descifra binario tampoco la captura, por lo mismo.
+                // NOTE: KeyException is deliberately NOT caught here. It's the one thrown a
+                // few lines above when the HMAC doesn't match — i.e. someone tampered with
+                // the frame — and it has to reach the socket reader so it discards THAT
+                // frame and keeps going. Catching it here would swallow itself, return
+                // empty, and the reader would read that as end of connection: a single
+                // injected byte would be enough to kick a player off the table. The binary
+                // decryption twin doesn't catch it either, for the same reason.
             } catch (UnsupportedEncodingException | IllegalStateException | InvalidAlgorithmParameterException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
                 Logger.getLogger(Helpers.class
                         .getName()).log(Level.SEVERE, null, ex);
@@ -2246,9 +2226,9 @@ public class Helpers {
                 if (hmac_key != null) {
 
                     if (full_msg.length < hmac.length + iv.length) {
-                        // Frame binario mas corto que HMAC+IV: KeyException (descartar) en vez de
-                        // la NegativeArraySizeException del new byte[negativo]. El gemelo de texto
-                        // hace lo mismo; ver decryptString.
+                        // Binary frame shorter than HMAC+IV: KeyException (discard) instead of
+                        // the NegativeArraySizeException from new byte[negative]. The text twin
+                        // does the same; see decryptString.
                         throw new KeyException("Binary frame shorter than HMAC and IV");
                     }
 
@@ -2317,28 +2297,28 @@ public class Helpers {
 
     public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
 
-        // null = EOF / socket caido: es el contrato que esperan los lectores, no un fallo
-        // de canal (propagarlo como KeyException llenaria el log de falsos MITM en cada
-        // desconexion limpia).
+        // null = EOF / dropped socket: this is the contract readers expect, not a channel
+        // failure (propagating it as KeyException would flood the log with false MITM
+        // alerts on every clean disconnect).
         if (command == null) {
             return null;
         }
 
-        // El trim se aplica ANTES de mirar el prefijo: comprobarlo sobre la cadena sin
-        // recortar y descifrar sobre la recortada mandaba un frame cifrado legitimo con un
-        // espacio delante por la rama de texto plano.
+        // trim is applied BEFORE looking at the prefix: checking the prefix on the
+        // untrimmed string and decrypting the trimmed one would send a legitimate
+        // encrypted frame with a leading space down the plaintext branch.
         String frame = command.trim();
 
         if (!frame.isEmpty() && frame.charAt(0) == '*') {
             return Helpers.decryptString(frame.substring(1), aes_key, hmac_key);
         }
 
-        // Aqui abajo el frame NO viene cifrado. Se admite unicamente el keepalive, que va en
-        // claro a proposito, y se rechaza cualquier otra cosa: devolver el texto tal cual
-        // dejaba que un atacante on-path inyectara comandos de JUEGO en el socket ya
-        // establecido y se procesaran como validos, sin superar el HMAC ni conocer la
-        // password. El ack de reconexion ya se defendia por su cuenta; el resto del bucle de
-        // mensajes no.
+        // From here down the frame is NOT encrypted. Only the keepalive is admitted — it
+        // travels in the clear by design — and anything else is rejected: returning the
+        // text as-is would let an on-path attacker inject GAME commands into the
+        // already-established socket and have them processed as valid, without passing
+        // the HMAC or knowing the password. The reconnection ack already defended itself;
+        // the rest of the message loop did not.
         if (isPlaintextControlFrame(frame)) {
             return frame;
         }
@@ -2347,20 +2327,20 @@ public class Helpers {
     }
 
     /**
-     * Verbos que el keepalive escribe SIN cifrar, por diseño: los escritores de transporte
-     * vuelcan la cadena cruda y el cifrado lo pone cada llamador, cosa que los emisores de
-     * PING/PONG no hacen, a diferencia de los de juego, que sí pasan por encryptCommand.
-     * Son seis: en el anfitrión los tres de {@code Participant} (el PING del latido, y el
-     * PONG y el PONG2 con que responde al del cliente), y en el cliente los de
-     * {@code WaitingRoomFrame} (su propio PING y las respuestas al del anfitrión), que
-     * salen por {@code writeCommandToServer}. WireFrame lo documenta en su cabecera.
+     * Verbs the keepalive writes WITHOUT encryption, by design: transport writers dump
+     * the raw string and each caller is the one that applies encryption — something the
+     * PING/PONG senders don't do, unlike the game ones, which do go through
+     * encryptCommand. There are six: on the host, {@code Participant}'s three (the
+     * heartbeat PING, and the PONG and PONG2 it replies with to the client's), and on the
+     * client, {@code WaitingRoomFrame}'s (its own PING and the replies to the host's),
+     * which go out via {@code writeCommandToServer}. WireFrame documents this in its header.
      */
     private static final String[] PLAINTEXT_CONTROL_VERBS = {"PING", "PONG", "PONG2"};
 
     /**
-     * {@code PING#<n>}, {@code PONG#<n>} o {@code PONG2#<n>} y nada más: verbo exacto del
-     * conjunto cerrado y un contador entero. Deliberadamente estricto, para que la puerta que
-     * el keepalive necesita no sirva para colar nada más.
+     * {@code PING#<n>}, {@code PONG#<n>} or {@code PONG2#<n>} and nothing else: an exact
+     * verb from the closed set plus an integer counter. Deliberately strict, so the door
+     * the keepalive needs can't be used to smuggle anything else through.
      */
     private static boolean isPlaintextControlFrame(String frame) {
 
@@ -2386,8 +2366,8 @@ public class Helpers {
 
         String counter = frame.substring(sep + 1);
 
-        // El contador es un int con signo (nextInt puede ser negativo): 11 caracteres como
-        // mucho, contando el '-'.
+        // The counter is a signed int (nextInt can be negative): 11 characters at most,
+        // counting the '-'.
         if (counter.length() > 11) {
             return false;
         }
@@ -2403,27 +2383,25 @@ public class Helpers {
     }
 
     /**
-     * Escribe {@code data} atómicamente en {@code target}: primero a un tempfile
-     * vecino del target, luego {@code Files.move} con ATOMIC_MOVE + REPLACE_EXISTING.
+     * Atomically writes {@code data} to {@code target}: first to a tempfile next to the
+     * target, then {@code Files.move} with ATOMIC_MOVE + REPLACE_EXISTING.
      *
-     * Resuelve el problema de Files.writeString por defecto (CREATE +
-     * TRUNCATE_EXISTING + WRITE): abre el fichero, lo trunca a 0, y luego
-     * escribe. Si el proceso muere entre TRUNCATE y la primera write (corte
-     * de luz, BSOD, JVM kill, OS lock por AV), el fichero queda VACÍO en
-     * disco — datos perdidos.
+     * Solves the problem with Files.writeString's default open options (CREATE +
+     * TRUNCATE_EXISTING + WRITE): it opens the file, truncates it to 0, then writes. If
+     * the process dies between TRUNCATE and the first write (power cut, BSOD, JVM kill,
+     * AV lock), the file is left EMPTY on disk — data lost.
      *
-     * Con write-tmp + atomic-move, en cualquier instante el target apunta
-     * a un fichero COMPLETO (viejo o nuevo, nunca parcial). Si el proceso
-     * muere durante el writeString al tmp, el tmp queda parcial pero el
-     * target sigue intacto con su valor anterior.
+     * With write-tmp + atomic-move, at any instant the target points to a COMPLETE file
+     * (old or new, never partial). If the process dies during the writeString to tmp,
+     * the tmp is left partial but the target is still intact with its previous value.
      *
-     * Fallback no-atómico en FS que no soportan ATOMIC_MOVE (FAT32 entre
-     * volúmenes, casos raros): Files.move sin ATOMIC_MOVE. Aún preserva
-     * el invariante "tmp escrito completo antes del move", solo la ventana
-     * entre delete-target y rename-tmp puede dejar sistema sin target
-     * (mucho más corta que la ventana TRUNCATE-then-write del original).
+     * Non-atomic fallback on filesystems that don't support ATOMIC_MOVE (FAT32 across
+     * volumes, rare cases): Files.move without ATOMIC_MOVE. Still preserves the "tmp
+     * fully written before the move" invariant; only the window between delete-target
+     * and rename-tmp can leave the system without a target (much shorter than the
+     * original's TRUNCATE-then-write window).
      *
-     * Si el move falla por cualquier motivo, limpia el tmp huérfano.
+     * If the move fails for any reason, the orphaned tmp is cleaned up.
      */
     public static void writeStringAtomic(java.nio.file.Path target, CharSequence data) throws IOException {
         if (target == null) {
@@ -2438,31 +2416,31 @@ public class Helpers {
                         java.nio.file.StandardCopyOption.ATOMIC_MOVE,
                         java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
-                // Fallback no-atómico (FAT32, etc). Aún strictly mejor que
-                // writeString directo porque el tmp ya está completo en disco.
+                // Non-atomic fallback (FAT32, etc). Still strictly better than a direct
+                // writeString because the tmp is already fully written to disk.
                 java.nio.file.Files.move(tmp, target,
                         java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException moveEx) {
-            // Si algo falla, limpia el tmp huérfano antes de propagar.
+            // If something fails, clean up the orphaned tmp before propagating.
             try {
                 java.nio.file.Files.deleteIfExists(tmp);
             } catch (Exception cleanupEx) {
-                // best-effort; el tmp queda para una limpieza posterior.
+                // best-effort; the tmp is left for a later cleanup.
             }
             throw moveEx;
         }
     }
 
     /**
-     * Telemetría: payload de una snapshot de latencia/reconexiones
-     * que el host emite periódicamente a todos los clientes. Inmutable.
+     * Telemetry: payload of a latency/reconnections snapshot that the host emits
+     * periodically to all clients. Immutable.
      */
     public static final class TelemetryFrame {
 
-        /** Timestamp del host al emitir (System.currentTimeMillis). */
+        /** Host's timestamp when emitted (System.currentTimeMillis). */
         public final long serverTimestampMs;
-        /** nick (canonical, NFC) → [lat1_ms, lat2_ms, reconnection_count]. */
+        /** nick (canonical, NFC) -> [lat1_ms, lat2_ms, reconnection_count]. */
         public final java.util.Map<String, int[]> perPeer;
 
         public TelemetryFrame(long serverTimestampMs, java.util.Map<String, int[]> perPeer) {
@@ -2472,21 +2450,21 @@ public class Helpers {
     }
 
     /**
-     * Codifica un TelemetryFrame al wire format usado por el broadcast
-     * TELEMETRY. Formato:
+     * Encodes a TelemetryFrame to the wire format used by the TELEMETRY broadcast.
+     * Format:
      *
      *   <ts>#<b64nick>|<lat1>/<lat2>/<recon>@<b64nick>|<lat1>/<lat2>/<recon>@...
      *
-     * - ts es System.currentTimeMillis del host al emitir.
-     * - nick va Base64-encoded en UTF-8 para evitar conflictos con los
-     *   separadores #/@/| (los nicks pueden contener cualquier char).
-     *   IMPORTANTE: el separador nick/valores es '|' (NO '='), porque '='
-     *   es padding válido de Base64 y mezclarlo confundiría al parser.
-     * - lat1, lat2 son ms. -1 = no medido / timeout.
-     * - recon es el contador acumulado de reconexiones de ese peer.
+     * - ts is the host's System.currentTimeMillis when emitted.
+     * - nick is Base64-encoded UTF-8 to avoid clashing with the #/@/| separators
+     *   (nicks can contain any char).
+     *   IMPORTANT: the nick/values separator is '|' (NOT '='), because '=' is valid
+     *   Base64 padding and mixing it in would confuse the parser.
+     * - lat1, lat2 are ms. -1 = not measured / timeout.
+     * - recon is that peer's cumulative reconnection count.
      *
-     * El caller envolverá el resultado en "GAME#<id>#TELEMETRY#<payload>"
-     * antes del encryptCommand habitual.
+     * The caller wraps the result in "GAME#<id>#TELEMETRY#<payload>" before the usual
+     * encryptCommand.
      */
     public static String encodeTelemetry(Helpers.TelemetryFrame frame) {
         if (frame == null) {
@@ -2508,7 +2486,7 @@ public class Helpers {
             try {
                 sb.append(java.util.Base64.getEncoder().encodeToString(e.getKey().getBytes("UTF-8")));
             } catch (java.io.UnsupportedEncodingException uee) {
-                // UTF-8 está garantizado por Java; este catch es defensivo.
+                // UTF-8 is guaranteed by Java; this catch is defensive.
                 sb.append(java.util.Base64.getEncoder().encodeToString(e.getKey().getBytes()));
             }
             sb.append('|');
@@ -2518,12 +2496,11 @@ public class Helpers {
     }
 
     /**
-     * Decodifica el wire format de TELEMETRY. Tolera entradas
-     * mal formadas (skip silencioso de entries con campos faltantes o
-     * sin parsear como int) para que un peer hostil no pueda romper el
-     * cliente con un payload corrupto.
+     * Decodes the TELEMETRY wire format. Tolerates malformed input (silently skips
+     * entries with missing fields or that fail to parse as int) so a hostile peer can't
+     * crash the client with a corrupt payload.
      *
-     * Devuelve null si el payload no tiene al menos el ts inicial.
+     * Returns null if the payload doesn't even have the leading ts.
      */
     public static Helpers.TelemetryFrame decodeTelemetry(String payload) {
         if (payload == null || payload.isEmpty()) {
@@ -2533,7 +2510,7 @@ public class Helpers {
         long ts;
         String entries;
         if (firstHash < 0) {
-            // Solo ts sin entries (broadcast vacío).
+            // Just ts with no entries (empty broadcast).
             try {
                 ts = Long.parseLong(payload);
             } catch (NumberFormatException ex) {
@@ -2551,8 +2528,8 @@ public class Helpers {
         if (!entries.isEmpty()) {
             String[] tuples = entries.split("@");
             for (String t : tuples) {
-                // Separador nick/valores es '|', NO '='. Razón: '=' es padding
-                // de Base64 y mezclarlo confundiría al parser.
+                // The nick/values separator is '|', NOT '='. Reason: '=' is Base64
+                // padding and mixing it in would confuse the parser.
                 int pipe = t.indexOf('|');
                 if (pipe <= 0 || pipe >= t.length() - 1) {
                     continue;
@@ -2589,20 +2566,17 @@ public class Helpers {
     }
 
     /**
-     * Ejecuta {@code action} en EDT en cuanto {@code c} tenga altura > 0
-     * (layout aplicado). Si ya está laid out, ejecuta inmediatamente. Si no,
-     * instala un ComponentListener one-shot que se auto-remueve tras el primer
-     * resize con altura > 0.
+     * Runs {@code action} on the EDT as soon as {@code c} has height > 0 (layout
+     * applied). If already laid out, runs immediately. Otherwise installs a one-shot
+     * ComponentListener that removes itself after the first resize with height > 0.
      *
-     * Reemplaza el anti-patrón {@code Helpers.threadRun(() -> { while (c.getHeight() == 0)
-     * Helpers.pausar(125); Helpers.GUIRun(action); })} que polleaba con sleep
-     * el estado event-driven de Swing — cero CPU mientras se espera, cero
-     * latencia al despertar.
+     * Replaces the anti-pattern {@code Helpers.threadRun(() -> { while (c.getHeight() == 0)
+     * Helpers.pausar(125); Helpers.GUIRun(action); })}, which polled Swing's
+     * event-driven state with sleeps — zero CPU while waiting, zero latency on wake-up.
      *
-     * Apto solo cuando {@code action} no requiere mantener un lock externo
-     * durante su ejecución (corre directamente en EDT). Si se necesita lock
-     * + GUIRunAndWait, usar {@link #awaitFirstLayout(javax.swing.JComponent)}
-     * desde un thread off-EDT.
+     * Only suitable when {@code action} doesn't need to hold an external lock during its
+     * execution (it runs directly on the EDT). If a lock + GUIRunAndWait is needed, use
+     * {@link #awaitFirstLayout(javax.swing.JComponent)} from an off-EDT thread.
      */
     public static void runWhenLaidOut(javax.swing.JComponent c, Runnable action) {
         if (c == null || action == null) {
@@ -2613,14 +2587,12 @@ public class Helpers {
                 action.run();
                 return;
             }
-            // Triple cobertura para no quedarnos esperando un evento que no
-            // llega: ComponentListener (cuando el componente se resize y
-            // pasa a tener height > 0), HierarchyListener (cuando se hace
-            // visible/displayable), y un Timer de seguridad de 2s que
-            // ejecuta la action de todas formas si ninguno de los anteriores
-            // disparó. Mejor late than never; sin el timer, un componente
-            // que nace con tamaño 0×0 y nunca se layoutea dejaría la action
-            // colgada para siempre.
+            // Triple coverage so we never end up waiting on an event that never
+            // arrives: ComponentListener (when the component resizes and gets height >
+            // 0), HierarchyListener (when it becomes visible/displayable), and a 2s
+            // safety Timer that runs the action anyway if none of the above fired.
+            // Better late than never; without the timer, a component born at size 0x0
+            // that never gets laid out would leave the action hanging forever.
             java.util.concurrent.atomic.AtomicBoolean done =
                     new java.util.concurrent.atomic.AtomicBoolean(false);
             java.awt.event.ComponentListener[] cl = new java.awt.event.ComponentListener[1];
@@ -2663,13 +2635,13 @@ public class Helpers {
     }
 
     /**
-     * Bloquea el thread actual (que NO debe ser EDT) hasta que {@code c} tenga
-     * altura > 0. Usar cuando el caller necesita mantener un lock externo
-     * durante el subsiguiente GUIRunAndWait — el lock no puede tomarse desde
-     * EDT porque otro thread non-EDT puede estar reteniéndolo y bloqueado
-     * esperando a EDT, lo que produciría deadlock.
+     * Blocks the current thread (which must NOT be the EDT) until {@code c} has
+     * height > 0. Use when the caller needs to hold an external lock during the
+     * subsequent GUIRunAndWait — the lock can't be taken from the EDT because another
+     * non-EDT thread might be holding it while blocked waiting on the EDT, which would
+     * deadlock.
      *
-     * Si ya está laid out, retorna sin bloquear.
+     * Returns without blocking if already laid out.
      */
     public static void awaitFirstLayout(javax.swing.JComponent c) throws InterruptedException {
         if (c == null || c.getHeight() > 0) {
@@ -2705,40 +2677,37 @@ public class Helpers {
         GUIRun(() -> {
             c.addComponentListener(cl[0]);
             c.addHierarchyListener(hl[0]);
-            // Re-check post-install para cubrir la race en la que el layout
-            // se aplicó entre el check inicial y addComponentListener.
+            // Re-check post-install to cover the race where layout was applied between
+            // the initial check and addComponentListener.
             if (c.getHeight() > 0) {
                 release.run();
             }
         });
-        // Safety timeout: 2s. Si tras esto sigue sin layoutearse, salimos
-        // igualmente para no bloquear el caller indefinido. action que
-        // depende del height tendrá que tolerarlo (igual que tolera el
-        // caso del valor inicial del runWhenLaidOut).
+        // Safety timeout: 2s. If still not laid out after this, bail out anyway rather
+        // than blocking the caller indefinitely. Callers depending on the height will
+        // have to tolerate it (same as runWhenLaidOut's initial-value case).
         if (!latch.await(2, java.util.concurrent.TimeUnit.SECONDS)) {
             GUIRun(release);
         }
     }
 
     /**
-     * Sanea un nick para uso seguro como SEGMENTO de filename en disco.
-     * Defensa contra path traversal cuando el nick proviene de un peer remoto
-     * (host hostil enviando NEWUSER/USERSLIST con nick "../../../../foo") y
-     * contra nombres reservados de Windows ("CON", "NUL", etc.) que harían
-     * fallar FileOutputStream silenciosamente.
+     * Sanitizes a nick for safe use as a filename SEGMENT on disk. Defends against path
+     * traversal when the nick comes from a remote peer (a hostile host sending
+     * NEWUSER/USERSLIST with nick "../../../../foo") and against Windows reserved names
+     * ("CON", "NUL", etc.) that would make FileOutputStream fail silently.
      *
-     * Reglas:
-     *   - Solo conserva [A-Za-z0-9_-]. Cualquier otro char (incluido '.', '/',
-     *     '\', ':', control chars, Unicode) se sustituye por '_'.
-     *   - Trunca a 32 chars máximo (los logs y avatares no necesitan más).
-     *   - Nombres reservados Windows (CON/PRN/AUX/NUL/COM[1-9]/LPT[1-9],
-     *     case-insensitive) se prefijan con '_' para evitar AccessDeniedException.
-     *   - null o cadena vacía tras sanitización devuelven "user".
+     * Rules:
+     *   - Only keeps [A-Za-z0-9_-]. Any other char (including '.', '/', '\', ':',
+     *     control chars, Unicode) is replaced with '_'.
+     *   - Truncates to 32 chars max (logs and avatars don't need more).
+     *   - Windows reserved names (CON/PRN/AUX/NUL/COM[1-9]/LPT[1-9], case-insensitive)
+     *     are prefixed with '_' to avoid AccessDeniedException.
+     *   - null or an empty string after sanitization returns "user".
      *
-     * NOTA: el resultado NO es un identificador único (dos nicks distintos
-     * pueden colisionar tras la sanitización). Los call sites que necesitan
-     * unicidad deben añadir su propio sufijo (file_id aleatorio, hash, etc.)
-     * — el helper solo garantiza que el segmento sea filesystem-safe.
+     * NOTE: the result is NOT a unique identifier (two different nicks can collide after
+     * sanitization). Call sites that need uniqueness must add their own suffix (random
+     * file_id, hash, etc.) — this helper only guarantees the segment is filesystem-safe.
      */
     public static String safeNickForFilename(String nick) {
         if (nick == null || nick.isEmpty()) {
@@ -2751,7 +2720,7 @@ public class Helpers {
         if (safe.length() > 32) {
             safe = safe.substring(0, 32);
         }
-        // Trim leading dashes (cosmético — los nombres tipo "-rf" parecen flags)
+        // Trim leading dashes (cosmetic — names like "-rf" look like flags)
         while (safe.startsWith("-")) {
             safe = safe.length() > 1 ? safe.substring(1) : "";
         }
@@ -2767,16 +2736,15 @@ public class Helpers {
     }
 
     /**
-     * Reemplazo acotado de {@link java.io.BufferedReader#readLine()}. Mismo
-     * contrato (null si EOF antes de leer nada, trim de CR-LF) pero ABORTA con
-     * IOException si la línea acumula más de {@code maxChars} caracteres antes
-     * del salto de línea. Defensa contra un peer que abre canal y envía bytes
-     * sin '\n' hasta forzar OOM en el receptor (readLine estándar crece el
-     * buffer interno sin límite).
+     * Bounded replacement for {@link java.io.BufferedReader#readLine()}. Same contract
+     * (null if EOF before reading anything, CR-LF trimmed) but ABORTS with an
+     * IOException if the line accumulates more than {@code maxChars} characters before
+     * the line break. Defends against a peer that opens the channel and sends bytes
+     * with no '\n' to force an OOM on the receiver (the standard readLine grows its
+     * internal buffer without limit).
      *
-     * El cap se mide en caracteres del Reader (post-decode UTF-8). La aproximación
-     * char≈byte es válida para nuestro wire format (Base64 + dígitos + '#'),
-     * todo ASCII.
+     * The cap is measured in Reader characters (post UTF-8 decode). The char~=byte
+     * approximation is valid for our wire format (Base64 + digits + '#'), all ASCII.
      */
     public static String readBoundedLine(java.io.BufferedReader reader, int maxChars) throws IOException {
         StringBuilder sb = new StringBuilder(256);
@@ -2862,13 +2830,12 @@ public class Helpers {
         return (int) Math.floor(bits);
     }
 
-    // Renderiza un componente (y toda su jerarquía de hijos) a una imagen a la
-    // resolución NATIVA del monitor (respeta el escalado HiDPI del SO). NO usa
-    // Robot ni la captura de pantalla del sistema: el propio componente se
-    // redibuja con Java2D sobre la imagen (mismo motor que pinta el tapete en
-    // cada frame), por lo que funciona en cualquier plataforma (Windows, Mac,
-    // Linux X11/Wayland) sin permisos y sin salir en negro. DEBE llamarse en el
-    // EDT (Swing no es thread-safe al pintar).
+    // Renders a component (and its whole child hierarchy) to an image at the monitor's
+    // NATIVE resolution (respects the OS's HiDPI scaling). Does NOT use Robot or the
+    // system's screen capture: the component itself is redrawn with Java2D onto the
+    // image (same engine that paints the felt every frame), so it works on any platform
+    // (Windows, Mac, Linux X11/Wayland) without permissions and without coming out
+    // black. MUST be called on the EDT (Swing isn't thread-safe when painting).
     public static BufferedImage renderComponentImage(Component comp) {
 
         if (comp == null) {
@@ -2898,9 +2865,9 @@ public class Helpers {
         Graphics2D g = image.createGraphics();
 
         try {
-            // Escalado HiDPI: el componente se pinta a tamaño lógico pero sobre
-            // un lienzo a resolución física => nitidez nativa (texto, fichas y
-            // bordes se re-rasterizan a alta resolución en vez de copiarse).
+            // HiDPI scaling: the component is painted at its logical size but onto a
+            // canvas at physical resolution => native sharpness (text, chips and
+            // borders are re-rasterized at high resolution instead of being copied).
             g.scale(scale_x, scale_y);
             comp.printAll(g);
         } finally {
@@ -2910,9 +2877,8 @@ public class Helpers {
         return image;
     }
 
-    // Guarda una imagen de captura en SCREENSHOTS_DIR como PNG. Hace I/O de
-    // disco: llamar FUERA del EDT. Libera la imagen al terminar. Devuelve true
-    // si se escribió correctamente.
+    // Saves a screenshot image to SCREENSHOTS_DIR as PNG. Does disk I/O: call OFF the
+    // EDT. Releases the image when done. Returns true if it was written successfully.
     public static boolean saveScreenshot(BufferedImage image) {
 
         if (image == null) {
@@ -2931,14 +2897,14 @@ public class Helpers {
             return false;
 
         } finally {
-            // Captura 4K = ~33 MB de pixel data nativa. Sin flush, espera al GC.
+            // A 4K capture is ~33 MB of native pixel data. Without flush, it waits on GC.
             image.flush();
         }
     }
 
     public static void createIfNoExistsCoronaDirs() {
 
-        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CHAT_IMAGE_CACHE, Init.VOICE_DIR}; //OJO AL ORDEN POR EL CORONA_DIR!
+        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CHAT_IMAGE_CACHE, Init.VOICE_DIR}; //WATCH THE ORDER — CORONA_DIR MUST COME FIRST!
 
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {
@@ -2952,20 +2918,19 @@ public class Helpers {
             }
         }
 
-        // La cache de imagenes del chat no se limpiaba nunca: cada imagen que alguien
-        // pegue se queda ahi para siempre. Se poda al arrancar (dos veces, en realidad: el
-        // inicializador de esta clase y el arranque llaman los dos aqui, y la segunda no
-        // encuentra nada que hacer) y con los
-        // directorios ya creados, antes de que nadie la use.
+        // The chat image cache was never cleaned up: every image someone pastes stays
+        // there forever. Pruned at startup (twice, actually: this class's initializer
+        // and the app startup both call here, and the second call finds nothing to do)
+        // with the directories already created, before anyone uses it.
         ImageCacheManager.purgeCache();
 
-        // Los avatares que el juego deja en el temporal del sistema NO se barren. Se probo
-        // a borrar los de mas de un dia y es peligroso: esos ficheros se releen POR RUTA
-        // mientras la timba vive (al cambiar el zoom, al reenviarselos a alguien que entra
-        // o reconecta, al montar la timba siguiente), y una segunda instancia abierta mas
-        // de un dia se quedaria sin ellos. Se siguen borrando al cerrar el juego, como
-        // siempre. Acumular unos kilobytes es mucho menos malo que quedarse sin avatares
-        // en plena partida.
+        // Avatars the game leaves in the system temp dir are NOT swept. Deleting ones
+        // older than a day was tried and is dangerous: those files are re-read BY PATH
+        // while the game is alive (on zoom change, when resending them to someone
+        // joining or reconnecting, when setting up the next game), and a second instance
+        // left open for more than a day would end up without them. They are still
+        // deleted on game exit, as always. Accumulating a few kilobytes is far less bad
+        // than losing avatars mid-game.
     }
 
     public static void copyTextToClipboard(String text) {
@@ -3025,9 +2990,9 @@ public class Helpers {
         }
     }
 
-    // Icono play/stop dibujado (par coherente que escala con DIALOG_ZOOM): triángulo verde de play
-    // o cuadrado rojo redondeado de stop. Compartido por la audición de la pestaña Audio (ajustes)
-    // y por el visor de notas de voz.
+    // Drawn play/stop icon (a matching pair that scales with DIALOG_ZOOM): green play
+    // triangle or rounded red stop square. Shared by the Audio settings tab's playback
+    // preview and by the voice notes viewer.
     public static javax.swing.Icon playStopGlyph(boolean stop) {
         final int size = Math.round(15 * Helpers.DIALOG_ZOOM);
         final java.awt.Color color = stop ? new java.awt.Color(0xC6, 0x28, 0x28) : new java.awt.Color(0x2E, 0x7D, 0x32);
@@ -3062,8 +3027,8 @@ public class Helpers {
         };
     }
 
-    // Icono de borrado: una X roja dibujada (trazo redondeado) del tamaño dado, en el mismo rojo que
-    // el glyph de stop. Compartido por el visor de notas de voz y el menú del visor de capturas.
+    // Delete icon: a drawn red X (rounded stroke) at the given size, in the same red as
+    // the stop glyph. Shared by the voice notes viewer and the screenshot viewer's menu.
     public static javax.swing.Icon deleteGlyph(int size) {
         final int s = size;
         final java.awt.Color color = new java.awt.Color(0xC6, 0x28, 0x28);
@@ -3107,12 +3072,12 @@ public class Helpers {
     }
 
     /**
-     * Engancha un DocumentListener al JPasswordField que repinta el fondo
-     * según la fuerza estimada de la contraseña en bits de entropía:
-     *   - vacío           → defaultBg (sin password = OK, partida pública).
-     *   - 1..59 bits      → amarillo claro (débil).
-     *   - ≥60 bits        → verde claro (fuerte).
-     * Mismos umbrales que el popup "ui.password_debil_aviso".
+     * Attaches a DocumentListener to the JPasswordField that repaints its background
+     * based on the password's estimated strength in entropy bits:
+     *   - empty      -> defaultBg (no password = OK, public game).
+     *   - 1..59 bits -> light yellow (weak).
+     *   - >=60 bits  -> light green (strong).
+     * Same thresholds as the "ui.password_debil_aviso" popup.
      */
     public static void attachPasswordStrengthHint(final javax.swing.JPasswordField field) {
         if (field == null) {
@@ -3140,16 +3105,16 @@ public class Helpers {
     }
 
     /**
-     * Añade al JPasswordField un botón "ojo" anclado a su borde derecho que
-     * revela la contraseña en claro MIENTRAS se mantiene pulsado (ratón) y la
-     * vuelve a ocultar al soltar (incluso si se suelta fuera del botón).
+     * Adds an "eye" button anchored to the JPasswordField's right edge that reveals the
+     * password in the clear WHILE held down (mouse) and hides it again on release (even
+     * if released outside the button).
      *
-     * Autocontenido: solo toca el propio field (su layout manager y su margen
-     * derecho), de modo que funciona con cualquier layout padre —GroupLayout,
-     * BorderLayout— sin reestructurarlo ni tocar el .form de NetBeans. El botón
-     * se posiciona a mano al borde derecho real (ignora el inset), y el margen
-     * derecho reservado evita que el texto/caret pase por debajo del ojo. El
-     * icono se dibuja vectorialmente (sin assets). Idempotente.
+     * Self-contained: only touches the field itself (its layout manager and its right
+     * margin), so it works with any parent layout — GroupLayout, BorderLayout — without
+     * restructuring it or touching the NetBeans .form. The button is positioned by hand
+     * at the real right edge (ignoring the inset), and the reserved right margin keeps
+     * the text/caret from running under the eye. The icon is drawn vectorially (no
+     * assets). Idempotent.
      */
     public static void attachPasswordRevealButton(final javax.swing.JPasswordField field) {
         if (field == null) {
@@ -3157,11 +3122,11 @@ public class Helpers {
         }
         final char echo = field.getEchoChar();
         if (echo == 0) {
-            return; // ya se muestra en claro: nada que togglear
+            return; // already shown in the clear: nothing to toggle
         }
         for (java.awt.Component existing : field.getComponents()) {
             if (existing instanceof javax.swing.JButton) {
-                return; // ya enganchado
+                return; // already attached
             }
         }
 
@@ -3176,8 +3141,8 @@ public class Helpers {
         eye.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         eye.setToolTipText(Translator.translate("auth.mostrar_password_pulsar"));
 
-        // isPressed cubre el hold con ratón (vuelve a false al soltar en
-        // cualquier sitio): revela mientras está pulsado, oculta al soltar.
+        // isPressed covers the mouse hold (goes back to false on release anywhere):
+        // reveals while held down, hides on release.
         eye.getModel().addChangeListener(new javax.swing.event.ChangeListener() {
             @Override
             public void stateChanged(javax.swing.event.ChangeEvent e) {
@@ -3185,9 +3150,9 @@ public class Helpers {
             }
         });
 
-        // El texto del field lo pinta su UI hasta el inset derecho; el botón lo
-        // colocamos a mano al borde derecho real (más allá del inset), así no
-        // se solapan. El margen derecho reservado = ancho del ojo + holgura.
+        // The field's UI paints its text up to the right inset; the button is placed by
+        // hand at the real right edge (beyond the inset), so they don't overlap. The
+        // reserved right margin = eye width + slack.
         final int reserve = side + 6;
         field.setLayout(new java.awt.LayoutManager() {
             @Override
@@ -3226,9 +3191,8 @@ public class Helpers {
     }
 
     /**
-     * Icono vectorial de un ojo (contorno de almendra + pupila) para el botón
-     * de revelar contraseña. Escala con el tamaño pedido; sin ficheros de
-     * imagen. Antialiased.
+     * Vector icon of an eye (almond outline + pupil) for the password reveal button.
+     * Scales with the requested size; no image files. Antialiased.
      */
     private static final class EyeIcon implements javax.swing.Icon {
 
@@ -3280,27 +3244,27 @@ public class Helpers {
     }
 
     /**
-     * Genera una contraseña aleatoria FUERTE con CSPRNG (no Random) usando
-     * un alphabet diseñado para ser FÁCIL DE DICTAR / TIPEAR a mano:
-     * solo minúsculas + dígitos (36 chars). Sin mayúsculas (evita confusión
-     * mayús/minús al dictar) y sin símbolos (evita problemas de teclado
-     * internacional, dictado, y mezcla con caracteres de wire format).
+     * Generates a STRONG random password with a CSPRNG (not Random) using an alphabet
+     * designed to be EASY TO DICTATE / TYPE by hand: lowercase letters + digits only (36
+     * chars). No uppercase (avoids upper/lower confusion when dictating) and no symbols
+     * (avoids international keyboard issues, dictation problems, and clashes with wire
+     * format characters).
      *
-     * Entropía: log2(36^length). Para length=14, ≈ 72 bits — por encima
-     * del umbral de 60 bits del aviso "password débil" del juego.
+     * Entropy: log2(36^length). For length=14, ~72 bits — above the game's 60-bit
+     * "weak password" warning threshold.
      *
-     * Ejemplo típico: "k7m3p2n8qjz5xv".
+     * Typical example: "k7m3p2n8qjz5xv".
      *
-     * NO confundir con genRandomString (que también es a-z pero usa
-     * java.util.Random pseudoaleatorio, NO CSPRNG — sigue valiendo para
-     * tokens legacy de uso no sensible — nicks de tempfile, ids efímeros).
+     * NOT to be confused with genRandomString (also a-z but uses pseudorandom
+     * java.util.Random, NOT a CSPRNG — still fine for legacy non-sensitive tokens:
+     * tempfile nicks, ephemeral ids).
      */
     public static String genStrongPassword(int length) {
-        // a-z + 0-9 = 36 chars. Fácil de dictar y tipear; ~2.8 bits/char.
+        // a-z + 0-9 = 36 chars. Easy to dictate and type; ~2.8 bits/char.
         final String alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
         StringBuilder sb = new StringBuilder(length);
         for (int i = 0; i < length; i++) {
-            // SecureRandom.nextInt — uniforme, sin bias.
+            // SecureRandom.nextInt — uniform, unbiased.
             sb.append(alphabet.charAt(CSPRNG_GENERATOR.nextInt(alphabet.length())));
         }
         return sb.toString();
@@ -3314,29 +3278,29 @@ public class Helpers {
      * @return The converted BufferedImage
      */
     public static BufferedImage toBufferedImage(Image img) {
-        // Verificar si la imagen es nula
+        // Check whether the image is null
         if (img == null) {
-            throw new IllegalArgumentException("La imagen no puede ser nula.");
+            throw new IllegalArgumentException("Image must not be null.");
         }
 
-        // Si la imagen ya es un BufferedImage, devolverla directamente
+        // If the image is already a BufferedImage, return it directly
         if (img instanceof BufferedImage) {
             return (BufferedImage) img;
         }
 
-        // Crear un BufferedImage con transparencia
+        // Create a BufferedImage with transparency
         BufferedImage bimage = new BufferedImage(
                 img.getWidth(null),
                 img.getHeight(null),
                 BufferedImage.TYPE_INT_ARGB
         );
 
-        // Dibujar la imagen en el BufferedImage
+        // Draw the image onto the BufferedImage
         Graphics2D g2d = bimage.createGraphics();
         try {
             g2d.drawImage(img, 0, 0, null);
         } finally {
-            g2d.dispose(); // Asegurarse de liberar recursos
+            g2d.dispose(); // Make sure to release resources
         }
 
         return bimage;
@@ -3353,30 +3317,30 @@ public class Helpers {
 
     //Thanks -> https://stackoverflow.com/a/7603815
     public static BufferedImage makeImageRoundedCorner(Image image, int cornerRadius) {
-        // Obtener las dimensiones de la imagen original
+        // Get the original image's dimensions
         int width = image.getWidth(null);
         int height = image.getHeight(null);
 
-        // Crear una nueva imagen con transparencia
+        // Create a new image with transparency
         BufferedImage output = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = output.createGraphics();
 
         try {
-            // Habilitar antialiasing para bordes suaves
+            // Enable antialiasing for smooth edges
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Dibujar un rectángulo redondeado blanco como máscara
+            // Draw a white rounded rectangle as a mask
             g2d.setColor(Color.WHITE);
             g2d.fill(new RoundRectangle2D.Float(0, 0, width, height, cornerRadius, cornerRadius));
 
-            // Configurar el modo de composición para aplicar la máscara
+            // Set the composite mode to apply the mask
             g2d.setComposite(AlphaComposite.SrcIn);
             g2d.drawImage(image, 0, 0, null);
         } finally {
-            // Liberar recursos nativos del Graphics2D. SIEMPRE — sin try/finally,
-            // un OOM o IllegalArgumentException entre createGraphics y dispose
-            // dejaba colgado el contexto nativo. Llamada en TODA carga de carta
-            // (~104 invocaciones por cambio de zoom/baraja).
+            // Release the Graphics2D's native resources. ALWAYS — without try/finally,
+            // an OOM or IllegalArgumentException between createGraphics and dispose left
+            // the native context leaked. Called on EVERY card load (~104 invocations per
+            // zoom/deck change).
             g2d.dispose();
         }
 
@@ -3463,15 +3427,15 @@ public class Helpers {
         }
     }
 
-    // Un tooltip demasiado largo se dibuja como una sola tira horizontal que se sale de la
-    // pantalla. Por encima de este umbral (en caracteres) se envuelve en HTML con un ancho fijo
-    // para que Swing lo reparta en varias líneas.
+    // An overly long tooltip gets drawn as a single horizontal strip that runs off
+    // screen. Above this threshold (in characters), it's wrapped in fixed-width HTML so
+    // Swing splits it across multiple lines.
     private static final int TOOLTIP_WRAP_THRESHOLD = 60;
     private static final int TOOLTIP_WRAP_WIDTH_PX = 320;
 
-    // Envuelve un tooltip largo en HTML de ancho fijo (multilínea). Devuelve el texto tal cual si
-    // es null, corto, o si ya viene en HTML (algún tooltip trae su propio <html> a medida y no se
-    // debe re-envolver).
+    // Wraps a long tooltip in fixed-width (multiline) HTML. Returns the text as-is if
+    // it's null, short, or already HTML (some tooltips bring their own custom <html>
+    // and must not be re-wrapped).
     public static String wrapToolTip(String text) {
         if (text == null || text.length() <= TOOLTIP_WRAP_THRESHOLD || text.stripLeading().regionMatches(true, 0, "<html", 0, 5)) {
             return text;
@@ -3635,11 +3599,12 @@ public class Helpers {
         }
     }
 
-    // Lee una preferencia NUMERICA de PROPERTIES con red: si la clave falta, viene vacía o no es
-    // un número, cae al valor por defecto en vez de tumbar el arranque. Estos parseos viven en
-    // inicializadores estáticos, donde un NumberFormatException sube como
-    // ExceptionInInitializerError y deja la ventana a medio montar. Es lo que readDialogZoom (aquí
-    // debajo) ya hacía para dialog_zoom, generalizado al resto de claves numéricas.
+    // Reads a NUMERIC preference from PROPERTIES with a safety net: if the key is
+    // missing, empty, or not a number, falls back to the default instead of taking down
+    // startup. These parses live in static initializers, where a NumberFormatException
+    // bubbles up as an ExceptionInInitializerError and leaves the window half-built.
+    // This is what readDialogZoom (below) already did for dialog_zoom, generalized to
+    // the other numeric keys.
     public static int propInt(String key, int def) {
 
         try {
@@ -3650,13 +3615,13 @@ public class Helpers {
         }
     }
 
-    // Variante que además acota el valor al rango válido del ajuste, para las claves que lo tienen.
+    // Variant that also clamps the value to the setting's valid range, for keys that have one.
     public static int propInt(String key, int def, int min, int max) {
 
         return Math.max(min, Math.min(propInt(key, def), max));
     }
 
-    // La misma red para las claves con decimales.
+    // The same safety net for decimal-valued keys.
     public static double propDouble(String key, double def) {
 
         try {
@@ -3667,8 +3632,8 @@ public class Helpers {
         }
     }
 
-    // Lee la preferencia de zoom de diálogos (dialog_zoom) de PROPERTIES, acotada al rango
-    // válido. 1.0 = tamaño de diseño. Se llama al inicializar el campo estático DIALOG_ZOOM.
+    // Reads the dialog zoom preference (dialog_zoom) from PROPERTIES, clamped to the
+    // valid range. 1.0 = design size. Called when initializing the static DIALOG_ZOOM field.
     private static float readDialogZoom() {
         try {
             float z = Float.parseFloat(PROPERTIES.getProperty("dialog_zoom", "1.0"));
@@ -3682,38 +3647,41 @@ public class Helpers {
         return Math.abs(DIALOG_ZOOM - 1f) >= 0.01f;
     }
 
-    // Aplica el zoom GLOBAL de diálogos (DIALOG_ZOOM) a una ventana YA EMPAQUETADA a tamaño de
-    // DISEÑO (el diálogo debe haber hecho updateFonts(this,GUI_FONT,null) + pack() antes, como
-    // siempre). Escala las fuentes y AJUSTA LA VENTANA a (tamaño de diseño × factor): así el zoom es
-    // UNIFORME y sin borde sobrante. La clave es NO reempaquetar: pack() usa los anchos/huecos FIJOS
-    // del .form (p. ej. un JLabel con ancho preferido fijo de 804px), que el font-zoom no encoge, y
-    // deja márgenes; en cambio forzar el nuevo tamaño recoloca los componentes flexibles (los de
-    // ancho MAX) al ancho real. Los iconos decorativos ESTÁTICOS se escalan aparte con
-    // scaleDialogIcon. No-op a 1.0. NO toca el zoom de la MESA (GameFrame.ZOOM_LEVEL).
+    // Applies the GLOBAL dialog zoom (DIALOG_ZOOM) to a window that's ALREADY PACKED to
+    // its DESIGN size (the dialog must have done updateFonts(this,GUI_FONT,null) +
+    // pack() before this, as usual). Scales the fonts and RESIZES THE WINDOW to (design
+    // size x factor): that keeps the zoom UNIFORM with no leftover border. The key is to
+    // NOT repack: pack() uses the .form's FIXED widths/gaps (e.g. a JLabel with a fixed
+    // preferred width of 804px), which the font zoom doesn't shrink, leaving margins;
+    // forcing the new size instead reflows the flexible components (the ones with MAX
+    // width) to the real width. STATIC decorative icons are scaled separately with
+    // scaleDialogIcon. No-op at 1.0. Does NOT touch the TABLE zoom (GameFrame.ZOOM_LEVEL).
     public static void zoomDialog(java.awt.Window window) {
         if (window == null || !isDialogZoomActive()) {
             return;
         }
         int design_w = window.getWidth();
-        // Ancho que NO escala con la letra (decoración de la ventana + barra vertical del scroll):
-        // se mantiene fijo y solo se escala el CONTENIDO, para que el texto quepa sin recortarse.
+        // Width that does NOT scale with the font (window chrome + scrollbar's vertical
+        // bar): stays fixed, only the CONTENT is scaled, so text fits without clipping.
         java.awt.Insets ins = window.getInsets();
         int chrome_w = ins.left + ins.right + scrollBarAllowance(window);
         updateFonts(window, GUI_FONT, DIALOG_ZOOM);
         syncTitledBorderFonts(window);
-        // Reempaqueta con las fuentes ya escaladas y realiza el layout (base para medir el contenido).
+        // Repacks with the already-scaled fonts and performs layout (baseline for measuring content).
         window.pack();
-        // ANCHO: escala solo el contenido (diseño − decoración) × factor y le vuelve a sumar la
-        // decoración fija; así encoge/crece sin borde sobrante y sin recortar la línea más larga.
-        // Nunca por debajo del mínimo real (respeta componentes RÍGIDOS de ancho fijo, p. ej.
-        // botones). En diálogos con JScrollPane, el diálogo debe haber llamado antes a
-        // trackViewportWidth(scroll) para que el contenido se recoloque a este ancho.
+        // WIDTH: scales only the content (design - chrome) x factor and adds the fixed
+        // chrome back on; that way it shrinks/grows without leftover border and without
+        // clipping the longest line. Never below the real minimum (respects RIGID
+        // fixed-width components, e.g. buttons). For dialogs with a JScrollPane, the
+        // dialog must have already called trackViewportWidth(scroll) so the content
+        // reflows to this width.
         int content_w = Math.round((design_w - chrome_w) * DIALOG_ZOOM) + chrome_w;
         int target_w = Math.max(content_w, window.getMinimumSize().width);
-        // ALTO: por defecto el del pack. Pero si el contenido va en un JScrollPane, su alto PREFERIDO
-        // de diseño está FIJO en el .form (no sigue al contenido escalado, deja hueco abajo), así que
-        // se usa el alto REAL de la vista del scroll + la decoración vertical (insets + borde/barra):
-        // ciñe la ventana al contenido, sin hueco ni barra vertical espuria.
+        // HEIGHT: defaults to the packed one. But if the content sits in a JScrollPane,
+        // its design PREFERRED height is FIXED in the .form (doesn't follow the scaled
+        // content, leaves a gap below), so instead the REAL height of the scroll's view
+        // + the vertical chrome (insets + border/bar) is used: hugs the window to the
+        // content, with no gap or spurious vertical scrollbar.
         int target_h = window.getHeight();
         javax.swing.JScrollPane sp = findScrollPane(window);
         if (sp != null && sp.getViewport() != null && sp.getViewport().getView() != null) {
@@ -3724,10 +3692,11 @@ public class Helpers {
         window.setSize(target_w, target_h);
     }
 
-    // Hace que el contenido de un JScrollPane SIGA el ancho del viewport: al estrechar la ventana, el
-    // contenido se recoloca a ese ancho (los componentes flexibles bajan hasta su mínimo, que sí
-    // depende de la fuente) en vez de mostrar barra horizontal por un ancho PREFERIDO fijo del .form.
-    // Los JLabel no envuelven, así que el alto no depende del ancho. Para diálogos con scroll y zoom.
+    // Makes a JScrollPane's content FOLLOW the viewport's width: as the window narrows,
+    // the content reflows to that width (the flexible components shrink down to their
+    // minimum, which does depend on the font) instead of showing a horizontal scrollbar
+    // because of the .form's fixed PREFERRED width. JLabels don't wrap, so height
+    // doesn't depend on width. For dialogs with scroll and zoom.
     public static void trackViewportWidth(javax.swing.JScrollPane scroll) {
         if (scroll == null) {
             return;
@@ -3750,7 +3719,7 @@ public class Helpers {
         });
     }
 
-    // Primer JScrollPane dentro de la ventana (búsqueda en profundidad), o null si no hay.
+    // First JScrollPane inside the window (depth-first search), or null if none.
     private static javax.swing.JScrollPane findScrollPane(Container container) {
         for (Component ch : container.getComponents()) {
             if (ch instanceof javax.swing.JScrollPane) {
@@ -3766,8 +3735,8 @@ public class Helpers {
         return null;
     }
 
-    // Ancho de la barra vertical a reservar si la ventana contiene un JScrollPane (su barra tiene
-    // ancho fijo que NO escala con la letra). 0 si no hay scroll.
+    // Width of the vertical scrollbar to reserve if the window contains a JScrollPane
+    // (its bar has a fixed width that does NOT scale with the font). 0 if there's no scroll.
     private static int scrollBarAllowance(Container container) {
         javax.swing.JScrollPane sp = findScrollPane(container);
         if (sp == null) {
@@ -3777,9 +3746,9 @@ public class Helpers {
         return w > 0 ? w : 17;
     }
 
-    // Re-sincroniza la fuente del título de cada TitledBorder al font (ya escalado) de su
-    // contenedor. Ni updateFonts ni zoomFonts alcanzan la fuente del título del borde, así que sin
-    // esto el título quedaría al tamaño de diseño mientras el contenido escala.
+    // Re-syncs each TitledBorder's title font to its container's (already scaled) font.
+    // Neither updateFonts nor zoomFonts reach the border's title font, so without this
+    // the title would stay at design size while the content scales.
     private static void syncTitledBorderFonts(Container container) {
         if (container instanceof javax.swing.JComponent) {
             javax.swing.border.Border b = ((javax.swing.JComponent) container).getBorder();
@@ -3794,11 +3763,12 @@ public class Helpers {
         }
     }
 
-    // Reescala el icono DECORATIVO de un JLabel a (tamaño natural del recurso × DIALOG_ZOOM). Reusa
-    // setScaledIconLabel, que usa Image.SCALE_DEFAULT para GIF (CONSERVA la animación) y SCALE_SMOOTH
-    // para el resto: es el mecanismo estándar del proyecto para escalar iconos, incluidos GIF animados
-    // (p. ej. el logo giratorio del About). No-op a 1.0 o si no hay recurso. Solo para adornos; el
-    // contenido gráfico (cartas, imágenes) se escala aparte.
+    // Rescales a JLabel's DECORATIVE icon to (resource's natural size x DIALOG_ZOOM).
+    // Reuses setScaledIconLabel, which uses Image.SCALE_DEFAULT for GIF (PRESERVES the
+    // animation) and SCALE_SMOOTH for everything else: this is the project's standard
+    // mechanism for scaling icons, including animated GIFs (e.g. the About dialog's
+    // spinning logo). No-op at 1.0 or if there's no resource. For decoration only;
+    // graphical content (cards, images) is scaled separately.
     public static void scaleDialogIcon(JLabel label, String resource) {
         if (label == null || resource == null || !isDialogZoomActive()) {
             return;
@@ -3813,13 +3783,14 @@ public class Helpers {
         setScaledIconLabel(label, url, w, h);
     }
 
-    // Reescala por el factor el icono (ImageIcon) de todos los JLabel y AbstractButton (botones,
-    // checkboxes, radios, items de menú) descendientes: fichas junto a checkboxes, iconos de menú,
-    // iconos de botón, avatares. Para el zoom de diálogos, de modo que los iconos encojan/crezcan con
-    // la fuente y la ventana se ajuste al hacer pack. Solo el icono PRINCIPAL (los estados
-    // seleccionado/pulsado/deshabilitado los deriva Nimbus). No idempotente (una pasada por instancia
-    // fresca, igual que updateFonts). No-op a 1.0. OJO: es genérico, así que NO usarlo en diálogos cuyo
-    // CONTENIDO sea una imagen en un JLabel (p. ej. ChatImageDialog): escalaría también la imagen.
+    // Rescales by the factor the icon (ImageIcon) of every descendant JLabel and
+    // AbstractButton (buttons, checkboxes, radios, menu items): chips next to
+    // checkboxes, menu icons, button icons, avatars. For the dialog zoom, so icons
+    // shrink/grow with the font and the window fits them on pack. Only the MAIN icon
+    // (the selected/pressed/disabled states are derived by Nimbus). Not idempotent (one
+    // pass per fresh instance, same as updateFonts). No-op at 1.0. WATCH OUT: this is
+    // generic, so do NOT use it on dialogs whose CONTENT is an image in a JLabel (e.g.
+    // ChatImageDialog): it would scale the image too.
     public static void scaleIcons(Container container, float factor) {
         if (container == null || Math.abs(factor - 1f) < 0.01f) {
             return;
@@ -3828,10 +3799,12 @@ public class Helpers {
     }
 
     private static void scaleIconsRec(Component c, float factor) {
-        // Los iconos puestos por los helpers setScaled* (avatares, altavoz, engranaje, iconos de botón,
-        // etc.) se marcan con "cp_scaled_icon" y se ESCALAN EN ORIGEN (su tamaño ya sale × zoom, o va
-        // ligado a la altura del componente). NO re-escalarlos aquí: evita doble escala y el recorte al
-        // re-ponerlos (p. ej. el toggle del altavoz). Aquí solo se escalan los iconos INLINE del .form.
+        // Icons set by the setScaled* helpers (avatars, speaker, gear, button icons,
+        // etc.) are tagged with "cp_scaled_icon" and are SCALED AT THE SOURCE (their
+        // size already comes out x zoom, or is tied to the component's height). Do NOT
+        // re-scale them here: avoids double scaling and clipping when they're
+        // re-applied (e.g. the speaker toggle). Only the .form's INLINE icons are
+        // scaled here.
         boolean managed = (c instanceof javax.swing.JComponent)
                 && Boolean.TRUE.equals(((javax.swing.JComponent) c).getClientProperty("cp_scaled_icon"));
         if (!managed) {
@@ -3858,8 +3831,9 @@ public class Helpers {
         }
     }
 
-    // Copia del ImageIcon reescalada (natural × factor), o null si no hay que tocar nada (no es
-    // ImageIcon o no tiene imagen). SCALE_SMOOTH; los GIF animados se escalan aparte con scaleDialogIcon.
+    // Rescaled copy of the ImageIcon (natural x factor), or null if there's nothing to
+    // touch (not an ImageIcon or has no image). SCALE_SMOOTH; animated GIFs are scaled
+    // separately with scaleDialogIcon.
     private static javax.swing.Icon scaleImageIcon(javax.swing.Icon icon, float factor) {
         if (!(icon instanceof ImageIcon)) {
             return null;
@@ -3874,14 +3848,16 @@ public class Helpers {
         return new ImageIcon(img.getScaledInstance(w, h, java.awt.Image.SCALE_SMOOTH));
     }
 
-    // Escala fuentes + iconos decorativos + títulos de TitledBorder de un diálogo por DIALOG_ZOOM, SIN
-    // redimensionar la ventana (cada diálogo hace su propio pack/clamp después: al escalar el contenido
-    // hacia abajo, su pack encoge la ventana y cabe en resoluciones menores). A 100% solo aplica la
-    // familia GUI_FONT (idéntico a updateFonts(w, GUI_FONT, null), que es lo que hacían los diálogos, así
-    // que 100% = diseño). NO toca el zoom de la MESA. NO usar en diálogos cuyo contenido sea una imagen
-    // (escalaría iconos de contenido); esos van con updateFonts a secas. Acepta un Container cualquiera
-    // (Window es Container) para poder escalar también los overlays in-frame que hacen de "diálogo" ligero
-    // (MODO AUTO, straddle), que ya no son ventanas.
+    // Scales a dialog's fonts + decorative icons + TitledBorder titles by DIALOG_ZOOM,
+    // WITHOUT resizing the window (each dialog does its own pack/clamp afterwards: when
+    // scaling content down, its pack shrinks the window so it fits smaller
+    // resolutions). At 100% this only applies the GUI_FONT family (identical to
+    // updateFonts(w, GUI_FONT, null), which is what dialogs used to do, so 100% =
+    // design). Does NOT touch the TABLE zoom. Do NOT use on dialogs whose content is an
+    // image (it would scale content icons too); those go through plain updateFonts.
+    // Accepts any Container (Window is a Container) so it can also scale the in-frame
+    // overlays that act as lightweight "dialogs" (AUTO mode, straddle), which aren't
+    // windows anymore.
     public static void applyDialogZoom(java.awt.Container container) {
         if (container == null) {
             return;
@@ -3894,11 +3870,11 @@ public class Helpers {
         }
     }
 
-    // Aplica la fuente base a TODOS los componentes descendientes al MISMO tamaño
-    // (conservando el estilo bold/plain de cada uno). A diferencia de updateFonts
-    // (que escala el tamaño existente de cada control), aquí todos quedan al MISMO
-    // punto: lo usan los diálogos de ajustes (con/sin pestañas) para una tipografía
-    // homogénea. No alcanza los títulos de los TitledBorder (esos van aparte).
+    // Applies the base font to ALL descendant components at the SAME size (preserving
+    // each one's bold/plain style). Unlike updateFonts (which scales each control's
+    // existing size), here everything ends up at the SAME point size: used by the
+    // settings dialogs (tabbed or not) for consistent typography. Doesn't reach
+    // TitledBorder titles (those are handled separately).
     public static void setUniformFont(Container c, Font base, int size) {
         for (Component child : c.getComponents()) {
             Font f = child.getFont();
@@ -3937,9 +3913,9 @@ public class Helpers {
             return base_font;
         }
 
-        // Búsqueda binaria del mayor tamaño que quepa: el ancho del texto crece
-        // de forma monótona con el tamaño, así que basta con log2(rango) medidas
-        // en vez de bajar punto a punto. Si nada cabe se devuelve el tamaño suelo.
+        // Binary search for the largest size that fits: text width grows monotonically
+        // with size, so log2(range) measurements suffice instead of stepping down one
+        // point at a time. If nothing fits, the floor size is returned.
         Font best = base_font.deriveFont(base_font.getStyle(), (float) min_size);
 
         while (lo <= hi) {
@@ -3963,11 +3939,10 @@ public class Helpers {
 
         Font font = null;
 
-        // Toma ownership del stream para garantizar close incluso si
-        // Font.createFont o registerFont lanzan. Los dos callers
-        // (Init.java:1072 con getResourceAsStream y :1106 con
-        // FileInputStream) pasan el stream y descartan la referencia,
-        // así que cerrarlo aquí es semánticamente correcto.
+        // Takes ownership of the stream to guarantee it's closed even if
+        // Font.createFont or registerFont throw. Both callers (Init.java:1072 with
+        // getResourceAsStream and :1106 with FileInputStream) pass the stream and
+        // discard their reference, so closing it here is semantically correct.
         try (InputStream s = stream) {
 
             font = Font.createFont(Font.TRUETYPE_FONT, s);
@@ -4009,40 +3984,39 @@ public class Helpers {
             return prop;
 
         } catch (Exception ex) {
-            // Se recoge CUALQUIER fallo, no solo el de lectura: un escape unicode roto en
-            // el fichero lanza IllegalArgumentException, que no es de lectura y se
-            // escapaba. Y esto corre en un inicializador estatico, asi que lo que se
-            // escapa de aqui no es un aviso, es un arranque que no llega a producirse.
-            // Devolver nada tampoco valia: nadie comprueba que las preferencias existan,
-            // asi que el primer acceso reventaba igual.
+            // ANY failure is caught here, not just read errors: a broken Unicode escape
+            // in the file throws IllegalArgumentException, which isn't a read failure
+            // and used to escape. And this runs in a static initializer, so whatever
+            // escapes here isn't a warning, it's a startup that never happens. Returning
+            // nothing wasn't an option either: nothing checks that preferences exist, so
+            // the first access would blow up just the same.
             //
-            // ANTES DE SEGUIR se guarda una copia del fichero ilegible. Sin ella, arrancar
-            // con lo que se haya podido leer condena el resto: el primer guardado (basta
-            // con cerrar la ventana de inicio, que persiste el volumen) reescribe el
-            // fichero ENTERO y se lleva por delante lo que no se pudo leer, incluidas las
-            // estructuras de ciegas del usuario, sin vuelta atras. Con la copia, siempre
-            // se pueden recuperar a mano.
+            // BEFORE CONTINUING, a copy of the unreadable file is saved. Without it,
+            // starting up with whatever could be read dooms the rest: the first save
+            // (just closing the start window persists the volume) rewrites the WHOLE
+            // file and wipes out whatever couldn't be read, including the user's blind
+            // structures, with no way back. With the copy, it can always be recovered by hand.
             //
-            // Se devuelve lo que SI se haya parseado (Properties.load va poblando hasta
-            // que falla), no un objeto vacio: de una linea rota al final se salva todo lo
-            // anterior.
+            // What WAS parsed is returned (Properties.load keeps populating until it
+            // fails), not an empty object: a broken line at the end still saves
+            // everything before it.
             Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE,
                     "Could not read the preferences file — keeping a copy and starting with what could be read", ex);
 
             try {
                 java.nio.file.Path origen = Paths.get(PROPERTIES_FILE);
                 if (Files.exists(origen)) {
-                    // Con nombre fijo la segunda copia se comia a la primera, y es la
-                    // primera la que vale: para cuando hay un segundo incidente el fichero
-                    // ya arranca mutilado por el guardado que vino detras del primero.
+                    // With a fixed name the second copy would overwrite the first, and
+                    // it's the first one that matters: by the time a second incident
+                    // happens, the file already starts out mutilated by the save that
+                    // followed the first one.
                     java.nio.file.Path copia = Paths.get(PROPERTIES_FILE + "_" + System.currentTimeMillis() + ".corrupto");
                     Files.copy(origen, copia);
                     Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE,
                             "A copy of the unreadable preferences file was kept at {0}", copia);
-                    // Todo esto pasa en un inicializador estatico que corre ANTES de que
-                    // exista el fichero de registro, asi que estos avisos no quedan en
-                    // ninguna parte. Se apunta la ruta para que el arranque la vuelva a
-                    // sacar cuando ya haya donde escribirla.
+                    // All of this happens in a static initializer that runs BEFORE the
+                    // log file exists, so these warnings don't end up anywhere. The path
+                    // is stashed so startup can surface it once there's somewhere to write it.
                     PROPERTIES_RESCUE_COPY = copia.toString();
                 }
             } catch (Exception copyEx) {
@@ -4081,9 +4055,9 @@ public class Helpers {
         return time;
     }
 
-    // Formato de dinero para los HUD/mesa (separador decimal por idioma, abreviatura
-    // K de miles redondos). El dinero del motor es double; por debajo del techo de
-    // exactitud del float el resultado es el de siempre (timbas normales sin cambios).
+    // Money formatting for the HUD/table (decimal separator per language, K abbreviation
+    // for round thousands). The engine's money is double; below the float's precision
+    // ceiling the result is the same as always (normal games unchanged).
     public static String money2String(double cantidad) {
 
         boolean es = GameFrame.LANGUAGE.toLowerCase().equals("es");
@@ -4108,13 +4082,13 @@ public class Helpers {
 
     }
 
-    // money2String se llama en la ruta de los contadores animados (stack/bote/apuesta a
-    // ~60fps, varios a la vez): antes creaba un DecimalFormatSymbols + DecimalFormat y
-    // COMPILABA una regex (String.replaceAll compila una Pattern) en CADA llamada -> ráfaga
-    // de basura para el GC en PCs lentos. Ahora las regex son Pattern estáticos (compilados
-    // una vez) y el DecimalFormat se cachea por hilo (NO es thread-safe; se llama en el EDT
-    // y fuera desde los logs), reconstruido solo si cambia el separador decimal (idioma).
-    // Salida byte-idéntica a la versión anterior.
+    // money2String is called on the animated counters' hot path (stack/pot/bet at ~60fps,
+    // several at once): it used to create a DecimalFormatSymbols + DecimalFormat and
+    // COMPILE a regex (String.replaceAll compiles a Pattern) on EVERY call -> a burst of
+    // GC garbage on slow PCs. The regexes are now static Patterns (compiled once) and the
+    // DecimalFormat is cached per thread (it is NOT thread-safe; called from the EDT and
+    // also from logging), rebuilt only if the decimal separator (language) changes.
+    // Output is byte-identical to the previous version.
     private static final java.util.regex.Pattern MONEY_STRIP_2_ES = java.util.regex.Pattern.compile(",00$");
     private static final java.util.regex.Pattern MONEY_STRIP_2_EN = java.util.regex.Pattern.compile("\\.00$");
     private static final java.util.regex.Pattern MONEY_STRIP_3_ES = java.util.regex.Pattern.compile("(?:(,[1-9])00$)|,000$");
@@ -4126,8 +4100,8 @@ public class Helpers {
     private static final ThreadLocal<DecimalFormat> MONEY_DF_3 = new ThreadLocal<>();
     private static final ThreadLocal<Character> MONEY_DF_SEP = new ThreadLocal<>();
 
-    // DecimalFormat cacheado por hilo para el patrón pedido ("0.00" o "0.000"), reconstruido
-    // solo si el separador decimal (idioma) cambió respecto al último uso en este hilo.
+    // DecimalFormat cached per thread for the requested pattern ("0.00" or "0.000"),
+    // rebuilt only if the decimal separator (language) changed since this thread's last use.
     private static DecimalFormat moneyFormat(boolean thousands, char sep) {
         Character cached = MONEY_DF_SEP.get();
         if (cached == null || cached.charValue() != sep) {
@@ -4140,36 +4114,39 @@ public class Helpers {
         return thousands ? MONEY_DF_3.get() : MONEY_DF_2.get();
     }
 
-    // Volcado COALESCIDO de las preferencias, para los controles CONTINUOS: un JSpinner con la
-    // flecha mantenida dispara un cambio por repetición, y con savePropertiesFile() cada uno
-    // reescribiría el fichero entero (I/O en el EDT). Aquí se reprograma el volcado y solo se
-    // escribe una vez, PROPERTIES_FLUSH_DELAY ms después del último cambio. Es el equivalente
-    // para spinners de lo que los sliders resuelven con getValueIsAdjusting(). Los ajustes
-    // DISCRETOS (casillas, desplegables, menús) siguen guardando al momento con
-    // savePropertiesFile(): un clic, una escritura.
+    // COALESCED flush of the preferences, for CONTINUOUS controls: a JSpinner with the
+    // arrow held down fires one change per repeat, and with savePropertiesFile() each
+    // one would rewrite the whole file (I/O on the EDT). Here the flush is rescheduled
+    // and only written once, PROPERTIES_FLUSH_DELAY ms after the last change. It's the
+    // spinner equivalent of what sliders solve with getValueIsAdjusting(). DISCRETE
+    // settings (checkboxes, dropdowns, menus) still save immediately with
+    // savePropertiesFile(): one click, one write.
     private static final int PROPERTIES_FLUSH_DELAY = 500;
-    // Lock PROPIO del fichero de preferencias. Antes savePropertiesFile era "synchronized static",
-    // o sea que tomaba el monitor de Helpers.class, que es el lock de facto de la base de datos
-    // (getSQLITE, closeSQLITE y los cuatro bloques de TOFUResolver lo usan). Escribir un
-    // .properties no tiene nada que ver con SQLite, y desde el hook de cierre esa dependencia
-    // dejaba la salida esperando a la transacción que estuviera en curso, sin límite de tiempo.
+    // Preferences file's OWN lock. savePropertiesFile used to be "synchronized static",
+    // i.e. it took Helpers.class's monitor, which is the de facto database lock
+    // (getSQLITE, closeSQLITE and TOFUResolver's four blocks use it). Writing a
+    // .properties file has nothing to do with SQLite, and from the shutdown hook that
+    // dependency left the exit waiting on whatever transaction was in progress, with no
+    // time limit.
     private static final Object PROPERTIES_LOCK = new Object();
-    // Hay valores apuntados en PROPERTIES que todavía no están en disco. NO vale mirar
-    // PROPERTIES_FLUSH_TIMER.isRunning(): un Timer no repetitivo se da de baja de la TimerQueue AL
-    // DISPARAR (TimerQueue.run hace post() y acto seguido delayedTimer = null) y post() solo encola
-    // el listener con invokeLater, así que entre el disparo y el volcado de verdad isRunning() ya
-    // dice false y el hook se saltaría justo el guardado que tenía que salvar.
+    // There are values staged in PROPERTIES that aren't on disk yet. Checking
+    // PROPERTIES_FLUSH_TIMER.isRunning() doesn't work: a non-repeating Timer
+    // deregisters from the TimerQueue WHEN IT FIRES (TimerQueue.run calls post() and
+    // immediately sets delayedTimer = null), and post() only queues the listener via
+    // invokeLater, so between firing and the actual flush isRunning() already says
+    // false and the hook would skip exactly the save it was meant to protect.
     private static volatile boolean PROPERTIES_DIRTY = false;
     private static final javax.swing.Timer PROPERTIES_FLUSH_TIMER = new javax.swing.Timer(PROPERTIES_FLUSH_DELAY, (java.awt.event.ActionEvent e) -> savePropertiesFile());
 
     static {
         PROPERTIES_FLUSH_TIMER.setRepeats(false);
 
-        // Cierra la ventana del volcado coalescido: si la aplicación se cierra dentro de esos
-        // PROPERTIES_FLUSH_DELAY ms, el valor estaría solo en memoria y se perdería. El hook cubre
-        // el cierre normal y System.exit (no un kill a lo bruto, que es la misma exposición que
-        // tiene cualquier escritura a medias). En diseño (NetBeans) no se registra: ahí PROPERTIES
-        // es un objeto vacío y volcarlo machacaría el fichero real del desarrollador.
+        // Closes the coalesced-flush window: if the app closes within that
+        // PROPERTIES_FLUSH_DELAY ms, the value would be in memory only and lost. The
+        // hook covers a normal close and System.exit (not a hard kill, which carries
+        // the same exposure as any partial write). Not registered at design time
+        // (NetBeans): there PROPERTIES is an empty object and flushing it would clobber
+        // the developer's real file.
         if (!isDesignTime()) {
             try {
                 Thread flush_hook = new Thread(() -> {
@@ -4178,15 +4155,15 @@ public class Helpers {
                             savePropertiesFile();
                         }
                     } catch (Throwable ignored) {
-                        // Durante el shutdown no hay a quién avisar: un fallo aquí no debe ensuciar
-                        // la salida con una traza ni matar el hilo del hook.
+                        // During shutdown there's no one to notify: a failure here must not
+                        // clutter the exit with a stack trace or kill the hook thread.
                     }
                 }, "CoronaPoker-Properties-Flush-Hook");
                 flush_hook.setDaemon(false);
                 Runtime.getRuntime().addShutdownHook(flush_hook);
             } catch (Throwable ignored) {
-                // Sin hook se vuelve al comportamiento de antes: se pierde, como mucho, el último
-                // valor de un control continuo movido en el medio segundo previo al cierre.
+                // Without the hook, behavior falls back to before: at most the last value
+                // of a continuous control moved in the half-second before close is lost.
             }
         }
     }
@@ -4201,30 +4178,30 @@ public class Helpers {
 
         synchronized (PROPERTIES_LOCK) {
 
-            // Un volcado inmediato deja sin trabajo al que estuviera pendiente: ya se escribe TODO
-            // el fichero, incluido lo que dejó el control continuo.
+            // An immediate flush leaves nothing for a pending one to do: it already
+            // writes the WHOLE file, including whatever the continuous control left behind.
             PROPERTIES_FLUSH_TIMER.stop();
 
-            // Escritura ATOMICA: se vuelca a un temporal y se mueve encima. Escribir en
-            // sitio TRUNCA primero, asi que un corte a mitad (y esto corre tambien desde
-            // el cierre del proceso) dejaba el fichero a medias o vacio. Dentro van las
-            // estructuras de ciegas y los ajustes guardados, o sea, el trabajo del autor
-            // de la timba. El helper atomico ya existia en este mismo fichero.
+            // ATOMIC write: flushed to a temp file and moved into place. Writing in
+            // place TRUNCATES first, so a cut mid-write (and this also runs from process
+            // shutdown) left the file half-written or empty. It holds the blind
+            // structures and saved settings, i.e. the game host's work. The atomic
+            // helper already exists in this same file.
             try (java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream()) {
-                // Properties.store NO cierra el OutputStream que recibe (contrato JDK).
-                // Sin try-with-resources, cada cambio de preferencia (volumen, zoom,
-                // sonidos, etc.) filtraba un FD. En partidas largas con muchos cambios
-                // acumulativos llegaba a ser visible en lsof.
+                // Properties.store does NOT close the OutputStream it's given (JDK
+                // contract). Without try-with-resources, every preference change
+                // (volume, zoom, sounds, etc.) leaked an FD. In long games with many
+                // cumulative changes it became visible in lsof.
                 PROPERTIES.store(buffer, null);
 
-                // store() escribe en ISO-8859-1 y escapa todo lo que no sea ASCII (contrato
-                // JDK), asi que el texto que se vuelca es exactamente el mismo que
-                // escribiria el store directo al fichero.
+                // store() writes ISO-8859-1 and escapes anything non-ASCII (JDK
+                // contract), so the text flushed here is exactly what a direct store to
+                // the file would write.
                 writeStringAtomic(java.nio.file.Paths.get(PROPERTIES_FILE),
                         buffer.toString(java.nio.charset.StandardCharsets.ISO_8859_1));
 
-                // Solo cuando de verdad se ha escrito: si el volcado falla, lo pendiente sigue
-                // pendiente y el hook de cierre volverá a intentarlo.
+                // Only once it's actually been written: if the flush fails, the pending
+                // state stays pending and the shutdown hook will retry it.
                 PROPERTIES_DIRTY = false;
 
             } catch (IOException ex) {
@@ -4329,19 +4306,19 @@ public class Helpers {
 
         try {
 
-            // Se usa HttpClient (no HttpURLConnection) para acotar el TIEMPO
-            // TOTAL de la operación, incluida la fase de conexión/resolución
-            // DNS: HttpURLConnection.setConnectTimeout NO cubre el lookup DNS,
-            // así que un equipo con DNS roto podía dejar el check colgado más
-            // allá del timeout nominal. HttpRequest.timeout() impone un techo
-            // global a todo el intercambio (DNS + conexión + respuesta).
+            // HttpClient is used (not HttpURLConnection) to bound the TOTAL TIME of the
+            // operation, including the connect/DNS resolution phase:
+            // HttpURLConnection.setConnectTimeout does NOT cover the DNS lookup, so a
+            // machine with broken DNS could leave the check hanging past the nominal
+            // timeout. HttpRequest.timeout() imposes a global ceiling on the whole
+            // exchange (DNS + connect + response).
             //
-            // followRedirects(NEVER): /releases/latest responde 302 con la
-            // versión en el header Location, así que se lee esa cabecera sin
-            // descargar el (pesado) HTML de la página de release. El cliente es
-            // local y no se cierra a propósito: sus hilos son daemon y se
-            // liberan por GC; un close() podría bloquear esperando a una
-            // operación atascada en DNS, justo lo que este timeout evita.
+            // followRedirects(NEVER): /releases/latest responds with a 302 carrying the
+            // version in the Location header, so that header is read without
+            // downloading the (heavy) release page HTML. The client is local and
+            // deliberately not closed: its threads are daemon and get released by GC; a
+            // close() could block waiting on an operation stuck in DNS, exactly what
+            // this timeout avoids.
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofMillis(HTTP_TIMEOUT))
                     .followRedirects(HttpClient.Redirect.NEVER)
@@ -4371,15 +4348,15 @@ public class Helpers {
 
             } else {
 
-                // Fallback: si GitHub dejara de redirigir y sirviera la página
-                // directamente, se parsea el cuerpo (también acotado por el
-                // timeout total de la petición).
+                // Fallback: if GitHub stopped redirecting and served the page
+                // directly, the body is parsed instead (also bounded by the
+                // request's total timeout).
                 latest_version = findFirstRegex("releases\\/tag\\/v?([0-9]+\\.[0-9]+)", response.body(), 1);
             }
 
-            // latest_version == null => no se pudo determinar (red caída, layout
-            // inesperado): se devuelve null para que el caller reintente y deje
-            // visible el botón de check manual. "" significa "estás al día".
+            // latest_version == null => couldn't be determined (network down,
+            // unexpected layout): null is returned so the caller retries and keeps the
+            // manual check button visible. "" means "you're up to date".
             if (latest_version != null) {
 
                 new_version_major = findFirstRegex("([0-9]+)\\.[0-9]+", latest_version, 1);
@@ -4409,7 +4386,7 @@ public class Helpers {
         return ret;
     }
 
-    //Thanks -> https://stackoverflow.com/a/19746437 (Pantalla 0 es la principal)
+    //Thanks -> https://stackoverflow.com/a/19746437 (screen 0 is the primary one)
     public static void centrarJFrame(JFrame window) {
 
         GUIRunAndWait(new Runnable() {
@@ -4483,9 +4460,9 @@ public class Helpers {
 
                 Rectangle screen = gc.getBounds();
 
-                // No estaba maximizada: reabrir con su mismo tamaño, CENTRADA en la
-                // pantalla destino (la de la sala, que el usuario pudo mover a otro
-                // monitor). Solo se recuerda el tamaño, no la posición.
+                // It wasn't maximized: reopen at its same size, CENTERED on the target
+                // screen (the waiting room's, which the user may have moved to another
+                // monitor). Only the size is remembered, not the position.
                 if (!maximized && restoreSize != null && restoreSize.width > 0 && restoreSize.height > 0) {
                     frame.setExtendedState(JFrame.NORMAL);
                     frame.setBounds(screen.x + (screen.width - restoreSize.width) / 2, screen.y + (screen.height - restoreSize.height) / 2, restoreSize.width, restoreSize.height);
@@ -4508,31 +4485,30 @@ public class Helpers {
                 frame.setBounds(screen.x + (screen.width - rw) / 2, screen.y + (screen.height - rh) / 2, rw, rh);
                 frame.setMaximizedBounds(usable);
 
-                // En Windows (pipeline Direct3D por defecto) fijar MAXIMIZED_BOTH
-                // ANTES de setVisible mapea a veces la ventana maximizada con el
-                // back-buffer en blanco: el contenido no se pinta hasta el primer
-                // WM_SIZE real (de ahi que "se arregle" al minimizar y restaurar).
-                // Es dependiente de driver/resolucion, por lo que solo aflora en
-                // algunas maquinas. Mostrarla primero en estado normal y maximizar
-                // justo despues, dentro del mismo ciclo del EDT, genera ese resize
-                // real que valida el contenido, sin flash perceptible (el gestor de
-                // ventanas aplica la maximizacion antes del primer pintado). El
-                // tamano restaurado (80%) se conserva porque son las bounds normales
-                // ya fijadas antes de maximizar.
+                // On Windows (default Direct3D pipeline) setting MAXIMIZED_BOTH BEFORE
+                // setVisible sometimes maps the maximized window with a blank
+                // back-buffer: content doesn't paint until the first real WM_SIZE
+                // (which is why it "fixes itself" on minimize + restore). It's
+                // driver/resolution dependent, so it only surfaces on some machines.
+                // Showing it in normal state first and maximizing right after, within
+                // the same EDT cycle, triggers that real resize that validates the
+                // content, with no perceptible flash (the window manager applies the
+                // maximization before the first paint). The restored size (80%) is kept
+                // because those are the normal bounds already set before maximizing.
                 frame.setVisible(true);
                 frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
-                // Liberar el rectangulo fijo de maximizacion para no clavar
-                // las futuras maximizaciones manuales del usuario a este
-                // monitor; la maximizacion inicial ya esta aplicada.
+                // Release the fixed maximization rectangle so future manual
+                // maximizations by the user aren't pinned to this monitor; the initial
+                // maximization is already applied.
                 SwingUtilities.invokeLater(() -> frame.setMaximizedBounds(null));
             }
         });
     }
 
     /**
-     * Maximiza el frame en el monitor indicado con tamaño restaurado al 80%
-     * (sin snapshot de estado normal previo). Atajo para el arranque.
+     * Maximizes the frame on the given monitor with its restored size at 80%
+     * (no prior normal-state snapshot). Shortcut used at startup.
      */
     public static void showFrameOnScreen(JFrame frame, java.awt.GraphicsConfiguration gc) {
         showFrameOnScreen(frame, gc, null, true);
@@ -4706,8 +4682,8 @@ public class Helpers {
 
                 URL oracle = new URL((String) Init.MOD.get("updateurl"));
 
-                // Timeouts explícitos: openStream() no impone ninguno, así que
-                // una URL de MOD caída o lenta colgaba el check indefinidamente.
+                // Explicit timeouts: openStream() doesn't impose any, so a dead or slow
+                // MOD URL would hang the check indefinitely.
                 URLConnection oracle_con = oracle.openConnection();
                 oracle_con.setUseCaches(false);
                 oracle_con.setConnectTimeout(HTTP_TIMEOUT);
@@ -4839,8 +4815,9 @@ public class Helpers {
                 //DECKS
                 HashMap<String, Object> decks = new HashMap<>();
 
-                // Un MOD puede traer solo sonidos, imagenes o fondo y NO tocar las barajas: sin
-                // esta guarda, la ausencia de <decks> reventaba la carga (y con ella el arranque).
+                // A MOD may bring only sounds, images, or a background and NOT touch the
+                // decks: without this guard, a missing <decks> would crash the load (and
+                // with it, startup).
                 Node decks_node = document.getElementsByTagName("decks").item(0);
 
                 NodeList nodeList = decks_node != null ? decks_node.getChildNodes() : null;
@@ -4877,9 +4854,9 @@ public class Helpers {
                     }
                 }
 
-                // OJO: mod es un ConcurrentHashMap y NO admite valores null, asi que un MOD sin
-                // barajas propias no puede guardar null aqui: simplemente no se pone la clave, que
-                // para quien la lee (get -> null) es exactamente lo mismo.
+                // NOTE: mod is a ConcurrentHashMap and does NOT allow null values, so a MOD
+                // with no decks of its own can't store null here: the key is simply not
+                // set, which for readers (get -> null) is exactly the same thing.
                 if (!decks.isEmpty()) {
                     mod.put("decks", decks);
                 }
@@ -4901,9 +4878,9 @@ public class Helpers {
                         .getName()).log(Level.SEVERE, null, ex);
 
             } catch (RuntimeException ex) {
-                // Un mod.xml a medias (una etiqueta que falta, un aspect que no es un numero) solo
-                // debe dejar el MOD sin cargar. Esto corre en el arranque, donde una excepcion que
-                // se escape deja la ventana a medio montar y el splash colgado.
+                // A half-broken mod.xml (a missing tag, an aspect that isn't a number) should
+                // just leave the MOD unloaded. This runs at startup, where an exception that
+                // escapes leaves the window half-built and the splash hanging.
                 Logger.getLogger(Helpers.class
                         .getName()).log(Level.SEVERE, "Broken MOD, ignoring it.", ex);
             }
@@ -5052,15 +5029,14 @@ public class Helpers {
     }
 
     /**
-     * Wrap defensivo: si el lambda lanza NPE porque GameFrame.getInstance()
-     * ya devuelve null (resetInstance() drenó la ventana antes de que el EDT
-     * llegase a procesarlo — race normal del cleanup post-MISDEAL /
-     * fin-de-partida), descartamos el lambda silenciosamente. Si en cambio
-     * GameFrame sigue vivo, el NPE es bug real y se relanza para que el EDT
-     * lo loguee como siempre.
+     * Defensive wrap: if the lambda throws an NPE because GameFrame.getInstance()
+     * already returns null (resetInstance() drained the window before the EDT got
+     * around to processing it — a normal race in post-MISDEAL / end-of-game cleanup),
+     * the lambda is silently discarded. If GameFrame is still alive instead, the NPE is
+     * a real bug and is rethrown so the EDT logs it as usual.
      *
-     * Sin este wrap, cada lambda Helpers.GUIRun(() -> GameFrame.getInstance()...)
-     * tendría que pre-validar el singleton — y hay literalmente cientos.
+     * Without this wrap, every Helpers.GUIRun(() -> GameFrame.getInstance()...) lambda
+     * would have to pre-validate the singleton — and there are literally hundreds.
      */
     private static Runnable wrapGuiRunnable(Runnable r) {
         return () -> {
@@ -5109,19 +5085,20 @@ public class Helpers {
 
     }
 
-    // Un click "de verdad" solo cuenta si se suelta DENTRO del componente donde se pulso. Se usa
-    // desde manejadores mouseReleased (no mouseClicked): mouseClicked no se dispara si el raton se
-    // desplaza unos pixeles entre pulsar y soltar, y entonces el click se pierde de forma
-    // intermitente. Escuchar el release y validar los limites replica un "click" fiable y ademas
-    // permite cancelar arrastrando fuera del componente antes de soltar. NO filtra por boton: quien
-    // necesite distinguir izquierdo/derecho lo comprueba aparte (isLeftMouseButton/isRightMouseButton).
+    // A "real" click only counts if released INSIDE the component where it was
+    // pressed. Used from mouseReleased handlers (not mouseClicked): mouseClicked
+    // doesn't fire if the mouse moves a few pixels between press and release, so the
+    // click is intermittently lost. Listening on release and checking the bounds
+    // replicates a reliable "click" and also lets the user cancel by dragging outside
+    // the component before releasing. Does NOT filter by button: callers that need to
+    // tell left/right apart check that separately (isLeftMouseButton/isRightMouseButton).
     public static boolean isReleaseInsideComponent(java.awt.event.MouseEvent evt) {
         java.awt.Component c = evt.getComponent();
         return c != null && evt.getX() >= 0 && evt.getY() >= 0
                 && evt.getX() < c.getWidth() && evt.getY() < c.getHeight();
     }
 
-    // Atajo para el caso habitual: click simple de boton izquierdo soltado dentro del componente.
+    // Shortcut for the common case: a plain left-button click released inside the component.
     public static boolean isRealClick(java.awt.event.MouseEvent evt) {
         return javax.swing.SwingUtilities.isLeftMouseButton(evt) && isReleaseInsideComponent(evt);
     }
@@ -5132,9 +5109,9 @@ public class Helpers {
 
     }
 
-    // Encola una tarea del registro en el consumidor FIFO de un solo hilo (LOG_POOL):
-    // garantiza que los print() se apliquen en orden de llamada. Defensivo ante el
-    // cierre del pool entre partidas (el registro de esa timba ya termino).
+    // Enqueues a log task on the single-thread FIFO consumer (LOG_POOL): guarantees
+    // print() calls are applied in call order. Defensive against the pool being shut
+    // down between games (that game's log has already ended).
     public static void logRun(Runnable r) {
 
         ExecutorService pool = LOG_POOL;
@@ -5149,12 +5126,12 @@ public class Helpers {
         }
     }
 
-    // Espera a que el consumidor del log (LOG_POOL) aplique todos los print()
-    // encolados — drena la cola FIFO. Se usa antes de exportar el registro a fichero
-    // (finTransmision) para que el .log incluya hasta la ultima linea, en orden, y no
-    // pierda lo recien encolado (footer + marcador final). No-op en el EDT: esperar
-    // ahi podria trabarse con actualizarCartasPerdedores (retiene log_lock dentro de
-    // un GUIRunAndWait que necesita el EDT). Best-effort con tope de tiempo.
+    // Waits for the log consumer (LOG_POOL) to apply all queued print() calls — drains
+    // the FIFO queue. Used before exporting the log to a file (finTransmision) so the
+    // .log includes up to the last line, in order, without losing what was just
+    // enqueued (footer + end marker). No-op on the EDT: waiting there could deadlock
+    // with actualizarCartasPerdedores (holds log_lock inside a GUIRunAndWait that needs
+    // the EDT). Best-effort with a time cap.
     public static void logFlush() {
 
         ExecutorService pool = LOG_POOL;
@@ -5520,10 +5497,10 @@ public class Helpers {
         return System.getProperty("os.name") + " " + System.getProperty("os.version") + " " + System.getProperty("os.arch") + " / " + System.getProperty("java.vm.name") + " " + System.getProperty("java.version");
     }
 
-    // Enmarca un título de una línea con caracteres de caja para el registro (en
-    // vez de tiras de asteriscos). Lleva un "\n" inicial (línea en blanco antes).
-    // El GameLogDialog lo detecta por el carácter de caja inicial: marco simple
-    // (┌─┐) → estilo de cabecera (cian); marco doble (╔═╗) → estilo de alerta (rojo).
+    // Frames a one-line title with box-drawing characters for the log (instead of
+    // asterisk strips). Carries a leading "\n" (blank line before it). GameLogDialog
+    // detects it by its leading box character: single frame (┌─┐) -> header style
+    // (cyan); double frame (╔═╗) -> alert style (red).
     public static String framedTitle(String text) {
         String inner = "  " + text + "  ";
         String rule = "─".repeat(inner.length());
@@ -5536,10 +5513,10 @@ public class Helpers {
         return "\n╔" + rule + "╗\n║" + inner + "║\n╚" + rule + "╝";
     }
 
-    // Redondeo de un float a N decimales (HALF_UP), 2 por defecto. El dinero del
-    // motor es double y se cuantiza al céntimo vía doubleClean; floatClean queda
-    // para magnitudes NO-dinero que se redondean a pocos decimales (zoom, dB de
-    // audio, porcentajes de stats, sizing interno del bot).
+    // Rounds a float to N decimals (HALF_UP), 2 by default. The engine's money is a
+    // double, quantized to the cent via doubleClean; floatClean is for NON-money
+    // magnitudes rounded to a few decimals (zoom, audio dB, stats percentages, the
+    // bot's internal sizing).
     public static float floatClean(float val) {
 
         return floatClean(val, 2);
@@ -5550,22 +5527,22 @@ public class Helpers {
         return new BigDecimal(val).setScale(decs, RoundingMode.HALF_UP).floatValue();
     }
 
-    // Compara dos floats a resolución de céntimo (ambos se cuantizan vía floatClean
-    // antes de comparar). El dinero del motor compara con doubleSecureCompare; esto
-    // queda para los valores float del lado del bot (sizing/ratios). El nombre "1D"
-    // es histórico de cuando la ficha era 0.1.
+    // Compares two floats at cent resolution (both are quantized via floatClean before
+    // comparing). The engine's money compares with doubleSecureCompare; this is for
+    // float values on the bot's side (sizing/ratios). The "1D" name is historical, from
+    // when the chip was 0.1.
     public static int float1DSecureCompare(float val1, float val2) {
 
         return Float.compare(floatClean(val1), floatClean(val2));
     }
 
-    // Versión en double del cuantizador de dinero. El dinero del motor migra de
-    // float a double para subir el techo de exactitud al céntimo de ~131072 fichas
-    // (float32) a ~9e13 (double). Por DEBAJO de ese techo es byte-idéntico a
-    // floatClean (verificado), así que las timbas normales no cambian. CRÍTICO: usa
-    // el constructor PRECISO new BigDecimal(double), NO BigDecimal.valueOf(double):
-    // en medios-céntimos (2.675/0.145/1.005) el preciso reproduce el redondeo del
-    // camino float (2.67/0.14/1.00) mientras que valueOf se desvía (2.68/0.15/1.01).
+    // Double version of the money quantizer. The engine's money migrates from float to
+    // double to raise the cent-precision ceiling from ~131072 chips (float32) to ~9e13
+    // (double). BELOW that ceiling it's byte-identical to floatClean (verified), so
+    // normal games don't change. CRITICAL: uses the PRECISE new BigDecimal(double)
+    // constructor, NOT BigDecimal.valueOf(double): on half-cents (2.675/0.145/1.005)
+    // the precise one reproduces the float path's rounding (2.67/0.14/1.00) while
+    // valueOf drifts (2.68/0.15/1.01).
     public static double doubleClean(double val) {
 
         return doubleClean(val, 2);
@@ -5576,7 +5553,7 @@ public class Helpers {
         return new BigDecimal(val).setScale(decs, RoundingMode.HALF_UP).doubleValue();
     }
 
-    // Compara dos cantidades de dinero (double) a resolución de céntimo.
+    // Compares two money amounts (double) at cent resolution.
     public static int doubleSecureCompare(double val1, double val2) {
 
         return Double.compare(doubleClean(val1), doubleClean(val2));
@@ -6399,7 +6376,7 @@ public class Helpers {
                     }
                 };
 
-                // === APARIENCIA submenu (display toggles + zoom + decks + mats) ===
+                // === APPEARANCE submenu (display toggles + zoom + decks + mats) ===
                 VISTA_MENU = new JMenu(Translator.translate("menu.apariencia"));
                 VISTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/gear.png")));
 
@@ -6447,7 +6424,7 @@ public class Helpers {
                 CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS_PREF);
                 VISTA_MENU.add(CINEMATICAS_MENU);
 
-                // Submenú "Efectos de animación" con tres efectos combinables.
+                // "Animation effects" submenu with three combinable effects.
                 JMenu efectos_anim_menu = new JMenu(Translator.translate("menu.animacion_de_cartas"));
                 efectos_anim_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/fx.png")));
 
@@ -6479,8 +6456,8 @@ public class Helpers {
                 COSTE_IGUALAR_MENU.setSelected(GameFrame.MOSTRAR_COSTE_IGUALAR);
                 VISTA_MENU.add(COSTE_IGUALAR_MENU);
 
-                // Barajas y tapetes dentro de Apariencia (antes en un submenú
-                // Personalización aparte, ya eliminado).
+                // Decks and mats inside Appearance (previously in a separate
+                // Customization submenu, now removed).
                 VISTA_MENU.addSeparator();
                 VISTA_MENU.add(BARAJAS_MENU);
                 VISTA_MENU.add(TAPETES_MENU);
@@ -6502,8 +6479,8 @@ public class Helpers {
                 AYUDA_MENU.add(jugadas);
 
                 // === ROOT popup ===
-                // "Ajustes" (diálogo unificado Apariencia/Audio/Partida) como PRIMER
-                // ítem del popup, aislado con un separador.
+                // "Settings" (unified Appearance/Audio/Game dialog) as the FIRST item in
+                // the popup, set apart with a separator.
                 AJUSTES_PARTIDA_MENU = new LeftClickMenuItem(ajustesPartidaAction);
                 AJUSTES_PARTIDA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/gear.png")));
                 popup.add(AJUSTES_PARTIDA_MENU);
@@ -6522,10 +6499,10 @@ public class Helpers {
                 screenshots.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/camera.png")));
                 popup.add(screenshots);
 
-                // El submenú "Apariencia" (VISTA_MENU) ya NO se añade al popup: todos
-                // sus ajustes viven en la pestaña "Apariencia" del diálogo "Ajustes". Se
-                // sigue construyendo más arriba porque sus ítems gemelos (FULLSCREEN_MENU,
-                // COMPACTA_MENU, etc.) son objetivos de sincronización desde GameFrame.
+                // The "Appearance" submenu (VISTA_MENU) is no longer added to the popup:
+                // all its settings live in the "Appearance" tab of the "Settings" dialog.
+                // It's still built above because its twin items (FULLSCREEN_MENU,
+                // COMPACTA_MENU, etc.) are sync targets from GameFrame.
                 popup.addSeparator();
 
                 AUTO_ACTION_MENU = new LeftClickCheckBoxMenuItem(autoactAction);
@@ -6538,7 +6515,7 @@ public class Helpers {
                 AUTO_CALL_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
                 popup.add(AUTO_CALL_MENU);
 
-                // Hermano gris: solo operable con "Modo AUTO" activo.
+                // Grayed-out sibling: only operable while "AUTO Mode" is active.
                 AUTO_ACTION_PERSIST_MENU = new LeftClickCheckBoxMenuItem(persistAutoAction);
                 AUTO_ACTION_PERSIST_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
                 AUTO_ACTION_PERSIST_MENU.setSelected(GameFrame.AUTO_ACTION_PERSIST);
@@ -6551,11 +6528,11 @@ public class Helpers {
                 MODO_AUTO_CONFIRM_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
                 popup.add(MODO_AUTO_CONFIRM_MENU);
 
-                // Cierra el grupo "Botones AUTO + hijos" con un separador antes de
-                // "Confirmar" (el separador de arriba ya existe sobre Botones AUTO).
+                // Closes the "AUTO Buttons + children" group with a separator before
+                // "Confirm" (the separator above already sits above AUTO Buttons).
                 popup.addSeparator();
 
-                // Confirmar todas las acciones, justo debajo de Botones AUTO.
+                // Confirm all actions, right below AUTO Buttons.
                 CONFIRM_MENU = new LeftClickCheckBoxMenuItem(confirmAction);
                 CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/confirmation.png")));
                 CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
@@ -6573,10 +6550,10 @@ public class Helpers {
                 AUTO_REBUY_MENU.setEnabled(GameFrame.REBUY);
                 popup.add(AUTO_REBUY_MENU);
 
-                // "Última mano" y "Límite de manos" se construyen igualmente (GameFrame
-                // sincroniza su estado), pero cambian de sitio: "Límite de manos" vive en
-                // la pestaña Partida del diálogo Ajustes y ya NO se añade al popup;
-                // "Última mano" se mueve al grupo de Detener/Salir.
+                // "Last hand" and "Hand limit" are still built the same way (GameFrame
+                // syncs their state), but they move: "Hand limit" now lives in the Game
+                // tab of the Settings dialog and is no longer added to the popup;
+                // "Last hand" moves to the Halt/Exit group.
                 LAST_HAND_MENU = new LeftClickCheckBoxMenuItem(lastHandAction);
                 LAST_HAND_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/last_hand.png")));
                 LAST_HAND_MENU.setSelected(false);
@@ -6584,12 +6561,12 @@ public class Helpers {
                 MAX_HANDS_MENU = new LeftClickMenuItem(maxHandsAction);
                 MAX_HANDS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/meter.png")));
 
-                // Ayuda, aislada con sus separadores.
+                // Help, set apart with its separators.
                 popup.addSeparator();
                 popup.add(AYUDA_MENU);
                 popup.addSeparator();
 
-                // Última mano, Detener la timba y Salir juntos (Última mano la primera).
+                // Last hand, Halt game and Exit together (Last hand first).
                 popup.add(LAST_HAND_MENU);
 
                 HALT_GAME_MENU = new LeftClickMenuItem(haltAction);

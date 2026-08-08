@@ -33,7 +33,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
-import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.io.File;
 import java.sql.ResultSet;
@@ -51,11 +50,9 @@ import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
-import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
-import javax.swing.JLabel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
@@ -66,6 +63,10 @@ import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
 
 /**
+ * Dialog for creating a new local game (host + bots) or joining a remote one: collects
+ * nick/avatar/password, blind structure and buy-in rules, rebuy/rabbit/IWTSTH/run-it-twice
+ * settings, and optional game presets. Also drives the "recover previous game" flow, which
+ * loads and locks the recovered game's economy while leaving its "Game" settings editable.
  *
  * @author tonikelope
  */
@@ -80,7 +81,9 @@ public class NewGameDialog extends JDialog {
     public static volatile int BUYIN_SPINNER_STEP;
 
     private final HashMap<String, HashMap<String, Object>> game = new HashMap<>();
-    private String last_game_key = null; // descripción ("server @ fecha") de la última timba recuperable cargada (mostrada en game_label), o null si no hay ninguna cargada
+    // Description ("server @ date") of the last recoverable game loaded (shown in
+    // game_label), or null if none is loaded.
+    private String last_game_key = null;
     private volatile boolean dialog_ok = false;
     private volatile boolean partida_local;
     private volatile File avatar = null;
@@ -121,9 +124,8 @@ public class NewGameDialog extends JDialog {
     @Override
     public void setVisible(boolean visible) {
         if (visible) {
-            // El owner al que se centra (setLocationRelativeTo) podria dejar el
-            // dialogo parcialmente fuera de pantalla o bajo la barra de tareas;
-            // se reubica dentro del area util justo antes de mostrarlo.
+            // setLocationRelativeTo can center this dialog partially off-screen or under
+            // the taskbar; clamp it back into the usable screen area right before showing it.
             Helpers.clampWindowToUsableBounds(this);
         }
         super.setVisible(visible);
@@ -165,16 +167,20 @@ public class NewGameDialog extends JDialog {
     }
 
     /**
-     * Creates new form CrearTimba
+     * Builds the new-game / join-game dialog.
+     *
+     * @param parent owner frame
+     * @param modal whether the dialog blocks input to the owner
+     * @param loc {@code true} for "create game" (host, local), {@code false} for "join game"
      */
     public NewGameDialog(java.awt.Frame parent, boolean modal, boolean loc) {
         super(parent, modal);
 
         initComponents();
 
-        // Recuadros finos de agrupación (escalada/tope de ciegas y recompra) con esquinas
-        // REDONDEADAS en vez de cuadradas. Se aplica aquí (tras initComponents) para no depender
-        // del .form generado. Mismo gris y grosor que el LineBorder original, solo cambia el arco.
+        // Thin grouping boxes (blind escalation/cap and rebuy) get ROUNDED corners instead
+        // of square. Applied here (after initComponents) to avoid depending on the generated
+        // .form. Same gray and thickness as the original LineBorder, only the arc changes.
         aumento_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
         recompra_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
 
@@ -185,15 +191,15 @@ public class NewGameDialog extends JDialog {
         Helpers.attachPasswordStrengthHint(pass_text);
         Helpers.attachPasswordRevealButton(pass_text);
 
-        // Timba nueva: arranca siempre en "Por defecto" (ignora cualquier estructura
-        // que quedara activa de una partida anterior). Si el usuario elige una
-        // personalizada, applySelectedStructure repuebla el combo de niveles.
+        // A new game always starts on "Default" (ignores any structure left active from
+        // a previous game). Picking a custom one makes applySelectedStructure repopulate
+        // the level combo.
         pending_structure = null;
         populateStructureCombo(null);
 
-        // El combo de NIVELES arranca con la escalera por defecto COMPLETA
-        // (defaultLevels), no con la lista fija del diseñador, para incluir todos
-        // los niveles. populateStructureCombo solo llena el selector de estructuras.
+        // The LEVELS combo starts with the full default ladder (defaultLevels), not the
+        // designer's fixed list, so it includes every level. populateStructureCombo only
+        // fills the structure selector.
         {
             double[][] def_levels = BlindStructure.defaultLevels();
             String[] def_items = new String[def_levels.length];
@@ -203,10 +209,10 @@ public class NewGameDialog extends JDialog {
             ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(def_items));
         }
 
-        // El combo de Rabbit Hunting se rellena traducido aquí: el constructor de
-        // CREAR/UNIRSE no pasa por el bloque de preselección del de MODIFICAR, y
-        // populatePresetsCombo suprime la acción del combo de presets (no llama a
-        // applySettingsToControls), así que sin esto el desplegable saldría VACÍO.
+        // The Rabbit Hunting combo is populated (translated) here: nothing else sets its
+        // model for a new game, and populatePresetsCombo suppresses the presets combo's
+        // action (never calls applySettingsToControls), so without this the dropdown
+        // would come up EMPTY.
         this.rabbit_combo.setModel(new DefaultComboBoxModel<>(new String[]{
             Translator.translate("menu.off"),
             Translator.translate("menu.free"),
@@ -215,14 +221,15 @@ public class NewGameDialog extends JDialog {
         }));
         this.rabbit_combo.setSelectedIndex(Math.min(Math.max(GameFrame.RABBIT_HUNTING, 0), 3));
 
-        // Tiempo de pensar: arranca con el último valor de sesión (como rabbit); por defecto
-        // activo a GameFrame.DEFAULT_THINK_TIME (40 s). El spinner ya acota al rango 10-120.
+        // Think time: starts from the last session value (like rabbit); defaults to
+        // enabled at GameFrame.DEFAULT_THINK_TIME (40 s). The spinner already clamps to
+        // the 10-120 range.
         this.think_time_checkbox.setSelected(GameFrame.THINK_TIME_ENABLED);
         this.think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, GameFrame.THINK_TIME)));
         this.think_time_spinner.setEnabled(GameFrame.THINK_TIME_ENABLED);
 
-        // Tiempo de showdown: arranca con el último valor de sesión; por defecto
-        // GameFrame.DEFAULT_SHOWDOWN_TIME (10 s). El spinner ya acota al rango 5-30.
+        // Showdown time: starts from the last session value; defaults to
+        // GameFrame.DEFAULT_SHOWDOWN_TIME (10 s). The spinner already clamps to the 5-30 range.
         this.showdown_time_spinner.setValue(Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, GameFrame.SHOWDOWN_TIME)));
 
         titulo_ventana.setText(loc ? Translator.translate("game.crear_timba") : Translator.translate("game.unirme_a_timba"));
@@ -255,8 +262,8 @@ public class NewGameDialog extends JDialog {
             bots_panel.setVisible(false);
         }
 
-        // Presets: solo al crear timba como host (no al unirse). Ocultos en otros
-        // modos para no ofrecer cargar una config completa donde no aplica.
+        // Presets: only when creating a game as host (not when joining). Hidden in other
+        // modes so a full config load isn't offered where it doesn't apply.
         presets_panel.setVisible(partida_local);
         if (partida_local) {
             populatePresetsCombo(null);
@@ -279,8 +286,8 @@ public class NewGameDialog extends JDialog {
             recover_panel.setVisible(false);
         }
 
-        // Sembrar el almacén de trabajo local del rango de buy-in + tope desde GameFrame al abrir.
-        // A partir de aquí la UI opera sobre estos campos; GameFrame no se vuelve a tocar hasta CREAR.
+        // Seed the local working store for the buy-in range + cap from GameFrame on open.
+        // From here on the UI operates on these fields; GameFrame isn't touched again until CREATE.
         working_min_bb = GameFrame.BUYIN_MIN_BB;
         working_max_bb = GameFrame.BUYIN_MAX_BB;
         working_rebuy_cap_policy = GameFrame.REBUY_CAP_POLICY;
@@ -405,21 +412,19 @@ public class NewGameDialog extends JDialog {
 
         Helpers.scaleIcons(this, Helpers.DIALOG_ZOOM);
 
-        // Apertura con un SOLO pack(). Antes se empaquetaba para leer el tamano
-        // preferido, se clampaba y se volvia a empaquetar: dos relayouts completos
-        // de ventana en el caso habitual (este dialogo es alto y casi siempre hay
-        // que clampar). El tamano preferido ya se puede consultar directamente
-        // (getPreferredSize refleja el estado tras updateFonts/scaleIcons y el peer
-        // existe desde el pack() de initComponents), asi que clampamos ANTES y
-        // empaquetamos una unica vez. Se quitan tambien el revalidate()/repaint()
-        // previos: el pack() ya revalida y la ventana todavia no es visible (Init
-        // hace setVisible despues), asi que no pintaban nada.
+        // Opens with a SINGLE pack(). It used to pack once to read the preferred size,
+        // clamp, and pack again — two full window relayouts in the common case (this
+        // dialog is tall and almost always needs clamping). The preferred size can already
+        // be read directly (getPreferredSize reflects the state after
+        // updateFonts/scaleIcons, and the peer exists since initComponents' pack()), so we
+        // clamp FIRST and pack once. The prior revalidate()/repaint() calls are gone too:
+        // pack() already revalidates and the window isn't visible yet (Init calls
+        // setVisible afterwards), so they painted nothing.
         //
-        // Se clampa al AREA UTIL (getMaximumWindowBounds excluye la barra de
-        // tareas), no al tamano total de pantalla: en baja resolucion la
-        // ventana cabe entera por encima de la barra de tareas y el scroll
-        // vertical del scroll_panel cubre el resto. Los botones VAMOS/CANCELAR
-        // quedan fijos abajo (fuera del scroll), siempre visibles.
+        // Clamps to the USABLE AREA (getMaximumWindowBounds excludes the taskbar), not the
+        // full screen size: at low resolution the window fits entirely above the taskbar
+        // and scroll_panel's vertical scrollbar covers the rest. The VAMOS/CANCEL buttons
+        // stay fixed at the bottom (outside the scroll), always visible.
         Rectangle usable_bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
 
         Dimension pref_size = getPreferredSize();
@@ -492,10 +497,10 @@ public class NewGameDialog extends JDialog {
                         bots_combobox.setSelectedIndex(getCurrentBotLevel());
                     }
 
-                    // Ajustes de "Partida" EDITABLES al recuperar: se pueblan con los valores de la
-                    // timba recuperada (para IWTSTH/RIT/rabbit gana el override *_RECOVER si aplica;
-                    // MANOS y el tiempo de pensar los deja applyRecoverSettings en el estático
-                    // directo). El usuario puede retocarlos antes de reenganchar.
+                    // "Game" settings are EDITABLE on recover: populate them from the recovered
+                    // game's values (for IWTSTH/RIT/rabbit the *_RECOVER override wins if set;
+                    // hand limit and think time are left by applyRecoverSettings directly in the
+                    // static field). The user can still tweak them before rejoining.
                     boolean rec_iwtsth = GameFrame.IWTSTH_RULE_RECOVER != null ? GameFrame.IWTSTH_RULE_RECOVER : GameFrame.IWTSTH_RULE;
                     int rec_rabbit = GameFrame.RABBIT_HUNTING_RECOVER != null ? GameFrame.RABBIT_HUNTING_RECOVER : GameFrame.RABBIT_HUNTING;
                     boolean rec_rit = GameFrame.RUN_IT_TWICE_RECOVER != null ? GameFrame.RUN_IT_TWICE_RECOVER : GameFrame.RUN_IT_TWICE;
@@ -519,8 +524,8 @@ public class NewGameDialog extends JDialog {
                     }
                     this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
                     this.bot_balance_checkbox.setSelected(GameFrame.BOT_BALANCE_TO_HUMANS);
-                    // Recompra EDITABLE al recuperar: permitir recomprar desde la columna
-                    // game.rebuy; tope de recompra desde la config recuperada (REBUY_CAP_POLICY).
+                    // Rebuy is EDITABLE on recover: "allow rebuy" comes from the game.rebuy
+                    // column; the rebuy cap from the recovered config (REBUY_CAP_POLICY).
                     this.rebuy_checkbox.setSelected(rs.getBoolean("rebuy"));
                     this.rebuy_cap_combo.setSelectedIndex(GameFrame.REBUY_CAP_POLICY == GameFrame.REBUY_CAP_HIGHEST_STACK ? 1 : 0);
                     game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
@@ -1689,19 +1694,20 @@ public class NewGameDialog extends JDialog {
     }// </editor-fold>//GEN-END:initComponents
 
     private void vamosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_vamosActionPerformed
-        // Guard de re-entrada: en el flujo force_recover, formWindowActivated invoca
-        // este método directamente. Si un modal devolviera el foco al diálogo se
-        // encolaría una segunda activación que, sin guard, re-entraría y crearía un
-        // SEGUNDO WaitingRoomFrame. dialog_ok solo se pone a true tras un commit
-        // exitoso, así que cortar aquí no afecta a la primera llamada ni a reintentos
-        // tras error de validación (dejan dialog_ok=false).
+        // Re-entry guard: in the force_recover flow, formWindowActivated calls this method
+        // directly. If a modal gave focus back to the dialog, a second activation would
+        // queue up and, without this guard, re-enter and create a SECOND WaitingRoomFrame.
+        // dialog_ok only becomes true after a successful commit, so returning here doesn't
+        // affect the first call or retries after a validation error (those leave
+        // dialog_ok=false).
         if (dialog_ok) {
             return;
         }
         vamos.setEnabled(false);
 
-        // La rama UPDATE (modificar opciones en la sala) se eliminó: esa edición vive
-        // ahora en la rueda (SettingsDialog -> pestaña Partida). Aquí solo queda CREAR/unirse.
+        // The UPDATE branch (editing options from inside the room) was removed: that
+        // editing now lives in the settings wheel (SettingsDialog -> Game tab). Only
+        // CREATE/join remains here.
         if (!this.nick.getText().trim().isEmpty() && !this.server_ip_textfield.getText().trim().isEmpty() && !this.server_port_textfield.getText().trim().isEmpty()) {
 
             vamos.setEnabled(false);
@@ -1779,18 +1785,19 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
 
-            // Tope de recompra (política): editable también al recuperar, junto con el resto de la
-            // recompra (permitir / límite / recomprar bots).
+            // Rebuy cap (policy): also editable on recover, along with the rest of rebuy
+            // (allow / limit / bot rebuy).
             GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
 
             GameFrame.BLIND_CAP = this.blind_cap_checkbox.isSelected() ? blindCapSelectedBB() : 0f;
 
             GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
-            // Ajustes de "Partida" (IWTSTH, run-it-twice, rabbit): se aplican SIEMPRE, también en
-            // recover (son editables antes de reenganchar). Al aplicarlos se ANULAN los overrides
-            // *_RECOVER para que el re-guardado de recover_settings use el valor EDITADO, no el
-            // recuperado original. (MANOS y el tiempo de pensar ya se leen más arriba sin guard.)
+            // "Game" settings (IWTSTH, run-it-twice, rabbit): always applied, even on recover
+            // (they're editable before rejoining). Applying them CLEARS the *_RECOVER
+            // overrides so that re-saving recover_settings uses the EDITED value, not the
+            // original recovered one. (Hand limit and think time are already read above
+            // with no guard.)
             GameFrame.IWTSTH_RULE = this.iwtsth_checkbox.isSelected();
             GameFrame.RUN_IT_TWICE = this.rit_checkbox.isSelected();
             GameFrame.RABBIT_HUNTING = this.rabbit_combo.getSelectedIndex();
@@ -1798,10 +1805,11 @@ public class NewGameDialog extends JDialog {
             GameFrame.RUN_IT_TWICE_RECOVER = null;
             GameFrame.RABBIT_HUNTING_RECOVER = null;
 
-            // Economía de la timba (ante/straddle, modo y rango de buy-in): en RECOVER NO se tocan
-            // (los restaura applyRecoverSettings al cargar la timba anterior; sus controles están
-            // deshabilitados con valores stale). Sin este guard, los controles deshabilitados
-            // pisarían la config recuperada con los defaults y la re-persistirían corrupta.
+            // Game economy (ante/straddle, mode, and buy-in range): NOT touched on RECOVER
+            // (applyRecoverSettings already restored them when the previous game loaded;
+            // their controls are disabled and hold stale values). Without this guard, the
+            // disabled controls would overwrite the recovered config with defaults and
+            // re-persist it corrupted.
             if (!GameFrame.RECOVER) {
                 GameFrame.ANTE = this.ante_checkbox.isSelected();
 
@@ -1820,10 +1828,10 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.CIEGA_PEQUEÑA = Double.parseDouble(valores_ciegas[0].trim());
 
-            // Estructura personalizada activa (null = escalera por defecto). En
-            // RECOVER no se toca: la restaura applyRecoverSettings al cargar la
-            // timba anterior. En timba nueva refleja la estructura del combo y
-            // viaja a los clientes en el INIT (C5).
+            // Active custom structure (null = default ladder). Not touched on RECOVER:
+            // applyRecoverSettings already restored it when the previous game loaded. On a
+            // new game it reflects the combo's structure and travels to clients in the
+            // INIT (C5).
             if (!GameFrame.RECOVER) {
                 GameFrame.ACTIVE_BLIND_STRUCTURE = pending_structure != null ? pending_structure.getLevels() : null;
             }
@@ -1842,16 +1850,16 @@ public class NewGameDialog extends JDialog {
                 GameFrame.CIEGAS_DOUBLE = 0;
             }
 
-            // Issue#9: en recover, BUYIN/CIEGAS/CIEGAS_DOUBLE del spinner son los valores por
-            // defecto del form (no se cargan desde la timba a continuar — sus controles solo se
-            // deshabilitan visualmente). Cargar la verdad desde la fila game antes de
-            // WaitingRoomFrame + GameFrame para que un late-joiner que se siente en la mesa
-            // capture el BUYIN correcto en su slot (RemotePlayer field initializer + loop
-            // simetrico setStack/setBuyin en GameFrame constructor).
+            // Issue#9: on recover, the spinners' BUYIN/BLINDS/BLIND-DOUBLE hold the form's
+            // defaults (never loaded from the game being resumed — their controls are only
+            // disabled visually). Load the real values from the game row before
+            // WaitingRoomFrame + GameFrame so a late joiner who sits at the table captures
+            // the correct BUYIN in their slot (RemotePlayer field initializer + the matching
+            // setStack/setBuyin loop in GameFrame's constructor).
             if (GameFrame.RECOVER) {
                 GameFrame.applyRecoveredGameStats(GameFrame.RECOVER_ID);
-                // "Permitir recomprar" es editable al recuperar: se persiste game.rebuy con el
-                // valor editado para que el resume (el Crupier relee game.rebuy) no lo revierta.
+                // "Allow rebuy" is editable on recover: game.rebuy is persisted with the
+                // edited value so the resume (the Crupier re-reads game.rebuy) doesn't revert it.
                 GameFrame.persistRecoverRebuy(GameFrame.RECOVER_ID, GameFrame.REBUY);
             }
 
@@ -1888,7 +1896,6 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_vamosActionPerformed
 
     private void doblar_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_doblar_checkboxActionPerformed
-        // TODO add your handling code here:
         this.doblar_ciegas_spinner_minutos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_minutos.isSelected());
         this.doblar_ciegas_spinner_manos.setEnabled(this.doblar_checkbox.isSelected() && this.double_blinds_radio_manos.isSelected());
         this.double_blinds_radio_manos.setEnabled(this.doblar_checkbox.isSelected());
@@ -1906,8 +1913,8 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_rebuy_checkboxActionPerformed
 
     private void fixed_buyin_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fixed_buyin_checkboxActionPerformed
-        // Variable (desmarcado): el buy-in inicial se pide a cada jugador al entrar
-        // al tablero, asi que el spinner de aqui no aplica -> deshabilitado.
+        // Variable (unchecked): the initial buy-in is asked from each player when they sit
+        // at the table, so this spinner doesn't apply -> disabled.
         this.buyin_spinner.setEnabled(this.fixed_buyin_checkbox.isSelected());
     }//GEN-LAST:event_fixed_buyin_checkboxActionPerformed
 
@@ -1915,7 +1922,6 @@ public class NewGameDialog extends JDialog {
         if (!Helpers.isReleaseInsideComponent(evt)) {
             return;
         }
-        // TODO add your handling code here:
 
         if (SwingUtilities.isRightMouseButton(evt)) {
             this.avatar = null;
@@ -1952,8 +1958,6 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_nick_labelMouseClicked
 
     private void recover_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recover_checkboxActionPerformed
-        // TODO add your handling code here:
-
         if (this.recover_checkbox.isSelected()) {
 
             if (this.last_game_key == null) {
@@ -2000,17 +2004,17 @@ public class NewGameDialog extends JDialog {
 
                 this.buyin_range_sep_label.setEnabled(false);
 
-                // Ante/straddle y presets: bloqueados al recuperar (economía de la timba fija;
-                // ante/straddle son dinero muerto ligado a las ciegas).
+                // Ante/straddle and presets: locked on recover (game economy is fixed;
+                // ante/straddle are dead money tied to the blinds).
                 this.ante_checkbox.setEnabled(false);
                 this.straddle_checkbox.setEnabled(false);
                 this.presets_combobox.setEnabled(false);
                 this.preset_save_button.setEnabled(false);
                 this.preset_delete_button.setEnabled(false);
                 this.preset_label.setEnabled(false);
-                // Ajustes de "Partida" (límite de manos, IWTSTH, run-it-twice, rabbit, tiempo de
-                // pensar) + dificultad de bots: EDITABLES antes de reenganchar. loadLastGame los ha
-                // poblado con los valores de la timba recuperada; aquí solo se garantiza el enable.
+                // "Game" settings (hand limit, IWTSTH, run-it-twice, rabbit, think time) + bot
+                // difficulty: EDITABLE before rejoining. loadLastGame already populated them
+                // with the recovered game's values; this just guarantees they're enabled.
                 this.bots_combobox.setEnabled(true);
                 this.bots_label.setEnabled(true);
                 this.manos_checkbox.setEnabled(true);
@@ -2021,8 +2025,8 @@ public class NewGameDialog extends JDialog {
                 this.think_time_checkbox.setEnabled(true);
                 this.think_time_spinner.setEnabled(this.think_time_checkbox.isSelected());
                 this.showdown_time_spinner.setEnabled(true);
-                // Recompra (permitir / límite / recomprar bots / tope): EDITABLE al recuperar.
-                // Enables según "permitir recomprar" (igual que rebuy_checkboxActionPerformed).
+                // Rebuy (allow / limit / bot rebuy / cap): EDITABLE on recover. Enabled state
+                // follows "allow rebuy" (same as rebuy_checkboxActionPerformed).
                 this.rebuy_checkbox.setEnabled(true);
                 this.rebuy_limit_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
                 this.rebuy_limit_spinner.setEnabled(this.rebuy_checkbox.isSelected() && this.rebuy_limit_checkbox.isSelected());
@@ -2064,11 +2068,11 @@ public class NewGameDialog extends JDialog {
 
             this.fixed_buyin_checkbox.setEnabled(true);
 
-            // El spinner sigue el modo: deshabilitado si es buy-in variable.
+            // The spinner follows the mode: disabled when buy-in is variable.
             this.buyin_spinner.setEnabled(this.fixed_buyin_checkbox.isSelected());
 
-            // El rango de buy-in vuelve a ser editable. La política de tope de recompra
-            // se reactiva más abajo solo si la recompra está activada.
+            // The buy-in range becomes editable again. The rebuy-cap policy is re-enabled
+            // further down only if rebuy is active.
             this.buyin_min_bb_spinner.setEnabled(true);
             this.buyin_max_bb_spinner.setEnabled(true);
             this.buyin_range_label.setEnabled(true);
@@ -2080,8 +2084,8 @@ public class NewGameDialog extends JDialog {
 
             this.ciegas_combobox.setEnabled(true);
 
-            // Vuelve a timba nueva: reactiva el selector de estructura, quita el ítem
-            // sintético "(recuperada)" y restablece "Por defecto" + ciegas por defecto.
+            // Back to a new game: re-enables the structure selector, drops the synthetic
+            // "(recovered)" item, and restores "Default" + default blinds.
             this.estructura_combobox.setEnabled(true);
             item_recuperada = null;
             pending_structure = null;
@@ -2137,7 +2141,7 @@ public class NewGameDialog extends JDialog {
                 this.rebuy_cap_combo.setEnabled(false);
             }
 
-            // Restaura ante/straddle, bots, límite de manos y presets a su estado de timba nueva.
+            // Restore ante/straddle, bots, hand limit, and presets to their new-game state.
             this.ante_checkbox.setEnabled(true);
             this.straddle_checkbox.setEnabled(true);
             this.bots_combobox.setEnabled(true);
@@ -2160,18 +2164,14 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_recover_checkboxActionPerformed
 
     private void pass_textActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pass_textActionPerformed
-        // TODO add your handling code here:
         vamos.doClick();
     }//GEN-LAST:event_pass_textActionPerformed
 
     private void server_port_textfieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_server_port_textfieldActionPerformed
-        // TODO add your handling code here:
         vamos.doClick();
     }//GEN-LAST:event_server_port_textfieldActionPerformed
 
     private void double_blinds_radio_minutosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_double_blinds_radio_minutosActionPerformed
-        // TODO add your handling code here:
-
         if (this.double_blinds_radio_minutos.isSelected()) {
             this.doblar_ciegas_spinner_minutos.setEnabled(true);
             this.double_blinds_radio_manos.setSelected(false);
@@ -2183,8 +2183,6 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_double_blinds_radio_minutosActionPerformed
 
     private void double_blinds_radio_manosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_double_blinds_radio_manosActionPerformed
-        // TODO add your handling code here:
-
         if (this.double_blinds_radio_manos.isSelected()) {
             this.doblar_ciegas_spinner_manos.setEnabled(true);
             this.double_blinds_radio_minutos.setSelected(false);
@@ -2195,8 +2193,6 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_double_blinds_radio_manosActionPerformed
 
     private void server_ip_textfieldKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_server_ip_textfieldKeyReleased
-        // TODO add your handling code here:
-
         if (!SERVER_HISTORY_QUEUE.isEmpty()) {
 
             if (evt.getKeyCode() == KeyEvent.VK_UP && conta_history <= SERVER_HISTORY_QUEUE.size() - 2) {
@@ -2238,16 +2234,13 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_server_ip_textfieldKeyReleased
 
     private void server_ip_textfieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_server_ip_textfieldActionPerformed
-        // TODO add your handling code here:
         vamos.doClick();
     }//GEN-LAST:event_server_ip_textfieldActionPerformed
 
     private void ciegas_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ciegas_comboboxActionPerformed
-        // TODO add your handling code here:
-
-        // Etiqueta informativa al vuelo, FUERA del gate init: así también se refresca
-        // cuando el combo cambia por carga de preset o de estructura (que suprimen init
-        // pero disparan este handler al reconstruir/seleccionar el nivel).
+        // Live info label, OUTSIDE the init gate: this way it also refreshes when the combo
+        // changes from loading a preset or a structure (which suppress init but still fire
+        // this handler when rebuilding/selecting the level).
         updateAnteStraddleLabels();
 
         if (init) {
@@ -2258,10 +2251,10 @@ public class NewGameDialog extends JDialog {
 
             double ciega_grande = Double.valueOf(valores[1].trim());
 
-            // Paso del spinner derivado de la magnitud de la ciega pequeña, no del
-            // índice del combo: para la escalera por defecto 1-2-3-5 da exactamente
-            // lo mismo que el viejo pow(10, floor(index/4)), pero también funciona
-            // con estructuras personalizadas de niveles arbitrarios.
+            // Spinner step is derived from the small blind's magnitude, not the combo
+            // index: for the default 1-2-3-5 ladder it matches the old
+            // pow(10, floor(index/4)) exactly, but it also works with custom structures
+            // that have arbitrary levels.
             int buyin_lo_cg = BuyinRules.min(ciega_grande, working_min_bb);
             int buyin_hi_cg = Math.max(buyin_lo_cg, BuyinRules.max(ciega_grande, working_max_bb));
             buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, working_min_bb, working_max_bb), buyin_lo_cg, buyin_hi_cg, (BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(ciega_pequena)) + 1)))));
@@ -2275,10 +2268,10 @@ public class NewGameDialog extends JDialog {
         }
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
 
-    // Etiqueta INFORMATIVA derivada: muestra entre paréntesis el importe ACTUAL del ante
-    // (= ciega pequeña) y del straddle (= 2x ciega grande), leídos del nivel de ciegas
-    // seleccionado, y se refresca al vuelo cuando cambia. Los importes por código son
-    // FIJOS (ciega pequeña / doble ciega grande), no configurables: esto es solo el texto.
+    // Derived INFO label: shows in parentheses the CURRENT ante amount (= small blind) and
+    // straddle amount (= 2x big blind), read from the selected blind level, refreshed live
+    // on change. The amounts themselves are FIXED by code (small blind / double big
+    // blind), not configurable — this is just the display text.
     private void updateAnteStraddleLabels() {
         Object sel = ciegas_combobox.getSelectedItem();
         if (sel == null) {
@@ -2297,22 +2290,20 @@ public class NewGameDialog extends JDialog {
         }
     }
 
-    // Estructura de ciegas elegida para esta timba (null = escalera por defecto
-    // 1-2-3-5). Determina los niveles del combo de ciegas y, al crear la timba,
-    // GameFrame.ACTIVE_BLIND_STRUCTURE.
+    // Blind structure chosen for this game (null = default 1-2-3-5 ladder). Drives the
+    // blinds combo's levels and, on creating the game, GameFrame.ACTIVE_BLIND_STRUCTURE.
     private BlindStructure pending_structure = null;
 
-    // Marcadores especiales del combo de estructura; el resto de ítems son nombres
-    // de estructuras personalizadas.
+    // Special markers in the structure combo; every other item is a custom structure's name.
     private String item_por_defecto;
     private String item_gestionar;
-    // Etiqueta sintética para una estructura recuperada que ya no está guardada
-    // (solo aparece en modo recover, en solo-lectura). null si no aplica.
+    // Synthetic label for a recovered structure that's no longer saved (only appears in
+    // read-only recover mode). null if not applicable.
     private String item_recuperada;
 
-    // (Re)llena el combo de estructura: "Por defecto" + personalizadas + "Gestionar…".
-    // Reselecciona por nombre la que se indique si sigue existiendo. No dispara la
-    // lógica de selección (baja init mientras repuebla).
+    // (Re)fills the structure combo: "Default" + custom ones + "Manage…". Reselects by
+    // name if given and it still exists. Doesn't trigger the selection logic (init is
+    // lowered while repopulating).
     private void populateStructureCombo(String selectName) {
         boolean prev_init = init;
         init = false;
@@ -2344,8 +2335,8 @@ public class NewGameDialog extends JDialog {
             return;
         }
         if (sel.equals(item_gestionar)) {
-            // Abrir el editor; al cerrar, recargar conservando la estructura activa
-            // (si fue borrada/renombrada, caer a "Por defecto").
+            // Open the editor; on close, reload keeping the active structure (fall back
+            // to "Default" if it was deleted/renamed).
             String previous = pending_structure != null ? pending_structure.getName() : item_por_defecto;
             BlindStructureManagerDialog mgr = new BlindStructureManagerDialog(this);
             mgr.setVisible(true);
@@ -2359,13 +2350,13 @@ public class NewGameDialog extends JDialog {
         applySelectedStructure();
     }//GEN-LAST:event_estructura_comboboxActionPerformed
 
-    // Aplica la estructura seleccionada al combo de niveles (ciegas_combobox) y a
-    // pending_structure. "Por defecto" => null + escalera 1-2-3-5; personalizada =>
-    // sus niveles. Conserva el formato "sb / bb" local (mismo que el combo original).
+    // Applies the selected structure to the levels combo (ciegas_combobox) and to
+    // pending_structure. "Default" => null + 1-2-3-5 ladder; custom => its levels. Keeps
+    // the local "sb / bb" format (same as the original combo).
     private void applySelectedStructure() {
         Object sel = estructura_combobox.getSelectedItem();
         if (item_recuperada != null && item_recuperada.equals(sel)) {
-            // Ítem sintético de una estructura recuperada (solo-lectura): no toca nada.
+            // Synthetic item for a recovered structure (read-only): does nothing.
             return;
         }
         double[][] levels;
@@ -2383,14 +2374,13 @@ public class NewGameDialog extends JDialog {
         }
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
         ciegas_combobox.setSelectedIndex(0);
-        // Recalcular buy-in + tope para la nueva escalera (setModel no dispara el
-        // listener de forma fiable).
+        // Recompute buy-in + cap for the new ladder (setModel doesn't reliably fire the listener).
         ciegas_comboboxActionPerformed(null);
     }
 
-    // Inicializa el selector de estructura tomando la estructura activa como parámetro
-    // (null = escalera por defecto), reflejándola en el combo de niveles. Llamar ANTES de
-    // la lógica que busca y selecciona el nivel de ciega actual en el combo.
+    // Initializes the structure selector from the active structure parameter (null =
+    // default ladder), reflecting it in the levels combo. Call this BEFORE the logic that
+    // looks up and selects the current blind level in the combo.
     private void initBlindStructureUIFrom(double[][] active) {
         pending_structure = null;
         String selectName = null;
@@ -2403,20 +2393,19 @@ public class NewGameDialog extends JDialog {
                 }
             }
             if (pending_structure == null) {
-                // R1: la estructura activa ya no está guardada (borrada o editada
-                // desde que se configuró la timba). La conservamos como estructura
-                // anónima "en uso" para que GUARDAR opciones NO la revierta en
-                // silencio a la escalera por defecto. (El combo muestra "Por
-                // defecto"; elegir otra entrada la reemplaza como siempre.)
+                // R1: the active structure is no longer saved (deleted or edited since the
+                // game was configured). Keep it as an anonymous "in use" structure so SAVE
+                // settings doesn't silently revert it to the default ladder. (The combo
+                // shows "Default"; picking another entry replaces it as usual.)
                 try {
                     pending_structure = new BlindStructure(Translator.translate("blinds.estructura_actual"), active);
                 } catch (IllegalArgumentException ignore) {
                 }
             }
         }
-        // Poblar SIEMPRE el combo desde la escalera efectiva (la estructura en uso
-        // o, sin ella, la por defecto) para que incluya todos los niveles de
-        // defaultLevels() y no la lista fija del diseñador.
+        // ALWAYS populate the combo from the effective ladder (the structure in use, or
+        // the default one without it) so it includes every level from defaultLevels(), not
+        // the designer's fixed list.
         double[][] levels = pending_structure != null ? pending_structure.getLevels() : BlindStructure.defaultLevels();
         String[] items = new String[levels.length];
         for (int k = 0; k < levels.length; k++) {
@@ -2426,12 +2415,12 @@ public class NewGameDialog extends JDialog {
         populateStructureCombo(selectName);
     }
 
-    // Tras cargar una timba a recuperar (loadLastGame ya restauró
-    // GameFrame.ACTIVE_BLIND_STRUCTURE), refleja la estructura recuperada en el
-    // combo aunque NO esté entre las guardadas del usuario: si coincide con una
-    // guardada muestra su nombre; si no, un ítem sintético "(recuperada)" de
-    // solo-lectura. El combo de niveles muestra las ciegas recuperadas. El motor
-    // recupera con ACTIVE pase lo que pase aquí (esto es solo la etiqueta).
+    // After loading a game to recover (loadLastGame already restored
+    // GameFrame.ACTIVE_BLIND_STRUCTURE), reflects the recovered structure in the combo
+    // even if it's NOT among the user's saved ones: shows its name if it matches a saved
+    // one, otherwise a read-only synthetic "(recovered)" item. The levels combo shows the
+    // recovered blinds. The engine recovers using ACTIVE regardless of what happens here —
+    // this is only the display label.
     private void syncStructureComboForRecover() {
         item_recuperada = null;
         double[][] active = GameFrame.ACTIVE_BLIND_STRUCTURE;
@@ -2470,25 +2459,25 @@ public class NewGameDialog extends JDialog {
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
     }
 
-    // El tope de ciegas se elige como "nº de subidas" (cuántas veces suben las
-    // ciegas como máximo, desde las iniciales elegidas). El spinner es ese entero
-    // y blind_cap_label muestra al vuelo el nivel resultante. Internamente
-    // GameFrame.BLIND_CAP sigue siendo la ciega grande de ese nivel (double), así
-    // que la lógica de congelar ciegas / recover / red no cambia.
+    // The blind cap is chosen as a "number of raises" (how many times the blinds may raise
+    // at most, from the chosen initial level). The spinner holds that integer, and
+    // blind_cap_label shows the resulting level live. Internally GameFrame.BLIND_CAP is
+    // still the big blind of that level (double), so the blind-freezing / recover /
+    // network logic doesn't change.
 
-    // Ciega grande (segundo número) de un item del combo de niveles.
+    // Big blind (second number) of a levels-combo item.
     private double parseBlindLevelBB(String item) {
         return Double.parseDouble(item.replace(",", ".").split("/")[1].trim());
     }
 
-    // Índice del combo del nivel tras n subidas desde las ciegas iniciales, sin
-    // pasarse del último nivel disponible.
+    // Combo index of the level after n raises from the initial blinds, capped at the last
+    // available level.
     private int blindCapTargetIndex(int n) {
         int last = ciegas_combobox.getModel().getSize() - 1;
         return Math.min(Math.max(0, ciegas_combobox.getSelectedIndex()) + n, last);
     }
 
-    // Ciega grande del nivel-tope para el nº de subidas actual (para guardar).
+    // Big blind of the cap level for the current number of raises (for saving).
     private double blindCapSelectedBB() {
         return parseBlindLevelBB(ciegas_combobox.getItemAt(blindCapTargetIndex(((Number) blind_cap_spinner.getValue()).intValue())));
     }
@@ -2497,22 +2486,22 @@ public class NewGameDialog extends JDialog {
         blind_cap_label.setText(ciegas_combobox.getItemAt(blindCapTargetIndex(((Number) blind_cap_spinner.getValue()).intValue())));
     }
 
-    // Habilita/deshabilita JUNTOS el spinner del tope de ciega grande y su label
-    // (el "n / m"), para que el label se atenúe con el spinner cuando el tope o el
-    // checkbox padre "Aumentar ciegas" están desactivados (como los demás paneles).
+    // Enables/disables the blind-cap spinner and its label ("n / m") together, so the
+    // label dims along with the spinner when the cap or the parent "Increase blinds"
+    // checkbox is off (like the other panels).
     private void setBlindCapControlsEnabled(boolean enabled) {
         blind_cap_spinner.setEnabled(enabled);
         blind_cap_label.setEnabled(enabled);
     }
 
-    // Reconstruye el nº de subidas desde el GameFrame.BLIND_CAP guardado (busca el
-    // nivel cuya ciega grande coincide); si no hay tope guardado, el default (5).
+    // Rebuilds the number of raises from the saved GameFrame.BLIND_CAP (looks up the level
+    // whose big blind matches); defaults to 5 if there's no saved cap.
     private int blindCapDoublingsFromCap() {
         return blindCapDoublingsFromCap(GameFrame.BLIND_CAP);
     }
 
-    // Igual pero tomando el tope (ciega grande del nivel-tope) como parámetro, para
-    // reconstruir el nº de subidas al cargar un preset sin pasar por GameFrame.
+    // Same, but taking the cap (cap level's big blind) as a parameter, to rebuild the
+    // number of raises when loading a preset without going through GameFrame.
     private int blindCapDoublingsFromCap(double cap) {
         int initial = Math.max(0, ciegas_combobox.getSelectedIndex());
         if (cap > 0f) {
@@ -2525,8 +2514,8 @@ public class NewGameDialog extends JDialog {
         return 5;
     }
 
-    // Modela el spinner como nº de subidas (1..niveles por encima de la inicial) y
-    // refresca el label.
+    // Models the spinner as number of raises (1..levels above the initial one) and
+    // refreshes the label.
     private void modelBlindCapSpinner(int n) {
         int levels_above = Math.max(1, ciegas_combobox.getModel().getSize() - 1 - Math.max(0, ciegas_combobox.getSelectedIndex()));
         n = Math.min(Math.max(1, n), levels_above);
@@ -2536,27 +2525,27 @@ public class NewGameDialog extends JDialog {
     }
 
     private void buyin_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_buyin_spinnerStateChanged
-        // Sin sonido: el repiqueteo del spinner sonaba a máquina tragaperras.
+        // No sound: the spinner's clicking sounded like a slot machine.
     }//GEN-LAST:event_buyin_spinnerStateChanged
 
-    // Topes inferior/superior del rango de buy-in, en ciegas grandes (BB). El motor
-    // de dinero sigue trabajando en fichas: estos spinners solo fijan los
-    // multiplicadores que BuyinRules convierte a fichas. Se cruzan para mantener
-    // siempre inferior < superior dentro de [FLOOR_MIN_BB, CEIL_MAX_BB].
+    // Lower/upper bounds of the buy-in range, in big blinds (BB). The money engine still
+    // works in chips: these spinners only set the multipliers that BuyinRules converts to
+    // chips. They're cross-clamped to keep lower < upper within [FLOOR_MIN_BB, CEIL_MAX_BB].
     private static final int BUYIN_RANGE_STEP = 5;
     private boolean adjusting_buyin_range = false;
 
-    // Almacén de trabajo LOCAL del rango de buy-in (min/max BB) y de la política de tope de
-    // recompra. Antes se usaban los estáticos GameFrame.BUYIN_MIN_BB/MAX_BB/REBUY_CAP_POLICY como
-    // scratch de estos controles, lo que ROMPÍA el modelo transaccional: tocar los spinners mutaba
-    // el estado global al vuelo y cancelar el diálogo (sin crear la timba) dejaba los cambios
-    // grabados. Ahora la lógica viva opera sobre estos campos y GameFrame solo se escribe al CREAR.
+    // LOCAL working store for the buy-in range (min/max BB) and the rebuy-cap policy.
+    // These controls used to scratch directly on the static
+    // GameFrame.BUYIN_MIN_BB/MAX_BB/REBUY_CAP_POLICY, which BROKE the transactional model:
+    // touching the spinners mutated global state live, so canceling the dialog (without
+    // creating the game) left the changes saved. Now the live logic operates on these
+    // fields and GameFrame is only written on CREATE.
     private int working_min_bb;
     private int working_max_bb;
     private int working_rebuy_cap_policy;
 
-    // Inicializa los spinners de rango y el combo de política de tope de recompra
-    // desde el almacén de trabajo local (working_*), validando los límites.
+    // Initializes the range spinners and the rebuy-cap policy combo from the local working
+    // store (working_*), validating the bounds.
     private void initBuyinRangeAndCapUI() {
         int lo = Math.max(BuyinRules.FLOOR_MIN_BB, Math.min(working_min_bb, BuyinRules.CEIL_MAX_BB - BUYIN_RANGE_STEP));
         int hi = Math.max(lo + BUYIN_RANGE_STEP, Math.min(working_max_bb, BuyinRules.CEIL_MAX_BB));
@@ -2574,8 +2563,8 @@ public class NewGameDialog extends JDialog {
         working_min_bb = lo;
         working_max_bb = hi;
 
-        // Combo de política: índice 0 = BUYIN, índice 1 = stack del jugador más alto
-        // (los índices coinciden con las constantes GameFrame.REBUY_CAP_*).
+        // Policy combo: index 0 = BUYIN, index 1 = the highest player's stack (indices
+        // match the GameFrame.REBUY_CAP_* constants).
         rebuy_cap_combo.removeAllItems();
         rebuy_cap_combo.addItem(Translator.translate("rebuy.cap_policy_buyin"));
         rebuy_cap_combo.addItem(Translator.translate("rebuy.cap_policy_highest"));
@@ -2583,8 +2572,8 @@ public class NewGameDialog extends JDialog {
         Helpers.setTranslatedToolTip(rebuy_cap_combo, "rebuy.tope_recompra_tooltip");
     }
 
-    // Reconstruye el modelo del spinner de buy-in con los límites [min,max] BB
-    // actuales sobre la ciega grande seleccionada, conservando el valor (clamp).
+    // Rebuilds the buy-in spinner's model with the current [min,max] BB bounds for the
+    // selected big blind, clamping the value to stay within them.
     private void rebuildBuyinSpinnerModel() {
         if (ciegas_combobox.getSelectedItem() == null) {
             return;
@@ -2609,9 +2598,9 @@ public class NewGameDialog extends JDialog {
         onBuyinRangeChanged(false);
     }//GEN-LAST:event_buyin_max_bb_spinnerStateChanged
 
-    // Aplica un cambio en cualquiera de los dos spinners de rango: mantiene
-    // inferior < superior (empujando el otro extremo si hace falta, dentro de los
-    // topes), propaga a GameFrame y reconstruye el spinner de buy-in.
+    // Applies a change on either range spinner: keeps lower < upper (pushing the other end
+    // if needed, within the caps), propagates to the local working store, and rebuilds the
+    // buy-in spinner.
     private void onBuyinRangeChanged(boolean minChanged) {
         if (!init || adjusting_buyin_range) {
             return;
@@ -2651,7 +2640,6 @@ public class NewGameDialog extends JDialog {
     }
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
-        // TODO add your handling code here:
         if (isModal()) {
             try {
                 Init.CURRENT_MODAL_DIALOG.removeLast();
@@ -2661,7 +2649,6 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_formWindowDeactivated
 
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
-        // TODO add your handling code here:
         if (isModal()) {
             Init.CURRENT_MODAL_DIALOG.add(this);
         }
@@ -2673,7 +2660,6 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_formWindowActivated
 
     private void manos_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_manos_checkboxActionPerformed
-        // TODO add your handling code here:
         this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
     }//GEN-LAST:event_manos_checkboxActionPerformed
 
@@ -2693,7 +2679,6 @@ public class NewGameDialog extends JDialog {
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
         recover_checkbox.doClick();
     }//GEN-LAST:event_recover_checkbox_labelMouseClicked
 
@@ -2701,7 +2686,6 @@ public class NewGameDialog extends JDialog {
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
         rebuy_checkbox.doClick();
     }//GEN-LAST:event_recomprar_labelMouseClicked
 
@@ -2709,7 +2693,6 @@ public class NewGameDialog extends JDialog {
         if (!Helpers.isRealClick(evt)) {
             return;
         }
-        // TODO add your handling code here:
         manos_checkbox.doClick();
     }//GEN-LAST:event_limite_manos_labelMouseClicked
 
@@ -2742,17 +2725,14 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_rit_iconMouseClicked
 
     private void nickActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nickActionPerformed
-        // TODO add your handling code here:
         vamos.doClick();
     }//GEN-LAST:event_nickActionPerformed
 
     private void avatar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatar_labelMouseClicked
-        // TODO add your handling code here:
         this.nick_labelMouseClicked(evt);
     }//GEN-LAST:event_avatar_labelMouseClicked
 
     private void cancel_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancel_buttonActionPerformed
-        // TODO add your handling code here:
         dispose();
     }//GEN-LAST:event_cancel_buttonActionPerformed
 
@@ -2760,21 +2740,20 @@ public class NewGameDialog extends JDialog {
         // Selection is committed only when the user accepts the dialog (see vamosActionPerformed).
     }//GEN-LAST:event_bots_comboboxActionPerformed
 
-    // ===== Presets de nueva partida (solo al crear timba como host) ===========
-    // Un preset guarda TODA la configuración de la timba (ciegas, estructura
-    // elegida, buy-in, recompra, aumento, tope, manos, ante, straddle, bots), como
-    // las estructuras de ciegas propias. El diálogo mapea sus controles
-    // hacia/desde GamePreset.Settings y NO toca GameFrame (salvo el rango de buy-in,
-    // que el diálogo ya usa GameFrame como almacén de trabajo): cargar un preset y
-    // luego cancelar no deja rastro.
+    // ===== New-game presets (only when creating a game as host) ================
+    // A preset saves the ENTIRE game configuration (blinds, chosen structure, buy-in,
+    // rebuy, escalation, cap, hand limit, ante, straddle, bots), like the user's own blind
+    // structures. The dialog maps its controls to/from GamePreset.Settings and never
+    // touches GameFrame: the buy-in range and rebuy-cap policy go through the dialog's own
+    // local working store instead (working_min_bb/working_max_bb, see
+    // initBuyinRangeAndCapUI). Loading a preset and then canceling leaves no trace.
 
     private static final int MAX_PRESET_NAME_LENGTH = 40;
-    // Suprime la carga al repoblar el combo o cuando el guard interno lo exige.
+    // Suppresses loading while repopulating the combo, or whenever the internal guard requires it.
     private boolean suppress_preset_combo = false;
 
-    // (Re)llena el combo de presets: marcador "(elegir preset)" + nombres guardados.
-    // No dispara la carga (baja el guard mientras repuebla). Reselecciona por nombre
-    // si se indica.
+    // (Re)fills the presets combo: "(choose preset)" marker + saved names. Doesn't trigger
+    // loading (lowers the guard while repopulating). Reselects by name if given.
     private void populatePresetsCombo(String selectName) {
         suppress_preset_combo = true;
         try {
@@ -2802,8 +2781,8 @@ public class NewGameDialog extends JDialog {
         int idx = presets_combobox.getSelectedIndex();
         preset_delete_button.setEnabled(idx > 0);
         if (idx <= 0) {
-            // "Por defecto": restablece la configuración de fábrica de una timba nueva
-            // (igual que elegir la escalera "Por defecto" en el combo de estructuras).
+            // "Default": restores a new game's factory configuration (same as picking
+            // "Default" in the structure combo).
             applySettingsToControls(new GamePreset.Settings());
             return;
         }
@@ -2848,8 +2827,8 @@ public class NewGameDialog extends JDialog {
         populatePresetsCombo(null);
     }//GEN-LAST:event_preset_delete_buttonActionPerformed
 
-    // Pide un nombre de preset (caja con la fuente de la app, igual que el editor de
-    // estructuras). Devuelve null al cancelar o si queda vacío.
+    // Prompts for a preset name (dialog styled with the app's font, like the structure
+    // editor). Returns null on cancel or if left empty.
     private String promptPresetName() {
         javax.swing.JLabel prompt = new javax.swing.JLabel(Translator.translate("newgame.preset_nombre"));
         javax.swing.JTextField field = new javax.swing.JTextField("", 18);
@@ -2873,8 +2852,8 @@ public class NewGameDialog extends JDialog {
         return name.length() > MAX_PRESET_NAME_LENGTH ? name.substring(0, MAX_PRESET_NAME_LENGTH) : name;
     }
 
-    // Lee la configuración ACTUAL de los controles a un Settings (sin tocar
-    // GameFrame). Mismo mapeo que el commit de vamosActionPerformed.
+    // Reads the controls' CURRENT configuration into a Settings (without touching
+    // GameFrame). Same mapping as vamosActionPerformed's commit.
     private GamePreset.Settings captureSettingsFromControls() {
         GamePreset.Settings s = new GamePreset.Settings();
         String[] v = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
@@ -2938,7 +2917,7 @@ public class NewGameDialog extends JDialog {
         }
     }
 
-    // Selecciona en el combo de niveles la ciega "sb / bg" indicada, si existe.
+    // Selects the given "sb / bb" blind level in the levels combo, if it exists.
     private void selectCurrentBlindLevel(double sb, double bg) {
         String ciegas = BlindStructure.formatLevel(sb, bg);
         int t = ciegas_combobox.getModel().getSize();
@@ -2950,15 +2929,15 @@ public class NewGameDialog extends JDialog {
         }
     }
 
-    // Vuelca un Settings a los controles del diálogo (sin tocar GameFrame salvo el
-    // rango de buy-in, que el diálogo ya usa como almacén de trabajo). Mismo orden
-    // que el read-back del constructor de modificar: primero los toggles/enable y al
-    // final estructura -> nivel -> buy-in/tope (que dependen del nivel elegido).
+    // Dumps a Settings into the dialog's controls (never touches GameFrame — the buy-in
+    // range and rebuy-cap policy go through the dialog's local working store instead, see
+    // initBuyinRangeAndCapUI). Order: toggles/enables first, then structure -> level ->
+    // buy-in/cap last, since those depend on the chosen level.
     private void applySettingsToControls(GamePreset.Settings s) {
         boolean prev_init = init;
         init = false;
         try {
-            // Aumentar ciegas + minutos/manos.
+            // Increase blinds + minutes/hands.
             doblar_checkbox.setSelected(s.doubleEvery > 0);
             double_blinds_radio_minutos.setEnabled(s.doubleEvery > 0);
             double_blinds_radio_manos.setEnabled(s.doubleEvery > 0);
@@ -2978,32 +2957,32 @@ public class NewGameDialog extends JDialog {
             Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
             Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
 
-            // Límite de manos.
+            // Hand limit.
             manos_checkbox.setSelected(s.handLimit > 0);
             manos_spinner.setEnabled(s.handLimit > 0);
             manos_spinner.setModel(new SpinnerNumberModel(s.handLimit > 0 ? s.handLimit : 100, 1, null, 1));
             Helpers.makeNumericSpinnerEditable(manos_spinner, false);
             ((javax.swing.JSpinner.DefaultEditor) manos_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
 
-            // Tiempo de pensar.
+            // Think time.
             think_time_checkbox.setSelected(s.thinkTimeEnabled);
             think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, s.thinkTime)));
             think_time_spinner.setEnabled(s.thinkTimeEnabled);
             Helpers.makeNumericSpinnerEditable(think_time_spinner, false);
 
-            // Tiempo de showdown (sin casilla: siempre activo).
+            // Showdown time (no checkbox: always active).
             showdown_time_spinner.setValue(Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, s.showdownTime)));
             Helpers.makeNumericSpinnerEditable(showdown_time_spinner, false);
 
-            // Recompra + ante + straddle.
+            // Rebuy + ante + straddle.
             rebuy_checkbox.setSelected(s.rebuy);
             ante_checkbox.setSelected(s.ante);
             straddle_checkbox.setSelected(s.straddle);
             iwtsth_checkbox.setSelected(s.iwtsth);
             rit_checkbox.setSelected(s.runItTwice);
-            // El combo de rabbit se rellena traducido aquí: el constructor de CREAR
-            // timba NO fija el modelo (a diferencia del de modificar), así que sin
-            // esto el desplegable saldría vacío. Índice 0..3 = off/free/free+sb/free+sb+bb.
+            // The rabbit combo is populated (translated) here, since nothing else sets
+            // its model for a new game, otherwise the dropdown would come up empty.
+            // Index 0..3 = off/free/free+sb/free+sb+bb.
             rabbit_combo.setModel(new DefaultComboBoxModel<>(new String[]{
                 Translator.translate("menu.off"),
                 Translator.translate("menu.free"),
@@ -3015,18 +2994,19 @@ public class NewGameDialog extends JDialog {
             bot_rebuy_checkbox.setEnabled(s.rebuy);
             bot_balance_checkbox.setSelected(s.botBalanceToHumans);
 
-            // Modo de buy-in.
+            // Buy-in mode.
             fixed_buyin_checkbox.setSelected(s.fixedBuyin);
             buyin_spinner.setEnabled(s.fixedBuyin);
 
-            // Rango de buy-in + política de tope de recompra: almacén de trabajo LOCAL (no GameFrame),
-            // para no romper el modelo transaccional; GameFrame solo se escribe al CREAR la timba.
+            // Buy-in range + rebuy-cap policy: LOCAL working store (not GameFrame), so the
+            // transactional model doesn't break; GameFrame is only written when the game
+            // is CREATED.
             working_min_bb = s.minBb;
             working_max_bb = s.maxBb;
             working_rebuy_cap_policy = s.rebuyCapPolicy;
             initBuyinRangeAndCapUI();
 
-            // Límite de recompras.
+            // Rebuy limit.
             rebuy_limit_checkbox.setSelected(s.rebuyLimit > 0);
             rebuy_limit_checkbox.setEnabled(s.rebuy);
             rebuy_limit_spinner.setEnabled(s.rebuy && s.rebuyLimit > 0);
@@ -3035,11 +3015,11 @@ public class NewGameDialog extends JDialog {
             rebuy_cap_label.setEnabled(s.rebuy);
             rebuy_cap_combo.setEnabled(s.rebuy);
 
-            // Tope de ciega (checkbox + enable; el modelo del spinner se fija abajo).
+            // Blind cap (checkbox + enable; the spinner's model is set further down).
             blind_cap_checkbox.setSelected(s.blindCap > 0);
             blind_cap_checkbox.setEnabled(s.doubleEvery > 0);
 
-            // Estructura -> niveles del combo -> nivel actual.
+            // Structure -> combo levels -> current level.
             initBlindStructureUIFrom(s.structure);
             double[][] levels = s.structure != null ? s.structure : BlindStructure.defaultLevels();
             String[] items = new String[levels.length];
@@ -3049,18 +3029,18 @@ public class NewGameDialog extends JDialog {
             ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
             selectCurrentBlindLevel(s.smallBlind, s.bigBlind);
 
-            // Buy-in para el nivel elegido (clamp del valor del preset al rango).
+            // Buy-in for the chosen level (clamps the preset's value to the range).
             rebuildBuyinSpinnerModel();
             SpinnerNumberModel bm = (SpinnerNumberModel) buyin_spinner.getModel();
             int blo = ((Number) bm.getMinimum()).intValue();
             int bhi = ((Number) bm.getMaximum()).intValue();
             buyin_spinner.setValue(Math.max(blo, Math.min(s.buyin, bhi)));
 
-            // Tope de ciega: nº de subidas reconstruido desde el tope del preset.
+            // Blind cap: number of raises rebuilt from the preset's cap.
             modelBlindCapSpinner(blindCapDoublingsFromCap(s.blindCap));
             setBlindCapControlsEnabled(s.doubleEvery > 0 && s.blindCap > 0);
 
-            // Dificultad de los bots.
+            // Bot difficulty.
             if (partida_local) {
                 bots_combobox.setSelectedIndex(botComboIndexFromDifficulty(s.difficulty));
             }
@@ -3107,9 +3087,9 @@ public class NewGameDialog extends JDialog {
         }
     }
 
-    // Tooltips i18n (setTranslatedToolTip => se re-traducen al cambiar idioma) de los controles de
-    // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents() y
-    // SOBREESCRIBE cualquier setToolTipText hardcodeado dentro de initComponents.
+    // i18n tooltips (setTranslatedToolTip => re-translated on language change) for config
+    // controls whose purpose isn't obvious from their label. Called after
+    // initComponents() and OVERRIDES any hardcoded setToolTipText set inside initComponents.
     private void setupTooltips() {
         Helpers.setTranslatedToolTip(server_label, "tooltip.cfg.server_ip");
         Helpers.setTranslatedToolTip(server_ip_textfield, "tooltip.cfg.server_ip");
@@ -3160,14 +3140,14 @@ public class NewGameDialog extends JDialog {
         Helpers.setTranslatedToolTip(bots_label, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(rebuy_cap_label, "rebuy.tope_recompra_tooltip");
-        // El avatar y la etiqueta "Nick:" comparten el mismo gesto (avatar_labelMouseClicked delega
-        // en nick_labelMouseClicked): click normal abre el selector de imagen, click derecho
-        // restaura el avatar por defecto.
+        // The avatar and the "Nick:" label share the same gesture (avatar_labelMouseClicked
+        // delegates to nick_labelMouseClicked): a normal click opens the image picker, a
+        // right click restores the default avatar.
         Helpers.setTranslatedToolTip(avatar_label, "tooltip.change_avatar");
         Helpers.setTranslatedToolTip(nick_label, "tooltip.change_avatar");
         Helpers.setTranslatedToolTip(recover_checkbox, "tooltip.cfg.recover");
         Helpers.setTranslatedToolTip(recover_checkbox_label, "tooltip.cfg.recover");
-        // rebuy_cap_combo ya tiene su tooltip propio ("rebuy.tope_recompra_tooltip") en initComponents.
+        // rebuy_cap_combo already has its own tooltip ("rebuy.tope_recompra_tooltip") set in initComponents.
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

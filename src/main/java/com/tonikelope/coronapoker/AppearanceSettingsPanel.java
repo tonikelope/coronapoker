@@ -35,75 +35,74 @@ import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 
 /**
- * Contenido de "Ajustes de apariencia" como JPanel (pestaña del diálogo unificado).
+ * "Appearance settings" content as a JPanel (tab of the unified settings dialog).
  *
- * Tiene DOS modos según haya o no partida en curso ({@code GameFrame.getInstance()}):
+ * Has TWO modes depending on whether a game is running ({@code GameFrame.getInstance()}):
  *
- * - EN PARTIDA (gf != null): cada control REFLEJA el estado actual y DELEGA en el item
- *   de menú correspondiente del GameFrame vía {@code doClick()} (o en su setter), que
- *   aplica EN VIVO el efecto en la mesa + lo persiste + lo refleja en el popup del tapete.
- *   Como el control y el item arrancan sincronizados y ambos conmutan un paso por clic,
- *   quedan siempre en el mismo estado.
+ * - IN-GAME (gf != null): each control MIRRORS the current state and DELEGATES to the
+ *   matching GameFrame menu item via {@code doClick()} (or its setter), which applies the
+ *   effect LIVE on the table + persists it + reflects it in the felt popup. Control and
+ *   item start in sync and both toggle one step per click, so they never drift apart.
  *
- * - FUERA DE PARTIDA (gf == null: lanzador / sala de espera): no hay mesa contra la que
- *   previsualizar, así que los controles SOLO PERSISTEN la preferencia (flag estático +
- *   {@code Helpers.PROPERTIES} + {@code savePropertiesFile()}); surte efecto cuando se
- *   crea la timba (el GameFrame lee esas preferencias al construirse). Sin efecto en vivo,
- *   SALVO el tapete: la pantalla de inicio pinta su fondo con ese color ({@code InitPanel}),
- *   así que cambiarlo refresca el lanzador al vuelo como previsualización (y se revierte al
- *   cancelar, igual que en partida).
+ * - OUT OF GAME (gf == null: launcher / waiting room): there is no table to preview
+ *   against, so controls only PERSIST the preference (static flag + {@code
+ *   Helpers.PROPERTIES} + {@code savePropertiesFile()}); it takes effect when the next
+ *   game is created (GameFrame reads these preferences on construction). No live effect,
+ *   EXCEPT the felt color: the launcher screen paints its background with it ({@code
+ *   InitPanel}), so changing it refreshes the launcher on the fly as a preview (and
+ *   reverts on cancel, same as in-game).
  *
- * El diálogo es TRANSACCIONAL en ambos modos: los cambios se revierten al estado de
- * apertura si se cancela (revert()); GUARDAR los conserva.
+ * The dialog is TRANSACTIONAL in both modes: changes revert to the opening state on
+ * cancel (revert()); SAVE keeps them.
  *
- * NOTA: la preferencia de cada toggle de animación vive a la vez en el isSelected del
- * item de menú y en su clave de PROPERTIES, y ambos se mantienen sincronizados (el item
- * persiste la clave en cada cambio y se inicializa desde ella). Por eso aquí se lee
- * SIEMPRE desde PROPERTIES: es equivalente a leer el item y no depende de que haya
- * GameFrame.
+ * NOTE: each animation toggle's preference lives both in its menu item's isSelected and
+ * in its PROPERTIES key, kept in sync (the item persists the key on every change and
+ * initializes from it). That's why this class always reads from PROPERTIES: it's
+ * equivalent to reading the item and doesn't depend on GameFrame existing.
  *
  * @author tonikelope
  */
 public class AppearanceSettingsPanel extends JPanel {
 
-    // GameFrame en curso, o null fuera de partida (lanzador / sala de espera). En modo
-    // null los controles solo persisten la preferencia, sin efecto en vivo.
+    // Running GameFrame, or null out of game (launcher / waiting room). In null mode
+    // controls only persist the preference, with no live effect.
     private final GameFrame gf;
 
-    // Suprime las acciones de los combos mientras se construye (al fijar la
-    // selección inicial no debe dispararse la delegación).
+    // Suppresses combo actions while the panel is being built (setting the initial
+    // selection must not trigger delegation).
     private volatile boolean building = true;
 
-    // Modo de pantalla elegido en el combo. NO se aplica en vivo (el toggle dispone y
-    // recrea el frame, corrompiendo este diálogo); se RECUERDA aquí y lo aplica el
-    // diálogo al cerrarse (applyPendingDisplayMode).
+    // Display mode chosen in the combo. NOT applied live (the toggle disposes and
+    // recreates the frame, which would corrupt this dialog); REMEMBERED here and
+    // applied by the dialog on close (applyPendingDisplayMode).
     private volatile boolean pending_fullscreen;
 
-    // Los 5 checkboxes individuales de animacion y sus items de menu (null fuera de
-    // partida), para que el maestro los DESHABILITE (sin desmarcar) al desmarcarse.
+    // The 5 individual animation checkboxes and their menu items (null out of game), so
+    // the master toggle can DISABLE (not uncheck) them when turned off.
     private final java.util.List<JCheckBox> anim_sub_cb = new ArrayList<>();
     private final java.util.List<JMenuItem> anim_sub_menu = new ArrayList<>();
 
-    // Maestro de animaciones (campo, no local): lo necesita restoreDefaults() para reactivarlo
-    // ANTES de resetear los hijos (con el maestro off sus items de menú están deshabilitados y
-    // un doClick sería NO-OP, igual que en revertLive).
+    // Animation master toggle (field, not local): restoreDefaults() needs it re-enabled
+    // BEFORE resetting the children (with the master off, their menu items are disabled
+    // and doClick would be a no-op, same as in revertLive).
     private JCheckBox anim_master;
 
-    // Acciones de "restaurar predeterminados", una por control: cada Runnable fija su control al
-    // valor de fábrica por la API del widget, disparando el listener (aplica en vivo + persiste).
-    // Se registran junto a cada control y las ejecuta restoreDefaults() en orden de creación.
+    // "Restore defaults" actions, one per control: each Runnable sets its control to the
+    // factory value via the widget API, which triggers the listener (applies live +
+    // persists). Registered alongside each control; restoreDefaults() runs them in
+    // creation order.
     private final java.util.List<Runnable> reset_actions = new ArrayList<>();
 
-    // Snapshot del estado de apariencia al ABRIR: el diálogo es transaccional, así que
-    // los cambios (que se aplican en vivo como previsualización) se REVIERTEN a estos
-    // valores si se cancela (revert()); GUARDAR los conserva.
+    // Snapshot of the appearance state on OPEN: the dialog is transactional, so changes
+    // (applied live as a preview) REVERT to these values on cancel (revert()); SAVE
+    // keeps them.
     private final int snap_zoom_level;
     private final int snap_vista_compacta;
     private final String snap_baraja;
     private final String snap_trasera;
     private final String snap_color_tapete;
-    // Zoom de diálogos PENDIENTE: NO se previsualiza en vivo (afectaría al propio diálogo de descarte al
-    // cancelar). Se aplica solo al pulsar GUARDAR (applyPendingDialogZoom).
+    // PENDING dialog zoom: NOT previewed live (it would affect the discard-changes
+    // dialog itself on cancel). Applied only on SAVE (applyPendingDialogZoom).
     private volatile float pending_dialog_zoom;
     private final boolean snap_auto_zoom;
     private final boolean snap_show_clock;
@@ -153,17 +152,17 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_auto_zoom = GameFrame.AUTO_ZOOM;
         snap_show_clock = GameFrame.SHOW_CLOCK;
         snap_coste_igualar = GameFrame.MOSTRAR_COSTE_IGUALAR;
-        // Snapshot de las PREFERENCIAS de animación leídas de PROPERTIES (equivalente al
-        // isSelected del item, ver nota de clase): NO del flag EFECTIVO, que con el maestro
-        // off es false para todos y no permitiría distinguir un cambio de preferencia al
-        // revertir.
+        // Snapshot of the animation PREFERENCES read from PROPERTIES (equivalent to the
+        // item's isSelected, see class note): NOT the EFFECTIVE flag, which with the
+        // master off is false for all and wouldn't let us detect a preference change on
+        // revert.
         snap_cinematicas = prefBool("cinematicas");
         snap_cinematicas_accion = prefBool("cinematicas_accion", true);
         snap_cinematicas_allin = prefBool("cinematicas_allin", true);
         snap_cinematicas_gameover = prefBool("cinematicas_gameover", true);
-        // Barajado y destape no tienen item de menú: su preferencia es el flag de GameFrame
-        // (ya migrado del histórico "animacion_reparto" si aún no se habían guardado), no PROPERTIES
-        // en crudo, que podría no tener aún la clave.
+        // Shuffle and reveal have no menu item: their preference is the GameFrame flag
+        // (already migrated from the legacy "animacion_reparto" key if not yet saved),
+        // not raw PROPERTIES, which might not have the key yet.
         snap_anim_barajado = GameFrame.ANIMACION_BARAJADO_PREF;
         snap_anim_reparto = prefBool("animacion_reparto");
         snap_anim_destape = GameFrame.ANIMACION_DESTAPE_PREF;
@@ -191,15 +190,15 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_dialog_zoom = Helpers.DIALOG_ZOOM;
         pending_dialog_zoom = snap_dialog_zoom;
 
-        // ---------------- Pantalla y zoom ----------------
+        // ---------------- Screen and zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
 
-        // Modo de pantalla: ventana / pantalla completa. Refleja el estado actual del
-        // tablero (o la preferencia AUTO_FULLSCREEN fuera de partida). NO se aplica en
-        // vivo (entrar/salir de pantalla completa dispone y recrea el frame, lo que
-        // rompía este diálogo modal abierto: "solo funcionaba una vez"). Se RECUERDA la
-        // elección y el diálogo la aplica al CERRARSE (en partida cambia el modo; fuera
-        // de partida solo persiste la preferencia de arranque).
+        // Display mode: windowed / fullscreen. Mirrors the current table state (or the
+        // AUTO_FULLSCREEN preference out of game). NOT applied live (entering/leaving
+        // fullscreen disposes and recreates the frame, which broke this open modal
+        // dialog: "only worked once"). The choice is REMEMBERED and applied by the
+        // dialog on CLOSE (changes the mode in-game; out of game only persists the
+        // startup preference).
         pending_fullscreen = snap_fullscreen;
         JComboBox<String> display_combo = new JComboBox<>(new String[]{
             Translator.translate("settings.modo_ventana"),
@@ -213,14 +212,14 @@ public class AppearanceSettingsPanel extends JPanel {
             }
             pending_fullscreen = display_combo.getSelectedIndex() == 1;
         });
-        // Predeterminado: pantalla completa (AUTO_FULLSCREEN=true → índice 1). Se aplica al GUARDAR.
+        // Default: fullscreen (AUTO_FULLSCREEN=true -> index 1). Applied on SAVE.
         reset_actions.add(() -> display_combo.setSelectedIndex(1));
 
-        // Zoom: spinner en % (cada paso = 5% = un nivel de zoom interno). En partida aplica
-        // al vuelo al nivel elegido; fuera de partida solo persiste la preferencia.
+        // Zoom: spinner in % (each step = 5% = one internal zoom level). In-game it
+        // applies live to the chosen level; out of game it only persists the preference.
         int zoom_pct = Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * 100f);
-        // Los límites SIEMPRE contienen el valor actual (no hay tope superior de zoom
-        // en el motor) para que SpinnerNumberModel no lance si el zoom guardado se sale.
+        // The bounds ALWAYS include the current value (the engine has no upper zoom cap)
+        // so SpinnerNumberModel doesn't throw if the saved zoom is out of range.
         JSpinner zoom_spinner = new JSpinner(new SpinnerNumberModel(zoom_pct, Math.min(5, zoom_pct), Math.max(300, zoom_pct), 5));
         zoom_spinner.addChangeListener(e -> {
             if (building) {
@@ -235,12 +234,12 @@ public class AppearanceSettingsPanel extends JPanel {
                 persistDeferred("zoom_level", String.valueOf(level));
             }
         });
-        // Zoom de la mesa + Auto ajustar juntos en un recuadro negro fino (el auto-ajuste es un
-        // modificador del zoom de la mesa, se leen como un grupo).
+        // Table zoom + auto-fit together in a thin black box (auto-fit is a modifier of
+        // the table zoom, so they read as one group).
         JPanel zoom_group = groupBox();
         addToGroup(zoom_group, labeledRow("/images/menu/zoom.png", "settings.zoom_pct", zoom_spinner));
-        // Predeterminado: DEFAULT_ZOOM_LEVEL (mismo % que al construir). setValue dispara el
-        // listener, que aplica el nivel (en partida) o lo persiste (fuera).
+        // Default: DEFAULT_ZOOM_LEVEL (same % as at construction). setValue triggers the
+        // listener, which applies the level (in-game) or persists it (out of game).
         final int def_zoom_pct = Math.round((1f + GameFrame.DEFAULT_ZOOM_LEVEL * GameFrame.getZOOM_STEP()) * 100f);
         reset_actions.add(() -> zoom_spinner.setValue(def_zoom_pct));
         addToGroup(zoom_group, delegatingCheckbox("/images/menu/zoom_auto.png", "menu.auto_ajustar", GameFrame.AUTO_ZOOM,
@@ -249,9 +248,8 @@ public class AppearanceSettingsPanel extends JPanel {
                     GameFrame.AUTO_ZOOM = !GameFrame.AUTO_ZOOM;
                     persist("auto_zoom", String.valueOf(GameFrame.AUTO_ZOOM));
                 }, false));
-        // Vista compacta: desplegable de cuatro estados (0=off, 1=compacta,
-        // 2=compacta+cartas, 3=compacta+cartas+local), aplica al vuelo en partida
-        // / solo persiste fuera de partida.
+        // Compact view: four-state dropdown (0=off, 1=compact, 2=compact+cards,
+        // 3=compact+cards+local); applies live in-game / persist-only out of game.
         JComboBox<String> compact_combo = new JComboBox<>(new String[]{
             Translator.translate("settings.compacta_off"),
             Translator.translate("settings.compacta_on"),
@@ -272,13 +270,14 @@ public class AppearanceSettingsPanel extends JPanel {
                 persist("vista_compacta", String.valueOf(idx));
             }
         });
-        // Predeterminado: vista compacta desactivada (índice 0).
+        // Default: compact view off (index 0).
         reset_actions.add(() -> compact_combo.setSelectedIndex(0));
 
-        // Zoom de los DIÁLOGOS (letra + tamaño de la ventana), INDEPENDIENTE del zoom de la mesa y del
-        // zoom del juego: NO toca ZOOM_LEVEL. Persist-only en ambos contextos (no hay diálogo vivo que
-        // previsualizar); surte efecto en el próximo diálogo que se abra, que lee Helpers.DIALOG_ZOOM al
-        // construirse. Rango 50-200 %, paso 10, 100 % = tamaño de diseño. ÚLTIMA opción de la sección.
+        // DIALOG zoom (font + window size), INDEPENDENT of the table zoom and the game
+        // zoom: does NOT touch ZOOM_LEVEL. Persist-only in both contexts (no live dialog
+        // to preview); takes effect on the next dialog opened, which reads
+        // Helpers.DIALOG_ZOOM at construction. Range 50-200%, step 10, 100% = design
+        // size. LAST option in the section.
         int dialog_zoom_pct = Math.round(Helpers.DIALOG_ZOOM * 100f);
         JSpinner dialog_zoom_spinner = new JSpinner(new SpinnerNumberModel(dialog_zoom_pct,
                 Math.min(Math.round(Helpers.DIALOG_ZOOM_MIN * 100f), dialog_zoom_pct),
@@ -287,34 +286,37 @@ public class AppearanceSettingsPanel extends JPanel {
             if (building) {
                 return;
             }
-            // Transaccional y SIN preview en vivo (a diferencia del resto de apariencia): aplicar el zoom
-            // en vivo haría que el propio diálogo de "¿descartar cambios?" al cancelar saliera con el zoom
-            // nuevo aún sin guardar. Solo se anota; se aplica al pulsar GUARDAR (applyPendingDialogZoom).
+            // Transactional and WITHOUT a live preview (unlike the rest of appearance):
+            // applying the zoom live would make the "discard changes?" dialog on cancel
+            // itself appear with the new, unsaved zoom. Only recorded; applied on SAVE
+            // (applyPendingDialogZoom).
             pending_dialog_zoom = ((Integer) dialog_zoom_spinner.getValue()) / 100f;
         });
-        // El zoom de diálogos SOLO se puede usar en la PANTALLA DE INICIO: ni en partida (gf != null) ni
-        // en la sala de espera. Se comprueba si la sala está VISIBLE (no solo si existe): al volver de la
-        // sala al inicio su instancia puede quedar stale, así que isShowing() es el criterio fiable.
-        // Cambiarlo en cualquier otro sitio no refrescaría los diálogos ya abiertos ni la sala/mesa.
+        // The dialog zoom can ONLY be used from the LAUNCHER SCREEN: not in-game (gf !=
+        // null) and not in the waiting room. Checks whether the room is VISIBLE (not just
+        // whether it exists): going back from the room to the launcher can leave its
+        // instance stale, so isShowing() is the reliable check. Changing it anywhere else
+        // wouldn't refresh already-open dialogs or the room/table.
         WaitingRoomFrame wr = WaitingRoomFrame.getInstance();
         dialog_zoom_spinner.setEnabled(gf == null && (wr == null || !wr.isShowing()));
         Helpers.setTranslatedToolTip(dialog_zoom_spinner, "tooltip.cfg.dialog_zoom");
-        // Predeterminado: 100 %. SOLO si el spinner está habilitado (solo en la pantalla de
-        // inicio): en partida/sala está en gris y no debe reescribir la preferencia pendiente.
+        // Default: 100%. ONLY if the spinner is enabled (launcher screen only): in-game
+        // or in the room it's grayed out and must not overwrite the pending preference.
         reset_actions.add(() -> {
             if (dialog_zoom_spinner.isEnabled()) {
                 dialog_zoom_spinner.setValue(100);
             }
         });
 
-        // "Pantalla y zoom" se queda a su ALTO NATURAL (sin glue interno): no debe abrir una franja
-        // vacía dentro de su borde titulado. El hueco sobrante de la columna derecha se recoge ENTRE
-        // Mesa y Pantalla (ver el ensamblado de right_inner), no dentro de este panel.
+        // "Screen and zoom" stays at its NATURAL HEIGHT (no internal glue): it must not
+        // open an empty strip inside its titled border. The right column's leftover space
+        // is absorbed BETWEEN Table and Screen (see the right_inner assembly), not inside
+        // this panel.
 
-        // Los tres controles sueltos (modo de pantalla, vista compacta y zoom de diálogos) van en una
-        // rejilla común etiqueta|control para que sus desplegables arranquen en la MISMA x (antes cada
-        // uno caía a distinta x según lo ancha que fuese su etiqueta). El recuadro "Zoom de la mesa"
-        // (zoom_group) se intercala ocupando las dos columnas, conservando el orden original.
+        // The three standalone controls (display mode, compact view, dialog zoom) share a
+        // common label|control grid so their dropdowns start at the SAME x (previously
+        // each landed at a different x depending on its label's width). The "Table zoom"
+        // box (zoom_group) is inserted spanning both columns, keeping the original order.
         JLabel display_label = new JLabel(Translator.translate("settings.modo_pantalla") + ":");
         display_label.setIcon(icon("/images/menu/full_screen.png"));
         JLabel compact_label = new JLabel(Translator.translate("view.vista_compacta") + ":");
@@ -340,7 +342,7 @@ public class AppearanceSettingsPanel extends JPanel {
         pgc.gridx = 1;
         pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, 0);
         pantalla_grid.add(display_combo, pgc);
-        // Recuadro de zoom de la mesa: ocupa las dos columnas (su borde se lee como bloque aparte).
+        // Table zoom box: spans both columns (its border reads as a separate block).
         pgc.gridx = 0;
         pgc.gridy = 1;
         pgc.gridwidth = 2;
@@ -365,15 +367,15 @@ public class AppearanceSettingsPanel extends JPanel {
         pantalla_grid.add(dialog_zoom_spinner, pgc);
         addLeft(pantalla, pantalla_grid);
 
-        // ---------------- Mesa ----------------
+        // ---------------- Table ----------------
         JPanel mesa = titledColumn("settings.apariencia_mesa");
 
         List<String> decks = new ArrayList<>(Card.BARAJAS.keySet());
         Collections.sort(decks);
 
-        // Baraja: combo con las barajas disponibles (incluye las de MODs). En partida delega
-        // en el item de radio del submenú de barajas (recarga las imágenes); fuera de partida
-        // persiste y reconstruye las imágenes estáticas (así la trasera "default" queda bien).
+        // Deck: combo with the available decks (including MOD decks). In-game it
+        // delegates to the deck submenu's radio item (reloads images); out of game it
+        // persists and rebuilds the static images (so the "default" back looks right).
         JComboBox<String> baraja_combo = new JComboBox<>(decks.toArray(new String[0]));
         Helpers.setTranslatedToolTip(baraja_combo, "tooltip.cfg.deck");
         baraja_combo.setSelectedItem(GameFrame.BARAJA);
@@ -394,28 +396,29 @@ public class AppearanceSettingsPanel extends JPanel {
                     GameFrame.BARAJA = sel;
                     persist("baraja", sel);
                     Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
-                    // Fuera de partida no hay cambiarBaraja() que caliente la caché: pre-decodifica
-                    // aquí el shuffle.gif de la nueva baraja para que la primera mano no pague el decode.
+                    // Out of game there's no cambiarBaraja() to warm the cache: pre-decode
+                    // the new deck's shuffle.gif here so the first hand doesn't pay for it.
                     Crupier.warmShuffleAnimCache();
                 }
             }
         });
-        // Baraja + Cara trasera van juntas en un recuadro con borde (groupBox). Ambas se
-        // disponen en una rejilla de 2 columnas (etiqueta | desplegable) más abajo, para que
-        // sus desplegables queden ALINEADOS en la misma columna.
+        // Deck + Card back go together in a bordered box (groupBox). Both are laid out in
+        // a 2-column grid (label | dropdown) further below, so their dropdowns stay
+        // ALIGNED in the same column.
         JPanel baraja_group = groupBox();
-        // Predeterminado: baraja de fábrica.
+        // Default: factory deck.
         reset_actions.add(() -> baraja_combo.setSelectedItem(GameFrame.BARAJA_DEFAULT));
 
-        // Trasera: "default" (sigue a la baraja actual) + una opción por cada baraja (juego o
-        // mod) para usar su dorso con otras caras. Va alineada con "Baraja" (misma rejilla). En
-        // partida aplica en vivo (refresca el dorso); fuera persiste y reconstruye el dorso estático.
+        // Card back: "default" (follows the current deck) + one option per deck (base
+        // game or mod) to use its back with other faces. Aligned with "Deck" (same grid).
+        // In-game it applies live (refreshes the back); out of game it persists and
+        // rebuilds the static back.
         List<String> traseras = new ArrayList<>();
         traseras.add("default");
         traseras.addAll(decks);
         JComboBox<String> trasera_combo = new JComboBox<>(traseras.toArray(new String[0]));
         Helpers.setTranslatedToolTip(trasera_combo, "tooltip.cfg.deck_back");
-        // El VALOR interno sigue siendo "default" (persistencia), pero se muestra traducido.
+        // The internal VALUE stays "default" (for persistence), but it's shown translated.
         trasera_combo.setRenderer(new javax.swing.DefaultListCellRenderer() {
             @Override
             public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
@@ -442,18 +445,18 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
         });
-        // Rejilla de 2 columnas: etiqueta | desplegable. La columna de etiquetas mide lo que la
-        // más ancha ("Cara trasera:"), así ambos desplegables arrancan en la MISMA x y "Cara
-        // trasera" queda alineada con "Baraja" de encima (antes iba sangrada y desplazada). El
-        // inset derecho de las etiquetas (6px) replica el hgap de labeledRow; el inferior (4px),
-        // la separación entre filas de addToGroup.
+        // 2-column grid: label | dropdown. The label column measures the widest one
+        // ("Card back:"), so both dropdowns start at the SAME x and "Card back" aligns
+        // with "Deck" above it (previously it was indented and offset). The labels' right
+        // inset (6px) mirrors labeledRow's hgap; the bottom one (4px) mirrors
+        // addToGroup's row spacing.
         JLabel baraja_label = new JLabel(Translator.translate("settings.baraja") + ":");
         baraja_label.setIcon(icon("/images/menu/baraja.png"));
         JLabel trasera_label = new JLabel(Translator.translate("settings.trasera") + ":");
         trasera_label.setIcon(icon("/images/menu/baraja.png"));
         JPanel baraja_grid = new JPanel(new java.awt.GridBagLayout()) {
-            // Ancho máximo = preferido: el BoxLayout del recuadro no la estira (con weightx=0
-            // centraría las filas); ceñida a su preferido queda pegada a la izquierda.
+            // Max width = preferred: the box's BoxLayout won't stretch it (with weightx=0
+            // it would center the rows); capped to its preferred size it hugs the left edge.
             @Override
             public java.awt.Dimension getMaximumSize() {
                 return getPreferredSize();
@@ -467,8 +470,8 @@ public class AppearanceSettingsPanel extends JPanel {
         baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM));
         baraja_grid.add(baraja_label, baraja_gbc);
         baraja_gbc.gridx = 1;
-        // fill=HORIZONTAL: ambos desplegables al ancho de la columna (= el más ancho), así Baraja
-        // y Cara trasera quedan del MISMO ancho.
+        // fill=HORIZONTAL: both dropdowns take the column's width (= the widest one), so
+        // Deck and Card back end up the SAME width.
         baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
         baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
         baraja_grid.add(baraja_combo, baraja_gbc);
@@ -482,14 +485,14 @@ public class AppearanceSettingsPanel extends JPanel {
         baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
         baraja_grid.add(trasera_combo, baraja_gbc);
         addToGroup(baraja_group, baraja_grid);
-        // Predeterminado: trasera "default" (sigue a la baraja). Se resetea DESPUÉS de la baraja.
+        // Default: "default" back (follows the deck). Reset AFTER the deck.
         reset_actions.add(() -> trasera_combo.setSelectedItem("default"));
         addLeft(mesa, baraja_group);
 
-        // Tapete: combo con los 5 colores; en partida delega en el radio correspondiente
-        // (refresca la mesa); fuera de partida persiste el color base y refresca al vuelo el
-        // fondo de la pantalla de inicio (InitPanel), que es lo único que previsualiza el
-        // tapete fuera de la mesa.
+        // Felt: combo with the 5 colors; in-game it delegates to the matching radio item
+        // (refreshes the table); out of game it persists the base color and refreshes the
+        // launcher background (InitPanel) on the fly, the only preview of the felt
+        // outside the table.
         JComboBox<String> tapete_combo = new JComboBox<>(new String[]{
             Translator.translate("menu.verde"),
             Translator.translate("menu.azul"),
@@ -531,8 +534,9 @@ public class AppearanceSettingsPanel extends JPanel {
                 refreshLauncherTapete();
             }
         });
-        // "Tapete" se alinea con Baraja y Cara trasera en la MISMA rejilla (baraja, reverso y tapete
-        // son "aspecto de la mesa"): antes iba suelto debajo y arrancaba a otra x según su etiqueta.
+        // "Felt" aligns with Deck and Card back in the SAME grid (deck, back and felt are
+        // all "table appearance"): previously it stood alone below, starting at a
+        // different x depending on its label.
         JLabel tapete_label = new JLabel(Translator.translate("settings.tapete") + ":");
         tapete_label.setIcon(icon("/images/menu/tapetes.png"));
         baraja_gbc.gridx = 0;
@@ -544,13 +548,13 @@ public class AppearanceSettingsPanel extends JPanel {
         baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
         baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
         baraja_grid.add(tapete_combo, baraja_gbc);
-        // Predeterminado: tapete verde (índice 0).
+        // Default: green felt (index 0).
         reset_actions.add(() -> tapete_combo.setSelectedIndex(0));
 
-        // Luminosidad que queda al APAGAR las luces de la mesa (el interruptor del tapete, el atajo
-        // y los apagados automáticos): cuanto más bajo, más oscura se ve. En partida se previsualiza
-        // en vivo si están apagadas ahora mismo; fuera de partida solo persiste. Cierra la rejilla
-        // de aspecto de la mesa.
+        // Brightness left when the table lights are TURNED OFF (the felt switch, the
+        // shortcut, and automatic dimming): the lower, the darker. In-game it previews
+        // live if the lights are currently off; out of game it only persists. Closes the
+        // table-appearance grid.
         JSpinner luz_spinner = new JSpinner(new SpinnerNumberModel(
                 Math.max(GameFrame.NIVEL_LUZ_MIN, Math.min(GameFrame.NIVEL_LUZ, GameFrame.NIVEL_LUZ_MAX)),
                 GameFrame.NIVEL_LUZ_MIN, GameFrame.NIVEL_LUZ_MAX, 5));
@@ -564,11 +568,11 @@ public class AppearanceSettingsPanel extends JPanel {
             applyNivelLuz();
         });
         JLabel luz_label = new JLabel(Translator.translate("settings.nivel_luz") + ":");
-        // El interruptor es apaisado (256x120): se encaja dentro de la misma caja de 24 que ocupan
-        // los iconos de las otras tres filas, conservando su proporción. Darle su ancho real (51)
-        // lo haría más grande, pero descolgaría su texto de "Baraja", "Cara trasera" y "Tapete", y
-        // empujaría los tres desplegables a la derecha: en esta rejilla el icono va DENTRO de la
-        // etiqueta, así que su ancho es parte del ancho de la columna.
+        // The switch icon is landscape (256x120): it's fit inside the same 24px box the
+        // other three rows' icons use, keeping its aspect ratio. Giving it its real width
+        // (51) would make it bigger but misalign its label from "Deck", "Card back" and
+        // "Felt", and push the three dropdowns right: in this grid the icon sits INSIDE
+        // the label, so its width is part of the column's width.
         luz_label.setIcon(fitIcon("/images/lights_on.png", 24, 24));
         baraja_gbc.gridx = 0;
         baraja_gbc.gridy = 3;
@@ -576,13 +580,13 @@ public class AppearanceSettingsPanel extends JPanel {
         baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
         baraja_grid.add(luz_label, baraja_gbc);
         baraja_gbc.gridx = 1;
-        // Sin fill (a diferencia de los desplegables de arriba): un spinner de dos dígitos estirado
-        // al ancho de la columna quedaría desproporcionado. Arranca en la misma x, que es lo que
-        // alinea la rejilla; el mismo criterio que los spinners de "Pantalla y zoom".
+        // No fill (unlike the dropdowns above): a two-digit spinner stretched to the
+        // column's width would look disproportionate. It starts at the same x, which is
+        // what aligns the grid -- same criterion as the "Screen and zoom" spinners.
         baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
         baraja_grid.add(luz_spinner, baraja_gbc);
-        // Predeterminado: 50 %. setValue dispara el listener, que persiste y previsualiza igual
-        // que un cambio a mano.
+        // Default: 50%. setValue triggers the listener, which persists and previews the
+        // same as a manual change.
         reset_actions.add(() -> luz_spinner.setValue(GameFrame.DEFAULT_NIVEL_LUZ));
 
         addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK,
@@ -603,26 +607,26 @@ public class AppearanceSettingsPanel extends JPanel {
                     GameFrame.CHAT_IMAGES_INGAME = !GameFrame.CHAT_IMAGES_INGAME;
                     persist("chat_images_ingame", String.valueOf(GameFrame.CHAT_IMAGES_INGAME));
                 }, true));
-        // Resaltado del showdown: sin item de menú ni efecto en vivo (se lee al vuelo al pasar
-        // el ratón por la etiqueta de jugada). Persist-only, como la cascada.
+        // Showdown highlight: no menu item and no live effect (read on the fly when
+        // hovering the hand-rank label). Persist-only, like the cascade overlay.
         addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "settings.resaltar_jugada_showdown", GameFrame.RESALTAR_JUGADA_SHOWDOWN,
                 null,
                 () -> {
                     GameFrame.RESALTAR_JUGADA_SHOWDOWN = !GameFrame.RESALTAR_JUGADA_SHOWDOWN;
                     persist("resaltar_jugada_showdown", String.valueOf(GameFrame.RESALTAR_JUGADA_SHOWDOWN));
                 }, true, "tooltip.cfg.resaltar_jugada_showdown"));
-        // Captura automática de la pantalla final al terminar la timba: persist-only, sin item de
-        // menú ni efecto en vivo (la lee BalanceScreen al construirse). Default OFF (puede acumular
-        // muchas capturas). Misma mecánica que el resaltado del showdown de arriba.
+        // Automatic screenshot of the final screen when the game ends: persist-only, no
+        // menu item and no live effect (BalanceScreen reads it at construction). Default
+        // OFF (can pile up many screenshots). Same mechanism as the showdown highlight above.
         addLeft(mesa, delegatingCheckbox("/images/menu/camera.png", "settings.screenshot_fin_timba", GameFrame.SCREENSHOT_FIN_TIMBA,
                 null,
                 () -> {
                     GameFrame.SCREENSHOT_FIN_TIMBA = !GameFrame.SCREENSHOT_FIN_TIMBA;
                     persist("screenshot_fin_timba", String.valueOf(GameFrame.SCREENSHOT_FIN_TIMBA));
                 }, false, "tooltip.cfg.screenshot_fin_timba"));
-        // Lupa del avatar al dejar el ratón sobre él: persist-only, sin item de menú (la lee
-        // AvatarZoomOverlay al vuelo en cada hover, y desmarcarla con una lupa puesta la retira
-        // en el siguiente sondeo de su vigilante). Default OFF (la ampliación tapa parte de la mesa).
+        // Avatar zoom-on-hover: persist-only, no menu item (AvatarZoomOverlay reads it on
+        // the fly on every hover; unchecking it while a magnifier is showing removes it on
+        // its watcher's next poll). Default OFF (the zoom covers part of the table).
         addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "settings.resaltar_avatares", GameFrame.RESALTAR_AVATARES,
                 null,
                 () -> {
@@ -630,11 +634,11 @@ public class AppearanceSettingsPanel extends JPanel {
                     persist("resaltar_avatares", String.valueOf(GameFrame.RESALTAR_AVATARES));
                 }, false, "tooltip.cfg.resaltar_avatares"));
 
-        // ---------------- Animaciones ----------------
+        // ---------------- Animations ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
 
-        // Maestro: activa/desactiva TODAS las animaciones de un plumazo. Al desmarcarlo,
-        // DESHABILITA (no desmarca) los 5 checkboxes de abajo, que conservan su valor.
+        // Master: turns ALL animations on/off at once. Unchecking it DISABLES (doesn't
+        // uncheck) the 5 checkboxes below, which keep their value.
         anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general").toUpperCase(), GameFrame.ANIMACIONES);
         anim_master.setFont(anim_master.getFont().deriveFont(java.awt.Font.BOLD));
         anim_master.addActionListener(e -> {
@@ -642,9 +646,9 @@ public class AppearanceSettingsPanel extends JPanel {
             if (gf != null) {
                 gf.setAnimacionesMaster(on);
             } else {
-                // Fuera de partida: el maestro es solo un GATE. Persiste ANIMACIONES y NO
-                // toca las preferencias individuales (los *_PREF son la preferencia cruda;
-                // el gate lo aplican los helpers *On() al leerlas).
+                // Out of game: the master is just a GATE. It persists ANIMACIONES and does
+                // NOT touch the individual preferences (the *_PREF fields are the raw
+                // preference; the gate is applied by the *On() helpers when reading them).
                 GameFrame.ANIMACIONES = on;
                 persist("animaciones", String.valueOf(on));
             }
@@ -658,15 +662,15 @@ public class AppearanceSettingsPanel extends JPanel {
         master_row.add(anim_master);
         addLeft(anim, master_row);
 
-        // --- Cinemáticas (maestro, con item de menú) + sus dos subtipos: Acción y ALL-IN ---
-        // Recuadro fino como los demás grupos con subajustes. Cada subtipo es persist-only (sin
-        // item de menú) y cuelga del maestro "Cinemáticas": se deshabilita si se desmarca
-        // "Cinemáticas" o el maestro de animaciones.
+        // --- Cinematics (master, with menu item) + its two subtypes: Action and ALL-IN ---
+        // Thin box like the other groups with sub-settings. Each subtype is persist-only
+        // (no menu item) and hangs off the "Cinematics" master: disabled if "Cinematics"
+        // or the animation master is unchecked.
         JPanel cinematicas_group = groupBox();
         addToGroup(cinematicas_group, animCheckbox("/images/menu/video.png", "menu.cinematicas",
                 gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
         final JCheckBox cinematicas_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
-        // Subtipo ACCIÓN: los GIFs de fold/call/check/bet/raise que muestran los rivales.
+        // ACTION subtype: the fold/call/check/bet/raise GIFs shown by opponents.
         {
             final JCheckBox accion_cb = new JCheckBox(Translator.translate("menu.cinematicas_accion"),
                     prefBool("cinematicas_accion", true));
@@ -679,20 +683,20 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateAccionEnabled.run());
             cinematicas_cb.addActionListener(e -> updateAccionEnabled.run());
             updateAccionEnabled.run();
-            // Predeterminado: ACTIVADO (default true). Se resetea tras el maestro y "Cinemáticas"
-            // (ya habilitados en restoreDefaults), así el doClick surte efecto.
+            // Default: ON (default true). Reset after the master and "Cinematics" (already
+            // enabled in restoreDefaults), so the doClick takes effect.
             reset_actions.add(() -> {
                 if (!accion_cb.isSelected()) {
                     accion_cb.doClick();
                 }
             });
             JPanel accion_row = naturalRow();
-            accion_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Cinemáticas"
+            accion_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Cinematics"
             accion_row.add(new JLabel(icon("/images/menu/chips.png")));
             accion_row.add(accion_cb);
             addToGroup(cinematicas_group, accion_row);
         }
-        // Subtipo ALL-IN: la secuencia a pantalla completa cuando alguien va all-in.
+        // ALL-IN subtype: the fullscreen sequence when someone goes all-in.
         {
             final JCheckBox allin_cb = new JCheckBox(Translator.translate("menu.cinematicas_allin"),
                     prefBool("cinematicas_allin", true));
@@ -711,15 +715,15 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             });
             JPanel allin_row = naturalRow();
-            allin_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Cinemáticas"
+            allin_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Cinematics"
             allin_row.add(new JLabel(icon("/images/menu/video.png")));
             allin_row.add(allin_cb);
             addToGroup(cinematicas_group, allin_row);
         }
-        // Subtipo GAME OVER: los GIFs del arruinado mientras decide la recompra (el del propio
-        // diálogo de game over y el que tapa las cartas de los rivales arruinados). Apagado, el
-        // ciclo de recompra pasa a su modo estático: cartel "GAME OVER" con cuenta atrás, la
-        // action label contando "¿RECOMPRA? (N)" y la barra de tiempo en smooth.
+        // GAME OVER subtype: the busted-player GIFs while the rebuy decision runs (the
+        // game-over dialog's own GIF and the one covering busted opponents' cards). When
+        // off, the rebuy cycle falls back to its static mode: a "GAME OVER" banner with a
+        // countdown, the action label showing "REBUY? (N)", and a smooth time bar.
         {
             final JCheckBox gameover_cb = new JCheckBox(Translator.translate("menu.cinematicas_gameover"),
                     prefBool("cinematicas_gameover", true));
@@ -738,25 +742,25 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             });
             JPanel gameover_row = naturalRow();
-            gameover_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Cinemáticas"
+            gameover_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Cinematics"
             gameover_row.add(new JLabel(scaledIcon("/images/action/skull.png", 24)));
             gameover_row.add(gameover_cb);
             addToGroup(cinematicas_group, gameover_row);
         }
         addLeft(anim, indent(cinematicas_group));
-        // --- Barajado (solo Ajustes, sin item de menú) + su subajuste Cascada SRA ---
-        // Al activarlo re-calienta la caché del shuffle.gif (el warm-up de arranque pudo saltárselo).
-        // Padre + subcontroles anidados dentro de un recuadro fino que los agrupa.
+        // --- Shuffle (Settings only, no menu item) + its Cascade overlay sub-setting ---
+        // Turning it on re-warms the shuffle.gif cache (startup warm-up may have skipped
+        // it). Parent + nested sub-controls inside a thin grouping box.
         JPanel barajado_group = groupBox();
         addToGroup(barajado_group, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_barajado",
                 null, "animacion_barajado",
                 v -> { GameFrame.ANIMACION_BARAJADO_PREF = v; if (v) { Crupier.warmShuffleAnimCache(); } },
                 GameFrame.ANIMACION_BARAJADO_PREF));
         final JCheckBox barajado_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
-        // Cascada SRA: overlay de barajado por jugador. Cuelga (más sangrado) de "Barajado": se
-        // deshabilita si se desmarca "Barajado" o el maestro. Persist-only (sin item de menú); se
-        // construye a mano (no vía animCheckbox) para gatear su habilitación por "Barajado", no solo
-        // por el maestro.
+        // Cascade overlay: per-player shuffle overlay. Hangs (more indented) off
+        // "Shuffle": disabled if "Shuffle" or the master is unchecked. Persist-only (no
+        // menu item); built by hand (not via animCheckbox) to gate its enablement on
+        // "Shuffle", not just on the master.
         {
             final JCheckBox cascada_cb = new JCheckBox(Translator.translate("menu.efectos_animacion_cascada_overlay"),
                     prefBool("animacion_cascada_overlay", false));
@@ -769,31 +773,31 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateCascadaEnabled.run());
             barajado_cb.addActionListener(e -> updateCascadaEnabled.run());
             updateCascadaEnabled.run();
-            // Predeterminado: overlay de cascada DESACTIVADO (default false). Se resetea después
-            // del maestro y de "Barajado" (ya habilitados), así el doClick surte efecto.
+            // Default: cascade overlay OFF (default false). Reset after the master and
+            // "Shuffle" (already enabled), so the doClick takes effect.
             reset_actions.add(() -> {
                 if (cascada_cb.isSelected()) {
                     cascada_cb.doClick();
                 }
             });
             JPanel cascada_row = naturalRow();
-            cascada_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Barajado"
+            cascada_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Shuffle"
             cascada_row.add(new JLabel(icon("/images/menu/baraja.png")));
             cascada_row.add(cascada_cb);
             addToGroup(barajado_group, cascada_row);
         }
         addLeft(anim, indent(barajado_group));
 
-        // --- Reparto (era "Cartas", conserva su item de menú y la clave "animacion_reparto") ---
+        // --- Deal (used to be "Cards", keeps its menu item and the "animacion_reparto" key) ---
         JPanel reparto_group = groupBox();
         addToGroup(reparto_group, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_reparto",
                 gf != null ? gf.getAnim_reparto_menu() : null, "animacion_reparto", v -> GameFrame.ANIMACION_REPARTO_PREF = v));
         final JCheckBox reparto_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
-        // Velocidad del reparto: 3 opciones (lento/normal/rápido). "Normal" = velocidad histórica
-        // EXACTA (REPARTO_VELOCIDAD 100 -> factor 1.0). Cuelga de "Reparto": se deshabilita si se
-        // desmarca "Reparto" o el maestro. Guarda el % de la pausa base (GameFrame.REPARTO_VELOCIDAD).
+        // Deal speed: 3 options (slow/normal/fast). "Normal" = the EXACT historical speed
+        // (REPARTO_VELOCIDAD 100 -> factor 1.0). Hangs off "Deal": disabled if "Deal" or
+        // the master is unchecked. Stores the base-pause % (GameFrame.REPARTO_VELOCIDAD).
         {
-            final int[] speed_pct = {150, GameFrame.DEFAULT_REPARTO_VELOCIDAD, 60}; // lento, normal, rápido
+            final int[] speed_pct = {150, GameFrame.DEFAULT_REPARTO_VELOCIDAD, 60}; // slow, normal, fast
             final String[] speed_keys = {"settings.reparto_lento", "settings.reparto_normal", "settings.reparto_rapido"};
             final String[] speed_labels = new String[speed_keys.length];
             for (int i = 0; i < speed_keys.length; i++) {
@@ -803,7 +807,7 @@ public class AppearanceSettingsPanel extends JPanel {
             final JLabel deal_text = new JLabel(Translator.translate("settings.velocidad") + ":");
             final javax.swing.JComboBox<String> deal_combo = new javax.swing.JComboBox<>(speed_labels);
 
-            // Selecciona la opción cuyo % guardado sea el más cercano (por defecto Normal).
+            // Selects the option whose saved % is closest (defaults to Normal).
             int sel = 1, best = Integer.MAX_VALUE;
             for (int i = 0; i < speed_pct.length; i++) {
                 int d = Math.abs(speed_pct[i] - GameFrame.REPARTO_VELOCIDAD);
@@ -829,11 +833,11 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateDealEnabled.run());
             reparto_cb.addActionListener(e -> updateDealEnabled.run());
             updateDealEnabled.run();
-            // Predeterminado: velocidad "Normal" (índice 1 = DEFAULT_REPARTO_VELOCIDAD).
+            // Default: "Normal" speed (index 1 = DEFAULT_REPARTO_VELOCIDAD).
             reset_actions.add(() -> deal_combo.setSelectedIndex(1));
 
             JPanel deal_row = naturalRow();
-            deal_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub de "Reparto"
+            deal_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Deal"
             deal_row.add(new JLabel(icon("/images/menu/clock.png")));
             deal_row.add(deal_text);
             deal_row.add(deal_combo);
@@ -841,19 +845,19 @@ public class AppearanceSettingsPanel extends JPanel {
         }
         addLeft(anim, indent(reparto_group));
 
-        // --- Destapar (era la parte de giro del antiguo "Cartas", ahora propio, solo Ajustes) ---
-        // De él cuelgan la velocidad del destape y el efecto acercar.
+        // --- Reveal (used to be the flip part of the old "Cards", now its own setting,
+        // Settings only) --- Its reveal speed and zoom-in effect hang off it.
         JPanel destapar_group = groupBox();
         addToGroup(destapar_group, animCheckbox("/images/menu/flip.png", "menu.efectos_animacion_destape",
                 null, "animacion_destape", v -> GameFrame.ANIMACION_DESTAPE_PREF = v, GameFrame.ANIMACION_DESTAPE_PREF));
         final JCheckBox destapar_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
-        // Velocidad y efecto acercar van en una rejilla que ALINEA sus desplegables en columna.
+        // Speed and zoom-in effect sit in a grid that ALIGNS their dropdowns in a column.
         JPanel destapar_sub = subGrid();
-        // Velocidad del destape: 5 opciones (muy lenta ... muy rápida). "Normal" es el valor
-        // por defecto exacto. Cuelga (más sangrado) del ajuste "Destapar": se deshabilita si se
-        // desmarca "Destapar" o el maestro. Guarda la duración en ms (GameFrame.CARD_FLIP_DURATION).
+        // Reveal speed: 5 options (very slow ... very fast). "Normal" is the exact
+        // default value. Hangs (more indented) off "Reveal": disabled if "Reveal" or the
+        // master is unchecked. Stores the duration in ms (GameFrame.CARD_FLIP_DURATION).
         {
-            final int[] speed_ms = {1100, 850, GameFrame.DEFAULT_CARD_FLIP_DURATION, 480, 350}; // muy lenta -> muy rápida
+            final int[] speed_ms = {1100, 850, GameFrame.DEFAULT_CARD_FLIP_DURATION, 480, 350}; // very slow -> very fast
             final String[] speed_keys = {"settings.destape_muy_lenta", "settings.destape_lenta",
                 "settings.destape_normal", "settings.destape_rapida", "settings.destape_muy_rapida"};
             final String[] speed_labels = new String[speed_keys.length];
@@ -864,7 +868,7 @@ public class AppearanceSettingsPanel extends JPanel {
             final JLabel flip_text = new JLabel(Translator.translate("settings.velocidad") + ":");
             final javax.swing.JComboBox<String> speed_combo = new javax.swing.JComboBox<>(speed_labels);
 
-            // Selecciona la opción cuyo ms guardado sea el más cercano (por defecto Normal).
+            // Selects the option whose saved ms is closest (defaults to Normal).
             int sel = 2, best = Integer.MAX_VALUE;
             for (int i = 0; i < speed_ms.length; i++) {
                 int d = Math.abs(speed_ms[i] - GameFrame.CARD_FLIP_DURATION);
@@ -881,7 +885,7 @@ public class AppearanceSettingsPanel extends JPanel {
             });
             Helpers.setTranslatedToolTip(speed_combo, "tooltip.cfg.card_flip_duration");
 
-            // Habilitado solo si el maestro de animaciones Y el checkbox "Destapar" están activos.
+            // Enabled only if the animation master AND the "Reveal" checkbox are both on.
             Runnable updateFlipEnabled = () -> {
                 boolean on = anim_master.isSelected() && destapar_cb.isSelected();
                 speed_combo.setEnabled(on);
@@ -890,15 +894,15 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateFlipEnabled.run());
             destapar_cb.addActionListener(e -> updateFlipEnabled.run());
             updateFlipEnabled.run();
-            // Predeterminado: velocidad "Normal" (índice 2 = DEFAULT_CARD_FLIP_DURATION).
+            // Default: "Normal" speed (index 2 = DEFAULT_CARD_FLIP_DURATION).
             reset_actions.add(() -> speed_combo.setSelectedIndex(2));
 
             addAlignedSubRow(destapar_sub, 0, "/images/menu/clock.png", flip_text, speed_combo);
         }
-        // Efecto "acercar": 4 opciones (desactivado ... fuerte). Cuelga de "Destapar" igual que la
-        // velocidad. Guarda el porcentaje de agrandado (GameFrame.CARD_FLIP_ZOOM): 100 = desactivado.
+        // "Zoom-in" effect: 4 options (off ... strong). Hangs off "Reveal" just like the
+        // speed. Stores the enlargement percentage (GameFrame.CARD_FLIP_ZOOM): 100 = off.
         {
-            final int[] acercar_pct = {100, 115, 130, 145}; // desactivado, suave, normal, fuerte
+            final int[] acercar_pct = {100, 115, 130, 145}; // off, mild, normal, strong
             final String[] zoom_keys = {"settings.acercar_desactivado", "settings.acercar_suave",
                 "settings.acercar_normal", "settings.acercar_fuerte"};
             final String[] zoom_labels = new String[zoom_keys.length];
@@ -909,7 +913,7 @@ public class AppearanceSettingsPanel extends JPanel {
             final JLabel zoom_text = new JLabel(Translator.translate("settings.efecto_acercar") + ":");
             final javax.swing.JComboBox<String> zoom_combo = new javax.swing.JComboBox<>(zoom_labels);
 
-            // Selecciona la opción cuyo porcentaje guardado sea el más cercano (por defecto Desactivado).
+            // Selects the option whose saved percentage is closest (defaults to Off).
             int sel = 0, best = Integer.MAX_VALUE;
             for (int i = 0; i < acercar_pct.length; i++) {
                 int d = Math.abs(acercar_pct[i] - GameFrame.CARD_FLIP_ZOOM);
@@ -926,7 +930,7 @@ public class AppearanceSettingsPanel extends JPanel {
             });
             Helpers.setTranslatedToolTip(zoom_combo, "tooltip.cfg.card_flip_zoom");
 
-            // Habilitado solo si el maestro de animaciones Y el checkbox "Destapar" están activos.
+            // Enabled only if the animation master AND the "Reveal" checkbox are both on.
             Runnable updateZoomEnabled = () -> {
                 boolean on = anim_master.isSelected() && destapar_cb.isSelected();
                 zoom_combo.setEnabled(on);
@@ -935,7 +939,7 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateZoomEnabled.run());
             destapar_cb.addActionListener(e -> updateZoomEnabled.run());
             updateZoomEnabled.run();
-            // Predeterminado: efecto acercar DESACTIVADO (índice 0 = DEFAULT_CARD_FLIP_ZOOM 100).
+            // Default: zoom-in effect OFF (index 0 = DEFAULT_CARD_FLIP_ZOOM 100).
             reset_actions.add(() -> zoom_combo.setSelectedIndex(0));
 
             addAlignedSubRow(destapar_sub, 1, "/images/menu/zoom_in.png", zoom_text, zoom_combo);
@@ -943,19 +947,19 @@ public class AppearanceSettingsPanel extends JPanel {
         addToGroup(destapar_group, destapar_sub);
         addLeft(anim, indent(destapar_group));
 
-        // --- Ordenar la mano (cruce animado de tus dos hole cards al ordenarlas, solo Ajustes) ---
-        // De él cuelga la velocidad del cruce.
+        // --- Sort hand (animated crossing of your two hole cards when sorted, Settings
+        // only) --- Its swap speed hangs off it.
         JPanel swap_group = groupBox();
         addToGroup(swap_group, animCheckbox("/images/menu/swap.png", "menu.efectos_animacion_swap",
                 null, "animacion_swap", v -> GameFrame.ANIMACION_SWAP_PREF = v, GameFrame.ANIMACION_SWAP_PREF));
         final JCheckBox swap_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
-        // Velocidad y estilo van en una rejilla que ALINEA sus desplegables en columna.
+        // Speed and style sit in a grid that ALIGNS their dropdowns in a column.
         JPanel swap_sub = subGrid();
-        // Velocidad del cruce: 3 opciones (lenta/normal/rápida). "Normal" = valor por defecto
-        // (320 ms). Cuelga del ajuste: se deshabilita si se desmarca o el maestro está off.
-        // Guarda la duración en ms (GameFrame.SWAP_ANIM_DURATION).
+        // Swap speed: 3 options (slow/normal/fast). "Normal" = default value (320 ms).
+        // Hangs off the setting: disabled if unchecked or the master is off. Stores the
+        // duration in ms (GameFrame.SWAP_ANIM_DURATION).
         {
-            final int[] speed_ms = {520, GameFrame.DEFAULT_SWAP_ANIM_DURATION, 200}; // lenta, normal, rápida
+            final int[] speed_ms = {520, GameFrame.DEFAULT_SWAP_ANIM_DURATION, 200}; // slow, normal, fast
             final String[] speed_keys = {"settings.swap_lenta", "settings.swap_normal", "settings.swap_rapida"};
             final String[] speed_labels = new String[speed_keys.length];
             for (int i = 0; i < speed_keys.length; i++) {
@@ -965,7 +969,7 @@ public class AppearanceSettingsPanel extends JPanel {
             final JLabel swap_text = new JLabel(Translator.translate("settings.velocidad") + ":");
             final javax.swing.JComboBox<String> swap_combo = new javax.swing.JComboBox<>(speed_labels);
 
-            // Selecciona la opción cuyo ms guardado sea el más cercano (por defecto Normal).
+            // Selects the option whose saved ms is closest (defaults to Normal).
             int sel = 1, best = Integer.MAX_VALUE;
             for (int i = 0; i < speed_ms.length; i++) {
                 int d = Math.abs(speed_ms[i] - GameFrame.SWAP_ANIM_DURATION);
@@ -990,13 +994,13 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateSwapEnabled.run());
             swap_cb.addActionListener(e -> updateSwapEnabled.run());
             updateSwapEnabled.run();
-            // Predeterminado: velocidad "Normal" (índice 1 = DEFAULT_SWAP_ANIM_DURATION).
+            // Default: "Normal" speed (index 1 = DEFAULT_SWAP_ANIM_DURATION).
             reset_actions.add(() -> swap_combo.setSelectedIndex(1));
 
             addAlignedSubRow(swap_sub, 0, "/images/menu/clock.png", swap_text, swap_combo);
         }
-        // Estilo del cruce: 2 opciones (Arco "saltito" / Horizontal). Cuelga del ajuste
-        // "Ordenar la mano" igual que la velocidad. Guarda un booleano (GameFrame.SWAP_ANIM_ARC).
+        // Swap style: 2 options ("Hop" arc / Horizontal). Hangs off "Sort hand" just like
+        // the speed. Stores a boolean (GameFrame.SWAP_ANIM_ARC).
         {
             final String[] style_keys = {"settings.swap_arco", "settings.swap_horizontal"};
             final String[] style_labels = new String[style_keys.length];
@@ -1022,7 +1026,7 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateStyleEnabled.run());
             swap_cb.addActionListener(e -> updateStyleEnabled.run());
             updateStyleEnabled.run();
-            // Predeterminado: estilo "Horizontal" (índice 1 = SWAP_ANIM_ARC false).
+            // Default: "Horizontal" style (index 1 = SWAP_ANIM_ARC false).
             reset_actions.add(() -> style_combo.setSelectedIndex(1));
 
             addAlignedSubRow(swap_sub, 1, "/images/menu/swap.png", style_text, style_combo);
@@ -1030,17 +1034,17 @@ public class AppearanceSettingsPanel extends JPanel {
         addToGroup(swap_group, swap_sub);
         addLeft(anim, indent(swap_group));
 
-        // --- Recolocación de la mesa al salir jugadores (DynamicTablePanel, solo Ajustes) ---
-        // De él cuelga la velocidad de la animación de deslizamiento.
+        // --- Table reseat on player exit (DynamicTablePanel, Settings only) --- Its
+        // slide animation speed hangs off it.
         JPanel downgrade_group = groupBox();
         addToGroup(downgrade_group, animCheckbox("/images/menu/reseat.png", "menu.efectos_animacion_downgrade",
                 null, "animacion_downgrade", v -> GameFrame.ANIMACION_DOWNGRADE_PREF = v, GameFrame.ANIMACION_DOWNGRADE_PREF));
         final JCheckBox downgrade_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
-        // Velocidad de la recolocación: 3 opciones (lenta/normal/rápida). "Normal" = valor por
-        // defecto (500 ms). Cuelga del ajuste: se deshabilita si se desmarca o el maestro está off.
-        // Guarda la duración en ms (GameFrame.DOWNGRADE_VELOCIDAD).
+        // Reseat speed: 3 options (slow/normal/fast). "Normal" = default value (500 ms).
+        // Hangs off the setting: disabled if unchecked or the master is off. Stores the
+        // duration in ms (GameFrame.DOWNGRADE_VELOCIDAD).
         {
-            final int[] speed_ms = {800, GameFrame.DEFAULT_DOWNGRADE_VELOCIDAD, 300}; // lenta, normal, rápida
+            final int[] speed_ms = {800, GameFrame.DEFAULT_DOWNGRADE_VELOCIDAD, 300}; // slow, normal, fast
             final String[] speed_keys = {"settings.downgrade_lento", "settings.downgrade_normal", "settings.downgrade_rapido"};
             final String[] speed_labels = new String[speed_keys.length];
             for (int i = 0; i < speed_keys.length; i++) {
@@ -1050,7 +1054,7 @@ public class AppearanceSettingsPanel extends JPanel {
             final JLabel dg_text = new JLabel(Translator.translate("settings.velocidad") + ":");
             final javax.swing.JComboBox<String> dg_combo = new javax.swing.JComboBox<>(speed_labels);
 
-            // Selecciona la opción cuyo ms guardado sea el más cercano (por defecto Normal).
+            // Selects the option whose saved ms is closest (defaults to Normal).
             int sel = 1, best = Integer.MAX_VALUE;
             for (int i = 0; i < speed_ms.length; i++) {
                 int d = Math.abs(speed_ms[i] - GameFrame.DOWNGRADE_VELOCIDAD);
@@ -1076,11 +1080,11 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updateDgEnabled.run());
             downgrade_cb.addActionListener(e -> updateDgEnabled.run());
             updateDgEnabled.run();
-            // Predeterminado: velocidad "Normal" (índice 1 = DEFAULT_DOWNGRADE_VELOCIDAD).
+            // Default: "Normal" speed (index 1 = DEFAULT_DOWNGRADE_VELOCIDAD).
             reset_actions.add(() -> dg_combo.setSelectedIndex(1));
 
             JPanel dg_row = naturalRow();
-            dg_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub del ajuste
+            dg_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of the setting
             dg_row.add(new JLabel(icon("/images/menu/clock.png")));
             dg_row.add(dg_text);
             dg_row.add(dg_combo);
@@ -1094,31 +1098,33 @@ public class AppearanceSettingsPanel extends JPanel {
                 gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v), 28));
         addLeft(anim, indent(animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
                 gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v), 28));
-        // Recuento de la pantalla de FIN DE TIMBA, justo debajo de "Contadores" y con su mismo estilo
-        // (animCheckbox: negrita + indent 28 + gateado por el maestro vía anim_sub_cb). menu=null porque
-        // es settings-only (no hay item de menú in-game). Su SFX cuelga del propio recuento
-        // (contadorFinalAnimOn), así que apagarlo lo silencia también.
+        // GAME-END screen countdown, right below "Counters" with the same style
+        // (animCheckbox: bold + indent 28 + gated by the master via anim_sub_cb). menu=null
+        // because it's settings-only (no in-game menu item). Its SFX hangs off the
+        // countdown itself (contadorFinalAnimOn), so turning it off silences that too.
         addLeft(anim, indent(animCheckbox("/images/menu/meter.png", "settings.animacion_contador_final",
                 null, "animacion_contador_final", v -> GameFrame.ANIMACION_CONTADOR_FINAL_PREF = v), 28));
 
-        // Fila Animaciones | (Mesa sobre Pantalla) a su ALTO NATURAL en el NORTE, alineadas arriba
-        // a la izquierda. Animaciones (la columna más alta desde que agrupa Barajado/Reparto/Destapar)
-        // va SOLA a la izquierda y las dos más bajas (Mesa y Pantalla) se apilan a la derecha, para
-        // equilibrar alturas y que el diálogo quede menos alto. El hueco sobrante de la columna derecha
-        // se recoge ENTRE Mesa y Pantalla (glue intermedio, ver right_inner), sin estirar ni recortar
-        // los subpaneles, de modo que el borde inferior de Pantalla se alinea con el de Animaciones.
+        // Row of Animations | (Table over Screen) at NATURAL HEIGHT in the NORTH, aligned
+        // top-left. Animations (the tallest column, since it groups Shuffle/Deal/Reveal)
+        // stands ALONE on the left, and the two shorter ones (Table and Screen) stack on
+        // the right to balance heights and keep the dialog shorter. The right column's
+        // leftover space is absorbed BETWEEN Table and Screen (middle glue, see
+        // right_inner), without stretching or clipping the sub-panels, so Screen's bottom
+        // border aligns with Animations'.
         anim.setAlignmentY(JComponent.TOP_ALIGNMENT);
         mesa.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         pantalla.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
-        // ---------------- Perfil gráfico (fila suelta al fondo de Animaciones) ----------------
-        // Selector Calidad/Rendimiento como una fila más al fondo de la columna Animaciones, SIN
-        // recuadro propio y alineado a la IZQUIERDA con el maestro "USAR ANIMACIONES" (sin indentar).
-        // SE GATEA por el maestro: con "USAR ANIMACIONES" off no corre ninguna animación, así que el
-        // perfil no aplica y su combo se DESHABILITA (igual que los subcontroles de velocidad). Guarda
-        // el booleano anim_calidad (true=Calidad, false=Rendimiento). "Calidad" (índice 0, por defecto)
-        // = EXACTAMENTE lo de siempre; "Rendimiento" recorta coste por frame (vuelos sin rotación +
-        // destape sin supersampling: imagen menos nítida, misma fluidez).
+        // ---------------- Graphics profile (loose row at the bottom of Animations) ----------------
+        // Quality/Performance selector as one more row at the bottom of the Animations
+        // column, with NO box of its own and aligned LEFT with the "USE ANIMATIONS" master
+        // (not indented). GATED by the master: with "USE ANIMATIONS" off no animation
+        // runs, so the profile doesn't apply and its combo is DISABLED (same as the speed
+        // sub-controls). Stores the anim_calidad boolean (true=Quality, false=Performance).
+        // "Quality" (index 0, default) = EXACTLY the historical behavior; "Performance"
+        // trims per-frame cost (flips without rotation + reveal without supersampling:
+        // less crisp image, same smoothness).
         {
             final String[] q_labels = {Translator.translate("settings.calidad"),
                 Translator.translate("settings.rendimiento")};
@@ -1134,12 +1140,12 @@ public class AppearanceSettingsPanel extends JPanel {
                 persist("anim_calidad", String.valueOf(calidad));
             });
             Helpers.setTranslatedToolTip(q_combo, "tooltip.cfg.anim_calidad");
-            // Predeterminado: Calidad (índice 0).
+            // Default: Quality (index 0).
             reset_actions.add(() -> q_combo.setSelectedIndex(0));
 
-            // Gateado por el maestro: combo + etiqueta se deshabilitan si "USAR ANIMACIONES" está off.
-            // Mismo patrón que los subcontroles de velocidad; restoreDefaults reactiva el maestro con
-            // anim_master.doClick(), que dispara este listener y rehabilita el combo.
+            // Gated by the master: combo + label disable if "USE ANIMATIONS" is off. Same
+            // pattern as the speed sub-controls; restoreDefaults re-enables the master with
+            // anim_master.doClick(), which fires this listener and re-enables the combo.
             Runnable updatePerfilEnabled = () -> {
                 boolean on = anim_master.isSelected();
                 q_combo.setEnabled(on);
@@ -1154,27 +1160,29 @@ public class AppearanceSettingsPanel extends JPanel {
             q_row.add(q_combo);
             addLeft(anim, q_row);
         }
-        // Glue al fondo de Animaciones (ya con el Perfil gráfico dentro): si esta columna resultara la
-        // MÁS CORTA, al estirarla para igualar alturas el hueco se recoge limpio abajo.
+        // Glue at the bottom of Animations (now including the graphics profile): if this
+        // column ends up SHORTER, stretching it to match heights collects the gap
+        // cleanly at the bottom.
         closeColumn(anim);
 
         JPanel right_inner = new JPanel();
         right_inner.setLayout(new BoxLayout(right_inner, BoxLayout.Y_AXIS));
         right_inner.setAlignmentY(JComponent.TOP_ALIGNMENT);
-        // Mesa pegada ARRIBA, Pantalla pegada ABAJO: el glue va ENTRE ambas (no al pie de la columna).
-        // Así, cuando esta columna es más corta que Animaciones (la más alta, que agrupa Barajado/
-        // Reparto/Destapar + Gráficos), todo el hueco sobrante se recoge ENTRE los dos paneles y el
-        // borde inferior de "Pantalla y zoom" queda alineado con el de "Animaciones" (ambas columnas se
-        // estiran a la altura de la más alta). Ninguno de los dos paneles se estira: ambos se quedan a
-        // su alto natural (sin franja vacía dentro de su borde titulado); el glue absorbe todo el
-        // sobrante como separación ENTRE paneles, igual que el strut mínimo de 10px.
+        // Table pinned at the TOP, Screen pinned at the BOTTOM: the glue sits BETWEEN them
+        // (not at the column's foot). So when this column is shorter than Animations (the
+        // tallest, grouping Shuffle/Deal/Reveal + Graphics), all the leftover space is
+        // absorbed BETWEEN the two panels and "Screen and zoom"'s bottom border aligns
+        // with "Animations"' (both columns stretch to the taller one's height). Neither
+        // panel stretches: both stay at their natural height (no empty strip inside their
+        // titled border); the glue absorbs all the leftover as spacing BETWEEN panels,
+        // same as the minimum 10px strut.
         right_inner.add(mesa);
         right_inner.add(Box.createVerticalStrut(Math.round(10 * Helpers.DIALOG_ZOOM)));
         right_inner.add(Box.createVerticalGlue());
         right_inner.add(pantalla);
 
-        // Ambas columnas se estiran en vertical hasta la altura de la más alta (BoxLayout X con
-        // el máximo sin tope) para que sus bordes inferiores queden alineados.
+        // Both columns stretch vertically to the taller one's height (BoxLayout X with an
+        // uncapped maximum) so their bottom borders line up.
         anim.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, Short.MAX_VALUE));
         right_inner.setMaximumSize(new java.awt.Dimension(Short.MAX_VALUE, Short.MAX_VALUE));
 
@@ -1189,12 +1197,14 @@ public class AppearanceSettingsPanel extends JPanel {
         building = false;
     }
 
-    // Aplica el modo de pantalla elegido en el combo. Lo invoca el diálogo al GUARDAR
-    // (no en vivo: el toggle dispone y recrea el frame y corrompería el diálogo abierto).
-    // Solo actúa si el usuario CAMBIÓ el combo respecto al estado de apertura; si no, no
-    // toca AUTO_FULLSCREEN, para que guardar un ajuste no relacionado no reescriba la
-    // preferencia de arranque (p.ej. tras un ALT+F transitorio que no la cambia). En
-    // partida cambia el modo del frame; fuera de partida solo persiste la preferencia.
+    /**
+     * Applies the display mode chosen in the combo. Called by the dialog on SAVE (not
+     * live: toggling disposes and recreates the frame, which would corrupt the open
+     * dialog). Only acts if the user CHANGED the combo from the opening state; otherwise
+     * it leaves AUTO_FULLSCREEN untouched, so saving an unrelated setting doesn't rewrite
+     * the startup preference (e.g. after a transient ALT+F that doesn't change it).
+     * In-game it changes the frame's mode; out of game it only persists the preference.
+     */
     public void applyPendingDisplayMode() {
         if (pending_fullscreen == snap_fullscreen) {
             return;
@@ -1207,9 +1217,12 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // El zoom de DIÁLOGOS no se previsualiza en vivo (afectaría al propio diálogo de descarte al
-    // cancelar). Se aplica y persiste SOLO al pulsar GUARDAR. Surte efecto en los diálogos que se abran
-    // a partir de ese momento (leen Helpers.DIALOG_ZOOM al construirse). Lo llama SettingsDialog al Guardar.
+    /**
+     * Applies the pending dialog zoom. Not previewed live (it would affect the
+     * discard-changes dialog itself on cancel) -- applied and persisted only on SAVE.
+     * Takes effect on dialogs opened after this point (they read Helpers.DIALOG_ZOOM at
+     * construction). Called by SettingsDialog on Save.
+     */
     public void applyPendingDialogZoom() {
         if (pending_dialog_zoom == snap_dialog_zoom) {
             return;
@@ -1219,10 +1232,14 @@ public class AppearanceSettingsPanel extends JPanel {
         persist("dialog_zoom", String.valueOf(Helpers.DIALOG_ZOOM));
     }
 
-    // ¿Hay cambios de apariencia respecto al estado de apertura? (incluye el modo de
-    // pantalla pendiente, que aún no se ha aplicado). Lo usa el diálogo para preguntar
-    // antes de descartar al cancelar. Las preferencias de animación se leen de PROPERTIES
-    // (equivalente al item de menú, ver nota de clase), así que no depende de gf.
+    /**
+     * Whether appearance changed from the opening state (includes the pending display
+     * mode, not yet applied). Used by the dialog to confirm before discarding on cancel.
+     * Animation preferences are read from PROPERTIES (equivalent to the menu item, see
+     * class note), so this doesn't depend on gf.
+     *
+     * @return true if any appearance setting differs from the snapshot taken on open
+     */
     public boolean isDirty() {
         return GameFrame.ZOOM_LEVEL != snap_zoom_level
                 || GameFrame.VISTA_COMPACTA != snap_vista_compacta
@@ -1263,9 +1280,11 @@ public class AppearanceSettingsPanel extends JPanel {
                 || pending_dialog_zoom != snap_dialog_zoom;
     }
 
-    // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al
-    // estado capturado al abrir. En partida re-aplica cada uno por su camino normal
-    // (efecto en vivo); fuera de partida solo re-persiste las preferencias.
+    /**
+     * Reverts (on CANCEL of the transactional dialog) the appearance settings to the
+     * state captured on open. In-game each one is re-applied through its normal path
+     * (live effect); out of game only the preferences are re-persisted.
+     */
     public void revert() {
         if (gf != null) {
             revertLive();
@@ -1274,33 +1293,37 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // Restaura TODOS los ajustes de apariencia a sus valores de fábrica, aplicándolos EN VIVO
-    // como una edición más (diálogo transaccional: GUARDAR los conserva, Cancelar los revierte al
-    // estado de apertura). Recorre el mismo camino que un clic del usuario en cada control, así
-    // que en partida el efecto es en vivo y fuera de ella solo persiste. Lo invoca el botón
-    // "Restaurar predeterminados" del diálogo.
+    /**
+     * Restores ALL appearance settings to their factory values, applying them LIVE like
+     * any other edit (transactional dialog: SAVE keeps them, Cancel reverts to the
+     * opening state). Follows the same path as a user click on each control, so in-game
+     * the effect is live and out of game it's persist-only. Called by the dialog's
+     * "Restore defaults" button.
+     */
     public void restoreDefaults() {
-        // 1) Reactiva el MAESTRO de animaciones (default ON) ANTES que los hijos: con el maestro
-        //    off sus items de menú están en gris y un doClick sería NO-OP (igual que revertLive).
+        // 1) Re-enables the animation MASTER (default ON) BEFORE the children: with the
+        //    master off their menu items are grayed out and a doClick would be a no-op
+        //    (same as revertLive).
         if (!anim_master.isSelected()) {
             anim_master.doClick();
         }
-        // 2) Todos los toggles de animación individuales tienen default ON.
+        // 2) All individual animation toggles default to ON.
         for (JCheckBox cb : anim_sub_cb) {
             if (!cb.isSelected()) {
                 cb.doClick();
             }
         }
-        // 3) Reset por control (combos/spinners/checkboxes de mesa/pantalla + cascada + velocidades),
-        //    en orden de creación; ya con maestro e hijos activos, los subcontroles están habilitados.
+        // 3) Per-control reset (table/screen combos/spinners/checkboxes + cascade +
+        //    speeds), in creation order; with master and children already on, the
+        //    sub-controls are enabled.
         for (Runnable action : reset_actions) {
             action.run();
         }
     }
 
-    // Revert EN PARTIDA: re-aplica cada ajuste por su camino normal (toggles por doClick
-    // si difieren; zoom/compacta por su setter; baraja/tapete re-seleccionando el radio).
-    // El modo de pantalla pendiente NO se aplica si se cancela.
+    // Revert IN-GAME: re-applies each setting through its normal path (toggles via
+    // doClick if they differ; zoom/compact via its setter; deck/felt by reselecting the
+    // radio item). The pending display mode is NOT applied on cancel.
     private void revertLive() {
         if (GameFrame.ZOOM_LEVEL != snap_zoom_level) {
             gf.setZoomLevel(snap_zoom_level);
@@ -1321,9 +1344,9 @@ public class AppearanceSettingsPanel extends JPanel {
             if (gf.getAuto_fit_zoom_menu().isEnabled()) {
                 gf.getAuto_fit_zoom_menu().doClick();
             } else {
-                // El menú de auto-ajustar se deshabilita mientras corre el autoZoom async
-                // (al activarlo); un doClick aquí sería NO-OP y AUTO_ZOOM fugaría al
-                // cancelar. Revertir el flag directamente (este caso solo apaga).
+                // The auto-fit menu is disabled while the async autoZoom runs (right after
+                // turning it on); a doClick here would be a no-op and AUTO_ZOOM would leak
+                // through on cancel. Revert the flag directly (this case only turns it off).
                 GameFrame.AUTO_ZOOM = snap_auto_zoom;
                 gf.getAuto_fit_zoom_menu().setSelected(snap_auto_zoom);
                 Helpers.TapetePopupMenu.AUTO_ZOOM_MENU.setSelected(snap_auto_zoom);
@@ -1337,13 +1360,13 @@ public class AppearanceSettingsPanel extends JPanel {
         if (GameFrame.MOSTRAR_COSTE_IGUALAR != snap_coste_igualar) {
             gf.getCoste_igualar_menu().doClick();
         }
-        // Animaciones (transaccional con maestro): las preferencias viven en el isSelected
-        // de cada item y SOLO se revierten con doClick sobre un item HABILITADO (estan
-        // deshabilitados con el maestro off). Por eso: habilitar (maestro on) -> revertir
-        // cada preferencia (comparando isSelected con su snapshot) -> restaurar el maestro a
-        // su snapshot, que re-gatea y re-deshabilita si tocaba. (Si dejaramos el maestro off
-        // primero, los doClick caerian sobre items deshabilitados = NO-OP y la preferencia
-        // no se revertiria.)
+        // Animations (transactional with a master): preferences live in each item's
+        // isSelected and are ONLY reverted via doClick on an ENABLED item (they're
+        // disabled with the master off). Hence: enable (master on) -> revert each
+        // preference (comparing isSelected to its snapshot) -> restore the master to its
+        // snapshot, which re-gates and re-disables if needed. (Leaving the master off
+        // first would make the doClicks land on disabled items = no-op, and the
+        // preference wouldn't revert.)
         if (GameFrame.ANIMACIONES != snap_animaciones
                 || gf.getMenu_cinematicas().isSelected() != snap_cinematicas
                 || gf.getAnim_reparto_menu().isSelected() != snap_anim_reparto
@@ -1368,15 +1391,15 @@ public class AppearanceSettingsPanel extends JPanel {
             }
             gf.setAnimacionesMaster(snap_animaciones);
         }
-        // El overlay de cascada no tiene item de menú ni efecto en vivo (solo aparece durante el
-        // barajado): se revierte fijando el flag directamente + persistiendo, como CHAT_IMAGES.
+        // The cascade overlay has no menu item and no live effect (it only appears during
+        // the shuffle): reverted by setting the flag directly + persisting, like CHAT_IMAGES.
         if (GameFrame.ANIMACION_CASCADA_OVERLAY_PREF != snap_anim_cascada_overlay) {
             GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = snap_anim_cascada_overlay;
             Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
             Helpers.savePropertiesFile();
         }
-        // Subtipos de cinemática (acción / all-in / game over): persist-only sin item de menú, se
-        // revierten fijando el flag + re-persistiendo el snapshot, como el overlay de cascada.
+        // Cinematics subtypes (action / all-in / game over): persist-only, no menu item;
+        // reverted by setting the flag + re-persisting the snapshot, like the cascade overlay.
         if (GameFrame.CINEMATICAS_ACCION_PREF != snap_cinematicas_accion) {
             GameFrame.CINEMATICAS_ACCION_PREF = snap_cinematicas_accion;
             Helpers.PROPERTIES.setProperty("cinematicas_accion", String.valueOf(snap_cinematicas_accion));
@@ -1392,38 +1415,38 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("cinematicas_gameover", String.valueOf(snap_cinematicas_gameover));
             Helpers.savePropertiesFile();
         }
-        // Resaltado del showdown: persist-only, sin item de menú ni efecto en vivo (se lee al
-        // vuelo). Se revierte fijando el flag + re-persistiendo el snapshot, como la cascada.
+        // Showdown highlight: persist-only, no menu item and no live effect (read on the
+        // fly). Reverted by setting the flag + re-persisting the snapshot, like the cascade overlay.
         if (GameFrame.RESALTAR_JUGADA_SHOWDOWN != snap_resaltar_jugada_showdown) {
             GameFrame.RESALTAR_JUGADA_SHOWDOWN = snap_resaltar_jugada_showdown;
             Helpers.PROPERTIES.setProperty("resaltar_jugada_showdown", String.valueOf(snap_resaltar_jugada_showdown));
             Helpers.savePropertiesFile();
         }
-        // Lupa del avatar: persist-only, sin item de menú. Igual que el resaltado del showdown, y
-        // si al revertir queda apagada con una lupa puesta, su vigilante la retira en el siguiente
-        // sondeo (canShow mira este mismo flag).
+        // Avatar zoom: persist-only, no menu item. Same as the showdown highlight; if
+        // reverting turns it off while a magnifier is showing, its watcher removes it on
+        // the next poll (canShow checks this same flag).
         if (GameFrame.RESALTAR_AVATARES != snap_resaltar_avatares) {
             GameFrame.RESALTAR_AVATARES = snap_resaltar_avatares;
             Helpers.PROPERTIES.setProperty("resaltar_avatares", String.valueOf(snap_resaltar_avatares));
             Helpers.savePropertiesFile();
         }
-        // Captura al terminar la timba: persist-only, sin item de menú ni efecto en vivo. Se revierte
-        // fijando el flag + re-persistiendo el snapshot, como el resaltado del showdown.
+        // Screenshot at game end: persist-only, no menu item and no live effect. Reverted
+        // by setting the flag + re-persisting the snapshot, like the showdown highlight.
         if (GameFrame.SCREENSHOT_FIN_TIMBA != snap_screenshot_fin_timba) {
             GameFrame.SCREENSHOT_FIN_TIMBA = snap_screenshot_fin_timba;
             Helpers.PROPERTIES.setProperty("screenshot_fin_timba", String.valueOf(snap_screenshot_fin_timba));
             Helpers.savePropertiesFile();
         }
-        // Recuento de fin de timba: persist-only, sin efecto en vivo (solo aplica al abrir la
-        // pantalla final). Se revierte fijando el flag + re-persistiendo el snapshot.
+        // Game-end countdown: persist-only, no live effect (only applies when the final
+        // screen opens). Reverted by setting the flag + re-persisting the snapshot.
         if (GameFrame.ANIMACION_CONTADOR_FINAL_PREF != snap_animacion_contador_final) {
             GameFrame.ANIMACION_CONTADOR_FINAL_PREF = snap_animacion_contador_final;
             Helpers.PROPERTIES.setProperty("animacion_contador_final", String.valueOf(snap_animacion_contador_final));
             Helpers.savePropertiesFile();
         }
-        // Barajado y destape tampoco tienen item de menú: se revierten fijando el flag +
-        // persistiendo, como el overlay de cascada. Al restaurar el barajado a ON se recalienta
-        // la caché del shuffle.gif por si el warm-up se saltó mientras estuvo desactivado.
+        // Shuffle and reveal also have no menu item: reverted by setting the flag +
+        // persisting, like the cascade overlay. Restoring shuffle to ON re-warms the
+        // shuffle.gif cache in case the warm-up was skipped while it was off.
         if (GameFrame.ANIMACION_BARAJADO_PREF != snap_anim_barajado) {
             GameFrame.ANIMACION_BARAJADO_PREF = snap_anim_barajado;
             Helpers.PROPERTIES.setProperty("animacion_barajado", String.valueOf(snap_anim_barajado));
@@ -1440,32 +1463,32 @@ public class AppearanceSettingsPanel extends JPanel {
         if (GameFrame.CHAT_IMAGES_INGAME != snap_chat_images) {
             gf.getChat_image_menu().doClick();
         }
-        // Velocidad del destape: sin item de menú (como el overlay de cascada), se revierte
-        // fijando el flag + re-persistiendo el snapshot.
+        // Reveal speed: no menu item (like the cascade overlay), reverted by setting the
+        // flag + re-persisting the snapshot.
         if (GameFrame.CARD_FLIP_DURATION != snap_card_flip_duration) {
             GameFrame.CARD_FLIP_DURATION = snap_card_flip_duration;
             Helpers.PROPERTIES.setProperty("card_flip_duration", String.valueOf(snap_card_flip_duration));
             Helpers.savePropertiesFile();
         }
-        // Efecto acercar: mismo camino que la velocidad (sin item de menú ni efecto en vivo).
+        // Zoom-in effect: same path as the speed (no menu item, no live effect).
         if (GameFrame.CARD_FLIP_ZOOM != snap_card_flip_zoom) {
             GameFrame.CARD_FLIP_ZOOM = snap_card_flip_zoom;
             Helpers.PROPERTIES.setProperty("card_flip_zoom", String.valueOf(snap_card_flip_zoom));
             Helpers.savePropertiesFile();
         }
-        // Velocidad del reparto: mismo camino (persist-only).
+        // Deal speed: same path (persist-only).
         if (GameFrame.REPARTO_VELOCIDAD != snap_reparto_velocidad) {
             GameFrame.REPARTO_VELOCIDAD = snap_reparto_velocidad;
             Helpers.PROPERTIES.setProperty("reparto_velocidad", String.valueOf(snap_reparto_velocidad));
             Helpers.savePropertiesFile();
         }
-        // Perfil de calidad: persist-only (lo leen las palancas al renderizar cada animación).
+        // Quality profile: persist-only (read by the animation code when rendering each effect).
         if (GameFrame.ANIM_CALIDAD != snap_anim_calidad) {
             GameFrame.ANIM_CALIDAD = snap_anim_calidad;
             Helpers.PROPERTIES.setProperty("anim_calidad", String.valueOf(snap_anim_calidad));
             Helpers.savePropertiesFile();
         }
-        // Ordenar la mano (swap): checkbox + velocidad + estilo, todos persist-only (sin item de menú).
+        // Sort hand (swap): checkbox + speed + style, all persist-only (no menu item).
         if (GameFrame.ANIMACION_SWAP_PREF != snap_anim_swap) {
             GameFrame.ANIMACION_SWAP_PREF = snap_anim_swap;
             Helpers.PROPERTIES.setProperty("animacion_swap", String.valueOf(snap_anim_swap));
@@ -1481,7 +1504,7 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("swap_arco", String.valueOf(snap_swap_arc));
             Helpers.savePropertiesFile();
         }
-        // Recolocación de la mesa (checkbox + velocidad): persist-only, sin item de menú.
+        // Table reseat (checkbox + speed): persist-only, no menu item.
         if (GameFrame.ANIMACION_DOWNGRADE_PREF != snap_anim_downgrade) {
             GameFrame.ANIMACION_DOWNGRADE_PREF = snap_anim_downgrade;
             Helpers.PROPERTIES.setProperty("animacion_downgrade", String.valueOf(snap_anim_downgrade));
@@ -1492,17 +1515,18 @@ public class AppearanceSettingsPanel extends JPanel {
             Helpers.PROPERTIES.setProperty("downgrade_velocidad", String.valueOf(snap_downgrade_velocidad));
             Helpers.savePropertiesFile();
         }
-        // Nivel de luz: se revierte fijando el flag + re-persistiendo el snapshot, y además hay que
-        // deshacer la previsualización (si las luces están apagadas, siguen pintadas al nivel que
-        // dejó la edición descartada).
+        // Light level: reverted by setting the flag + re-persisting the snapshot, and the
+        // preview must also be undone (if the lights are off, they'd still be painted at
+        // the level left by the discarded edit).
         if (GameFrame.NIVEL_LUZ != snap_nivel_luz) {
             GameFrame.NIVEL_LUZ = snap_nivel_luz;
             Helpers.PROPERTIES.setProperty("nivel_luz", String.valueOf(snap_nivel_luz));
             Helpers.savePropertiesFile();
             applyNivelLuz();
         }
-        // Zoom de diálogos: persist-only, sin efecto en vivo (lo lee cada diálogo al abrirse). Se
-        // revierte fijando el flag + re-persistiendo el snapshot, como los demás persist-only.
+        // Dialog zoom: persist-only, no live effect (each dialog reads it on open).
+        // Reverted by setting the flag + re-persisting the snapshot, like the other
+        // persist-only settings.
         if (Helpers.DIALOG_ZOOM != snap_dialog_zoom) {
             Helpers.DIALOG_ZOOM = snap_dialog_zoom;
             Helpers.updateCoronaDialogsFont();
@@ -1511,22 +1535,23 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // Revert FUERA DE PARTIDA: re-persiste cada preferencia a su snapshot (sin efecto en
-    // vivo, no hay mesa). Fija los flags estáticos y vuelca PROPERTIES una sola vez.
+    // Revert OUT OF GAME: re-persists each preference to its snapshot (no live effect,
+    // there's no table). Sets the static flags and flushes PROPERTIES once.
     private void revertStandalone() {
-        // El tapete es el único ajuste con previsualización en vivo fuera de partida (fondo
-        // del lanzador); si cambió durante la sesión hay que repintar el inicio al revertir.
+        // The felt is the only setting with a live preview out of game (launcher
+        // background); if it changed during the session, the launcher must repaint on revert.
         boolean tapete_changed = !snap_color_tapete.equals(GameFrame.COLOR_TAPETE);
 
-        // La caché de imágenes de cartas/fichas/dorsos (Card.updateCachedImages) es DERIVADA de
-        // zoom + baraja + trasera y NO es un flag más de los que se revierten abajo: los listeners
-        // de baraja/trasera (y "Restaurar predeterminados", que resetea la baraja con el zoom ya
-        // puesto en su default) la RECONSTRUYEN en vivo al vuelo. Si alguno de esos tres cambió
-        // durante la sesión del diálogo, la caché quedó a la escala/baraja NUEVA, y como el arranque
-        // de una timba solo llama a zoom() (no a updateCachedImages), la siguiente partida heredaría
-        // cartas/fichas al tamaño equivocado aunque ZOOM_LEVEL/BARAJA ya estén revertidos. Por eso,
-        // igual que revertLive en partida (vía setZoomLevel/selectBaraja), aquí hay que reconstruir la
-        // caché al estado de apertura. Se anota ANTES de revertir los estáticos y se rehace al final.
+        // The card/chip/back image cache (Card.updateCachedImages) is DERIVED from
+        // zoom + deck + back and isn't just another flag to revert below: the deck/back
+        // listeners (and "Restore defaults", which resets the deck with zoom already at
+        // its default) REBUILD it live on the fly. If any of those three changed during
+        // the dialog session, the cache is stuck at the NEW scale/deck, and since starting
+        // a game only calls zoom() (not updateCachedImages), the next game would inherit
+        // cards/chips at the wrong size even though ZOOM_LEVEL/BARAJA are already
+        // reverted. So, like revertLive in-game (via setZoomLevel/selectBaraja), the cache
+        // must be rebuilt to the opening state here. Recorded BEFORE reverting the static
+        // fields and redone at the end.
         boolean baraja_reverted = !snap_baraja.equals(GameFrame.BARAJA);
         boolean rebuild_card_cache = GameFrame.ZOOM_LEVEL != snap_zoom_level
                 || baraja_reverted
@@ -1608,16 +1633,16 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("dialog_zoom", String.valueOf(snap_dialog_zoom));
         Helpers.savePropertiesFile();
 
-        // Reconstruye la caché derivada al estado de apertura (baraja/trasera ya revertidas arriba,
-        // así que updateCachedImages lee GameFrame.BARAJA/TRASERA correctas) para que la próxima
-        // timba no herede cartas/fichas a la escala/baraja que dejó una edición descartada.
+        // Rebuilds the derived cache to the opening state (deck/back already reverted
+        // above, so updateCachedImages reads the correct GameFrame.BARAJA/TRASERA) so the
+        // next game doesn't inherit cards/chips at the scale/deck left by a discarded edit.
         if (rebuild_card_cache) {
             Card.updateCachedImages(1f + snap_zoom_level * GameFrame.getZOOM_STEP(), true);
         }
 
-        // Si la baraja se revierte a una cuyo shuffle.gif no se calentó durante la sesión del
-        // diálogo, recalienta la caché (BARAJA ya está revertida arriba) para no arrastrar el
-        // decode a la primera mano. Fuera de partida no hay cambiarBaraja() que lo haga.
+        // If the deck reverts to one whose shuffle.gif wasn't warmed during the dialog
+        // session, re-warm the cache (BARAJA is already reverted above) so the decode
+        // doesn't drag into the first hand. Out of game there's no cambiarBaraja() to do it.
         if (baraja_reverted) {
             Crupier.warmShuffleAnimCache();
         }
@@ -1627,15 +1652,15 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // Repinta al vuelo el fondo de la pantalla de inicio (InitPanel) con el COLOR_TAPETE
-    // actual: es la previsualización en vivo del tapete fuera de partida. No-op si el
-    // lanzador aún no existe (arranque). El InitPanel recarga la textura en segundo plano,
-    // y para los colores base es independiente del tamaño del panel, así que es seguro
-    // aunque el lanzador esté oculto (p. ej. abriendo el diálogo desde la sala de espera).
-    // Reproduce ademas el mismo efecto de sonido (mat.wav) que TablePanel.refresh() en
-    // partida, para que cambiar (o revertir) el tapete suene igual dentro y fuera de la
-    // mesa. El sonido va DENTRO del guard y aqui, NO en InitPanel.refresh(): ese metodo
-    // tambien corre en el resize del tapete secreto "*", donde no debe sonar.
+    // Repaints the launcher background (InitPanel) on the fly with the current
+    // COLOR_TAPETE: this is the felt's live preview out of game. No-op if the launcher
+    // doesn't exist yet (startup). InitPanel reloads the texture in the background and,
+    // for base colors, is independent of the panel size, so it's safe even while the
+    // launcher is hidden (e.g. opening the dialog from the waiting room). Also plays the
+    // same sound effect (mat.wav) as TablePanel.refresh() in-game, so changing (or
+    // reverting) the felt sounds the same in and out of the table. The sound lives INSIDE
+    // the guard here, NOT in InitPanel.refresh(): that method also runs on the secret "*"
+    // felt's resize, where it must stay silent.
     private static void refreshLauncherTapete() {
         if (Init.VENTANA_INICIO != null) {
             if (GameFrame.tapeteSonidoOn()) {
@@ -1645,16 +1670,17 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // Previsualización en vivo de la luminosidad: el velo se recalcula siempre con el nivel recién
-    // guardado, pero solo hay algo que repintar si la mesa está oscurecida en este momento (el
-    // ajuste es justo la profundidad de ese velo). Con las luces encendidas no se nota hasta que
-    // se apaguen.
-    // Se mira GameFrame.getInstance() y NO el gf capturado al abrir el diálogo: si la timba
-    // terminó con Ajustes abierto, ese gf sigue siendo no-null pero la mesa ya no existe, y este
-    // método corre también al descartar cambios (revertLive).
-    // Repintar es suficiente y evita el revalidate del frame entero en cada tic del spinner: el
-    // interruptor luce el mismo icono (sigue apagado) y los colores del chat rápido dependen de si
-    // hay velo, no de cuánto. El aviso in-game sí pinta un velo proporcional, así que se repinta.
+    // Live brightness preview: the dimming overlay is always recalculated with the
+    // just-saved level, but there's only something to repaint if the table is currently
+    // dimmed (the setting is exactly that overlay's depth). With the lights on, nothing
+    // shows until they're turned off.
+    // Checks GameFrame.getInstance(), NOT the gf captured on dialog open: if the game
+    // ended while Settings was open, that gf is still non-null but the table no longer
+    // exists; this method also runs when discarding changes (revertLive).
+    // Repainting is enough and avoids revalidating the whole frame on every spinner tick:
+    // the light switch shows the same icon (still off) and the quick-chat colors depend
+    // on whether there's an overlay, not how deep. The in-game warning does paint a
+    // proportional overlay, so it's repainted too.
     private static void applyNivelLuz() {
 
         GameFrame live = GameFrame.getInstance();
@@ -1663,8 +1689,8 @@ public class AppearanceSettingsPanel extends JPanel {
             return;
         }
 
-        // Recalcula el velo con el nivel recién guardado SIN tocar quién lo tiene pedido (ni el
-        // interruptor del jugador ni los apagados temporales de la partida).
+        // Recalculates the overlay with the just-saved level WITHOUT touching who
+        // requested it (neither the player's switch nor the game's temporary dimming).
         live.getCapa_brillo().refreshBrightness();
 
         if (live.getCapa_brillo().getBrightness() == 0f) {
@@ -1701,9 +1727,9 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // Color base del tapete para el índice del combo (0=verde..4=madera). Fuera de
-    // partida se persiste este valor base (sin sufijos de easter-egg, que solo se
-    // resuelven en la mesa viva).
+    // Base felt color for the combo index (0=green..4=wood). Out of game this base value
+    // is what gets persisted (without easter-egg suffixes, which are only resolved on the
+    // live table).
     private static String tapeteColorForIndex(int idx) {
         switch (idx) {
             case 1:
@@ -1719,9 +1745,9 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // Lee una preferencia booleana de PROPERTIES (todas las de animación tienen default
-    // true). Equivalente a leer el isSelected del item de menú (ver nota de clase) y no
-    // depende de que haya GameFrame.
+    // Reads a boolean preference from PROPERTIES (all animation ones default to true).
+    // Equivalent to reading the menu item's isSelected (see class note) and doesn't
+    // depend on GameFrame existing.
     private static boolean prefBool(String key) {
         return prefBool(key, true);
     }
@@ -1730,17 +1756,17 @@ public class AppearanceSettingsPanel extends JPanel {
         return Boolean.parseBoolean(Helpers.PROPERTIES.getProperty(key, String.valueOf(def)));
     }
 
-    // Como persist, pero para los SPINNERS: mantener pulsada la flecha dispara un cambio por
-    // repetición, y escribir el fichero en cada uno es I/O en el EDT a ráfagas. El valor se
-    // apunta al momento (lo que leen el revert y isDirty) y el volcado se coalesce. Cualquier
-    // otro guardado inmediato del diálogo (GUARDAR, restaurar, cancelar) lo arrastra igualmente.
+    // Like persist, but for SPINNERS: holding the arrow down fires a change on repeat,
+    // and writing the file on every one is bursty I/O on the EDT. The value is recorded
+    // immediately (what revert and isDirty read); the file write is coalesced. Any other
+    // immediate save in the dialog (SAVE, restore, cancel) flushes it anyway.
     private static void persistDeferred(String key, String value) {
         Helpers.PROPERTIES.setProperty(key, value);
         Helpers.savePropertiesFileDeferred();
     }
 
-    // Persiste una preferencia (clave -> valor) sin efecto en vivo. Lo usan los controles
-    // en modo fuera-de-partida.
+    // Persists a preference (key -> value) with no live effect. Used by controls in
+    // out-of-game mode.
     private static void persist(String key, String value) {
         Helpers.PROPERTIES.setProperty(key, value);
         Helpers.savePropertiesFile();
@@ -1753,28 +1779,28 @@ public class AppearanceSettingsPanel extends JPanel {
         return p;
     }
 
-    // Añade una fila alineada a la izquierda + un hueco vertical constante (12px, la
-    // misma separación que las filas de "Varios" en la pestaña Partida). Las filas son
-    // naturalRow() (alto máximo = preferido), así que NO se estiran a rellenar la
-    // columna; el sobrante lo absorbe el glue que cierra cada columna.
+    // Adds a left-aligned row + a constant vertical gap (12px, same spacing as the "Misc"
+    // rows in the Game tab). Rows are naturalRow() (max height = preferred), so they
+    // don't stretch to fill the column; the leftover is absorbed by the glue closing
+    // each column.
     private void addLeft(JPanel column, JComponent comp) {
         comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         column.add(comp);
         column.add(Box.createVerticalStrut(Math.round(12 * Helpers.DIALOG_ZOOM)));
     }
 
-    // Cierra una columna con un glue que empuja las filas hacia arriba y deja el hueco
-    // sobrante abajo (igual que el addContainerGap final de la pestaña Partida), en vez
-    // de repartirlo entre las filas. Solo importa en la columna más corta ("Pantalla y
-    // zoom"), que se estira para igualar a la derecha.
+    // Closes a column with glue that pushes rows up and leaves the leftover space at the
+    // bottom (like the Game tab's final addContainerGap), instead of spreading it between
+    // rows. Only matters for the shorter column ("Screen and zoom"), stretched to match
+    // on the right.
     private static void closeColumn(JPanel column) {
         column.add(Box.createVerticalGlue());
     }
 
-    // Recuadro de agrupación de BORDE NEGRO FINO y esquinas redondeadas para los checkboxes de
-    // animación que tienen subcontroles anidados (Barajado/Reparto/Destapar): envuelve el padre y
-    // sus subcontroles para que se lean como un grupo. Transparente (deja ver el fondo del diálogo
-    // Nimbus, texto intacto); solo dibuja el contorno. Alto natural (no se estira en el BoxLayout Y).
+    // Thin black rounded-corner grouping box for animation checkboxes with nested
+    // sub-controls (Shuffle/Deal/Reveal): wraps the parent and its sub-controls so they
+    // read as one group. Transparent (shows the Nimbus dialog background through, text
+    // intact); only draws the outline. Natural height (doesn't stretch in the BoxLayout Y).
     private JPanel groupBox() {
         JPanel p = new JPanel() {
             @Override
@@ -1788,9 +1814,9 @@ public class AppearanceSettingsPanel extends JPanel {
                 g2.dispose();
             }
 
-            // Ciñe el recuadro a su contenido (no ocupa todo el ancho de la columna): así,
-            // sangrado bajo el maestro, se lee como un subgrupo y no como una franja a lo ancho.
-            // En vivo (getPreferredSize), no un valor cacheado con la fuente vieja.
+            // Caps the box to its content (doesn't span the whole column width): indented
+            // under the master, it then reads as a sub-group rather than a full-width
+            // strip. Live (getPreferredSize), not a value cached with the old font.
             @Override
             public java.awt.Dimension getMaximumSize() {
                 return getPreferredSize();
@@ -1803,17 +1829,17 @@ public class AppearanceSettingsPanel extends JPanel {
         return p;
     }
 
-    // Sangra un componente para colgarlo visualmente del checkbox maestro de la columna: lo
-    // desplaza a la derecha con un hueco fijo. Alto máximo = preferido (no se estira en el
-    // BoxLayout Y de la columna); el glue final absorbe el ancho sobrante a la derecha cuando
-    // el componente ciñe su contenido (los recuadros de grupo).
+    // Indents a component so it visually hangs off the column's master checkbox: shifts
+    // it right by a fixed gap. Max height = preferred (doesn't stretch in the column's
+    // BoxLayout Y); the trailing glue absorbs the leftover width on the right when the
+    // component hugs its own content (the group boxes).
     private static JComponent indent(JComponent comp) {
         return indent(comp, 22);
     }
 
-    // px = hueco izquierdo lógico (se escala con DIALOG_ZOOM). Los recuadros de grupo van a
-    // 22; los checkboxes SUELTOS a 28 (22 + los 6 del borde izquierdo del recuadro) para que
-    // su casilla quede alineada con la del checkbox padre DENTRO de los recuadros.
+    // px = logical left gap (scaled with DIALOG_ZOOM). Group boxes use 22; STANDALONE
+    // checkboxes use 28 (22 + the box's 6px left border) so their checkbox lines up with
+    // the parent checkbox's INSIDE the boxes.
     private static JComponent indent(JComponent comp, int px) {
         JPanel wrap = new JPanel() {
             @Override
@@ -1831,8 +1857,8 @@ public class AppearanceSettingsPanel extends JPanel {
         return wrap;
     }
 
-    // Añade una fila (checkbox padre o un subcontrol) al recuadro de grupo, con una separación
-    // fina entre filas (más ceñida que el strut de addLeft, para que el grupo se lea compacto).
+    // Adds a row (parent checkbox or a sub-control) to the group box, with a thin gap
+    // between rows (tighter than addLeft's strut, so the group reads as compact).
     private void addToGroup(JPanel group, JComponent row) {
         row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         if (group.getComponentCount() > 0) {
@@ -1841,9 +1867,9 @@ public class AppearanceSettingsPanel extends JPanel {
         group.add(row);
     }
 
-    // Fila (FlowLayout) cuyo alto MÁXIMO es su alto preferido: en el BoxLayout Y de la
-    // columna no se estira para rellenar el hueco, así las filas quedan a separación
-    // constante (la del strut de addLeft) en vez de desperdigadas.
+    // Row (FlowLayout) whose MAX height is its preferred height: in the column's
+    // BoxLayout Y it won't stretch to fill the gap, so rows keep a constant spacing
+    // (addLeft's strut) instead of spreading out.
     private static JPanel naturalRow() {
         return new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0)) {
             @Override
@@ -1853,14 +1879,15 @@ public class AppearanceSettingsPanel extends JPanel {
         };
     }
 
-    // Rejilla vacía para subajustes que cuelgan de un checkbox padre (velocidad, efecto, estilo...):
-    // cada fila se añade con addAlignedSubRow y TODOS los desplegables quedan alineados en una
-    // columna común, en vez de caer a distinta x según lo ancha que sea su etiqueta. La rejilla
-    // (GridBagLayout) mide los anchos EN VIVO, así que se adapta a cambios de fuente/zoom.
+    // Empty grid for sub-settings hanging off a parent checkbox (speed, effect, style...):
+    // each row is added via addAlignedSubRow and ALL dropdowns end up aligned in a common
+    // column, instead of landing at different x depending on their label's width. The
+    // grid (GridBagLayout) measures widths LIVE, so it adapts to font/zoom changes.
     private JPanel subGrid() {
-        // Ancho máximo = preferido (no solo el alto): así el BoxLayout del recuadro NO estira la
-        // rejilla; con weightx=0 en todas las celdas, estirarla centraría las filas en vez de
-        // dejarlas pegadas a la izquierda. Ceñida a su preferido, queda a la izquierda (LEFT).
+        // Max width = preferred (not just height): this keeps the box's BoxLayout from
+        // stretching the grid; with weightx=0 on every cell, stretching it would center
+        // the rows instead of hugging the left edge. Capped to its preferred size, it
+        // stays left-aligned.
         JPanel grid = new JPanel(new java.awt.GridBagLayout()) {
             @Override
             public java.awt.Dimension getMaximumSize() {
@@ -1872,10 +1899,10 @@ public class AppearanceSettingsPanel extends JPanel {
         return grid;
     }
 
-    // Añade una fila (etiqueta con icono | desplegable) a una rejilla creada con subGrid(). La
-    // sangría de sub-opción va como inset izquierdo de la etiqueta; la columna de etiquetas mide
-    // lo que la más ancha, de modo que los desplegables de todas las filas arrancan en la MISMA x.
-    // gridy = índice de fila (0 la primera); las siguientes llevan un poco de aire arriba.
+    // Adds a row (icon label | dropdown) to a grid built with subGrid(). The sub-option
+    // indent is the label's left inset; the label column measures the widest one, so
+    // every row's dropdown starts at the SAME x. gridy = row index (0 is first); later
+    // rows get a bit of extra space on top.
     private void addAlignedSubRow(JPanel grid, int gridy, String iconPath, JLabel label, JComponent control) {
         label.setIcon(icon(iconPath));
         int gap = Math.round(6 * Helpers.DIALOG_ZOOM);
@@ -1887,21 +1914,21 @@ public class AppearanceSettingsPanel extends JPanel {
         g.insets = new java.awt.Insets(top, Math.round(18 * Helpers.DIALOG_ZOOM), 0, gap);
         grid.add(label, g);
         g.gridx = 1;
-        // fill=HORIZONTAL: el desplegable ocupa el ancho de la columna (= el del más ancho de la
-        // rejilla), así todos los desplegables del grupo quedan del MISMO ancho (más limpio).
+        // fill=HORIZONTAL: the dropdown takes the column's width (= the grid's widest),
+        // so every dropdown in the group ends up the SAME width (cleaner).
         g.fill = java.awt.GridBagConstraints.HORIZONTAL;
         g.insets = new java.awt.Insets(top, 0, 0, 0);
         grid.add(control, g);
     }
 
-    // Checkbox que REFLEJA un toggle de apariencia. En partida (menu != null) un clic =
-    // un clic en el item de menú (aplica en vivo + persiste + refleja en el popup). Fuera
-    // de partida (menu == null) ejecuta el persist-only suministrado.
-    // OJO: la casilla NO siempre va sincronizada con el ajuste. Marcarla mientras su item de menú
-    // está deshabilitado (el auto-ajuste de zoom deshabilita el suyo mientras trabaja) la conmuta
-    // igual, pero el clic delegado es un NO-OP, así que se queda diciendo lo contrario del estado
-    // real. Por eso el estado DE VERDAD es el del item de menú, y por eso "Restaurar
-    // predeterminados" recoloca la casilla en todos sus caminos.
+    // Checkbox that MIRRORS an appearance toggle. In-game (menu != null) a click = a
+    // click on the menu item (applies live + persists + reflects in the popup). Out of
+    // game (menu == null) it runs the supplied persist-only action.
+    // NOTE: the checkbox is NOT always in sync with the setting. Checking it while its
+    // menu item is disabled (the zoom auto-fit disables its own while it's working) still
+    // toggles it, but the delegated click is a no-op, so it ends up showing the opposite
+    // of the real state. That's why the item's state is the SOURCE OF TRUTH, and why
+    // "Restore defaults" realigns the checkbox on every path.
     private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone, boolean defaultValue) {
         return delegatingCheckbox(iconPath, i18nKey, selected, menu, standalone, defaultValue, null);
     }
@@ -1916,37 +1943,38 @@ public class AppearanceSettingsPanel extends JPanel {
                 standalone.run();
             }
         });
-        // Restaurar predeterminados: mientras se pueda, un clic recorre el mismo camino que el del
-        // usuario (aplica en vivo + persiste). Los tres caminos (nada que hacer, clic normal y
-        // salida de emergencia) dejan la casilla en el valor de fábrica, porque puede llegar aquí
-        // desviada del ajuste real (ver la nota de delegatingCheckbox).
+        // Restore defaults: whenever possible, a click follows the same path as the
+        // user's (applies live + persists). All three branches (nothing to do, normal
+        // click, and the fallback) leave the checkbox at the factory value, since it can
+        // arrive here out of sync with the real setting (see delegatingCheckbox's note).
         reset_actions.add(() -> {
-            // El estado DE VERDAD es el del item de menú, que va en lockstep con el flag; la
-            // casilla puede haberse quedado desincronizada (marcarla mientras su item estaba
-            // deshabilitado no aplica nada). Mirar la casilla aquí dejaba escapar justo el caso
-            // que la rama de abajo viene a arreglar.
+            // The source of truth is the menu item, which stays in lockstep with the flag;
+            // the checkbox may have drifted out of sync (checking it while its item was
+            // disabled applies nothing). Reading the checkbox here would let through
+            // exactly the case the branch below exists to fix.
             boolean current = menu != null ? menu.isSelected() : cb.isSelected();
 
             if (current == defaultValue) {
-                // Nada que aplicar, pero la casilla se pone en su sitio por si venía desviada.
+                // Nothing to apply, but the checkbox is set right in case it had drifted.
                 cb.setSelected(defaultValue);
                 return;
             }
 
             if (cb.isEnabled() && (menu == null || menu.isEnabled())) {
                 cb.doClick();
-                // El clic CONMUTA la casilla, y si venía desviada del estado real la deja marcando
-                // lo contrario del ajuste que se acaba de aplicar (y el siguiente clic del usuario
-                // lo desharía). No-op cuando ya coincide, que es lo normal.
+                // The click TOGGLES the checkbox, and if it had drifted from the real
+                // state it now shows the opposite of the setting just applied (the user's
+                // next click would undo it). No-op when it already matches, the normal case.
                 cb.setSelected(defaultValue);
             } else {
-                // Un doClick sobre un control DESHABILITADO no hace nada, y el item de menú puede
-                // estarlo a ratos: el auto-ajuste de zoom deshabilita el suyo mientras corre su
-                // trabajo en segundo plano. Sin esta salida, ese ajuste se escapaba de "Restaurar
-                // predeterminados" (o peor: la casilla cambiaba y el ajuste de verdad no). Es el
-                // mismo peligro que revertLive ya esquiva al revertir las animaciones, y hay que
-                // dejar igual de sincronizados sus DOS espejos: el item del menú principal y el
-                // del popup del tapete. setSelected no dispara el listener, así que no reentra.
+                // A doClick on a DISABLED control does nothing, and the menu item can be
+                // disabled at times: zoom auto-fit disables its own while its background
+                // work runs. Without this fallback, that setting would escape "Restore
+                // defaults" (or worse: the checkbox would change but the real setting
+                // wouldn't). Same hazard revertLive already dodges when reverting
+                // animations, and both of its mirrors need to stay in sync: the main
+                // menu's item and the felt popup's. setSelected doesn't fire the listener,
+                // so this doesn't re-enter.
                 standalone.run();
 
                 cb.setSelected(defaultValue);
@@ -1960,14 +1988,14 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
         });
-        // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con
-        // la pestaña Partida y con los menús que este diálogo sustituye.
+        // Icon on the left (same as the old menu item) for parity with the Game tab and
+        // the menus this dialog replaces.
         JPanel row = naturalRow();
         JLabel iconLabel = new JLabel(icon(iconPath));
         row.add(iconLabel);
         row.add(cb);
-        // Tooltip opcional: se pone en la fila y en sus dos hijos para que aparezca en toda
-        // la zona clicable (icono + checkbox + texto).
+        // Optional tooltip: set on the row and both its children so it appears over the
+        // whole clickable area (icon + checkbox + text).
         if (tooltipKey != null) {
             Helpers.setTranslatedToolTip(row, tooltipKey);
             Helpers.setTranslatedToolTip(iconLabel, tooltipKey);
@@ -1976,11 +2004,12 @@ public class AppearanceSettingsPanel extends JPanel {
         return row;
     }
 
-    // Como delegatingCheckbox pero para los toggles de animacion gobernados por el maestro:
-    // el estado MARCADO refleja la PREFERENCIA (leída del item de menú en partida, o de
-    // PROPERTIES fuera de ella) y el checkbox se registra para que el maestro lo habilite/
-    // deshabilite. Arranca deshabilitado si el maestro esta off. En partida (menu != null)
-    // delega en el item; fuera de partida persiste la preferencia y fija el flag efectivo.
+    // Like delegatingCheckbox but for the animation toggles governed by the master: the
+    // CHECKED state reflects the PREFERENCE (read from the menu item in-game, or from
+    // PROPERTIES out of game), and the checkbox registers itself so the master can
+    // enable/disable it. Starts disabled if the master is off. In-game (menu != null) it
+    // delegates to the item; out of game it persists the preference and sets the
+    // effective flag.
     private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu, String prefKey, Consumer<Boolean> effSetter) {
         return animCheckbox(iconPath, i18nKey, menu, prefKey, effSetter, true);
     }
@@ -1988,8 +2017,8 @@ public class AppearanceSettingsPanel extends JPanel {
     private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu, String prefKey, Consumer<Boolean> effSetter, boolean defaultPref) {
         boolean pref = (menu != null) ? menu.isSelected() : prefBool(prefKey, defaultPref);
         JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), pref);
-        // Cabecera de grupo animado (Barajado, Reparto, Destapar, Ordenar la mano...): en negrita
-        // para distinguirla de sus subajustes (velocidad, estilo, etc.), que van en peso normal.
+        // Animation group header (Shuffle, Deal, Reveal, Sort hand...): bold to
+        // distinguish it from its sub-settings (speed, style, etc.), which use normal weight.
         cb.setFont(cb.getFont().deriveFont(java.awt.Font.BOLD));
         cb.setEnabled((menu == null || menu.isEnabled()) && GameFrame.ANIMACIONES);
         cb.addActionListener(e -> {
@@ -2003,9 +2032,9 @@ public class AppearanceSettingsPanel extends JPanel {
         });
         anim_sub_cb.add(cb);
         anim_sub_menu.add(menu);
-        // SIN sangría propia: el checkbox padre se pega al borde del recuadro (solo el hueco
-        // del FlowLayout), de modo que su margen izquierdo iguala al derecho (recuadro simétrico).
-        // La sangría de los sueltos la pone indent(); la de los subcontroles, su propio strut.
+        // NO indent of its own: the parent checkbox hugs the box's edge (just the
+        // FlowLayout gap), so its left margin matches the right one (symmetric box).
+        // Standalone checkboxes get their indent from indent(); sub-controls, their own strut.
         JPanel row = naturalRow();
         row.add(new JLabel(icon(iconPath)));
         row.add(cb);
@@ -2025,8 +2054,8 @@ public class AppearanceSettingsPanel extends JPanel {
         return new javax.swing.ImageIcon(AppearanceSettingsPanel.class.getResource(path));
     }
 
-    // Icono de fuera de /images/menu (los de ahí ya vienen al tamaño de estas filas) reducido al
-    // mismo alto que ellos, para que no descuadre la fila del checkbox.
+    // Icon from outside /images/menu (those already come sized for these rows) scaled
+    // down to the same height as them, so it doesn't throw off the checkbox row.
     private static javax.swing.ImageIcon scaledIcon(String path, int size) {
         return scaledIcon(path, size, size);
     }
@@ -2039,9 +2068,9 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
-    // Encaja un icono dentro de la caja indicada SIN deformarlo, para los dibujos que no son
-    // cuadrados (el interruptor de luces es 256x120: en un cuadrado de 24 sale aplastado a menos
-    // de la mitad de su ancho).
+    // Fits an icon inside the given box WITHOUT distorting it, for artwork that isn't
+    // square (the light switch is 256x120: squeezed into a 24px square it comes out
+    // squashed to less than half its width).
     private static javax.swing.ImageIcon fitIcon(String path, int max_width, int max_height) {
 
         java.net.URL url = AppearanceSettingsPanel.class.getResource(path);

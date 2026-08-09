@@ -521,11 +521,19 @@ public class Init extends JFrame {
                         Audio.playWavResource("misc/screenshot.wav");
                     }
 
-                    // We're on the EDT (the dispatcher wraps the action in
-                    // Helpers.GUIRun): render the whole window to an image here
-                    // (printAll, no Robot/OS capture) and dump the PNG to disk
-                    // in the background.
-                    final BufferedImage image = Helpers.renderComponentImage(GameFrame.getInstance().getRootPane());
+                    // Only two windows get photographed: the game log (registro) when it's the
+                    // active window, otherwise the table (GameFrame). Any other focused dialog
+                    // (exit, settings...) falls back to the table on purpose, so we never end up
+                    // capturing a stray dialog. We're on the EDT (the dispatcher wraps the action
+                    // in Helpers.GUIRun): render to an image here (printAll, no Robot/OS capture)
+                    // and dump the PNG to disk in the background.
+                    java.awt.Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+
+                    final javax.swing.JRootPane root = (active instanceof GameLogDialog && active.isShowing())
+                            ? ((GameLogDialog) active).getRootPane()
+                            : GameFrame.getInstance().getRootPane();
+
+                    final BufferedImage image = Helpers.renderComponentImage(root);
 
                     Helpers.threadRun(() -> {
 

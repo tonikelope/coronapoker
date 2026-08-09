@@ -16,7 +16,9 @@ import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
+@Tag("slow")
 class HeadsUpSimulatorTest {
 
     private final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();

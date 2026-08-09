@@ -17,6 +17,7 @@ import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * bot and never be wrong; a river bluffed 50% is spew. The accepted band is the
  * polarised-but-sane range a thinking player shows.</p>
  */
+@Tag("slow")
 class BluffBalanceTest {
 
     private static final int SESSIONS = 120;

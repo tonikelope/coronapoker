@@ -10,8 +10,10 @@ package com.tonikelope.coronapoker.bot.harness;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 /** HARD must crush a 6-max table of five calling stations. */
+@Tag("slow")
 class MultiwayBaselineVsStationTableTest extends MultiwayBaselineBase {
 
     @Test

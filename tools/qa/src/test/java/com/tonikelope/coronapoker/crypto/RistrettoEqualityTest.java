@@ -13,11 +13,13 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("slow")
 public class RistrettoEqualityTest {
 
     // Torsion E[4] de edwards25519: (0,-1) de orden 2 y (±i, 0) de orden 4. Sumar cualquiera de

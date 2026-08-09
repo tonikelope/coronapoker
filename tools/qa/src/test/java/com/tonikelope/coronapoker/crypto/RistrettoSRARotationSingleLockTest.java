@@ -12,9 +12,11 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+@Tag("slow")
 public class RistrettoSRARotationSingleLockTest {
 
     @BeforeAll

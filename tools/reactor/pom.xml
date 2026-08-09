@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OPT-IN QA reactor (aggregator) — NOT part of the default build.
+
+  The repo root pom.xml IS the game (packaging=jar) and cannot itself
+  aggregate modules, so a normal single-root reactor would force the game
+  into a sub-directory and break the NetBeans "project at repo root" setup.
+  This additive aggregator avoids that: it lists the game and the QA test
+  module as siblings so a single Maven run builds the game and runs the
+  tests against it straight from the reactor — no `mvn install` of the jar,
+  no `coronapoker.version` pin to keep in sync.
+
+  Nothing here changes the default build. `mvn` at the repo root still reads
+  the root pom.xml (game only); NetBeans is untouched. Use this file only by
+  pointing Maven at it explicitly:
+
+      # fast feedback for a refactor — game + all tests EXCEPT the slow bot sims
+      mvn -f tools/reactor/pom.xml -o test -P fast
+
+      # full suite, including the slow bot/harness statistical matchups
+      mvn -f tools/reactor/pom.xml -o test
+
+      # a single test class
+      mvn -f tools/reactor/pom.xml -o test -Dtest=BetRulesTest
+
+  The `fast` profile is declared in tools/qa/pom.xml; -P fast activates it on
+  the qa module inside this reactor. See that pom for what "fast" excludes.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.tonikelope</groupId>
+    <artifactId>coronapoker-qa-reactor</artifactId>
+    <version>23.34</version>
+    <packaging>pom</packaging>
+    <name>CoronaPoker QA reactor (opt-in aggregator)</name>
+
+    <modules>
+        <!-- The game (repo root). Reactor build order is derived from the
+             dependency graph, so qa always builds after the game. -->
+        <module>../../</module>
+        <!-- The JUnit 5 QA test suite. Its CoronaPoker dependency (same
+             groupId/artifactId/version) resolves from the reactor. -->
+        <module>../qa</module>
+    </modules>
+</project>

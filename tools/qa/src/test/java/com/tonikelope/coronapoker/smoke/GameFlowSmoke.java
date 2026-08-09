@@ -18,6 +18,7 @@ import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -49,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * Target runtime: under 30 seconds for the full class.
  */
+@Tag("slow")
 class GameFlowSmoke {
 
     private static final double STARTING_STACK = 200f;

@@ -14,8 +14,10 @@ import java.security.SecureRandom;
 import java.util.Random;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+@Tag("slow")
 public class PedersenCombTest {
 
     @BeforeAll

@@ -10,8 +10,10 @@ package com.tonikelope.coronapoker.bot.harness;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 /** HARD (the top level) must steal enough blinds from a rock to stay profitable. */
+@Tag("slow")
 class BaselineVsRockTest extends BaselineQualityBase {
 
     @Test

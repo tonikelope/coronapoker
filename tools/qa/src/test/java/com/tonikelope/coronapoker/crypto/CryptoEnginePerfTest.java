@@ -14,9 +14,11 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("slow")
 public class CryptoEnginePerfTest {
 
     private static final BigInteger L = EdwardsPoint.L;

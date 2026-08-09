@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.Tag;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -55,6 +56,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Kernel buffer sizes vary, so the volumes here are deliberately generous and
  * nothing asserts on an exact byte count.
  */
+@Tag("slow")
 class SocketStallIntegrationTest {
 
     /** Far more than any socket buffer pair will absorb. */

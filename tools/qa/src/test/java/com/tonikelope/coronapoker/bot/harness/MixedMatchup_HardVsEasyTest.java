@@ -11,8 +11,10 @@ package com.tonikelope.coronapoker.bot.harness;
 import com.tonikelope.coronapoker.Bot;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 /** Acid test: HARD must outperform EASY by a significant bb/100 margin. */
+@Tag("slow")
 class MixedMatchup_HardVsEasyTest extends BotMixedMatchupBase {
 
     @Test

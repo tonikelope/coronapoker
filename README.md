@@ -252,6 +252,66 @@ java -jar target/CoronaPoker-<version>-jar-with-dependencies.jar
 
 ---
 
+## 🧪 Testing
+
+The test suite lives in its own Maven module, **`tools/qa`**, kept deliberately separate from the game: `mvn package` at the repo root builds and ships the game **without** compiling or running a single test. The tests are maintainer tooling, not part of the distributed jar.
+
+They are **JUnit 5**, split into two lanes by an `@Tag("slow")` marker on the heavy classes:
+
+- **Fast lane (the default)** — everything *except* the slow tests. ~600 tests in **about a minute**; this is what you run while working.
+- **Slow lane** — the heavy regression guards over the stable, rarely-touched subsystems: the bot-AI statistical matchups (`bot/harness`, `smoke/GameFlowSmoke`, the Monte-Carlo hand-potential test) and the crypto perf / differential / cascade suite. **Several minutes.**
+
+### Running the tests
+
+The easiest way is the **opt-in QA reactor** (`tools/reactor/pom.xml`). It builds the game and runs the tests against it in one reactor, so you don't have to `install` the game jar first or keep a version in sync:
+
+```bash
+# Fast lane — the default. Game + all fast tests (~1 min).
+mvn -f tools/reactor/pom.xml test
+
+# Slow lane only — the bot-AI and crypto heavy tests.
+mvn -f tools/reactor/pom.xml test -P slow
+
+# Everything, fast + slow (~5 min). Run before a release.
+mvn -f tools/reactor/pom.xml test -P all
+
+# A single test class (the flag skips the test-less game module).
+mvn -f tools/reactor/pom.xml test -Dtest=PotMathTest -Dsurefire.failIfNoSpecifiedTests=false
+```
+
+Add `-o` (offline) once your local Maven cache is warm to skip dependency checks. The bot simulations honour two volume knobs for fast local iteration, e.g. `-Dqa.sessions=40 -Dqa.hands=25`.
+
+<details><summary><b>Running the <code>tools/qa</code> module on its own (without the reactor)</b></summary>
+
+You can run the module standalone, but then you must publish the game jar first and match its version:
+
+```bash
+mvn -DskipTests install                                       # publish CoronaPoker to your local ~/.m2
+mvn -f tools/qa/pom.xml test -Dcoronapoker.version=<root pom version>
+```
+
+The same `-P slow` / `-P all` profiles apply.
+</details>
+
+### Which tests to run for what you touch
+
+| If you change… | Run |
+|---|---|
+| Game logic, pot / side-pot / blind / bet math, hand-integrity chains | **Fast lane** — it already guards these |
+| The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P slow`** — the statistical matchups + Monte-Carlo potential |
+| The **crypto** stack (`crypto/`, the SRA cascade) | **`-P slow`** — the perf / differential / cascade suite |
+| **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P slow`** for the socket-stall integration |
+| Anything, **before committing or opening a PR** | **`-P all`** |
+| Before a **release** | **`-P all`** plus a manual in-game smoke |
+
+Rule of thumb: **fast lane on every change**, **slow lane when you edited that subsystem or before merging**, **the whole suite before a release**.
+
+### Adding a test
+
+Put it in the matching package under `tools/qa/src/test/java`. If it is slow — a bot simulation, a crypto perf/fuzz test, anything over a few seconds — annotate the class with `@Tag("slow")` so it lands in the slow lane and the fast lane stays fast.
+
+---
+
 ## 🙌 Contributors
 
 CoronaPoker is developed by [@tonikelope](https://github.com/tonikelope), with a heartfelt thank-you to the bug reporters and testers whose detailed reports keep the project moving forward. The full list lives in **[`CONTRIBUTORS.md`](CONTRIBUTORS.md)**.

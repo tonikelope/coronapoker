@@ -9,8 +9,10 @@ package com.tonikelope.coronapoker.crypto;
 import java.math.BigInteger;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+@Tag("slow")
 public class Fe25519Pow22523DiffTest {
 
     /** (p-5)/8 = 2^252 - 3, el exponente que sqrtRatioM1 aplica en cada encode/decode. */

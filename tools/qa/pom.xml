@@ -44,6 +44,12 @@
              local install. Bump this property in sync with the root pom version
              so `mvn -o test` resolves against the just-installed jar. -->
         <coronapoker.version>23.34</coronapoker.version>
+
+        <!-- Test lane selection (JUnit 5 tags). Defaults give the FAST lane:
+             run everything EXCEPT tests tagged @Tag("slow"). The `slow` and
+             `all` profiles below flip these. See TESTING.md. -->
+        <qa.groups></qa.groups>
+        <qa.excludedGroups>slow</qa.excludedGroups>
     </properties>
 
     <build>
@@ -67,6 +73,12 @@
                     <forkCount>0.6C</forkCount>
                     <reuseForks>false</reuseForks>
                     <runOrder>balanced</runOrder>
+                    <!-- JUnit 5 tag lanes. Empty qa.groups = no positive
+                         filter; qa.excludedGroups=slow (the default) skips the
+                         heavy tests. Overridable by the slow/all profiles or
+                         directly, e.g. -Dqa.excludedGroups= to run everything. -->
+                    <groups>${qa.groups}</groups>
+                    <excludedGroups>${qa.excludedGroups}</excludedGroups>
                     <!-- Los ficheros *Smoke NO los recoge el patron por defecto, que solo
                          mira *Test/*Tests/*TestCase, asi que un `mvn test` a secas se
                          saltaba los dieciocho que hay: no corrian NUNCA salvo que se
@@ -135,4 +147,35 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <!-- Test lanes, selected by JUnit 5 @Tag. The DEFAULT build is the
+             fast lane (see the qa.* properties above): everything except
+             tests tagged "slow". These profiles flip that selection.
+
+             Slow tests are the heavy regression guards over already-stable,
+             out-of-scope subsystems: the bot-AI statistical matchups
+             (bot/harness + smoke/GameFlowSmoke + bot/eval Monte-Carlo) and
+             the crypto perf/differential/cascade suite. Measured full suite
+             ~4.6 min; fast lane well under a minute. See TESTING.md. -->
+
+        <!-- Only the slow tests. Run before merging or after touching the
+             bot AI / crypto. -->
+        <profile>
+            <id>slow</id>
+            <properties>
+                <qa.groups>slow</qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
+        </profile>
+
+        <!-- The whole suite, fast + slow. Run before a release. -->
+        <profile>
+            <id>all</id>
+            <properties>
+                <qa.groups></qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
+        </profile>
+    </profiles>
 </project>

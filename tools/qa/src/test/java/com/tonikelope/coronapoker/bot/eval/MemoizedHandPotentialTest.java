@@ -16,6 +16,7 @@ import org.alberta.poker.HandEvaluator;
 import org.alberta.poker.ai.HandPotential;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 /**
  * Equivalence gate for {@link MemoizedHandPotential} / {@link MemoizedAlbertaEvaluator}.
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.Test;
  * Card encoding matches {@link AlbertaEvaluatorAdapterTest}: index = rank + suit*13,
  * rank 0..12 = 2..A, suit 0..3 = c,d,h,s.
  */
+@Tag("slow")
 class MemoizedHandPotentialTest {
 
     private static final int CLUBS = 0, DIAMONDS = 1, HEARTS = 2, SPADES = 3;

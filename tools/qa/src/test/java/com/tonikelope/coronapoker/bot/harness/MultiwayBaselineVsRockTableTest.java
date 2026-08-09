@@ -10,8 +10,10 @@ package com.tonikelope.coronapoker.bot.harness;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 /** HARD must out-steal a 6-max table of five nits (tight rocks). */
+@Tag("slow")
 class MultiwayBaselineVsRockTableTest extends MultiwayBaselineBase {
 
     @Test

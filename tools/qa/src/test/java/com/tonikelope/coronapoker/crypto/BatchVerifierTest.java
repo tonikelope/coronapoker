@@ -11,9 +11,11 @@ package com.tonikelope.coronapoker.crypto;
 import java.math.BigInteger;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("slow")
 public class BatchVerifierTest {
 
     private static final BigInteger L = EdwardsPoint.L;

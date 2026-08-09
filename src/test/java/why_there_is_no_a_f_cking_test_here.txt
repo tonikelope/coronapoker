@@ -6,3 +6,15 @@ love into making everything work as it should. However, if you really like to do
 QA I encourage you to collaborate with me developing some tests.
 
 Carpe diem.
+
+---
+
+P.S. (years later) — Alright. I caved. There are tests now.
+
+The DNA didn't change, mind you; I just couldn't keep staring down a
+20,000-line class forever without blinking. The crypto, the bots, the money
+math and the wire protocol are all covered, the suite even splits into a fast
+lane and a slow lane now (see the "Testing" section in the README), and the
+god-classes are still politely waiting their turn. I'm as surprised as you are.
+
+Carpe diem. Still.

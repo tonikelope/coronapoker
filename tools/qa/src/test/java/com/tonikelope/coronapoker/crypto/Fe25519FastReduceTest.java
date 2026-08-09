@@ -9,9 +9,11 @@ package com.tonikelope.coronapoker.crypto;
 import java.math.BigInteger;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("slow")
 public class Fe25519FastReduceTest {
 
     private static BigInteger toBig(Fe25519 f) {

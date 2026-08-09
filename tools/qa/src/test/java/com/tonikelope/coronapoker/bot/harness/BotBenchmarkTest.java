@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 /**
  * Long-running benchmark that drives N hands per difficulty and dumps the
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Test;
  *   Nit              <25%     <18%  ~1.5
  * </pre>
  */
+@Tag("slow")
 class BotBenchmarkTest {
 
     // 40 sessions of 25 hands per difficulty: 1000 hands total, 80 personality

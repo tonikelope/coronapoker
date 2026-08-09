@@ -11,7 +11,9 @@ package com.tonikelope.coronapoker.bot.harness;
 import com.tonikelope.coronapoker.Bot;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
+@Tag("slow")
 class Multiway_MediumVs5EasyTest extends MultiwayMatchupBase {
 
     @Test

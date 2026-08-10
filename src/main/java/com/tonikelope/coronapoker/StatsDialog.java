@@ -105,6 +105,15 @@ public class StatsDialog extends JFrame {
     private javax.swing.JButton private_all_button;
     private javax.swing.JButton unprivate_all_button;
 
+    // "Imported game" banner (hand-added): shown when the selected game was received via P2P
+    // sync (game.imported = 1) — a game another player shared with us.
+    private javax.swing.JLabel imported_game_label;
+
+    // "No saved games yet" top banner (hand-added, outside the .form): shown when the
+    // history database holds no games at all. Mirrors ScreenshotViewerDialog's
+    // "no screenshots yet" empty state. Managed on the EDT only (loadGames).
+    private javax.swing.JLabel no_games_label;
+
     // All background work (shared SQLite connection queries + log/chat reads) runs
     // on a single thread. Previously game_comboItemStateChanged fired loadGameData +
     // loadHands + the stat query concurrently on the same connection, causing the
@@ -348,6 +357,12 @@ public class StatsDialog extends JFrame {
         exclude_stats_button.putClientProperty("i18n.key", "stats.sync_exclude");
         exclude_stats_button.addActionListener(e -> showShareExclusionsDialog());
 
+        // "Delete imported" button, placed to the right of "Exclude...": purges every game received
+        // via P2P sync (imported = 1), leaving the user's own played/hosted games untouched.
+        javax.swing.JButton delete_imported_button = new javax.swing.JButton(Translator.translate("stats.borrar_importadas"));
+        delete_imported_button.putClientProperty("i18n.key", "stats.borrar_importadas");
+        delete_imported_button.addActionListener(e -> deleteImportedGamesAsync());
+
         // "Share" + "Exclude..." form one group (the exclusion scopes what's shared),
         // framed with a thin black line to read as a single unit.
         javax.swing.JPanel share_group = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 10, 2));
@@ -360,11 +375,26 @@ public class StatsDialog extends JFrame {
         sync_stats_bar.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM)));
         sync_stats_bar.add(receive_stats_checkbox);
         sync_stats_bar.add(share_group);
+        sync_stats_bar.add(delete_imported_button);
 
         javax.swing.JComponent old_content = (javax.swing.JComponent) getContentPane();
         javax.swing.JPanel content_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout());
         content_wrapper.add(old_content, java.awt.BorderLayout.CENTER);
         content_wrapper.add(sync_stats_bar, java.awt.BorderLayout.SOUTH);
+
+        // "No saved games yet" banner pinned to the top, mirroring the empty-state notice
+        // ScreenshotViewerDialog shows when there are no screenshots. Visible only when the
+        // history database holds no games at all (toggled in loadGames); BorderLayout.NORTH
+        // reserves no space while it is hidden, so it never affects the populated layout.
+        no_games_label = new javax.swing.JLabel(Translator.translate("stats.no_partidas_guardadas"), javax.swing.SwingConstants.CENTER);
+        no_games_label.putClientProperty("i18n.key", "stats.no_partidas_guardadas");
+        no_games_label.setOpaque(true);
+        no_games_label.setBackground(new java.awt.Color(255, 244, 200));
+        no_games_label.setForeground(new java.awt.Color(140, 90, 0));
+        no_games_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM)));
+        no_games_label.setVisible(false);
+        content_wrapper.add(no_games_label, java.awt.BorderLayout.NORTH);
+
         setContentPane(content_wrapper);
 
         // ====================================================================
@@ -382,6 +412,14 @@ public class StatsDialog extends JFrame {
         private_game_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         Helpers.setTranslatedToolTip(private_game_label, "stats.quitar_privada");
         private_game_label.setVisible(false);
+
+        // "IMPORTED GAME" banner: informational marker (no action) shown when the selected game
+        // arrived via P2P sync. Blue, to read distinctly from the red "private" banner.
+        imported_game_label = new javax.swing.JLabel(Translator.translate("stats.partida_importada"));
+        imported_game_label.putClientProperty("i18n.key", "stats.partida_importada");
+        imported_game_label.setForeground(new java.awt.Color(0, 102, 153));
+        imported_game_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM)));
+        imported_game_label.setVisible(false);
 
         // Struck-through lock (red diagonal over lock.png) for "unmark private" actions:
         // lock = mark private, struck lock = unmark.
@@ -419,12 +457,22 @@ public class StatsDialog extends JFrame {
         javax.swing.JPanel private_banner_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout());
         private_banner_wrapper.setOpaque(false);
         ((javax.swing.GroupLayout) stats_panel.getLayout()).replace(game_data_panel, private_banner_wrapper);
-        private_banner_wrapper.add(private_game_label, java.awt.BorderLayout.NORTH);
+        // Both per-game banners (imported + private) stack vertically above the game data. Each
+        // toggles independently; BoxLayout gives an invisible one zero height (no leftover gap).
+        javax.swing.JPanel game_banners_panel = new javax.swing.JPanel();
+        game_banners_panel.setLayout(new javax.swing.BoxLayout(game_banners_panel, javax.swing.BoxLayout.Y_AXIS));
+        game_banners_panel.setOpaque(false);
+        imported_game_label.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        private_game_label.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        game_banners_panel.add(imported_game_label);
+        game_banners_panel.add(private_game_label);
+        private_banner_wrapper.add(game_banners_panel, java.awt.BorderLayout.NORTH);
         private_banner_wrapper.add(game_data_panel, java.awt.BorderLayout.CENTER);
         game_data_panel.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentHidden(java.awt.event.ComponentEvent e) {
                 private_game_label.setVisible(false);
+                imported_game_label.setVisible(false);
             }
         });
 
@@ -498,9 +546,16 @@ public class StatsDialog extends JFrame {
         share_stats_checkbox.setFont(sync_checkbox_font);
         // The "Exclude..." button is also a touch larger, to match "Share" inside its frame.
         exclude_stats_button.setFont(sync_checkbox_font);
+        delete_imported_button.setFont(sync_checkbox_font);
 
         // "PRIVATE GAME" banner in bold (updateFonts left it regular).
         private_game_label.setFont(private_game_label.getFont().deriveFont(java.awt.Font.BOLD));
+
+        // "IMPORTED GAME" banner in bold too.
+        imported_game_label.setFont(imported_game_label.getFont().deriveFont(java.awt.Font.BOLD));
+
+        // "No saved games yet" banner: bold and a touch larger so the empty state reads clearly.
+        no_games_label.setFont(no_games_label.getFont().deriveFont(java.awt.Font.BOLD, no_games_label.getFont().getSize2D() + 4f));
 
         pack();
         res_table.setFont(original_dialog_font);
@@ -731,13 +786,16 @@ public class StatsDialog extends JFrame {
                 if (gameIdx > 0) {
 
                     String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and game.id=? order by hand_val DESC,\"ui.beneficio\" DESC;";
-                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                        statement.setQueryTimeout(30);
-                        statement.setInt(1, gameId);
-                        rs = statement.executeQuery();
-                        mejoresJugadasResult(rs);
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                            statement.setQueryTimeout(30);
+                            statement.setInt(1, gameId);
+                            rs = statement.executeQuery();
+                            mejoresJugadasResult(rs);
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
                     Helpers.GUIRunAndWait(() -> {
                         res_table_warning.setVisible(false);
@@ -746,12 +804,14 @@ public class StatsDialog extends JFrame {
                 } else {
 
                     String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", (game.server || '|' || game.start) as \"game.timba\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,\"ui.beneficio\" DESC LIMIT 1000;";
-                    try (Statement statement = Helpers.getSQLITE().createStatement()) {
-                        statement.setQueryTimeout(30);
-                        rs = statement.executeQuery(sql);
-                        mejoresJugadasResult(rs);
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (Statement statement = Helpers.getSQLITE().createStatement()) {
+                            statement.setQueryTimeout(30);
+                            rs = statement.executeQuery(sql);
+                            mejoresJugadasResult(rs);
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
                     Helpers.GUIRunAndWait(() -> {
                         res_table_warning.setText(Translator.translate("ui.nota_se_muestran_las_1000"));
@@ -837,7 +897,11 @@ public class StatsDialog extends JFrame {
                 tableModel.addRow(row);
             }
 
-            Helpers.GUIRunAndWait(() -> {
+            // GUIRun (not ...AndWait): this runs INSIDE synchronized(SQL_LOCK) (mejoresJugadas wraps
+            // the whole rs drain), so it must NOT block on the EDT — a worker holding SQL_LOCK while
+            // waiting on the EDT is the AB-BA deadlock partner for any EDT-side SQL_LOCK acquisition.
+            // tableModel is already fully drained here, so pushing it to Swing asynchronously is fine.
+            Helpers.GUIRun(() -> {
                 res_table.setModel(tableModel);
                 TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
                 Helpers.disableSortAllColumns(res_table, tableRowSorter);
@@ -1038,25 +1102,30 @@ public class StatsDialog extends JFrame {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
                 if (gameIdx > 0) {
-                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
-                        st.setQueryTimeout(30);
-                        for (int i = 1; i <= 6; i++) {
-                            st.setInt(i, gameId);
+                    // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
+                            st.setQueryTimeout(30);
+                            for (int i = 1; i <= 6; i++) {
+                                st.setInt(i, gameId);
+                            }
+                            try (ResultSet rs = st.executeQuery()) {
+                                populateTableModel(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                        try (ResultSet rs = st.executeQuery()) {
-                            populateTableModel(tableModel, rs);
-                        }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 } else {
-                    try (Statement st = Helpers.getSQLITE().createStatement()) {
-                        st.setQueryTimeout(30);
-                        try (ResultSet rs = st.executeQuery(SQL_ALL_GAMES)) {
-                            populateTableModel(tableModel, rs);
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (Statement st = Helpers.getSQLITE().createStatement()) {
+                            st.setQueryTimeout(30);
+                            try (ResultSet rs = st.executeQuery(SQL_ALL_GAMES)) {
+                                populateTableModel(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -1192,29 +1261,34 @@ public class StatsDialog extends JFrame {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
                 if (gameIdx > 0) {
-                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
-                        st.setQueryTimeout(30);
-                        st.setInt(1, ronda);
-                        st.setInt(2, gameId);
-                        st.setInt(3, gameId);
-                        st.setInt(4, ronda);
-                        st.setInt(5, gameId);
-                        try (ResultSet rs = st.executeQuery()) {
-                            populateTableModel(tableModel, rs);
+                    // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
+                            st.setQueryTimeout(30);
+                            st.setInt(1, ronda);
+                            st.setInt(2, gameId);
+                            st.setInt(3, gameId);
+                            st.setInt(4, ronda);
+                            st.setInt(5, gameId);
+                            try (ResultSet rs = st.executeQuery()) {
+                                populateTableModel(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 } else {
-                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_ALL_GAMES)) {
-                        st.setQueryTimeout(30);
-                        st.setInt(1, ronda);
-                        st.setInt(2, ronda);
-                        try (ResultSet rs = st.executeQuery()) {
-                            populateTableModel(tableModel, rs);
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_ALL_GAMES)) {
+                            st.setQueryTimeout(30);
+                            st.setInt(1, ronda);
+                            st.setInt(2, ronda);
+                            try (ResultSet rs = st.executeQuery()) {
+                                populateTableModel(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -1360,14 +1434,17 @@ public class StatsDialog extends JFrame {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
                 if (handIdx > 0) {
-                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_HAND)) {
-                        st.setQueryTimeout(30);
-                        st.setInt(1, handId);
-                        try (ResultSet rs = st.executeQuery()) {
-                            populateBalanceTable(tableModel, rs);
+                    // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_HAND)) {
+                            st.setQueryTimeout(30);
+                            st.setInt(1, handId);
+                            try (ResultSet rs = st.executeQuery()) {
+                                populateBalanceTable(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     if (handVisible && handIdx > 0) {
                         Helpers.GUIRunAndWait(() -> {
@@ -1376,24 +1453,28 @@ public class StatsDialog extends JFrame {
                         });
                     }
                 } else if (gameIdx > 0) {
-                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
-                        st.setQueryTimeout(30);
-                        st.setInt(1, gameId);
-                        st.setInt(2, gameId);
-                        try (ResultSet rs = st.executeQuery()) {
-                            populateBalanceTable(tableModel, rs);
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
+                            st.setQueryTimeout(30);
+                            st.setInt(1, gameId);
+                            st.setInt(2, gameId);
+                            try (ResultSet rs = st.executeQuery()) {
+                                populateBalanceTable(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 } else {
-                    try (Statement st = Helpers.getSQLITE().createStatement()) {
-                        st.setQueryTimeout(30);
-                        try (ResultSet rs = st.executeQuery(SQL_ALL_GAMES)) {
-                            populateBalanceTable(tableModel, rs);
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (Statement st = Helpers.getSQLITE().createStatement()) {
+                            st.setQueryTimeout(30);
+                            try (ResultSet rs = st.executeQuery(SQL_ALL_GAMES)) {
+                                populateBalanceTable(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -1404,21 +1485,23 @@ public class StatsDialog extends JFrame {
                     String sessionSql = "SELECT balance.player AS player, hand.counter AS counter, balance.stack AS stack"
                             + " FROM balance, hand WHERE balance.id_hand = hand.id AND hand.id_game = ? AND hand.end IS NOT NULL"
                             + " ORDER BY hand.counter";
-                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(sessionSql)) {
-                        st.setQueryTimeout(30);
-                        st.setInt(1, gameId);
-                        try (ResultSet rs = st.executeQuery()) {
-                            LinkedHashMap<String, org.jfree.data.xy.XYSeries> series = new LinkedHashMap<>();
-                            while (rs.next()) {
-                                org.jfree.data.xy.XYSeries s = series.computeIfAbsent(rs.getString("player"), org.jfree.data.xy.XYSeries::new);
-                                s.add(rs.getInt("counter"), rs.getDouble("stack"));
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(sessionSql)) {
+                            st.setQueryTimeout(30);
+                            st.setInt(1, gameId);
+                            try (ResultSet rs = st.executeQuery()) {
+                                LinkedHashMap<String, org.jfree.data.xy.XYSeries> series = new LinkedHashMap<>();
+                                while (rs.next()) {
+                                    org.jfree.data.xy.XYSeries s = series.computeIfAbsent(rs.getString("player"), org.jfree.data.xy.XYSeries::new);
+                                    s.add(rs.getInt("counter"), rs.getDouble("stack"));
+                                }
+                                for (org.jfree.data.xy.XYSeries s : series.values()) {
+                                    sessionData.addSeries(s);
+                                }
                             }
-                            for (org.jfree.data.xy.XYSeries s : series.values()) {
-                                sessionData.addSeries(s);
-                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -1540,6 +1623,8 @@ public class StatsDialog extends JFrame {
                 boolean logEnabled = false;
                 boolean chatEnabled = false;
                 boolean isPrivate = false;
+                boolean isImported = false;
+                String importedFrom = null;
                 String playtimeText = "";
                 String playersText = "";
                 String buyinText = "";
@@ -1548,35 +1633,40 @@ public class StatsDialog extends JFrame {
                 String blindsDoubleText = "";
                 String rebuyText = "";
 
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, id);
-                    statement.setInt(2, id);
-                    try (ResultSet rs = statement.executeQuery()) {
-                        if (rs.next()) {
-                            found = true;
-                            logEnabled = Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + nick + "_" + fecha + ".log"));
-                            chatEnabled = (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".html")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".html")) > 0L) || (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".log")) > 0L);
-                            playtimeText = (rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")";
+                // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+                synchronized (GameFrame.SQL_LOCK) {
+                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                        statement.setQueryTimeout(30);
+                        statement.setInt(1, id);
+                        statement.setInt(2, id);
+                        try (ResultSet rs = statement.executeQuery()) {
+                            if (rs.next()) {
+                                found = true;
+                                logEnabled = Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + nick + "_" + fecha + ".log"));
+                                chatEnabled = (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".html")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".html")) > 0L) || (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".log")) > 0L);
+                                playtimeText = (rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")";
 
-                            StringBuilder players = new StringBuilder();
-                            for (String j : rs.getString("players").split("#")) {
-                                players.append(new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8")).append("  |  ");
+                                StringBuilder players = new StringBuilder();
+                                for (String j : rs.getString("players").split("#")) {
+                                    players.append(new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8")).append("  |  ");
+                                }
+                                playersText = players.toString().replaceAll("  \\|  $", "");
+                                buyinText = String.valueOf(rs.getInt("buyin"));
+                                handText = String.valueOf(rs.getInt("tot_hands"));
+                                // money2String rounds (doubleClean) + formats as money, so blinds
+                                // from old games stored as REAL (float) don't carry garbage decimals
+                                // (0.10000000149...) -> "0.10 / 0.20".
+                                blindsText = Helpers.money2String(rs.getDouble("sb")) + " / " + Helpers.money2String(rs.getDouble("sb") * 2);
+                                blindsDoubleText = rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO";
+                                rebuyText = rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO";
+                                isPrivate = rs.getInt("private") == 1;
+                                isImported = rs.getInt("imported") == 1;
+                                importedFrom = rs.getString("imported_from");
                             }
-                            playersText = players.toString().replaceAll("  \\|  $", "");
-                            buyinText = String.valueOf(rs.getInt("buyin"));
-                            handText = String.valueOf(rs.getInt("tot_hands"));
-                            // money2String rounds (doubleClean) + formats as money, so blinds
-                            // from old games stored as REAL (float) don't carry garbage decimals
-                            // (0.10000000149...) -> "0.10 / 0.20".
-                            blindsText = Helpers.money2String(rs.getDouble("sb")) + " / " + Helpers.money2String(rs.getDouble("sb") * 2);
-                            blindsDoubleText = rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO";
-                            rebuyText = rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO";
-                            isPrivate = rs.getInt("private") == 1;
                         }
+                    } catch (Exception ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                } catch (Exception ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
                 final boolean fFound = found;
@@ -1590,6 +1680,8 @@ public class StatsDialog extends JFrame {
                 final String fBlindsDouble = blindsDoubleText;
                 final String fRebuy = rebuyText;
                 final boolean fPrivate = isPrivate;
+                final boolean fImported = isImported;
+                final String fImportedFrom = importedFrom;
 
                 Helpers.GUIRunAndWait(() -> {
                     game_textarea_scrollpane.setVisible(false);
@@ -1605,6 +1697,7 @@ public class StatsDialog extends JFrame {
                         game_rebuy_val.setText(fRebuy);
                     }
                     refreshPrivateUI(fFound && fPrivate);
+                    refreshImportedUI(fFound && fImported, fImportedFrom);
                 });
             } finally {
                 Helpers.GUIRunAndWait(() -> {
@@ -1657,36 +1750,39 @@ public class StatsDialog extends JFrame {
             String comcardsText = "";
             String boteText = "";
 
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-                statement.setInt(1, id_game);
-                statement.setInt(2, id_hand);
-                try (ResultSet rs = statement.executeQuery()) {
-                    if (rs.next()) {
-                        found = true;
-                        preflopText = decodePlayers(rs.getString("preflop_players"));
-                        flopText = decodePlayers(rs.getString("flop_players"));
-                        turnText = decodePlayers(rs.getString("turn_players"));
-                        riverText = decodePlayers(rs.getString("river_players"));
-                        blindsText = Helpers.money2String(rs.getDouble("sbval")) + " / " + Helpers.money2String(rs.getDouble("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")";
-                        timeText = Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000));
-                        cpText = rs.getString("sb");
-                        cgText = rs.getString("bb");
-                        if (rs.getString("com_cards") != null) {
-                            ArrayList<Card> cartas = new ArrayList<>();
-                            for (String c : rs.getString("com_cards").split("#")) {
-                                String[] partes = c.split("_");
-                                Card carta = new Card(false);
-                                carta.actualizarValorPalo(partes[0], partes[1]);
-                                cartas.add(carta);
+            // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+            synchronized (GameFrame.SQL_LOCK) {
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, id_game);
+                    statement.setInt(2, id_hand);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        if (rs.next()) {
+                            found = true;
+                            preflopText = decodePlayers(rs.getString("preflop_players"));
+                            flopText = decodePlayers(rs.getString("flop_players"));
+                            turnText = decodePlayers(rs.getString("turn_players"));
+                            riverText = decodePlayers(rs.getString("river_players"));
+                            blindsText = Helpers.money2String(rs.getDouble("sbval")) + " / " + Helpers.money2String(rs.getDouble("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")";
+                            timeText = Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000));
+                            cpText = rs.getString("sb");
+                            cgText = rs.getString("bb");
+                            if (rs.getString("com_cards") != null) {
+                                ArrayList<Card> cartas = new ArrayList<>();
+                                for (String c : rs.getString("com_cards").split("#")) {
+                                    String[] partes = c.split("_");
+                                    Card carta = new Card(false);
+                                    carta.actualizarValorPalo(partes[0], partes[1]);
+                                    cartas.add(carta);
+                                }
+                                comcardsText = Card.collection2String(cartas);
                             }
-                            comcardsText = Card.collection2String(cartas);
+                            boteText = String.valueOf(Helpers.doubleClean(rs.getDouble("pot")));
                         }
-                        boteText = String.valueOf(Helpers.doubleClean(rs.getDouble("pot")));
                     }
+                } catch (Exception ex) {
+                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
-            } catch (Exception ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             final boolean fFound = found;
@@ -1734,14 +1830,17 @@ public class StatsDialog extends JFrame {
             try {
                 String sql = "SELECT player AS \"player.jugador\", winner as \"ui.gana_3\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val AS \"ui.jugada\", ROUND(pay,1) as \"action.pagar\", ROUND(profit,1) as \"ui.beneficio\" FROM showdown WHERE id_hand=? order by \"ui.gana_3\" DESC,\"action.pagar\" DESC";
 
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, id_hand);
-                    try (ResultSet rs = statement.executeQuery()) {
-                        showdownData(rs);
+                // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+                synchronized (GameFrame.SQL_LOCK) {
+                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                        statement.setQueryTimeout(30);
+                        statement.setInt(1, id_hand);
+                        try (ResultSet rs = statement.executeQuery()) {
+                            showdownData(rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
             } finally {
                 Helpers.GUIRunAndWait(() -> {
@@ -1813,7 +1912,11 @@ public class StatsDialog extends JFrame {
                 tableModel.addRow(row);
             }
 
-            Helpers.GUIRunAndWait(() -> {
+            // GUIRun (not ...AndWait): showdownData is called INSIDE synchronized(SQL_LOCK)
+            // (loadShowdownData wraps it), so it must NOT block on the EDT — a worker holding SQL_LOCK
+            // while waiting on the EDT is the AB-BA deadlock partner for any EDT-side SQL_LOCK
+            // acquisition. tableModel is already fully drained, so pushing it to Swing async is fine.
+            Helpers.GUIRun(() -> {
                 showdown_table.setModel(tableModel);
                 TableRowSorter tableRowSorter = new TableRowSorter(showdown_table.getModel());
 
@@ -1886,33 +1989,40 @@ public class StatsDialog extends JFrame {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
                 if (handIdx > 0) {
-                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_HAND)) {
-                        st.setQueryTimeout(30);
-                        st.setInt(1, handId);
-                        try (ResultSet rs = st.executeQuery()) {
-                            populateTiempoTable(tableModel, rs);
+                    // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_HAND)) {
+                            st.setQueryTimeout(30);
+                            st.setInt(1, handId);
+                            try (ResultSet rs = st.executeQuery()) {
+                                populateTiempoTable(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 } else if (gameIdx > 0) {
-                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
-                        st.setQueryTimeout(30);
-                        st.setInt(1, gameId);
-                        try (ResultSet rs = st.executeQuery()) {
-                            populateTiempoTable(tableModel, rs);
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
+                            st.setQueryTimeout(30);
+                            st.setInt(1, gameId);
+                            try (ResultSet rs = st.executeQuery()) {
+                                populateTiempoTable(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 } else {
-                    try (Statement st = Helpers.getSQLITE().createStatement()) {
-                        st.setQueryTimeout(30);
-                        try (ResultSet rs = st.executeQuery(SQL_ALL)) {
-                            populateTiempoTable(tableModel, rs);
+                    synchronized (GameFrame.SQL_LOCK) {
+                        try (Statement st = Helpers.getSQLITE().createStatement()) {
+                            st.setQueryTimeout(30);
+                            try (ResultSet rs = st.executeQuery(SQL_ALL)) {
+                                populateTiempoTable(tableModel, rs);
+                            }
+                        } catch (SQLException ex) {
+                            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -1994,19 +2104,22 @@ public class StatsDialog extends JFrame {
                 // Drain on the worker thread; publish to the combo on the EDT.
                 final LinkedHashMap<String, HashMap<String, Object>> loaded = new LinkedHashMap<>();
 
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, id);
-                    try (ResultSet rs = statement.executeQuery()) {
-                        while (rs.next()) {
-                            String label = Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter"));
-                            HashMap<String, Object> map = new HashMap<>();
-                            map.put("id", rs.getInt("id"));
-                            loaded.put(label, map);
+                // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+                synchronized (GameFrame.SQL_LOCK) {
+                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                        statement.setQueryTimeout(30);
+                        statement.setInt(1, id);
+                        try (ResultSet rs = statement.executeQuery()) {
+                            while (rs.next()) {
+                                String label = Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter"));
+                                HashMap<String, Object> map = new HashMap<>();
+                                map.put("id", rs.getInt("id"));
+                                loaded.put(label, map);
+                            }
                         }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
                 Helpers.GUIRunAndWait(() -> {
@@ -2055,20 +2168,24 @@ public class StatsDialog extends JFrame {
 
         String sql = "DELETE FROM game WHERE id in (" + String.join(",", idsHolder[0]) + ")";
 
-        try (Statement statement = Helpers.getSQLITE().createStatement()) {
-            statement.setQueryTimeout(30);
-            statement.executeUpdate(sql);
-        } catch (SQLException ex) {
-            // The failure is returned to the caller. Reporting success when the delete had
-            // failed caused "all games deleted" to be announced while the games were still
-            // intact on disk -- and the combo above was already emptied: it looked done
-            // when it wasn't.
-            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-                setEnabled(true);
-            });
-            return false;
+        // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+        synchronized (GameFrame.SQL_LOCK) {
+            try (Statement statement = Helpers.getSQLITE().createStatement()) {
+                statement.setQueryTimeout(30);
+                statement.executeUpdate(sql);
+            } catch (SQLException ex) {
+                // The failure is returned to the caller. Reporting success when the delete had
+                // failed caused "all games deleted" to be announced while the games were still
+                // intact on disk -- and the combo above was already emptied: it looked done
+                // when it wasn't.
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                // GUIRun (not ...AndWait): still inside synchronized(SQL_LOCK) — must not block on the EDT.
+                Helpers.GUIRun(() -> {
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                });
+                return false;
+            }
         }
 
         // A purge cascades across game/hand/action/... and frees a large number
@@ -2080,6 +2197,61 @@ public class StatsDialog extends JFrame {
         // spinner is up. SQLITEVAC() is self-gating (it only rewrites the file
         // when there is significant free space), so this is a cheap no-op when
         // little was actually freed.
+        Helpers.SQLITEVAC();
+
+        Helpers.GUIRunAndWait(() -> {
+            cargando.setVisible(false);
+            setEnabled(true);
+        });
+
+        return true;
+    }
+
+    /** EDT-facing: confirms, then purges all imported (P2P-received) games off the EDT and refreshes. */
+    private void deleteImportedGamesAsync() {
+        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("stats.borrar_importadas_confirm"),
+                new ImageIcon(getClass().getResource("/images/menu/remove.png"))) != 0) {
+            return;
+        }
+        stats_db_executor.submit(() -> {
+            if (deleteImportedGames()) {
+                Helpers.mostrarMensajeInformativo(getContentPane(), Translator.translate("stats.se_han_borrado_importadas"),
+                        new ImageIcon(getClass().getResource("/images/menu/remove.png")));
+                loadGames();
+                Helpers.GUIRun(() -> {
+                    game_combo.setSelectedIndex(0);
+                    game_data_panel.setVisible(false);
+                });
+            } else {
+                Helpers.mostrarMensajeError(getContentPane(), Translator.translate("ui.error.borrado_timbas_fallido"));
+            }
+        });
+    }
+
+    /** Off-EDT. Deletes every game flagged imported = 1 (FK-cascades to hands/actions/...), then compacts. */
+    private boolean deleteImportedGames() {
+        Helpers.GUIRunAndWait(() -> {
+            cargando.setVisible(true);
+            setEnabled(false);
+        });
+
+        // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+        synchronized (GameFrame.SQL_LOCK) {
+            try (Statement statement = Helpers.getSQLITE().createStatement()) {
+                statement.setQueryTimeout(30);
+                statement.executeUpdate("DELETE FROM game WHERE imported = 1");
+            } catch (SQLException ex) {
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                // GUIRun (not ...AndWait): still inside synchronized(SQL_LOCK) — must not block on the EDT.
+                Helpers.GUIRun(() -> {
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                });
+                return false;
+            }
+        }
+
+        // Reclaim the freed pages now (self-gating), same as deleteAllGames.
         Helpers.SQLITEVAC();
 
         Helpers.GUIRunAndWait(() -> {
@@ -2110,12 +2282,15 @@ public class StatsDialog extends JFrame {
 
         String sql = "DELETE FROM game WHERE id=?";
 
-        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-            statement.setQueryTimeout(30);
-            statement.setInt(1, idHolder[0]);
-            statement.executeUpdate();
-        } catch (SQLException ex) {
-            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+        // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+        synchronized (GameFrame.SQL_LOCK) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                statement.setQueryTimeout(30);
+                statement.setInt(1, idHolder[0]);
+                statement.executeUpdate();
+            } catch (SQLException ex) {
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
 
         // Reclaim the free-list pages left by the cascading delete (see
@@ -2260,6 +2435,21 @@ public class StatsDialog extends JFrame {
         }
     }
 
+    /** EDT. Shows/hides the "imported game" banner and, when shown, labels it with the sender nick. */
+    private void refreshImportedUI(boolean is_imported, String from) {
+        if (is_imported) {
+            imported_game_label.setText((from != null && !from.isBlank())
+                    ? java.text.MessageFormat.format(Translator.translate("stats.partida_importada_de"), from)
+                    : Translator.translate("stats.partida_importada"));
+        }
+        imported_game_label.setVisible(is_imported);
+        java.awt.Container parent = imported_game_label.getParent();
+        if (parent != null) {
+            parent.revalidate();
+            parent.repaint();
+        }
+    }
+
     /** Marks/unmarks the selected game as private (off-EDT) and refreshes the banner/button. */
     private void setSelectedGamePrivateAsync(boolean priv) {
         Helpers.GUIRun(() -> private_game_button.setEnabled(false));
@@ -2284,14 +2474,17 @@ public class StatsDialog extends JFrame {
             return false;
         }
 
-        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET private=? WHERE id=?")) {
-            statement.setQueryTimeout(30);
-            statement.setInt(1, priv ? 1 : 0);
-            statement.setInt(2, idHolder[0]);
-            statement.executeUpdate();
-        } catch (SQLException ex) {
-            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-            return false;
+        // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+        synchronized (GameFrame.SQL_LOCK) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET private=? WHERE id=?")) {
+                statement.setQueryTimeout(30);
+                statement.setInt(1, priv ? 1 : 0);
+                statement.setInt(2, idHolder[0]);
+                statement.executeUpdate();
+            } catch (SQLException ex) {
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                return false;
+            }
         }
 
         // Keep the in-memory map consistent (queried by game selection).
@@ -2351,12 +2544,15 @@ public class StatsDialog extends JFrame {
         // ids come from our own map (integers), not user text -- same as deleteAllGames.
         String sql = "UPDATE game SET private=" + (priv ? 1 : 0) + " WHERE id in (" + String.join(",", idsHolder[0]) + ")";
 
-        try (Statement statement = Helpers.getSQLITE().createStatement()) {
-            statement.setQueryTimeout(30);
-            statement.executeUpdate(sql);
-        } catch (SQLException ex) {
-            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-            return false;
+        // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+        synchronized (GameFrame.SQL_LOCK) {
+            try (Statement statement = Helpers.getSQLITE().createStatement()) {
+                statement.setQueryTimeout(30);
+                statement.executeUpdate(sql);
+            } catch (SQLException ex) {
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                return false;
+            }
         }
 
         return true;
@@ -2384,31 +2580,34 @@ public class StatsDialog extends JFrame {
         final LinkedHashMap<String, HashMap<String, Object>> loaded = new LinkedHashMap<>();
         final DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
 
-        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("SELECT * FROM game ORDER BY start DESC")) {
-            statement.setQueryTimeout(30);
-            try (ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) {
-                    boolean ok = true;
-                    if (filtro != null) {
-                        ArrayList<String> decoded_players = new ArrayList<>();
-                        for (String p : rs.getString("players").split("#")) {
-                            decoded_players.add(new String(Base64.getDecoder().decode(p), "UTF-8").trim().toUpperCase());
+        // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+        synchronized (GameFrame.SQL_LOCK) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("SELECT * FROM game ORDER BY start DESC")) {
+                statement.setQueryTimeout(30);
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        boolean ok = true;
+                        if (filtro != null) {
+                            ArrayList<String> decoded_players = new ArrayList<>();
+                            for (String p : rs.getString("players").split("#")) {
+                                decoded_players.add(new String(Base64.getDecoder().decode(p), "UTF-8").trim().toUpperCase());
+                            }
+                            ok = decoded_players.contains(filtro);
                         }
-                        ok = decoded_players.contains(filtro);
-                    }
-                    if (ok) {
-                        Date date = new Date(new Timestamp(rs.getLong("start")).getTime());
-                        HashMap<String, Object> map = new HashMap<>();
-                        map.put("id", rs.getInt("id"));
-                        map.put("start_timestamp", rs.getLong("start"));
-                        map.put("private", rs.getInt("private"));
-                        String game_length = Helpers.seconds2FullTime(rs.getLong("play_time"));
-                        loaded.put(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length, map);
+                        if (ok) {
+                            Date date = new Date(new Timestamp(rs.getLong("start")).getTime());
+                            HashMap<String, Object> map = new HashMap<>();
+                            map.put("id", rs.getInt("id"));
+                            map.put("start_timestamp", rs.getLong("start"));
+                            map.put("private", rs.getInt("private"));
+                            String game_length = Helpers.seconds2FullTime(rs.getLong("play_time"));
+                            loaded.put(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length, map);
+                        }
                     }
                 }
+            } catch (SQLException | UnsupportedEncodingException ex) {
+                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
-        } catch (SQLException | UnsupportedEncodingException ex) {
-            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         // Publish the drained games to the combo on the EDT.
@@ -2423,6 +2622,11 @@ public class StatsDialog extends JFrame {
             if (filtro != null && loaded.isEmpty()) {
                 game_combo_filter.setBackground(Color.RED);
             }
+            // Empty-history notice: shown only when the database truly holds no games —
+            // i.e. no filter is active AND nothing was loaded. With a filter active an empty
+            // result means "no games for this player" (surfaced separately as an error
+            // dialog), not "no saved games at all", so the banner stays hidden then.
+            no_games_label.setVisible(filtro == null && loaded.isEmpty());
             refreshFilterButtonsEnabled();
         });
 

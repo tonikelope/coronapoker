@@ -92,7 +92,7 @@ public final class TOFUResolver {
         }
         long now = System.currentTimeMillis() / 1000L;
 
-        synchronized (Helpers.class) {
+        synchronized (GameFrame.SQL_LOCK) {
             // Declared outside try so the catch (Exception) below can propagate the
             // CORRECT outcome (CHANGED / MATCH / NEW) even if the SQL UPDATE/INSERT
             // throws AFTER the SELECT already established what we know. The previous
@@ -190,7 +190,7 @@ public final class TOFUResolver {
         if (nick == null || pubkey == null || pubkey.length != 32) {
             return false;
         }
-        synchronized (Helpers.class) {
+        synchronized (GameFrame.SQL_LOCK) {
             try {
                 Connection conn = Helpers.getSQLITE();
                 try (PreparedStatement ps = conn.prepareStatement(
@@ -228,7 +228,7 @@ public final class TOFUResolver {
         if (nick == null || nick.isEmpty()) {
             return null;
         }
-        synchronized (Helpers.class) {
+        synchronized (GameFrame.SQL_LOCK) {
             try {
                 Connection conn = Helpers.getSQLITE();
                 try (PreparedStatement ps = conn.prepareStatement(
@@ -255,7 +255,7 @@ public final class TOFUResolver {
         if (nick == null || pubkey == null || pubkey.length != 32) {
             return false;
         }
-        synchronized (Helpers.class) {
+        synchronized (GameFrame.SQL_LOCK) {
             try {
                 Connection conn = Helpers.getSQLITE();
                 try (PreparedStatement ps = conn.prepareStatement(

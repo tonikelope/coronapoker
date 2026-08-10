@@ -92,6 +92,10 @@ public class NewGameDialog extends JDialog {
     private volatile int conta_history = SERVER_HISTORY_QUEUE.isEmpty() ? 0 : SERVER_HISTORY_QUEUE.size() - 1;
     private volatile boolean force_recover = false;
 
+    // Guards the async loadLastGame(): its DB read now runs off the EDT (under SQL_LOCK), so a
+    // second recover click while a load is in flight is ignored. Touched on the EDT.
+    private volatile boolean recover_loading = false;
+
     public void setForce_recover(boolean force_recover) {
         this.force_recover = force_recover;
     }
@@ -475,71 +479,172 @@ public class NewGameDialog extends JDialog {
 
         String sql = "SELECT id,start,server,recover_settings,rebuy FROM game WHERE (ugi IS NOT NULL AND local == 1) ORDER BY start DESC LIMIT 1";
 
-        try (Statement statement = Helpers.getSQLITE().createStatement()) {
-            statement.setQueryTimeout(30);
-
-            ResultSet rs = statement.executeQuery(sql);
-
-            while (rs.next()) {
-                // read the result set
-
-                try {
-                    Timestamp ts = new Timestamp(rs.getLong("start"));
-                    DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-                    Date date = new Date(ts.getTime());
-
-                    HashMap<String, Object> map = new HashMap<>();
-                    map.put("id", rs.getInt("id"));
-                    String settings = rs.getString("recover_settings");
-                    map.put("recover_settings", settings);
-                    GameFrame.applyRecoverSettings(settings);
-                    if (partida_local) {
-                        bots_combobox.setSelectedIndex(getCurrentBotLevel());
+        if (this.force_recover) {
+            // Crash recovery ("server halted the game so a player can rejoin"): continueLastGame()
+            // does recover_checkbox.doClick() → here, then setVisible() auto-starts via
+            // vamosActionPerformed(null), which reads last_game_key — so this MUST resolve
+            // SYNCHRONOUSLY on the EDT. SQL_LOCK must NEVER be acquired on the EDT (a worker holding
+            // it across a GUIRunAndWait — e.g. a StatsDialog stat render — would deadlock), so this
+            // read is deliberately UNLOCKED. It runs during recovery; the concurrent connection users
+            // still possible are an interrupted-but-still-finishing StatsSync import (writing DISJOINT
+            // rows — received games are local=0, this reads local=1) or a lingering StatsDialog read on
+            // its stats-db thread. Both are made safe by SQLite's serialized/full-mutex driver mode (the
+            // connection is opened WITHOUT SQLITE_OPEN_NOMUTEX) plus the 5s busy_timeout — a pre-existing,
+            // narrow, benign race (worst case a transient stall, never corruption). See
+            // sqlite-single-connection-lock.
+            boolean found = false;
+            int id = -1;
+            long start = 0L;
+            String server = null;
+            String settings = null;
+            boolean rebuy = false;
+            try (Statement statement = Helpers.getSQLITE().createStatement()) {
+                statement.setQueryTimeout(30);
+                try (ResultSet rs = statement.executeQuery(sql)) {
+                    if (rs.next()) {
+                        id = rs.getInt("id");
+                        start = rs.getLong("start");
+                        server = rs.getString("server");
+                        settings = rs.getString("recover_settings");
+                        rebuy = rs.getBoolean("rebuy");
+                        found = true;
                     }
-
-                    // "Game" settings are EDITABLE on recover: populate them from the recovered
-                    // game's values (for IWTSTH/RIT/rabbit the *_RECOVER override wins if set;
-                    // hand limit and think time are left by applyRecoverSettings directly in the
-                    // static field). The user can still tweak them before rejoining.
-                    boolean rec_iwtsth = GameFrame.IWTSTH_RULE_RECOVER != null ? GameFrame.IWTSTH_RULE_RECOVER : GameFrame.IWTSTH_RULE;
-                    int rec_rabbit = GameFrame.RABBIT_HUNTING_RECOVER != null ? GameFrame.RABBIT_HUNTING_RECOVER : GameFrame.RABBIT_HUNTING;
-                    boolean rec_rit = GameFrame.RUN_IT_TWICE_RECOVER != null ? GameFrame.RUN_IT_TWICE_RECOVER : GameFrame.RUN_IT_TWICE;
-                    this.iwtsth_checkbox.setSelected(rec_iwtsth);
-                    this.rit_checkbox.setSelected(rec_rit);
-                    this.rabbit_combo.setSelectedIndex(Math.min(Math.max(rec_rabbit, 0), 3));
-                    boolean rec_manos_on = GameFrame.MANOS != -1;
-                    this.manos_checkbox.setSelected(rec_manos_on);
-                    this.manos_spinner.setModel(new SpinnerNumberModel(rec_manos_on ? GameFrame.MANOS : 100, 1, null, 1));
-                    Helpers.makeNumericSpinnerEditable(this.manos_spinner, false);
-                    ((javax.swing.JSpinner.DefaultEditor) this.manos_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-                    this.think_time_checkbox.setSelected(GameFrame.THINK_TIME_ENABLED);
-                    this.think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, GameFrame.THINK_TIME)));
-                    this.showdown_time_spinner.setValue(Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, GameFrame.SHOWDOWN_TIME)));
-
-                    this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
-                    modelBlindCapSpinner(blindCapDoublingsFromCap());
-                    this.rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
-                    if (GameFrame.REBUY_LIMIT > 0) {
-                        this.rebuy_limit_spinner.setValue(GameFrame.REBUY_LIMIT);
-                    }
-                    this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
-                    this.bot_balance_checkbox.setSelected(GameFrame.BOT_BALANCE_TO_HUMANS);
-                    // Rebuy is EDITABLE on recover: "allow rebuy" comes from the game.rebuy
-                    // column; the rebuy cap from the recovered config (REBUY_CAP_POLICY).
-                    this.rebuy_checkbox.setSelected(rs.getBoolean("rebuy"));
-                    this.rebuy_cap_combo.setSelectedIndex(GameFrame.REBUY_CAP_POLICY == GameFrame.REBUY_CAP_HIGHEST_STACK ? 1 : 0);
-                    game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
-                    this.last_game_key = rs.getString("server") + " @ " + timeZoneFormat.format(date);
-
-                } catch (SQLException ex) {
-                    Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
+            } catch (Exception ex) {
+                Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
-        } catch (SQLException ex) {
-            Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
+            if (found) {
+                applyLoadedLastGame(id, start, server, settings, rebuy);
+                applyRecoverSelectedUi();
+            } else {
+                showNoRecoverableGamesUi();
+            }
+            return;
         }
 
+        if (recover_loading) {
+            return;
+        }
+        recover_loading = true;
+        // Feedback while the recovered game loads off the EDT: grey out "Vamos" so a click during the
+        // (brief) load is a visible no-op rather than a silent one; restored when the load lands.
+        vamos.setEnabled(false);
+
+        // Normal user-click path: the read touches the shared connection under SQL_LOCK (a
+        // StatsDialog query can run concurrently), which must never be requested from the EDT — run
+        // it on a worker, then apply the recovered settings + "recover selected" UI back on the EDT.
+        if (Helpers.threadRun(() -> {
+            boolean found = false;
+            int id = -1;
+            long start = 0L;
+            String server = null;
+            String settings = null;
+            boolean rebuy = false;
+            try {
+                synchronized (GameFrame.SQL_LOCK) {
+                    try (Statement statement = Helpers.getSQLITE().createStatement()) {
+                        statement.setQueryTimeout(30);
+                        try (ResultSet rs = statement.executeQuery(sql)) {
+                            if (rs.next()) {
+                                id = rs.getInt("id");
+                                start = rs.getLong("start");
+                                server = rs.getString("server");
+                                settings = rs.getString("recover_settings");
+                                rebuy = rs.getBoolean("rebuy");
+                                found = true;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                // A read failure is treated as "no recoverable game" (same outcome as the old code,
+                // where a failed read left last_game_key null → the "no games" branch).
+                Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            final boolean fFound = found;
+            final int fId = id;
+            final long fStart = start;
+            final String fServer = server;
+            final String fSettings = settings;
+            final boolean fRebuy = rebuy;
+            Helpers.GUIRun(() -> {
+                try {
+                    // The user may have unticked "recover" while the read was in flight — don't apply.
+                    if (!this.recover_checkbox.isSelected()) {
+                        return;
+                    }
+                    if (fFound) {
+                        applyLoadedLastGame(fId, fStart, fServer, fSettings, fRebuy);
+                        applyRecoverSelectedUi();
+                    } else {
+                        showNoRecoverableGamesUi();
+                    }
+                } finally {
+                    recover_loading = false;
+                    restoreVamosEnabled();
+                }
+            });
+        }) == null) {
+            // Pool shutting down (game teardown): the submitted load will never run — undo the guard
+            // and feedback so "recover" stays usable.
+            recover_loading = false;
+            restoreVamosEnabled();
+        }
+    }
+
+    /** EDT. Sets "Vamos" enabled iff nick + server IP + port are all filled (the normal condition). */
+    private void restoreVamosEnabled() {
+        vamos.setEnabled(!nick.getText().isBlank() && !server_ip_textfield.getText().isBlank() && !server_port_textfield.getText().isBlank());
+    }
+
+    /** EDT. Populates the dialog fields from the recovered game's row (read off the EDT). */
+    private void applyLoadedLastGame(int id, long start, String server, String settings, boolean rebuy) {
+        Timestamp ts = new Timestamp(start);
+        DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+        Date date = new Date(ts.getTime());
+
+        HashMap<String, Object> map = new HashMap<>();
+        map.put("id", id);
+        map.put("recover_settings", settings);
+        GameFrame.applyRecoverSettings(settings);
+        if (partida_local) {
+            bots_combobox.setSelectedIndex(getCurrentBotLevel());
+        }
+
+        // "Game" settings are EDITABLE on recover: populate them from the recovered
+        // game's values (for IWTSTH/RIT/rabbit the *_RECOVER override wins if set;
+        // hand limit and think time are left by applyRecoverSettings directly in the
+        // static field). The user can still tweak them before rejoining.
+        boolean rec_iwtsth = GameFrame.IWTSTH_RULE_RECOVER != null ? GameFrame.IWTSTH_RULE_RECOVER : GameFrame.IWTSTH_RULE;
+        int rec_rabbit = GameFrame.RABBIT_HUNTING_RECOVER != null ? GameFrame.RABBIT_HUNTING_RECOVER : GameFrame.RABBIT_HUNTING;
+        boolean rec_rit = GameFrame.RUN_IT_TWICE_RECOVER != null ? GameFrame.RUN_IT_TWICE_RECOVER : GameFrame.RUN_IT_TWICE;
+        this.iwtsth_checkbox.setSelected(rec_iwtsth);
+        this.rit_checkbox.setSelected(rec_rit);
+        this.rabbit_combo.setSelectedIndex(Math.min(Math.max(rec_rabbit, 0), 3));
+        boolean rec_manos_on = GameFrame.MANOS != -1;
+        this.manos_checkbox.setSelected(rec_manos_on);
+        this.manos_spinner.setModel(new SpinnerNumberModel(rec_manos_on ? GameFrame.MANOS : 100, 1, null, 1));
+        Helpers.makeNumericSpinnerEditable(this.manos_spinner, false);
+        ((javax.swing.JSpinner.DefaultEditor) this.manos_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        this.think_time_checkbox.setSelected(GameFrame.THINK_TIME_ENABLED);
+        this.think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, GameFrame.THINK_TIME)));
+        this.showdown_time_spinner.setValue(Math.max(GameFrame.SHOWDOWN_TIME_MIN, Math.min(GameFrame.SHOWDOWN_TIME_MAX, GameFrame.SHOWDOWN_TIME)));
+
+        this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
+        modelBlindCapSpinner(blindCapDoublingsFromCap());
+        this.rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
+        if (GameFrame.REBUY_LIMIT > 0) {
+            this.rebuy_limit_spinner.setValue(GameFrame.REBUY_LIMIT);
+        }
+        this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
+        this.bot_balance_checkbox.setSelected(GameFrame.BOT_BALANCE_TO_HUMANS);
+        // Rebuy is EDITABLE on recover: "allow rebuy" comes from the game.rebuy
+        // column; the rebuy cap from the recovered config (REBUY_CAP_POLICY).
+        this.rebuy_checkbox.setSelected(rebuy);
+        this.rebuy_cap_combo.setSelectedIndex(GameFrame.REBUY_CAP_POLICY == GameFrame.REBUY_CAP_HIGHEST_STACK ? 1 : 0);
+        game.put(server + " @ " + timeZoneFormat.format(date), map);
+        this.last_game_key = server + " @ " + timeZoneFormat.format(date);
     }
 
     /**
@@ -1703,6 +1808,17 @@ public class NewGameDialog extends JDialog {
         if (dialog_ok) {
             return;
         }
+
+        // loadLastGame() is async in normal (non-recovery) mode: if the user ticked "recover" and
+        // clicked "Vamos" before the recovered game finished loading, last_game_key is still null and
+        // the recover block below (game.get(last_game_key)) would NPE. Bail WITHOUT disabling "Vamos"
+        // so the click is a harmless no-op; the load lands in a moment and the user can click again.
+        // (In force_recover this can't trigger — there loadLastGame is synchronous, so last_game_key
+        // is already resolved by the time this auto-start runs.)
+        if (this.recover_checkbox.isSelected() && this.last_game_key == null) {
+            return;
+        }
+
         vamos.setEnabled(false);
 
         // The UPDATE branch (editing options from inside the room) was removed: that
@@ -1960,107 +2076,10 @@ public class NewGameDialog extends JDialog {
     private void recover_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recover_checkboxActionPerformed
         if (this.recover_checkbox.isSelected()) {
 
-            if (this.last_game_key == null) {
-                loadLastGame();
-            }
-
             if (this.last_game_key != null) {
-
-                this.game_label.setText(this.last_game_key);
-
-                this.buyin_spinner.setEnabled(false);
-
-                this.buyin_label.setEnabled(false);
-
-                this.ciegas_label.setEnabled(false);
-
-                this.ciegas_combobox.setEnabled(false);
-
-                this.estructura_combobox.setEnabled(false);
-
-                syncStructureComboForRecover();
-
-                this.doblar_ciegas_spinner_minutos.setEnabled(false);
-
-                this.double_blinds_radio_minutos.setEnabled(false);
-
-                this.doblar_ciegas_spinner_manos.setEnabled(false);
-
-                this.double_blinds_radio_manos.setEnabled(false);
-
-                this.doblar_checkbox.setEnabled(false);
-
-                this.blind_cap_checkbox.setEnabled(false);
-
-                setBlindCapControlsEnabled(false);
-
-                this.fixed_buyin_checkbox.setEnabled(false);
-
-                this.buyin_min_bb_spinner.setEnabled(false);
-
-                this.buyin_max_bb_spinner.setEnabled(false);
-
-                this.buyin_range_label.setEnabled(false);
-
-                this.buyin_range_sep_label.setEnabled(false);
-
-                // Ante/straddle and presets: locked on recover (game economy is fixed;
-                // ante/straddle are dead money tied to the blinds).
-                this.ante_checkbox.setEnabled(false);
-                this.straddle_checkbox.setEnabled(false);
-                this.presets_combobox.setEnabled(false);
-                this.preset_save_button.setEnabled(false);
-                this.preset_delete_button.setEnabled(false);
-                this.preset_label.setEnabled(false);
-                // "Game" settings (hand limit, IWTSTH, run-it-twice, rabbit, think time) + bot
-                // difficulty: EDITABLE before rejoining. loadLastGame already populated them
-                // with the recovered game's values; this just guarantees they're enabled.
-                this.bots_combobox.setEnabled(true);
-                this.bots_label.setEnabled(true);
-                this.manos_checkbox.setEnabled(true);
-                this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
-                this.iwtsth_checkbox.setEnabled(true);
-                this.rit_checkbox.setEnabled(true);
-                this.rabbit_combo.setEnabled(true);
-                this.think_time_checkbox.setEnabled(true);
-                this.think_time_spinner.setEnabled(this.think_time_checkbox.isSelected());
-                this.showdown_time_spinner.setEnabled(true);
-                // Rebuy (allow / limit / bot rebuy / cap): EDITABLE on recover. Enabled state
-                // follows "allow rebuy" (same as rebuy_checkboxActionPerformed).
-                this.rebuy_checkbox.setEnabled(true);
-                this.rebuy_limit_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
-                this.rebuy_limit_spinner.setEnabled(this.rebuy_checkbox.isSelected() && this.rebuy_limit_checkbox.isSelected());
-                this.bot_rebuy_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
-                this.rebuy_cap_label.setEnabled(this.rebuy_checkbox.isSelected());
-                this.rebuy_cap_combo.setEnabled(this.rebuy_checkbox.isSelected());
-
-                this.recover_checkbox_label.setOpaque(true);
-
-                this.recover_checkbox_label.setBackground(Color.YELLOW);
-
-                String[] parts = this.last_game_key.split(" @ ");
-
-                this.nick.setText(parts[0]);
-
-                this.nick.setEnabled(false);
-
-                packPreservingCenter();
-
-                if (!this.force_recover) {
-
-                    Helpers.mostrarMensajeInformativo(this, Translator.translate("player.en_el_bmodo_recuperacionb_se"), "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(getClass().getResource("/images/action/robot.png")));
-                }
+                applyRecoverSelectedUi();
             } else {
-
-                this.recover_checkbox_label.setOpaque(false);
-                this.recover_checkbox_label.setBackground(null);
-                this.recover_checkbox.setSelected(false);
-                this.game_label.setText("");
-                this.recover_checkbox.setEnabled(false);
-                Helpers.mostrarMensajeError(this, Translator.translate("game.no_hay_timbas_que_se"));
-
-                packPreservingCenter();
-
+                loadLastGame();
             }
 
         } else {
@@ -2162,6 +2181,110 @@ public class NewGameDialog extends JDialog {
         }
 
     }//GEN-LAST:event_recover_checkboxActionPerformed
+
+    /**
+     * EDT. Applies the "recover selected" UI state: locks the fixed game economy (buy-in, blinds,
+     * structure, ante/straddle, presets), keeps the editable game settings enabled, and shows the
+     * recovered game key. Assumes {@code last_game_key} is already set (by applyLoadedLastGame).
+     */
+    private void applyRecoverSelectedUi() {
+        this.game_label.setText(this.last_game_key);
+
+        this.buyin_spinner.setEnabled(false);
+
+        this.buyin_label.setEnabled(false);
+
+        this.ciegas_label.setEnabled(false);
+
+        this.ciegas_combobox.setEnabled(false);
+
+        this.estructura_combobox.setEnabled(false);
+
+        syncStructureComboForRecover();
+
+        this.doblar_ciegas_spinner_minutos.setEnabled(false);
+
+        this.double_blinds_radio_minutos.setEnabled(false);
+
+        this.doblar_ciegas_spinner_manos.setEnabled(false);
+
+        this.double_blinds_radio_manos.setEnabled(false);
+
+        this.doblar_checkbox.setEnabled(false);
+
+        this.blind_cap_checkbox.setEnabled(false);
+
+        setBlindCapControlsEnabled(false);
+
+        this.fixed_buyin_checkbox.setEnabled(false);
+
+        this.buyin_min_bb_spinner.setEnabled(false);
+
+        this.buyin_max_bb_spinner.setEnabled(false);
+
+        this.buyin_range_label.setEnabled(false);
+
+        this.buyin_range_sep_label.setEnabled(false);
+
+        // Ante/straddle and presets: locked on recover (game economy is fixed;
+        // ante/straddle are dead money tied to the blinds).
+        this.ante_checkbox.setEnabled(false);
+        this.straddle_checkbox.setEnabled(false);
+        this.presets_combobox.setEnabled(false);
+        this.preset_save_button.setEnabled(false);
+        this.preset_delete_button.setEnabled(false);
+        this.preset_label.setEnabled(false);
+        // "Game" settings (hand limit, IWTSTH, run-it-twice, rabbit, think time) + bot
+        // difficulty: EDITABLE before rejoining. loadLastGame already populated them
+        // with the recovered game's values; this just guarantees they're enabled.
+        this.bots_combobox.setEnabled(true);
+        this.bots_label.setEnabled(true);
+        this.manos_checkbox.setEnabled(true);
+        this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
+        this.iwtsth_checkbox.setEnabled(true);
+        this.rit_checkbox.setEnabled(true);
+        this.rabbit_combo.setEnabled(true);
+        this.think_time_checkbox.setEnabled(true);
+        this.think_time_spinner.setEnabled(this.think_time_checkbox.isSelected());
+        this.showdown_time_spinner.setEnabled(true);
+        // Rebuy (allow / limit / bot rebuy / cap): EDITABLE on recover. Enabled state
+        // follows "allow rebuy" (same as rebuy_checkboxActionPerformed).
+        this.rebuy_checkbox.setEnabled(true);
+        this.rebuy_limit_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
+        this.rebuy_limit_spinner.setEnabled(this.rebuy_checkbox.isSelected() && this.rebuy_limit_checkbox.isSelected());
+        this.bot_rebuy_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
+        this.rebuy_cap_label.setEnabled(this.rebuy_checkbox.isSelected());
+        this.rebuy_cap_combo.setEnabled(this.rebuy_checkbox.isSelected());
+
+        this.recover_checkbox_label.setOpaque(true);
+
+        this.recover_checkbox_label.setBackground(Color.YELLOW);
+
+        String[] parts = this.last_game_key.split(" @ ");
+
+        this.nick.setText(parts[0]);
+
+        this.nick.setEnabled(false);
+
+        packPreservingCenter();
+
+        if (!this.force_recover) {
+
+            Helpers.mostrarMensajeInformativo(this, Translator.translate("player.en_el_bmodo_recuperacionb_se"), "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(getClass().getResource("/images/action/robot.png")));
+        }
+    }
+
+    /** EDT. Shown when there is no recoverable game: unticks and disables the recover checkbox. */
+    private void showNoRecoverableGamesUi() {
+        this.recover_checkbox_label.setOpaque(false);
+        this.recover_checkbox_label.setBackground(null);
+        this.recover_checkbox.setSelected(false);
+        this.game_label.setText("");
+        this.recover_checkbox.setEnabled(false);
+        Helpers.mostrarMensajeError(this, Translator.translate("game.no_hay_timbas_que_se"));
+
+        packPreservingCenter();
+    }
 
     private void pass_textActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pass_textActionPerformed
         vamos.doClick();

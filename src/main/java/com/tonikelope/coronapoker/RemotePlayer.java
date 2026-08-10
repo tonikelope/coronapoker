@@ -2174,6 +2174,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }//GEN-LAST:event_player_actionMouseClicked
 
+    // Re-entrancy guard for the identity identicon: its pubkey resolution is async (off-EDT under
+    // SQL_LOCK), so the modal dialog does not block input the instant of the click — this prevents a
+    // rapid double-click from stacking duplicate dialogs. Set/read on the EDT; cleared when the modal
+    // dialog closes, or if resolution fails before it opens.
+    private volatile boolean avatar_identity_opening = false;
+
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
         // Plain left click: nothing else claims it on a seat avatar, and the
         // primary action of a control belongs to the primary button. The right
@@ -2196,25 +2202,49 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (par == null || par.isCpu()) {
             return;
         }
-        byte[] pubkey = par.getIdentity_pubkey();
-        if (pubkey == null) {
-            pubkey = TOFUResolver.getPinnedPubkey(this.nickname);
-            if (pubkey != null) {
-                par.setIdentity_pubkey(pubkey);
+        if (avatar_identity_opening) {
+            return; // a resolution/dialog for this avatar is already in flight
+        }
+        avatar_identity_opening = true;
+        // The pubkey fallback reads known_identities via TOFUResolver under SQL_LOCK, which must
+        // never run on the EDT — resolve it off the EDT, then open the dialog back on the EDT.
+        if (Helpers.threadRun(() -> {
+            try {
+                byte[] pubkey = par.getIdentity_pubkey();
+                if (pubkey == null) {
+                    pubkey = TOFUResolver.getPinnedPubkey(this.nickname);
+                    if (pubkey != null) {
+                        par.setIdentity_pubkey(pubkey);
+                    }
+                }
+                final byte[] pubkeyResolved = pubkey;
+                Helpers.GUIRun(() -> {
+                    try {
+                        if (pubkeyResolved == null) {
+                            java.util.logging.Logger.getLogger(RemotePlayer.class.getName()).log(
+                                    java.util.logging.Level.WARNING,
+                                    "No identity pubkey recorded for {0}; cannot open identity identicon",
+                                    this.nickname);
+                            return;
+                        }
+                        IdenticonDialog identicon = new IdenticonDialog(
+                                GameFrame.getInstance(), true, this.nickname,
+                                pubkeyResolved, IdenticonDialog.Mode.IDENTITY, pubkeyResolved);
+                        identicon.setLocationRelativeTo(GameFrame.getInstance());
+                        identicon.setVisible(true); // modal: blocks until closed
+                    } finally {
+                        avatar_identity_opening = false;
+                    }
+                });
+            } catch (Throwable t) {
+                // Resolution failed before the dialog could be scheduled — clear the guard so the
+                // avatar stays clickable.
+                avatar_identity_opening = false;
             }
+        }) == null) {
+            // Pool shutting down (teardown): the resolution will never run — clear the guard.
+            avatar_identity_opening = false;
         }
-        if (pubkey == null) {
-            java.util.logging.Logger.getLogger(RemotePlayer.class.getName()).log(
-                    java.util.logging.Level.WARNING,
-                    "No identity pubkey recorded for {0}; cannot open identity identicon",
-                    this.nickname);
-            return;
-        }
-        IdenticonDialog identicon = new IdenticonDialog(
-                GameFrame.getInstance(), true, this.nickname,
-                pubkey, IdenticonDialog.Mode.IDENTITY, pubkey);
-        identicon.setLocationRelativeTo(GameFrame.getInstance());
-        identicon.setVisible(true);
     }//GEN-LAST:event_avatarMouseClicked
 
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked

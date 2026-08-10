@@ -703,18 +703,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private java.util.Map<String, double[]> readLocalRecoverBalances() {
         java.util.Map<String, double[]> out = new java.util.HashMap<>();
         String sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
-        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-            statement.setQueryTimeout(30);
-            statement.setInt(1, this.sqlite_id_game);
-            statement.setInt(2, this.sqlite_id_game);
-            try (ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) {
-                    out.put(rs.getString("PLAYER"),
-                            new double[]{rs.getDouble("STACK"), rs.getInt("BUYIN"), rs.getInt("REBUY_COUNT")});
+        // The shared SQLite Connection is not thread-safe, and a StatsSync import may hold an
+        // open transaction on it from the network thread. Take SQL_LOCK like every other DB
+        // access so this anti-chip-theft read never observes an interleaved / uncommitted state
+        // (a dirty read here could either falsely flag the host or, on a native-contention throw,
+        // silently fall back to trusting the host).
+        synchronized (GameFrame.SQL_LOCK) {
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                statement.setQueryTimeout(30);
+                statement.setInt(1, this.sqlite_id_game);
+                statement.setInt(2, this.sqlite_id_game);
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        out.put(rs.getString("PLAYER"),
+                                new double[]{rs.getDouble("STACK"), rs.getInt("BUYIN"), rs.getInt("REBUY_COUNT")});
+                    }
                 }
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "RECOVER: could not read local balances for reconciliation (falling back to host)", ex);
             }
-        } catch (Exception ex) {
-            LOGGER.log(Level.WARNING, "RECOVER: could not read local balances for reconciliation (falling back to host)", ex);
         }
         return out;
     }
@@ -10479,19 +10486,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         byte[] receiptsBlob = out.toByteArray();
 
-        try (java.sql.PreparedStatement st = Helpers.getSQLITE().prepareStatement(
-                "INSERT INTO disputed_hands(id_hand, timestamp, receipts, local_h, reason) VALUES(?,?,?,?,?)")) {
-            st.setInt(1, this.sqlite_id_hand);
-            st.setLong(2, System.currentTimeMillis() / 1000L);
-            st.setBytes(3, receiptsBlob);
-            st.setBytes(4, localHFinal);
-            st.setString(5, reason);
-            st.executeUpdate();
-            LOGGER.log(Level.INFO,
-                    "disputed_hands row inserted: id_hand={0}, reason={1}, receipts_collected={2}",
-                    new Object[]{this.sqlite_id_hand, reason, receipts.size()});
-        } catch (Exception ex) {
-            LOGGER.log(Level.SEVERE, "Failed to insert disputed_hands row", ex);
+        // The shared SQLite Connection is not thread-safe and a StatsSync import may hold an
+        // open transaction on it. Without SQL_LOCK this forensic INSERT could be swept into
+        // that ambient transaction and lost on its rollback, or crash on native contention.
+        synchronized (GameFrame.SQL_LOCK) {
+            try (java.sql.PreparedStatement st = Helpers.getSQLITE().prepareStatement(
+                    "INSERT INTO disputed_hands(id_hand, timestamp, receipts, local_h, reason) VALUES(?,?,?,?,?)")) {
+                st.setInt(1, this.sqlite_id_hand);
+                st.setLong(2, System.currentTimeMillis() / 1000L);
+                st.setBytes(3, receiptsBlob);
+                st.setBytes(4, localHFinal);
+                st.setString(5, reason);
+                st.executeUpdate();
+                LOGGER.log(Level.INFO,
+                        "disputed_hands row inserted: id_hand={0}, reason={1}, receipts_collected={2}",
+                        new Object[]{this.sqlite_id_hand, reason, receipts.size()});
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, "Failed to insert disputed_hands row", ex);
+            }
         }
     }
 

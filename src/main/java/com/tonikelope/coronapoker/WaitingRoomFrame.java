@@ -5778,95 +5778,61 @@ public class WaitingRoomFrame extends JFrame {
                 && !WaitingRoomFrame.getInstance().isPartida_empezada()
                 && !WaitingRoomFrame.getInstance().isPartida_empezando()) {
 
-            String missing_players = "";
+            // Read the recover "missing players" OFF the EDT: it touches the shared SQLite
+            // connection, which must be read under SQL_LOCK — and SQL_LOCK must never be requested
+            // from the EDT. Disable "Start" first so a second click can't slip in while we read
+            // off-EDT, snapshot the participant nicks on the EDT (participantes is not a concurrent
+            // map), then resume the start flow on the EDT via continueStartGame with the result.
+            this.empezar_timba.setEnabled(false);
+            final java.util.HashSet<String> present_nicks;
+            synchronized (participantes) {
+                present_nicks = new java.util.HashSet<>(participantes.keySet());
+            }
+            if (Helpers.threadRun(() -> {
+                try {
+                    String missing_players = "";
 
-            if (GameFrame.RECOVER) {
-                int game_id = GameFrame.RECOVER_ID;
-                String sql = "SELECT preflop_players as PLAYERS FROM hand WHERE hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand where hand.id_game=?)";
+                    if (GameFrame.RECOVER) {
+                        int game_id = GameFrame.RECOVER_ID;
+                        String sql = "SELECT preflop_players as PLAYERS FROM hand WHERE hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand where hand.id_game=?)";
 
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, game_id);
-                    statement.setInt(2, game_id);
-                    ResultSet rs = statement.executeQuery();
+                        synchronized (GameFrame.SQL_LOCK) {
+                            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                                statement.setQueryTimeout(30);
+                                statement.setInt(1, game_id);
+                                statement.setInt(2, game_id);
+                                ResultSet rs = statement.executeQuery();
 
-                    if (rs.next()) {
-                        String datos = rs.getString("PLAYERS");
-                        String[] partes = datos.split("#");
-                        for (String player_data : partes) {
-                            partes = player_data.split("\\|");
-                            String nick = new String(Base64.getDecoder().decode(partes[0]), "UTF-8");
-                            if (!"".equals(nick) && !participantes.containsKey(nick)) {
-                                missing_players += nick + "\n\n";
+                                if (rs.next()) {
+                                    String datos = rs.getString("PLAYERS");
+                                    String[] partes = datos.split("#");
+                                    for (String player_data : partes) {
+                                        partes = player_data.split("\\|");
+                                        String nick = new String(Base64.getDecoder().decode(partes[0]), "UTF-8");
+                                        if (!"".equals(nick) && !present_nicks.contains(nick)) {
+                                            missing_players += nick + "\n\n";
+                                        }
+                                    }
+                                }
+                            } catch (SQLException | UnsupportedEncodingException ex) {
+                                LOGGER.log(Level.SEVERE, null, ex);
                             }
                         }
                     }
-                } catch (SQLException | UnsupportedEncodingException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+
+                    final String missing_players_final = missing_players;
+                    Helpers.GUIRun(() -> continueStartGame(missing_players_final));
+                } catch (Throwable t) {
+                    // Any UNEXPECTED failure while reading the recover data (e.g. a null PLAYERS
+                    // column NPE, not caught by the SQL/encoding catch above) must not leave "Start"
+                    // stuck disabled: re-enable it so the host can retry. Mirrors the old EDT path,
+                    // where the button was only disabled AFTER this read had already succeeded.
+                    LOGGER.log(Level.SEVERE, "empezar_timba: failed to prepare game start", t);
+                    Helpers.GUIRun(() -> this.empezar_timba.setEnabled(true));
                 }
-            }
-
-            boolean vamos = ("".equals(missing_players) || mostrarMensajeInformativoSINO(this,
-                    missing_players + Translator.translate("game.reconexion_pendiente"),
-                    new ImageIcon(Init.class.getResource("/images/action/timeout.png"))) == 0);
-
-            if (vamos) {
-                partida_empezando = true;
-                setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
-                this.empezar_timba.setEnabled(false);
-                this.new_bot_button.setEnabled(false);
-                this.new_bot_button.setVisible(false);
-                game_info_buyin.setToolTipText(null);
-                game_info_blinds.setToolTipText(null);
-                game_info_hands.setToolTipText(null);
-                this.kick_user.setEnabled(false);
-                this.kick_user.setVisible(false);
-                this.sound_icon.setVisible(false);
-                this.status.setText(Translator.translate("game.inicializando_timba"));
-                this.barra.setVisible(true);
-                status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
-
-                Helpers.threadRun(() -> {
-                    synchronized (lock_new_client) {
-                        boolean ocupados;
-                        do {
-                            ocupados = false;
-                            ArrayList<Participant> snapshot;
-                            synchronized (participantes) {
-                                snapshot = new ArrayList<>(participantes.values());
-                            }
-
-                            for (Participant p : snapshot) {
-                                if (p != null && !p.isCpu()) {
-                                    if (!p.getPre_game_socket_writer_queue().isEmpty()) {
-                                        ocupados = true;
-                                        p.setAsync_wait(true);
-                                    } else {
-                                        p.setAsync_wait(false);
-                                    }
-                                }
-                            }
-
-                            if (ocupados && net_server != null) {
-                                synchronized (net_server.getLock_client_pre_game_commands_wait()) {
-                                    try {
-                                        net_server.getLock_client_pre_game_commands_wait().wait(PRE_GAME_COMMANDS_LOCK);
-                                    } catch (InterruptedException ex) {
-                                    }
-                                }
-                            }
-                        } while (ocupados);
-
-                        Helpers.GUIRunAndWait(() -> {
-                            // Defensive (on the host the settings wheel is modal and blocks
-                            // "Start", so it normally wouldn't be open): close without asking.
-                            SettingsDialog.closeIfOpen();
-                            new GameFrame(WaitingRoomFrame.this, local_nick, true);
-                        });
-                        partida_empezada = true;
-                        GameFrame.getInstance().AJUGAR();
-                    }
-                });
+            }) == null) {
+                // Pool shutting down (teardown): the read will never run — re-enable Start to retry.
+                this.empezar_timba.setEnabled(true);
             }
         } else {
             chat_box.requestFocus();
@@ -5875,6 +5841,99 @@ public class WaitingRoomFrame extends JFrame {
         repaint();
 
     }//GEN-LAST:event_empezar_timbaActionPerformed
+
+    /**
+     * EDT continuation of the "Start game" flow, once the recover "missing players" list has been
+     * read off the EDT. Confirms (when there are missing players), then kicks off the game exactly
+     * as before; on cancel it re-enables the "Start" button so the host can retry.
+     */
+    private void continueStartGame(String missing_players) {
+        // Re-filter the "missing players" against a FRESH participant snapshot: the list was computed
+        // off the EDT (before/while reading the recover data), so a player may have (re)joined in the
+        // meantime — recompute who is still absent right before prompting, so the warning isn't stale.
+        if (!missing_players.isEmpty()) {
+            java.util.HashSet<String> present_now;
+            synchronized (participantes) {
+                present_now = new java.util.HashSet<>(participantes.keySet());
+            }
+            StringBuilder still_missing = new StringBuilder();
+            for (String n : missing_players.split("\n\n")) {
+                if (!n.isEmpty() && !present_now.contains(n)) {
+                    still_missing.append(n).append("\n\n");
+                }
+            }
+            missing_players = still_missing.toString();
+        }
+
+        boolean vamos = ("".equals(missing_players) || mostrarMensajeInformativoSINO(this,
+                missing_players + Translator.translate("game.reconexion_pendiente"),
+                new ImageIcon(Init.class.getResource("/images/action/timeout.png"))) == 0);
+
+        if (vamos) {
+            partida_empezando = true;
+            setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
+            this.empezar_timba.setEnabled(false);
+            this.new_bot_button.setEnabled(false);
+            this.new_bot_button.setVisible(false);
+            game_info_buyin.setToolTipText(null);
+            game_info_blinds.setToolTipText(null);
+            game_info_hands.setToolTipText(null);
+            this.kick_user.setEnabled(false);
+            this.kick_user.setVisible(false);
+            this.sound_icon.setVisible(false);
+            this.status.setText(Translator.translate("game.inicializando_timba"));
+            this.barra.setVisible(true);
+            status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
+            // Reflow after the above visibility/text changes (the read is now off-EDT, so the
+            // method-level revalidate/repaint no longer runs after these mutations).
+            revalidate();
+            repaint();
+
+            Helpers.threadRun(() -> {
+                synchronized (lock_new_client) {
+                    boolean ocupados;
+                    do {
+                        ocupados = false;
+                        ArrayList<Participant> snapshot;
+                        synchronized (participantes) {
+                            snapshot = new ArrayList<>(participantes.values());
+                        }
+
+                        for (Participant p : snapshot) {
+                            if (p != null && !p.isCpu()) {
+                                if (!p.getPre_game_socket_writer_queue().isEmpty()) {
+                                    ocupados = true;
+                                    p.setAsync_wait(true);
+                                } else {
+                                    p.setAsync_wait(false);
+                                }
+                            }
+                        }
+
+                        if (ocupados && net_server != null) {
+                            synchronized (net_server.getLock_client_pre_game_commands_wait()) {
+                                try {
+                                    net_server.getLock_client_pre_game_commands_wait().wait(PRE_GAME_COMMANDS_LOCK);
+                                } catch (InterruptedException ex) {
+                                }
+                            }
+                        }
+                    } while (ocupados);
+
+                    Helpers.GUIRunAndWait(() -> {
+                        // Defensive (on the host the settings wheel is modal and blocks
+                        // "Start", so it normally wouldn't be open): close without asking.
+                        SettingsDialog.closeIfOpen();
+                        new GameFrame(WaitingRoomFrame.this, local_nick, true);
+                    });
+                    partida_empezada = true;
+                    GameFrame.getInstance().AJUGAR();
+                }
+            });
+        } else {
+            this.empezar_timba.setEnabled(true);
+        }
+    }
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
 

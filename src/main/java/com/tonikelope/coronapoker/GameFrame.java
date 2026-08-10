@@ -4836,6 +4836,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             telemetryBroadcasterWatchdog();
         }
 
+        // Defensive DB-state reset before the Crupier starts writing. A StatsSync import runs a
+        // setAutoCommit(false) transaction on the SHARED SQLite connection off the network thread;
+        // if it was interrupted mid-transaction (SHUTDOWN_THREAD_POOL at teardown does not await
+        // its tasks) and its autoCommit restore also failed, the connection could be left stuck in
+        // autoCommit=false — which would silently swallow this game's writes. Taking SQL_LOCK first
+        // waits out any still-running import (its transaction has then already committed/rolled
+        // back), so this only ever confirms — or repairs — a clean state. Off the EDT (AJUGAR runs
+        // on a worker: it uses GUIRunAndWait below), so requesting SQL_LOCK here is invariant-safe.
+        synchronized (GameFrame.SQL_LOCK) {
+            try {
+                java.sql.Connection sqlite = Helpers.getSQLITE();
+                if (sqlite != null && !sqlite.getAutoCommit()) {
+                    sqlite.setAutoCommit(true);
+                    java.util.logging.Logger.getLogger(GameFrame.class.getName()).log(java.util.logging.Level.WARNING,
+                            "AJUGAR: shared SQLite connection was left in autoCommit=false — reset defensively before starting the Crupier.");
+                }
+            } catch (Exception ex) {
+                java.util.logging.Logger.getLogger(GameFrame.class.getName()).log(java.util.logging.Level.WARNING,
+                        "AJUGAR: could not verify/reset SQLite autoCommit before starting the Crupier", ex);
+            }
+        }
+
         Helpers.threadRun(crupier);
 
         // javax.swing.Timer already executes in the EDT. Removed redundant GUIRun context switch.

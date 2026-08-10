@@ -169,15 +169,33 @@ public final class GameLogDialog extends JDialog {
             doc.remove(0, doc.getLength());
         } catch (BadLocationException ex) {
         }
-        appendStyled(fullText);
+        appendStyled(doc, fullText);
     }
 
-    // Appends a chunk (one or more lines) with per-line + per-token styling.
-    private void appendStyled(String text) {
+    // Builds a read-only styled pane that renders a plain-text game log with the SAME
+    // console look as the in-game log HUD: Consolas monospace, dark background, syntax
+    // highlighting and box-drawing balance tables with role icons / card chips. Used by
+    // the Stats dialog's "REGISTRO DE LA TIMBA" view so a saved .log reads exactly as it
+    // did live — the previous HTML rendering used a proportional font and collapsed the
+    // monospace column padding, so the tables came out misaligned. Renders whatever text
+    // it's given (independent of the live LOG_TEXT).
+    public static JTextPane buildLogPane(String text) {
+        JTextPane pane = new JTextPane();
+        pane.setEditable(false);
+        pane.setBackground(LOG_BG);
+        pane.setForeground(new Color(230, 230, 230));
+        pane.setFont(LOG_FONT.deriveFont(LOG_FONT.getSize2D() * Helpers.DIALOG_ZOOM));
+        appendStyled(pane.getStyledDocument(), text);
+        return pane;
+    }
+
+    // Appends a chunk (one or more lines) with per-line + per-token styling into the
+    // given document. Static (target document passed in) so it can render either the live
+    // HUD's pane or a detached pane (see buildLogPane).
+    private static void appendStyled(StyledDocument doc, String text) {
         if (text == null || text.isEmpty()) {
             return;
         }
-        StyledDocument doc = log_pane.getStyledDocument();
         int i = 0, n = text.length();
         while (i < n) {
             int nl = text.indexOf('\n', i);
@@ -187,7 +205,7 @@ public final class GameLogDialog extends JDialog {
         }
     }
 
-    private void appendStyledLine(StyledDocument doc, String line) {
+    private static void appendStyledLine(StyledDocument doc, String line) {
         int len = line.length();
         if (len == 0) {
             return;
@@ -206,7 +224,7 @@ public final class GameLogDialog extends JDialog {
         appendNormalLine(doc, line);
     }
 
-    private void appendNormalLine(StyledDocument doc, String line) {
+    private static void appendNormalLine(StyledDocument doc, String line) {
         appendNormalLine(doc, line, null);
     }
 
@@ -214,7 +232,7 @@ public final class GameLogDialog extends JDialog {
     // from lineBaseStyle(line); card/amount/placeholder overlays still apply on top. No
     // caller currently passes a non-null value (the base color always comes from
     // lineBaseStyle); kept as a hook for a future forced-style caller.
-    private void appendNormalLine(StyledDocument doc, String line, SimpleAttributeSet forcedBase) {
+    private static void appendNormalLine(StyledDocument doc, String line, SimpleAttributeSet forcedBase) {
         int len = line.length();
         if (len == 0) {
             return;
@@ -290,7 +308,7 @@ public final class GameLogDialog extends JDialog {
     //             chips to the right of the frame.
     //   other  -> balance/totals/auditor-warning row: dimmed grid + normal-color
     //             content (amounts in amber).
-    private void appendBalanceRow(StyledDocument doc, String line) throws BadLocationException {
+    private static void appendBalanceRow(StyledDocument doc, String line) throws BadLocationException {
         String token = line.substring(0, 4);
         String rest = line.substring(4);
         SimpleAttributeSet ca = new SimpleAttributeSet();
@@ -344,7 +362,7 @@ public final class GameLogDialog extends JDialog {
     // Parenthesized amounts are painted amber (money / leftover pot) and [A♠] card
     // tokens are inserted as chips, so a bordered table still shows card chips and
     // highlights the amount.
-    private void appendGridLine(StyledDocument doc, String line, SimpleAttributeSet contentStyle) {
+    private static void appendGridLine(StyledDocument doc, String line, SimpleAttributeSet contentStyle) {
         int len = line.length();
         if (len == 0) {
             return;
@@ -1179,7 +1197,7 @@ public final class GameLogDialog extends JDialog {
                     String message = Translator.translate(msg);
                     GameLogDialog.LOG_TEXT += message + "\n\n";
                     Helpers.GUIRun(() -> {
-                        appendStyled(message + "\n\n");
+                        appendStyled(log_pane.getStyledDocument(), message + "\n\n");
 
                         if (auto_scroll && main_follow != null) {
                             main_follow.followIfNeeded();

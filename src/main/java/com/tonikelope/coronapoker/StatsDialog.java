@@ -3447,11 +3447,19 @@ public class StatsDialog extends JFrame {
 
             stats_db_executor.submit(() -> {
                 try {
-                    String log1 = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll(">>>>>>>>>>>>>>>>>>>>>>>>>>>>", "&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;").replaceAll("<<<<<<<<<<<<<<<<<<<<<<<<<<<<", "&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;").replaceAll("[*]{15} [^*]+ [*]{15}", "<b>$0</b>").replaceAll("\n", "<br>");
+                    String log_text = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log"), StandardCharsets.UTF_8);
                     Helpers.GUIRun(() -> {
-                        game_textarea.setText("<html><body style='color:white;background-color:rgb(102,102,102)'>" + log1 + "</body></html>");
+                        // Render the saved log with the SAME console styling as the in-game log
+                        // HUD (Consolas monospace, dark background, box-drawing balance tables
+                        // with role icons / card chips). The old HTML rendering used a
+                        // proportional font and collapsed the column padding, so the tables came
+                        // out misaligned. A styled JTextPane replaces the HTML JEditorPane as the
+                        // scrollpane's view; the chat view swaps game_textarea back in.
+                        javax.swing.JTextPane log_pane = GameLogDialog.buildLogPane(log_text);
+                        Helpers.JTextFieldRegularPopupMenu.addTo(log_pane);
+                        game_textarea_scrollpane.setViewportView(log_pane);
                         game_textarea_scrollpane.setVisible(true);
-                        game_textarea.setCaretPosition(0);
+                        log_pane.setCaretPosition(0);
                         chat_game_button.setEnabled(chat_button_enabled);
                         log_game_button.setEnabled(true);
                         cargando.setVisible(false);
@@ -3570,6 +3578,10 @@ public class StatsDialog extends JFrame {
                         chat_log = "<html><body style='background-color:rgb(0,102,153);color:white'>" + Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("\n", "<br><br>") + "</body></html>";
                     }
                     Helpers.GUIRun(() -> {
+                        // The log view swaps in a styled JTextPane; restore the HTML editor
+                        // pane before showing the (HTML) chat log.
+                        game_textarea_scrollpane.setViewportView(game_textarea);
+
                         game_textarea.setText(chat_log);
 
                         game_textarea_scrollpane.setVisible(true);

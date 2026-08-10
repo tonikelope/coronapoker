@@ -70,6 +70,38 @@ public class ChatImageDialog extends JDialog {
     public static final int MAX_IMAGE_WIDTH = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.20f);
     public static final ConcurrentHashMap<String, ImageIcon> STATIC_IMAGE_CACHE = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Object[]> GIF_CACHE = new ConcurrentHashMap<>();
+
+    // Bound the two decoded-image caches so a chat-heavy session can't grow them without limit.
+    // CACHE_ORDER tracks insertion order (guarded by the class monitor); eviction drops the OLDEST
+    // url from both maps, minimizing the chance of racing a lock-free reader of a recently-shown
+    // image. Callers put via putStaticImageCache/putGifCache, never into the maps directly.
+    private static final int MAX_CHAT_IMAGE_CACHE = 300;
+    private static final ArrayDeque<String> CACHE_ORDER = new ArrayDeque<>();
+
+    public static void putStaticImageCache(String url, ImageIcon icon) {
+        if (STATIC_IMAGE_CACHE.putIfAbsent(url, icon) == null) {
+            trackAndEvictCache(url);
+        }
+    }
+
+    public static void putGifCache(String url, Object[] value) {
+        if (GIF_CACHE.putIfAbsent(url, value) == null) {
+            trackAndEvictCache(url);
+        }
+    }
+
+    private static synchronized void trackAndEvictCache(String url) {
+        CACHE_ORDER.remove(url);
+        CACHE_ORDER.addLast(url);
+        while (CACHE_ORDER.size() > MAX_CHAT_IMAGE_CACHE) {
+            String oldest = CACHE_ORDER.pollFirst();
+            if (oldest != null) {
+                STATIC_IMAGE_CACHE.remove(oldest);
+                GIF_CACHE.remove(oldest);
+            }
+        }
+    }
+
     public static final int ANTI_FLOOD_IMAGE = 2;
     private static final ThreadPoolExecutor IMAGE_THREAD_POOL = (ThreadPoolExecutor) Executors.newFixedThreadPool(5);
     private static final ArrayDeque<String> HISTORIAL = cargarHistorial();
@@ -354,7 +386,10 @@ public class ChatImageDialog extends JDialog {
                 if (!exit) {
                     try {
 
-                        image = (STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) ? getImageFromCache(url) : ImageCacheManager.getIcon(new URL(url));
+                        // getImageFromCache snapshots the caches and returns null if the entry was
+                        // evicted, so fall back to a fresh load rather than NPE on a null icon.
+                        ImageIcon cached = getImageFromCache(url);
+                        image = (cached != null) ? cached : ImageCacheManager.getIcon(new URL(url));
                         MediaTracker tracker = new MediaTracker(label);
                         tracker.addImage(image.getImage(), 0);
                         tracker.waitForAll();
@@ -371,9 +406,9 @@ public class ChatImageDialog extends JDialog {
                             }
 
                             if (isgif = isgif || Helpers.isImageGIF(new URL(url))) {
-                                GIF_CACHE.putIfAbsent(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
+                                putGifCache(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
                             } else if (!GIF_CACHE.containsKey(url)) {
-                                STATIC_IMAGE_CACHE.putIfAbsent(url, image);
+                                putStaticImageCache(url, image);
                             }
 
                             // Display copy scaled by the dialog zoom (not cached). Scale ALL images, not
@@ -433,14 +468,18 @@ public class ChatImageDialog extends JDialog {
     }
 
     private ImageIcon getImageFromCache(String url) {
-
-        if (STATIC_IMAGE_CACHE.containsKey(url)) {
-            return STATIC_IMAGE_CACHE.get(url);
-        } else if (GIF_CACHE.containsKey(url)) {
-            return (ImageIcon) GIF_CACHE.get(url)[0];
-        } else {
-            return null;
+        // Snapshot the lock-free reads into locals so a concurrent eviction between a containsKey
+        // and a get can't NPE (and can't trip loadImage's catch into deleting a still-valid image
+        // from the persisted history). Returns null when not cached; callers fall back to a load.
+        ImageIcon cached_static = STATIC_IMAGE_CACHE.get(url);
+        if (cached_static != null) {
+            return cached_static;
         }
+        Object[] cached_gif = GIF_CACHE.get(url);
+        if (cached_gif != null) {
+            return (ImageIcon) cached_gif[0];
+        }
+        return null;
     }
 
     /**
@@ -453,6 +492,8 @@ public class ChatImageDialog extends JDialog {
         STATIC_IMAGE_CACHE.remove(url);
 
         GIF_CACHE.remove(url);
+
+        CACHE_ORDER.remove(url);
 
         HISTORIAL.remove(url);
 
@@ -898,12 +939,13 @@ public class ChatImageDialog extends JDialog {
         // TODO add your handling code here:
         if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("chat.borrar_todas_las_imagenes_del"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
 
-            STATIC_IMAGE_CACHE.clear();
-            GIF_CACHE.clear();
-
-            // HISTORIAL is shared static state - guard it with the class lock, as elsewhere
+            // Clear all four under the class monitor (as the puts/eviction do) so a concurrent
+            // cache put can't leave an entry tracked in one structure but not the others.
             synchronized (ChatImageDialog.class) {
+                STATIC_IMAGE_CACHE.clear();
+                GIF_CACHE.clear();
                 HISTORIAL.clear();
+                CACHE_ORDER.clear();
             }
 
             historial_panel.removeAll();

@@ -362,6 +362,11 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public static void resetInstance() {
+        // A return-to-menu cancel path may already have nulled THIS (see cliente()/servidor()); this
+        // reset then has nothing to do and must not NPE dereferencing it.
+        if (THIS == null) {
+            return;
+        }
         if (THIS.net_server != null) {
             THIS.net_server.getLate_clients_warning().clear();
         }

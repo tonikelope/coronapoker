@@ -166,7 +166,7 @@ public final class GameLogDialog extends JDialog {
     // The live HUD document is capped to the last MAX_LIVE_LOG_CHARS so it can't grow without
     // bound over a long game (the plain-text LOG_TEXT source of truth stays complete, so the saved
     // registro — rendered separately via buildLogPane — keeps every hand).
-    private static final int MAX_LIVE_LOG_CHARS = 200_000;
+    private static final int MAX_LIVE_LOG_CHARS = 500_000;
 
     private void renderAll(String fullText) {
         StyledDocument doc = log_pane.getStyledDocument();

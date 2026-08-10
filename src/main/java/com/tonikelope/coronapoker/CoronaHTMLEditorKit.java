@@ -138,23 +138,33 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                             String url = new String(Base64.getDecoder().decode(text.split("@")[0]), "UTF-8");
 
-                            label.setIcon(ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url) ? ChatImageDialog.STATIC_IMAGE_CACHE.get(url) : new ImageIcon(getClass().getResource("/images/loading.gif")));
+                            // Snapshot the lock-free get so an eviction can't turn a containsKey-true
+                            // into a null get (which would setIcon(null) -> blank instead of loading.gif).
+                            ImageIcon cached_icon = ChatImageDialog.STATIC_IMAGE_CACHE.get(url);
+                            label.setIcon(cached_icon != null ? cached_icon : new ImageIcon(getClass().getResource("/images/loading.gif")));
 
                             float align = Float.parseFloat(text.split("@")[1]);
 
                             label.setAlignmentX(align);
 
-                            if (!ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url)) {
+                            if (cached_icon == null) {
 
                                 Helpers.threadRun(() -> {
                                     try {
                                         ImageIcon image;
                                         boolean isgif = false;
-                                        if (ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url)) {
-                                            image = ChatImageDialog.STATIC_IMAGE_CACHE.get(url);
-                                        } else if ((isgif = ChatImageDialog.GIF_CACHE.containsKey(url)) && USE_GIF_CACHE) {
-                                            image = (ImageIcon) ChatImageDialog.GIF_CACHE.get(url)[0];
+                                        // Snapshot the cache reads into locals so an eviction between a
+                                        // containsKey and a get can't NPE (the maps are lock-free and
+                                        // now bounded, so entries can disappear between calls).
+                                        ImageIcon cached_static = ChatImageDialog.STATIC_IMAGE_CACHE.get(url);
+                                        Object[] cached_gif = ChatImageDialog.GIF_CACHE.get(url);
+                                        if (cached_static != null) {
+                                            image = cached_static;
+                                        } else if (cached_gif != null && USE_GIF_CACHE) {
+                                            isgif = true;
+                                            image = (ImageIcon) cached_gif[0];
                                         } else {
+                                            isgif = (cached_gif != null);
                                             image = ImageCacheManager.getIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
                                         }
                                         MediaTracker tracker = new MediaTracker(label);
@@ -168,11 +178,11 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                             }
                                             if (!ChatImageDialog.GIF_CACHE.containsKey(url) && isgif) {
 
-                                                ChatImageDialog.GIF_CACHE.put(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
+                                                ChatImageDialog.putGifCache(url, new Object[]{image, Helpers.getGIFLength(new URL(url))});
 
                                             } else if (!ChatImageDialog.GIF_CACHE.containsKey(url)) {
 
-                                                ChatImageDialog.STATIC_IMAGE_CACHE.putIfAbsent(url, image);
+                                                ChatImageDialog.putStaticImageCache(url, image);
                                             }
                                             // Display copy scaled to the current zoom (not cached; applies to every image).
                                             ImageIcon display_image = image;

@@ -360,53 +360,70 @@ public class IdenticonDialog extends JDialog {
         verifyPanel.setBackground(Color.WHITE);
         verifyPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 14, 14, 14));
 
-        boolean alreadyVerified = (pubkeyForVerify != null)
-                && TOFUResolver.isVerified(nick, pubkeyForVerify);
+        // Build the UNVERIFIED state (hint + button) SYNCHRONOUSLY so pack() reserves the taller
+        // layout. The verified check reads known_identities via TOFUResolver under SQL_LOCK, which
+        // must NEVER run on the EDT — so it is resolved off the EDT afterwards, and if the identity
+        // is already verified the panel collapses to the compact "✓ verified" state (which fits
+        // inside the space already reserved). The common case (unverified peer) shows no flicker.
+        String hintHtml = "<html><body style='width: " + Math.round(380 * FONT_BUMP * Helpers.DIALOG_ZOOM) + "px; text-align: justify; "
+                + "font-family: sans-serif; font-size: " + Math.round(idf(13f)) + "pt;'>"
+                + Translator.translate("ui.identicon.no_verificada")
+                + "</body></html>";
+        JLabel hintLabel = new JLabel(hintHtml, SwingConstants.CENTER);
+        hintLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        verifyPanel.add(hintLabel, BorderLayout.CENTER);
 
-        if (alreadyVerified) {
-            JLabel verifiedLabel = new JLabel(
-                    "✓ " + Translator.translate("ui.identicon.ya_verificada"),
-                    SwingConstants.CENTER);
-            verifiedLabel.setForeground(new Color(0, 128, 0));
-            verifiedLabel.setFont(verifiedLabel.getFont().deriveFont(java.awt.Font.BOLD, idf(16f)));
-            verifyPanel.add(verifiedLabel, BorderLayout.CENTER);
-        } else {
-            // Hint text: justified and centered, slightly larger so the user actually
-            // reads what verifying means before pressing the button.
-            String hintHtml = "<html><body style='width: " + Math.round(380 * FONT_BUMP * Helpers.DIALOG_ZOOM) + "px; text-align: justify; "
-                    + "font-family: sans-serif; font-size: " + Math.round(idf(13f)) + "pt;'>"
-                    + Translator.translate("ui.identicon.no_verificada")
-                    + "</body></html>";
-            JLabel hintLabel = new JLabel(hintHtml, SwingConstants.CENTER);
-            hintLabel.setHorizontalAlignment(SwingConstants.CENTER);
-            verifyPanel.add(hintLabel, BorderLayout.CENTER);
+        JButton verifyButton = new JButton(Translator.translate("ui.identicon.verificar_button"));
+        verifyButton.setBackground(new Color(0, 130, 0));
+        verifyButton.setForeground(Color.WHITE);
+        verifyButton.setFont(verifyButton.getFont().deriveFont(java.awt.Font.BOLD, idf(15f)));
+        verifyButton.setMargin(new java.awt.Insets(8, 18, 8, 18));
+        verifyButton.addActionListener(evt -> {
+            verifyButton.setEnabled(false);
+            // The write also goes through SQL_LOCK — run it off the EDT, then update the UI.
+            if (Helpers.threadRun(() -> {
+                final boolean ok = pubkeyForVerify != null && TOFUResolver.markVerified(nick, pubkeyForVerify);
+                Helpers.GUIRun(() -> {
+                    if (ok) {
+                        showVerifiedLabel(verifyPanel);
+                    } else {
+                        verifyButton.setEnabled(true);
+                    }
+                });
+            }) == null) {
+                // Pool shutting down: re-enable the verify button.
+                verifyButton.setEnabled(true);
+            }
+        });
+        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 6));
+        buttonRow.setOpaque(true);
+        buttonRow.setBackground(Color.WHITE);
+        buttonRow.add(verifyButton);
+        verifyPanel.add(buttonRow, BorderLayout.SOUTH);
 
-            JButton verifyButton = new JButton(Translator.translate("ui.identicon.verificar_button"));
-            verifyButton.setBackground(new Color(0, 130, 0));
-            verifyButton.setForeground(Color.WHITE);
-            verifyButton.setFont(verifyButton.getFont().deriveFont(java.awt.Font.BOLD, idf(15f)));
-            verifyButton.setMargin(new java.awt.Insets(8, 18, 8, 18));
-            verifyButton.addActionListener(evt -> {
-                if (pubkeyForVerify != null && TOFUResolver.markVerified(nick, pubkeyForVerify)) {
-                    verifyButton.setVisible(false);
-                    hintLabel.setVisible(false);
-                    JLabel done = new JLabel(
-                            "✓ " + Translator.translate("ui.identicon.ya_verificada"),
-                            SwingConstants.CENTER);
-                    done.setForeground(new Color(0, 128, 0));
-                    done.setFont(done.getFont().deriveFont(java.awt.Font.BOLD, idf(16f)));
-                    verifyPanel.add(done, BorderLayout.CENTER);
-                    verifyPanel.revalidate();
-                    verifyPanel.repaint();
-                }
-            });
-            JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 6));
-            buttonRow.setOpaque(true);
-            buttonRow.setBackground(Color.WHITE);
-            buttonRow.add(verifyButton);
-            verifyPanel.add(buttonRow, BorderLayout.SOUTH);
-        }
+        // Off-EDT verified check; if already verified, collapse to the compact "✓ verified" state.
+        Helpers.threadRun(() -> {
+            final boolean alreadyVerified = (pubkeyForVerify != null)
+                    && TOFUResolver.isVerified(nick, pubkeyForVerify);
+            if (alreadyVerified) {
+                Helpers.GUIRun(() -> showVerifiedLabel(verifyPanel));
+            }
+        });
+
         return verifyPanel;
+    }
+
+    /** EDT. Collapses the verify panel to the compact "✓ already verified" label. */
+    private void showVerifiedLabel(JPanel verifyPanel) {
+        verifyPanel.removeAll();
+        JLabel done = new JLabel(
+                "✓ " + Translator.translate("ui.identicon.ya_verificada"),
+                SwingConstants.CENTER);
+        done.setForeground(new Color(0, 128, 0));
+        done.setFont(done.getFont().deriveFont(java.awt.Font.BOLD, idf(16f)));
+        verifyPanel.add(done, BorderLayout.CENTER);
+        verifyPanel.revalidate();
+        verifyPanel.repaint();
     }
 
     /**

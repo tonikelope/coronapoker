@@ -1650,6 +1650,21 @@ public class Helpers {
                     statement.execute("ALTER TABLE game ADD private INTEGER DEFAULT 0");
                 } catch (Exception ex) {
                 }
+                // Per-game "imported" flag (0/1): set to 1 by StatsSync when a game arrives via
+                // P2P sync (a game another player shared with us), 0 for games we played or hosted
+                // ourselves. Purely local (NOT part of the sync payload), it lets the user tell
+                // apart — and bulk-delete — received games. Distinct from local=0, which only means
+                // "this table was not hosted on this machine".
+                try {
+                    statement.execute("ALTER TABLE game ADD imported INTEGER DEFAULT 0");
+                } catch (Exception ex) {
+                }
+                // Nick of the peer that sent us an imported game (the direct sender: the host for a
+                // client, the originating client for the host). Display-only, local, never on the wire.
+                try {
+                    statement.execute("ALTER TABLE game ADD imported_from TEXT");
+                } catch (Exception ex) {
+                }
                 try {
                     statement.execute("ALTER TABLE balance ADD rebuy_count INTEGER DEFAULT 0");
                 } catch (Exception ex) {
@@ -1822,6 +1837,13 @@ public class Helpers {
 
     public static void SQLITEVAC() {
 
+        // The shared SQLite Connection is not thread-safe and a StatsSync import may hold an
+        // open transaction on it from the network thread. Serialize under SQL_LOCK like every
+        // other DB access (VACUUM in particular cannot run inside another statement's open
+        // transaction on the same connection). Runs off the EDT — from finTransmision's teardown
+        // thread AND from StatsDialog's "stats-db" executor (purge / delete-all / delete-imported) —
+        // so taking SQL_LOCK here respects the "never request SQL_LOCK from the EDT" invariant.
+        synchronized (GameFrame.SQL_LOCK) {
         try (Statement statement = Helpers.getSQLITE().createStatement()) {
 
             // VACUUM rewrites the ENTIRE database file, so its cost grows
@@ -1884,6 +1906,7 @@ public class Helpers {
                 LOGGER.log(Level.SEVERE, "SQLite VACUUM failed", ex);
             }
         }
+        } // synchronized (GameFrame.SQL_LOCK)
 
     }
 
@@ -5103,7 +5126,16 @@ public class Helpers {
 
     public static Future threadRun(Runnable r) {
 
-        return THREAD_POOL.submit(r);
+        try {
+            return THREAD_POOL.submit(r);
+        } catch (RejectedExecutionException ex) {
+            // The pool is shutting down (game teardown). Mirror logRun's tolerance instead of letting
+            // the rejection propagate uncaught out of a UI handler (which could strand a re-entrancy
+            // guard or leave a button disabled). Returns null; callers that armed such a guard/button
+            // before submitting reset it when this returns null.
+            LOGGER.log(Level.FINE, "threadRun rejected — thread pool is shutting down");
+            return null;
+        }
 
     }
 

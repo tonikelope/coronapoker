@@ -167,6 +167,10 @@ public class StatsSyncTest {
             // NewGameDialog.loadLastGame (WHERE local == 1) would offer to recover a
             // game this machine never hosted.
             assertEquals("0", scalarStr(dst, "SELECT local FROM game WHERE ugi='UGI_HOSTED'"));
+
+            // And it is flagged imported=1 (received via sync), so the UI can tell it apart from
+            // games we played/hosted and offer to bulk-delete only the shared ones.
+            assertEquals("1", scalarStr(dst, "SELECT imported FROM game WHERE ugi='UGI_HOSTED'"));
         }
     }
 
@@ -250,7 +254,7 @@ public class StatsSyncTest {
         Connection c = DriverManager.getConnection("jdbc:sqlite::memory:");
         try (Statement st = c.createStatement()) {
             st.execute("PRAGMA foreign_keys=ON");
-            st.execute("CREATE TABLE game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER, ugi TEXT, local INTEGER DEFAULT 0, recover_settings TEXT, private INTEGER DEFAULT 0)");
+            st.execute("CREATE TABLE game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER, ugi TEXT, local INTEGER DEFAULT 0, recover_settings TEXT, private INTEGER DEFAULT 0, imported INTEGER DEFAULT 0, imported_from TEXT)");
             st.execute("CREATE TABLE hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, hand_id_b64 TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
             st.execute("CREATE TABLE action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, record_b64 TEXT, sig_b64 TEXT, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
             st.execute("CREATE TABLE showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, profit REAL, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");

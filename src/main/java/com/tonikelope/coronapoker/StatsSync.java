@@ -184,6 +184,15 @@ public final class StatsSync {
      * Never throws.
      */
     public static int importGames(byte[] blob) {
+        return importGames(blob, null);
+    }
+
+    /**
+     * As {@link #importGames(byte[])}, additionally recording {@code fromNick} — the peer that sent
+     * us this batch — on each newly-inserted game ({@code game.imported_from}, display-only, not part
+     * of the wire payload). {@code null}/blank leaves it unset.
+     */
+    public static int importGames(byte[] blob, String fromNick) {
         try {
             // Decode (inflate + parse) is pure CPU/memory — do it WITHOUT holding
             // SQL_LOCK so a large or hostile blob can never stall the live game's
@@ -193,7 +202,7 @@ public final class StatsSync {
                 return 0;
             }
             synchronized (GameFrame.SQL_LOCK) {
-                return insertGames(Helpers.getSQLITE(), games);
+                return insertGames(Helpers.getSQLITE(), games, fromNick);
             }
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "StatsSync: import failed", ex);
@@ -344,7 +353,7 @@ public final class StatsSync {
     }
 
     public static int importGames(Connection conn, byte[] blob) throws Exception {
-        return insertGames(conn, decodeGames(blob));
+        return insertGames(conn, decodeGames(blob), null);
     }
 
     /**
@@ -397,13 +406,13 @@ public final class StatsSync {
      * Insert phase (caller holds SQL_LOCK in production): merge each decoded game
      * atomically and idempotently. A game that fails is rolled back and skipped.
      */
-    private static int insertGames(Connection conn, List<GameData> games) {
+    private static int insertGames(Connection conn, List<GameData> games, String fromNick) {
         int imported = 0;
         int skipped = 0;
         int failed = 0;
         for (GameData game : games) {
             try {
-                if (insertGameIfNew(conn, game)) {
+                if (insertGameIfNew(conn, game, fromNick)) {
                     imported++;
                 } else {
                     skipped++;
@@ -569,7 +578,7 @@ public final class StatsSync {
      * present). On any SQL error the transaction is rolled back and the
      * exception is rethrown for the caller to log.
      */
-    private static boolean insertGameIfNew(Connection conn, GameData g) throws Exception {
+    private static boolean insertGameIfNew(Connection conn, GameData g, String fromNick) throws Exception {
         String ugi = (String) g.game[GAME.indexOf("ugi")];
         if (ugi == null || ugi.isEmpty()) {
             LOGGER.log(Level.FINE, "StatsSync: game without ugi skipped (no merge key)");
@@ -602,6 +611,18 @@ public final class StatsSync {
         conn.setAutoCommit(false);
         try {
             long gameId = insert(conn, "game", GAME, null, 0L, g.game, true);
+            // Stamp the received game as imported (received via sync). Like local=0 above, this is
+            // a receiver-side concept and is deliberately NOT carried on the wire, so it is set here
+            // rather than serialized. Within the same transaction, it commits atomically with the game.
+            try (PreparedStatement mark = conn.prepareStatement("UPDATE game SET imported = 1, imported_from = ? WHERE id = ?")) {
+                if (fromNick != null && !fromNick.isEmpty()) {
+                    mark.setString(1, fromNick);
+                } else {
+                    mark.setNull(1, Types.VARCHAR);
+                }
+                mark.setLong(2, gameId);
+                mark.executeUpdate();
+            }
             for (HandData h : g.hands) {
                 long handId = insert(conn, "hand", HAND, "id_game", gameId, h.hand, true);
                 for (Object[] a : h.actions) {

@@ -74,6 +74,12 @@ public final class StatsSyncManager {
     // manifest plus everything we have since sent it) and whether it wants games.
     private final ConcurrentHashMap<String, PeerState> peers = new ConcurrentHashMap<>();
 
+    // Monotonic arrival counter for MANIFEST frames, stamped on the ordered reader thread BEFORE
+    // the work is offloaded to the unordered pool. handleManifest then only replaces a peer's
+    // tracking state with a strictly-newer manifest, so an older one that happens to run afterwards
+    // (e.g. a receive-preference toggle right before a reconnect) can no longer clobber it.
+    private final java.util.concurrent.atomic.AtomicLong manifestSeq = new java.util.concurrent.atomic.AtomicLong();
+
     StatsSyncManager(WaitingRoomFrame room) {
         this.room = room;
     }
@@ -117,22 +123,35 @@ public final class StatsSyncManager {
         }
         byte subtype = StatsSyncProtocol.subtype(message);
         if (subtype == StatsSyncProtocol.MANIFEST) {
-            Helpers.threadRun(() -> handleManifest(peerNick, message, iAmHost));
+            // Stamp arrival order HERE, on the ordered reader thread, before offloading.
+            final long seq = manifestSeq.incrementAndGet();
+            Helpers.threadRun(() -> handleManifest(peerNick, message, iAmHost, seq));
         } else if (subtype == StatsSyncProtocol.GAMES) {
             Helpers.threadRun(() -> handleGames(peerNick, message, iAmHost));
         }
     }
 
-    private void handleManifest(String peerNick, byte[] message, boolean iAmHost) {
+    private void handleManifest(String peerNick, byte[] message, boolean iAmHost, long seq) {
         String side = iAmHost ? "HOST" : "CLIENT";
         try {
             StatsSyncProtocol.Manifest manifest = StatsSyncProtocol.readManifest(message);
             List<String> mine = StatsSync.listShareableUgis();
 
             if (iAmHost) {
-                PeerState state = new PeerState(manifest.wantsReceive);
-                state.knownUgis.addAll(manifest.ugis);
-                peers.put(peerNick, state);
+                // Compare-and-set on arrival sequence: replace only with a strictly-newer manifest
+                // (an out-of-order older one is ignored), and UNION the known-ugi set so we never
+                // forget what we have already sent this peer across manifests/reconnects.
+                peers.compute(peerNick, (nick, old) -> {
+                    if (old != null && old.seq >= seq) {
+                        return old; // a newer (or equal) manifest already won — keep it
+                    }
+                    PeerState state = new PeerState(manifest.wantsReceive, seq);
+                    state.knownUgis.addAll(manifest.ugis);
+                    if (old != null) {
+                        state.knownUgis.addAll(old.knownUgis);
+                    }
+                    return state;
+                });
             }
 
             LOGGER.log(Level.INFO, "StatsSync [{0}]: manifest from {1} — it has {2} game(s) (wantsReceive={3}); "
@@ -178,7 +197,7 @@ public final class StatsSyncManager {
             return; // we did not ask for games
         }
         try {
-            int imported = StatsSync.importGames(StatsSyncProtocol.gamesBlob(message));
+            int imported = StatsSync.importGames(StatsSyncProtocol.gamesBlob(message), peerNick);
             if (imported > 0) {
                 LOGGER.log(Level.INFO, "StatsSync [{0}]: imported {1} new game(s) from {2}.",
                         new Object[]{side, imported, peerNick});
@@ -267,10 +286,14 @@ public final class StatsSyncManager {
     private static final class PeerState {
 
         final boolean wantsReceive;
+        // Arrival sequence of the manifest that produced this state; used to reject a stale
+        // (out-of-order) manifest in handleManifest's compare-and-set.
+        final long seq;
         final Set<String> knownUgis = ConcurrentHashMap.newKeySet();
 
-        PeerState(boolean wantsReceive) {
+        PeerState(boolean wantsReceive, long seq) {
             this.wantsReceive = wantsReceive;
+            this.seq = seq;
         }
     }
 }

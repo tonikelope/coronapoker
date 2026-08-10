@@ -1064,6 +1064,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return THIS;
     }
 
+    // Clears ONLY the singleton reference, without the full resetInstance() teardown (which assumes
+    // a fully-built frame and would NPE against a half-built one). The constructor publishes
+    // THIS = this as its first statement, so a construction that throws partway leaves a half-built
+    // instance visible to getInstance(). Call this on that failure so getInstance() honestly reports
+    // "no game" (getInstance()!=null checks elsewhere then treat it as fresh-start) until the next
+    // new GameFrame(...) attempt overwrites THIS.
+    public static void clearFailedInstance() {
+        THIS = null;
+    }
+
     public static String serializeRecoverSettings() {
         boolean iwtsth = (IWTSTH_RULE_RECOVER != null ? IWTSTH_RULE_RECOVER : IWTSTH_RULE);
         int rabbit = (RABBIT_HUNTING_RECOVER != null ? RABBIT_HUNTING_RECOVER : RABBIT_HUNTING);
@@ -4631,7 +4641,33 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         recover = balance_ref[0] != null && balance_ref[0].isRecover();
 
-                        Helpers.GUIRunAndWait(() -> hideBalanceOverlay(balance_ref[0]));
+                        // Hide the final-screen overlay WITHOUT holding SQL_LOCK across the EDT
+                        // round-trip. A GUIRunAndWait here would block on the EDT while this thread
+                        // still holds the outer SQL_LOCK, and the EDT would deadlock the instant it
+                        // tried to take that lock (e.g. a settings SAVE) -- the very hazard the
+                        // balance-latch wait above is written to avoid. Same release-the-monitor
+                        // trick: SQL_LOCK.wait() fully relinquishes the monitor (even re-entrant)
+                        // while we wait for the EDT to finish hiding the overlay, so the ordering
+                        // guarantee (overlay gone BEFORE SQLITEVAC/closeSQLITE/RESET_GAME) is kept
+                        // without pinning the lock.
+                        final java.util.concurrent.CountDownLatch hide_latch = new java.util.concurrent.CountDownLatch(1);
+                        Helpers.GUIRun(() -> {
+                            try {
+                                hideBalanceOverlay(balance_ref[0]);
+                            } finally {
+                                hide_latch.countDown();
+                            }
+                        });
+                        synchronized (GameFrame.SQL_LOCK) {
+                            while (hide_latch.getCount() > 0) {
+                                try {
+                                    GameFrame.SQL_LOCK.wait(WAIT_QUEUES);
+                                } catch (InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                    break;
+                                }
+                            }
+                        }
                     } else if (!isPartida_local()) {
                         Helpers.GUIRun(() -> {
                             InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("conn.el_servidor_ha_detenido_la"), Color.WHITE, Color.BLACK, getClass().getResource("/images/stop.png"), HALT_PAUSE, true);

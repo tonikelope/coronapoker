@@ -16489,9 +16489,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public HashMap<String, Object> sqlRecoverServerLocalGameKeyData(boolean include_balance) {
 
-        synchronized (GameFrame.SQL_LOCK) {
+        HashMap<String, Object> map = null;
 
-            HashMap<String, Object> map = null;
+        // Phase 1: read the key/recovery data. Needs SQL_LOCK; no EDT interaction.
+        synchronized (GameFrame.SQL_LOCK) {
 
             try {
 
@@ -16514,99 +16515,116 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             return null;
                         }
 
-                        map = new HashMap<>();
-                        map.put("start", rs.getLong("start"));
-                        map.put("hand_id", rs.getInt("hand_id"));
-                        map.put("hand_end", rs.getLong("hand_end"));
-                        map.put("server", rs.getString("server"));
-                        map.put("preflop_players", rs.getString("preflop_players"));
+                        // Populate a LOCAL map first and publish it to `map` only once every
+                        // column has been read successfully. If a getX below throws mid-way, `map`
+                        // stays null: the method returns null (the caller treats null as
+                        // fresh-start) and phase 2 is skipped — we never return, or run balance
+                        // recovery against, a partially-filled map with null dealer/sb/bb. This
+                        // matches the original single-try behavior (a mid-read SQLException skipped
+                        // the balance block) while also hardening the downstream recovery.
+                        HashMap<String, Object> built = new HashMap<>();
+                        built.put("start", rs.getLong("start"));
+                        built.put("hand_id", rs.getInt("hand_id"));
+                        built.put("hand_end", rs.getLong("hand_end"));
+                        built.put("server", rs.getString("server"));
+                        built.put("preflop_players", rs.getString("preflop_players"));
                         // Recovery: cryptographic HAND_ID (16 bytes,
                         // base64) needed to re-seed HandStateChain.start with the same
                         // value the original hand used. Nullable — recovery falls back
                         // to "chain stays null" (legacy degraded mode) when missing.
                         String handIdB64 = rs.getString("hand_id_b64");
                         if (handIdB64 != null) {
-                            map.put("hand_id_b64", handIdB64);
+                            built.put("hand_id_b64", handIdB64);
                         }
-                        map.put("buyin", rs.getInt("buyin"));
-                        map.put("rebuy", rs.getBoolean("rebuy"));
-                        map.put("play_time", rs.getLong("play_time"));
-                        map.put("conta_mano", rs.getInt("conta_mano"));
-                        map.put("sbval", rs.getDouble("sbval"));
-                        map.put("bbval", rs.getDouble("bbval"));
-                        map.put("blinds_time", rs.getInt("blinds_time"));
-                        map.put("blinds_time_type", rs.getInt("blinds_time_type"));
-                        map.put("blinds_double", rs.getInt("blinds_double"));
-                        map.put("dealer", rs.getString("dealer"));
-                        map.put("sb", rs.getString("sb"));
-                        map.put("bb", rs.getString("bb"));
+                        built.put("buyin", rs.getInt("buyin"));
+                        built.put("rebuy", rs.getBoolean("rebuy"));
+                        built.put("play_time", rs.getLong("play_time"));
+                        built.put("conta_mano", rs.getInt("conta_mano"));
+                        built.put("sbval", rs.getDouble("sbval"));
+                        built.put("bbval", rs.getDouble("bbval"));
+                        built.put("blinds_time", rs.getInt("blinds_time"));
+                        built.put("blinds_time_type", rs.getInt("blinds_time_type"));
+                        built.put("blinds_double", rs.getInt("blinds_double"));
+                        built.put("dealer", rs.getString("dealer"));
+                        built.put("sb", rs.getString("sb"));
+                        built.put("bb", rs.getString("bb"));
+                        map = built;
                     }
                 }
 
-                if (include_balance) {
-
-                    // Recover the balance
-                    if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(
-                            GameFrame.getInstance(),
-                            Translator.translate("ui.se_ha_encontrado_un_fichero"),
-                            new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
-
-                        try {
-                            String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
-
-                            // REPLACE_EXISTING: without it, a leftover balance_used from a
-                            // previous recovery would make the move fail with
-                            // FileAlreadyExistsException, leaving the original balance file on
-                            // disk for a later recovery to pick up stale data. This makes
-                            // marking it as used idempotent.
-                            Files.move(Paths.get(Init.CORONA_DIR + "/balance"),
-                                    Paths.get(Init.CORONA_DIR + "/balance_used"),
-                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-
-                            map.put("balance", balance.trim());
-
-                            LOGGER.log(Level.WARNING, "Forced recovered balance applied");
-
-                            LOGGER.log(Level.WARNING, balance);
-
-                        } catch (Exception ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                        }
-
-                    } else {
-
-                        sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
-
-                        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-
-                            statement.setQueryTimeout(30);
-                            statement.setInt(1, this.sqlite_id_game);
-                            statement.setInt(2, this.sqlite_id_game);
-
-                            try (ResultSet rs = statement.executeQuery()) {
-
-                                ArrayList<String> balance = new ArrayList<>();
-
-                                while (rs.next()) {
-
-                                    balance.add(
-                                            Base64.getEncoder().encodeToString(rs.getString("PLAYER").getBytes("UTF-8")) + "|"
-                                            + rs.getDouble("STACK") + "|" + rs.getInt("BUYIN") + "|" + rs.getInt("REBUY_COUNT"));
-                                }
-
-                                map.put("balance", String.join("@", balance));
-                            }
-                        }
-                    }
-                }
-
-            } catch (SQLException | UnsupportedEncodingException ex) {
+            } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
-
-            return map;
-
         }
+
+        // Phase 2: optional balance recovery. The YES/NO prompt is a MODAL and must NOT run while
+        // holding SQL_LOCK: this method runs on the Crupier recovery thread and the modal blocks on
+        // the EDT, so pinning the lock across it is an EDT<->lock deadlock hazard (the EDT would
+        // hang the instant it tried to take SQL_LOCK). We read the key data under the lock above,
+        // release it, prompt the user, and re-take the lock only for the balance query.
+        if (include_balance && map != null) {
+
+            // Recover the balance
+            if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(
+                    GameFrame.getInstance(),
+                    Translator.translate("ui.se_ha_encontrado_un_fichero"),
+                    new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
+
+                try {
+                    String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
+
+                    // REPLACE_EXISTING: without it, a leftover balance_used from a
+                    // previous recovery would make the move fail with
+                    // FileAlreadyExistsException, leaving the original balance file on
+                    // disk for a later recovery to pick up stale data. This makes
+                    // marking it as used idempotent.
+                    Files.move(Paths.get(Init.CORONA_DIR + "/balance"),
+                            Paths.get(Init.CORONA_DIR + "/balance_used"),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+                    map.put("balance", balance.trim());
+
+                    LOGGER.log(Level.WARNING, "Forced recovered balance applied");
+
+                    LOGGER.log(Level.WARNING, balance);
+
+                } catch (Exception ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
+
+            } else {
+
+                synchronized (GameFrame.SQL_LOCK) {
+
+                    String sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
+
+                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+
+                        statement.setQueryTimeout(30);
+                        statement.setInt(1, this.sqlite_id_game);
+                        statement.setInt(2, this.sqlite_id_game);
+
+                        try (ResultSet rs = statement.executeQuery()) {
+
+                            ArrayList<String> balance = new ArrayList<>();
+
+                            while (rs.next()) {
+
+                                balance.add(
+                                        Base64.getEncoder().encodeToString(rs.getString("PLAYER").getBytes("UTF-8")) + "|"
+                                        + rs.getDouble("STACK") + "|" + rs.getInt("BUYIN") + "|" + rs.getInt("REBUY_COUNT"));
+                            }
+
+                            map.put("balance", String.join("@", balance));
+                        }
+                    } catch (SQLException | UnsupportedEncodingException ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        }
+
+        return map;
     }
 
     private HashMap<String, Object> sqlRecoverGamePositions() {

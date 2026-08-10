@@ -114,6 +114,19 @@ public class StatsDialog extends JFrame {
     // "no screenshots yet" empty state. Managed on the EDT only (loadGames).
     private javax.swing.JLabel no_games_label;
 
+    // CENTER slot holds a CardLayout with two cards: "content" (the original .form pane:
+    // combos, stats table, game/hand panels) and "empty" (no_games_label centered). When
+    // the history database is empty, loadGames flips to the "empty" card so only the
+    // banner shows — no leftover controls from a just-deleted game.
+    private java.awt.CardLayout stats_center_cards;
+    private javax.swing.JPanel stats_center_stack;
+    private static final String STATS_CARD_CONTENT = "content";
+    private static final String STATS_CARD_EMPTY = "empty";
+
+    // "Delete imported" button (hand-added). Enabled only while at least one imported
+    // (P2P-received) game exists in the history, recomputed on every loadGames pass.
+    private javax.swing.JButton delete_imported_button;
+
     // All background work (shared SQLite connection queries + log/chat reads) runs
     // on a single thread. Previously game_comboItemStateChanged fired loadGameData +
     // loadHands + the stat query concurrently on the same connection, causing the
@@ -359,9 +372,10 @@ public class StatsDialog extends JFrame {
 
         // "Delete imported" button, placed to the right of "Exclude...": purges every game received
         // via P2P sync (imported = 1), leaving the user's own played/hosted games untouched.
-        javax.swing.JButton delete_imported_button = new javax.swing.JButton(Translator.translate("stats.borrar_importadas"));
+        delete_imported_button = new javax.swing.JButton(Translator.translate("stats.borrar_importadas"));
         delete_imported_button.putClientProperty("i18n.key", "stats.borrar_importadas");
         delete_imported_button.addActionListener(e -> deleteImportedGamesAsync());
+        delete_imported_button.setEnabled(false); // corrected by loadGames once the history is scanned
 
         // "Share" + "Exclude..." form one group (the exclusion scopes what's shared),
         // framed with a thin black line to read as a single unit.
@@ -378,22 +392,30 @@ public class StatsDialog extends JFrame {
         sync_stats_bar.add(delete_imported_button);
 
         javax.swing.JComponent old_content = (javax.swing.JComponent) getContentPane();
-        javax.swing.JPanel content_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout());
-        content_wrapper.add(old_content, java.awt.BorderLayout.CENTER);
-        content_wrapper.add(sync_stats_bar, java.awt.BorderLayout.SOUTH);
 
-        // "No saved games yet" banner pinned to the top, mirroring the empty-state notice
-        // ScreenshotViewerDialog shows when there are no screenshots. Visible only when the
-        // history database holds no games at all (toggled in loadGames); BorderLayout.NORTH
-        // reserves no space while it is hidden, so it never affects the populated layout.
+        // "No saved games yet" empty-state notice, mirroring the one ScreenshotViewerDialog
+        // shows when there are no screenshots. Placed as a centered "pill" (its own
+        // background/border) inside a GridBag panel so it sits in the middle of the CENTER
+        // area both horizontally and vertically when the history database is empty.
         no_games_label = new javax.swing.JLabel(Translator.translate("stats.no_partidas_guardadas"), javax.swing.SwingConstants.CENTER);
         no_games_label.putClientProperty("i18n.key", "stats.no_partidas_guardadas");
         no_games_label.setOpaque(true);
         no_games_label.setBackground(new java.awt.Color(255, 244, 200));
         no_games_label.setForeground(new java.awt.Color(140, 90, 0));
         no_games_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM)));
-        no_games_label.setVisible(false);
-        content_wrapper.add(no_games_label, java.awt.BorderLayout.NORTH);
+
+        javax.swing.JPanel empty_state_panel = new javax.swing.JPanel(new java.awt.GridBagLayout());
+        empty_state_panel.add(no_games_label); // no constraints => centered in both axes
+
+        // CardLayout in CENTER swaps between the real content and the centered empty notice.
+        stats_center_cards = new java.awt.CardLayout();
+        stats_center_stack = new javax.swing.JPanel(stats_center_cards);
+        stats_center_stack.add(old_content, STATS_CARD_CONTENT);
+        stats_center_stack.add(empty_state_panel, STATS_CARD_EMPTY);
+
+        javax.swing.JPanel content_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout());
+        content_wrapper.add(stats_center_stack, java.awt.BorderLayout.CENTER);
+        content_wrapper.add(sync_stats_bar, java.awt.BorderLayout.SOUTH);
 
         setContentPane(content_wrapper);
 
@@ -2579,6 +2601,10 @@ public class StatsDialog extends JFrame {
         // try-with-resources guarantees the statement/ResultSet close on every exit path.
         final LinkedHashMap<String, HashMap<String, Object>> loaded = new LinkedHashMap<>();
         final DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+        // Whether any imported (P2P-received) game exists — counted across ALL rows,
+        // independent of the player filter, to drive the "Delete imported" button's enabled
+        // state. Reuses this scan so no extra query is needed.
+        final boolean[] has_imported = {false};
 
         // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
         synchronized (GameFrame.SQL_LOCK) {
@@ -2586,6 +2612,9 @@ public class StatsDialog extends JFrame {
                 statement.setQueryTimeout(30);
                 try (ResultSet rs = statement.executeQuery()) {
                     while (rs.next()) {
+                        if (rs.getInt("imported") == 1) {
+                            has_imported[0] = true;
+                        }
                         boolean ok = true;
                         if (filtro != null) {
                             ArrayList<String> decoded_players = new ArrayList<>();
@@ -2626,7 +2655,13 @@ public class StatsDialog extends JFrame {
             // i.e. no filter is active AND nothing was loaded. With a filter active an empty
             // result means "no games for this player" (surfaced separately as an error
             // dialog), not "no saved games at all", so the banner stays hidden then.
-            no_games_label.setVisible(filtro == null && loaded.isEmpty());
+            boolean empty_history = (filtro == null && loaded.isEmpty());
+            // Show only the centered empty notice when the database truly holds no games —
+            // otherwise the controls of the just-deleted last game linger, describing a game
+            // that no longer exists. Switching back to "content" restores them when games
+            // reappear (new game or import).
+            stats_center_cards.show(stats_center_stack, empty_history ? STATS_CARD_EMPTY : STATS_CARD_CONTENT);
+            delete_imported_button.setEnabled(has_imported[0]);
             refreshFilterButtonsEnabled();
         });
 

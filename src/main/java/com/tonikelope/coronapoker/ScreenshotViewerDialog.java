@@ -98,6 +98,17 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
     private final JPanel prev_slot = new JPanel(new java.awt.GridBagLayout());
     private final JPanel next_slot = new JPanel(new java.awt.GridBagLayout());
 
+    // Empty-state notice ("no screenshots yet"), vertically + horizontally centered in the
+    // CENTER area via a GridBag slot, mirroring StatsDialog's empty state. A CardLayout swaps
+    // between the image and this notice so the message sits in the middle instead of the top
+    // title bar. Card names below.
+    private final JLabel empty_label = new JLabel("", SwingConstants.CENTER);
+    private final JPanel empty_slot = new JPanel(new java.awt.GridBagLayout());
+    private final java.awt.CardLayout center_cards = new java.awt.CardLayout();
+    private final JPanel center_stack = new JPanel(center_cards);
+    private static final String CARD_IMAGE = "image";
+    private static final String CARD_EMPTY = "empty";
+
     private java.util.List<Shot> shots = new ArrayList<>();
     private int index = 0;
 
@@ -196,7 +207,22 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         content.add(title_label, BorderLayout.NORTH);
 
         image_view.setBackground(BACKDROP);
-        content.add(image_view, BorderLayout.CENTER);
+
+        // Empty-state notice, styled to match this dialog's dark backdrop (white, bold, large
+        // like the title). GridBag with no constraints centers it in both axes; zoomFonts
+        // (called after buildUI) rescales its font like the rest of the tree.
+        empty_label.setText(Translator.translate("ui.no_capturas"));
+        empty_label.setForeground(Color.WHITE);
+        java.awt.Font empty_font = (Helpers.GUI_FONT != null ? Helpers.GUI_FONT : empty_label.getFont());
+        empty_label.setFont(empty_font.deriveFont(java.awt.Font.BOLD, 26f));
+        empty_slot.setBackground(BACKDROP);
+        empty_slot.add(empty_label);
+
+        // CardLayout in CENTER swaps between the image and the centered empty notice.
+        center_stack.setOpaque(false);
+        center_stack.add(image_view, CARD_IMAGE);
+        center_stack.add(empty_slot, CARD_EMPTY);
+        content.add(center_stack, BorderLayout.CENTER);
 
         // Right-click context menu on the image: copy the screenshot to the clipboard.
         final JPopupMenu image_popup = new JPopupMenu();
@@ -305,10 +331,12 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         if (shots.isEmpty()) {
             index = 0;
             load_token++; // invalidates any load in flight
-            title_label.setText(Translator.translate("ui.no_capturas"));
+            // The notice now lives centered in the CENTER card, so the top title bar stays blank.
+            title_label.setText("");
             setCurrentImage(null);
             prev_button.setVisible(false);
             next_button.setVisible(false);
+            center_cards.show(center_stack, CARD_EMPTY);
             getContentPane().revalidate();
             getContentPane().repaint();
         } else {
@@ -345,6 +373,8 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
         Locale locale = new Locale(GameFrame.LANGUAGE);
         String when = DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.MEDIUM, locale).format(new Date(shot.created));
         title_label.setText(when + "     ( " + (index + 1) + " / " + shots.size() + " )");
+
+        center_cards.show(center_stack, CARD_IMAGE); // ensure the image card is showing (not the empty notice)
 
         // Arrows DISAPPEAR at the ends (not just disabled): BorderLayout does not reserve space
         // for an invisible component, so the image takes over that side.

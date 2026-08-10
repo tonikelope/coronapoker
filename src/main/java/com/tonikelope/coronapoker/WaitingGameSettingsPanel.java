@@ -337,7 +337,11 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         GameFrame.BOT_BALANCE_TO_HUMANS = bot_balance_checkbox.isSelected();
         GameFrame.REBUY_CAP_POLICY = rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
         // "Allow rebuy" doesn't travel in recover_settings: it's persisted to game.rebuy so a
-        // resume doesn't revert the edit (see GameFrame.persistRecoverRebuy).
+        // resume doesn't revert the edit (see GameFrame.persistRecoverRebuy). Synchronous on the
+        // EDT: this SAVE runs in the WAITING ROOM (before the game resumes), so no Crupier or
+        // finTransmision worker is holding SQL_LOCK across a blocking-EDT call and no EDT<->lock
+        // cycle can form. (The in-game GameSettingsPanel sibling offloads instead, because once the
+        // game is running there ARE such concurrent lock holders.)
         GameFrame.persistRecoverRebuy(GameFrame.RECOVER_ID, GameFrame.REBUY);
         Bot.DIFFICULTY = botDifficultyFromComboIndex(bots_combobox.getSelectedIndex());
     }

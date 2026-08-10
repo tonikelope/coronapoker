@@ -5870,6 +5870,36 @@ public class WaitingRoomFrame extends JFrame {
                 new ImageIcon(Init.class.getResource("/images/action/timeout.png"))) == 0);
 
         if (vamos) {
+            // Snapshot the EXACT pre-start UI state so a catastrophic start failure (GameFrame
+            // construction / AJUGAR throwing) or a pool-teardown null can restore it, instead of
+            // stranding the room on the "initializing" spinner forever with no feedback. Captured
+            // BEFORE the mutations below so we restore precisely what was there (no guessing).
+            final boolean prev_empezar_enabled = this.empezar_timba.isEnabled();
+            final boolean prev_newbot_enabled = this.new_bot_button.isEnabled();
+            final boolean prev_newbot_visible = this.new_bot_button.isVisible();
+            final boolean prev_kick_enabled = this.kick_user.isEnabled();
+            final boolean prev_kick_visible = this.kick_user.isVisible();
+            final boolean prev_sound_visible = this.sound_icon.isVisible();
+            final boolean prev_barra_visible = this.barra.isVisible();
+            final String prev_status_text = this.status.getText();
+            final javax.swing.Icon prev_status_icon = this.status.getIcon();
+            final String prev_title = getTitle();
+            final Runnable revert = () -> {
+                partida_empezando = false;
+                setTitle(prev_title);
+                this.empezar_timba.setEnabled(prev_empezar_enabled);
+                this.new_bot_button.setEnabled(prev_newbot_enabled);
+                this.new_bot_button.setVisible(prev_newbot_visible);
+                this.kick_user.setEnabled(prev_kick_enabled);
+                this.kick_user.setVisible(prev_kick_visible);
+                this.sound_icon.setVisible(prev_sound_visible);
+                this.barra.setVisible(prev_barra_visible);
+                this.status.setText(prev_status_text);
+                this.status.setIcon(prev_status_icon);
+                revalidate();
+                repaint();
+            };
+
             partida_empezando = true;
             setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
             this.empezar_timba.setEnabled(false);
@@ -5889,49 +5919,95 @@ public class WaitingRoomFrame extends JFrame {
             revalidate();
             repaint();
 
-            Helpers.threadRun(() -> {
-                synchronized (lock_new_client) {
-                    boolean ocupados;
-                    do {
-                        ocupados = false;
-                        ArrayList<Participant> snapshot;
-                        synchronized (participantes) {
-                            snapshot = new ArrayList<>(participantes.values());
-                        }
-
-                        for (Participant p : snapshot) {
-                            if (p != null && !p.isCpu()) {
-                                if (!p.getPre_game_socket_writer_queue().isEmpty()) {
-                                    ocupados = true;
-                                    p.setAsync_wait(true);
-                                } else {
-                                    p.setAsync_wait(false);
-                                }
-                            }
-                        }
-
-                        if (ocupados && net_server != null) {
-                            synchronized (net_server.getLock_client_pre_game_commands_wait()) {
-                                try {
-                                    net_server.getLock_client_pre_game_commands_wait().wait(PRE_GAME_COMMANDS_LOCK);
-                                } catch (InterruptedException ex) {
-                                }
-                            }
-                        }
-                    } while (ocupados);
-
-                    Helpers.GUIRunAndWait(() -> {
-                        // Defensive (on the host the settings wheel is modal and blocks
-                        // "Start", so it normally wouldn't be open): close without asking.
-                        SettingsDialog.closeIfOpen();
-                        new GameFrame(WaitingRoomFrame.this, local_nick, true);
-                    });
-                    partida_empezada = true;
-                    GameFrame.getInstance().AJUGAR();
+            // Mirror the empezar_timba sibling's failure contract: the actual game start runs off
+            // the EDT, so a throw inside it -- or a pool-teardown null return -- must revert the
+            // "starting" UI and tell the host, never freeze the room silently. Only revert if the
+            // game did NOT actually start (partida_empezada stays false until GameFrame is built):
+            // once it's up, tearing the waiting room back down would be worse than the error.
+            if (Helpers.threadRun(() -> {
+                try {
+                    startGameWork();
+                } catch (Throwable t) {
+                    LOGGER.log(Level.SEVERE, "continueStartGame: game start failed", t);
+                    if (!partida_empezada) {
+                        Helpers.GUIRun(() -> {
+                            revert.run();
+                            mostrarMensajeError(this, Translator.translate("game.no_se_ha_podido_iniciar_timba"));
+                        });
+                    }
                 }
-            });
+            }) == null) {
+                // Pool shutting down (teardown): the start will never run -- revert the UI.
+                revert.run();
+            }
         } else {
             this.empezar_timba.setEnabled(true);
+        }
+    }
+
+    // Off-EDT game-start work: waits for pending pre-game client commands to drain, then builds the
+    // GameFrame on the EDT and kicks off play. Extracted from continueStartGame so that dispatch can
+    // wrap it in a try/catch that reverts the "starting" UI on failure. Runs on a THREAD_POOL
+    // thread; the body is unchanged from the original inline version.
+    private void startGameWork() {
+        synchronized (lock_new_client) {
+            boolean ocupados;
+            do {
+                ocupados = false;
+                ArrayList<Participant> snapshot;
+                synchronized (participantes) {
+                    snapshot = new ArrayList<>(participantes.values());
+                }
+
+                for (Participant p : snapshot) {
+                    if (p != null && !p.isCpu()) {
+                        if (!p.getPre_game_socket_writer_queue().isEmpty()) {
+                            ocupados = true;
+                            p.setAsync_wait(true);
+                        } else {
+                            p.setAsync_wait(false);
+                        }
+                    }
+                }
+
+                if (ocupados && net_server != null) {
+                    synchronized (net_server.getLock_client_pre_game_commands_wait()) {
+                        try {
+                            net_server.getLock_client_pre_game_commands_wait().wait(PRE_GAME_COMMANDS_LOCK);
+                        } catch (InterruptedException ex) {
+                        }
+                    }
+                }
+            } while (ocupados);
+
+            // new GameFrame() runs on the EDT via GUIRunAndWait, which SWALLOWS (logs, never
+            // rethrows) the InvocationTargetException that invokeAndWait wraps a runnable throw in.
+            // Capture a construction failure explicitly INSIDE the runnable: otherwise a throw in
+            // new GameFrame(...) would be lost here and execution would fall through to
+            // partida_empezada=true / AJUGAR() on a half-built singleton, freezing the room
+            // silently. With the capture, we rethrow below (before partida_empezada flips) so
+            // continueStartGame's dispatch catch reverts the "starting" UI and notifies the host.
+            final Throwable[] build_error = new Throwable[1];
+            Helpers.GUIRunAndWait(() -> {
+                try {
+                    // Defensive (on the host the settings wheel is modal and blocks
+                    // "Start", so it normally wouldn't be open): close without asking.
+                    SettingsDialog.closeIfOpen();
+                    new GameFrame(WaitingRoomFrame.this, local_nick, true);
+                } catch (Throwable t) {
+                    build_error[0] = t;
+                }
+            });
+            if (build_error[0] != null) {
+                // A construction that threw partway left a half-built GameFrame published in the
+                // singleton (THIS is set first thing in the constructor). Clear it so getInstance()
+                // reports "no game" while the room recovers, instead of exposing a broken instance
+                // to the getInstance()!=null checks elsewhere.
+                GameFrame.clearFailedInstance();
+                throw new RuntimeException("GameFrame construction failed", build_error[0]);
+            }
+            partida_empezada = true;
+            GameFrame.getInstance().AJUGAR();
         }
     }
 

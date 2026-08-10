@@ -1973,9 +1973,19 @@ public class NewGameDialog extends JDialog {
             // the correct BUYIN in their slot (RemotePlayer field initializer + the matching
             // setStack/setBuyin loop in GameFrame's constructor).
             if (GameFrame.RECOVER) {
+                // Both calls take SQL_LOCK on the EDT and BOTH stay synchronous here on purpose.
+                // applyRecoveredGameStats must load BUYIN/CIEGAS from the game row BEFORE the
+                // WaitingRoomFrame (and later GameFrame) below are built, since their Player slots
+                // capture BUYIN at construction; this is also the force_recover path
+                // (recover_checkbox.doClick() -> vamos -> setVisible auto-start), which must run
+                // synchronously (offloading it caused a prior deadlock). Taking SQL_LOCK on the EDT
+                // is safe here: this is pre-game (no Crupier/finTransmision running), so no worker
+                // holds SQL_LOCK across a blocking-EDT call and no EDT<->lock cycle can form. See
+                // the GameFrame.SQL_LOCK invariant (half 2 -- no lock across a blocking-EDT call --
+                // is the load-bearing one, since half 1 is unachievable at this exact spot).
                 GameFrame.applyRecoveredGameStats(GameFrame.RECOVER_ID);
-                // "Allow rebuy" is editable on recover: game.rebuy is persisted with the
-                // edited value so the resume (the Crupier re-reads game.rebuy) doesn't revert it.
+                // "Allow rebuy" is editable on recover: game.rebuy is persisted with the edited
+                // value so the resume (the Crupier re-reads game.rebuy) doesn't revert it.
                 GameFrame.persistRecoverRebuy(GameFrame.RECOVER_ID, GameFrame.REBUY);
             }
 

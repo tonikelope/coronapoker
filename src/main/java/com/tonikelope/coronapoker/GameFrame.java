@@ -4458,7 +4458,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
 
                     if (pausa_dialog != null) {
-                        pausa_dialog.setVisible(false);
+                        // dispose() (not just setVisible(false)): a fresh PauseDialog is created per
+                        // pause, and its 1 Hz blink Timer + the ComponentListener it added to this
+                        // long-lived GameFrame are released ONLY in formWindowClosed, which
+                        // setVisible(false) never fires. Ending a game while paused would otherwise
+                        // strand the timer forever and pin the whole dead GameFrame graph. Mirrors
+                        // the resume path.
+                        pausa_dialog.dispose();
+                        pausa_dialog = null;
                     }
 
                     if (GameFrame.getInstance().getFastchat_dialog() != null) {

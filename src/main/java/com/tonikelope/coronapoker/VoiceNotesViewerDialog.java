@@ -132,6 +132,11 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
             @Override
             public void windowClosed(java.awt.event.WindowEvent e) {
                 Audio.stopPreview();
+                // Release the singleton so the disposed dialog (and, via getOwner(), the settings
+                // graph it pins) can be collected — matches ScreenshotViewerDialog/SettingsDialog.
+                if (INSTANCE == VoiceNotesViewerDialog.this) {
+                    INSTANCE = null;
+                }
             }
         });
 

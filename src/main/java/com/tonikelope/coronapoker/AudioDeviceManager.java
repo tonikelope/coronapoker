@@ -189,12 +189,48 @@ public class AudioDeviceManager {
         Helpers.savePropertiesFile();
     }
 
+    // Enumerating audio mixers (getDevices) probes every mixer with isLineSupported, which is slow
+    // (hundreds of ms, up to seconds with Bluetooth/USB) — so it must never run on the EDT. The
+    // getters return a cached snapshot; refreshDeviceCacheAsync recomputes it on a background daemon
+    // thread (warmed once at class load, and again each time the Settings panel opens, so the next
+    // open reflects device changes without ever freezing the UI).
+    private static volatile List<Mixer.Info> CACHED_OUTPUT;
+    private static volatile List<Mixer.Info> CACHED_CAPTURE;
+
+    static {
+        refreshDeviceCacheAsync();
+    }
+
     public static List<Mixer.Info> getOutputDevices() {
-        return getDevices(SourceDataLine.class);
+        List<Mixer.Info> cached = CACHED_OUTPUT;
+        if (cached == null) {
+            cached = getDevices(SourceDataLine.class);
+            CACHED_OUTPUT = cached;
+        }
+        return cached;
     }
 
     public static List<Mixer.Info> getCaptureDevices() {
-        return getDevices(TargetDataLine.class);
+        List<Mixer.Info> cached = CACHED_CAPTURE;
+        if (cached == null) {
+            cached = getDevices(TargetDataLine.class);
+            CACHED_CAPTURE = cached;
+        }
+        return cached;
+    }
+
+    // Recomputes both device caches. SLOW (probes every mixer) — never call on the EDT.
+    public static void refreshDeviceCache() {
+        CACHED_OUTPUT = getDevices(SourceDataLine.class);
+        CACHED_CAPTURE = getDevices(TargetDataLine.class);
+    }
+
+    // Recomputes the device caches on a short-lived background daemon thread, so a caller (Settings,
+    // startup) never blocks the EDT enumerating audio hardware.
+    public static void refreshDeviceCacheAsync() {
+        Thread t = new Thread(AudioDeviceManager::refreshDeviceCache, "CoronaPoker-AudioDeviceWarm");
+        t.setDaemon(true);
+        t.start();
     }
 
     private static List<Mixer.Info> getDevices(Class<? extends Line> line_class) {

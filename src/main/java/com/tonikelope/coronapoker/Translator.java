@@ -158,7 +158,10 @@ public class Translator {
             loadLanguage(LANG);
         }
 
-        return CACHE.computeIfAbsent(key + (forceEn ? "#forceEn" : ""), k -> {
+        // Reuse `key` directly in the dominant forceEn=false case instead of building `key + ""`
+        // (a fresh String) on every translate() call — this method is called pervasively.
+        String cacheKey = forceEn ? key + "#forceEn" : key;
+        return CACHE.computeIfAbsent(cacheKey, k -> {
             // 1. If English is forced, try the English properties first
             if (forceEn) {
                 String valEn = EN_PROPS.getProperty(key);

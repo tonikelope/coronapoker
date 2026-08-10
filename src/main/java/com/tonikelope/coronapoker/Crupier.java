@@ -7519,6 +7519,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             received_commands.clear();
         }
 
+        // Cancel + drop any flip-animation prefetch Futures not consumed this hand. A misdeal /
+        // abort between the prefetch and the card uncover leaves them orphaned, and since the Card
+        // keys are identity-based and the community cards are recreated next hand, they would never
+        // be looked up (or freed) again.
+        for (Future<?> pending : flip_anim_prefetch.values()) {
+            pending.cancel(false);
+        }
+        flip_anim_prefetch.clear();
+
         // Rabbit-fee window: the hand that's ending can still accept legitimate rabbit requests
         // until its bote_sobrante gets folded into the next hand's pot. Save its id BEFORE
         // clearing current_hand_id (which happens next, before the HAND_READY barrier) to cover

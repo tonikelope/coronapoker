@@ -163,13 +163,49 @@ public final class GameLogDialog extends JDialog {
 
     // Clears the pane and re-renders the whole text (used by setText paths:
     // initial load and loser-card reveal).
+    // The live HUD document is capped to the last MAX_LIVE_LOG_CHARS so it can't grow without
+    // bound over a long game (the plain-text LOG_TEXT source of truth stays complete, so the saved
+    // registro — rendered separately via buildLogPane — keeps every hand).
+    private static final int MAX_LIVE_LOG_CHARS = 200_000;
+
     private void renderAll(String fullText) {
         StyledDocument doc = log_pane.getStyledDocument();
         try {
             doc.remove(0, doc.getLength());
         } catch (BadLocationException ex) {
         }
-        appendStyled(doc, fullText);
+        appendStyled(doc, tailFromLineBoundary(fullText, MAX_LIVE_LOG_CHARS));
+    }
+
+    // Returns the last ~max chars of text, snapped forward to the next line boundary so a chunk is
+    // never cut mid-line (which would split a balance row / card token). Unchanged when within cap.
+    private static String tailFromLineBoundary(String text, int max) {
+        if (text == null || text.length() <= max) {
+            return text;
+        }
+        int cut = text.length() - max;
+        int nl = text.indexOf('\n', cut);
+        return (nl >= 0) ? text.substring(nl + 1) : text.substring(cut);
+    }
+
+    // Trims the head of the LIVE HUD document to keep it within the cap (frees the retained styled
+    // card components in the removed range). EDT-only (Swing document mutation).
+    private void trimLiveLogDocument() {
+        StyledDocument doc = log_pane.getStyledDocument();
+        int len = doc.getLength();
+        if (len <= MAX_LIVE_LOG_CHARS) {
+            return;
+        }
+        try {
+            int cut = len - MAX_LIVE_LOG_CHARS;
+            String window = doc.getText(cut, Math.min(4000, len - cut));
+            int nl = window.indexOf('\n');
+            if (nl >= 0) {
+                cut += nl + 1;
+            }
+            doc.remove(0, cut);
+        } catch (BadLocationException ex) {
+        }
     }
 
     // Builds a read-only styled pane that renders a plain-text game log with the SAME
@@ -1198,6 +1234,7 @@ public final class GameLogDialog extends JDialog {
                     GameLogDialog.LOG_TEXT += message + "\n\n";
                     Helpers.GUIRun(() -> {
                         appendStyled(log_pane.getStyledDocument(), message + "\n\n");
+                        trimLiveLogDocument();
 
                         if (auto_scroll && main_follow != null) {
                             main_follow.followIfNeeded();

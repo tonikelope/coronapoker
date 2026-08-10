@@ -281,9 +281,14 @@ public class AudioSettingsPanel extends JPanel {
         snap_retention_days = AudioDeviceManager.getVoiceNoteRetentionDays();
         snap_block_tts_local = AudioDeviceManager.isBlockTtsLocal();
 
+        // These return a cached snapshot (enumerating audio hardware on the EDT froze the dialog).
         output_devices = AudioDeviceManager.getOutputDevices();
 
         capture_devices = AudioDeviceManager.getCaptureDevices();
+
+        // Refresh the cache in the background so the NEXT time Settings opens it reflects any device
+        // that was plugged/unplugged since — without ever probing hardware on the EDT.
+        AudioDeviceManager.refreshDeviceCacheAsync();
 
         // --- Master volume (same value the Shift+Up/Down shortcut drives) ---
         volume_slider = new JSlider(0, 100, Math.round(Audio.MASTER_VOLUME * 100));

@@ -4065,15 +4065,27 @@ public class Helpers {
 
         uptime -= TimeUnit.MINUTES.toSeconds(minutes);
 
-        String time = "";
+        // Manual two-digit zero-pad into a StringBuilder instead of 4x String.format (this runs
+        // once a second from the game clock). Byte-identical output to the old %02d formatting.
+        StringBuilder time = new StringBuilder(days > 0 ? 12 : 8);
 
         if (days > 0) {
-            time += String.format("%02d", days) + "D ";
+            pad2(time, days).append("D ");
         }
 
-        time += String.format("%02d", hours) + ":" + String.format("%02d", minutes) + ":" + String.format("%02d", uptime);
+        pad2(time, hours).append(':');
+        pad2(time, minutes).append(':');
+        pad2(time, uptime);
 
-        return time;
+        return time.toString();
+    }
+
+    // Appends v zero-padded to at least two digits (matching "%02d"); v is expected non-negative.
+    private static StringBuilder pad2(StringBuilder sb, long v) {
+        if (v >= 0 && v < 10) {
+            sb.append('0');
+        }
+        return sb.append(v);
     }
 
     // Money formatting for the HUD/table (decimal separator per language, K abbreviation

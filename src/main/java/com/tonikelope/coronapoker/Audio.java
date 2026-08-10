@@ -713,13 +713,29 @@ public class Audio {
                             break;
                         }
 
-                        // Attempt to play the audio file
-                        audio_player.play(javax.sound.sampled.AudioSystem.getAudioInputStream(is), vol);
+                        // Attempt to play the audio file. play() returns true once an output line
+                        // was opened (played / finished / cancelled / silent) and false ONLY when
+                        // no line could be obtained (device busy/missing) — it swallows the
+                        // LineUnavailableException internally, so we gate the retry ourselves.
+                        boolean line_opened = audio_player.play(javax.sound.sampled.AudioSystem.getAudioInputStream(is), vol);
 
-                        // --- SUCCESS ZONE ---
-                        if (audio_player.isPlaying() && !AUDIO_AVAILABLE) {
-                            AUDIO_AVAILABLE = true;
-                            Logger.getLogger(Audio.class.getName()).log(Level.INFO, "Audio device detected. Background music restored.");
+                        if (line_opened) {
+                            // --- SUCCESS ZONE --- device is present; if it had been lost, note it's back.
+                            if (!AUDIO_AVAILABLE) {
+                                AUDIO_AVAILABLE = true;
+                                Logger.getLogger(Audio.class.getName()).log(Level.INFO, "Audio device detected. Background music restored.");
+                            }
+                        } else {
+                            // --- FAILURE ZONE (NO AUDIO DEVICE) --- without this backoff the do/while
+                            // re-opens the stream and re-parses the header with ZERO delay, spinning a
+                            // core at ~100% CPU until a device reappears or stopLoopMp3 runs. (play()
+                            // no longer rethrows, so the catch(IllegalArgumentException) backoff below
+                            // is now dead code.)
+                            if (AUDIO_AVAILABLE) {
+                                AUDIO_AVAILABLE = false;
+                                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "No audio device found. Suppressing further MP3 errors until reconnected.");
+                            }
+                            Helpers.parkThreadMicros(2000000);
                         }
 
                     } catch (IllegalArgumentException ex) {

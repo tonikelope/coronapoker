@@ -3901,6 +3901,12 @@ public class WaitingRoomFrame extends JFrame {
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
                             Init.LAUNCH_FRAME_SIZE, Init.LAUNCH_FRAME_MAXIMIZED);
                     dispose();
+                    // Release the singleton on this return-to-menu path (connect failed/cancelled):
+                    // otherwise getInstance() keeps handing out a DISPOSED frame and its whole
+                    // NetClient/participants/chat graph lingers until the next room opens.
+                    if (THIS == WaitingRoomFrame.this) {
+                        THIS = null;
+                    }
                 });
                 Audio.stopLoopMp3("misc/waiting_room.mp3");
                 if (GameFrame.MUSICA_AMBIENTAL) {
@@ -4608,6 +4614,9 @@ public class WaitingRoomFrame extends JFrame {
                     }
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
+                    // Back off so an unexpected accept() failure that recurs immediately can't spin
+                    // this loop at ~100% CPU (the IOException/bind path above already sets exit).
+                    Helpers.parkThreadMillis(1000);
                 }
             }
             if (upnp) {
@@ -4620,6 +4629,12 @@ public class WaitingRoomFrame extends JFrame {
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
                             Init.LAUNCH_FRAME_SIZE, Init.LAUNCH_FRAME_MAXIMIZED);
                     dispose();
+                    // Release the singleton on this return-to-menu path (room cancelled / bind
+                    // failed): otherwise getInstance() keeps handing out a DISPOSED frame and its
+                    // whole NetServer/participants/chat graph lingers until the next room opens.
+                    if (THIS == WaitingRoomFrame.this) {
+                        THIS = null;
+                    }
                 });
                 Audio.stopLoopMp3("misc/waiting_room.mp3");
                 if (GameFrame.MUSICA_AMBIENTAL) {

@@ -47,7 +47,7 @@
 
         <!-- Test lane selection (JUnit 5 tags). Defaults give the FAST lane:
              run everything EXCEPT tests tagged @Tag("slow"). The `slow` and
-             `all` profiles below flip these. See TESTING.md. -->
+             `all` profiles below flip these. See the Testing section in README.md. -->
         <qa.groups></qa.groups>
         <qa.excludedGroups>slow</qa.excludedGroups>
     </properties>
@@ -81,7 +81,7 @@
                     <excludedGroups>${qa.excludedGroups}</excludedGroups>
                     <!-- Los ficheros *Smoke NO los recoge el patron por defecto, que solo
                          mira *Test/*Tests/*TestCase, asi que un `mvn test` a secas se
-                         saltaba los dieciocho que hay: no corrian NUNCA salvo que se
+                         saltaba los diecisiete que hay: no corrian NUNCA salvo que se
                          invocaran a mano con -Dtest. Se anaden aqui junto a los patrones
                          de siempre, que hay que repetir porque declarar includes los
                          sustituye en vez de sumarse. -->
@@ -157,7 +157,7 @@
              out-of-scope subsystems: the bot-AI statistical matchups
              (bot/harness + smoke/GameFlowSmoke + bot/eval Monte-Carlo) and
              the crypto perf/differential/cascade suite. Measured full suite
-             ~4.6 min; fast lane well under a minute. See TESTING.md. -->
+             ~4.6 min; fast lane well under a minute. See the Testing section in README.md. -->
 
         <!-- Only the slow tests. Run before merging or after touching the
              bot AI / crypto. -->

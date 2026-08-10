@@ -15,16 +15,21 @@
   pointing Maven at it explicitly:
 
       # fast feedback for a refactor — game + all tests EXCEPT the slow bot sims
-      mvn -f tools/reactor/pom.xml -o test -P fast
+      # (the fast lane is the DEFAULT; no profile needed)
+      mvn -f tools/reactor/pom.xml -o test
 
       # full suite, including the slow bot/harness statistical matchups
-      mvn -f tools/reactor/pom.xml -o test
+      mvn -f tools/reactor/pom.xml -o test -P all
+
+      # ONLY the slow bot/harness statistical matchups
+      mvn -f tools/reactor/pom.xml -o test -P slow
 
       # a single test class
       mvn -f tools/reactor/pom.xml -o test -Dtest=BetRulesTest
 
-  The `fast` profile is declared in tools/qa/pom.xml; -P fast activates it on
-  the qa module inside this reactor. See that pom for what "fast" excludes.
+  The fast lane is the DEFAULT (no profile). The `slow` and `all` profiles are
+  declared in tools/qa/pom.xml and flip which @Tag("slow") tests run inside this
+  reactor; see that pom for what each lane covers.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -32,7 +37,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-qa-reactor</artifactId>
-    <version>23.34</version>
+    <version>23.37</version>
     <packaging>pom</packaging>
     <name>CoronaPoker QA reactor (opt-in aggregator)</name>
 

@@ -178,13 +178,15 @@ All defensive against honest cross-platform bugs, none against malicious source-
 STREET (uint8):       ACTION_TYPE (uint8):
   0 = preflop           0 = FOLD
   1 = flop              1 = CHECK
-  2 = turn              2 = CALL
+  2 = turn              2 = CALL      (reserved, never emitted)
   3 = river             3 = BET
-  4 = showdown          4 = RAISE
+  4 = showdown          4 = RAISE     (reserved, never emitted)
   11 = rit2_flop        5 = ALLIN
   12 = rit2_turn        6 = COMMUNITY   (§4.7)
   13 = rit2_river
 ```
+
+Codes `2 = CALL` and `4 = RAISE` are **reserved but never emitted**. The producer (`Crupier.mapJavaActionToWire`) mirrors the Java `Player` model, which has no separate CALL or RAISE: a call is encoded as `CHECK` and a raise as `BET`, with the `AMOUNT_CENTS` field carrying the amount that distinguishes them. An auditor reconstructing the signed chain therefore sees `CHECK` / `BET` records, never `CALL` / `RAISE`.
 
 The `rit2_*` codes (11 to 13) tag the run-it-twice second board's community reveals, so a side-A and a side-B reveal of the same street hash to distinct records (§4.7).
 
@@ -296,7 +298,7 @@ HAND_ID(16) || N(uint8)
   || sobrante_cents(int64)        // odd-chip remainder, credited to no player
 ```
 
-`bote_cents` is the player's total contribution to the pot, `pagar_cents` the chips it was paid, `sobrante_cents` the table-level odd-chip remainder. Amounts are integer cents at chip precision (host-independent). Participants are sorted by `PLAYER_ID` so map iteration order does not affect the bytes, and only those with a non-zero contribution or payout are listed.
+`bote_cents` is the player's total contribution to the pot, `pagar_cents` the chips it was paid, `sobrante_cents` the table-level odd-chip remainder. Amounts are integer cents at chip precision (host-independent). Participants are sorted by `PLAYER_ID` so map iteration order does not affect the bytes. `SettlementRecord.encode` sorts and rejects duplicate `PLAYER_ID`s but applies no other filter; which participants appear at all (e.g. skipping any with neither a contribution nor a payout) is decided by the **caller** that assembles the entry list, not by the encoder.
 
 Absorb (a distinct domain separator keeps a settlement table from ever being parsed as an action record):
 

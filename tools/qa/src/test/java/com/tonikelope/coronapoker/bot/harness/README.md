@@ -56,7 +56,10 @@ What we **do** deliver:
 
 ## 2. Repository layout
 
-All test code lives in `src/test/java/com/tonikelope/coronapoker/bot/harness/`:
+The bot testing harness lives in
+`src/test/java/com/tonikelope/coronapoker/bot/harness/`. (The QA module holds
+other suites too — `smoke/`, `crypto/`, `net/`, `sra/`, `bot/eval/`, and the
+root `coronapoker/` package — but only the harness is documented here.)
 
 ```
 harness/
@@ -68,18 +71,15 @@ harness/
 │   ├── TestDealer.java                    ← in-memory DealerView for tests
 │   └── TestBotPlayer.java                 ← in-memory BotPlayerView for tests
 │
-├── Stats infrastructure
+├── Stats & config infrastructure
 │   ├── BotStats.java                      ← VPIP/PFR/AF/WTSD/W$SD/cbet/bb-100
-│   └── BotSimulationTest.java             ← unit test for the simulator
+│   └── QaConfig.java                      ← -Dqa.sessions / -Dqa.hands volume knobs
 │
 ├── Reference opponents
 │   └── FixedStrategyBot.java              ← deterministic STATION/ROCK/MANIAC/TAG
 │
 ├── HU acid tests (gradient + per-archetype baseline)
 │   ├── BotMixedMatchupBase.java
-│   ├── MixedMatchup_ExpertVsHardTest.java
-│   ├── MixedMatchup_ExpertVsMediumTest.java
-│   ├── MixedMatchup_ExpertVsEasyTest.java
 │   ├── MixedMatchup_HardVsMediumTest.java
 │   ├── MixedMatchup_HardVsEasyTest.java
 │   ├── MixedMatchup_MediumVsEasyTest.java
@@ -91,9 +91,6 @@ harness/
 │
 ├── 6-max acid tests (the real production environment)
 │   ├── MultiwayMatchupBase.java
-│   ├── Multiway_ExpertVs5HardTest.java
-│   ├── Multiway_ExpertVs5MediumTest.java
-│   ├── Multiway_ExpertVs5EasyTest.java
 │   ├── Multiway_HardVs5MediumTest.java
 │   ├── Multiway_HardVs5EasyTest.java
 │   ├── Multiway_MediumVs5EasyTest.java
@@ -102,11 +99,14 @@ harness/
 │   ├── MultiwayBaselineVsRockTableTest.java
 │   └── MultiwayBaselineVsManiacTableTest.java
 │
-└── Sanity tests
+└── Sanity / behavioural gates
     ├── HeadsUpSimulatorTest.java          ← simulator smoke test
-    ├── BotMatchHarnessTest.java           ← harness smoke test
-    └── BotStatsTest.java                  ← stats accumulator unit test
+    ├── BluffBalanceTest.java              ← HARD river-bluff discipline gate
+    └── BotBenchmarkTest.java              ← per-difficulty stats dump
 ```
+
+Every `*Test` class above is annotated `@Tag("slow")`, so the default fast
+Surefire lane skips them all — see § 9 for how to run them.
 
 The simulators reuse the production `Bot.java` unchanged. They do not
 hook into Swing, the GameFrame, or any networking code. Everything runs
@@ -341,7 +341,7 @@ condensed history:
 | 3     | `8d8cf8a1`            | Scale multi-way tests to 10000 hands/matchup.                                                        | EXPERT vs HARD: -88 (t=-2.84), still significant negative.                              |
 | 3     | `8ff4ac41`            | Cascade-style mistake injection (try all four, first matching fires) + broader predicates.            | EXPERT vs 5 EASY: **+238 (t=9.52)**. Five of six matchups PASS.                          |
 | 3     | `8f3affc1`            | HARD rate 6→10%, MEDIUM 18→22%, EASY 40→45%, ROCK baseline floor +30 → -25.                          | EXPERT vs HARD: -14 → +40 (DELTA passes, t=1.39 marginal at 10k hands).                  |
-| 4     | `62875b32`            | Scale validation suite to 25000 hands/matchup for final AAA sign-off.                                | (in progress at write time)                                                              |
+| 4     | `62875b32`            | Trial a 25000-hand/matchup sweep for final AAA sign-off.                                             | Superseded: final validation shipped at 10000 hands/matchup (§ 10), not 25000.          |
 
 Lessons we took away:
 
@@ -370,55 +370,88 @@ Lessons we took away:
 
 ## 9. Running the tests
 
-### 9.1 Whole suite
+**Every class in this directory is annotated `@Tag("slow")`.** The default
+Surefire lane sets `qa.excludedGroups=slow` (see `tools/qa/pom.xml`), so a bare
+`mvn test` runs **zero** of these harness tests. You must select the slow lane
+explicitly, with one of the flows below.
+
+### 9.1 Reactor (preferred)
+
+The opt-in reactor at `tools/reactor/pom.xml` builds the game and runs the QA
+suite against it in one pass — no `mvn install` of the jar, no
+`coronapoker.version` pin to keep in sync:
 
 ```sh
-mvn test
+# only the slow lane (bot sims + crypto/eval guards)
+mvn -f tools/reactor/pom.xml test -P slow
+
+# the whole suite, fast + slow
+mvn -f tools/reactor/pom.xml test -P all
 ```
 
-Runs every test class (sanity, HU acid, 6-max acid, baseline-quality).
-Under `forkCount=0.6C` (≈ 5 concurrent JVMs on an 8-core machine) the
-full validation suite at 10 000 hands per matchup completes in roughly
-4 hours of wall-clock time (§ 10). The forkCount is set in the project's
-top-level `pom.xml` `maven-surefire-plugin` configuration.
+The `slow` and `all` profiles are declared in `tools/qa/pom.xml`; `-P` activates
+them on the qa module inside the reactor. Add `-o` (offline) once the local
+Maven cache is warm. `forkCount=0.6C` (≈ 5 concurrent JVMs on an 8-core
+machine) is set in `tools/qa/pom.xml`'s `maven-surefire-plugin` configuration.
 
-### 9.2 Just the 6-max gradient tests
+### 9.2 Standalone qa module
+
+To run the qa module on its own, first publish the game jar, then point Maven
+at the qa pom:
 
 ```sh
-mvn test -Dtest='Multiway_*Test'
+mvn -DskipTests install                                   # from the repo root
+mvn -f tools/qa/pom.xml test -P slow -Dcoronapoker.version=23.37
 ```
 
-### 9.3 Just the 6-max baseline tests
+Keep `-Dcoronapoker.version` in sync with the root pom (currently 23.37).
+
+### 9.3 A subset by name pattern
+
+Combine the slow lane with a `-Dtest` glob. Add
+`-Dsurefire.failIfNoSpecifiedTests=false` so the run does not fail on the game
+module (or any module) that has none of the matching classes:
 
 ```sh
-mvn test -Dtest='MultiwayBaseline*Test'
+# 6-max gradient tests
+mvn -f tools/reactor/pom.xml test -P slow \
+    -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false
+
+# 6-max baseline tests
+mvn -f tools/reactor/pom.xml test -P slow \
+    -Dtest='MultiwayBaseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
+
+# HU tests (legacy reference)
+mvn -f tools/reactor/pom.xml test -P slow \
+    -Dtest='MixedMatchup_*Test,Baseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
-### 9.4 Just the HU tests (legacy reference)
+### 9.4 One specific matchup
 
 ```sh
-mvn test -Dtest='MixedMatchup_*Test,Baseline*Test'
+mvn -f tools/reactor/pom.xml test -P slow \
+    -Dtest=Multiway_HardVs5EasyTest -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
-### 9.5 One specific matchup
+Any real harness class works, e.g. `MixedMatchup_HardVsMediumTest`,
+`MultiwayBaselineVsStationTableTest`, `BaselineVsStationTest`,
+`BluffBalanceTest`, `BotBenchmarkTest`.
 
-```sh
-mvn test -Dtest=Multiway_ExpertVs5HardTest
-```
-
-### 9.6 Lowering volume for fast local iteration
+### 9.5 Lowering volume for fast local iteration
 
 Volume is controlled at runtime (no source edits needed) via two system
 properties read by `QaConfig` and forwarded into the surefire forks:
 
 ```sh
-mvn -o test -Dtest='Multiway_*Test' -Dqa.sessions=40 -Dqa.hands=25
+mvn -f tools/reactor/pom.xml -o test -P slow \
+    -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false \
+    -Dqa.sessions=40 -Dqa.hands=25
 ```
 
 `-Dqa.sessions` overrides `SESSIONS`/`SESSIONS_PER_MATCHUP` and `-Dqa.hands`
 overrides `HANDS_PER_SESSION` in every matchup/baseline base class. Omitting
 them keeps the full validation volume (200 × 50 = 10 000 hands/matchup). The
-`BotBenchmarkTest` profile sweep keeps its own small fixed volume.
+`BotBenchmarkTest` and `BluffBalanceTest` gates keep their own fixed volume.
 
 In iteration mode read the **DELTA bb/100 and its direction**, not the
 PASS/FAIL verdict: the `|t| > 2` significance gate is calibrated for the full
@@ -426,18 +459,20 @@ sample, so small-volume runs routinely report FAIL even when the DELTA is large
 and correctly signed (e.g. MEDIUM vs 5× EASY at 500 hands: DELTA +193, t=1.6 →
 FAIL on significance only). Re-run at full volume to sign off a change.
 
-Since the hand evaluator was memoized (`MemoizedAlbertaEvaluator`, ~8× faster
-than the raw Alberta path on Windows), a single 6-max matchup runs at roughly
-8 hands/second per fork: ~1 minute for a 500-hand smoke, ~6 minutes for a
-3 000-hand iteration pass, ~20 minutes for a full 10 000-hand matchup.
+The hand evaluator is memoized (`MemoizedAlbertaEvaluator`, ~8× faster than the
+raw Alberta path on Windows), so a reduced-volume iteration pass returns in
+seconds; the full QA suite (fast + slow lanes, all matchups at the 10 000-hand
+default) is measured at ~4.6 minutes wall-clock under `forkCount=0.6C` (see
+`tools/qa/pom.xml`).
 
 ---
 
 ## 10. Final validation results
 
-Volume: **200 sessions × 50 hands = 10 000 hands per matchup**, paralelised
-under `forkCount=0.6C` on an 8-core AMD 9800X3D. With the memoized evaluator
-the full gradient + baseline suite runs in well under an hour.
+Volume: **200 sessions × 50 hands = 10 000 hands per matchup**, parallelised
+under `forkCount=0.6C`. With the memoized evaluator the full QA suite
+(fast + slow lanes) is measured at ~4.6 minutes wall-clock (see
+`tools/qa/pom.xml`).
 
 ### 10.1 Baseline-quality (10 000 hands × 3 matchups)
 

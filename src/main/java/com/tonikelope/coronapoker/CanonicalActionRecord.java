@@ -94,11 +94,14 @@ public final class CanonicalActionRecord {
     public static final int STREET_RIT2_RIVER = 13;
 
     /**
-     * Wire enum: action identifiers. Note the distinction between {@code BET}
-     * and {@code RAISE} — the wire encoding keeps them separate even if Java
-     * collapses both into {@code Player.BET} internally. The translation
-     * Java↔wire is the caller's responsibility; this class only accepts the
-     * already-translated wire constants.
+     * Wire enum: action identifiers. {@code CALL} (2) and {@code RAISE} (4) are
+     * reserved but never emitted: the producer ({@code Crupier.mapJavaActionToWire})
+     * mirrors the Java {@code Player} model, which has no separate CALL or RAISE, so
+     * a call is encoded as {@code CHECK} and a raise as {@code BET} (the
+     * {@code AMOUNT_CENTS} field carries the amount that distinguishes them). An
+     * auditor reconstructing the signed chain therefore sees CHECK/BET, never
+     * CALL/RAISE. The translation Java↔wire is the caller's responsibility; this
+     * class only accepts the already-translated wire constants.
      */
     public static final int ACTION_FOLD = 0;
     public static final int ACTION_CHECK = 1;

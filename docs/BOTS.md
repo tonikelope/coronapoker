@@ -359,9 +359,32 @@ game jar) and is documented in
 - **Determinism, recovery compatibility and full-table invariants** have their own
   smoke tests.
 
-Because the harness depends on the installed game artifact, the workflow is
-`mvn install -DskipTests` from the repo root, then `mvn -o test` inside
-`tools/qa` (optionally with `-Dqa.sessions=N -Dqa.hands=M` to scale the volume).
+The QA module runs in **tagged lanes** (JUnit 5 `@Tag`, selected by a Maven
+profile in `tools/qa/pom.xml`): the default **fast** lane runs everything
+*except* the tests tagged `slow`, `-P slow` runs only the slow lane, and `-P all`
+runs both. **Every bot matchup, baseline and difficulty-gradient simulation is
+tagged `slow`**, so a plain `mvn test` runs *none* of them — to calibrate the bot
+you must select the slow (or all) lane explicitly. Two ways to do that:
+
+- **Reactor (no install).** The opt-in aggregator at `tools/reactor/pom.xml`
+  builds the game and the QA module together, so nothing has to be published to
+  `~/.m2` first:
+
+  ```
+  mvn -f tools/reactor/pom.xml test -P slow   # bot sims only
+  mvn -f tools/reactor/pom.xml test -P all    # fast + slow
+  ```
+
+- **Standalone.** Publish the game jar once, then run the QA module against it
+  (its `coronapoker.version` must match the installed jar):
+
+  ```
+  mvn -DskipTests install                                            # repo root
+  mvn -f tools/qa/pom.xml test -P slow -Dcoronapoker.version=23.37
+  ```
+
+Scale the iteration volume with `-Dqa.sessions=N -Dqa.hands=N`; the default
+validation volume is **10,000 hands per matchup** (200 sessions × 50 hands).
 
 > Hard-won rule: a finding that is *technically* a bug is not necessarily worth
 > "fixing". The loose, fixed-strength preflop calls that make EASY/MEDIUM feel

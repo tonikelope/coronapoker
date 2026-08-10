@@ -209,7 +209,13 @@ public class GifLabel extends JLabel {
             return false; // Cut the ImageObserver loop if GIF has already finished
         }
 
-        repaint();
+        // Offscreen GIF: a hidden label paints nothing, so skip the per-frame EDT repaint it would
+        // otherwise enqueue while it plays out its remaining frames/repeats. Frame/repeat counting
+        // and the completion barrier below are untouched (return value unchanged), so a re-shown or
+        // awaited GIF behaves exactly as before. (isVisible() is a plain flag read, safe off-EDT.)
+        if (isVisible()) {
+            repaint();
+        }
 
         if ((infoflags & FRAMEBITS) != 0) {
 

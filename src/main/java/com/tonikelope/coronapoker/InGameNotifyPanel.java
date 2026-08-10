@@ -57,6 +57,11 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
     private Color cached_overlay = null;
     private float cached_brightness = -1f;
 
+    // Cached diluted countdown-track color, rebuilt only when the text (foreground) color changes,
+    // instead of allocating a new Color on every 20 Hz countdown paint.
+    private Color cached_track = null;
+    private Color cached_track_src = null;
+
     // The rounded silhouette needs a per-pixel-transparent window; where the
     // platform doesn't support that, the box falls back to plain rectangular
     // painting.
@@ -73,6 +78,12 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
 
     public void setCountdown(float fraction) {
         this.countdown = fraction;
+        // Full repaint (not a dirty-region strip): paint() reapplies the brightness overlay across
+        // the WHOLE box, and this panel lives in a standalone dialog outside the table's repaint
+        // tree, so a bottom-band-only repaint could leave the overlay stale above the bar if the
+        // brightness changed mid-countdown. The toast is tiny and short-lived, so full repaint at
+        // 20 Hz is cheap; the per-paint saving here isn't worth that seam. (The diluted track color
+        // is still cached in paintCountdown — that win has no such caveat.)
         repaint();
     }
 
@@ -131,7 +142,12 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
 
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(diluted(msg.getForeground(), COUNTDOWN_TRACK_ALPHA));
+            Color fg = msg.getForeground();
+            if (cached_track == null || !fg.equals(cached_track_src)) {
+                cached_track = diluted(fg, COUNTDOWN_TRACK_ALPHA);
+                cached_track_src = fg;
+            }
+            g2.setColor(cached_track);
             g2.fillRoundRect(inset, y, track, thickness, thickness, thickness);
             g2.setColor(msg.getForeground());
             g2.fillRoundRect(inset, y, Math.round(track * Math.min(1f, countdown)), thickness, thickness, thickness);

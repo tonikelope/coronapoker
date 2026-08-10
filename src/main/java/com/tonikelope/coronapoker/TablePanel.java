@@ -95,6 +95,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     private final java.util.Map<RemotePlayer, CallCostOverlayLabel> player_call_cost_labels = new java.util.HashMap<>();
     private final java.util.Set<RemotePlayer> player_call_overlay_listeners = new java.util.HashSet<>();
 
+    // All pot-bound chip flights currently in progress, advanced by ONE shared EDT timer
+    // (pot_chip_timer -> tickPotChipFlights) instead of one Timer per chip. A batch (antes,
+    // simultaneous all-ins) used to spawn up to ~9 independent 2 ms timers; this collapses them
+    // to one. EDT-only (registered from flyChipToPot's EDT setup, drained by the shared timer).
+    private final java.util.List<PotChipFlight> pot_chip_flights = new java.util.ArrayList<>();
+    private javax.swing.Timer pot_chip_timer;
+
     protected final TapeteFastButtons fastbuttons = new TapeteFastButtons();
 
     protected volatile Long central_label_thread = null;
@@ -715,6 +722,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 travelerHolder[0] = traveler;
 
                 final long t0 = System.nanoTime();
+                // Change-gate: at the 2 ms tick many steps round to the same pixel position (and,
+                // near the end, the same straightened angle), so the traveler wouldn't paint any
+                // differently. setCenter/setLocation is already a Swing no-op when unchanged; only
+                // repaint() is costly (it recomposites the felt under a transparent sprite), so we
+                // gate exactly that. Skipped only when neither position nor (quality-mode) angle
+                // moved -> byte-identical frame.
+                final double[] last_angle = {Double.NaN};
 
                 final javax.swing.Timer player = new javax.swing.Timer(GameFrame.getTickMs(), null);
                 holder[0] = player;
@@ -733,9 +747,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     // at the end (smoothstep 0.55->1) to land straight like the seated
                     // card (no rotation pop on handoff).
                     double st = STRAIGHTEN_ON_LAND ? smoothstep(0.55, 1.0, u) : 0.0;
-                    traveler.setAngle(theta * (1.0 - st));
+                    double na = theta * (1.0 - st);
+                    traveler.setAngle(na);
+                    int bx = traveler.getX();
+                    int by = traveler.getY();
                     traveler.setCenter(x, y);
-                    traveler.repaint();
+                    boolean moved = traveler.getX() != bx || traveler.getY() != by;
+                    boolean rotated = GameFrame.ANIM_CALIDAD && Double.compare(na, last_angle[0]) != 0;
+                    if (moved || rotated) {
+                        last_angle[0] = na;
+                        traveler.repaint();
+                    }
 
                     if (u >= 1.0 || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                         player.stop();
@@ -1560,8 +1582,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 int w = getWidth();
                 int h = getHeight();
                 // Performance mode: no rotation (direct blit, no per-frame bitmap
-                // resampling). Quality mode (default) rotates exactly as before.
-                if (GameFrame.ANIM_CALIDAD) {
+                // resampling). Quality mode (default) rotates exactly as before. angle == 0
+                // (every chip flight) makes rotate() an identity transform, so skip it: same
+                // pixels, one less transform concat per frame.
+                if (GameFrame.ANIM_CALIDAD && angle != 0.0) {
                     g2.rotate(angle, w / 2.0, h / 2.0);
                 }
                 if (scale != 1.0) {
@@ -1711,8 +1735,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         double x = is * is * p[0] + 2 * is * s * p[2] + s * s * p[4];
                         double y = is * is * p[1] + 2 * is * s * p[3] + s * s * p[5];
                         FlyingCard traveler = travelers.get(k);
+                        // Change-gate: skip repaint for any chip that rounds to the same pixel
+                        // this tick (setCenter is a no-op then). Chips never rotate, so position
+                        // is the only visible state -> byte-identical frame when unmoved.
+                        int bx = traveler.getX();
+                        int by = traveler.getY();
                         traveler.setCenter(x, y);
-                        traveler.repaint();
+                        if (traveler.getX() != bx || traveler.getY() != by) {
+                            traveler.repaint();
+                        }
                     }
 
                     if (u >= 1.0 || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
@@ -1868,59 +1899,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 traveler.setCenter(fromCx, fromCy);
                 add(traveler, JLayeredPane.DRAG_LAYER);
 
-                final long t0 = System.nanoTime();
-                final boolean[] flashed = {false};
-
-                final javax.swing.Timer player = new javax.swing.Timer(GameFrame.getTickMs(), null);
-
-                player.addActionListener(e -> {
-                    long elapsed = (System.nanoTime() - t0) / 1_000_000L;
-
-                    boolean done = GameFrame.getInstance().getCrupier().isFin_de_la_transmision();
-
-                    if (!done && elapsed < fly_dur) {
-                        // Phase 1: flight to the pot (quadratic easeOut, like the deal).
-                        double u = (double) elapsed / Math.max(1, fly_dur);
-                        double s = 1.0 - (1.0 - u) * (1.0 - u);
-                        double is = 1.0 - s;
-                        double x = is * is * fromCx + 2 * is * s * ctrlX + s * s * toCx;
-                        double y = is * is * fromCy + 2 * is * s * ctrlY + s * s * toCy;
-                        traveler.setCenter(x, y);
-                        traveler.repaint();
-                    } else if (!done) {
-                        // Phase 2: landing on the pot -> shrinks and fades out
-                        // (smoothstep for a smooth shrink). On touching the pot (this
-                        // phase's first tick) pot_label's value updates AND flashes
-                        // yellow in the SAME EDT runnable (number and color change
-                        // together, color never gets ahead of the number).
-                        if (!flashed[0]) {
-                            flashed[0] = true;
-                            final Runnable land = land_holder[0];
-                            land_holder[0] = null; // consumido: el cleanup no lo re-ejecuta
-                            getCommunityCards().flashPotLabelYellow(land);
-                        }
-                        long se = elapsed - fly_dur;
-                        double su = Math.min(1.0, (double) se / Math.max(1, shrink_ms));
-                        double k = su * su * (3.0 - 2.0 * su);
-                        traveler.setCenter(toCx, toCy);
-                        traveler.setScale(1.0 - k);
-                        traveler.setAlpha((float) (1.0 - k));
-                        traveler.repaint();
-                        done = su >= 1.0;
-                    }
-
-                    if (done) {
-                        player.stop();
-                        java.awt.Rectangle b = traveler.getBounds();
-                        remove(traveler);
-                        repaint(b);
-                        // Exit via end-of-transmission before touching the pot: onLand
-                        // never ran in phase 2; run it now (no-op if it already ran).
-                        runOnce(land_holder);
-                    }
-                });
-
-                player.start();
+                // Register this chip with the shared animator instead of giving it its own Timer.
+                // Its own t0 / fly_dur / shrink_ms / land callback ride along, so each chip keeps
+                // exactly the timing and phases it had before. tickPotChipFlights advances it.
+                pot_chip_flights.add(new PotChipFlight(traveler, fromCx, fromCy, ctrlX, ctrlY, toCx, toCy, fly_dur, shrink_ms, System.nanoTime(), land_holder));
+                ensurePotChipTimer();
 
             } catch (Exception ex) {
                 // E.g. IllegalComponentStateException if the seat just stopped being on
@@ -1939,6 +1922,136 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         if (r != null) {
             holder[0] = null;
             r.run();
+        }
+    }
+
+    // Ensures the single shared pot-chip animator timer exists and is running. EDT-only.
+    private void ensurePotChipTimer() {
+        if (pot_chip_timer == null) {
+            pot_chip_timer = new javax.swing.Timer(GameFrame.getTickMs(), e -> tickPotChipFlights());
+        }
+        if (!pot_chip_timer.isRunning()) {
+            pot_chip_timer.start();
+        }
+    }
+
+    // Advances EVERY in-flight pot chip one tick — the single shared replacement for the former
+    // one-Timer-per-chip design. Iterates a SNAPSHOT of the list so a reentrant flyChipToPot fired
+    // from an onLand/flash callback (Helpers.GUIRun runs inline when already on the EDT) can safely
+    // append to pot_chip_flights mid-tick: the new chip is picked up on the NEXT tick, never during
+    // this iteration. Each flight is advanced in its own try/catch so one bad chip can't kill the
+    // shared timer (and thus every other chip). Stops the timer once nothing is left. EDT-only.
+    private void tickPotChipFlights() {
+        final boolean end = GameFrame.getInstance().getCrupier().isFin_de_la_transmision();
+
+        for (PotChipFlight f : new java.util.ArrayList<>(pot_chip_flights)) {
+            boolean done;
+            try {
+                done = advancePotChipFlight(f, end);
+            } catch (Exception ex) {
+                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                done = true; // tear this flight down below; never let it wedge the shared timer
+            }
+
+            if (done) {
+                // The finally GUARANTEES the flight is dropped from the list no matter what the
+                // cleanup does — so even a throwing onLand can never leave a flight stuck being
+                // reprocessed every tick (which would starve the others and spin the shared timer).
+                try {
+                    java.awt.Rectangle b = f.traveler.getBounds();
+                    remove(f.traveler);
+                    repaint(b);
+                    // If phase 2 never ran (end-of-transmission or an exception before landing),
+                    // onLand never fired; run it now so the pot value is never left stale. No-op if
+                    // it already ran.
+                    runOnce(f.land_holder);
+                } catch (Exception ex) {
+                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                } finally {
+                    pot_chip_flights.remove(f);
+                }
+            }
+        }
+
+        if (pot_chip_flights.isEmpty() && pot_chip_timer != null) {
+            pot_chip_timer.stop();
+        }
+    }
+
+    // Advances one flight a single tick; returns true when it has finished (reached the pot and
+    // fully shrunk) or must be torn down (end-of-transmission). Mirrors exactly what each chip's
+    // own Timer listener used to do. EDT-only.
+    private boolean advancePotChipFlight(PotChipFlight f, boolean end) {
+        if (end) {
+            return true;
+        }
+
+        final FlyingCard traveler = f.traveler;
+        final long elapsed = (System.nanoTime() - f.t0) / 1_000_000L;
+
+        if (elapsed < f.fly_dur) {
+            // Phase 1: flight to the pot (quadratic easeOut, like the deal).
+            double u = (double) elapsed / Math.max(1, f.fly_dur);
+            double s = 1.0 - (1.0 - u) * (1.0 - u);
+            double is = 1.0 - s;
+            double x = is * is * f.fromCx + 2 * is * s * f.ctrlX + s * s * f.toCx;
+            double y = is * is * f.fromCy + 2 * is * s * f.ctrlY + s * s * f.toCy;
+            // Change-gate: skip repaint when the chip rounds to the same pixel this tick (setCenter
+            // is a no-op then). Phase 2 (shrink/fade) is left ungated since scale/alpha change every tick.
+            int bx = traveler.getX();
+            int by = traveler.getY();
+            traveler.setCenter(x, y);
+            if (traveler.getX() != bx || traveler.getY() != by) {
+                traveler.repaint();
+            }
+            return false;
+        }
+
+        // Phase 2: landing on the pot -> shrinks and fades out (smoothstep). On touching the pot
+        // (this phase's first tick) pot_label's value updates AND flashes yellow in the SAME EDT
+        // runnable (number and color change together, color never gets ahead of the number).
+        if (!f.flashed) {
+            f.flashed = true;
+            final Runnable land = f.land_holder[0];
+            f.land_holder[0] = null; // consumed: the cleanup won't re-run it
+            getCommunityCards().flashPotLabelYellow(land);
+        }
+        long se = elapsed - f.fly_dur;
+        double su = Math.min(1.0, (double) se / Math.max(1, f.shrink_ms));
+        double k = su * su * (3.0 - 2.0 * su);
+        traveler.setCenter(f.toCx, f.toCy);
+        traveler.setScale(1.0 - k);
+        traveler.setAlpha((float) (1.0 - k));
+        traveler.repaint();
+        return su >= 1.0;
+    }
+
+    // One pot-bound chip flight's state, advanced by the shared pot-chip timer. Bundles the
+    // kinematic path, its own timing (t0/fly_dur/shrink_ms) and the one-shot pot-flash + onLand
+    // callback that used to live in each chip's per-Timer closure. EDT-only.
+    private static final class PotChipFlight {
+
+        final FlyingCard traveler;
+        final double fromCx, fromCy, ctrlX, ctrlY, toCx, toCy;
+        final int fly_dur;
+        final int shrink_ms;
+        final long t0;
+        final Runnable[] land_holder;
+        boolean flashed = false;
+
+        PotChipFlight(FlyingCard traveler, double fromCx, double fromCy, double ctrlX, double ctrlY,
+                double toCx, double toCy, int fly_dur, int shrink_ms, long t0, Runnable[] land_holder) {
+            this.traveler = traveler;
+            this.fromCx = fromCx;
+            this.fromCy = fromCy;
+            this.ctrlX = ctrlX;
+            this.ctrlY = ctrlY;
+            this.toCx = toCx;
+            this.toCy = toCy;
+            this.fly_dur = fly_dur;
+            this.shrink_ms = shrink_ms;
+            this.t0 = t0;
+            this.land_holder = land_holder;
         }
     }
 

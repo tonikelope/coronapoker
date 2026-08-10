@@ -62,26 +62,35 @@ public class ImageCacheManager {
         }
 
         String fileName = generateFileName(url);
-        String separator = CHAT_IMAGE_CACHE.endsWith(File.separator) ? "" : File.separator;
-        File localFile = new File(CHAT_IMAGE_CACHE + separator + fileName);
 
-        // 1. Download if not present in local storage
-        if (!localFile.exists()) {
-            if (!downloadImage(url, localFile)) {
-                return null;
+        // 0. Serve the raw bytes from memory if we've read this file before (skips the disk I/O
+        // and disk decode). A fresh ImageIcon is still built below so each GIF animates independently.
+        byte[] imageBytes = memGet(fileName);
+
+        if (imageBytes == null) {
+            String separator = CHAT_IMAGE_CACHE.endsWith(File.separator) ? "" : File.separator;
+            File localFile = new File(CHAT_IMAGE_CACHE + separator + fileName);
+
+            // 1. Download if not present in local storage
+            if (!localFile.exists()) {
+                if (!downloadImage(url, localFile)) {
+                    return null;
+                }
+            }
+
+            // 2. Load from bytes to ensure the animation is independent (not shared)
+            try {
+                imageBytes = Files.readAllBytes(Paths.get(localFile.getAbsolutePath()));
+                memPut(fileName, imageBytes);
+            } catch (IOException e) {
+                Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE,
+                        "Error reading cached file: " + localFile.getAbsolutePath(), e);
+                // Fallback to path-based loading if byte reading fails
+                return new ImageIcon(localFile.getAbsolutePath());
             }
         }
 
-        // 2. Load from bytes to ensure the animation is independent (not shared)
-        try {
-            byte[] imageBytes = Files.readAllBytes(Paths.get(localFile.getAbsolutePath()));
-            return new ImageIcon(imageBytes);
-        } catch (IOException e) {
-            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE,
-                    "Error reading cached file: " + localFile.getAbsolutePath(), e);
-            // Fallback to path-based loading if byte reading fails
-            return new ImageIcon(localFile.getAbsolutePath());
-        }
+        return new ImageIcon(imageBytes);
     }
 
     // Topes de la descarga de una imagen de chat. La URL la elige quien manda el
@@ -91,8 +100,49 @@ public class ImageCacheManager {
     private static final int READ_TIMEOUT_MS = 20000;
     private static final long MAX_IMAGE_BYTES = 16L * 1024 * 1024;
 
-    // Tope del directorio de imagenes cacheadas. Se purga por antiguedad al arrancar.
+    // Tope del directorio de imagenes cacheadas. Se purga por antiguedad al arrancar (ver
+    // purgeCache), cuando aun no hay lecturas concurrentes: hacerlo en caliente durante la sesion
+    // corria una carrera con getIcon (borrar un fichero justo entre su exists() y su readAllBytes),
+    // asi que no se poda en mitad de la sesion.
     private static final long MAX_CACHE_BYTES = 256L * 1024 * 1024;
+
+    // In-memory LRU byte cache: avoids re-reading + re-decoding the same file from disk every time
+    // an image is shown again. Keyed by cache filename; bounded by cumulative bytes. We store the
+    // raw bytes (not a decoded Image) and hand each caller a fresh ImageIcon(bytes), preserving the
+    // independent-GIF-animation guarantee. EDT and worker threads both call getIcon, so all access
+    // to the map goes through MEM_LOCK.
+    private static final long MAX_MEM_CACHE_BYTES = 32L * 1024 * 1024;
+    private static final Object MEM_LOCK = new Object();
+    private static final java.util.LinkedHashMap<String, byte[]> MEM_CACHE = new java.util.LinkedHashMap<>(64, 0.75f, true);
+    private static long mem_cache_bytes = 0;
+
+    private static byte[] memGet(String key) {
+        synchronized (MEM_LOCK) {
+            return MEM_CACHE.get(key);
+        }
+    }
+
+    private static void memPut(String key, byte[] data) {
+        // Never cache a single blob that alone would blow the whole budget.
+        if (data == null || data.length > MAX_MEM_CACHE_BYTES) {
+            return;
+        }
+        synchronized (MEM_LOCK) {
+            byte[] prev = MEM_CACHE.put(key, data); // access-order: also marks key most-recent
+            if (prev != null) {
+                mem_cache_bytes -= prev.length;
+            }
+            mem_cache_bytes += data.length;
+            // Evict least-recently-used (iteration order = LRU first) until within budget. The
+            // just-inserted entry is most-recent, so it is never the one evicted here.
+            java.util.Iterator<java.util.Map.Entry<String, byte[]>> it = MEM_CACHE.entrySet().iterator();
+            while (mem_cache_bytes > MAX_MEM_CACHE_BYTES && it.hasNext()) {
+                java.util.Map.Entry<String, byte[]> e = it.next();
+                mem_cache_bytes -= e.getValue().length;
+                it.remove();
+            }
+        }
+    }
 
     /**
      * Downloads the resource to the local file system.
@@ -198,7 +248,12 @@ public class ImageCacheManager {
     private static String generateFileName(URL url) {
         String path = url.getPath();
         String query = url.getQuery();
-        String identityString = (query != null) ? path + "?" + query : path;
+        // Include protocol + host (+ explicit port) so two DIFFERENT hosts that share a path/query
+        // don't hash to the same cache file (which would serve the first host's image for the
+        // second). The URL ref (the "#timestamp" cache-buster some callers append) stays ignored:
+        // getPath()/getQuery() exclude it, so re-requests still hit the same cache entry.
+        String port = (url.getPort() >= 0) ? ":" + url.getPort() : "";
+        String identityString = url.getProtocol() + "://" + url.getHost() + port + path + ((query != null) ? "?" + query : "");
 
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");

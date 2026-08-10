@@ -49,6 +49,8 @@ public class RollingCounter {
 
     private double shown;          // value currently painted
     private boolean shown_valid;   // false when the label shows non-numeric text ("----", "see buy-in"...)
+    private double last_rendered;  // last value handed to render (dedupe: skip identical re-renders)
+    private boolean has_rendered;  // false until the first render.accept
     private double target;
     private double leg_from;
     private long leg_start_ms;
@@ -120,12 +122,27 @@ public class RollingCounter {
 
         shown = leg_from + (target - leg_from) * p;
 
-        if (p >= 1.0) {
+        boolean last = p >= 1.0;
+        if (last) {
             shown = target;
             timer.stop();
         }
 
-        render.accept(Helpers.doubleClean(shown));
+        double v = Helpers.doubleClean(shown);
+        // Dedupe: render formats v into the label (and, for the fitted pot/all-in labels,
+        // re-measures the font). At the 2 ms tick most interpolation steps are sub-quantum, so v is
+        // identical to what's already shown — re-rendering would produce byte-identical output. Skip
+        // those. EXCEPTION: always render the FINAL tick of a leg. Some render callbacks wrap the
+        // number in a prefix/suffix that is NOT a function of v (pot tag, all-in "%"); if that
+        // wrapper changed while the value stayed put, the terminal render guarantees it still reaches
+        // the label at least once per leg. Otherwise zero visual change; removes the bulk of the
+        // ~500 Hz format/measure work.
+        if (!last && has_rendered && Helpers.doubleSecureCompare(v, last_rendered) == 0) {
+            return;
+        }
+        last_rendered = v;
+        has_rendered = true;
+        render.accept(v);
     }
 
     /**
@@ -141,6 +158,8 @@ public class RollingCounter {
         this.shown = value;
         this.target = value;
         this.shown_valid = true;
+        this.last_rendered = value;
+        this.has_rendered = true;
         render.accept(value);
     }
 

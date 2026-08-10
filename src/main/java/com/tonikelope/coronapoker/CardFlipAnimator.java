@@ -146,9 +146,14 @@ public class CardFlipAnimator {
             // also becomes a free 1:1 copy).
             int ss = GameFrame.ANIM_CALIDAD ? SS : 1;
             BufferedImage[] frames = new BufferedImage[num_frames];
+            // Reusable supersample scratch buffer: identical dimensions for every frame of this
+            // flip, and renderFlipImage overwrites every pixel each frame, so one allocation
+            // replaces ~num_frames big ARGB buffers (each canvas*ss). Off-EDT and per generate()
+            // call (never shared across concurrent flips), so no synchronization is needed.
+            BufferedImage big_scratch = new BufferedImage(canvas_w * ss, canvas_h * ss, BufferedImage.TYPE_INT_ARGB);
             for (int i = 0; i < num_frames; i++) {
                 double ang = i * 180.0 / (num_frames - 1);
-                frames[i] = renderFlipImage(front, back, ang, PERSPECTIVE, draw_w, draw_h, canvas_w, canvas_h, ss);
+                frames[i] = renderFlipImage(front, back, ang, PERSPECTIVE, draw_w, draw_h, canvas_w, canvas_h, ss, big_scratch);
             }
             return PreRenderedGif.fromFrames(frames, duration_ms);
 
@@ -310,7 +315,7 @@ public class CardFlipAnimator {
      * facing forward, 180 = front facing forward) into a BufferedImage.
      */
     private static BufferedImage renderFlipImage(BufferedImage front, BufferedImage back,
-            double angleDeg, double persp, int drawW, int drawH, int canvasW, int canvasH, int ss) {
+            double angleDeg, double persp, int drawW, int drawH, int canvasW, int canvasH, int ss, BufferedImage big) {
 
         BufferedImage src = (angleDeg > 90) ? front : back;
         boolean mirror = (angleDeg > 90);
@@ -330,7 +335,8 @@ public class CardFlipAnimator {
         double b = halfW * Math.sin(ang);
         double fcx = canvasW / 2.0, fcy = canvasH / 2.0;
 
-        BufferedImage big = new BufferedImage(bw, bh, BufferedImage.TYPE_INT_ARGB);
+        // Reused across all frames of this flip (passed in by generate()); every pixel below is
+        // overwritten each frame, so no clearing is needed.
         int[] dst = ((DataBufferInt) big.getRaster().getDataBuffer()).getData();
 
         for (int dys = 0; dys < bh; dys++) {

@@ -632,6 +632,12 @@ public class BalanceScreen extends JPanel {
         // the blink are this screen's signature and stay as-is.
         final long duration_ms = 1500;
         final long start_ms = System.currentTimeMillis();
+        // Last money value actually pushed to the label (cent resolution). Dedupe: the ease-out
+        // changes the raw value every 2 ms tick, but money2String only changes at cent boundaries,
+        // so most ticks would re-format + repaint the full-screen outlined text to the SAME string.
+        // Skipping those is byte-identical output. Cent resolution matches money2String exactly
+        // (doubleClean rounds to 2 decimals), so this never drops a visible frame.
+        final double[] last_roll_shown = {Double.NaN};
 
         final String reveal_text = anim_ganancia > 0
                 ? "+" + Helpers.money2String(anim_ganancia)
@@ -668,7 +674,11 @@ public class BalanceScreen extends JPanel {
 
             double eased = 1.0 - Math.pow(1.0 - p, 3.0);
             double value = from + (to - from) * eased;
-            amount_label.setText(Helpers.money2String(Helpers.doubleClean(value)));
+            double cleaned = Helpers.doubleClean(value);
+            if (Double.compare(cleaned, last_roll_shown[0]) != 0) {
+                last_roll_shown[0] = cleaned;
+                amount_label.setText(Helpers.money2String(cleaned));
+            }
         });
 
         // Retro point-counting SFX, synced to the roll: its blips decelerate with the same

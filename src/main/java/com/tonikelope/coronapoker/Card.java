@@ -104,6 +104,12 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     // Global static caches to share images in memory across ALL cards
     private static final ConcurrentHashMap<String, ImageIcon> GLOBAL_FRONT_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, ImageIcon> GLOBAL_DISABLED_CACHE = new ConcurrentHashMap<>();
+    // Compact-view bottom-rounded variant, memoized by the SOURCE icon instance (front/disabled/
+    // joker). Without it, roundCompactBottomCorners rebuilt a full ARGB image + masked composite
+    // on every refreshCard — including each hover enter/exit. Cleared in updateCachedImages so a
+    // zoom change (new CARD_HEIGHT/CARD_CORNER) never returns a variant built at the old size,
+    // even for stable source instances that aren't rebuilt.
+    private static final ConcurrentHashMap<ImageIcon, ImageIcon> GLOBAL_COMPACT_CACHE = new ConcurrentHashMap<>();
 
     public boolean isRabbitTapada() {
         return (rabbit == RABBIT_TAPADA);
@@ -203,6 +209,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             // Clear global caches because card sizes changed
             GLOBAL_FRONT_CACHE.clear();
             GLOBAL_DISABLED_CACHE.clear();
+            GLOBAL_COMPACT_CACHE.clear();
 
             IMAGEN_TRASERA = createBackImageIcon(false);
             IMAGEN_TRASERA_B = createBackImageIcon(true);
@@ -656,7 +663,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                     // Compact: same icon at full height but with the bottom corners rounded at
                     // the cut line, so the component's clip shows all 4 corners alike instead of
                     // a flat bottom edge.
-                    card_image.setIcon(compact ? roundCompactBottomCorners(finalImg) : finalImg);
+                    card_image.setIcon(compact ? GLOBAL_COMPACT_CACHE.computeIfAbsent(finalImg, Card::roundCompactBottomCorners) : finalImg);
                     card_image.setVisible(isVisible_card());
 
                     if (rabbit == RABBIT_DESTAPADA) {

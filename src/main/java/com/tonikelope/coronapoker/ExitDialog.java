@@ -75,6 +75,11 @@ public class ExitDialog extends JDialog {
 
         // 95% opacity: lets the table show through slightly behind the dialog.
         setOpacity(0.95f);
+
+        SettingsUI.toggleizeAll(getContentPane());
+        // Re-pack: the switches are wider than the checkbox squares they replaced, so the dialog
+        // must grow to fit the long "wait for the hand to finish" label instead of clipping it.
+        pack();
     }
 
     public boolean isExit() {

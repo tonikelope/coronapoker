@@ -117,6 +117,7 @@ public final class FastChatDialog extends JDialog {
 
         pack();
 
+        SettingsUI.toggleizeAll(getContentPane());
     }
 
     public void refreshChatHistory() {

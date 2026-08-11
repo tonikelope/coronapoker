@@ -978,6 +978,8 @@ public class WaitingRoomFrame extends JFrame {
         // design-time default; the real format is set by the PONG handler).
         latency_label.setText(Translator.translate("ui.latencia_servidor") + " 0 ms | 0 ms");
 
+        SettingsUI.toggleize(chat_notifications);
+
         // Session-key identicon access (anti-MITM): right-click any participant in the
         // list. A client opens the AES identicon of its single channel with the host;
         // the host opens the mosaic of every per-client session identicon.

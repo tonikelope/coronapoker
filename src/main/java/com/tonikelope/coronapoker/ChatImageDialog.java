@@ -189,6 +189,7 @@ public class ChatImageDialog extends JDialog {
 
         cargarHistorialPanel();
 
+        SettingsUI.toggleizeAll(getContentPane());
     }
 
     /**

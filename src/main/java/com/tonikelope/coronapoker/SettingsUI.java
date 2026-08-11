@@ -294,4 +294,83 @@ public final class SettingsUI {
             g2.dispose();
         }
     }
+
+    // Paints the SAME sliding switch as ToggleSwitch, but as an Icon in a checkbox's icon slot,
+    // reading the checkbox's own selected/enabled state. Lets a plain JCheckBox look like the switch
+    // WITHOUT moving its text — a drop-in for dialogs outside the Settings tabs (Exit/Pause/Rebuy...).
+    private static final class SwitchIcon implements javax.swing.Icon {
+
+        private final int w;
+        private final int h;
+
+        SwitchIcon(int w, int h) {
+            this.w = w;
+            this.h = h;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return w;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return h;
+        }
+
+        @Override
+        public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
+            boolean sel = (c instanceof javax.swing.AbstractButton) && ((javax.swing.AbstractButton) c).isSelected();
+            boolean en = c.isEnabled();
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(!en ? ToggleSwitch.TRACK_DISABLED : (sel ? ToggleSwitch.TRACK_ON : ToggleSwitch.TRACK_OFF));
+            g2.fillRoundRect(x, y, w - 1, h - 1, h, h);
+            int pad = Math.max(2, Math.round(h * 0.14f));
+            int d = h - 2 * pad;
+            int tx = sel ? x + w - d - pad : x + pad;
+            g2.setColor(new java.awt.Color(0, 0, 0, 45));
+            g2.fillOval(tx, y + pad + 1, d, d);
+            g2.setColor(java.awt.Color.WHITE);
+            g2.fillOval(tx, y + pad, d, d);
+            g2.dispose();
+        }
+    }
+
+    // Repaints a checkbox as the sliding switch IN PLACE (icon slot), SIZED TO ITS OWN FONT so it
+    // fits dialogs with big table fonts and stays compact enough not to push a long label off the
+    // edge. Keeps text, state, listeners and layout untouched. Skips menu items only. Same icon in
+    // every slot so Swing never grey-filters it; the text dims on its own when disabled.
+    public static void toggleize(javax.swing.AbstractButton cb) {
+        if (cb instanceof javax.swing.JCheckBoxMenuItem) {
+            return;
+        }
+        int fs = (cb.getFont() != null) ? cb.getFont().getSize() : Math.round(14 * Helpers.DIALOG_ZOOM);
+        int h = Math.max(Math.round(15 * Helpers.DIALOG_ZOOM), Math.round(fs * 1.0f));
+        int w = Math.round(h * 1.6f);
+        javax.swing.Icon icon = new SwitchIcon(w, h);
+        cb.setIcon(icon);
+        cb.setSelectedIcon(icon);
+        cb.setDisabledIcon(icon);
+        cb.setDisabledSelectedIcon(icon);
+        cb.setPressedIcon(icon);
+        cb.setRolloverIcon(icon);
+        cb.setRolloverSelectedIcon(icon);
+        cb.setOpaque(false);
+        cb.setFocusPainted(false);
+        cb.setIconTextGap(Math.round(fs * 0.3f));
+    }
+
+    // Walks a container tree and toggleizes every JCheckBox (not menu items). Call once after
+    // initComponents() in a dialog's constructor: converts a whole dialog to switches with one line,
+    // without touching generated //GEN code, so a NetBeans .form regenerate can't wipe it.
+    public static void toggleizeAll(java.awt.Container root) {
+        for (java.awt.Component c : root.getComponents()) {
+            if (c instanceof javax.swing.JCheckBox && !(c instanceof javax.swing.JCheckBoxMenuItem)) {
+                toggleize((javax.swing.AbstractButton) c);
+            } else if (c instanceof java.awt.Container) {
+                toggleizeAll((java.awt.Container) c);
+            }
+        }
+    }
 }

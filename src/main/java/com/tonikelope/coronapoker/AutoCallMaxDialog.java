@@ -258,6 +258,9 @@ public class AutoCallMaxDialog extends JDialog {
 
         refreshEnablement.run();
 
+        SettingsUI.toggleize(enabled_check);
+        SettingsUI.toggleize(no_limit_check);
+
         gbc.gridy++;
         JButton ok = new JButton(Translator.translate("ui.aceptar"));
         ok.putClientProperty("i18n.key", "ui.aceptar");

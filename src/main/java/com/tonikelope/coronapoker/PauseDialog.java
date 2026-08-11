@@ -38,6 +38,12 @@ import javax.swing.Timer;
  *
  * @author tonikelope
  */
+// NetBeans form DISABLED: the matching .form was renamed to .form.bak on purpose.
+// This class's initComponents (the generated //GEN block) is hand-edited (i18n keys via
+// putClientProperty, DIALOG_ZOOM scaling, wrapped/translated tooltips and/or manual layout),
+// none of which the .form carries. Opening this form in the NetBeans GUI designer and saving
+// it would regenerate initComponents from the .form and silently wipe those edits. Maintain
+// this class by hand and do NOT restore the .form (the original is kept in git history).
 public class PauseDialog extends JDialog {
 
     private volatile Timer timer = null;

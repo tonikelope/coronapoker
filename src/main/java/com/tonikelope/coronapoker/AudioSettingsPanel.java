@@ -29,7 +29,6 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import java.awt.BorderLayout;
-import java.awt.FlowLayout;
 import java.util.List;
 import javax.sound.sampled.Mixer;
 import javax.swing.BorderFactory;
@@ -46,7 +45,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.ListSelectionModel;
-import javax.swing.border.TitledBorder;
 
 /**
  * Reusable audio settings panel: content of the "Audio" tab in the unified settings
@@ -131,8 +129,8 @@ public class AudioSettingsPanel extends JPanel {
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
 
-    // Panels with a TitledBorder + rows whose height must be pinned: kept as references
-    // for applyFontsAndSizing() (updateFonts doesn't reach border titles).
+    // Section content panels (each wrapped in a SettingsUI.card at assembly) + rows whose height
+    // must be pinned: kept as references for applyFontsAndSizing().
     private final JPanel volume_panel;
     private final JPanel sound_music_panel;
     private final JPanel output_panel;
@@ -323,7 +321,7 @@ public class AudioSettingsPanel extends JPanel {
         });
 
         volume_panel = new JPanel(new BorderLayout(10, 0));
-        volume_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.volumen_general")));
+        volume_panel.setOpaque(false);
         volume_panel.add(new JLabel(menuIcon("/images/menu/sound.png")), BorderLayout.WEST);
         volume_panel.add(volume_slider, BorderLayout.CENTER);
         volume_panel.add(volume_value_label, BorderLayout.EAST);
@@ -334,173 +332,170 @@ public class AudioSettingsPanel extends JPanel {
         // they show greyed out.
         global_rules_locked = GameFrame.getInstance() != null && !GameFrame.getInstance().isPartida_local();
 
-        sonidos_checkbox = new JCheckBox(Translator.translate("audio.sonidos"), GameFrame.SONIDOS);
+        sonidos_checkbox = togBold("audio.sonidos", GameFrame.SONIDOS);
         Helpers.setTranslatedToolTip(sonidos_checkbox, "tooltip.cfg.sound_master");
-        sonidos_checkbox.setFont(sonidos_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
         sonidos_checkbox.addActionListener(e -> {
             GameFrame.setSonidos(sonidos_checkbox.isSelected());
             refreshSoundControlsEnabled();
         });
 
-        sonidos_chorra_checkbox = new JCheckBox(Translator.translate("menu.sonidos_de_cona"), GameFrame.SONIDOS_CHORRA);
+        sonidos_chorra_checkbox = tog("menu.sonidos_de_cona", GameFrame.SONIDOS_CHORRA);
         sonidos_chorra_checkbox.addActionListener(e -> GameFrame.setSonidosChorra(sonidos_chorra_checkbox.isSelected()));
 
         // Music master: turns off all four tracks at once and refreshes their enabled
         // state (same pattern as the effects master). Depends on "Sound".
-        musica_master_checkbox = new JCheckBox(Translator.translate("audio.musica_maestro"), GameFrame.MUSICA);
+        musica_master_checkbox = togBold("audio.musica_maestro", GameFrame.MUSICA);
         Helpers.setTranslatedToolTip(musica_master_checkbox, "tooltip.cfg.music_master");
-        musica_master_checkbox.setFont(musica_master_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
         musica_master_checkbox.addActionListener(e -> {
             GameFrame.setMusica(musica_master_checkbox.isSelected());
             refreshSoundControlsEnabled();
         });
 
-        musica_checkbox = new JCheckBox(Translator.translate("audio.musica_ambiente"), GameFrame.MUSICA_AMBIENTAL);
+        musica_checkbox = tog("audio.musica_ambiente", GameFrame.MUSICA_AMBIENTAL);
         musica_checkbox.addActionListener(e -> GameFrame.setMusicaAmbiental(musica_checkbox.isSelected()));
 
-        musica_sala_checkbox = new JCheckBox(Translator.translate("audio.musica_sala"), GameFrame.MUSICA_SALA);
+        musica_sala_checkbox = tog("audio.musica_sala", GameFrame.MUSICA_SALA);
         musica_sala_checkbox.addActionListener(e -> GameFrame.setMusicaSala(musica_sala_checkbox.isSelected()));
 
-        musica_about_checkbox = new JCheckBox(Translator.translate("audio.musica_about"), GameFrame.MUSICA_ABOUT);
+        musica_about_checkbox = tog("audio.musica_about", GameFrame.MUSICA_ABOUT);
         musica_about_checkbox.addActionListener(e -> GameFrame.setMusicaAbout(musica_about_checkbox.isSelected()));
 
-        musica_stats_checkbox = new JCheckBox(Translator.translate("audio.musica_stats"), GameFrame.MUSICA_STATS);
+        musica_stats_checkbox = tog("audio.musica_stats", GameFrame.MUSICA_STATS);
         musica_stats_checkbox.addActionListener(e -> GameFrame.setMusicaStats(musica_stats_checkbox.isSelected()));
 
         // --- Sound effects (subpanel under "Ambient music") ---
         // Master that turns off ALL effects + individual toggles (all ON by default). The
         // master and "reveal" refresh their dependents' enabled state. The whole group depends
         // on the "Sound" master (disabled along with it, like jokes/music).
-        sonido_efectos_checkbox = new JCheckBox(Translator.translate("audio.efectos_sonido"), GameFrame.SONIDO_EFECTOS);
+        sonido_efectos_checkbox = togBold("audio.efectos_sonido", GameFrame.SONIDO_EFECTOS);
         Helpers.setTranslatedToolTip(sonido_efectos_checkbox, "tooltip.cfg.fx_master");
-        sonido_efectos_checkbox.setFont(sonido_efectos_checkbox.getFont().deriveFont(java.awt.Font.BOLD));
         sonido_efectos_checkbox.addActionListener(e -> {
             GameFrame.setSonidoEfectos(sonido_efectos_checkbox.isSelected());
             refreshSoundControlsEnabled();
         });
 
-        sonido_barajado_checkbox = new JCheckBox(Translator.translate("audio.sonido_barajar"), GameFrame.SONIDO_BARAJADO);
+        sonido_barajado_checkbox = tog("audio.sonido_barajar", GameFrame.SONIDO_BARAJADO);
         sonido_barajado_checkbox.addActionListener(e -> GameFrame.setSonidoBarajado(sonido_barajado_checkbox.isSelected()));
 
-        sonido_reparto_checkbox = new JCheckBox(Translator.translate("audio.sonido_repartir"), GameFrame.SONIDO_REPARTO);
+        sonido_reparto_checkbox = tog("audio.sonido_repartir", GameFrame.SONIDO_REPARTO);
         sonido_reparto_checkbox.addActionListener(e -> GameFrame.setSonidoReparto(sonido_reparto_checkbox.isSelected()));
 
-        sonido_destape_checkbox = new JCheckBox(Translator.translate("audio.sonido_destapar"), GameFrame.SONIDO_DESTAPE);
+        sonido_destape_checkbox = tog("audio.sonido_destapar", GameFrame.SONIDO_DESTAPE);
         sonido_destape_checkbox.addActionListener(e -> {
             GameFrame.setSonidoDestape(sonido_destape_checkbox.isSelected());
             refreshSoundControlsEnabled();
         });
 
-        sonido_destape_mis_checkbox = new JCheckBox(Translator.translate("audio.sonido_destapar_mis_cartas"), GameFrame.SONIDO_DESTAPE_MIS_CARTAS);
+        sonido_destape_mis_checkbox = tog("audio.sonido_destapar_mis_cartas", GameFrame.SONIDO_DESTAPE_MIS_CARTAS);
         sonido_destape_mis_checkbox.addActionListener(e -> GameFrame.setSonidoDestapeMisCartas(sonido_destape_mis_checkbox.isSelected()));
 
-        sonido_apostar_checkbox = new JCheckBox(Translator.translate("audio.sonido_apostar"), GameFrame.SONIDO_APOSTAR);
+        sonido_apostar_checkbox = tog("audio.sonido_apostar", GameFrame.SONIDO_APOSTAR);
         sonido_apostar_checkbox.addActionListener(e -> GameFrame.setSonidoApostar(sonido_apostar_checkbox.isSelected()));
 
-        sonido_fold_checkbox = new JCheckBox(Translator.translate("audio.sonido_foldear"), GameFrame.SONIDO_FOLD);
+        sonido_fold_checkbox = tog("audio.sonido_foldear", GameFrame.SONIDO_FOLD);
         sonido_fold_checkbox.addActionListener(e -> GameFrame.setSonidoFold(sonido_fold_checkbox.isSelected()));
 
-        sonido_conteo_checkbox = new JCheckBox(Translator.translate("audio.sonido_conteo"), GameFrame.SONIDO_CONTEO);
+        sonido_conteo_checkbox = tog("audio.sonido_conteo", GameFrame.SONIDO_CONTEO);
         sonido_conteo_checkbox.addActionListener(e -> GameFrame.setSonidoConteo(sonido_conteo_checkbox.isSelected()));
 
-        sonido_entra_checkbox = new JCheckBox(Translator.translate("audio.sonido_entra"), GameFrame.SONIDO_ENTRA);
+        sonido_entra_checkbox = tog("audio.sonido_entra", GameFrame.SONIDO_ENTRA);
         sonido_entra_checkbox.addActionListener(e -> GameFrame.setSonidoEntra(sonido_entra_checkbox.isSelected()));
 
-        sonido_sale_checkbox = new JCheckBox(Translator.translate("audio.sonido_sale"), GameFrame.SONIDO_SALE);
+        sonido_sale_checkbox = tog("audio.sonido_sale", GameFrame.SONIDO_SALE);
         sonido_sale_checkbox.addActionListener(e -> GameFrame.setSonidoSale(sonido_sale_checkbox.isSelected()));
 
-        sonido_interruptor_checkbox = new JCheckBox(Translator.translate("audio.sonido_interruptor"), GameFrame.SONIDO_INTERRUPTOR);
+        sonido_interruptor_checkbox = tog("audio.sonido_interruptor", GameFrame.SONIDO_INTERRUPTOR);
         sonido_interruptor_checkbox.addActionListener(e -> GameFrame.setSonidoInterruptor(sonido_interruptor_checkbox.isSelected()));
 
-        sonido_caja_checkbox = new JCheckBox(Translator.translate("audio.sonido_caja"), GameFrame.SONIDO_CAJA);
+        sonido_caja_checkbox = tog("audio.sonido_caja", GameFrame.SONIDO_CAJA);
         sonido_caja_checkbox.addActionListener(e -> GameFrame.setSonidoCaja(sonido_caja_checkbox.isSelected()));
 
-        sonido_igualar_checkbox = new JCheckBox(Translator.translate("audio.sonido_igualar"), GameFrame.SONIDO_IGUALAR);
+        sonido_igualar_checkbox = tog("audio.sonido_igualar", GameFrame.SONIDO_IGUALAR);
         sonido_igualar_checkbox.addActionListener(e -> GameFrame.setSonidoIgualar(sonido_igualar_checkbox.isSelected()));
 
-        sonido_pasar_checkbox = new JCheckBox(Translator.translate("audio.sonido_pasar"), GameFrame.SONIDO_PASAR);
+        sonido_pasar_checkbox = tog("audio.sonido_pasar", GameFrame.SONIDO_PASAR);
         sonido_pasar_checkbox.addActionListener(e -> GameFrame.setSonidoPasar(sonido_pasar_checkbox.isSelected()));
 
-        sonido_allin_checkbox = new JCheckBox(Translator.translate("audio.sonido_allin"), GameFrame.SONIDO_ALLIN);
+        sonido_allin_checkbox = tog("audio.sonido_allin", GameFrame.SONIDO_ALLIN);
         sonido_allin_checkbox.addActionListener(e -> GameFrame.setSonidoAllin(sonido_allin_checkbox.isSelected()));
 
-        sonido_ciegas_checkbox = new JCheckBox(Translator.translate("audio.sonido_ciegas"), GameFrame.SONIDO_CIEGAS);
+        sonido_ciegas_checkbox = tog("audio.sonido_ciegas", GameFrame.SONIDO_CIEGAS);
         sonido_ciegas_checkbox.addActionListener(e -> GameFrame.setSonidoCiegas(sonido_ciegas_checkbox.isSelected()));
 
-        sonido_ultima_mano_checkbox = new JCheckBox(Translator.translate("audio.sonido_ultima_mano"), GameFrame.SONIDO_ULTIMA_MANO);
+        sonido_ultima_mano_checkbox = tog("audio.sonido_ultima_mano", GameFrame.SONIDO_ULTIMA_MANO);
         sonido_ultima_mano_checkbox.addActionListener(e -> GameFrame.setSonidoUltimaMano(sonido_ultima_mano_checkbox.isSelected()));
 
-        sonido_pausa_checkbox = new JCheckBox(Translator.translate("audio.sonido_pausa"), GameFrame.SONIDO_PAUSA);
+        sonido_pausa_checkbox = tog("audio.sonido_pausa", GameFrame.SONIDO_PAUSA);
         sonido_pausa_checkbox.addActionListener(e -> GameFrame.setSonidoPausa(sonido_pausa_checkbox.isSelected()));
 
-        sonido_entrar_sala_checkbox = new JCheckBox(Translator.translate("audio.sonido_entrar_sala"), GameFrame.SONIDO_ENTRAR_SALA);
+        sonido_entrar_sala_checkbox = tog("audio.sonido_entrar_sala", GameFrame.SONIDO_ENTRAR_SALA);
         sonido_entrar_sala_checkbox.addActionListener(e -> GameFrame.setSonidoEntrarSala(sonido_entrar_sala_checkbox.isSelected()));
 
-        sonido_tu_turno_checkbox = new JCheckBox(Translator.translate("audio.sonido_tu_turno"), GameFrame.SONIDO_TU_TURNO);
+        sonido_tu_turno_checkbox = tog("audio.sonido_tu_turno", GameFrame.SONIDO_TU_TURNO);
         sonido_tu_turno_checkbox.addActionListener(e -> GameFrame.setSonidoTuTurno(sonido_tu_turno_checkbox.isSelected()));
 
-        sonido_aviso_tiempo_checkbox = new JCheckBox(Translator.translate("audio.sonido_aviso_tiempo"), GameFrame.SONIDO_AVISO_TIEMPO);
+        sonido_aviso_tiempo_checkbox = tog("audio.sonido_aviso_tiempo", GameFrame.SONIDO_AVISO_TIEMPO);
         sonido_aviso_tiempo_checkbox.addActionListener(e -> GameFrame.setSonidoAvisoTiempo(sonido_aviso_tiempo_checkbox.isSelected()));
 
-        sonido_fin_partida_checkbox = new JCheckBox(Translator.translate("audio.sonido_fin_partida"), GameFrame.SONIDO_FIN_PARTIDA);
+        sonido_fin_partida_checkbox = tog("audio.sonido_fin_partida", GameFrame.SONIDO_FIN_PARTIDA);
         sonido_fin_partida_checkbox.addActionListener(e -> GameFrame.setSonidoFinPartida(sonido_fin_partida_checkbox.isSelected()));
 
-        sonido_inicio_checkbox = new JCheckBox(Translator.translate("audio.sonido_inicio"), GameFrame.SONIDO_INICIO);
+        sonido_inicio_checkbox = tog("audio.sonido_inicio", GameFrame.SONIDO_INICIO);
         sonido_inicio_checkbox.addActionListener(e -> GameFrame.setSonidoInicio(sonido_inicio_checkbox.isSelected()));
 
-        sonido_conexion_checkbox = new JCheckBox(Translator.translate("audio.sonido_conexion"), GameFrame.SONIDO_CONEXION);
+        sonido_conexion_checkbox = tog("audio.sonido_conexion", GameFrame.SONIDO_CONEXION);
         sonido_conexion_checkbox.addActionListener(e -> GameFrame.setSonidoConexion(sonido_conexion_checkbox.isSelected()));
 
-        sonido_iwtsth_checkbox = new JCheckBox(Translator.translate("audio.sonido_iwtsth"), GameFrame.SONIDO_IWTSTH);
+        sonido_iwtsth_checkbox = tog("audio.sonido_iwtsth", GameFrame.SONIDO_IWTSTH);
         sonido_iwtsth_checkbox.addActionListener(e -> GameFrame.setSonidoIwtsth(sonido_iwtsth_checkbox.isSelected()));
 
-        sonido_zoom_checkbox = new JCheckBox(Translator.translate("audio.sonido_zoom"), GameFrame.SONIDO_ZOOM);
+        sonido_zoom_checkbox = tog("audio.sonido_zoom", GameFrame.SONIDO_ZOOM);
         sonido_zoom_checkbox.addActionListener(e -> GameFrame.setSonidoZoom(sonido_zoom_checkbox.isSelected()));
 
-        sonido_vista_compacta_checkbox = new JCheckBox(Translator.translate("audio.sonido_vista_compacta"), GameFrame.SONIDO_VISTA_COMPACTA);
+        sonido_vista_compacta_checkbox = tog("audio.sonido_vista_compacta", GameFrame.SONIDO_VISTA_COMPACTA);
         sonido_vista_compacta_checkbox.addActionListener(e -> GameFrame.setSonidoVistaCompacta(sonido_vista_compacta_checkbox.isSelected()));
 
-        sonido_screenshot_checkbox = new JCheckBox(Translator.translate("audio.sonido_screenshot"), GameFrame.SONIDO_SCREENSHOT);
+        sonido_screenshot_checkbox = tog("audio.sonido_screenshot", GameFrame.SONIDO_SCREENSHOT);
         sonido_screenshot_checkbox.addActionListener(e -> GameFrame.setSonidoScreenshot(sonido_screenshot_checkbox.isSelected()));
 
-        sonido_tapete_checkbox = new JCheckBox(Translator.translate("audio.sonido_tapete"), GameFrame.SONIDO_TAPETE);
+        sonido_tapete_checkbox = tog("audio.sonido_tapete", GameFrame.SONIDO_TAPETE);
         sonido_tapete_checkbox.addActionListener(e -> GameFrame.setSonidoTapete(sonido_tapete_checkbox.isSelected()));
 
-        sonido_visor_checkbox = new JCheckBox(Translator.translate("audio.sonido_visor"), GameFrame.SONIDO_VISOR);
+        sonido_visor_checkbox = tog("audio.sonido_visor", GameFrame.SONIDO_VISOR);
         sonido_visor_checkbox.addActionListener(e -> GameFrame.setSonidoVisor(sonido_visor_checkbox.isSelected()));
 
-        sonido_volumen_checkbox = new JCheckBox(Translator.translate("audio.sonido_volumen"), GameFrame.SONIDO_VOLUMEN);
+        sonido_volumen_checkbox = tog("audio.sonido_volumen", GameFrame.SONIDO_VOLUMEN);
         sonido_volumen_checkbox.addActionListener(e -> GameFrame.setSonidoVolumen(sonido_volumen_checkbox.isSelected()));
 
-        sonido_arranque_checkbox = new JCheckBox(Translator.translate("audio.sonido_arranque"), GameFrame.SONIDO_ARRANQUE);
+        sonido_arranque_checkbox = tog("audio.sonido_arranque", GameFrame.SONIDO_ARRANQUE);
         sonido_arranque_checkbox.addActionListener(e -> GameFrame.setSonidoArranque(sonido_arranque_checkbox.isSelected()));
 
-        sonido_aviso_checkbox = new JCheckBox(Translator.translate("audio.sonido_aviso"), GameFrame.SONIDO_AVISO);
+        sonido_aviso_checkbox = tog("audio.sonido_aviso", GameFrame.SONIDO_AVISO);
         sonido_aviso_checkbox.addActionListener(e -> GameFrame.setSonidoAviso(sonido_aviso_checkbox.isSelected()));
 
-        sonido_error_checkbox = new JCheckBox(Translator.translate("audio.sonido_error"), GameFrame.SONIDO_ERROR);
+        sonido_error_checkbox = tog("audio.sonido_error", GameFrame.SONIDO_ERROR);
         sonido_error_checkbox.addActionListener(e -> GameFrame.setSonidoError(sonido_error_checkbox.isSelected()));
 
-        sonido_error_red_checkbox = new JCheckBox(Translator.translate("audio.sonido_error_red"), GameFrame.SONIDO_ERROR_RED);
+        sonido_error_red_checkbox = tog("audio.sonido_error_red", GameFrame.SONIDO_ERROR_RED);
         sonido_error_red_checkbox.addActionListener(e -> GameFrame.setSonidoErrorRed(sonido_error_red_checkbox.isSelected()));
 
-        tts_checkbox = new JCheckBox(Translator.translate("menu.tts"), GameFrame.TTS_SERVER);
+        tts_checkbox = new SettingsUI.ToggleSwitch(GameFrame.TTS_SERVER);
         Helpers.setTranslatedToolTip(tts_checkbox, "tooltip.cfg.tts");
         tts_checkbox.addActionListener(e -> GameFrame.setTTSGlobal(tts_checkbox.isSelected()));
 
-        voice_messages_checkbox = new JCheckBox(Translator.translate("menu.notas_de_voz"), GameFrame.VOICE_MESSAGES);
+        voice_messages_checkbox = new SettingsUI.ToggleSwitch(GameFrame.VOICE_MESSAGES);
         Helpers.setTranslatedToolTip(voice_messages_checkbox, "tooltip.cfg.voice_notes_rule");
         voice_messages_checkbox.addActionListener(e -> GameFrame.setVoiceMessages(voice_messages_checkbox.isSelected()));
 
         sound_music_panel = new JPanel();
+        sound_music_panel.setOpaque(false);
         sound_music_panel.setLayout(new BoxLayout(sound_music_panel, BoxLayout.Y_AXIS));
-        sound_music_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.sonido_musica")));
         // "SOUND" master flush left; the rest indented to read as dependents. Extra spacing
         // between master rows so they don't feel cramped (this column has room to spare, being
         // the shortest, without growing the dialog's height).
         sound_music_panel.add(iconRow(menuIcon("/images/menu/sound.png"), sonidos_checkbox));
         sound_music_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
-        sound_music_panel.add(indent(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox)));
+        sound_music_panel.add(indentFill(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox)));
 
         // A little breathing room before the music box.
         sound_music_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
@@ -538,13 +533,10 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_a.add(typeHeader("audio.grupo_cartas"));
         fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_barajado_checkbox, false, previewButton("misc/shuffle.wav")));
         fx_col_a.add(effectRow(menuIcon("/images/menu/dealer.png"), sonido_reparto_checkbox, false, previewButton("misc/deal.wav")));
-        // "Reveal" + its suboption "my cards" go together in a thin box (groupBox): "my cards"
-        // hangs (deeper indent) off "Reveal" and both share the same reveal sound, so they read
-        // as a separate group from the rest of the card effects.
-        JPanel destape_box = groupBox();
-        destape_box.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false, previewButton("misc/uncover.wav")));
-        destape_box.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true, previewButton("misc/uncover.wav")));
-        fx_col_a.add(destape_box);
+        // "Reveal" + its suboption "my cards" (deeper indent) as regular column rows, so their
+        // toggles line up with the rest of the effects on the column's right edge.
+        fx_col_a.add(effectRow(menuIcon("/images/menu/flip.png"), sonido_destape_checkbox, false, previewButton("misc/uncover.wav")));
+        fx_col_a.add(effectRow(menuIcon("/images/menu/baraja.png"), sonido_destape_mis_checkbox, true, previewButton("misc/uncover.wav")));
         fx_col_a.add(typeHeader("audio.grupo_sala"));
         fx_col_a.add(effectRow(scaledIcon("/images/start.png", 24), sonido_entra_checkbox, false, previewButton("misc/laser.wav")));
         fx_col_a.add(effectRow(menuIcon("/images/menu/bell.png"), sonido_entrar_sala_checkbox, false, previewButton("misc/new_user.wav")));
@@ -665,11 +657,11 @@ public class AudioSettingsPanel extends JPanel {
         });
 
         output_panel = new JPanel(new BorderLayout());
-        output_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.dispositivo_salida")));
+        output_panel.setOpaque(false);
         output_panel.add(new JScrollPane(output_list), BorderLayout.CENTER);
 
         // --- Input device: microphone ---
-        mic_checkbox = new JCheckBox(Translator.translate("audio.microfono_activado"), AudioDeviceManager.isMicEnabled());
+        mic_checkbox = new SettingsUI.ToggleSwitch(AudioDeviceManager.isMicEnabled());
 
         mic_checkbox.addActionListener(e -> {
             AudioDeviceManager.setMicEnabled(mic_checkbox.isSelected());
@@ -702,8 +694,11 @@ public class AudioSettingsPanel extends JPanel {
         });
 
         mic_panel = new JPanel(new BorderLayout(0, 5));
-        mic_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.dispositivo_entrada")));
-        mic_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), mic_checkbox), BorderLayout.NORTH);
+        mic_panel.setOpaque(false);
+        JLabel mic_label = new JLabel(Translator.translate("audio.microfono_activado"));
+        mic_label.setIcon(scaledIcon("/images/microphone_black.png", 24));
+        mic_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        mic_panel.add(SettingsUI.alignedRow(0, mic_label, mic_checkbox), BorderLayout.NORTH);
         mic_panel.add(new JScrollPane(capture_list), BorderLayout.CENTER);
 
         // --- Voice note options ---
@@ -711,7 +706,7 @@ public class AudioSettingsPanel extends JPanel {
         // record hotkey and playback). Under the hood it's still stored as a "block" flag
         // (AudioDeviceManager.setBlockVoiceMessages), so the rest of the code (note receiving,
         // waiting room) doesn't change; only the displayed value is inverted here.
-        notes_local_checkbox = new JCheckBox(Translator.translate("audio.notas_de_voz_local"), !AudioDeviceManager.isBlockVoiceMessages());
+        notes_local_checkbox = new SettingsUI.ToggleSwitch(!AudioDeviceManager.isBlockVoiceMessages());
         Helpers.setTranslatedToolTip(notes_local_checkbox, "tooltip.cfg.notes_local");
 
         notes_local_checkbox.addActionListener(e -> {
@@ -720,7 +715,7 @@ public class AudioSettingsPanel extends JPanel {
             refreshVoiceControlsEnabled();
         });
 
-        play_own_checkbox = new JCheckBox(Translator.translate("audio.reproducir_mis_notas"), AudioDeviceManager.isPlayOwnVoiceMessages());
+        play_own_checkbox = new SettingsUI.ToggleSwitch(AudioDeviceManager.isPlayOwnVoiceMessages());
         Helpers.setTranslatedToolTip(play_own_checkbox, "tooltip.cfg.play_own_notes");
 
         play_own_checkbox.addActionListener(e -> AudioDeviceManager.setPlayOwnVoiceMessages(play_own_checkbox.isSelected()));
@@ -760,9 +755,9 @@ public class AudioSettingsPanel extends JPanel {
         // the width scales with the host's updateFonts.
         retention_combo.setPrototypeDisplayValue(Translator.translate("audio.retencion_dias", 999) + "  ");
 
-        retention_panel = new JPanel(new BorderLayout(10, 0));
-        retention_panel.add(new JLabel(Translator.translate("audio.conservar_notas")), BorderLayout.CENTER);
-        retention_panel.add(retention_combo, BorderLayout.EAST);
+        JLabel retention_label = new JLabel(Translator.translate("audio.conservar_notas"));
+        retention_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        retention_panel = SettingsUI.alignedRow(0, retention_label, retention_combo);
 
         // Manual wipe: drops every stored note now, independent of retention and
         // of the self-block toggle (you may want to clear disk even while blocking).
@@ -784,35 +779,45 @@ public class AudioSettingsPanel extends JPanel {
         Helpers.setTranslatedToolTip(view_notes_button, "tooltip.cfg.view_notes");
         view_notes_button.addActionListener(e -> VoiceNotesViewerDialog.open(javax.swing.SwingUtilities.getWindowAncestor(this)));
 
-        purge_panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        // Both buttons equal-width, filling the row so the right edge lines up with the
+        // "keep notes" combo above; natural height (doesn't stretch in the vertical BoxLayout).
+        purge_panel = new JPanel(new java.awt.GridLayout(1, 2, Math.round(8 * Helpers.DIALOG_ZOOM), 0)) {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        purge_panel.setOpaque(false);
         purge_panel.add(view_notes_button);
-        purge_panel.add(javax.swing.Box.createHorizontalStrut(10));
         purge_panel.add(purge_button);
 
         refreshVoiceControlsEnabled();
 
         notes_panel = new JPanel();
+        notes_panel.setOpaque(false);
         notes_panel.setLayout(new BoxLayout(notes_panel, BoxLayout.Y_AXIS));
-        notes_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.notas_de_voz")));
 
-        play_own_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         retention_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         purge_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
-        // Compact content pinned to the top (no glue): sits in the right column, under "Input
-        // device" (microphone), forming the VOICE/input block with it. Capped to its preferred
-        // height in applyFontsAndSizing so it doesn't stretch. GLOBAL table rule (server) on top;
-        // below it the LOCAL master toggle that gates the rest of the voice-note controls (both
-        // in positive logic, both with the microphone icon). The child gated by the LOCAL master
-        // (play my own notes) is INDENTED 22px under it, like the panel's other sub-options.
-        // Retention and purge are NOT gated by the master (they manage already-saved notes), so
-        // they stay at the base level. Uniform vertical rhythm: 6px between sub-rows, 8px around
-        // the master separator.
-        notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
+        // GLOBAL table rule (server) on top, then the LOCAL master toggle that gates the rest of
+        // the voice-note controls (both in positive logic). "Play my own notes" hangs off the
+        // LOCAL master under a guide. Retention and purge are NOT gated (they manage already-saved
+        // notes), so they stay at the base level.
+        JLabel voice_messages_label = new JLabel(Translator.translate("menu.notas_de_voz"));
+        voice_messages_label.setIcon(scaledIcon("/images/microphone_black.png", 24));
+        voice_messages_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        JLabel notes_local_label = new JLabel(Translator.translate("audio.notas_de_voz_local"));
+        notes_local_label.setIcon(scaledIcon("/images/microphone_black.png", 24));
+        notes_local_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        JLabel play_own_label = new JLabel(Translator.translate("audio.reproducir_mis_notas"));
+        play_own_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        notes_panel.add(SettingsUI.alignedRow(0, voice_messages_label, voice_messages_checkbox));
         notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
-        notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), notes_local_checkbox));
-        notes_panel.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        notes_panel.add(indent(play_own_checkbox));
+        notes_panel.add(SettingsUI.alignedRow(0, notes_local_label, notes_local_checkbox));
+        JPanel play_own_group = SettingsUI.guideGroup();
+        SettingsUI.addToGroup(play_own_group, SettingsUI.alignedRow(0, play_own_label, play_own_checkbox));
+        notes_panel.add(play_own_group);
         notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
         notes_panel.add(retention_panel);
         notes_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
@@ -821,19 +826,22 @@ public class AudioSettingsPanel extends JPanel {
         // --- Voice (TTS): GLOBAL table rule (server) on top; LOCAL toggle below. Both in
         // positive logic: under the hood the local one is still stored as a "block" flag
         // (setBlockTtsLocal), so GameFrame doesn't change; only the displayed value is inverted.
-        tts_local_checkbox = new JCheckBox(Translator.translate("audio.tts_local"), !AudioDeviceManager.isBlockTtsLocal());
+        tts_local_checkbox = new SettingsUI.ToggleSwitch(!AudioDeviceManager.isBlockTtsLocal());
         tts_local_checkbox.addActionListener(e -> AudioDeviceManager.setBlockTtsLocal(!tts_local_checkbox.isSelected()));
 
         tts_panel = new JPanel();
+        tts_panel.setOpaque(false);
         tts_panel.setLayout(new BoxLayout(tts_panel, BoxLayout.Y_AXIS));
-        tts_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.voz_tts")));
-        // Compact and pinned to the top (no glue): sits in the right column, under "Voice
-        // notes", forming the VOICE block with it; capped to its preferred height in
-        // applyFontsAndSizing. GLOBAL table rule (server) on top; LOCAL below, both with the
-        // voice icon.
-        tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_checkbox));
+        // GLOBAL table rule (server) on top; LOCAL below, both with the voice icon.
+        JLabel tts_label = new JLabel(Translator.translate("menu.tts"));
+        tts_label.setIcon(menuIcon("/images/menu/voice.png"));
+        tts_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        JLabel tts_local_label = new JLabel(Translator.translate("audio.tts_local"));
+        tts_local_label.setIcon(menuIcon("/images/menu/voice.png"));
+        tts_local_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        tts_panel.add(SettingsUI.alignedRow(0, tts_label, tts_checkbox));
         tts_panel.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
-        tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_local_checkbox));
+        tts_panel.add(SettingsUI.alignedRow(0, tts_local_label, tts_local_checkbox));
 
         // Note (CLIENT-in-game only): GLOBAL rules are sent by the server and shown greyed out
         // (local settings don't touch them). Both GLOBAL checkboxes (Voice notes and TTS) now
@@ -851,33 +859,44 @@ public class AudioSettingsPanel extends JPanel {
         // "Input device", "Voice notes" and "Voice (TTS)". The device lists (uncapped) stretch to
         // fill the column and LEVEL their bottom edge with the left column's; "Voice notes" and
         // "Voice (TTS)" (capped to their preferred height) fall below them, both being VOICE. ---
-        sound_music_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        output_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        mic_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        notes_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        tts_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        // Each section becomes a rounded card (SettingsUI.card) wrapping its existing content.
+        JPanel sound_music_card = SettingsUI.card("audio.sonido_musica");
+        sound_music_card.add(sound_music_panel);
+        sound_music_card.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        JPanel output_card = SettingsUI.card("audio.dispositivo_salida");
+        output_card.add(output_panel);
+        output_card.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        JPanel mic_card = SettingsUI.card("audio.dispositivo_entrada");
+        mic_card.add(mic_panel);
+        mic_card.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        JPanel notes_card = SettingsUI.card("audio.notas_de_voz");
+        notes_card.add(notes_panel);
+        notes_card.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        JPanel tts_card = SettingsUI.card("audio.voz_tts");
+        tts_card.add(tts_panel);
+        tts_card.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         JPanel left_col = new JPanel();
+        left_col.setOpaque(false);
         left_col.setLayout(new BoxLayout(left_col, BoxLayout.Y_AXIS));
         left_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
-        left_col.add(sound_music_panel);
-        // "Sound & music" is compact (capped to its preferred height); this tail absorbs the
-        // leftover height if the right column ends up taller, keeping it pinned to the top.
+        left_col.add(sound_music_card);
         left_col.add(Box.createVerticalGlue());
 
         JPanel right_col = new JPanel();
+        right_col.setOpaque(false);
         right_col.setLayout(new BoxLayout(right_col, BoxLayout.Y_AXIS));
         right_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
-        right_col.add(output_panel);
+        right_col.add(output_card);
         right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        right_col.add(mic_panel);
+        right_col.add(mic_card);
         right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        right_col.add(notes_panel);
+        right_col.add(notes_card);
         right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        right_col.add(tts_panel);
-        // No tail at the bottom: the device lists (output/mic, height uncapped) absorb the
-        // leftover height by stretching, so "Voice notes" and "Voice (TTS)" end up below them and
-        // the column's bottom edge levels with the left column's (effects).
+        right_col.add(tts_card);
+        // Leftover height collects at the bottom (cards keep their natural height, they don't
+        // stretch), so the cards stack tightly at the top.
+        right_col.add(Box.createVerticalGlue());
 
         // GridBagLayout, not GridLayout: each column takes its PREFERRED width — no longer
         // forced equal, which used to widen the dialog by needlessly stretching the right column
@@ -900,7 +919,9 @@ public class AudioSettingsPanel extends JPanel {
         center_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
         center_panel.add(right_col, center_gbc);
 
-        add(volume_panel, BorderLayout.NORTH);
+        JPanel volume_card = SettingsUI.card("audio.volumen_general");
+        volume_card.add(volume_panel);
+        add(volume_card, BorderLayout.NORTH);
         add(center_panel, BorderLayout.CENTER);
         // Global-rules note at the bottom, under both columns: covers the GLOBAL checkboxes of
         // both (TTS on the left, Voice notes on the right). Only ADDED when you're a client in a
@@ -925,15 +946,9 @@ public class AudioSettingsPanel extends JPanel {
      */
     public void applyFontsAndSizing() {
 
-        // Note: the HOST applies the font before calling this (the standalone speaker dialog
-        // uses updateFonts at 1.2x; the unified dialog uses its own uniform size). This only
-        // fixes the border titles and the heights.
-        ((TitledBorder) volume_panel.getBorder()).setTitleFont(volume_value_label.getFont());
-        ((TitledBorder) sound_music_panel.getBorder()).setTitleFont(volume_value_label.getFont());
-        ((TitledBorder) output_panel.getBorder()).setTitleFont(volume_value_label.getFont());
-        ((TitledBorder) mic_panel.getBorder()).setTitleFont(volume_value_label.getFont());
-        ((TitledBorder) notes_panel.getBorder()).setTitleFont(volume_value_label.getFont());
-        ((TitledBorder) tts_panel.getBorder()).setTitleFont(volume_value_label.getFont());
+        // Note: the HOST applies the font before calling this. The section titles are painted by
+        // SettingsUI.card (independent of the host font), so there are no border titles to restyle
+        // here anymore — only the row/panel heights.
 
         // In the vertical BoxLayout, the retention and purge rows must keep their natural
         // height instead of stretching to fill the gap.
@@ -1400,32 +1415,42 @@ public class AudioSettingsPanel extends JPanel {
     // checkbox itself (that would replace its check indicator). Returns a left-aligned
     // horizontal [icon + control] row; the control keeps its identity, so its listeners
     // and enabled state still operate on the same object.
+    // Creates a sliding toggle for a boolean setting, stashing its translated label so the row
+    // builders (iconRow / effectRow) can render "icon label ........ toggle". Fields stay typed
+    // JCheckBox (ToggleSwitch IS-A JCheckBox), so the transactional logic is untouched.
+    private static JCheckBox tog(String key, boolean value) {
+        return tog(key, value, false);
+    }
+
+    // Bold-label variant for the section masters (Sound / Music / Effects).
+    private static JCheckBox togBold(String key, boolean value) {
+        return tog(key, value, true);
+    }
+
+    private static JCheckBox tog(String key, boolean value, boolean bold) {
+        SettingsUI.ToggleSwitch t = new SettingsUI.ToggleSwitch(value);
+        t.putClientProperty("lbl", Translator.translate(key));
+        if (bold) {
+            t.putClientProperty("bold", Boolean.TRUE);
+        }
+        return t;
+    }
+
+    // Lays a toggle out as "icon label ........ toggle" (control on the card's right edge),
+    // reading the toggle's stashed label + bold flag. A plain control (no stashed label) shows
+    // just the icon + control.
     private static JComponent iconRow(javax.swing.Icon icon, JComponent control) {
-
-        // MAX height = preferred: in a vertical BoxLayout the row NEVER stretches to fill the
-        // gap. The internal horizontal glue (pushes the control left) has unlimited max height
-        // and, without this cap, would drag the whole row along and space the controls apart
-        // when the leftover height gets distributed (this was the case for the two "Global
-        // settings" checkboxes, which ended up too far apart).
-        JPanel row = new JPanel() {
-            @Override
-            public java.awt.Dimension getMaximumSize() {
-                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
-            }
-        };
-        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
-        row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-
-        JLabel icon_label = new JLabel(icon);
-        icon_label.setAlignmentY(JComponent.CENTER_ALIGNMENT);
-        control.setAlignmentY(JComponent.CENTER_ALIGNMENT);
-
-        row.add(icon_label);
-        row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
-        row.add(control);
-        row.add(Box.createHorizontalGlue());
-
-        return row;
+        JLabel label = new JLabel();
+        Object lbl = control.getClientProperty("lbl");
+        if (lbl != null) {
+            label.setText(lbl.toString());
+        }
+        if (Boolean.TRUE.equals(control.getClientProperty("bold"))) {
+            label.setFont(label.getFont().deriveFont(java.awt.Font.BOLD));
+        }
+        label.setIcon(icon);
+        label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        return SettingsUI.alignedRow(0, label, control);
     }
 
     // Loads a menu icon (already at the right 24px size) straight from resources.
@@ -1490,9 +1515,12 @@ public class AudioSettingsPanel extends JPanel {
                 super.paintComponent(g);
                 java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
                 g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new java.awt.Color(0, 0, 0, 150));
+                int garc = Math.round(12 * Helpers.DIALOG_ZOOM);
+                g2.setColor(new java.awt.Color(0, 0, 0, 10));
+                g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, garc, garc);
+                g2.setColor(new java.awt.Color(0, 0, 0, 40));
                 g2.setStroke(new java.awt.BasicStroke(1f));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, garc, garc);
                 g2.dispose();
             }
 
@@ -1525,42 +1553,47 @@ public class AudioSettingsPanel extends JPanel {
     // indent, for the "my cards" suboption hanging off "Reveal"). trailing (or null): the
     // preview button, placed to the RIGHT of the label.
     private static JComponent effectRow(javax.swing.Icon icon, JCheckBox cb, boolean deep, JComponent trailing) {
-        JPanel row = new JPanel() {
-            @Override
-            public java.awt.Dimension getMaximumSize() {
-                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
-            }
-        };
-        row.setOpaque(false);
-        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
-        row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        // Top margin: adds air between effect rows (were touching) and under the master,
-        // without growing the dialog's height (this column is the shortest and has room to
-        // spare).
-        row.setBorder(BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), 0, 0, 0));
-        row.add(Box.createHorizontalStrut(Math.round((deep ? 34 : 18) * Helpers.DIALOG_ZOOM)));
+        // Fixed-width icon cell (artwork centered) so every label starts at the same x even for a
+        // wide icon.
         JLabel icon_label = new JLabel(icon);
-        // FIXED-width cell for the icon, with the artwork centered: this way every checkbox in
-        // the column starts at the same x even for a wide icon. Without it, giving the lights
-        // switch back its aspect ratio would push its checkbox ~27px to the right.
         java.awt.Dimension icon_cell = new java.awt.Dimension(Math.round(EFFECT_ICON_CELL_W * Helpers.DIALOG_ZOOM), Math.round(EFFECT_ICON_CELL_H * Helpers.DIALOG_ZOOM));
         icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         icon_label.setPreferredSize(icon_cell);
         icon_label.setMinimumSize(icon_cell);
         icon_label.setMaximumSize(icon_cell);
         icon_label.setAlignmentY(JComponent.CENTER_ALIGNMENT);
-        cb.setAlignmentY(JComponent.CENTER_ALIGNMENT);
-        row.add(icon_label);
-        row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
-        row.add(cb);
-        // Preview button to the right of the label (after a small gap). The trailing glue
-        // pushes everything left, so the button ends up right next to the checkbox text.
-        if (trailing != null) {
-            row.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
-            trailing.setAlignmentY(JComponent.CENTER_ALIGNMENT);
-            row.add(trailing);
+
+        JLabel text = new JLabel();
+        Object lbl = cb.getClientProperty("lbl");
+        if (lbl != null) {
+            text.setText(lbl.toString());
         }
-        row.add(Box.createHorizontalGlue());
+        text.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+
+        // Left part: icon cell + label. Right part: preview button (if any) + the toggle,
+        // pinned to the column's right edge by alignedRow's glue.
+        JPanel left = new JPanel();
+        left.setOpaque(false);
+        left.setLayout(new BoxLayout(left, BoxLayout.X_AXIS));
+        left.add(icon_label);
+        left.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
+        left.add(text);
+
+        JPanel right = new JPanel();
+        right.setOpaque(false);
+        right.setLayout(new BoxLayout(right, BoxLayout.X_AXIS));
+        if (trailing != null) {
+            trailing.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+            right.add(trailing);
+            right.add(Box.createHorizontalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
+        }
+        cb.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+        right.add(cb);
+
+        // deep = the "my cards" suboption hanging off "Reveal" gets a deeper indent.
+        JPanel row = SettingsUI.alignedRow(deep ? 34 : 18, left, right);
+        // A little air between effect rows (they were touching), without growing the height.
+        row.setBorder(BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), 0, 0, 0));
         return row;
     }
 

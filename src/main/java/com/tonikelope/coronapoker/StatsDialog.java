@@ -338,6 +338,7 @@ public class StatsDialog extends JFrame {
         // without touching the .form or its GroupLayout. Listeners stay inert during
         // construction (init).
         receive_stats_checkbox = new javax.swing.JCheckBox(Translator.translate("stats.sync_receive"));
+        SettingsUI.toggleize(receive_stats_checkbox);
         receive_stats_checkbox.putClientProperty("i18n.key", "stats.sync_receive");
         receive_stats_checkbox.setOpaque(false);
         receive_stats_checkbox.setSelected(GameFrame.SYNC_STATS_RECEIVE_PREF);
@@ -351,6 +352,7 @@ public class StatsDialog extends JFrame {
         });
 
         share_stats_checkbox = new javax.swing.JCheckBox(Translator.translate("stats.sync_share"));
+        SettingsUI.toggleize(share_stats_checkbox);
         share_stats_checkbox.putClientProperty("i18n.key", "stats.sync_share");
         share_stats_checkbox.setOpaque(false);
         share_stats_checkbox.setSelected(GameFrame.SYNC_STATS_SHARE_PREF);
@@ -2354,6 +2356,9 @@ public class StatsDialog extends JFrame {
         // The nick list only edits/applies while its checkbox is checked.
         nicks_field.setEnabled(nicks_check.isSelected());
         nicks_check.addItemListener(ev -> nicks_field.setEnabled(nicks_check.isSelected()));
+
+        SettingsUI.toggleize(private_check);
+        SettingsUI.toggleize(nicks_check);
 
         javax.swing.JButton ok = new javax.swing.JButton(Translator.translate("ui.aceptar"));
         ok.putClientProperty("i18n.key", "ui.aceptar");

@@ -342,7 +342,7 @@ public final class SettingsUI {
     // edge. Keeps text, state, listeners and layout untouched. Skips menu items only. Same icon in
     // every slot so Swing never grey-filters it; the text dims on its own when disabled.
     public static void toggleize(javax.swing.AbstractButton cb) {
-        if (cb instanceof javax.swing.JCheckBoxMenuItem) {
+        if (cb == null || cb instanceof javax.swing.JCheckBoxMenuItem) {
             return;
         }
         int fs = (cb.getFont() != null) ? cb.getFont().getSize() : Math.round(14 * Helpers.DIALOG_ZOOM);

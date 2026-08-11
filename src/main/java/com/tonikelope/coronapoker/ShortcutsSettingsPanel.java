@@ -34,7 +34,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -44,8 +43,8 @@ import javax.swing.KeyStroke;
 
 /**
  * "Shortcuts" tab of the Settings dialog: lists the reassignable actions (from
- * {@link KeyboardShortcuts}) grouped by section, each section in its own thin black-bordered box,
- * split across TWO columns (balanced by row count) so it isn't one long vertical block. Each action
+ * {@link KeyboardShortcuts}) grouped by section, each section in its own rounded {@link SettingsUI}
+ * card, split across TWO columns (balanced by row count) so it isn't one long vertical block. Each action
  * has a button showing its current combination; clicking it enters capture mode ("Press the
  * combination...") and the next key combination becomes the new shortcut, unless another action
  * already uses it (then it's ignored). To CANCEL a capture, just click outside; no key is used for
@@ -74,10 +73,6 @@ public class ShortcutsSettingsPanel extends JPanel {
 
     // Label with each action's name, bolded when its shortcut is customized.
     private final Map<String, JLabel> action_labels = new HashMap<>();
-
-    // Section box borders, so their titles can be bolded AFTER the dialog's font unification
-    // (fixTitledBorderFonts would otherwise flatten them back to plain first).
-    private final List<javax.swing.border.TitledBorder> section_borders = new ArrayList<>();
 
     // Capture currently in progress (only one at a time). Everything is touched on the EDT.
     private KeyEventDispatcher capture_dispatcher = null;
@@ -146,16 +141,13 @@ public class ShortcutsSettingsPanel extends JPanel {
         add(column(right), gbc);
     }
 
-    // Box for one section: thin black border with the section name as title, containing rows
-    // (label + aligned button + elastic filler).
+    // Card for one section: rounded titled card (SettingsUI.card, same look as the other tabs)
+    // wrapping the section's rows (label + aligned button + reset + elastic filler). The row grid
+    // is transparent so the white card shows through.
     private JPanel sectionBox(String section_key, List<KeyboardShortcuts.Def> defs) {
 
         JPanel box = new JPanel(new GridBagLayout());
-        // Default border (rounded corners, same as the boxes in the other tabs). The title is
-        // bolded in applyKeyFont (after the dialog's font unification).
-        javax.swing.border.TitledBorder border = BorderFactory.createTitledBorder(Translator.translate(section_key));
-        section_borders.add(border);
-        box.setBorder(border);
+        box.setOpaque(false);
 
         GridBagConstraints gbc = new GridBagConstraints();
         int row = 0;
@@ -217,7 +209,10 @@ public class ShortcutsSettingsPanel extends JPanel {
             row++;
         }
 
-        return box;
+        box.setAlignmentX(LEFT_ALIGNMENT);
+        JPanel card = SettingsUI.card(section_key);
+        card.add(box);
+        return card;
     }
 
     // Stacks a column's boxes with ELASTIC separators between them: at least BOX_GAP px, growing to
@@ -289,20 +284,13 @@ public class ShortcutsSettingsPanel extends JPanel {
 
     /**
      * Restores this tab's fonts AFTER the dialog's font unification: combination buttons in
-     * "Dialog" (the UI font lacks the arrow glyphs ↑↓←→), bold if customized, and section box
-     * titles in bold.
+     * "Dialog" (the UI font lacks the arrow glyphs ↑↓←→), bold if customized. The section titles
+     * are painted by {@link SettingsUI#card} itself, so they're immune to the unification.
      */
     public void applyKeyFont() {
 
         for (String id : buttons.keySet()) {
             refreshButton(id);
-        }
-
-        for (javax.swing.border.TitledBorder border : section_borders) {
-            java.awt.Font f = border.getTitleFont();
-            if (f != null) {
-                border.setTitleFont(f.deriveFont(Font.BOLD));
-            }
         }
 
         repaint();

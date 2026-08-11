@@ -380,7 +380,7 @@ you must select the slow (or all) lane explicitly. Two ways to do that:
 
   ```
   mvn -DskipTests install                                            # repo root
-  mvn -f tools/qa/pom.xml test -P slow -Dcoronapoker.version=23.38
+  mvn -f tools/qa/pom.xml test -P slow -Dcoronapoker.version=23.39
   ```
 
 Scale the iteration volume with `-Dqa.sessions=N -Dqa.hands=N`; the default

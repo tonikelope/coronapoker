@@ -117,6 +117,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JSpinner blind_cap_spinner;
     private javax.swing.JLabel blind_cap_label;
     private javax.swing.JCheckBox ante_checkbox;
+    private javax.swing.JLabel ante_label;
     private javax.swing.JCheckBox straddle_checkbox;
     private javax.swing.JLabel straddle_label;
 
@@ -213,11 +214,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 ? GamePreset.Settings.parse(WaitingRoomFrame.GAMECONFIG_MIRROR)
                 : GamePreset.Settings.fromGameFrame());
 
-        java.awt.Font title_font = ante_checkbox.getFont();
-        ciegas_panel.setBorder(titledBorder("newgame.grupo_ciegas", title_font));
-        rules_panel.setBorder(titledBorder("settings.varios", title_font));
-        compra_panel.setBorder(titledBorder("newgame.grupo_compra", title_font));
-        bots_panel.setBorder(titledBorder("newgame.grupo_bots", title_font));
+        ciegas_panel.setOpaque(false);
+        rules_panel.setOpaque(false);
+        compra_panel.setOpaque(false);
+        bots_panel.setOpaque(false);
 
         Helpers.translateComponents(this, false);
         updateAnteStraddleLabels();
@@ -234,12 +234,6 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         }
 
         snap_signature = controlsSignature();
-    }
-
-    private javax.swing.border.TitledBorder titledBorder(String i18nKey, java.awt.Font font) {
-        javax.swing.border.TitledBorder b = javax.swing.BorderFactory.createTitledBorder(Translator.translate(i18nKey));
-        b.setTitleFont(font);
-        return b;
     }
 
     public boolean isReadOnly() {
@@ -416,23 +410,44 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     }
 
     // ===================== UI construction =====================
+    // Wraps a text JLabel + a text-less ToggleSwitch into one compact transparent row (label on
+    // the left, toggle on the right), to drop in where a self-text checkbox used to sit.
+    private javax.swing.JPanel toggleRow(javax.swing.JLabel label, javax.swing.JComponent toggle) {
+        // Capped to its natural height: otherwise the label's unbounded maximum height lets the
+        // GroupLayout stretch this row vertically, opening a big gap between stacked rows (bots).
+        javax.swing.JPanel row = new javax.swing.JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        row.setOpaque(false);
+        row.setLayout(new javax.swing.BoxLayout(row, javax.swing.BoxLayout.X_AXIS));
+        label.setAlignmentY(java.awt.Component.CENTER_ALIGNMENT);
+        toggle.setAlignmentY(java.awt.Component.CENTER_ALIGNMENT);
+        row.add(label);
+        row.add(javax.swing.Box.createHorizontalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
+        row.add(toggle);
+        return row;
+    }
+
     private void initComponents() {
 
         setLayout(new java.awt.BorderLayout());
         setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         rules_panel = new javax.swing.JPanel();
-        manos_checkbox = new javax.swing.JCheckBox();
+        manos_checkbox = new SettingsUI.ToggleSwitch(false);
         manos_label = new javax.swing.JLabel();
         manos_spinner = new javax.swing.JSpinner();
-        think_time_checkbox = new javax.swing.JCheckBox();
+        think_time_checkbox = new SettingsUI.ToggleSwitch(false);
         think_time_label = new javax.swing.JLabel();
         think_time_spinner = new javax.swing.JSpinner();
         showdown_time_label = new javax.swing.JLabel();
         showdown_time_spinner = new javax.swing.JSpinner();
-        iwtsth_checkbox = new javax.swing.JCheckBox();
+        iwtsth_checkbox = new SettingsUI.ToggleSwitch(false);
         iwtsth_label = new javax.swing.JLabel();
-        rit_checkbox = new javax.swing.JCheckBox();
+        rit_checkbox = new SettingsUI.ToggleSwitch(false);
         rit_label = new javax.swing.JLabel();
         rabbit_label = new javax.swing.JLabel();
         rabbit_combo = new javax.swing.JComboBox<>();
@@ -442,21 +457,21 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         estructura_combobox = new javax.swing.JComboBox<>();
         ciegas_label = new javax.swing.JLabel();
         ciegas_combobox = new javax.swing.JComboBox<>();
-        doblar_checkbox = new javax.swing.JCheckBox();
+        doblar_checkbox = new SettingsUI.ToggleSwitch(false);
         double_blinds_radio_minutos = new javax.swing.JRadioButton();
         double_blinds_radio_manos = new javax.swing.JRadioButton();
         doblar_ciegas_spinner_minutos = new javax.swing.JSpinner();
         doblar_ciegas_spinner_manos = new javax.swing.JSpinner();
         aumento_panel = new javax.swing.JPanel();
-        blind_cap_checkbox = new javax.swing.JCheckBox();
+        blind_cap_checkbox = new SettingsUI.ToggleSwitch(false);
         blind_cap_spinner = new javax.swing.JSpinner();
         blind_cap_label = new javax.swing.JLabel();
-        ante_checkbox = new javax.swing.JCheckBox();
-        straddle_checkbox = new javax.swing.JCheckBox();
+        ante_checkbox = new SettingsUI.ToggleSwitch(false);
+        straddle_checkbox = new SettingsUI.ToggleSwitch(false);
         straddle_label = new javax.swing.JLabel();
 
         compra_panel = new javax.swing.JPanel();
-        fixed_buyin_checkbox = new javax.swing.JCheckBox();
+        fixed_buyin_checkbox = new SettingsUI.ToggleSwitch(false);
         buyin_label = new javax.swing.JLabel();
         buyin_spinner = new javax.swing.JSpinner();
         buyin_range_label = new javax.swing.JLabel();
@@ -465,11 +480,11 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         buyin_max_bb_spinner = new javax.swing.JSpinner();
         recompra_panel = new javax.swing.JPanel();
         recomprar_label = new javax.swing.JLabel();
-        rebuy_checkbox = new javax.swing.JCheckBox();
-        rebuy_limit_checkbox = new javax.swing.JCheckBox();
+        rebuy_checkbox = new SettingsUI.ToggleSwitch(false);
+        rebuy_limit_checkbox = new SettingsUI.ToggleSwitch(false);
         rebuy_limit_spinner = new javax.swing.JSpinner();
-        bot_rebuy_checkbox = new javax.swing.JCheckBox();
-        bot_balance_checkbox = new javax.swing.JCheckBox();
+        bot_rebuy_checkbox = new SettingsUI.ToggleSwitch(false);
+        bot_balance_checkbox = new SettingsUI.ToggleSwitch(false);
         rebuy_cap_label = new javax.swing.JLabel();
         rebuy_cap_combo = new javax.swing.JComboBox<>();
 
@@ -665,9 +680,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ciegas_combobox.addActionListener(this::ciegas_comboboxActionPerformed);
 
-        doblar_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
-        doblar_checkbox.setText("Aumentar ciegas");
-        doblar_checkbox.putClientProperty("i18n.key", "blinds.aumentar_ciegas");
+        javax.swing.JLabel doblar_label = new javax.swing.JLabel("Aumentar ciegas");
+        doblar_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        doblar_label.putClientProperty("i18n.key", "blinds.aumentar_ciegas");
+        javax.swing.JPanel doblar_row = toggleRow(doblar_label, doblar_checkbox);
         doblar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         doblar_checkbox.addActionListener(this::doblar_checkboxActionPerformed);
 
@@ -694,11 +710,13 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         // Increase box (line border) that WRAPS the whole "Increase blinds" group (checkbox +
         // hands/minutes radios + spinners + big-blind cap), same as the new-game dialog (it used
         // to be that only the cap was boxed, with "Increase blinds" + radios left loose).
-        aumento_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
+        aumento_panel.setBorder(new RoundedLineBorder(new java.awt.Color(210, 210, 210), 1, 12));
+        aumento_panel.setOpaque(false);
 
-        blind_cap_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
-        blind_cap_checkbox.setText("Tope ciega grande");
-        blind_cap_checkbox.putClientProperty("i18n.key", "blinds.tope_ciega_grande");
+        javax.swing.JLabel blind_cap_text = new javax.swing.JLabel("Tope ciega grande");
+        blind_cap_text.setFont(new java.awt.Font("Dialog", 1, 14));
+        blind_cap_text.putClientProperty("i18n.key", "blinds.tope_ciega_grande");
+        javax.swing.JPanel blind_cap_row = toggleRow(blind_cap_text, blind_cap_checkbox);
         blind_cap_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         blind_cap_checkbox.addActionListener(this::blind_cap_checkboxActionPerformed);
 
@@ -718,13 +736,13 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap()
                 .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     // "Increase blinds" = header (not indented); its sub-options are indented
-                    .addComponent(doblar_checkbox)
+                    .addComponent(doblar_row)
                     .addGroup(aumento_panelLayout.createSequentialGroup()
                         .addGap(22, 22, 22)
                         .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(double_blinds_radio_manos)
                             .addComponent(double_blinds_radio_minutos)
-                            .addComponent(blind_cap_checkbox))))
+                            .addComponent(blind_cap_row))))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, 160, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -737,7 +755,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(aumento_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(doblar_checkbox)
+                .addComponent(doblar_row)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(double_blinds_radio_manos)
@@ -748,15 +766,16 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                     .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(blind_cap_checkbox)
+                    .addComponent(blind_cap_row)
                     .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(blind_cap_label)
                 .addContainerGap())
         );
 
-        ante_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
-        ante_checkbox.setText("Ante");
+        ante_label = new javax.swing.JLabel("Ante");
+        ante_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        javax.swing.JPanel ante_row = toggleRow(ante_label, ante_checkbox);
         ante_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         straddle_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -766,6 +785,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         straddle_label.setFont(new java.awt.Font("Dialog", 1, 16));
         straddle_label.setIcon(new javax.swing.ImageIcon(new javax.swing.ImageIcon(getClass().getResource("/images/straddle_small.png")).getImage().getScaledInstance(24, 24, java.awt.Image.SCALE_SMOOTH)));
         straddle_label.setText("Straddle");
+        javax.swing.JPanel straddle_row = toggleRow(straddle_label, straddle_checkbox);
         straddle_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         straddle_label.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -794,11 +814,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                             .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addComponent(aumento_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
-                        .addComponent(ante_checkbox)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(straddle_checkbox)
-                        .addGap(0, 0, 0)
-                        .addComponent(straddle_label)))
+                        .addComponent(ante_row)
+                        .addGap(Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM))
+                        .addComponent(straddle_row)))
                 .addContainerGap())
         );
         ciegas_panelLayout.setVerticalGroup(
@@ -816,16 +834,16 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                 .addComponent(aumento_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(ante_checkbox)
-                    .addComponent(straddle_checkbox)
-                    .addComponent(straddle_label))
+                    .addComponent(ante_row)
+                    .addComponent(straddle_row))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         // ---------------- Buy-in + rebuy ----------------
-        fixed_buyin_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
-        fixed_buyin_checkbox.setText("Buy-in fijo");
-        fixed_buyin_checkbox.putClientProperty("i18n.key", "newgame.buyin_fijo");
+        javax.swing.JLabel fixed_buyin_label = new javax.swing.JLabel("Buy-in fijo");
+        fixed_buyin_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        fixed_buyin_label.putClientProperty("i18n.key", "newgame.buyin_fijo");
+        javax.swing.JPanel fixed_buyin_row = toggleRow(fixed_buyin_label, fixed_buyin_checkbox);
         fixed_buyin_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         fixed_buyin_checkbox.addActionListener(this::fixed_buyin_checkboxActionPerformed);
 
@@ -857,7 +875,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         buyin_max_bb_spinner.addChangeListener((javax.swing.event.ChangeEvent e) -> onBuyinRangeChanged(false));
 
         // rebuy (line-border subpanel)
-        recompra_panel.setBorder(new RoundedLineBorder(new java.awt.Color(153, 153, 153), 1, 12));
+        recompra_panel.setBorder(new RoundedLineBorder(new java.awt.Color(210, 210, 210), 1, 12));
+        recompra_panel.setOpaque(false);
 
         // BARE checkbox (no text) + "Rebuy" label with icon next to it, same as the new-game
         // dialog: setIcon on the checkbox breaks the checkbox rendering, so the icon+text live in
@@ -881,9 +900,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             }
         });
 
-        rebuy_limit_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
-        rebuy_limit_checkbox.setText("Límite recompra por jugador");
-        rebuy_limit_checkbox.putClientProperty("i18n.key", "rebuy.limite_por_jugador");
+        javax.swing.JLabel rebuy_limit_label = new javax.swing.JLabel("Límite recompra por jugador");
+        rebuy_limit_label.setFont(new java.awt.Font("Dialog", 1, 14));
+        rebuy_limit_label.putClientProperty("i18n.key", "rebuy.limite_por_jugador");
+        javax.swing.JPanel rebuy_limit_row = toggleRow(rebuy_limit_label, rebuy_limit_checkbox);
         rebuy_limit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_limit_checkbox.addActionListener(this::rebuy_limit_checkboxActionPerformed);
 
@@ -891,14 +911,16 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         rebuy_limit_spinner.setModel(new javax.swing.SpinnerNumberModel(3, 1, null, 1));
         rebuy_limit_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        bot_rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
-        bot_rebuy_checkbox.setText("Recomprar bots");
-        bot_rebuy_checkbox.putClientProperty("i18n.key", "rebuy.permitir_bots");
+        javax.swing.JLabel bot_rebuy_label = new javax.swing.JLabel("Recomprar bots");
+        bot_rebuy_label.setFont(new java.awt.Font("Dialog", 1, 14));
+        bot_rebuy_label.putClientProperty("i18n.key", "rebuy.permitir_bots");
+        javax.swing.JPanel bot_rebuy_row = toggleRow(bot_rebuy_label, bot_rebuy_checkbox);
         bot_rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
-        bot_balance_checkbox.setFont(new java.awt.Font("Dialog", 1, 14));
-        bot_balance_checkbox.setText("Repartir saldo de bots entre humanos");
-        bot_balance_checkbox.putClientProperty("i18n.key", "balance.repartir_saldo_bots");
+        javax.swing.JLabel bot_balance_label = new javax.swing.JLabel("Repartir saldo de bots entre humanos");
+        bot_balance_label.setFont(new java.awt.Font("Dialog", 1, 14));
+        bot_balance_label.putClientProperty("i18n.key", "balance.repartir_saldo_bots");
+        javax.swing.JPanel bot_balance_row = toggleRow(bot_balance_label, bot_balance_checkbox);
         bot_balance_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         rebuy_cap_label.setFont(new java.awt.Font("Dialog", 1, 14));
@@ -925,7 +947,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                         .addGap(22, 22, 22)
                         .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(recompra_panelLayout.createSequentialGroup()
-                                .addComponent(rebuy_limit_checkbox)
+                                .addComponent(rebuy_limit_row)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                 .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGroup(recompra_panelLayout.createSequentialGroup()
@@ -943,7 +965,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                     .addComponent(recomprar_label))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(rebuy_limit_checkbox)
+                    .addComponent(rebuy_limit_row)
                     .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
@@ -976,7 +998,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                                 .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE))
                             .addGroup(compra_panelLayout.createSequentialGroup()
                                 .addGap(18, 18, 18)
-                                .addComponent(fixed_buyin_checkbox)))
+                                .addComponent(fixed_buyin_row)))
                         .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
@@ -984,10 +1006,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(compra_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(buyin_label)
                     .addComponent(buyin_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(fixed_buyin_checkbox))
+                    .addComponent(fixed_buyin_row))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(buyin_range_label)
@@ -1028,8 +1050,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                         .addComponent(bots_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(bot_rebuy_checkbox)
-                    .addComponent(bot_balance_checkbox))
+                    .addComponent(bot_rebuy_row)
+                    .addComponent(bot_balance_row))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         bots_panelLayout.setVerticalGroup(
@@ -1041,9 +1063,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
                     .addComponent(bots_label)
                     .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(bot_rebuy_checkbox)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(bot_balance_checkbox)
+                .addComponent(bot_rebuy_row)
+                .addGap(Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM))
+                .addComponent(bot_balance_row)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
@@ -1116,20 +1138,30 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         gc.weightx = 0.5;
         gc.weighty = 0.0;
 
+        // Each section wrapped in a rounded SettingsUI.card instead of its old TitledBorder.
+        javax.swing.JPanel compra_card = SettingsUI.card("newgame.grupo_compra");
+        compra_card.add(compra_panel);
+        javax.swing.JPanel ciegas_card = SettingsUI.card("newgame.grupo_ciegas");
+        ciegas_card.add(ciegas_panel);
+        javax.swing.JPanel rules_card = SettingsUI.card("settings.varios");
+        rules_card.add(rules_panel);
+        javax.swing.JPanel bots_card = SettingsUI.card("newgame.grupo_bots");
+        bots_card.add(bots_panel);
+
         gc.gridx = 0;
         gc.gridy = 0;
         gc.insets = new java.awt.Insets(0, 0, 8, 6);
-        grid.add(compra_panel, gc);
+        grid.add(compra_card, gc);
         gc.gridx = 1;
         gc.insets = new java.awt.Insets(0, 6, 8, 0);
-        grid.add(ciegas_panel, gc);
+        grid.add(ciegas_card, gc);
         gc.gridx = 0;
         gc.gridy = 1;
         gc.insets = new java.awt.Insets(0, 0, 0, 6);
-        grid.add(rules_panel, gc);
+        grid.add(rules_card, gc);
         gc.gridx = 1;
         gc.insets = new java.awt.Insets(0, 6, 0, 0);
-        grid.add(bots_panel, gc);
+        grid.add(bots_card, gc);
 
         presets_panel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         grid.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
@@ -1479,7 +1511,7 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         try {
             double sb = Double.valueOf(v[0].trim());
             double bb = Double.valueOf(v[1].trim());
-            ante_checkbox.setText("Ante (" + Helpers.money2String(sb) + ")");
+            ante_label.setText("Ante (" + Helpers.money2String(sb) + ")");
             straddle_label.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
         } catch (NumberFormatException ignored) {
         }

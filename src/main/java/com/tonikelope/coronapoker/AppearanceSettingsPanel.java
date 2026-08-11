@@ -1087,10 +1087,10 @@ public class AppearanceSettingsPanel extends JPanel {
         // same as the minimum 10px strut.
         right_inner.add(mesa);
         right_inner.add(Box.createVerticalStrut(Math.round(12 * Helpers.DIALOG_ZOOM)));
-        right_inner.add(pantalla);
-        // Leftover space collects at the BOTTOM (not between Table and Screen), so the two
-        // cards stack tightly at the top instead of opening a gap in the middle.
+        // Leftover space is absorbed BETWEEN the two cards, so "Screen and zoom" is pushed
+        // down and its bottom border lines up with the Animations column's foot.
         right_inner.add(Box.createVerticalGlue());
+        right_inner.add(pantalla);
 
         // Both columns stretch vertically to the taller one's height (BoxLayout X with an
         // uncapped maximum) so their bottom borders line up.

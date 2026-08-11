@@ -624,8 +624,9 @@ public class AudioSettingsPanel extends JPanel {
 
         output_list = new JList<>(output_model);
         output_list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        // Preferred height of 4 rows; the panel then stretches (uncapped) to level the right
-        // column with the left one, and the JScrollPane handles any extra devices.
+        // Preferred height of 4 rows; the card keeps this natural height (the right column's
+        // uniform elastic gaps absorb the leftover, see buildUI) and the JScrollPane handles any
+        // extra devices.
         output_list.setVisibleRowCount(4);
         output_list.setSelectedIndex(findDeviceIndex(output_devices, AudioDeviceManager.getOutputDevice()));
 
@@ -883,20 +884,36 @@ public class AudioSettingsPanel extends JPanel {
         left_col.add(sound_music_card);
         left_col.add(Box.createVerticalGlue());
 
-        JPanel right_col = new JPanel();
+        // Right column: the four cards stacked with UNIFORM elastic gaps between them (each at
+        // least 8px, all growing equally). The cards keep their natural height (weighty 0); since
+        // the column stretches to the taller left one (effects; fill BOTH below), the leftover is
+        // split evenly among the gaps so the cards spread out uniformly and "Voice (TTS)" ends
+        // flush at the bottom, level with the left column. No filler after the last card, so it
+        // stays pinned to the bottom.
+        JPanel right_col = new JPanel(new java.awt.GridBagLayout());
         right_col.setOpaque(false);
-        right_col.setLayout(new BoxLayout(right_col, BoxLayout.Y_AXIS));
         right_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
-        right_col.add(output_card);
-        right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        right_col.add(mic_card);
-        right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        right_col.add(notes_card);
-        right_col.add(Box.createVerticalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
-        right_col.add(tts_card);
-        // Leftover height collects at the bottom (cards keep their natural height, they don't
-        // stretch), so the cards stack tightly at the top.
-        right_col.add(Box.createVerticalGlue());
+        JPanel[] right_boxes = {output_card, mic_card, notes_card, tts_card};
+        java.awt.GridBagConstraints right_gbc = new java.awt.GridBagConstraints();
+        right_gbc.gridx = 0;
+        right_gbc.weightx = 1;
+        int right_row = 0;
+        for (int i = 0; i < right_boxes.length; i++) {
+            if (i > 0) {
+                right_gbc.gridy = right_row++;
+                right_gbc.weighty = 1;
+                right_gbc.fill = java.awt.GridBagConstraints.VERTICAL;
+                right_col.add(new Box.Filler(
+                        new java.awt.Dimension(0, Math.round(8 * Helpers.DIALOG_ZOOM)),
+                        new java.awt.Dimension(0, Math.round(8 * Helpers.DIALOG_ZOOM)),
+                        new java.awt.Dimension(0, Short.MAX_VALUE)), right_gbc);
+            }
+            right_gbc.gridy = right_row++;
+            right_gbc.weighty = 0;
+            right_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
+            right_gbc.anchor = java.awt.GridBagConstraints.NORTH;
+            right_col.add(right_boxes[i], right_gbc);
+        }
 
         // GridBagLayout, not GridLayout: each column takes its PREFERRED width — no longer
         // forced equal, which used to widen the dialog by needlessly stretching the right column
@@ -955,12 +972,12 @@ public class AudioSettingsPanel extends JPanel {
         retention_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, retention_panel.getPreferredSize().height));
         purge_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, purge_panel.getPreferredSize().height));
 
-        // "Sound & music", "Voice notes" and "Voice (TTS)" only hold checkboxes and rows of
-        // natural height: capped to their preferred height so they DON'T stretch vertically
-        // (stay compact). The "Output/input device" lists DO stretch (uncapped) to fill the right
-        // column and LEVEL their bottom edge with the left column's (effects, the tallest),
-        // absorbing the leftover height; the JScrollPane covers any extra devices. Done AFTER
-        // updateFonts, so the preferred height already reflects the scaled font.
+        // "Sound & music" (left column, vertical BoxLayout) is capped to its preferred height so
+        // its inner rows stay compact. "Voice notes" and "Voice (TTS)" sit in the right column,
+        // which spreads its cards with uniform elastic gaps (see buildUI), so they keep their
+        // natural height there and the cap is harmless. The device lists keep their 4-row
+        // preferred height too (no longer stretched); the JScrollPane covers any extra devices.
+        // Done AFTER updateFonts, so the preferred height already reflects the scaled font.
         sound_music_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, sound_music_panel.getPreferredSize().height));
         tts_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, tts_panel.getPreferredSize().height));
         notes_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, notes_panel.getPreferredSize().height));

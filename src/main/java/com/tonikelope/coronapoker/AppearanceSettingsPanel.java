@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker;
 
 import java.awt.Component;
-import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -313,59 +312,21 @@ public class AppearanceSettingsPanel extends JPanel {
         // is absorbed BETWEEN Table and Screen (see the right_inner assembly), not inside
         // this panel.
 
-        // The three standalone controls (display mode, compact view, dialog zoom) share a
-        // common label|control grid so their dropdowns start at the SAME x (previously
-        // each landed at a different x depending on its label's width). The "Table zoom"
-        // box (zoom_group) is inserted spanning both columns, keeping the original order.
+        // Display mode, table-zoom sub-group, compact view and dialog zoom, each as a
+        // full-width row with its control aligned on the card's right edge.
         JLabel display_label = new JLabel(Translator.translate("settings.modo_pantalla") + ":");
         display_label.setIcon(icon("/images/menu/full_screen.png"));
+        display_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
         JLabel compact_label = new JLabel(Translator.translate("view.vista_compacta") + ":");
         compact_label.setIcon(icon("/images/menu/tiny.png"));
+        compact_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
         JLabel dialog_zoom_label = new JLabel(Translator.translate("settings.dialog_zoom_pct") + ":");
         dialog_zoom_label.setIcon(icon("/images/menu/zoom.png"));
-        JPanel pantalla_grid = new JPanel(new java.awt.GridBagLayout()) {
-            @Override
-            public java.awt.Dimension getMaximumSize() {
-                return getPreferredSize();
-            }
-        };
-        pantalla_grid.setOpaque(false);
-        pantalla_grid.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        int pantalla_vgap = Math.round(12 * Helpers.DIALOG_ZOOM);
-        int pantalla_lgap = Math.round(6 * Helpers.DIALOG_ZOOM);
-        java.awt.GridBagConstraints pgc = new java.awt.GridBagConstraints();
-        pgc.anchor = java.awt.GridBagConstraints.WEST;
-        pgc.gridx = 0;
-        pgc.gridy = 0;
-        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, pantalla_lgap);
-        pantalla_grid.add(display_label, pgc);
-        pgc.gridx = 1;
-        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, 0);
-        pantalla_grid.add(display_combo, pgc);
-        // Table zoom box: spans both columns (its border reads as a separate block).
-        pgc.gridx = 0;
-        pgc.gridy = 1;
-        pgc.gridwidth = 2;
-        pgc.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, 0);
-        pantalla_grid.add(zoom_group, pgc);
-        pgc.gridwidth = 1;
-        pgc.fill = java.awt.GridBagConstraints.NONE;
-        pgc.gridx = 0;
-        pgc.gridy = 2;
-        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, pantalla_lgap);
-        pantalla_grid.add(compact_label, pgc);
-        pgc.gridx = 1;
-        pgc.insets = new java.awt.Insets(0, 0, pantalla_vgap, 0);
-        pantalla_grid.add(compact_combo, pgc);
-        pgc.gridx = 0;
-        pgc.gridy = 3;
-        pgc.insets = new java.awt.Insets(0, 0, 0, pantalla_lgap);
-        pantalla_grid.add(dialog_zoom_label, pgc);
-        pgc.gridx = 1;
-        pgc.insets = new java.awt.Insets(0, 0, 0, 0);
-        pantalla_grid.add(dialog_zoom_spinner, pgc);
-        addLeft(pantalla, pantalla_grid);
+        dialog_zoom_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        addLeft(pantalla, alignedRow(0, display_label, display_combo));
+        addLeft(pantalla, zoom_group);
+        addLeft(pantalla, alignedRow(0, compact_label, compact_combo));
+        addLeft(pantalla, alignedRow(0, dialog_zoom_label, dialog_zoom_spinner));
 
         // ---------------- Table ----------------
         JPanel mesa = titledColumn("settings.apariencia_mesa");
@@ -402,10 +363,8 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
         });
-        // Deck + Card back go together in a bordered box (groupBox). Both are laid out in
-        // a 2-column grid (label | dropdown) further below, so their dropdowns stay
-        // ALIGNED in the same column.
-        JPanel baraja_group = groupBox();
+        // Deck, card back, felt and light level are top-level rows of the Table card, each
+        // with its control aligned on the card's right edge (added directly to mesa below).
         // Default: factory deck.
         reset_actions.add(() -> baraja_combo.setSelectedItem(GameFrame.BARAJA_DEFAULT));
 
@@ -445,49 +404,16 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
         });
-        // 2-column grid: label | dropdown. The label column measures the widest one
-        // ("Card back:"), so both dropdowns start at the SAME x and "Card back" aligns
-        // with "Deck" above it (previously it was indented and offset). The labels' right
-        // inset (6px) mirrors labeledRow's hgap; the bottom one (4px) mirrors
-        // addToGroup's row spacing.
         JLabel baraja_label = new JLabel(Translator.translate("settings.baraja") + ":");
         baraja_label.setIcon(icon("/images/menu/baraja.png"));
+        baraja_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
         JLabel trasera_label = new JLabel(Translator.translate("settings.trasera") + ":");
         trasera_label.setIcon(icon("/images/menu/baraja.png"));
-        JPanel baraja_grid = new JPanel(new java.awt.GridBagLayout()) {
-            // Max width = preferred: the box's BoxLayout won't stretch it (with weightx=0
-            // it would center the rows); capped to its preferred size it hugs the left edge.
-            @Override
-            public java.awt.Dimension getMaximumSize() {
-                return getPreferredSize();
-            }
-        };
-        baraja_grid.setOpaque(false);
-        java.awt.GridBagConstraints baraja_gbc = new java.awt.GridBagConstraints();
-        baraja_gbc.anchor = java.awt.GridBagConstraints.WEST;
-        baraja_gbc.gridx = 0;
-        baraja_gbc.gridy = 0;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM));
-        baraja_grid.add(baraja_label, baraja_gbc);
-        baraja_gbc.gridx = 1;
-        // fill=HORIZONTAL: both dropdowns take the column's width (= the widest one), so
-        // Deck and Card back end up the SAME width.
-        baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
-        baraja_grid.add(baraja_combo, baraja_gbc);
-        baraja_gbc.gridx = 0;
-        baraja_gbc.gridy = 1;
-        baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM));
-        baraja_grid.add(trasera_label, baraja_gbc);
-        baraja_gbc.gridx = 1;
-        baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
-        baraja_grid.add(trasera_combo, baraja_gbc);
-        addToGroup(baraja_group, baraja_grid);
+        trasera_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        addLeft(mesa, alignedRow(0, baraja_label, baraja_combo));
+        addLeft(mesa, alignedRow(0, trasera_label, trasera_combo));
         // Default: "default" back (follows the deck). Reset AFTER the deck.
         reset_actions.add(() -> trasera_combo.setSelectedItem("default"));
-        addLeft(mesa, baraja_group);
 
         // Felt: combo with the 5 colors; in-game it delegates to the matching radio item
         // (refreshes the table); out of game it persists the base color and refreshes the
@@ -539,15 +465,8 @@ public class AppearanceSettingsPanel extends JPanel {
         // different x depending on its label.
         JLabel tapete_label = new JLabel(Translator.translate("settings.tapete") + ":");
         tapete_label.setIcon(icon("/images/menu/tapetes.png"));
-        baraja_gbc.gridx = 0;
-        baraja_gbc.gridy = 2;
-        baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM));
-        baraja_grid.add(tapete_label, baraja_gbc);
-        baraja_gbc.gridx = 1;
-        baraja_gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, Math.round(4 * Helpers.DIALOG_ZOOM), 0);
-        baraja_grid.add(tapete_combo, baraja_gbc);
+        tapete_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        addLeft(mesa, alignedRow(0, tapete_label, tapete_combo));
         // Default: green felt (index 0).
         reset_actions.add(() -> tapete_combo.setSelectedIndex(0));
 
@@ -574,17 +493,8 @@ public class AppearanceSettingsPanel extends JPanel {
         // "Felt", and push the three dropdowns right: in this grid the icon sits INSIDE
         // the label, so its width is part of the column's width.
         luz_label.setIcon(fitIcon("/images/lights_on.png", 24, 24));
-        baraja_gbc.gridx = 0;
-        baraja_gbc.gridy = 3;
-        baraja_gbc.fill = java.awt.GridBagConstraints.NONE;
-        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, Math.round(6 * Helpers.DIALOG_ZOOM));
-        baraja_grid.add(luz_label, baraja_gbc);
-        baraja_gbc.gridx = 1;
-        // No fill (unlike the dropdowns above): a two-digit spinner stretched to the
-        // column's width would look disproportionate. It starts at the same x, which is
-        // what aligns the grid -- same criterion as the "Screen and zoom" spinners.
-        baraja_gbc.insets = new java.awt.Insets(0, 0, 0, 0);
-        baraja_grid.add(luz_spinner, baraja_gbc);
+        luz_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        addLeft(mesa, alignedRow(0, luz_label, luz_spinner));
         // Default: 50%. setValue triggers the listener, which persists and previews the
         // same as a manual change.
         reset_actions.add(() -> luz_spinner.setValue(GameFrame.DEFAULT_NIVEL_LUZ));
@@ -639,8 +549,11 @@ public class AppearanceSettingsPanel extends JPanel {
 
         // Master: turns ALL animations on/off at once. Unchecking it DISABLES (doesn't
         // uncheck) the 5 checkboxes below, which keep their value.
-        anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general").toUpperCase(), GameFrame.ANIMACIONES);
-        anim_master.setFont(anim_master.getFont().deriveFont(java.awt.Font.BOLD));
+        anim_master = new ToggleSwitch(GameFrame.ANIMACIONES);
+        JLabel master_label = new JLabel(Translator.translate("menu.efectos_animacion_general").toUpperCase());
+        master_label.setIcon(icon("/images/menu/fx.png"));
+        master_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        master_label.setFont(master_label.getFont().deriveFont(java.awt.Font.BOLD));
         anim_master.addActionListener(e -> {
             boolean on = anim_master.isSelected();
             if (gf != null) {
@@ -657,23 +570,23 @@ public class AppearanceSettingsPanel extends JPanel {
                 anim_sub_cb.get(i).setEnabled(on && (m == null || m.isEnabled()));
             }
         });
-        JPanel master_row = naturalRow();
-        master_row.add(new JLabel(icon("/images/menu/fx.png")));
-        master_row.add(anim_master);
-        addLeft(anim, master_row);
+        addLeft(anim, alignedRow(0, master_label, anim_master));
 
         // --- Cinematics (master, with menu item) + its two subtypes: Action and ALL-IN ---
         // Thin box like the other groups with sub-settings. Each subtype is persist-only
         // (no menu item) and hangs off the "Cinematics" master: disabled if "Cinematics"
         // or the animation master is unchecked.
-        JPanel cinematicas_group = groupBox();
-        addToGroup(cinematicas_group, animCheckbox("/images/menu/video.png", "menu.cinematicas",
+        addLeft(anim, animCheckbox("/images/menu/video.png", "menu.cinematicas",
                 gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
         final JCheckBox cinematicas_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        // Action / ALL-IN / GAME OVER hang off Cinematics under a guide.
+        JPanel cinematicas_group = groupBox();
         // ACTION subtype: the fold/call/check/bet/raise GIFs shown by opponents.
         {
-            final JCheckBox accion_cb = new JCheckBox(Translator.translate("menu.cinematicas_accion"),
-                    prefBool("cinematicas_accion", true));
+            final ToggleSwitch accion_cb = new ToggleSwitch(prefBool("cinematicas_accion", true));
+            final JLabel accion_label = new JLabel(Translator.translate("menu.cinematicas_accion"));
+            accion_label.setIcon(icon("/images/menu/chips.png"));
+            accion_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
             accion_cb.addActionListener(e -> {
                 boolean now = accion_cb.isSelected();
                 persist("cinematicas_accion", String.valueOf(now));
@@ -690,16 +603,14 @@ public class AppearanceSettingsPanel extends JPanel {
                     accion_cb.doClick();
                 }
             });
-            JPanel accion_row = naturalRow();
-            accion_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Cinematics"
-            accion_row.add(new JLabel(icon("/images/menu/chips.png")));
-            accion_row.add(accion_cb);
-            addToGroup(cinematicas_group, accion_row);
+            addToGroup(cinematicas_group, alignedRow(0, accion_label, accion_cb));
         }
         // ALL-IN subtype: the fullscreen sequence when someone goes all-in.
         {
-            final JCheckBox allin_cb = new JCheckBox(Translator.translate("menu.cinematicas_allin"),
-                    prefBool("cinematicas_allin", true));
+            final ToggleSwitch allin_cb = new ToggleSwitch(prefBool("cinematicas_allin", true));
+            final JLabel allin_label = new JLabel(Translator.translate("menu.cinematicas_allin"));
+            allin_label.setIcon(icon("/images/menu/video.png"));
+            allin_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
             allin_cb.addActionListener(e -> {
                 boolean now = allin_cb.isSelected();
                 persist("cinematicas_allin", String.valueOf(now));
@@ -714,19 +625,17 @@ public class AppearanceSettingsPanel extends JPanel {
                     allin_cb.doClick();
                 }
             });
-            JPanel allin_row = naturalRow();
-            allin_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Cinematics"
-            allin_row.add(new JLabel(icon("/images/menu/video.png")));
-            allin_row.add(allin_cb);
-            addToGroup(cinematicas_group, allin_row);
+            addToGroup(cinematicas_group, alignedRow(0, allin_label, allin_cb));
         }
         // GAME OVER subtype: the busted-player GIFs while the rebuy decision runs (the
         // game-over dialog's own GIF and the one covering busted opponents' cards). When
         // off, the rebuy cycle falls back to its static mode: a "GAME OVER" banner with a
         // countdown, the action label showing "REBUY? (N)", and a smooth time bar.
         {
-            final JCheckBox gameover_cb = new JCheckBox(Translator.translate("menu.cinematicas_gameover"),
-                    prefBool("cinematicas_gameover", true));
+            final ToggleSwitch gameover_cb = new ToggleSwitch(prefBool("cinematicas_gameover", true));
+            final JLabel gameover_label = new JLabel(Translator.translate("menu.cinematicas_gameover"));
+            gameover_label.setIcon(scaledIcon("/images/action/skull.png", 24));
+            gameover_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
             gameover_cb.addActionListener(e -> {
                 boolean now = gameover_cb.isSelected();
                 persist("cinematicas_gameover", String.valueOf(now));
@@ -741,29 +650,27 @@ public class AppearanceSettingsPanel extends JPanel {
                     gameover_cb.doClick();
                 }
             });
-            JPanel gameover_row = naturalRow();
-            gameover_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Cinematics"
-            gameover_row.add(new JLabel(scaledIcon("/images/action/skull.png", 24)));
-            gameover_row.add(gameover_cb);
-            addToGroup(cinematicas_group, gameover_row);
+            addToGroup(cinematicas_group, alignedRow(0, gameover_label, gameover_cb));
         }
-        addLeft(anim, indent(cinematicas_group));
+        addLeft(anim, cinematicas_group);
         // --- Shuffle (Settings only, no menu item) + its Cascade overlay sub-setting ---
         // Turning it on re-warms the shuffle.gif cache (startup warm-up may have skipped
         // it). Parent + nested sub-controls inside a thin grouping box.
-        JPanel barajado_group = groupBox();
-        addToGroup(barajado_group, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_barajado",
+        addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_barajado",
                 null, "animacion_barajado",
                 v -> { GameFrame.ANIMACION_BARAJADO_PREF = v; if (v) { Crupier.warmShuffleAnimCache(); } },
                 GameFrame.ANIMACION_BARAJADO_PREF));
         final JCheckBox barajado_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        JPanel barajado_group = groupBox();
         // Cascade overlay: per-player shuffle overlay. Hangs (more indented) off
         // "Shuffle": disabled if "Shuffle" or the master is unchecked. Persist-only (no
         // menu item); built by hand (not via animCheckbox) to gate its enablement on
         // "Shuffle", not just on the master.
         {
-            final JCheckBox cascada_cb = new JCheckBox(Translator.translate("menu.efectos_animacion_cascada_overlay"),
-                    prefBool("animacion_cascada_overlay", false));
+            final ToggleSwitch cascada_cb = new ToggleSwitch(prefBool("animacion_cascada_overlay", false));
+            final JLabel cascada_label = new JLabel(Translator.translate("menu.efectos_animacion_cascada_overlay"));
+            cascada_label.setIcon(icon("/images/menu/baraja.png"));
+            cascada_label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
             cascada_cb.addActionListener(e -> {
                 boolean now = cascada_cb.isSelected();
                 persist("animacion_cascada_overlay", String.valueOf(now));
@@ -780,19 +687,15 @@ public class AppearanceSettingsPanel extends JPanel {
                     cascada_cb.doClick();
                 }
             });
-            JPanel cascada_row = naturalRow();
-            cascada_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Shuffle"
-            cascada_row.add(new JLabel(icon("/images/menu/baraja.png")));
-            cascada_row.add(cascada_cb);
-            addToGroup(barajado_group, cascada_row);
+            addToGroup(barajado_group, alignedRow(0, cascada_label, cascada_cb));
         }
-        addLeft(anim, indent(barajado_group));
+        addLeft(anim, barajado_group);
 
         // --- Deal (used to be "Cards", keeps its menu item and the "animacion_reparto" key) ---
-        JPanel reparto_group = groupBox();
-        addToGroup(reparto_group, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_reparto",
+        addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_reparto",
                 gf != null ? gf.getAnim_reparto_menu() : null, "animacion_reparto", v -> GameFrame.ANIMACION_REPARTO_PREF = v));
         final JCheckBox reparto_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        JPanel reparto_group = groupBox();
         // Deal speed: 3 options (slow/normal/fast). "Normal" = the EXACT historical speed
         // (REPARTO_VELOCIDAD 100 -> factor 1.0). Hangs off "Deal": disabled if "Deal" or
         // the master is unchecked. Stores the base-pause % (GameFrame.REPARTO_VELOCIDAD).
@@ -836,21 +739,18 @@ public class AppearanceSettingsPanel extends JPanel {
             // Default: "Normal" speed (index 1 = DEFAULT_REPARTO_VELOCIDAD).
             reset_actions.add(() -> deal_combo.setSelectedIndex(1));
 
-            JPanel deal_row = naturalRow();
-            deal_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of "Deal"
-            deal_row.add(new JLabel(icon("/images/menu/clock.png")));
-            deal_row.add(deal_text);
-            deal_row.add(deal_combo);
-            addToGroup(reparto_group, deal_row);
+            deal_text.setIcon(icon("/images/menu/clock.png"));
+            deal_text.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+            addToGroup(reparto_group, alignedRow(0, deal_text, deal_combo));
         }
-        addLeft(anim, indent(reparto_group));
+        addLeft(anim, reparto_group);
 
         // --- Reveal (used to be the flip part of the old "Cards", now its own setting,
         // Settings only) --- Its reveal speed and zoom-in effect hang off it.
-        JPanel destapar_group = groupBox();
-        addToGroup(destapar_group, animCheckbox("/images/menu/flip.png", "menu.efectos_animacion_destape",
+        addLeft(anim, animCheckbox("/images/menu/flip.png", "menu.efectos_animacion_destape",
                 null, "animacion_destape", v -> GameFrame.ANIMACION_DESTAPE_PREF = v, GameFrame.ANIMACION_DESTAPE_PREF));
         final JCheckBox destapar_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        JPanel destapar_group = groupBox();
         // Speed and zoom-in effect sit in a grid that ALIGNS their dropdowns in a column.
         JPanel destapar_sub = subGrid();
         // Reveal speed: 5 options (very slow ... very fast). "Normal" is the exact
@@ -945,14 +845,14 @@ public class AppearanceSettingsPanel extends JPanel {
             addAlignedSubRow(destapar_sub, 1, "/images/menu/zoom_in.png", zoom_text, zoom_combo);
         }
         addToGroup(destapar_group, destapar_sub);
-        addLeft(anim, indent(destapar_group));
+        addLeft(anim, destapar_group);
 
         // --- Sort hand (animated crossing of your two hole cards when sorted, Settings
         // only) --- Its swap speed hangs off it.
-        JPanel swap_group = groupBox();
-        addToGroup(swap_group, animCheckbox("/images/menu/swap.png", "menu.efectos_animacion_swap",
+        addLeft(anim, animCheckbox("/images/menu/swap.png", "menu.efectos_animacion_swap",
                 null, "animacion_swap", v -> GameFrame.ANIMACION_SWAP_PREF = v, GameFrame.ANIMACION_SWAP_PREF));
         final JCheckBox swap_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        JPanel swap_group = groupBox();
         // Speed and style sit in a grid that ALIGNS their dropdowns in a column.
         JPanel swap_sub = subGrid();
         // Swap speed: 3 options (slow/normal/fast). "Normal" = default value (320 ms).
@@ -1032,14 +932,14 @@ public class AppearanceSettingsPanel extends JPanel {
             addAlignedSubRow(swap_sub, 1, "/images/menu/swap.png", style_text, style_combo);
         }
         addToGroup(swap_group, swap_sub);
-        addLeft(anim, indent(swap_group));
+        addLeft(anim, swap_group);
 
         // --- Table reseat on player exit (DynamicTablePanel, Settings only) --- Its
         // slide animation speed hangs off it.
-        JPanel downgrade_group = groupBox();
-        addToGroup(downgrade_group, animCheckbox("/images/menu/reseat.png", "menu.efectos_animacion_downgrade",
+        addLeft(anim, animCheckbox("/images/menu/reseat.png", "menu.efectos_animacion_downgrade",
                 null, "animacion_downgrade", v -> GameFrame.ANIMACION_DOWNGRADE_PREF = v, GameFrame.ANIMACION_DOWNGRADE_PREF));
         final JCheckBox downgrade_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
+        JPanel downgrade_group = groupBox();
         // Reseat speed: 3 options (slow/normal/fast). "Normal" = default value (500 ms).
         // Hangs off the setting: disabled if unchecked or the master is off. Stores the
         // duration in ms (GameFrame.DOWNGRADE_VELOCIDAD).
@@ -1083,27 +983,24 @@ public class AppearanceSettingsPanel extends JPanel {
             // Default: "Normal" speed (index 1 = DEFAULT_DOWNGRADE_VELOCIDAD).
             reset_actions.add(() -> dg_combo.setSelectedIndex(1));
 
-            JPanel dg_row = naturalRow();
-            dg_row.add(Box.createHorizontalStrut(Math.round(18 * Helpers.DIALOG_ZOOM))); // sub-option of the setting
-            dg_row.add(new JLabel(icon("/images/menu/clock.png")));
-            dg_row.add(dg_text);
-            dg_row.add(dg_combo);
-            addToGroup(downgrade_group, dg_row);
+            dg_text.setIcon(icon("/images/menu/clock.png"));
+            dg_text.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+            addToGroup(downgrade_group, alignedRow(0, dg_text, dg_combo));
         }
-        addLeft(anim, indent(downgrade_group));
+        addLeft(anim, downgrade_group);
 
-        addLeft(anim, indent(animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
-                gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v), 28));
-        addLeft(anim, indent(animCheckbox("/images/menu/chips.png", "menu.efectos_animacion_apuestas",
-                gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v), 28));
-        addLeft(anim, indent(animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
-                gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v), 28));
+        addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
+                gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
+        addLeft(anim, animCheckbox("/images/menu/chips.png", "menu.efectos_animacion_apuestas",
+                gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v));
+        addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
+                gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v));
         // GAME-END screen countdown, right below "Counters" with the same style
-        // (animCheckbox: bold + indent 28 + gated by the master via anim_sub_cb). menu=null
-        // because it's settings-only (no in-game menu item). Its SFX hangs off the
-        // countdown itself (contadorFinalAnimOn), so turning it off silences that too.
-        addLeft(anim, indent(animCheckbox("/images/menu/meter.png", "settings.animacion_contador_final",
-                null, "animacion_contador_final", v -> GameFrame.ANIMACION_CONTADOR_FINAL_PREF = v), 28));
+        // (animCheckbox: bold, gated by the master via anim_sub_cb). menu=null because it's
+        // settings-only (no in-game menu item). Its SFX hangs off the countdown itself
+        // (contadorFinalAnimOn), so turning it off silences that too.
+        addLeft(anim, animCheckbox("/images/menu/meter.png", "settings.animacion_contador_final",
+                null, "animacion_contador_final", v -> GameFrame.ANIMACION_CONTADOR_FINAL_PREF = v));
 
         // Row of Animations | (Table over Screen) at NATURAL HEIGHT in the NORTH, aligned
         // top-left. Animations (the tallest column, since it groups Shuffle/Deal/Reveal)
@@ -1154,11 +1051,10 @@ public class AppearanceSettingsPanel extends JPanel {
             anim_master.addActionListener(e -> updatePerfilEnabled.run());
             updatePerfilEnabled.run();
 
-            JPanel q_row = naturalRow();
-            q_row.add(new JLabel(icon("/images/menu/flip.png")));
-            q_row.add(q_text);
-            q_row.add(q_combo);
-            addLeft(anim, q_row);
+            q_text.setIcon(icon("/images/menu/flip.png"));
+            q_text.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+            q_text.setFont(q_text.getFont().deriveFont(java.awt.Font.BOLD));
+            addLeft(anim, alignedRow(0, q_text, q_combo));
         }
         // Glue at the bottom of Animations (now including the graphics profile): if this
         // column ends up SHORTER, stretching it to match heights collects the gap
@@ -1177,9 +1073,11 @@ public class AppearanceSettingsPanel extends JPanel {
         // titled border); the glue absorbs all the leftover as spacing BETWEEN panels,
         // same as the minimum 10px strut.
         right_inner.add(mesa);
-        right_inner.add(Box.createVerticalStrut(Math.round(10 * Helpers.DIALOG_ZOOM)));
-        right_inner.add(Box.createVerticalGlue());
+        right_inner.add(Box.createVerticalStrut(Math.round(12 * Helpers.DIALOG_ZOOM)));
         right_inner.add(pantalla);
+        // Leftover space collects at the BOTTOM (not between Table and Screen), so the two
+        // cards stack tightly at the top instead of opening a gap in the middle.
+        right_inner.add(Box.createVerticalGlue());
 
         // Both columns stretch vertically to the taller one's height (BoxLayout X with an
         // uncapped maximum) so their bottom borders line up.
@@ -1772,17 +1670,55 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.savePropertiesFile();
     }
 
+    // Modern "card": a rounded, near-white panel with a soft border and its section title
+    // painted at the top (like a TitledBorder, but drawn in paintComponent so the dialog's
+    // setUniformFont pass can't restyle it). Replaces the old Nimbus TitledBorder look.
+    private static final java.awt.Color CARD_BG = new java.awt.Color(250, 251, 250);
+    private static final java.awt.Color CARD_BORDER = new java.awt.Color(0, 0, 0, 28);
+    private static final java.awt.Color CARD_TITLE = new java.awt.Color(74, 118, 92);
+
     private JPanel titledColumn(String titleKey) {
-        JPanel p = new JPanel();
+        final String title = Translator.translate(titleKey).toUpperCase();
+        JPanel p = new JPanel() {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                super.paintComponent(g);
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                int arc = Math.round(16 * Helpers.DIALOG_ZOOM);
+                g2.setColor(CARD_BG);
+                g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
+                g2.setColor(CARD_BORDER);
+                g2.setStroke(new java.awt.BasicStroke(1f));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
+                java.awt.Font base = getFont();
+                if (base != null) {
+                    g2.setFont(base.deriveFont(java.awt.Font.BOLD, Math.round(12 * Helpers.DIALOG_ZOOM)));
+                }
+                g2.setColor(CARD_TITLE);
+                g2.drawString(title, Math.round(15 * Helpers.DIALOG_ZOOM), Math.round(20 * Helpers.DIALOG_ZOOM));
+                g2.dispose();
+            }
+
+            // Fills the column width but never stretches vertically (so cards stacked in a
+            // BoxLayout Y keep their natural height instead of spreading apart).
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
+        p.setOpaque(false);
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        p.setBorder(BorderFactory.createTitledBorder(Translator.translate(titleKey)));
+        // Top inset leaves room for the painted title; the rest is the card's inner padding.
+        int pad = Math.round(14 * Helpers.DIALOG_ZOOM);
+        p.setBorder(BorderFactory.createEmptyBorder(Math.round(34 * Helpers.DIALOG_ZOOM), pad, pad, pad));
         return p;
     }
 
-    // Adds a left-aligned row + a constant vertical gap (12px, same spacing as the "Misc"
-    // rows in the Game tab). Rows are naturalRow() (max height = preferred), so they
-    // don't stretch to fill the column; the leftover is absorbed by the glue closing
-    // each column.
+    // Adds a full-width row + a constant vertical gap (12px) to a card column. Rows cap
+    // their max height to preferred, so they don't stretch; the leftover is absorbed by the
+    // glue closing each column.
     private void addLeft(JPanel column, JComponent comp) {
         comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         column.add(comp);
@@ -1797,64 +1733,29 @@ public class AppearanceSettingsPanel extends JPanel {
         column.add(Box.createVerticalGlue());
     }
 
-    // Thin black rounded-corner grouping box for animation checkboxes with nested
-    // sub-controls (Shuffle/Deal/Reveal): wraps the parent and its sub-controls so they
-    // read as one group. Transparent (shows the Nimbus dialog background through, text
-    // intact); only draws the outline. Natural height (doesn't stretch in the BoxLayout Y).
+    // Container for a parent toggle and its nested sub-controls (Shuffle/Deal/Reveal): a
+    // FULL-WIDTH group marked by a thin green guide on the left, so its rows' controls line
+    // up on the card's right edge like every other row. Transparent; natural height.
+    private static final java.awt.Color GROUP_GUIDE = new java.awt.Color(0x1F, 0x9D, 0x5F, 90);
+
     private JPanel groupBox() {
         JPanel p = new JPanel() {
-            @Override
-            protected void paintComponent(java.awt.Graphics g) {
-                super.paintComponent(g);
-                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
-                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new java.awt.Color(0, 0, 0, 150));
-                g2.setStroke(new java.awt.BasicStroke(1f));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
-                g2.dispose();
-            }
-
-            // Caps the box to its content (doesn't span the whole column width): indented
-            // under the master, it then reads as a sub-group rather than a full-width
-            // strip. Live (getPreferredSize), not a value cached with the old font.
-            @Override
-            public java.awt.Dimension getMaximumSize() {
-                return getPreferredSize();
-            }
-        };
-        p.setOpaque(false);
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        p.setBorder(BorderFactory.createEmptyBorder(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM)));
-        p.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        return p;
-    }
-
-    // Indents a component so it visually hangs off the column's master checkbox: shifts
-    // it right by a fixed gap. Max height = preferred (doesn't stretch in the column's
-    // BoxLayout Y); the trailing glue absorbs the leftover width on the right when the
-    // component hugs its own content (the group boxes).
-    private static JComponent indent(JComponent comp) {
-        return indent(comp, 22);
-    }
-
-    // px = logical left gap (scaled with DIALOG_ZOOM). Group boxes use 22; STANDALONE
-    // checkboxes use 28 (22 + the box's 6px left border) so their checkbox lines up with
-    // the parent checkbox's INSIDE the boxes.
-    private static JComponent indent(JComponent comp, int px) {
-        JPanel wrap = new JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
                 return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
             }
         };
-        wrap.setOpaque(false);
-        wrap.setLayout(new BoxLayout(wrap, BoxLayout.X_AXIS));
-        wrap.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        wrap.add(Box.createHorizontalStrut(Math.round(px * Helpers.DIALOG_ZOOM)));
-        comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        wrap.add(comp);
-        wrap.add(Box.createHorizontalGlue());
-        return wrap;
+        p.setOpaque(false);
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        // Left margin BEFORE the guide indents the whole sub-group clearly to the right of
+        // its parent; then the guide + its own padding.
+        p.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createEmptyBorder(0, Math.round(22 * Helpers.DIALOG_ZOOM), 0, 0),
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, Math.round(2 * Helpers.DIALOG_ZOOM), 0, 0, GROUP_GUIDE),
+                        BorderFactory.createEmptyBorder(Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(14 * Helpers.DIALOG_ZOOM), Math.round(2 * Helpers.DIALOG_ZOOM), 0))));
+        p.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        return p;
     }
 
     // Adds a row (parent checkbox or a sub-control) to the group box, with a thin gap
@@ -1867,58 +1768,61 @@ public class AppearanceSettingsPanel extends JPanel {
         group.add(row);
     }
 
-    // Row (FlowLayout) whose MAX height is its preferred height: in the column's
-    // BoxLayout Y it won't stretch to fill the gap, so rows keep a constant spacing
-    // (addLeft's strut) instead of spreading out.
-    private static JPanel naturalRow() {
-        return new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0)) {
+    // Full-width row: LEFT hugs the left edge, RIGHT is pushed to the card's right edge by a
+    // glue between them. Optional left indent (scaled). Transparent; natural height so it
+    // doesn't stretch in the card's BoxLayout Y. This is the modern "label ......... control"
+    // layout for the whole panel (toggles / dropdowns / spinners all align on the right).
+    private JPanel alignedRow(int indentPx, JComponent left, JComponent right) {
+        JPanel row = new JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
                 return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
             }
         };
+        row.setOpaque(false);
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+        row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        if (indentPx > 0) {
+            row.add(Box.createHorizontalStrut(Math.round(indentPx * Helpers.DIALOG_ZOOM)));
+        }
+        left.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+        right.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+        // Keep the control at its natural size (hugging the right edge) instead of letting
+        // the BoxLayout stretch it across the row, same as the combos capped elsewhere.
+        right.setMaximumSize(right.getPreferredSize());
+        row.add(left);
+        row.add(Box.createHorizontalStrut(Math.round(10 * Helpers.DIALOG_ZOOM)));
+        row.add(Box.createHorizontalGlue());
+        row.add(right);
+        return row;
     }
 
-    // Empty grid for sub-settings hanging off a parent checkbox (speed, effect, style...):
-    // each row is added via addAlignedSubRow and ALL dropdowns end up aligned in a common
-    // column, instead of landing at different x depending on their label's width. The
-    // grid (GridBagLayout) measures widths LIVE, so it adapts to font/zoom changes.
+    // Vertical stack for sub-settings hanging off a parent toggle (speed, effect, style...):
+    // each row is added via addAlignedSubRow, and its control is pushed to the card's right
+    // edge like every other row. Transparent, full width, natural height.
     private JPanel subGrid() {
-        // Max width = preferred (not just height): this keeps the box's BoxLayout from
-        // stretching the grid; with weightx=0 on every cell, stretching it would center
-        // the rows instead of hugging the left edge. Capped to its preferred size, it
-        // stays left-aligned.
-        JPanel grid = new JPanel(new java.awt.GridBagLayout()) {
+        JPanel grid = new JPanel() {
             @Override
             public java.awt.Dimension getMaximumSize() {
-                return getPreferredSize();
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
             }
         };
         grid.setOpaque(false);
+        grid.setLayout(new BoxLayout(grid, BoxLayout.Y_AXIS));
         grid.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         return grid;
     }
 
-    // Adds a row (icon label | dropdown) to a grid built with subGrid(). The sub-option
-    // indent is the label's left inset; the label column measures the widest one, so
-    // every row's dropdown starts at the SAME x. gridy = row index (0 is first); later
-    // rows get a bit of extra space on top.
+    // Adds a "icon label ......... control" row to a stack built with subGrid(): the label
+    // hugs the left, the control aligns on the card's right edge. gridy > 0 gets a small
+    // gap on top so rows don't touch.
     private void addAlignedSubRow(JPanel grid, int gridy, String iconPath, JLabel label, JComponent control) {
         label.setIcon(icon(iconPath));
-        int gap = Math.round(6 * Helpers.DIALOG_ZOOM);
-        int top = gridy > 0 ? Math.round(4 * Helpers.DIALOG_ZOOM) : 0;
-        java.awt.GridBagConstraints g = new java.awt.GridBagConstraints();
-        g.gridy = gridy;
-        g.anchor = java.awt.GridBagConstraints.WEST;
-        g.gridx = 0;
-        g.insets = new java.awt.Insets(top, Math.round(18 * Helpers.DIALOG_ZOOM), 0, gap);
-        grid.add(label, g);
-        g.gridx = 1;
-        // fill=HORIZONTAL: the dropdown takes the column's width (= the grid's widest),
-        // so every dropdown in the group ends up the SAME width (cleaner).
-        g.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        g.insets = new java.awt.Insets(top, 0, 0, 0);
-        grid.add(control, g);
+        label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        if (gridy > 0) {
+            grid.add(Box.createVerticalStrut(Math.round(6 * Helpers.DIALOG_ZOOM)));
+        }
+        grid.add(alignedRow(0, label, control));
     }
 
     // Checkbox that MIRRORS an appearance toggle. In-game (menu != null) a click = a
@@ -1934,7 +1838,10 @@ public class AppearanceSettingsPanel extends JPanel {
     }
 
     private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone, boolean defaultValue, String tooltipKey) {
-        JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), selected);
+        ToggleSwitch cb = new ToggleSwitch(selected);
+        JLabel label = new JLabel(Translator.translate(i18nKey));
+        label.setIcon(icon(iconPath));
+        label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
         cb.setEnabled(menu == null || menu.isEnabled());
         cb.addActionListener(e -> {
             if (menu != null) {
@@ -1988,17 +1895,13 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
         });
-        // Icon on the left (same as the old menu item) for parity with the Game tab and
-        // the menus this dialog replaces.
-        JPanel row = naturalRow();
-        JLabel iconLabel = new JLabel(icon(iconPath));
-        row.add(iconLabel);
-        row.add(cb);
-        // Optional tooltip: set on the row and both its children so it appears over the
-        // whole clickable area (icon + checkbox + text).
+        // Label (icon + text) on the left, sliding toggle pushed to the card's right edge.
+        JPanel row = alignedRow(0, label, cb);
+        // Optional tooltip: set on the row, the label and the toggle so it appears over the
+        // whole row.
         if (tooltipKey != null) {
             Helpers.setTranslatedToolTip(row, tooltipKey);
-            Helpers.setTranslatedToolTip(iconLabel, tooltipKey);
+            Helpers.setTranslatedToolTip(label, tooltipKey);
             Helpers.setTranslatedToolTip(cb, tooltipKey);
         }
         return row;
@@ -2016,10 +1919,13 @@ public class AppearanceSettingsPanel extends JPanel {
 
     private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu, String prefKey, Consumer<Boolean> effSetter, boolean defaultPref) {
         boolean pref = (menu != null) ? menu.isSelected() : prefBool(prefKey, defaultPref);
-        JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), pref);
+        ToggleSwitch cb = new ToggleSwitch(pref);
+        JLabel label = new JLabel(Translator.translate(i18nKey));
+        label.setIcon(icon(iconPath));
+        label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
         // Animation group header (Shuffle, Deal, Reveal, Sort hand...): bold to
         // distinguish it from its sub-settings (speed, style, etc.), which use normal weight.
-        cb.setFont(cb.getFont().deriveFont(java.awt.Font.BOLD));
+        label.setFont(label.getFont().deriveFont(java.awt.Font.BOLD));
         cb.setEnabled((menu == null || menu.isEnabled()) && GameFrame.ANIMACIONES);
         cb.addActionListener(e -> {
             if (menu != null) {
@@ -2032,22 +1938,14 @@ public class AppearanceSettingsPanel extends JPanel {
         });
         anim_sub_cb.add(cb);
         anim_sub_menu.add(menu);
-        // NO indent of its own: the parent checkbox hugs the box's edge (just the
-        // FlowLayout gap), so its left margin matches the right one (symmetric box).
-        // Standalone checkboxes get their indent from indent(); sub-controls, their own strut.
-        JPanel row = naturalRow();
-        row.add(new JLabel(icon(iconPath)));
-        row.add(cb);
-        return row;
+        return alignedRow(0, label, cb);
     }
 
     private JPanel labeledRow(String iconPath, String labelKey, JComponent control) {
-        JPanel row = naturalRow();
         JLabel label = new JLabel(Translator.translate(labelKey) + ":");
         label.setIcon(icon(iconPath));
-        row.add(label);
-        row.add(control);
-        return row;
+        label.setIconTextGap(Math.round(8 * Helpers.DIALOG_ZOOM));
+        return alignedRow(0, label, control);
     }
 
     private static javax.swing.ImageIcon icon(String path) {
@@ -2088,6 +1986,51 @@ public class AppearanceSettingsPanel extends JPanel {
         float scale = Math.min((float) max_width / raw.getIconWidth(), (float) max_height / raw.getIconHeight());
 
         return scaledIcon(path, Math.max(1, Math.round(raw.getIconWidth() * scale)), Math.max(1, Math.round(raw.getIconHeight() * scale)));
+    }
+
+    // A sliding on/off switch that behaves exactly like a JCheckBox (same model, doClick,
+    // isSelected, listeners, enabled state) but paints a pill + thumb instead of the square.
+    // Carries no text of its own; the row's label holds it. Scales with DIALOG_ZOOM.
+    static final class ToggleSwitch extends JCheckBox {
+
+        private static final java.awt.Color TRACK_ON = new java.awt.Color(0x1F, 0x9D, 0x5F);
+        private static final java.awt.Color TRACK_OFF = new java.awt.Color(0xC7, 0xD0, 0xCB);
+        private static final java.awt.Color TRACK_DISABLED = new java.awt.Color(0xB8, 0xC2, 0xBC);
+
+        ToggleSwitch(boolean selected) {
+            super("", selected);
+            setOpaque(false);
+            setFocusPainted(false);
+            setBorderPainted(false);
+            setContentAreaFilled(false);
+            setRolloverEnabled(false);
+            setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+            int w = Math.round(42 * Helpers.DIALOG_ZOOM);
+            int h = Math.round(23 * Helpers.DIALOG_ZOOM);
+            java.awt.Dimension d = new java.awt.Dimension(w, h);
+            setPreferredSize(d);
+            setMinimumSize(d);
+            setMaximumSize(d);
+        }
+
+        @Override
+        protected void paintComponent(java.awt.Graphics g) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            int w = getWidth();
+            int h = getHeight();
+            g2.setColor(!isEnabled() ? TRACK_DISABLED : (isSelected() ? TRACK_ON : TRACK_OFF));
+            g2.fillRoundRect(0, 0, w - 1, h - 1, h, h);
+            int pad = Math.max(2, Math.round(3 * Helpers.DIALOG_ZOOM));
+            int d = h - 2 * pad;
+            int x = isSelected() ? w - d - pad : pad;
+            // Soft drop shadow under the thumb, then the white thumb on top.
+            g2.setColor(new java.awt.Color(0, 0, 0, 45));
+            g2.fillOval(x, pad + 1, d, d);
+            g2.setColor(java.awt.Color.WHITE);
+            g2.fillOval(x, pad, d, d);
+            g2.dispose();
+        }
     }
 
     private int currentTapeteIndex() {

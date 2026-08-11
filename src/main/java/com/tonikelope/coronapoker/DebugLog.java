@@ -28,11 +28,17 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
+import java.util.logging.Formatter;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 /**
  * Root-logger {@link Handler} that buffers formatted log records in memory (capped, oldest
@@ -43,7 +49,38 @@ import java.util.logging.SimpleFormatter;
 public final class DebugLog {
 
     private static final int MAX_CHARS = 512 * 1024;
-    private static final SimpleFormatter FORMATTER = new SimpleFormatter();
+    private static final ZoneId ZONE = ZoneId.systemDefault();
+    private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    // Locale-independent two-line layout (matching SimpleFormatter's shape): a fixed ISO
+    // timestamp plus the English level name (getName, not the localized name), so the in-app
+    // debug console can colour each record by level reliably regardless of the system locale.
+    private static final Formatter FORMATTER = new Formatter() {
+        @Override
+        public String format(LogRecord record) {
+            String message = formatMessage(record);
+            String throwable = "";
+            if (record.getThrown() != null) {
+                StringWriter sw = new StringWriter();
+                try (PrintWriter pw = new PrintWriter(sw)) {
+                    record.getThrown().printStackTrace(pw);
+                }
+                throwable = sw.toString();
+            }
+            String source;
+            if (record.getSourceClassName() != null) {
+                source = record.getSourceClassName();
+                if (record.getSourceMethodName() != null) {
+                    source += " " + record.getSourceMethodName();
+                }
+            } else {
+                source = record.getLoggerName();
+            }
+            String ts = LocalDateTime.ofInstant(Instant.ofEpochMilli(record.getMillis()), ZONE).format(TS_FORMAT);
+            return ts + " " + source + "\n" + record.getLevel().getName() + ": " + message + "\n" + throwable;
+        }
+    };
+
     private static final StringBuilder BUFFER = new StringBuilder(8192);
     // Only one listener at a time: the debug console is the sole subscriber.
     private static volatile Consumer<String> listener = null;
@@ -86,6 +123,11 @@ public final class DebugLog {
     };
 
     private DebugLog() {
+    }
+
+    /** Formats a record exactly as the buffered console sees it. Package-visible for tests. */
+    static String format(LogRecord record) {
+        return FORMATTER.format(record);
     }
 
     /** Attaches the buffering handler to the root logger. Call once at startup. */

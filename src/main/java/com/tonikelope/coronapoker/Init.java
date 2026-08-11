@@ -239,8 +239,12 @@ public class Init extends JFrame {
             // In-memory handler so the GameLogDialog can show the live debug log
             DebugLog.install();
 
-            // Print a header to mark a new session in the log file
-            LOGGER.log(Level.INFO, "{0}=== NEW CORONAPOKER SESSION STARTED: {1} ==={2}", new Object[]{"\n============================================================================\n", java.time.LocalDateTime.now(), "\n============================================================================\n"});
+            // Print a header to mark a new session in the log file. The bars are sized to the
+            // middle line (whose length varies with the timestamp) so the banner is always a clean
+            // rectangle with the text flanked symmetrically.
+            String session_line = "=== NEW CORONAPOKER SESSION STARTED: " + java.time.LocalDateTime.now() + " ===";
+            String session_bar = "=".repeat(session_line.length());
+            LOGGER.log(Level.INFO, "\n" + session_bar + "\n" + session_line + "\n" + session_bar);
 
             // The unreadable-preferences-file rescue happens in a static initializer,
             // long before this logger exists, so its warning used to be lost entirely.

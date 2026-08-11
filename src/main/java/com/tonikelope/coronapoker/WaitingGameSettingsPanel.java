@@ -428,6 +428,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         row.add(label);
         row.add(javax.swing.Box.createHorizontalStrut(Math.round(8 * Helpers.DIALOG_ZOOM)));
         row.add(toggle);
+        if (toggle instanceof SettingsUI.ToggleSwitch) {
+            ((SettingsUI.ToggleSwitch) toggle).pairLabel(label);
+        }
         return row;
     }
 

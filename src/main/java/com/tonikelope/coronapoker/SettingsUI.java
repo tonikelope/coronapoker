@@ -152,6 +152,10 @@ public final class SettingsUI {
         row.add(Box.createHorizontalStrut(Math.round(10 * Helpers.DIALOG_ZOOM)));
         row.add(Box.createHorizontalGlue());
         row.add(right);
+        // A label + switch pair: the switch greys its label out when it becomes disabled.
+        if (left instanceof JLabel && right instanceof ToggleSwitch) {
+            ((ToggleSwitch) right).pairLabel((JLabel) left);
+        }
         return row;
     }
 
@@ -249,6 +253,26 @@ public final class SettingsUI {
             setPreferredSize(d);
             setMinimumSize(d);
             setMaximumSize(d);
+        }
+
+        // The switch carries no text; its row label lives in a separate JLabel. Pairing it means a
+        // disabled switch greys its label too (Swing dims a disabled JLabel), restoring the old
+        // JCheckBox-with-text behaviour that was lost when the text moved to a separate label.
+        private JLabel pairedLabel;
+
+        public void pairLabel(JLabel label) {
+            pairedLabel = label;
+            if (label != null) {
+                label.setEnabled(isEnabled());
+            }
+        }
+
+        @Override
+        public void setEnabled(boolean enabled) {
+            super.setEnabled(enabled);
+            if (pairedLabel != null) {
+                pairedLabel.setEnabled(enabled);
+            }
         }
 
         @Override

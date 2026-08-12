@@ -7358,6 +7358,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void abortRunItTwiceSideBToRecover() {
         LOGGER.log(Level.WARNING, "RECOVERY: run-it-twice SIDE-B peer drop -> leaving hand in progress and forcing recover (no malicious flag, no void)");
         this.rit_sideb_interrupted = true;
+        // Halt the run() loop SYNCHRONOUSLY (mirrors cancelarManoYDevolverApuestas): abortAndRecover
+        // only spawns finTransmision on a background thread, which sets fin_de_la_transmision late
+        // (after it acquires lock_contabilidad). Without this, the crupier can race back to
+        // `while (!fin_de_la_transmision)` and enter NUEVA_MANO, writing a phantom hand row that
+        // desyncs conta_mano/max(hand.id) between host and clients on recover. Sets only the crupier
+        // flag, not GameFrame.fin, so finTransmision's teardown still runs.
+        setFin_de_la_transmision(true);
         abortAndRecover();
     }
 
@@ -13070,6 +13077,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             this.rit_suppress_showdown_sql = false;
             this.rit_sideb_interrupted = true;
+            // Halt the run() loop SYNCHRONOUSLY here too (the common funnel for EVERY interrupt
+            // cause, including a manual stop where abortRunItTwiceSideBToRecover is never called):
+            // the external finTransmision sets fin_de_la_transmision only after it acquires
+            // lock_contabilidad (which this crupier still holds), so without this the crupier could
+            // race back to `while (!fin_de_la_transmision)` and enter NUEVA_MANO, writing a phantom
+            // hand row that desyncs conta_mano/max(hand.id) between peers on recover.
+            setFin_de_la_transmision(true);
             return;
         }
 

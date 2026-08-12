@@ -19095,8 +19095,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // lock_contabilidad (the pause between run-it-twice boards):
             // finTransmision needs that lock BEFORE it can raise
             // fin_de_la_transmision, so the end flag can't be what aborts this —
-            // isExit() can, since it's set without any locks.
-            if (GameFrame.getInstance().getLocalPlayer().isExit()) {
+            // isExit() can, since it's set without any locks. termination_pending is
+            // the same kind of early, lock-free signal (finTransmision sets it before
+            // taking the lock): without it, a stop/disconnect that leaves a run-it-twice
+            // hand in progress with the local player NOT exiting (a peer drop routed to
+            // recover) would idle here forever, since decidePauseTick returns IDLE while
+            // fin is set. rit_sideb_interrupted covers the same case with no race window.
+            if (GameFrame.getInstance().getLocalPlayer().isExit()
+                    || this.termination_pending || this.rit_sideb_interrupted) {
                 break;
             }
 

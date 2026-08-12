@@ -1496,15 +1496,22 @@ public class AudioSettingsPanel extends JPanel {
             try {
                 while (!Thread.currentThread().isInterrupted()) {
                     Thread.sleep(DEVICE_WATCH_INTERVAL_MS);
-                    AudioDeviceManager.refreshDeviceCache();
-                    List<Mixer.Info> new_out = AudioDeviceManager.getOutputDevices();
-                    List<Mixer.Info> new_cap = AudioDeviceManager.getCaptureDevices();
-                    List<String> new_out_names = deviceNames(new_out);
-                    List<String> new_cap_names = deviceNames(new_cap);
-                    if (!new_out_names.equals(last_out) || !new_cap_names.equals(last_cap)) {
-                        last_out = new_out_names;
-                        last_cap = new_cap_names;
-                        Helpers.GUIRun(() -> applyDeviceListsRefresh(new_out, new_cap));
+                    try {
+                        AudioDeviceManager.refreshDeviceCache();
+                        List<Mixer.Info> new_out = AudioDeviceManager.getOutputDevices();
+                        List<Mixer.Info> new_cap = AudioDeviceManager.getCaptureDevices();
+                        List<String> new_out_names = deviceNames(new_out);
+                        List<String> new_cap_names = deviceNames(new_cap);
+                        if (!new_out_names.equals(last_out) || !new_cap_names.equals(last_cap)) {
+                            last_out = new_out_names;
+                            last_cap = new_cap_names;
+                            Helpers.GUIRun(() -> applyDeviceListsRefresh(new_out, new_cap));
+                        }
+                    } catch (Throwable probe_error) {
+                        // A mixer probe blew up: log and keep watching. One bad enumeration must not
+                        // kill the live-refresh for the rest of this Settings session.
+                        java.util.logging.Logger.getLogger(AudioSettingsPanel.class.getName())
+                                .log(java.util.logging.Level.WARNING, "Audio device watch probe failed", probe_error);
                     }
                 }
             } catch (InterruptedException stopped) {

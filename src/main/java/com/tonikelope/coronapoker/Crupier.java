@@ -13499,11 +13499,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     if (!allCovered) {
                         // Not while WE are tearing down (stop/disconnect): a peer that goes quiet
-                        // because the game is ending is not malicious. Return null cleanly so the
-                        // SIDE-B deal aborts and the hand is left in progress for the recover.
+                        // because the game is ending is not malicious.
                         if (abortOnFail && !this.termination_pending) {
-                            warnMaliciousPeer(h, "zero_trust.community_unlock_refused");
-                            cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
+                            if (this.run_it_twice_side_b) {
+                                // SIDE-B: an incomplete response from a dropping peer is a
+                                // disconnection on PUBLIC board cards, not theft (the replay is
+                                // deterministic from the fossil, nothing to steal) -> recover and
+                                // replay, uniform with the no-response / no-testament cases below.
+                                // The live board keeps flagging it: there cheating IS possible.
+                                abortRunItTwiceSideBToRecover();
+                            } else {
+                                warnMaliciousPeer(h, "zero_trust.community_unlock_refused");
+                                cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
+                            }
                         }
                         return null;
                     }

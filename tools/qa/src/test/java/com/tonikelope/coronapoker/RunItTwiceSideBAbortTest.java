@@ -55,4 +55,49 @@ public class RunItTwiceSideBAbortTest {
         // resto del settle. El "dejar en curso" es exclusivo de la terminacion.
         assertFalse(decide(false, false, false, false, false));
     }
+
+    // ---- Mapeo de ESCENARIOS reales a la decision (documenta el porque de cada combo) ----
+
+    @Test
+    public void scenarioManualHaltMidSideBLeavesInProgress() {
+        // Detener la timba (o recibir SERVEREXITRECOVER) con la cara-B en vuelo: finTransmision
+        // fija termination_pending y la espera de red aborta -> dealt=false, en curso.
+        assertTrue(decide(false, false, /*termination*/ true, false, false));
+    }
+
+    @Test
+    public void scenarioExternalHostCrashLeavesClientsInProgress() {
+        // El host cae a mitad de cara-B: el lector del cliente se rinde y llama finTransmision,
+        // que fija termination_pending antes de tomar el lock -> la espera del cliente aborta.
+        assertTrue(decide(false, false, /*termination*/ true, false, false));
+    }
+
+    @Test
+    public void scenarioClientDropDuringSideBLeavesHostInProgress() {
+        // Un humano remoto se cae en la cara-B: el host va a recover via
+        // abortRunItTwiceSideBToRecover, que fija rit_sideb_interrupted ANTES de que el
+        // finTransmision asincrono ponga termination_pending -> se reconoce sin carrera.
+        assertTrue(decide(false, false, false, false, /*interrupted*/ true));
+    }
+
+    @Test
+    public void scenarioNormalRunItTwiceSettles() {
+        // Los dos boards se reparten enteros: dealt=true -> se liquida, hand.end se escribe,
+        // el recover salta la mano ya cerrada.
+        assertFalse(decide(/*dealt*/ true, false, false, false, false));
+    }
+
+    @Test
+    public void scenarioHostPlusBotsHaltStillCompletes() {
+        // Solo bots: no hay espera de red que interrumpir; el cascade desbloquea local y la
+        // cara-B se completa aun con un detener pendiente -> dealt=true -> se liquida (igual que hoy).
+        assertFalse(decide(/*dealt*/ true, false, /*termination*/ true, false, false));
+    }
+
+    @Test
+    public void scenarioMisdealDuringSideBVoidsNotLeftInProgress() {
+        // Un MISDEAL real en la cara-B devuelve las apuestas (apuestas_devueltas) y cierra la mano
+        // por rollback; esta decision NO debe ademas dejarla en curso.
+        assertFalse(decide(false, /*refunded*/ true, false, false, false));
+    }
 }

@@ -88,10 +88,18 @@ public class RunItTwiceSideBAbortTest {
     }
 
     @Test
-    public void scenarioHostPlusBotsHaltStillCompletes() {
-        // Solo bots: no hay espera de red que interrumpir; el cascade desbloquea local y la
-        // cara-B se completa aun con un detener pendiente -> dealt=true -> se liquida (igual que hoy).
-        assertFalse(decide(/*dealt*/ true, false, /*termination*/ true, false, false));
+    public void scenarioHostPlusBotsHaltBeforeSideBAbortsTheDeal() {
+        // Solo bots no ofrece una espera de red que falle. Por eso el gate tiene que consultar
+        // termination_pending directamente antes de iniciar B: detener tras A deja la mano en
+        // curso para que la recuperacion repita el RIT entero.
+        assertTrue(Crupier.shouldAbortRunItTwiceSideBDeal(/*termination*/ true, false));
+        assertTrue(decide(/*dealt*/ false, false, /*termination*/ true, false, false));
+    }
+
+    @Test
+    public void normalSideBIsNotAbortedByTheEarlyGate() {
+        assertFalse(Crupier.shouldAbortRunItTwiceSideBDeal(false, false));
+        assertTrue(Crupier.shouldAbortRunItTwiceSideBDeal(false, /*fin*/ true));
     }
 
     @Test

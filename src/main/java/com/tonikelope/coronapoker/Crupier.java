@@ -12860,7 +12860,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Returns false if the deal aborted (lockdown / misdeal / disconnect). Call ONLY
     // with setRunItTwiceSideB(true).
     private boolean repartirSideB(ArrayList<Player> resisten) {
-        for (int s = rit_allin_street + 1; s <= RIVER && !isFin_de_la_transmision(); s++) {
+        // finTransmision raises termination_pending before it can acquire
+        // lock_contabilidad (this method runs below that lock).  In particular, a
+        // manual stop during SIDE-A's pause used to keep going here when the table
+        // only contained local players/bots: there was no network wait to fail, so
+        // SIDE-B completed and the hand was closed instead of remaining recoverable.
+        // Treat the early teardown signal exactly like an interrupted network deal.
+        if (shouldAbortRunItTwiceSideBDeal(this.termination_pending, isFin_de_la_transmision())) {
+            return false;
+        }
+
+        for (int s = rit_allin_street + 1; s <= RIVER
+                && !shouldAbortRunItTwiceSideBDeal(this.termination_pending, isFin_de_la_transmision()); s++) {
             setStreetLocal(s);
 
             // EXACT CLONE of rondaApuestas's community deal (SIDE-A's run-out): orange
@@ -12899,7 +12910,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             actualizarContadoresTapete();
             destaparCartaComunitaria(s, resisten);
         }
-        return true;
+        // A stop may arrive after the final unlock/reveal but before settlement.
+        // Recovery must still replay the complete RIT atomically; reporting success
+        // here would stamp hand.end and make that recovery disappear.
+        return !shouldAbortRunItTwiceSideBDeal(this.termination_pending, isFin_de_la_transmision());
     }
 
     // Run-it-twice: settles BOTH boards (dedicated path; the normal showdown is
@@ -16205,38 +16219,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (old_bb_pos == -1) {
 
-                try {
-                    // BIG BLIND LEFT THE GAME
-
-                    String[] asientos = this.sqlRecoverGameSeats().split("#");
-
-                    String grande_b64 = Base64.getEncoder().encodeToString(this.big_blind_nick.getBytes("UTF-8"));
-
-                    int i = 0;
-
-                    while (i < asientos.length && !asientos[i].equals(grande_b64)) {
-
-                        i++;
-                    }
-
-                    int j = i;
-
-                    i = (i + 1) % asientos.length;
-
-                    while (j != i
-                            && this.permutadoNick2Pos(
-                                    new String(Base64.getDecoder().decode(asientos[i]), "UTF-8")) == -1) {
-
-                        i = (i + 1) % asientos.length;
-                    }
-
-                    new_big_blind = new String(Base64.getDecoder().decode(asientos[i]), "UTF-8");
-
-                    big_blind_pos = permutadoNick2Pos(new_big_blind);
-
-                } catch (UnsupportedEncodingException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                // BIG BLIND LEFT THE GAME. Walk at most one turn of the persisted
+                // ring. The old code could loop forever when the departed blind was
+                // absent from an empty or inconsistent stored ring.
+                new_big_blind = storedRingNeighbor(this.sqlRecoverGameSeats(), this.big_blind_nick,
+                        new java.util.HashSet<>(java.util.Arrays.asList(this.nicks_permutados)), true);
+                if (new_big_blind == null) {
+                    LOGGER.log(Level.WARNING,
+                            "Stored seat ring unavailable/inconsistent while advancing big blind; using current ring");
+                    new_big_blind = this.nicks_permutados[0];
                 }
+                big_blind_pos = permutadoNick2Pos(new_big_blind);
 
             } else {
 
@@ -16299,44 +16292,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (dealer_pos == -1) {
 
-                    try {
-
-                        String[] asientos = this.sqlRecoverGameSeats().split("#");
-
-                        String dealer_b64 = Base64.getEncoder().encodeToString(new_dealer.getBytes("UTF-8"));
-
-                        int i = 0;
-
-                        while (i < asientos.length && !asientos[i].equals(dealer_b64)) {
-
-                            i++;
-                        }
-
-                        int j = i;
-
-                        i--;
-
-                        if (i < 0) {
-                            i += asientos.length;
-                        }
-
-                        while (j != i && this
-                                .permutadoNick2Pos(
-                                        new String(Base64.getDecoder().decode(asientos[i]), "UTF-8")) == -1) {
-
-                            i--;
-
-                            if (i < 0) {
-                                i += asientos.length;
-                            }
-                        }
-
-                        new_dealer = new String(Base64.getDecoder().decode(asientos[i]), "UTF-8");
-
+                    new_dealer = storedRingNeighbor(this.sqlRecoverGameSeats(), new_dealer,
+                            new java.util.HashSet<>(java.util.Arrays.asList(this.nicks_permutados)), false);
+                    if (new_dealer == null) {
+                        LOGGER.log(Level.WARNING,
+                                "Stored seat ring unavailable/inconsistent while advancing dealer; using current ring");
+                        dealer_pos = big_blind_pos - 2;
+                        new_dealer = permutadoPos2Nick(dealer_pos);
+                    } else {
                         dealer_pos = permutadoNick2Pos(new_dealer);
-
-                    } catch (UnsupportedEncodingException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
                     }
 
                 }
@@ -16420,7 +16384,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 actuales.add(entry.getKey());
             }
 
-            String[] sitiosb64 = this.sqlRecoverGameSeats().split("#");
+            String storedSeats = this.sqlRecoverGameSeats();
+            if (storedSeats == null || storedSeats.isBlank()) {
+                LOGGER.log(Level.WARNING, "recuperarSorteoSitios: no stored seat ring; falling back to fresh shuffle");
+                return null;
+            }
+            String[] sitiosb64 = storedSeats.split("#");
 
             // sqlRecoverServerLocalGameKeyData can return null (no row: game with no
             // hands yet / DB unavailable). Without this null-check the NPE would escape
@@ -16474,29 +16443,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ArrayList<String> permutados_aux = new ArrayList<>();
 
                 if (!permutados.contains(grande)) {
-
-                    String[] asientos = this.sqlRecoverGameSeats().split("#");
-
-                    String grande_b64 = Base64.getEncoder().encodeToString(grande.getBytes("UTF-8"));
-
-                    int i = 0;
-
-                    while (i < asientos.length && !asientos[i].equals(grande_b64)) {
-
-                        i++;
+                    String next = storedRingNeighbor(storedSeats, grande,
+                            new java.util.HashSet<>(permutados), true);
+                    if (next == null) {
+                        LOGGER.log(Level.WARNING,
+                                "recuperarSorteoSitios: persisted big blind missing from seat ring; falling back to fresh shuffle");
+                        return null;
                     }
-
-                    int j = i;
-
-                    i = (i + 1) % asientos.length;
-
-                    while (j != i
-                            && !permutados.contains(new String(Base64.getDecoder().decode(asientos[i]), "UTF-8"))) {
-
-                        i = (i + 1) % asientos.length;
-                    }
-
-                    grande = new String(Base64.getDecoder().decode(asientos[i]), "UTF-8");
+                    grande = next;
                 }
 
                 for (String nick : permutados) {
@@ -16558,11 +16512,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 statement.setInt(1, this.sqlite_id_game);
 
-                ResultSet rs = statement.executeQuery();
-
-                rs.next();
-
-                ret = rs.getString("players");
+                try (ResultSet rs = statement.executeQuery()) {
+                    if (rs.next()) {
+                        ret = rs.getString("players");
+                    }
+                }
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
@@ -16578,6 +16532,43 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return ret;
 
         }
+    }
+
+    /**
+     * Returns the first candidate after/before {@code pivot} in a persisted Base64 seat ring.
+     * The search is bounded to one full turn and fails closed on malformed or incomplete data.
+     * Package-private for deterministic regression tests.
+     */
+    static String storedRingNeighbor(String storedSeats, String pivot,
+            java.util.Set<String> candidates, boolean forward) {
+        if (storedSeats == null || storedSeats.isBlank() || pivot == null
+                || candidates == null || candidates.isEmpty()) {
+            return null;
+        }
+        String[] encoded = storedSeats.split("#");
+        java.util.ArrayList<String> ring = new java.util.ArrayList<>(encoded.length);
+        try {
+            for (String seat : encoded) {
+                if (seat.isEmpty()) {
+                    return null;
+                }
+                ring.add(new String(Base64.getDecoder().decode(seat), java.nio.charset.StandardCharsets.UTF_8));
+            }
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+        int pivotIndex = ring.indexOf(pivot);
+        if (pivotIndex < 0) {
+            return null;
+        }
+        for (int distance = 1; distance < ring.size(); distance++) {
+            int index = Math.floorMod(pivotIndex + (forward ? distance : -distance), ring.size());
+            String nick = ring.get(index);
+            if (candidates.contains(nick)) {
+                return nick;
+            }
+        }
+        return null;
     }
 
     private void sqlUpdateGameSeats(String players) {
@@ -19040,6 +19031,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean terminationPending, boolean finTransmision, boolean ritSidebInterrupted) {
         return !sideBDealt && !apuestasDevueltas
                 && (terminationPending || finTransmision || ritSidebInterrupted);
+    }
+
+    /**
+     * Early gate for SIDE-B.  {@code terminationPending} is deliberately included:
+     * finTransmision cannot raise its later flag while the RIT showdown owns the
+     * accounting lock, so waiting only for {@code finTransmision} loses the recovery
+     * race on local/bot-only tables.
+     */
+    public static boolean shouldAbortRunItTwiceSideBDeal(boolean terminationPending, boolean finTransmision) {
+        return terminationPending || finTransmision;
     }
 
     // True if a RABBIT command (with its base64 hand id, which may be missing on

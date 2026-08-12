@@ -7822,14 +7822,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Notify the server or the other players, as applicable.
                         String comando;
                         try {
-                            // Attach the current hand's HAND_ID: recipients only apply the
-                            // fee/reveal if the rabbit request is for THEIR current hand (not the
-                            // transient show_time), making the charge deterministic across peers
-                            // and eliminating false DIVERGENT flags. "*" is only used at the edge
-                            // case of a null current_hand_id, where recipients fall back to the
-                            // usual show_time guard.
-                            String handIdField = (this.current_hand_id != null)
-                                    ? Base64.getEncoder().encodeToString(this.current_hand_id) : "*";
+                            // Stamp the hand id recipients gate on: the current hand's, or the
+                            // just-finished hand's fee window in the between-hands gap. Relaying "*"
+                            // here (as the host does between hands, once current_hand_id is cleared)
+                            // would be REJECTED by the receiver and diverge stacks -> false
+                            // DIVERGENT next hand. See rabbitRelayHandIdField.
+                            String handIdField = rabbitRelayHandIdField(this.current_hand_id, this.rabbit_fee_window_hand_id);
                             comando = "RABBIT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
                                     + String.valueOf(conta_rabbit) + "#" + handIdField;
 
@@ -18906,6 +18904,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         return handIdMatches(cmd, this.current_hand_id)
                 || handIdMatches(cmd, this.rabbit_fee_window_hand_id);
+    }
+
+    // The hand id to stamp on a RABBIT command we emit/relay: the current hand's, or --
+    // in the between-hands window where current_hand_id is already cleared
+    // (readyForNextHand) but the just-finished hand can still take the fee -- the
+    // rabbit_fee_window_hand_id, which peers accept via their own fee window. NEVER "*"
+    // while either id exists: the receiver's gate REJECTS "*" (rabbitBelongsToCurrentHand
+    // decodes it to null; it only falls back to show_time when the field is ABSENT), so
+    // relaying "*" between hands would leave the fee uncharged on the other clients and
+    // diverge their stacks -> false DIVERGENT next hand. "*" only when the hand is fully
+    // closed (both ids null), where recipients correctly reject it (the pot is consumed).
+    public static String rabbitRelayHandIdField(byte[] current_hand_id, byte[] rabbit_fee_window_hand_id) {
+        byte[] id = (current_hand_id != null) ? current_hand_id : rabbit_fee_window_hand_id;
+        return (id != null) ? Base64.getEncoder().encodeToString(id) : "*";
     }
 
     public void pausaConBarra(int tiempo) {

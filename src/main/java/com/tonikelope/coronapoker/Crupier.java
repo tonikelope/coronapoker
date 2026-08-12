@@ -1365,6 +1365,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // already done, the host does NOT re-vote (uses the restored rit_agreed); if the crash happened
     // before the vote, it stays false and the vote runs normally.
     private volatile boolean rit_vote_done = false;
+    private volatile Boolean rit_recover_fossil_agreed = null; // recovery (client) zero-trust cross-check: our OWN fossil's run-it-twice vote result this hand (null = no vote / old fossil); compared against the host's rebroadcast RIT_VOTE_CLOSE to flag a hostile/buggy host WITHOUT changing the applied value
     // Street where the action closed (all-in run-out). Community cards on LATER streets are the ones
     // "run out" (rewound for SIDE-B); this street and earlier ones are shared. -1 = no all-in run-out.
     private volatile int rit_allin_street = -1;
@@ -6725,6 +6726,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // host's STRADDLE_RESULT in resolveVoluntaryStraddle to flag a
                             // hostile/buggy host WITHOUT changing the applied value.
                             this.straddle_recover_fossil_posted = Boolean.parseBoolean(part.substring("STRADDLE@".length()));
+                        } else if (part.startsWith("RIT@")) {
+                            // Recover zero-trust cross-check (client): our OWN fossil's record of the
+                            // run-it-twice vote this hand. Compared against the host's rebroadcast
+                            // RIT_VOTE_CLOSE in closeRitClientDialog to flag a hostile/buggy host
+                            // WITHOUT changing the applied value. null unless the vote happened.
+                            String[] rit = part.substring("RIT@".length()).split(",");
+                            if (rit.length >= 2) {
+                                this.rit_recover_fossil_agreed = Boolean.parseBoolean(rit[0]) ? Boolean.parseBoolean(rit[1]) : null;
+                            }
                         }
                     }
 
@@ -8293,6 +8303,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.rit_agreed = false;
 
         this.rit_vote_done = false;
+
+        this.rit_recover_fossil_agreed = null;
 
         this.rit_allin_street = -1;
 
@@ -11605,7 +11617,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void closeRitClientDialog(boolean agreed) {
         // The client stores the result so its run() loop takes the same SIDE-B
         // branch as the host (checkpoint 3).
+        // Recover zero-trust cross-check: if the host REPLAYS a vote result contradicting our own
+        // fossil's RIT@, flag a hostile/buggy host (registro + debug + popup) WITHOUT changing the
+        // applied value (recover reconstructs from the trusted replay). null fossil (no vote / old
+        // fossil) never mismatches.
+        if (this.game_recovered != 0 && recoverHostDecisionMismatch(this.rit_recover_fossil_agreed, agreed)) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST RIT (recover): host RIT_VOTE_CLOSE (agreed={0}) contradicts own fossil (agreed={1})",
+                    new Object[]{agreed, this.rit_recover_fossil_agreed});
+            warnSuspiciousHost(Translator.translate("zero_trust.rit_recover_mismatch"));
+        }
         this.rit_agreed = agreed;
+        // Persist the KNOWN result immediately (symmetric with the host, which saves right after the
+        // vote): a client that disconnects after this leaves its fossil's RIT@ reflecting the real
+        // result, not a stale (false,false), so a later recover cross-check can't false-accuse.
+        this.rit_vote_done = true;
+        this.guardarFosilSRA();
         RunItTwiceDialog d = this.rit_client_dialog;
         if (d != null) {
             d.closeDialog();
@@ -11810,7 +11837,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // value -- recover reconstructs from the trusted replay and H_t already backs the
                 // player's own actions. null = fresh hand or an old fossil without the field.
                 boolean resultPosted = (decision == VoluntaryStraddleDialog.POST_STRADDLE);
-                if (!fresh && straddleRecoverResultMismatch(this.straddle_recover_fossil_posted, resultPosted)) {
+                if (!fresh && recoverHostDecisionMismatch(this.straddle_recover_fossil_posted, resultPosted)) {
                     LOGGER.log(Level.SEVERE,
                             "ZERO-TRUST STRADDLE (recover): host RESULT (posted={0}) contradicts own fossil (posted={1}) for {2}",
                             new Object[]{resultPosted, this.straddle_recover_fossil_posted, straddler_f.getNickname()});
@@ -11819,6 +11846,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (fresh) {
+                // Persist the KNOWN straddle result on EVERY peer the MOMENT it's known (host after
+                // deciding/broadcasting, client after waitStraddleResult) -- BEFORE the long
+                // deferred-card release and chip-fly waits below. So if a peer disconnects in that
+                // window, its fossil's STRADDLE@ already reflects the real result (not a stale
+                // false) and the recover cross-check can't false-accuse an honest host. STRADDLE@
+                // persists straddle_recovered_posted (set here); it equals straddle_posted once
+                // applyStraddlePost runs, but is known earlier. guardarFosilSRA still skips VISUAL@
+                // while straddle_cards_pending, so this doesn't clobber the deferred reveal.
+                this.straddle_recovered_posted = (decision == VoluntaryStraddleDialog.POST_STRADDLE);
+                guardarFosilSRA();
                 stopStraddleCountdownBar();
                 if (!local_is_straddler && straddler instanceof RemotePlayer) {
                     ((RemotePlayer) straddler_f).clearStraddleThinking();
@@ -11905,16 +11942,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         Audio.playWavResource("misc/bet.wav");
                     }
                     launchChipToPot(straddler_f);
-                    // Persist STRADDLE@=true on EVERY peer right after posting, so a recover in
-                    // the window between the straddle and the first betting action reconstructs
-                    // it faithfully -- and the client's zero-trust cross-check reads the REAL
-                    // value from its own fossil instead of a stale false (which would flag the
-                    // honest host). The host additionally records straddle_recovered_posted,
-                    // which governs its own replay.
-                    if (GameFrame.getInstance().isPartida_local()) {
-                        this.straddle_recovered_posted = true;
-                    }
-                    guardarFosilSRA();
                 }
             }
         } finally {
@@ -14703,7 +14730,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // Voluntary straddle: whether UTG posted it this hand, so a recovered
             // hand restores it (the host rebroadcasts the decision, doesn't re-ask).
-            fosil.append("#STRADDLE@").append(this.straddle_posted);
+            fosil.append("#STRADDLE@").append(this.straddle_recovered_posted);
 
             Helpers.saveHandFossil(this.sqlite_id_game, fosil.toString());
         } catch (Exception e) {
@@ -18903,12 +18930,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && java.util.Arrays.equals(cmdHandId, currentHandId);
     }
 
-    // True if the host's recovered STRADDLE_RESULT contradicts our own fossil's record of
-    // whether the straddle was posted this hand. A null fossil value (field not read: fresh
-    // hand, or an old fossil without STRADDLE@) never mismatches, so a client lacking the datum
-    // never accuses an honest host. Pure so the client recover cross-check can be pinned in a test.
-    public static boolean straddleRecoverResultMismatch(Boolean fossilPosted, boolean resultPosted) {
-        return fossilPosted != null && fossilPosted != resultPosted;
+    // True if a host-driven decision the host REPLAYS on recover (voluntary straddle posted, or
+    // run-it-twice vote result) contradicts our OWN fossil's record of it. A null fossil value
+    // (field not read: fresh hand, or an old fossil without the field) never mismatches, so a
+    // client lacking the datum never accuses an honest host. Pure so the client recover
+    // cross-checks (straddle + RIT) can be pinned in a test.
+    public static boolean recoverHostDecisionMismatch(Boolean fossilValue, boolean hostValue) {
+        return fossilValue != null && fossilValue != hostValue;
     }
 
     // True if a RABBIT command (with its base64 hand id, which may be missing on

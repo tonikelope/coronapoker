@@ -4348,6 +4348,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void finTransmision(boolean partida_terminada) {
 
+        // Tell the crupier's community-card network waits to bail NOW -- BEFORE we grab
+        // lock_contabilidad for the auditor snapshot below. A run-it-twice SIDE-B deal in flight
+        // holds that lock while blocking on the peers' unlock chains; those waits only watch
+        // fin_de_la_transmision, which we can't set until we get the lock they're holding. This
+        // early flag breaks that deadlock: the SIDE-B deal aborts, the hand is left in progress
+        // (end=0) for the recover, the crupier releases the lock, and we proceed.
+        if (crupier != null) {
+            crupier.setTerminationPending();
+        }
+
         // Unregister the shutdown hook: the game is ending through the normal path (host
         // abort, natural end, voluntary exit) and any EXIT the hook might send would already
         // be over a closed socket.

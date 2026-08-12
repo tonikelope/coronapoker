@@ -1439,6 +1439,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean ante_straddle_update = false;
     private volatile boolean dead_dealer = false;
     private volatile boolean force_recover = false;
+    // Set the moment finTransmision starts (BEFORE it snapshots the auditor under
+    // lock_contabilidad), so the community-card network waits (recibirCartasComunitarias,
+    // requestRemoteUnlockChain) can bail WITHOUT needing that lock. Without it, a stop or a
+    // disconnect during the run-it-twice SIDE-B deal deadlocks: that deal blocks on the peers'
+    // unlock chains while holding lock_contabilidad (it runs inside the showdown), and the only
+    // thing those waits watch is fin_de_la_transmision, which finTransmision can't set until it
+    // gets the very lock the crupier is holding.
+    private volatile boolean termination_pending = false;
+    // Set when the SIDE-B deal is cut short by termination (stop / disconnect) instead of by a
+    // MISDEAL: the hand is LEFT in progress on purpose (hand.end stays 0, no showdown/close
+    // written), so the recover replays the whole run-it-twice from the fossil. Reset per hand.
+    private volatile boolean rit_sideb_interrupted = false;
     public volatile String[] active_crypto_ring = null;
 
     // Identity: hand-state chain (H_t ratchet) for the current hand. Initialized
@@ -1901,7 +1913,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
-        } while (!ok && !isFin_de_la_transmision() && !p.isExit() && System.currentTimeMillis() < deadlineMs);
+        } while (!ok && !isFin_de_la_transmision() && !this.termination_pending && !p.isExit() && System.currentTimeMillis() < deadlineMs);
         return ok ? result : null;
     }
 
@@ -3101,6 +3113,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void setForce_recover(boolean force_recover) {
         this.force_recover = force_recover;
+    }
+
+    // Called at the very start of finTransmision (before it takes lock_contabilidad) so the
+    // community-card network waits stop blocking on peers that are tearing down with us. See
+    // the field comment; one-shot per game (a fresh Crupier is built on recover).
+    public void setTerminationPending() {
+        this.termination_pending = true;
     }
 
     public Object getLock_rabbit() {
@@ -7329,6 +7348,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
 
+    // A remote human went silent/gone during the run-it-twice SIDE-B deal. Unlike a live board,
+    // refusing to unlock a PUBLIC community card is a drop, not theft, so we do NOT flag them
+    // malicious and we do NOT void+refund the hand (that would lose the RIT). Instead: mark the
+    // hand as SIDE-B-interrupted (so the crupier leaves it in progress, hand.end stays 0) and
+    // force a recover for everyone. On recover the whole run-it-twice replays from the fossil
+    // with all keys back; if the dropped peer never returns, the recover's missing-preflop-player
+    // guard skips the hand and the bets revert. Safe either way.
+    private void abortRunItTwiceSideBToRecover() {
+        LOGGER.log(Level.WARNING, "RECOVERY: run-it-twice SIDE-B peer drop -> leaving hand in progress and forcing recover (no malicious flag, no void)");
+        this.rit_sideb_interrupted = true;
+        // Halt the run() loop SYNCHRONOUSLY (mirrors cancelarManoYDevolverApuestas): abortAndRecover
+        // only spawns finTransmision on a background thread, which sets fin_de_la_transmision late
+        // (after it acquires lock_contabilidad). Without this, the crupier can race back to
+        // `while (!fin_de_la_transmision)` and enter NUEVA_MANO, writing a phantom hand row that
+        // desyncs conta_mano/max(hand.id) between host and clients on recover. Sets only the crupier
+        // flag, not GameFrame.fin, so finTransmision's teardown still runs.
+        setFin_de_la_transmision(true);
+        abortAndRecover();
+    }
+
     private void abortAndExit() {
         // Zero-trust violation detected: the game ends. Broadcasts SERVEREXIT (not RECOVER) and
         // calls finTransmision without force_recover, landing on the final BalanceScreen with
@@ -8305,6 +8344,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.rit_vote_done = false;
 
         this.rit_recover_fossil_agreed = null;
+
+        this.rit_sideb_interrupted = false;
 
         this.rit_allin_street = -1;
 
@@ -13023,6 +13064,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
+        // SIDE-B cut short by a STOP or a disconnect (not a MISDEAL, so no refund happened):
+        // revert SIDE-A's in-memory settle and leave the hand IN PROGRESS -- no showdown SQL
+        // here, and the caller skips sqlUpdateHandEnd, so the hand row keeps end=0 and the
+        // recover replays the whole run-it-twice from the fossil. Nothing was persisted, so
+        // there is no money to reconcile; the revert only keeps the auditor snapshot clean.
+        if (shouldLeaveRunItTwiceHandInProgress(dealt, this.apuestas_devueltas,
+                this.termination_pending, isFin_de_la_transmision(), this.rit_sideb_interrupted)) {
+            for (Player p : GameFrame.getInstance().getJugadores()) {
+                p.setPagar(pagarSnapshot.get(p));
+                p.setContaWin(contaWinSnapshot.get(p));
+            }
+            this.rit_suppress_showdown_sql = false;
+            this.rit_sideb_interrupted = true;
+            // Halt the run() loop SYNCHRONOUSLY here too (the common funnel for EVERY interrupt
+            // cause, including a manual stop where abortRunItTwiceSideBToRecover is never called):
+            // the external finTransmision sets fin_de_la_transmision only after it acquires
+            // lock_contabilidad (which this crupier still holds), so without this the crupier could
+            // race back to `while (!fin_de_la_transmision)` and enter NUEVA_MANO, writing a phantom
+            // hand row that desyncs conta_mano/max(hand.id) between peers on recover.
+            setFin_de_la_transmision(true);
+            return;
+        }
+
         double paidB = 0;
         if (dealt && !isFin_de_la_transmision()) {
             paidB = settleRunItTwiceBoard(resisten, 1, wonAnySide);
@@ -13448,9 +13512,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                     if (!allCovered) {
-                        if (abortOnFail) {
-                            warnMaliciousPeer(h, "zero_trust.community_unlock_refused");
-                            cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
+                        // Not while WE are tearing down (stop/disconnect): a peer that goes quiet
+                        // because the game is ending is not malicious.
+                        if (abortOnFail && !this.termination_pending) {
+                            if (this.run_it_twice_side_b) {
+                                // SIDE-B: an incomplete response from a dropping peer is a
+                                // disconnection on PUBLIC board cards, not theft (the replay is
+                                // deterministic from the fossil, nothing to steal) -> recover and
+                                // replay, uniform with the no-response / no-testament cases below.
+                                // The live board keeps flagging it: there cheating IS possible.
+                                abortRunItTwiceSideBToRecover();
+                            } else {
+                                warnMaliciousPeer(h, "zero_trust.community_unlock_refused");
+                                cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
+                            }
                         }
                         return null;
                     }
@@ -13465,9 +13540,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 } else {
                     // Live peer, did NOT respond, no testament. REFUSAL -> stops the game.
-                    if (abortOnFail) {
-                        warnMaliciousPeer(h, "zero_trust.community_unlock_refused");
-                        cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
+                    // Except while WE are tearing down (stop/disconnect): the peer went quiet
+                    // because the game is ending, not maliciously. Return null cleanly so the
+                    // SIDE-B deal aborts and the hand is left in progress for the recover.
+                    if (abortOnFail && !this.termination_pending) {
+                        if (this.run_it_twice_side_b) {
+                            // SIDE-B: a dropped peer is a disconnection, not an attack -> recover
+                            // and replay the run-it-twice, don't void or accuse (see the helper).
+                            abortRunItTwiceSideBToRecover();
+                        } else {
+                            warnMaliciousPeer(h, "zero_trust.community_unlock_refused");
+                            cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
+                        }
                     }
                     return null;
                 }
@@ -13482,8 +13566,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
                 // Peer already left without leaving a community testament. "Left without
                 // a testament" — user exception: misdeal but the game continues.
-                if (abortOnFail) {
-                    cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
+                if (abortOnFail && !this.termination_pending) {
+                    if (this.run_it_twice_side_b) {
+                        // SIDE-B: leave the hand in progress and recover/replay instead of
+                        // voiding, so the run-it-twice isn't lost if the peer reconnects.
+                        abortRunItTwiceSideBToRecover();
+                    } else {
+                        cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
+                    }
                 }
                 return null;
             }
@@ -13720,7 +13810,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            if ((!piece_ok || !reveal_ok) && !isFin_de_la_transmision()) {
+            if ((!piece_ok || !reveal_ok) && !isFin_de_la_transmision() && !this.termination_pending) {
                 synchronized (this.getReceived_commands()) {
                     try {
                         this.received_commands.wait(WAIT_QUEUES);
@@ -13728,7 +13818,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
-        } while ((!piece_ok || !reveal_ok) && !isFin_de_la_transmision());
+        } while ((!piece_ok || !reveal_ok) && !isFin_de_la_transmision() && !this.termination_pending);
 
         if (!piece_ok) {
             return false;
@@ -18939,6 +19029,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return fossilValue != null && fossilValue != hostValue;
     }
 
+    // Pure decision for the run-it-twice SIDE-B abort path: when the second board's deal did NOT
+    // complete, should the hand be LEFT IN PROGRESS (hand.end stays 0, the recover replays the
+    // whole run-it-twice) instead of being settled or voided? True only when the deal failed for a
+    // termination reason -- a stop/teardown (termination_pending), a fin-de-transmision, or an
+    // explicit SIDE-B interrupt (a peer drop routed to recover) -- AND the bets were NOT already
+    // refunded (that is the MISDEAL branch, which voids and closes the hand instead). A completed
+    // deal (sideBDealt) always settles normally. Pure so it can be pinned in a test.
+    public static boolean shouldLeaveRunItTwiceHandInProgress(boolean sideBDealt, boolean apuestasDevueltas,
+            boolean terminationPending, boolean finTransmision, boolean ritSidebInterrupted) {
+        return !sideBDealt && !apuestasDevueltas
+                && (terminationPending || finTransmision || ritSidebInterrupted);
+    }
+
     // True if a RABBIT command (with its base64 hand id, which may be missing on
     // older-version peers) should apply on THIS peer. Replaces the isShow_time()
     // guard on RABBIT reception: the charge/reveal applies the same on every
@@ -19014,8 +19117,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // lock_contabilidad (the pause between run-it-twice boards):
             // finTransmision needs that lock BEFORE it can raise
             // fin_de_la_transmision, so the end flag can't be what aborts this —
-            // isExit() can, since it's set without any locks.
-            if (GameFrame.getInstance().getLocalPlayer().isExit()) {
+            // isExit() can, since it's set without any locks. termination_pending is
+            // the same kind of early, lock-free signal (finTransmision sets it before
+            // taking the lock): without it, a stop/disconnect that leaves a run-it-twice
+            // hand in progress with the local player NOT exiting (a peer drop routed to
+            // recover) would idle here forever, since decidePauseTick returns IDLE while
+            // fin is set. rit_sideb_interrupted covers the same case with no race window.
+            if (GameFrame.getInstance().getLocalPlayer().isExit()
+                    || this.termination_pending || this.rit_sideb_interrupted) {
                 break;
             }
 
@@ -19936,7 +20045,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // run-it-twice's SIDE-B aborted after capturing it) over the
                             // rollback's explicit pot=0, and a voided hand's balance backup is
                             // the previous hand's (the full refund restores pre-hand stacks).
-                            if (!this.mano_anulada) {
+                            // rit_sideb_interrupted: the run-it-twice SIDE-B was cut short by a
+                            // stop/disconnect and the hand is being left in progress on purpose --
+                            // skip the closing consensus AND sqlUpdateHandEnd so the hand row keeps
+                            // end=0 and the recover replays it. (runSettlementConsensus would also
+                            // block on peers that are tearing down, the same trap SIDE-B just hit.)
+                            if (!this.mano_anulada && !this.rit_sideb_interrupted) {
                                 // Settlement attestation: absorb who-won-how-much into H_final and
                                 // run the closing receipt consensus over it. Here getBote()/getPagar()
                                 // are final (the payout above is done) and not yet purged by the

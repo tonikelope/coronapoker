@@ -359,6 +359,10 @@ public final class SettingsUI {
         cb.setOpaque(false);
         cb.setFocusPainted(false);
         cb.setIconTextGap(Math.round(fs * 0.3f));
+        // Text to the LEFT of the switch, so the row reads "label [switch]" (the settings-toggle
+        // convention) instead of the JCheckBox default "[switch] label". Harmless on a text-less
+        // switch (e.g. a bare confirm box), which has nothing to reposition.
+        cb.setHorizontalTextPosition(javax.swing.SwingConstants.LEFT);
     }
 
     // Walks a container tree and toggleizes every JCheckBox (not menu items). Call once after

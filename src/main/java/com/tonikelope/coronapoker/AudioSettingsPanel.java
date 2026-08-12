@@ -126,8 +126,13 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox tts_local_checkbox;
     private final JComboBox<String> retention_combo;
     private final JButton purge_button;
-    private final List<Mixer.Info> output_devices;
-    private final List<Mixer.Info> capture_devices;
+    private List<Mixer.Info> output_devices;
+    private List<Mixer.Info> capture_devices;
+    // Live device-hotplug watcher: while this Settings panel is showing, re-enumerates audio
+    // devices off the EDT and refreshes the two lists when the hardware changes, so a device
+    // plugged in with Settings open appears without reopening -- and without freezing the EDT.
+    private static final long DEVICE_WATCH_INTERVAL_MS = 1000;
+    private volatile Thread device_watcher;
 
     // Section content panels (each wrapped in a SettingsUI.card at assembly) + rows whose height
     // must be pinned: kept as references for applyFontsAndSizing().
@@ -951,6 +956,19 @@ public class AudioSettingsPanel extends JPanel {
 
         loading = false;
 
+        // Watch for device hotplug ONLY while this panel is actually on screen: start when it
+        // becomes showing and stop when it's hidden, so we never enumerate audio hardware in the
+        // background outside Settings.
+        addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0) {
+                if (isShowing()) {
+                    startDeviceWatcher();
+                } else {
+                    stopDeviceWatcher();
+                }
+            }
+        });
+
         INSTANCE = this;
     }
 
@@ -1426,6 +1444,91 @@ public class AudioSettingsPanel extends JPanel {
         }
 
         return 0;
+    }
+
+    // Rebuilds a device JList's model from a fresh enumeration, keeping the current preference
+    // selected by NAME (so plugging/unplugging doesn't silently switch the device). EDT only.
+    private void rebuildDeviceList(JList<String> list, List<Mixer.Info> devices, String selectedDevice) {
+        DefaultListModel<String> model = (DefaultListModel<String>) list.getModel();
+        model.clear();
+        model.addElement(Translator.translate("audio.dispositivo_default"));
+        for (Mixer.Info info : devices) {
+            model.addElement(info.getName());
+        }
+        list.setSelectedIndex(findDeviceIndex(devices, selectedDevice));
+    }
+
+    // EDT: swap in the freshly enumerated device lists and rebuild both JLists, keeping each
+    // preference selected. `loading` is raised so the reselection can't fire the device-change
+    // listeners (which would re-apply the device and play the change sound).
+    private void applyDeviceListsRefresh(List<Mixer.Info> newOutputs, List<Mixer.Info> newCaptures) {
+        boolean was_loading = loading;
+        loading = true;
+        try {
+            output_devices = newOutputs;
+            rebuildDeviceList(output_list, newOutputs, AudioDeviceManager.getOutputDevice());
+            capture_devices = newCaptures;
+            rebuildDeviceList(capture_list, newCaptures, AudioDeviceManager.getCaptureDevice());
+        } finally {
+            loading = was_loading;
+        }
+    }
+
+    private static List<String> deviceNames(List<Mixer.Info> devices) {
+        List<String> names = new java.util.ArrayList<>(devices.size());
+        for (Mixer.Info info : devices) {
+            names.add(info.getName());
+        }
+        return names;
+    }
+
+    // Background daemon that re-enumerates audio devices every second while Settings is open.
+    // refreshDeviceCache is SLOW and MUST stay off the EDT; only the list rebuild is marshalled
+    // back, and only when the set of device names actually changed (so we don't reselect/repaint
+    // every second). Stopped by interrupt when the panel is hidden.
+    private void startDeviceWatcher() {
+        if (device_watcher != null) {
+            return;
+        }
+        Thread t = new Thread(() -> {
+            List<String> last_out = deviceNames(AudioDeviceManager.getOutputDevices());
+            List<String> last_cap = deviceNames(AudioDeviceManager.getCaptureDevices());
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    Thread.sleep(DEVICE_WATCH_INTERVAL_MS);
+                    try {
+                        AudioDeviceManager.refreshDeviceCache();
+                        List<Mixer.Info> new_out = AudioDeviceManager.getOutputDevices();
+                        List<Mixer.Info> new_cap = AudioDeviceManager.getCaptureDevices();
+                        List<String> new_out_names = deviceNames(new_out);
+                        List<String> new_cap_names = deviceNames(new_cap);
+                        if (!new_out_names.equals(last_out) || !new_cap_names.equals(last_cap)) {
+                            last_out = new_out_names;
+                            last_cap = new_cap_names;
+                            Helpers.GUIRun(() -> applyDeviceListsRefresh(new_out, new_cap));
+                        }
+                    } catch (Throwable probe_error) {
+                        // A mixer probe blew up: log and keep watching. One bad enumeration must not
+                        // kill the live-refresh for the rest of this Settings session.
+                        java.util.logging.Logger.getLogger(AudioSettingsPanel.class.getName())
+                                .log(java.util.logging.Level.WARNING, "Audio device watch probe failed", probe_error);
+                    }
+                }
+            } catch (InterruptedException stopped) {
+                // Settings closed: exit quietly.
+            }
+        }, "CoronaPoker-AudioDeviceWatcher");
+        t.setDaemon(true);
+        device_watcher = t;
+        t.start();
+    }
+
+    private void stopDeviceWatcher() {
+        Thread t = device_watcher;
+        if (t != null) {
+            device_watcher = null;
+            t.interrupt();
+        }
     }
 
     // Prepends an icon to a control (a checkbox) WITHOUT calling setIcon() on the

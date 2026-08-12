@@ -4769,6 +4769,7 @@ public class WaitingRoomFrame extends JFrame {
             // is blocked here.
             try {
                 Files.write(Paths.get(Init.VOICE_DIR + "/" + voice_filename), audio);
+                VoiceNotesViewerDialog.refreshIfOpen();
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Could not persist voice message: {0}", ex.getMessage());
             }
@@ -4782,6 +4783,7 @@ public class WaitingRoomFrame extends JFrame {
             Helpers.threadRun(() -> {
                 try {
                     Files.write(Paths.get(Init.VOICE_DIR + "/" + voice_filename), audio);
+                    VoiceNotesViewerDialog.refreshIfOpen();
                 } catch (Exception ex) {
                     LOGGER.log(Level.WARNING, "Could not persist voice message: {0}", ex.getMessage());
                 }
@@ -5901,8 +5903,8 @@ public class WaitingRoomFrame extends JFrame {
             // Snapshot the EXACT pre-start UI state so a catastrophic start failure (GameFrame
             // construction / AJUGAR throwing) or a pool-teardown null can restore it, instead of
             // stranding the room on the "initializing" spinner forever with no feedback. Captured
-            // BEFORE the mutations below so we restore precisely what was there (no guessing).
-            final boolean prev_empezar_enabled = this.empezar_timba.isEnabled();
+            // BEFORE the mutations below so we restore precisely what was there. (empezar_timba is
+            // the exception -- see its revert below.)
             final boolean prev_newbot_enabled = this.new_bot_button.isEnabled();
             final boolean prev_newbot_visible = this.new_bot_button.isVisible();
             final boolean prev_kick_enabled = this.kick_user.isEnabled();
@@ -5915,7 +5917,11 @@ public class WaitingRoomFrame extends JFrame {
             final Runnable revert = () -> {
                 partida_empezando = false;
                 setTitle(prev_title);
-                this.empezar_timba.setEnabled(prev_empezar_enabled);
+                // Recompute instead of restoring a snapshot: empezar_timba was already disabled by
+                // empezar_timbaActionPerformed before this flow ran, so its snapshot would always be
+                // false and restoring it would leave "Start" stuck disabled after a failed start --
+                // the very case this revert exists for. Same resting rule as the join path (:4507).
+                this.empezar_timba.setEnabled(participantes.size() > 1);
                 this.new_bot_button.setEnabled(prev_newbot_enabled);
                 this.new_bot_button.setVisible(prev_newbot_visible);
                 this.kick_user.setEnabled(prev_kick_enabled);

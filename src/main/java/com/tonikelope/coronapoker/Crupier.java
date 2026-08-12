@@ -1296,6 +1296,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean straddle_posted = false; // true if the UTG chose to post a voluntary straddle this hand
     private volatile String straddle_utg_nick = null; // with straddle, the REAL "under the gun" (first to act) = next active after the straddler; null without straddle
     private volatile boolean straddle_recovered_posted = false; // recovery (host): whether the replayed hand had the straddle posted (from the fossil); host rebroadcasts this decision instead of asking again
+    private volatile Boolean straddle_recover_fossil_posted = null; // recovery (client) zero-trust cross-check: whether OUR OWN fossil recorded the straddle as posted this hand; compared against the host's STRADDLE_RESULT to flag a hostile/buggy host WITHOUT changing the applied value. null = not read (fresh hand, or an old fossil without the field)
     private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // voluntary-straddle dialog open on the UTG's peer (to close it externally)
 
     public VoluntaryStraddleDialog getStraddle_local_dialog() {
@@ -1364,6 +1365,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // already done, the host does NOT re-vote (uses the restored rit_agreed); if the crash happened
     // before the vote, it stays false and the vote runs normally.
     private volatile boolean rit_vote_done = false;
+    private volatile Boolean rit_recover_fossil_agreed = null; // recovery (client) zero-trust cross-check: our OWN fossil's run-it-twice vote result this hand (null = no vote / old fossil); compared against the host's rebroadcast RIT_VOTE_CLOSE to flag a hostile/buggy host WITHOUT changing the applied value
     // Street where the action closed (all-in run-out). Community cards on LATER streets are the ones
     // "run out" (rewound for SIDE-B); this street and earlier ones are shared. -1 = no all-in run-out.
     private volatile int rit_allin_street = -1;
@@ -6718,6 +6720,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             } catch (NumberFormatException nfe) {
                                 LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
                             }
+                        } else if (part.startsWith("STRADDLE@")) {
+                            // Recover zero-trust cross-check (client): whether OUR OWN fossil
+                            // recorded the straddle as posted this hand. Compared against the
+                            // host's STRADDLE_RESULT in resolveVoluntaryStraddle to flag a
+                            // hostile/buggy host WITHOUT changing the applied value.
+                            this.straddle_recover_fossil_posted = Boolean.parseBoolean(part.substring("STRADDLE@".length()));
+                        } else if (part.startsWith("RIT@")) {
+                            // Recover zero-trust cross-check (client): our OWN fossil's record of the
+                            // run-it-twice vote this hand. Compared against the host's rebroadcast
+                            // RIT_VOTE_CLOSE in closeRitClientDialog to flag a hostile/buggy host
+                            // WITHOUT changing the applied value. null unless the vote happened.
+                            String[] rit = part.substring("RIT@".length()).split(",");
+                            if (rit.length >= 2) {
+                                this.rit_recover_fossil_agreed = Boolean.parseBoolean(rit[0]) ? Boolean.parseBoolean(rit[1]) : null;
+                            }
                         }
                     }
 
@@ -7822,14 +7839,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Notify the server or the other players, as applicable.
                         String comando;
                         try {
-                            // Attach the current hand's HAND_ID: recipients only apply the
-                            // fee/reveal if the rabbit request is for THEIR current hand (not the
-                            // transient show_time), making the charge deterministic across peers
-                            // and eliminating false DIVERGENT flags. "*" is only used at the edge
-                            // case of a null current_hand_id, where recipients fall back to the
-                            // usual show_time guard.
-                            String handIdField = (this.current_hand_id != null)
-                                    ? Base64.getEncoder().encodeToString(this.current_hand_id) : "*";
+                            // Stamp the hand id recipients gate on: the current hand's, or the
+                            // just-finished hand's fee window in the between-hands gap. Relaying "*"
+                            // here (as the host does between hands, once current_hand_id is cleared)
+                            // would be REJECTED by the receiver and diverge stacks -> false
+                            // DIVERGENT next hand. See rabbitRelayHandIdField.
+                            String handIdField = rabbitRelayHandIdField(this.current_hand_id, this.rabbit_fee_window_hand_id);
                             comando = "RABBIT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
                                     + String.valueOf(conta_rabbit) + "#" + handIdField;
 
@@ -8289,6 +8304,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.rit_vote_done = false;
 
+        this.rit_recover_fossil_agreed = null;
+
         this.rit_allin_street = -1;
 
         this.rit_side_a_runout_cards.clear();
@@ -8315,6 +8332,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Restored from the fossil when recovering a hand (recuperarDatosClavePartida, below);
         // stays false on a fresh hand (resolveVoluntaryStraddle makes that call).
         this.straddle_recovered_posted = false;
+        this.straddle_recover_fossil_posted = null;
         this.straddle_local_cards_deferred = false;
         // Cryptographic BLIND straddle: per-hand state on every peer. Resetting the verified-
         // decision flag is CRITICAL — a stale flag from a previous hand would allow the deferred
@@ -11599,7 +11617,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void closeRitClientDialog(boolean agreed) {
         // The client stores the result so its run() loop takes the same SIDE-B
         // branch as the host (checkpoint 3).
+        // Recover zero-trust cross-check: if the host REPLAYS a vote result contradicting our own
+        // fossil's RIT@, flag a hostile/buggy host (registro + debug + popup) WITHOUT changing the
+        // applied value (recover reconstructs from the trusted replay). null fossil (no vote / old
+        // fossil) never mismatches.
+        if (this.game_recovered != 0 && recoverHostDecisionMismatch(this.rit_recover_fossil_agreed, agreed)) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST RIT (recover): host RIT_VOTE_CLOSE (agreed={0}) contradicts own fossil (agreed={1})",
+                    new Object[]{agreed, this.rit_recover_fossil_agreed});
+            warnSuspiciousHost(Translator.translate("zero_trust.rit_recover_mismatch"));
+        }
         this.rit_agreed = agreed;
+        // Persist the KNOWN result immediately (symmetric with the host, which saves right after the
+        // vote): a client that disconnects after this leaves its fossil's RIT@ reflecting the real
+        // result, not a stale (false,false), so a later recover cross-check can't false-accuse.
+        this.rit_vote_done = true;
+        this.guardarFosilSRA();
         RunItTwiceDialog d = this.rit_client_dialog;
         if (d != null) {
             d.closeDialog();
@@ -11797,9 +11830,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     sendStraddleResp(myDecision, signLocalStraddleDecision(myDecision));
                 }
                 decision = waitStraddleResult();
+                // Zero-trust cross-check on recover: our OWN fossil recorded whether the straddle
+                // was posted this hand (straddle_recover_fossil_posted, read in
+                // recuperarDatosClavePartida). If the host's RESULT contradicts it, surface a
+                // hostile/buggy host (registro + debug log + popup) WITHOUT changing the applied
+                // value -- recover reconstructs from the trusted replay and H_t already backs the
+                // player's own actions. null = fresh hand or an old fossil without the field.
+                boolean resultPosted = (decision == VoluntaryStraddleDialog.POST_STRADDLE);
+                if (!fresh && recoverHostDecisionMismatch(this.straddle_recover_fossil_posted, resultPosted)) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST STRADDLE (recover): host RESULT (posted={0}) contradicts own fossil (posted={1}) for {2}",
+                            new Object[]{resultPosted, this.straddle_recover_fossil_posted, straddler_f.getNickname()});
+                    warnSuspiciousHost(Translator.translate("zero_trust.straddle_recover_mismatch"));
+                }
             }
 
             if (fresh) {
+                // Persist the KNOWN straddle result on EVERY peer the MOMENT it's known (host after
+                // deciding/broadcasting, client after waitStraddleResult) -- BEFORE the long
+                // deferred-card release and chip-fly waits below. So if a peer disconnects in that
+                // window, its fossil's STRADDLE@ already reflects the real result (not a stale
+                // false) and the recover cross-check can't false-accuse an honest host. STRADDLE@
+                // persists straddle_recovered_posted (set here); it equals straddle_posted once
+                // applyStraddlePost runs, but is known earlier. guardarFosilSRA still skips VISUAL@
+                // while straddle_cards_pending, so this doesn't clobber the deferred reveal.
+                this.straddle_recovered_posted = (decision == VoluntaryStraddleDialog.POST_STRADDLE);
+                guardarFosilSRA();
                 stopStraddleCountdownBar();
                 if (!local_is_straddler && straddler instanceof RemotePlayer) {
                     ((RemotePlayer) straddler_f).clearStraddleThinking();
@@ -11886,12 +11942,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         Audio.playWavResource("misc/bet.wav");
                     }
                     launchChipToPot(straddler_f);
-                    if (GameFrame.getInstance().isPartida_local()) {
-                        // Persists the decision so a recovered hand restores it without
-                        // asking again (the host rebroadcasts it during replay).
-                        this.straddle_recovered_posted = true;
-                        guardarFosilSRA();
-                    }
                 }
             }
         } finally {
@@ -14680,7 +14730,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // Voluntary straddle: whether UTG posted it this hand, so a recovered
             // hand restores it (the host rebroadcasts the decision, doesn't re-ask).
-            fosil.append("#STRADDLE@").append(this.straddle_posted);
+            fosil.append("#STRADDLE@").append(this.straddle_recovered_posted);
 
             Helpers.saveHandFossil(this.sqlite_id_game, fosil.toString());
         } catch (Exception e) {
@@ -18880,6 +18930,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && java.util.Arrays.equals(cmdHandId, currentHandId);
     }
 
+    // True if a host-driven decision the host REPLAYS on recover (voluntary straddle posted, or
+    // run-it-twice vote result) contradicts our OWN fossil's record of it. A null fossil value
+    // (field not read: fresh hand, or an old fossil without the field) never mismatches, so a
+    // client lacking the datum never accuses an honest host. Pure so the client recover
+    // cross-checks (straddle + RIT) can be pinned in a test.
+    public static boolean recoverHostDecisionMismatch(Boolean fossilValue, boolean hostValue) {
+        return fossilValue != null && fossilValue != hostValue;
+    }
+
     // True if a RABBIT command (with its base64 hand id, which may be missing on
     // older-version peers) should apply on THIS peer. Replaces the isShow_time()
     // guard on RABBIT reception: the charge/reveal applies the same on every
@@ -18906,6 +18965,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         return handIdMatches(cmd, this.current_hand_id)
                 || handIdMatches(cmd, this.rabbit_fee_window_hand_id);
+    }
+
+    // The hand id to stamp on a RABBIT command we emit/relay: the current hand's, or --
+    // in the between-hands window where current_hand_id is already cleared
+    // (readyForNextHand) but the just-finished hand can still take the fee -- the
+    // rabbit_fee_window_hand_id, which peers accept via their own fee window. NEVER "*"
+    // while either id exists: the receiver's gate REJECTS "*" (rabbitBelongsToCurrentHand
+    // decodes it to null; it only falls back to show_time when the field is ABSENT), so
+    // relaying "*" between hands would leave the fee uncharged on the other clients and
+    // diverge their stacks -> false DIVERGENT next hand. "*" only when the hand is fully
+    // closed (both ids null), where recipients correctly reject it (the pot is consumed).
+    public static String rabbitRelayHandIdField(byte[] current_hand_id, byte[] rabbit_fee_window_hand_id) {
+        byte[] id = (current_hand_id != null) ? current_hand_id : rabbit_fee_window_hand_id;
+        return (id != null) ? Base64.getEncoder().encodeToString(id) : "*";
     }
 
     public void pausaConBarra(int tiempo) {

@@ -83,6 +83,11 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
 
     private List<Note> notes = new ArrayList<>();
 
+    // Live refresh vs. preview: while a note is previewing we DON'T reload (that would cut the
+    // playback); a note arriving mid-preview sets refresh_pending, applied when the preview ends.
+    private volatile boolean previewing = false;
+    private volatile boolean refresh_pending = false;
+
     /**
      * Opens the viewer (or brings it to front and refreshes it if already open for
      * the same owner). Must be called on the EDT.
@@ -107,6 +112,22 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
         INSTANCE.setLocationRelativeTo(owner);
         INSTANCE.setVisible(true);
         INSTANCE.requestFocus();
+    }
+
+    // Called when a voice note is written to VOICE_DIR (recorded locally or received from a peer)
+    // so an already-open gallery picks it up live. If a preview is playing, defers the refresh
+    // until it ends (buildPlayButton) instead of cutting the playback.
+    public static void refreshIfOpen() {
+        Helpers.GUIRun(() -> {
+            VoiceNotesViewerDialog v = INSTANCE;
+            if (v != null && v.isDisplayable()) {
+                if (v.previewing) {
+                    v.refresh_pending = true;
+                } else {
+                    v.reload();
+                }
+            }
+        });
     }
 
     private VoiceNotesViewerDialog(Window owner) {
@@ -277,12 +298,20 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
                 Audio.stopPreview();
             } else {
                 playing[0] = true;
+                previewing = true;
                 b.setIcon(Helpers.playStopGlyph(true));
                 b.setToolTipText(Translator.translate("audio.preview_parar"));
                 Audio.previewResource(note.file.getAbsolutePath(), MAX_PREVIEW_MS, () -> {
                     playing[0] = false;
+                    previewing = false;
                     b.setIcon(Helpers.playStopGlyph(false));
                     b.setToolTipText(Translator.translate("audio.preview_escuchar"));
+                    // A note arrived mid-preview: its refresh was deferred so it wouldn't cut the
+                    // playback -- apply it now that the preview is over.
+                    if (refresh_pending) {
+                        refresh_pending = false;
+                        reload();
+                    }
                 });
             }
         });

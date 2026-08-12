@@ -4769,6 +4769,7 @@ public class WaitingRoomFrame extends JFrame {
             // is blocked here.
             try {
                 Files.write(Paths.get(Init.VOICE_DIR + "/" + voice_filename), audio);
+                VoiceNotesViewerDialog.refreshIfOpen();
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Could not persist voice message: {0}", ex.getMessage());
             }
@@ -4782,6 +4783,7 @@ public class WaitingRoomFrame extends JFrame {
             Helpers.threadRun(() -> {
                 try {
                     Files.write(Paths.get(Init.VOICE_DIR + "/" + voice_filename), audio);
+                    VoiceNotesViewerDialog.refreshIfOpen();
                 } catch (Exception ex) {
                     LOGGER.log(Level.WARNING, "Could not persist voice message: {0}", ex.getMessage());
                 }

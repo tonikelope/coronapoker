@@ -294,7 +294,10 @@ public class NewGameDialog extends JDialog {
         if (partida_local) {
             upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "false")));
         } else {
-            upnp_checkbox.setVisible(false);
+            // Joining a remote game: UPnP only makes sense for the host (it opens the
+            // router port). Hide the whole row (label + toggle), not just the switch, so
+            // no stray "UPnP" label is left dangling next to the port field.
+            upnp_checkbox.getParent().setVisible(false);
             recover_panel.setVisible(false);
         }
 
@@ -1254,9 +1257,9 @@ public class NewGameDialog extends JDialog {
                 .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     // "Recomprar" = cabecera del bloque (sin sangrar)
                     .addGroup(recompra_panelLayout.createSequentialGroup()
-                        .addComponent(rebuy_checkbox)
-                        .addGap(0, 0, 0)
-                        .addComponent(recomprar_label))
+                        .addComponent(recomprar_label)
+                        .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                        .addComponent(rebuy_checkbox))
                     // Sub-opciones de "Recomprar" (limite + tope) sangradas a la derecha
                     .addGroup(recompra_panelLayout.createSequentialGroup()
                         .addGap(Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM))
@@ -1452,31 +1455,31 @@ public class NewGameDialog extends JDialog {
                 .addGap(Math.round(11 * Helpers.DIALOG_ZOOM), Math.round(11 * Helpers.DIALOG_ZOOM), Math.round(11 * Helpers.DIALOG_ZOOM))
                 .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     // Limite de manos / Tiempo de pensar / Tiempo de showdown comparten tres
-                    // columnas (casilla | etiqueta | spinner) para que los TRES spinners queden
-                    // alineados por su borde izquierdo. Showdown no tiene casilla: deja el hueco
-                    // en la columna de casilla y su etiqueta se alinea con las otras dos.
+                    // columnas (etiqueta | toggle | spinner) para que los TRES spinners queden
+                    // alineados por su borde izquierdo. Showdown no tiene toggle: deja el hueco
+                    // en la columna de toggle, entre su etiqueta y su spinner.
                     .addGroup(partida_panelLayout.createSequentialGroup()
-                        .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(manos_checkbox)
-                            .addComponent(think_time_checkbox))
-                        .addGap(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM))
                         .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(limite_manos_label)
                             .addComponent(think_time_label)
                             .addComponent(showdown_time_label))
+                        .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                        .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(manos_checkbox)
+                            .addComponent(think_time_checkbox))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)))
                     .addGroup(partida_panelLayout.createSequentialGroup()
-                        .addComponent(iwtsth_checkbox)
-                        .addGap(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM))
-                        .addComponent(iwtsth_icon))
+                        .addComponent(iwtsth_icon)
+                        .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                        .addComponent(iwtsth_checkbox))
                     .addGroup(partida_panelLayout.createSequentialGroup()
-                        .addComponent(rit_checkbox)
-                        .addGap(Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM), Math.round(4 * Helpers.DIALOG_ZOOM))
-                        .addComponent(rit_icon))
+                        .addComponent(rit_icon)
+                        .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                        .addComponent(rit_checkbox))
                     .addGroup(partida_panelLayout.createSequentialGroup()
                         .addComponent(rabbit_icon)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1728,9 +1731,9 @@ public class NewGameDialog extends JDialog {
             recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(recover_panelLayout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(recover_checkbox)
-                .addGap(0, 0, 0)
                 .addComponent(recover_checkbox_label)
+                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                .addComponent(recover_checkbox)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(game_label)
                 .addGap(Math.round(85 * Helpers.DIALOG_ZOOM), Math.round(85 * Helpers.DIALOG_ZOOM), Math.round(85 * Helpers.DIALOG_ZOOM)))

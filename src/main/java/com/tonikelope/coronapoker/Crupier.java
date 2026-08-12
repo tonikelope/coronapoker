@@ -1296,6 +1296,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean straddle_posted = false; // true if the UTG chose to post a voluntary straddle this hand
     private volatile String straddle_utg_nick = null; // with straddle, the REAL "under the gun" (first to act) = next active after the straddler; null without straddle
     private volatile boolean straddle_recovered_posted = false; // recovery (host): whether the replayed hand had the straddle posted (from the fossil); host rebroadcasts this decision instead of asking again
+    private volatile Boolean straddle_recover_fossil_posted = null; // recovery (client) zero-trust cross-check: whether OUR OWN fossil recorded the straddle as posted this hand; compared against the host's STRADDLE_RESULT to flag a hostile/buggy host WITHOUT changing the applied value. null = not read (fresh hand, or an old fossil without the field)
     private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // voluntary-straddle dialog open on the UTG's peer (to close it externally)
 
     public VoluntaryStraddleDialog getStraddle_local_dialog() {
@@ -6718,6 +6719,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             } catch (NumberFormatException nfe) {
                                 LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
                             }
+                        } else if (part.startsWith("STRADDLE@")) {
+                            // Recover zero-trust cross-check (client): whether OUR OWN fossil
+                            // recorded the straddle as posted this hand. Compared against the
+                            // host's STRADDLE_RESULT in resolveVoluntaryStraddle to flag a
+                            // hostile/buggy host WITHOUT changing the applied value.
+                            this.straddle_recover_fossil_posted = Boolean.parseBoolean(part.substring("STRADDLE@".length()));
                         }
                     }
 
@@ -8313,6 +8320,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Restored from the fossil when recovering a hand (recuperarDatosClavePartida, below);
         // stays false on a fresh hand (resolveVoluntaryStraddle makes that call).
         this.straddle_recovered_posted = false;
+        this.straddle_recover_fossil_posted = null;
         this.straddle_local_cards_deferred = false;
         // Cryptographic BLIND straddle: per-hand state on every peer. Resetting the verified-
         // decision flag is CRITICAL — a stale flag from a previous hand would allow the deferred
@@ -11795,6 +11803,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     sendStraddleResp(myDecision, signLocalStraddleDecision(myDecision));
                 }
                 decision = waitStraddleResult();
+                // Zero-trust cross-check on recover: our OWN fossil recorded whether the straddle
+                // was posted this hand (straddle_recover_fossil_posted, read in
+                // recuperarDatosClavePartida). If the host's RESULT contradicts it, surface a
+                // hostile/buggy host (registro + debug log + popup) WITHOUT changing the applied
+                // value -- recover reconstructs from the trusted replay and H_t already backs the
+                // player's own actions. null = fresh hand or an old fossil without the field.
+                boolean resultPosted = (decision == VoluntaryStraddleDialog.POST_STRADDLE);
+                if (!fresh && straddleRecoverResultMismatch(this.straddle_recover_fossil_posted, resultPosted)) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST STRADDLE (recover): host RESULT (posted={0}) contradicts own fossil (posted={1}) for {2}",
+                            new Object[]{resultPosted, this.straddle_recover_fossil_posted, straddler_f.getNickname()});
+                    warnSuspiciousHost(Translator.translate("zero_trust.straddle_recover_mismatch"));
+                }
             }
 
             if (fresh) {
@@ -11884,12 +11905,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         Audio.playWavResource("misc/bet.wav");
                     }
                     launchChipToPot(straddler_f);
+                    // Persist STRADDLE@=true on EVERY peer right after posting, so a recover in
+                    // the window between the straddle and the first betting action reconstructs
+                    // it faithfully -- and the client's zero-trust cross-check reads the REAL
+                    // value from its own fossil instead of a stale false (which would flag the
+                    // honest host). The host additionally records straddle_recovered_posted,
+                    // which governs its own replay.
                     if (GameFrame.getInstance().isPartida_local()) {
-                        // Persists the decision so a recovered hand restores it without
-                        // asking again (the host rebroadcasts it during replay).
                         this.straddle_recovered_posted = true;
-                        guardarFosilSRA();
                     }
+                    guardarFosilSRA();
                 }
             }
         } finally {
@@ -18876,6 +18901,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static boolean handIdMatches(byte[] cmdHandId, byte[] currentHandId) {
         return cmdHandId != null && currentHandId != null
                 && java.util.Arrays.equals(cmdHandId, currentHandId);
+    }
+
+    // True if the host's recovered STRADDLE_RESULT contradicts our own fossil's record of
+    // whether the straddle was posted this hand. A null fossil value (field not read: fresh
+    // hand, or an old fossil without STRADDLE@) never mismatches, so a client lacking the datum
+    // never accuses an honest host. Pure so the client recover cross-check can be pinned in a test.
+    public static boolean straddleRecoverResultMismatch(Boolean fossilPosted, boolean resultPosted) {
+        return fossilPosted != null && fossilPosted != resultPosted;
     }
 
     // True if a RABBIT command (with its base64 hand id, which may be missing on

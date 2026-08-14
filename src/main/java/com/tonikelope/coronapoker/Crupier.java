@@ -296,6 +296,79 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Identity / replay protection (pure, testable): does a canonical action
+     * record point at the chain hash that is current immediately before the
+     * action is applied? Signature validity alone is insufficient here: the
+     * actor can legitimately sign an old record and replay it with a fresh
+     * transport command id. The check must happen before {@code setBet}; the
+     * later {@link HandStateChain#absorb(byte[], byte[])} guard is deliberately
+     * defensive but is too late to protect money already moved by the UI/model.
+     *
+     * <p>A {@code null} expected hash means the legacy/no-chain path has no
+     * replay anchor to enforce and is retained for backwards compatibility.
+     * Malformed records are never accepted when a chain hash is available.</p>
+     */
+    static boolean recordStartsAtHash(byte[] record, byte[] expectedHash) {
+        if (expectedHash == null) {
+            return true;
+        }
+        return isVerifiableWireRecord(record)
+                && expectedHash.length == HandStateChain.HASH_BYTES
+                && java.util.Arrays.equals(
+                        java.util.Arrays.copyOfRange(record,
+                                CanonicalActionRecord.OFFSET_PREV_H,
+                                CanonicalActionRecord.OFFSET_PREV_H + HandStateChain.HASH_BYTES),
+                        expectedHash);
+    }
+
+    /**
+     * Identity / replay protection (pure, testable): validates the complete
+     * context of a host-signed community reveal before its cards are painted.
+     * Signature validity alone is not enough: the host can legitimately sign a
+     * record from another hand or an earlier chain position and replay it with a
+     * fresh transport command.  The caller only uses this gate when a live hand
+     * chain exists, so a missing expected context is a hard failure here.
+     */
+    static boolean communityRevealRecordIsSafe(byte[] record, int expectedWireStreet,
+            int expectedNumCards, byte[] expectedHash, byte[] expectedHandId,
+            byte[] expectedHostPlayerId) {
+        try {
+            if (!isVerifiableWireRecord(record)
+                    || expectedNumCards <= 0 || expectedNumCards > 3
+                    || expectedHash == null || expectedHandId == null
+                    || expectedHostPlayerId == null
+                    || CanonicalActionRecord.readActionType(record)
+                    != CanonicalActionRecord.ACTION_COMMUNITY
+                    || CanonicalActionRecord.readStreet(record) != expectedWireStreet
+                    || !recordStartsAtHash(record, expectedHash)
+                    || !java.util.Arrays.equals(CanonicalActionRecord.readHandId(record), expectedHandId)
+                    || !java.util.Arrays.equals(CanonicalActionRecord.readPlayerId(record), expectedHostPlayerId)) {
+                return false;
+            }
+
+            // Community records are non-voluntary/non-all-in and pack only the
+            // 1..3 card indices in the low bytes of AMOUNT_CENTS. Reject hidden
+            // high bytes and any flag bit instead of silently truncating them.
+            int flags = ((record[CanonicalActionRecord.OFFSET_FLAGS] & 0xff) << 8)
+                    | (record[CanonicalActionRecord.OFFSET_FLAGS + 1] & 0xff);
+            long packed = CanonicalActionRecord.readAmountCents(record);
+            if (flags != 0 || packed < 0L
+                    || (packed >>> (expectedNumCards * 8)) != 0L) {
+                return false;
+            }
+            int[] cards = CanonicalActionRecord.unpackCommunityCards(packed, expectedNumCards);
+            for (int card : cards) {
+                if (card < 0 || card > 51) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    /**
      * Identity §4.5 (pure, testable): reads the FLAGS.is_voluntary bit of a canonical
      * record. Decides which key the signature is verified against (§4.6), so the live
      * path and the recover replay must read it exactly the same way.
@@ -11367,7 +11440,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     if (senderNick.equals(jugador.getNickname())) {
                                         ok = true;
                                         action[0] = Integer.valueOf(partes[4]);
-                                        action[1] = Double.valueOf(partes[5]);
+                                        double wireActionAmount = Double.valueOf(partes[5]);
+                                        // Identity is necessary but not sufficient: a peer may
+                                        // possess a valid signing key and still be running a
+                                        // modified client. Reject impossible money transitions
+                                        // before the amount reaches RemotePlayer.setBet (the
+                                        // legacy no-chain path used to have no such barrier).
+                                        if (!isLegalRemoteAction((Integer) action[0], wireActionAmount,
+                                                jugador.getBet(), jugador.getStack(), this.apuesta_actual,
+                                                this.ultimo_raise, this.ciega_grande)) {
+                                            throw new IllegalArgumentException(
+                                                    "illegal remote ACTION payload (decision="
+                                                    + action[0] + ", amount=" + wireActionAmount + ")");
+                                        }
+                                        action[1] = wireActionAmount;
                                         action[2] = null;
 
                                         /* Cinematic extraction on ALLIN */
@@ -11463,6 +11549,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         this.saw_invalid_action_sig = true;
                                                         synthesizeUnverifiedFoldAction(action);
                                                     } else {
+                                                        // A signed record from an earlier chain position is
+                                                        // still cryptographically authentic, but it is a replay.
+                                                        // Reject it BEFORE setDecisionFromRemotePlayer mutates
+                                                        // the stack; absorbActionIntoChain below remains a second
+                                                        // defensive check, not the first line of money protection.
+                                                        boolean recordForged = !recordStartsAtHash(wireRecord,
+                                                                this.hand_state_chain != null
+                                                                        ? this.hand_state_chain.getCurrentHash() : null);
+                                                        if (recordForged) {
+                                                            LOGGER.log(Level.SEVERE,
+                                                                    "ZERO-TRUST: signed ACTION by {0} points to a stale PREV_H — SYNTHESIZING FOLD",
+                                                                    jugador.getNickname());
+                                                        }
                                                         // Signature OK. ZERO-TRUST: bind the SIGNED record (action
                                                         // type + amount) to what was actually played
                                                         // (signedRecordBindsToAction) — the record's ACTION_TYPE /
@@ -11480,27 +11579,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         // legitimate action) is treated like an invalid signature:
                                                         // symmetric synth-fold on every receiver, flagged so
                                                         // hand-close consensus marks the incident.
-                                                        boolean recordForged;
-                                                        try {
-                                                            byte[] expectedPid = CanonicalActionRecord.playerIdFromNick(jugador.getNickname());
-                                                            byte[] expectedHid = (this.hand_state_chain != null)
-                                                                    ? this.hand_state_chain.getHandId() : null;
-                                                            recordForged = !signedRecordBindsToAction(wireRecord,
-                                                                    (int) action[0], action[1],
-                                                                    jugador.getBet(), jugador.getStack(), this.apuesta_actual,
-                                                                    expectedPid, expectedHid);
-                                                            if (recordForged) {
+                                                        if (!recordForged) {
+                                                            try {
+                                                                byte[] expectedPid = CanonicalActionRecord.playerIdFromNick(jugador.getNickname());
+                                                                byte[] expectedHid = (this.hand_state_chain != null)
+                                                                        ? this.hand_state_chain.getHandId() : null;
+                                                                recordForged = !signedRecordBindsToAction(wireRecord,
+                                                                        (int) action[0], action[1],
+                                                                        jugador.getBet(), jugador.getStack(), this.apuesta_actual,
+                                                                        expectedPid, expectedHid);
+                                                                if (recordForged) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "ZERO-TRUST: signed record for action by {0} does not bind to the played (type/amount) — SYNTHESIZING FOLD",
+                                                                            jugador.getNickname());
+                                                                }
+                                                            } catch (RuntimeException recEx) {
+                                                                // Unmappable decision or unrepresentable amount
+                                                                // (NaN/Inf): never produced by a legitimate action.
+                                                                recordForged = true;
                                                                 LOGGER.log(Level.SEVERE,
-                                                                        "ZERO-TRUST: signed record for action by {0} does not bind to the played (type/amount) — SYNTHESIZING FOLD",
+                                                                        "ZERO-TRUST: action by {0} has an unmappable decision or unrepresentable amount — SYNTHESIZING FOLD",
                                                                         jugador.getNickname());
                                                             }
-                                                        } catch (RuntimeException recEx) {
-                                                            // Unmappable decision or unrepresentable amount
-                                                            // (NaN/Inf): never produced by a legitimate action.
-                                                            recordForged = true;
-                                                            LOGGER.log(Level.SEVERE,
-                                                                    "ZERO-TRUST: action by {0} has an unmappable decision or unrepresentable amount — SYNTHESIZING FOLD",
-                                                                    jugador.getNickname());
                                                         }
                                                         if (recordForged) {
                                                             printInvalidActionSigToRegistro(jugador.getNickname());
@@ -14144,9 +14244,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
                     return false;
                 }
-                byte[] hostPubkey = null;
                 String hostNick = GameFrame.getInstance().getSala_espera() != null
                         ? GameFrame.getInstance().getSala_espera().getServer_nick() : null;
+                byte[] expectedHostPlayerId = hostNick == null
+                        ? null : CanonicalActionRecord.playerIdFromNick(hostNick);
+                if (!communityRevealRecordIsSafe(revealRecord, expectedWireStreet, expectedNumCards,
+                        this.hand_state_chain.getCurrentHash(), this.hand_state_chain.getHandId(),
+                        expectedHostPlayerId)) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST: COMM_REVEAL context/replay/packing validation failed for street {0} — lockdown",
+                            street);
+                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    return false;
+                }
+                byte[] hostPubkey = null;
                 if (hostNick != null) {
                     Participant hostPar = GameFrame.getInstance().getParticipantes().get(hostNick);
                     if (hostPar != null) {
@@ -15899,6 +16010,87 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Money/legality gate for an ACTION received from a remote peer. The
+     * Ed25519 signature proves who sent the frame, but it does not make an
+     * impossible bet legal: a modified client could otherwise sign a target
+     * above its stack (or a below-minimum raise) and make the host debit an
+     * invalid amount. This pure check deliberately mirrors the controls in
+     * {@link LocalPlayer}: calls must fit the remaining stack, raises must be
+     * full raises, and a partial all-in is represented by {@link Player#ALLIN}.
+     *
+     * <p>The caller converts a {@code false} result into the existing
+     * unverified synthetic FOLD path, so no untrusted amount reaches
+     * {@code RemotePlayer.setBet}. All values are compared at the canonical
+     * cent resolution used by the action chain.</p>
+     */
+    static boolean isLegalRemoteAction(int javaDecision, double wireAmount,
+            double playerBet, double playerStack, double apuestaActual,
+            double ultimoRaise, double ciegaGrande) {
+        if (!finiteMoney(wireAmount) || !finiteMoney(playerBet)
+                || !finiteMoney(playerStack) || !finiteMoney(apuestaActual)
+                || !finiteMoney(ultimoRaise) || !finiteMoney(ciegaGrande)
+                || ciegaGrande <= 0d) {
+            return false;
+        }
+
+        final long declaredCents = CanonicalActionRecord.amountToCents(wireAmount);
+        final long playerBetCents = CanonicalActionRecord.amountToCents(playerBet);
+        final long playerStackCents = CanonicalActionRecord.amountToCents(playerStack);
+        final long currentCents = CanonicalActionRecord.amountToCents(apuestaActual);
+
+        switch (javaDecision) {
+            case Player.FOLD:
+                return declaredCents == 0L;
+            case Player.CHECK:
+                // The wire amount is fixed at zero for CHECK. A call that
+                // consumes the entire remaining stack must use ALLIN, because
+                // CHECK is not allowed to leave a zero-stack player in the
+                // ordinary betting set.
+                return declaredCents == 0L
+                        && currentCents >= playerBetCents
+                        && currentCents - playerBetCents < playerStackCents;
+            case Player.ALLIN:
+                return declaredCents == 0L && playerStackCents > 0L;
+            case Player.BET:
+                double effective = playerBet + playerStack;
+                if (!Double.isFinite(effective)) {
+                    return false;
+                }
+                long effectiveCents = CanonicalActionRecord.amountToCents(effective);
+                double minimumTarget = apuestaActual == 0d
+                        ? BetRules.minOpen(ciegaGrande)
+                        : BetRules.minRaiseTo(apuestaActual, ultimoRaise, ciegaGrande);
+                if (!finiteMoney(minimumTarget)) {
+                    return false;
+                }
+                return declaredCents > currentCents
+                        && declaredCents < effectiveCents
+                        && declaredCents >= CanonicalActionRecord.amountToCents(minimumTarget);
+            default:
+                return false;
+        }
+    }
+
+    private static boolean finiteMoney(double value) {
+        return Double.isFinite(value) && value >= 0d;
+    }
+
+    /**
+     * Combined recovery gate: the replayed decision must be a legal money
+     * transition and, when a hand chain exists, its record must start at the
+     * hash that is current immediately before the replay. Keeping this pure
+     * lets the recovery boundary share the same TDD contract as live ACTION
+     * frames without constructing Swing players in a test.
+     */
+    static boolean recoveredActionIsSafe(byte[] record, int javaDecision, double wireAmount,
+            double playerBet, double playerStack, double apuestaActual,
+            double ultimoRaise, double ciegaGrande, byte[] expectedHash) {
+        return isLegalRemoteAction(javaDecision, wireAmount, playerBet, playerStack,
+                apuestaActual, ultimoRaise, ciegaGrande)
+                && (expectedHash == null || recordStartsAtHash(record, expectedHash));
+    }
+
+    /**
      * Identity / anti-forgery (PURE and testable): true IFF the signed record
      * FAITHFULLY represents the action actually played, binding both its TYPE
      * (ACTION_TYPE) and its AMOUNT (AMOUNT_CENTS). Type is bound via
@@ -17090,6 +17282,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /**
+     * Strict recovery binding for a reconstructed pre-action state. The legacy
+     * overload above remains state-free for old forensic callers, but the live
+     * recovery boundary must bind AMOUNT_CENTS for every decision, not only BET:
+     * CHECK/CALL records carry {@code apuesta_actual} and ALLIN records carry the
+     * actor's complete pre-action bet plus stack.
+     */
+    static boolean recoveredActionBindsToRecordWithState(byte[] record, int decision,
+            Object betObj, String nick, byte[] expectedHandId,
+            double playerBet, double playerStack, double apuestaActual) {
+        try {
+            if (CanonicalActionRecord.readActionType(record) != mapJavaActionToWire(decision)) {
+                return false;
+            }
+            if (!java.util.Arrays.equals(CanonicalActionRecord.readPlayerId(record),
+                    CanonicalActionRecord.playerIdFromNick(nick))) {
+                return false;
+            }
+            if (expectedHandId != null
+                    && !java.util.Arrays.equals(CanonicalActionRecord.readHandId(record), expectedHandId)) {
+                return false;
+            }
+            double betAbsoluteTarget = (betObj instanceof Number)
+                    ? ((Number) betObj).doubleValue() : 0d;
+            long expectedCents = expectedActionAmountCents(decision, betAbsoluteTarget,
+                    playerBet, playerStack, apuestaActual);
+            return CanonicalActionRecord.readAmountCents(record) == expectedCents;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     private Object[] siguienteAccionLocalRecuperada(String nick) {
 
         Object[] res = null;
@@ -17144,6 +17368,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (isVerifiableWireRecord(recordBytes)) {
                                 res[5] = readWireVoluntaryFlag(recordBytes);
                             }
+                            // Recovery is still an untrusted input boundary.  A record can be
+                            // perfectly signed (the host is replaying bytes from SQLite) while
+                            // the paired decision is impossible for the PRE-action stack, or
+                            // while its PREV_H belongs to an earlier action.  The normal live
+                            // reader rejects both cases before setBet; recovery must do the same
+                            // before the local click handler applies the replayed amount.
+                            Player recoveredPlayer = nick2player.get(name);
+                            double recoveredWireAmount = (res[1] instanceof Number)
+                                    ? ((Number) res[1]).doubleValue() : 0d;
+                            if (recoveredPlayer == null
+                                    || !recoveredActionIsSafe(recordBytes, (int) res[0], recoveredWireAmount,
+                                            recoveredPlayer.getBet(), recoveredPlayer.getStack(),
+                                            this.apuesta_actual, this.ultimo_raise, this.ciega_grande,
+                                            this.hand_state_chain != null
+                                                    ? this.hand_state_chain.getCurrentHash() : null)) {
+                                LOGGER.log(Level.SEVERE,
+                                        "ZERO-TRUST RECOVER: recovered action for {0} failed the legality or chain-order gate — host/DB forgery/reorder",
+                                        name);
+                                recoverForged = true;
+                            }
                             // ZERO-TRUST RECOVER: (1) verify the Ed25519 SIGNATURE (the host serves
                             // the record over the wire; a null pubkey during a TOFU race skips the
                             // check — not evidence of an attack). (2) BIND the replayed
@@ -17152,7 +17396,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // (recoveredActionBindsToRecord) — a host can't serve a valid record
                             // paired with different plaintext. Either check failing = forgery.
                             byte[] recoverSignerPubkey = resolveActionSignerPubkey(name, true);
-                            if (!Boolean.TRUE.equals(res[5])) {
+                            if (!recoverForged && !Boolean.TRUE.equals(res[5])) {
                                 // §4.5 (same gate as the live path): NO action is ever signed as
                                 // non-voluntary. Accepting one here would route verification to the
                                 // HOST's key — exactly the peer serving us the record during replay —
@@ -17163,14 +17407,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         "ZERO-TRUST RECOVER: recovered action for {0} claims is_voluntary=0, which no genuine action ever does — host forging",
                                         name);
                                 recoverForged = true;
-                            } else if (recoverSignerPubkey != null
+                            } else if (!recoverForged && recoverSignerPubkey != null
                                     && !IdentityManager.verifyAction(recoverSignerPubkey, recordBytes, sigBytes)) {
                                 LOGGER.log(Level.SEVERE,
                                         "ZERO-TRUST RECOVER: recovered action for {0} FAILED signature verify — host forging",
                                         name);
                                 recoverForged = true;
-                            } else if (!recoveredActionBindsToRecord(recordBytes, (int) res[0], res[1], name,
-                                    this.hand_state_chain != null ? this.hand_state_chain.getHandId() : null)) {
+                            } else if (!recoverForged && !recoveredActionBindsToRecordWithState(recordBytes,
+                                    (int) res[0], res[1], name,
+                                    this.hand_state_chain != null ? this.hand_state_chain.getHandId() : null,
+                                    recoveredPlayer.getBet(), recoveredPlayer.getStack(), this.apuesta_actual)) {
                                 LOGGER.log(Level.SEVERE,
                                         "ZERO-TRUST RECOVER: recovered action for {0} does not bind to its signed record (type/amount/player/hand) — host forging",
                                         name);

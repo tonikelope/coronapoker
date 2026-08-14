@@ -7888,7 +7888,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             Hand jugada = new Hand(cartas);
 
-                            GameFrame.getInstance().getLocalPlayer().setRabbitJugada(jugada.getName());
+                            GameFrame.getInstance().getLocalPlayer().setRabbitJugada(
+                                    jugada.getName(), jugada.getWinners());
 
                             GameFrame.getInstance().getRegistro()
                                     .print(Translator.translate("rabbit.rabbit_hunting_mejor_hipotetica_jugada")

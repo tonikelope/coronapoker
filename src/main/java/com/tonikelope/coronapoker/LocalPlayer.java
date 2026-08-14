@@ -342,7 +342,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    public void setRabbitJugada(String jugada) {
+    public void setRabbitJugada(String jugada, java.util.List<Card> rabbitHandCards) {
+        this.showdown_hand_cards = showdownHandAfterRabbit(
+                this.muestra, this.showdown_hand_cards, rabbitHandCards);
+
         Helpers.GUIRun(() -> {
             setPlayerActionIcon("action/rabbit_action.png");
             setActionBackground(Color.BLUE);
@@ -350,6 +353,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             setActionTextFitted(jugada);
 
         });
+    }
+
+    static java.util.List<Card> showdownHandAfterRabbit(boolean cardsAlreadyShown,
+            java.util.List<Card> currentHand, java.util.List<Card> rabbitHand) {
+        return cardsAlreadyShown && rabbitHand != null ? rabbitHand : currentHand;
     }
 
     public void refreshNotifyChatLabel() {

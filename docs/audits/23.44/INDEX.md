@@ -109,6 +109,20 @@ siguiente hallazgo.
 - Fast posterior al relay, con exclusión explícita de `slow`: 636 tests en 87
   clases, 627 verdes y los mismos 9 bloqueos ACL/identidad del runner. Los
   nuevos tests de pot/rebuy pasan; no aparece regresión funcional.
+
+## Residuo inevitable y criterio de cierre
+
+- Las matrices TDD de pots y rebuys quedan verdes y sus fixes están en
+  `30971c327`, `fc82a14de` y `fa46e641a` (con ampliaciones de
+  regresión en `d921b1d52` y `84490d8a`).
+- Solo permanecen como verificación externa el smoke de dos clientes (salida
+  all-in por calle, RIT/Rabbit/IWTSTH, ventana `REBUY`/`REBUYNOW`, recovery y
+  SQLite) y la ACL de Windows del propietario. Los pasos, invariantes y
+  resultados esperados están en
+  [`MANUAL-RESIDUAL-23.45.md`](MANUAL-RESIDUAL-23.45.md).
+- No se modifica la verificación criptográfica de cartas no reveladas sin un
+  test host/cliente determinista: relajarla tendría un riesgo de seguridad y
+  regresión mayor que el beneficio observado.
 - Las dos familias P0 siguen abiertas únicamente en sus cruces reales de
   host/cliente, SQLite, retransmisión y recuperación indicados en sus fichas;
   no se relaja el veredicto criptográfico ni se convierte la lane estadística

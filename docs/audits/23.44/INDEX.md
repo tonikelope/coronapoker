@@ -99,9 +99,13 @@ siguiente hallazgo.
 - P0-001: `HandPotCharacterizationTest` ampliado a 17 tests con dos all-ins
   desconectados en capas distintas. La mutación 23.44 produjo 2 rojos y la
   lógica 23.45 quedó verde; commit TDD `d921b1d52`.
-- P0-002: `RebuyAmountValidationTest` ampliado a 4 tests (overflow, espacios,
-  `null` y headroom negativo); 4/4 verdes contra el JAR 23.45, commit TDD
+- P0-002: `RebuyAmountValidationTest` ampliado a 6 tests (overflow, espacios,
+  `null`, headroom negativo, relay canónico y denegación); 6/6 verdes contra el JAR 23.45, commit TDD
   `84490d8a8`. No se justifica otro cambio de producción sin smoke host/cliente.
+- P0-002 ampliado de nuevo: `REBUYNOW` ya retransmite el importe canónico al
+  originador y limpia las entradas optimistas al recibir `REBUYDENIED` (6/6
+  pruebas dirigidas verdes; rojo por API ausente conservado en la ficha),
+  commit funcional TDD `fa46e641a`.
 - Las dos familias P0 siguen abiertas únicamente en sus cruces reales de
   host/cliente, SQLite, retransmisión y recuperación indicados en sus fichas;
   no se relaja el veredicto criptográfico ni se convierte la lane estadística

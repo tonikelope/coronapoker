@@ -3287,7 +3287,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             try {
                                                                 String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 int rbBuyin = Integer.parseInt(partes_comando[4]);
-                                                                Helpers.threadRun(() -> GameFrame.getInstance().getCrupier().rebuyNow(rbNick, rbBuyin));
+                                                                Helpers.threadRun(() -> GameFrame.getInstance().getCrupier().applyRemoteRebuyNow(rbNick, rbBuyin));
                                                             } catch (Exception e) {
                                                             }
                                                             break;
@@ -3295,6 +3295,8 @@ public class WaitingRoomFrame extends JFrame {
                                                             try {
                                                                 String dnNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 int dnLimit = Integer.parseInt(partes_comando[4]);
+                                                                Crupier.clearImmediateRebuyOnDenied(
+                                                                        GameFrame.getInstance().getCrupier().getRebuy_now(), dnNick);
                                                                 if (GameFrame.getInstance().getLocalPlayer() != null
                                                                         && dnNick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
                                                                     Helpers.GUIRun(() -> {

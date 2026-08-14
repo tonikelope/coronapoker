@@ -3830,6 +3830,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         synchronized (lock_rebuynow) {
             boolean denied_by_limit = false;
             boolean broadcast_now = true;
+            int canonical_buyin = buyin;
             if (!rebuy_now.containsKey(nick)) {
                 if (atRebuyLimit(nick)) {
                     denied_by_limit = true;
@@ -3841,21 +3842,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // this; here is the server-side defense.
                     Player jp = nick2player.get(nick);
                     int headroom = GameFrame.rebuyHeadroom(jp != null ? jp.getStack() : 0f);
-                    int safe_buyin = Math.min(buyin, headroom);
+                    int safe_buyin = canonicalImmediateRebuyAmount(buyin, headroom);
                     if (safe_buyin <= 0) {
                         // No headroom left (already at the ceiling): ignore the request.
                         LOGGER.log(Level.WARNING, "Rebuy request from {0} ignored: stack at table ceiling {1}",
                                 new Object[]{nick, GameFrame.getBuyinCap()});
-                        broadcast_now = false;
+                        // A host-side rejection must still reach every client so
+                        // a client that optimistically enabled the toggle clears
+                        // its local entry instead of creating chips next hand.
+                        canonical_buyin = 0;
+                        broadcast_now = GameFrame.getInstance().isPartida_local();
                     } else {
                         if (safe_buyin != buyin) {
                             LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} exceeds headroom {2} — clamped to {3}",
                                     new Object[]{buyin, nick, headroom, safe_buyin});
                         }
+                        canonical_buyin = safe_buyin;
                         this.rebuy_now.put(nick, safe_buyin);
                     }
                 }
             } else {
+                // A second click is the toggle-off command. Its amount is not
+                // economically relevant, so never relay an attacker-controlled value.
+                canonical_buyin = 0;
                 this.rebuy_now.remove(nick);
             }
 
@@ -3870,8 +3879,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     } else if (broadcast_now) {
                         this.broadcastGAMECommandFromServer(
                                 "REBUYNOW#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                                + String.valueOf(buyin),
-                                nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname()) ? null : nick);
+                                + String.valueOf(canonical_buyin),
+                                null);
                     }
                 } catch (UnsupportedEncodingException ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
@@ -3880,6 +3889,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else if (broadcast_now && nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 this.sendGAMECommandToServer("REBUYNOW#" + String.valueOf(buyin));
+            }
+        }
+    }
+
+    /**
+     * Applies the host's canonical immediate-rebuy relay on a client. This is
+     * deliberately separate from {@link #rebuyNow(String, int)}, whose local
+     * UI meaning is a toggle and therefore cannot safely consume an echoed
+     * command from the host.
+     */
+    public void applyRemoteRebuyNow(String nick, int canonicalAmount) {
+        synchronized (lock_rebuynow) {
+            Player player = nick2player.get(nick);
+            int headroom = GameFrame.rebuyHeadroom(player != null ? player.getStack() : 0f);
+            int safeAmount = canonicalImmediateRebuyAmount(canonicalAmount, headroom);
+            if (safeAmount > 0) {
+                rebuy_now.put(nick, safeAmount);
+            } else {
+                rebuy_now.remove(nick);
             }
         }
     }
@@ -4985,6 +5013,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     static String canonicalRemoteRebuyAmount(String raw, int headroom) {
         return String.valueOf(normalizeRequestedRebuy(raw, headroom));
+    }
+
+    /**
+     * Canonical amount for the immediate-rebuy command. The host is the bank:
+     * peers must apply the same clamped value that the host accepted, not the
+     * raw value supplied by a client whose local stack/headroom may differ.
+     */
+    static int canonicalImmediateRebuyAmount(int requested, int headroom) {
+        return requested > 0 && headroom > 0 ? Math.min(requested, headroom) : 0;
+    }
+
+    static void clearImmediateRebuyOnDenied(Map<String, Integer> rebuyNow, String nick) {
+        if (rebuyNow != null && nick != null) {
+            rebuyNow.remove(nick);
+        }
     }
 
     private void recibirRebuys(ArrayList<String> pending, boolean skip_countdown) {

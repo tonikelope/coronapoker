@@ -62,9 +62,26 @@ BUILD SUCCESS
 
 La regresión se amplió con overflow de entero, espacios, `null` y headroom
 negativo (`rejectsOverflowWhitespaceAndInvalidHeadroomWithoutCreatingChips`).
-La ejecución actual queda en 4/4 verde; el rojo histórico de 23.44 sigue siendo
+La ejecución actual queda en 6/6 verde; el rojo histórico de 23.44 sigue siendo
 la compilación fallida por ausencia de los helpers, y no se abre otro cambio de
 producción porque el normalizador ya mantiene el importe canónico en 0..headroom.
+
+La revisión de familia encontró además que `rebuyNow` limitaba el importe en el
+host pero retransmitía el valor bruto. La prueba TDD
+`immediateRebuyRelayUsesTheHostCanonicalAmount` primero produjo el rojo de
+compilación (`canonicalImmediateRebuyAmount` no existía); con el fix, la misma
+prueba y la de pot ejecutaron 22/22 en verde. El host ahora calcula un importe
+canónico, lo retransmite también al cliente que originó la solicitud y los
+clientes lo aplican con `applyRemoteRebuyNow` (sin interpretarlo como el toggle
+local). El segundo click se propaga como importe cero y se elimina de todos los
+mapas, evitando que un headroom distinto entre peers cree fichas divergentes.
+
+También se cubrió el rechazo por límite con
+`deniedImmediateRebuyClearsAnOptimisticClientEntry`: el test rojo por API
+ausente se hizo verde junto con el cambio que elimina la entrada local al
+recibir `REBUYDENIED`. Una solicitud sin headroom se retransmite como importe
+canónico cero desde el host, por lo que tampoco deja una decisión optimista
+pendiente.
 
 Vecinos verdes (48 tests): `HandPotCharacterizationTest`, `PotMathTest`,
 `BetRulesTest`, `BuyinRulesTest` y `RebuyAmountValidationTest`.

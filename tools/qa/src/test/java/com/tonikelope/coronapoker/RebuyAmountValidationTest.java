@@ -1,6 +1,9 @@
 package com.tonikelope.coronapoker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class RebuyAmountValidationTest {
@@ -32,5 +35,24 @@ class RebuyAmountValidationTest {
         assertEquals(0, Crupier.normalizeRequestedRebuy(" 25 ", 75));
         assertEquals(0, Crupier.normalizeRequestedRebuy("25", -1));
         assertEquals("0", Crupier.canonicalRemoteRebuyAmount(null, 75));
+    }
+
+    @Test
+    void immediateRebuyRelayUsesTheHostCanonicalAmount() {
+        assertEquals(75, Crupier.canonicalImmediateRebuyAmount(120, 75));
+        assertEquals(25, Crupier.canonicalImmediateRebuyAmount(25, 75));
+        assertEquals(0, Crupier.canonicalImmediateRebuyAmount(0, 75));
+        assertEquals(0, Crupier.canonicalImmediateRebuyAmount(-5, 75));
+        assertEquals(0, Crupier.canonicalImmediateRebuyAmount(Integer.MAX_VALUE, 0));
+    }
+
+    @Test
+    void deniedImmediateRebuyClearsAnOptimisticClientEntry() {
+        Map<String, Integer> rebuyNow = new HashMap<>();
+        rebuyNow.put("nick", 75);
+
+        Crupier.clearImmediateRebuyOnDenied(rebuyNow, "nick");
+
+        assertFalse(rebuyNow.containsKey("nick"));
     }
 }

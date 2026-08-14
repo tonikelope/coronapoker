@@ -95,6 +95,26 @@ public class HandPotCharacterizationTest {
     }
 
     @Test
+    void multipleExitedAllInsRemainEligibleAcrossEveryPotLayer() {
+        // Both short stacks disconnected after going all-in. They must still
+        // establish and contest their matched layers: 2 x 4, 3 x 3 and 5 x 2.
+        // Treating either one as dead money collapses the corresponding side
+        // pot and can award chips to a player who never matched that layer.
+        HandPot pot = topPot(
+                p("short-exited", 2.0, Player.ALLIN, false),
+                p("mid-exited", 5.0, Player.ALLIN, false),
+                p("caller-a", 10.0, Player.BET, true),
+                p("caller-b", 10.0, Player.BET, true));
+
+        assertEquals(2, pot.getSide_pot_count(), "two exited all-ins -> two side pots");
+        assertEquals(8.0, pot.getTotal(), EPS, "main layer = 2 x 4");
+        assertEquals(9.0, pot.getSidePot().getTotal(), EPS, "middle layer = 3 x 3");
+        assertEquals(10.0, pot.getSidePot().getSidePot().getTotal(), EPS,
+                "top layer = 5 x 2");
+        assertEquals(27.0, sumAllPots(pot), EPS, "conservation: 2 + 5 + 10 + 10");
+    }
+
+    @Test
     void exitedAllInSurvivesNextStreetParticipantFilter() {
         // rondaApuestas() runs this filter before every later street. An exited
         // all-in must remain in resisten so the run-out and showdown can still

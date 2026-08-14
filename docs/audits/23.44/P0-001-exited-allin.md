@@ -76,6 +76,14 @@ Cada regresión y su cambio de producción están en su commit funcional pequeñ
 correspondiente. El POM auxiliar solo se usó para probar el jar recompilado sin
 sobrescribir el repositorio Maven protegido; no se incluye en la rama.
 
+La ampliación de familia `multipleExitedAllInsRemainEligibleAcrossEveryPotLayer`
+pincha dos all-ins desconectados (2 y 5) contra dos jugadores que cubren 10:
+espera dos side pots y conservación de 27 fichas. El rojo TDD contra la lógica
+23.44 fue 17 tests con dos fallos (`expected side-pot count 2, got 0` y el caso
+original de 50/100); al restaurar el predicado de 23.45, los 17 tests pasaron.
+No se añadió otro cambio de producción: el fix existente cubre ya toda la
+familia de capas.
+
 ## Auditoría de familia pendiente
 
 Antes de cerrar P0-001 hay que revisar con escenarios TDD o smoke:

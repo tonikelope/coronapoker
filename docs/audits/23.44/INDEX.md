@@ -106,6 +106,9 @@ siguiente hallazgo.
   originador y limpia las entradas optimistas al recibir `REBUYDENIED` (6/6
   pruebas dirigidas verdes; rojo por API ausente conservado en la ficha),
   commit funcional TDD `fa46e641a`.
+- Fast posterior al relay, con exclusión explícita de `slow`: 636 tests en 87
+  clases, 627 verdes y los mismos 9 bloqueos ACL/identidad del runner. Los
+  nuevos tests de pot/rebuy pasan; no aparece regresión funcional.
 - Las dos familias P0 siguen abiertas únicamente en sus cruces reales de
   host/cliente, SQLite, retransmisión y recuperación indicados en sus fichas;
   no se relaja el veredicto criptográfico ni se convierte la lane estadística

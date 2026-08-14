@@ -24,6 +24,14 @@ añadieron propiedades explícitas (`qa.groups=slow` y
   en los 725 que sí se pudieron ejecutar.
 - Pruebas dirigidas de pot/rebuy y vecinos: 48/48 verdes.
 
+Después del fix de relay `fa46e641a`, una fast aislada con `excludedGroups=slow`
+explícito ejecutó 636 tests en 87 clases: 627 pasan y los mismos 9 bloqueos de
+identidad/ACL (3 assertions de `IdentityKeypairAclSmoke` y 6 errores de
+`ReceiptSignatureTest`) quedan fuera del código funcional. Los nuevos tests de
+pot/rebuy están incluidos y pasan; la diferencia de totales con la pasada de
+734 se debe a que aquella comprobación amplia no separaba todas las clases
+slow, mientras esta respeta la lane fast definida en `tools/qa/pom.xml`.
+
 ### `slow-bot` (calidad estadística de bots)
 
 Con el volumen de validación (`200` sesiones × `50` manos), 13 clases

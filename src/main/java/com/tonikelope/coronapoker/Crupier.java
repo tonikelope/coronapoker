@@ -1244,8 +1244,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private java.util.List<String> recover_action_order = null;
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
+    // REBUYNOW is deliberately dispatched off the socket reader: the host may wait for
+    // confirmations while broadcasting, and an incoming relay may wait on this same lock.
+    // That avoids the reader-thread deadlock, but a cached pool can then execute two toggles
+    // in the opposite order in which they arrived. These maps carry the reader-assigned
+    // arrival order across that async boundary. The key on the host is the authenticated
+    // Participant connection; the key on a client is the player nick in the host relay.
+    private final ConcurrentHashMap<Long, Long> rebuy_inbound_sequences = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> rebuy_remote_sequences = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> rabbit_players = new ConcurrentHashMap<>();
+    // RABBIT requests are processed asynchronously and a malicious/retrying peer can resend a
+    // valid frame with the same counter. The fee is money, so each exact counter is idempotent
+    // per nick for the lifetime of the current hand. We intentionally keep a set rather than
+    // only the greatest value: in mode 3, counters 2 and 3 are two different fees and their
+    // worker tasks may arrive in either order. The set is cleared with rabbit_players at reset.
+    private final ConcurrentHashMap<String, Set<Integer>> rabbit_applied_counts = new ConcurrentHashMap<>();
 
     // ConcurrentHashMap (not HashMap): written under lock_contabilidad (auditorCuentas,
     // updateExitPlayers) but ITERATED outside that lock, under SQL_LOCK, in sqlNewHand/
@@ -3826,70 +3840,94 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void rebuyNow(String nick, int buyin) {
-
         synchronized (lock_rebuynow) {
-            boolean denied_by_limit = false;
-            boolean broadcast_now = true;
-            int canonical_buyin = buyin;
-            if (!rebuy_now.containsKey(nick)) {
-                if (atRebuyLimit(nick)) {
-                    denied_by_limit = true;
-                    broadcast_now = false;
-                } else {
-                    // The host is the bank: clamp to headroom (table ceiling - current stack)
-                    // so a tampered client can't fabricate chips or exceed the ceiling via
-                    // REBUYNOW#nick#<arbitrary int>. The RebuyDialog spinner already clamps
-                    // this; here is the server-side defense.
-                    Player jp = nick2player.get(nick);
-                    int headroom = GameFrame.rebuyHeadroom(jp != null ? jp.getStack() : 0f);
-                    int safe_buyin = canonicalImmediateRebuyAmount(buyin, headroom);
-                    if (safe_buyin <= 0) {
-                        // No headroom left (already at the ceiling): ignore the request.
-                        LOGGER.log(Level.WARNING, "Rebuy request from {0} ignored: stack at table ceiling {1}",
-                                new Object[]{nick, GameFrame.getBuyinCap()});
-                        // A host-side rejection must still reach every client so
-                        // a client that optimistically enabled the toggle clears
-                        // its local entry instead of creating chips next hand.
-                        canonical_buyin = 0;
-                        broadcast_now = GameFrame.getInstance().isPartida_local();
-                    } else {
-                        if (safe_buyin != buyin) {
-                            LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} exceeds headroom {2} — clamped to {3}",
-                                    new Object[]{buyin, nick, headroom, safe_buyin});
-                        }
-                        canonical_buyin = safe_buyin;
-                        this.rebuy_now.put(nick, safe_buyin);
-                    }
-                }
+            rebuyNowInternalLocked(nick, buyin, GameFrame.getInstance().isPartida_local());
+        }
+    }
+
+    /**
+     * Applies a REBUYNOW received from one authenticated peer. The socket reader assigns the
+     * sequence before dispatching to the cached pool. If two tasks are scheduled in reverse,
+     * the older one is discarded instead of undoing the newer toggle. The source id prevents a
+     * reconnect/new Participant from inheriting the previous connection's counter.
+     */
+    public void rebuyNowFromClient(String nick, int buyin, long sourceId, long arrivalSequence) {
+        synchronized (lock_rebuynow) {
+            long applied = rebuy_inbound_sequences.getOrDefault(sourceId, 0L);
+            if (!shouldApplyRebuySequence(arrivalSequence, applied)) {
+                return;
+            }
+            if (arrivalSequence > 0L) {
+                rebuy_inbound_sequences.put(sourceId, arrivalSequence);
+            }
+            rebuyNowInternalLocked(nick, buyin, true);
+        }
+    }
+
+    /** Caller holds {@link #lock_rebuynow}. */
+    private void rebuyNowInternalLocked(String nick, int buyin, boolean host) {
+        boolean denied_by_limit = false;
+        boolean broadcast_now = true;
+        int canonical_buyin = buyin;
+        if (!rebuy_now.containsKey(nick)) {
+            if (atRebuyLimit(nick)) {
+                denied_by_limit = true;
+                broadcast_now = false;
             } else {
-                // A second click is the toggle-off command. Its amount is not
-                // economically relevant, so never relay an attacker-controlled value.
-                canonical_buyin = 0;
-                this.rebuy_now.remove(nick);
-            }
-
-            if (GameFrame.getInstance().isPartida_local()) {
-
-                try {
-                    if (denied_by_limit) {
-                        this.broadcastGAMECommandFromServer(
-                                "REBUYDENIED#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                                + String.valueOf(GameFrame.REBUY_LIMIT),
-                                null, false);
-                    } else if (broadcast_now) {
-                        this.broadcastGAMECommandFromServer(
-                                "REBUYNOW#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                                + String.valueOf(canonical_buyin),
-                                null);
+                // The host is the bank: clamp to headroom (table ceiling - current stack)
+                // so a tampered client can't fabricate chips or exceed the ceiling via
+                // REBUYNOW#nick#<arbitrary int>. The RebuyDialog spinner already clamps
+                // this; here is the server-side defense.
+                Player jp = nick2player.get(nick);
+                int headroom = GameFrame.rebuyHeadroom(jp != null ? jp.getStack() : 0f);
+                int safe_buyin = canonicalImmediateRebuyAmount(buyin, headroom);
+                if (safe_buyin <= 0) {
+                    // No headroom left (already at the ceiling): ignore the request.
+                    LOGGER.log(Level.WARNING, "Rebuy request from {0} ignored: stack at table ceiling {1}",
+                            new Object[]{nick, GameFrame.getBuyinCap()});
+                    // A host-side rejection must still reach every client so
+                    // a client that optimistically enabled the toggle clears
+                    // its local entry instead of creating chips next hand.
+                    canonical_buyin = 0;
+                    broadcast_now = host;
+                } else {
+                    if (safe_buyin != buyin) {
+                        LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} exceeds headroom {2} — clamped to {3}",
+                                new Object[]{buyin, nick, headroom, safe_buyin});
                     }
-                } catch (UnsupportedEncodingException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                    canonical_buyin = safe_buyin;
+                    this.rebuy_now.put(nick, safe_buyin);
                 }
-
-            } else if (broadcast_now && nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-
-                this.sendGAMECommandToServer("REBUYNOW#" + String.valueOf(buyin));
             }
+        } else {
+            // A second click is the toggle-off command. Its amount is not
+            // economically relevant, so never relay an attacker-controlled value.
+            canonical_buyin = 0;
+            this.rebuy_now.remove(nick);
+        }
+
+        if (host) {
+            try {
+                if (denied_by_limit) {
+                    this.broadcastGAMECommandFromServer(
+                            "REBUYDENIED#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                            + String.valueOf(GameFrame.REBUY_LIMIT),
+                            null, false);
+                } else if (broadcast_now) {
+                    this.broadcastGAMECommandFromServer(
+                            "REBUYNOW#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                            + String.valueOf(canonical_buyin),
+                            null);
+                }
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        } else if (broadcast_now
+                && GameFrame.getInstance().getLocalPlayer() != null
+                && nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+            // Send the same canonical value that the local optimistic map uses. In particular,
+            // toggle-off is sent as zero rather than the old UI sentinel -1.
+            this.sendGAMECommandToServer("REBUYNOW#" + String.valueOf(canonical_buyin));
         }
     }
 
@@ -3900,7 +3938,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * command from the host.
      */
     public void applyRemoteRebuyNow(String nick, int canonicalAmount) {
+        applyRemoteRebuyNow(nick, canonicalAmount, 0L);
+    }
+
+    /**
+     * Applies a host relay after the socket reader has assigned its arrival sequence. This
+     * method remains asynchronous to avoid the CONF self-deadlock; the sequence gate makes the
+     * asynchronous execution deterministic instead of relying on cached-pool scheduling order.
+     */
+    public void applyRemoteRebuyNow(String nick, int canonicalAmount, long arrivalSequence) {
         synchronized (lock_rebuynow) {
+            if (nick == null) {
+                return;
+            }
+            long applied = rebuy_remote_sequences.getOrDefault(nick, 0L);
+            if (!shouldApplyRebuySequence(arrivalSequence, applied)) {
+                return;
+            }
+            if (arrivalSequence > 0L) {
+                rebuy_remote_sequences.put(nick, arrivalSequence);
+            }
             Player player = nick2player.get(nick);
             int headroom = GameFrame.rebuyHeadroom(player != null ? player.getStack() : 0f);
             int safeAmount = canonicalImmediateRebuyAmount(canonicalAmount, headroom);
@@ -5052,6 +5109,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     static int canonicalImmediateRebuyAmount(int requested, int headroom) {
         return requested > 0 && headroom > 0 ? Math.min(requested, headroom) : 0;
+    }
+
+    /**
+     * Returns whether an asynchronous rebuy task is still current.
+     *
+     * <p>Zero (and negative values, for defensive compatibility) means that the caller is an
+     * old/unsequenced code path. Such calls retain the old last-write-wins behaviour. Positive
+     * arrivals are strictly increasing: duplicates and tasks that were overtaken by a newer
+     * arrival are discarded, so a cached thread pool cannot roll a toggle back.</p>
+     */
+    static boolean shouldApplyAsyncSequence(long incoming, long applied) {
+        return incoming <= 0L || incoming > applied;
+    }
+
+    /** Backwards-compatible name for callers/tests that focus on the rebuy flow. */
+    static boolean shouldApplyRebuySequence(long incoming, long applied) {
+        return shouldApplyAsyncSequence(incoming, applied);
+    }
+
+    /**
+     * Returns whether a RABBIT counter may mutate the money state for a player.
+     * Counters are scoped to the current hand by rabbit_applied_counts.clear()
+     * at hand reset. The exact-value check is deliberately not monotonic: a
+     * count-3 task may run before count 2, but both fees still have to apply.
+     */
+    static boolean shouldAcceptRabbitCount(int incoming, Set<Integer> applied) {
+        return incoming > 0 && (applied == null || !applied.contains(incoming));
     }
 
     static void clearImmediateRebuyOnDenied(Map<String, Integer> rebuyNow, String nick) {
@@ -7885,6 +7969,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             synchronized (lock_rabbit) {
 
+                // RABBIT is an asynchronous money operation. A retransmitted or maliciously
+                // duplicated frame must not charge the same counter twice. Do not reject a
+                // merely older value: mode 3 charges count 2 (small blind) and count 3 (big
+                // blind), so cached-pool reordering must still apply both distinct counters.
+                Set<Integer> appliedCounts = nick == null ? null
+                        : rabbit_applied_counts.computeIfAbsent(nick, ignored -> new HashSet<>());
+                if (nick == null || !shouldAcceptRabbitCount(conta_rabbit, appliedCounts)) {
+                    LOGGER.log(Level.WARNING, "Dropping duplicate/invalid RABBIT for {0} (count {1})",
+                            new Object[]{nick, conta_rabbit});
+                    return;
+                }
+                appliedCounts.add(conta_rabbit);
+
                 rabbit_players.put(nick, true); // Marked PENDING so the server can track who's been processed.
                 try {
 
@@ -8381,6 +8478,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         rabbit_players.clear();
+        rabbit_applied_counts.clear();
         this.iwtsth = false;
         this.iwtsthing = false;
         this.iwtsthing_request = false;

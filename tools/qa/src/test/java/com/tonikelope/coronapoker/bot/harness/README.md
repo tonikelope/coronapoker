@@ -385,8 +385,8 @@ suite against it in one pass — no `mvn install` of the jar, no
 `coronapoker.version` pin to keep in sync:
 
 ```sh
-# only the slow lane (bot sims + crypto/eval guards)
-mvn -f tools/reactor/pom.xml test -P slow
+# only the bot-quality lane (statistical bot sims + GameFlowSmoke)
+mvn -f tools/reactor/pom.xml test -P slow-bot
 
 # the whole suite, fast + slow
 mvn -f tools/reactor/pom.xml test -P all
@@ -404,10 +404,10 @@ at the qa pom:
 
 ```sh
 mvn -DskipTests install                                   # from the repo root
-mvn -f tools/qa/pom.xml test -P slow -Dcoronapoker.version=23.41
+mvn -f tools/qa/pom.xml test -P slow-bot -Dcoronapoker.version=23.45
 ```
 
-Keep `-Dcoronapoker.version` in sync with the root pom (currently 23.41).
+Keep `-Dcoronapoker.version` in sync with the root pom (currently 23.45).
 
 ### 9.3 A subset by name pattern
 
@@ -417,22 +417,22 @@ module (or any module) that has none of the matching classes:
 
 ```sh
 # 6-max gradient tests
-mvn -f tools/reactor/pom.xml test -P slow \
+mvn -f tools/reactor/pom.xml test -P slow-bot \
     -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false
 
 # 6-max baseline tests
-mvn -f tools/reactor/pom.xml test -P slow \
+mvn -f tools/reactor/pom.xml test -P slow-bot \
     -Dtest='MultiwayBaseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
 
 # HU tests (legacy reference)
-mvn -f tools/reactor/pom.xml test -P slow \
+mvn -f tools/reactor/pom.xml test -P slow-bot \
     -Dtest='MixedMatchup_*Test,Baseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
 ### 9.4 One specific matchup
 
 ```sh
-mvn -f tools/reactor/pom.xml test -P slow \
+mvn -f tools/reactor/pom.xml test -P slow-bot \
     -Dtest=Multiway_HardVs5EasyTest -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
@@ -446,7 +446,7 @@ Volume is controlled at runtime (no source edits needed) via two system
 properties read by `QaConfig` and forwarded into the surefire forks:
 
 ```sh
-mvn -f tools/reactor/pom.xml -o test -P slow \
+mvn -f tools/reactor/pom.xml -o test -P slow-bot \
     -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false \
     -Dqa.sessions=40 -Dqa.hands=25
 ```

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Standalone Maven module for the off-line bot QA test suite.
+  Standalone Maven module for the off-line QA suite. Deterministic game-code
+  tests are the default; bot-quality simulations are explicitly opt-in.
 
   This module is intentionally NOT a sub-module of the main CoronaPoker
   pom.xml — building or packaging the game (`mvn package` in the repo
@@ -11,7 +12,7 @@
   To run the suite:
 
       cd tools/qa
-      mvn -o test
+      mvn -o test                    # deterministic fast lane; bot quality is opt-in
 
   See ./src/test/java/com/tonikelope/coronapoker/bot/harness/README.md
   for the full description of what these tests measure and how to
@@ -25,7 +26,8 @@
   Then any time you want to run the bot QA suite:
 
       cd tools/qa
-      mvn -o test                    # runs all bot tests
+      mvn -o test                    # fast code/regression tests (no bot quality)
+      mvn -o test -P slow-bot        # explicit bot-quality lane only
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

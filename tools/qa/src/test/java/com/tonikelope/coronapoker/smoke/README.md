@@ -12,17 +12,17 @@ Diseñados para responder UNA pregunta: *después de mi cambio, ¿el flujo bási
 
 - **Después de cualquier cambio en `Crupier.java`, `Bot.java`, `bot/*` o cualquier código que afecte al flujo de mano.**
 - Antes de mergear cualquier rama `sprint-*` a master.
-- Los 16 smoke rápidos SÍ se ejecutan automáticamente con `mvn test`: el `pom.xml` de la suite añade `**/*Smoke.java` a los `includes`, así que entran en el lane rápido por defecto. El único que NO es `GameFlowSmoke`, marcado `@Tag("slow")`: queda fuera del lane por defecto y sólo corre con `-P slow` o `-P all`.
+- Los 16 smoke rápidos SÍ se ejecutan automáticamente con `mvn test`: el `pom.xml` de la suite añade `**/*Smoke.java` a los `includes`, así que entran en el lane rápido por defecto. El único que NO es `GameFlowSmoke`, marcado `@Tag("slow")`: queda fuera del lane por defecto y sólo corre con `-P slow-bot` (o el agregado explícito `-P slow`/`-P all`).
 
 ## Cómo ejecutar (solo los smoke, sin pisar la máquina)
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.1.8-hotspot"
 cd tools\qa
-& "C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd" -o test -Dtest='*Smoke' -P all
+& "C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd" -o test -Dtest='*Smoke' -P fast
 ```
 
-`-Dtest='*Smoke'` a secas corre los 16 smoke rápidos pero **SALTA `GameFlowSmoke`**: su `@Tag("slow")` lo excluye del lane por defecto. Añade `-P all` para incluirlo (o `-P slow` para correr únicamente `GameFlowSmoke`).
+`-Dtest='*Smoke'` a secas corre los 16 smoke rápidos pero **SALTA `GameFlowSmoke`**: su `@Tag("slow")` lo excluye del lane por defecto. Añade `-P slow-bot` para incluir únicamente `GameFlowSmoke` (o `-P all` para la suite completa; `-P slow` agrega todas las lanes lentas).
 
 **Tiempo estimado:** los 16 smoke rápidos, unos segundos; con `-P all`, `GameFlowSmoke` (lane slow) añade hasta ~30 s (su objetivo declarado en el Javadoc de la clase).
 
@@ -35,7 +35,7 @@ cd tools\qa
 
 ## Estructura
 
-Los 17 smoke actuales. El lane `rápido` corre por defecto con `mvn test`; el `slow` sólo con `-P slow` / `-P all`.
+Los 17 smoke actuales. El lane `rápido` corre por defecto con `mvn test`; `GameFlowSmoke` pertenece a `slow-bot` y sólo corre con ese perfil (o con los agregados explícitos `-P slow` / `-P all`).
 
 | Clase | Qué valida | Lane |
 |---|---|---|

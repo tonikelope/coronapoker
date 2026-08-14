@@ -472,6 +472,37 @@ Antes de release:
 - README verificado;
 - worktree limpio.
 
+## 18.1 Tamaño y reversibilidad de commits
+
+Los commits deben ser pequeños y reversibles. Un commit funcional contiene un
+solo bug/invariante, su test TDD y el cambio mínimo de producción. No se
+agruparán dos subsistemas ni dos causas aunque aparezcan en la misma sesión de
+auditoría. Documentación, ordenación de tests y cambios de infraestructura van
+en commits separados. Antes de cada commit se revisará el diff y después se
+probará su reversión lógica (el test debe volver a rojo al quitar el fix).
+
+## 18.2 Lanes de la suite
+
+La calidad estadística de bots no se mezcla con el feedback rápido de código.
+La suite queda separada en:
+
+- `fast`: unidad, dominio, dinero, parsers y protocolos deterministas;
+- `integration/smoke`: SQLite, sockets, host/cliente, recovery y lifecycle;
+- `slow-bot`: matchups y simulaciones de calidad estadística de bots;
+- `slow-crypto`: pruebas criptográficas pesadas o diferenciales.
+
+Un fix de reglas no se aceptará solo porque pase un matchup estadístico; debe
+pasar primero sus pruebas deterministas y, si toca el flujo correspondiente, su
+smoke. Las lanes lentas se ejecutarán en lote y se documentarán aparte.
+
+## 18.3 Registro de no-cambio
+
+Si no puede crearse o ejecutarse un test adecuado, no se modifica producción.
+Se añade al informe/INDEX una ficha de no-cambio con escenario, evidencia,
+riesgo de regresión, motivo del bloqueo y el test/instrumentación pendiente.
+Esto incluye casos extremos no reproducibles, dependencia de GUI/ACL/entorno y
+parches cuyo alcance no puede acotarse con seguridad.
+
 ## 19. Criterio de finalización y continuación
 
 La auditoría termina cuando todas las filas de las matrices tienen resultado,

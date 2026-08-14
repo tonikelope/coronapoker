@@ -93,8 +93,9 @@ Vecinos verdes (48 tests): `HandPotCharacterizationTest`, `PotMathTest`,
 - Pendiente smoke host/cliente: comando duplicado, nick desconocido, respuesta
   tardía o reordenada, desconexión durante la ventana, límite de rebuys,
   retransmisión canónica y persistencia en SQLite.
-- Revisar aparte el camino `REBUYNOW` local/remoto y la carrera entre el cálculo
-  de headroom y la aplicación en `nuevaMano`.
+- `REBUYNOW` local/remoto ya queda cubierto por el relay canónico y la limpieza
+  de denegaciones; sigue pendiente el smoke de dos clientes para observar la
+  carrera real entre el cálculo de headroom y la aplicación en `nuevaMano`.
 - Si una de esas rutas solo puede validarse ejecutando el juego, dejar la ficha
   manual con pasos exactos; no sustituirla por la prueba pura del normalizador.
 

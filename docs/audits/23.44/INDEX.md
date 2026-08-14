@@ -1,7 +1,9 @@
 # Auditoría integral de CoronaPoker 23.44
 
 Base: `204481c6c` (`chore(release): CoronaPoker 23.44`).
-Rama de auditoria: `audit/23.44-integral` (worktree); resultados integrados en `release/23.45-game-fixes`.
+Rama de auditoria: `audit/23.44-integral` (rama temporal conservada para
+trazabilidad; worktree ya retirado); resultados integrados en
+`release/23.45-game-fixes`.
 
 ## Estado de ejecución
 

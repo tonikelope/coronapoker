@@ -5012,7 +5012,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     static String canonicalRemoteRebuyAmount(String raw, int headroom) {
-        return String.valueOf(normalizeRequestedRebuy(raw, headroom));
+        return canonicalRemoteRebuyAmount(raw, headroom, false);
+    }
+
+    /**
+     * Canonical amount for a host-authoritative end-of-hand rebuy. A valid
+     * amount is still denied when the player's rebuy counter is at its limit;
+     * relaying it as zero prevents a stale peer from applying a positive rebuy
+     * before it has observed the counter update.
+     */
+    static String canonicalRemoteRebuyAmount(String raw, int headroom, boolean deniedByLimit) {
+        return String.valueOf(deniedByLimit ? 0 : normalizeRequestedRebuy(raw, headroom));
     }
 
     /**
@@ -5094,10 +5104,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // ends instantly, so without this there'd be no time to see the
                             // result); otherwise restore, and setSpectator below repaints over it.
                             int headroom = GameFrame.rebuyHeadroom(jugador.getStack());
+                            boolean deniedByLimit = atRebuyLimit(nick);
                             String canonicalRebuy = partes.length > 4
-                                    ? canonicalRemoteRebuyAmount(partes[4], headroom) : null;
+                                    ? canonicalRemoteRebuyAmount(partes[4], headroom, deniedByLimit)
+                                    : (deniedByLimit ? "0" : null);
                             int safeRebuy = canonicalRebuy != null ? Integer.parseInt(canonicalRebuy) : headroom;
-                            boolean recompra = safeRebuy > 0 && !atRebuyLimit(nick);
+                            boolean recompra = safeRebuy > 0 && !deniedByLimit;
                             if (jugador instanceof RemotePlayer) {
                                 if (skip_countdown) {
                                     // No remote countdown was started (local player also
@@ -5118,7 +5130,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     // Pressed SPECTATOR on their game over: explicit feedback
                                     // in the spectator visual.
                                     jugador.setSpectator(Translator.translate("rebuy.no_recompra"));
-                                } else if (atRebuyLimit(nick)) {
+                                } else if (deniedByLimit) {
                                     jugador.setSpectator(null);
                                 } else {
                                     // Same defense as rebuyNow: the host clamps the amount to
@@ -5132,7 +5144,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     rebuy_now.put(nick, safeRebuy);
                                 }
-                            } else if (atRebuyLimit(nick)) {
+                            } else if (deniedByLimit) {
                                 jugador.setSpectator(null);
                             } else {
                                 rebuy_now.put(nick, GameFrame.rebuyHeadroom(jugador.getStack()));

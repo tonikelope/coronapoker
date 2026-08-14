@@ -30,6 +30,15 @@ class RebuyAmountValidationTest {
     }
 
     @Test
+    void hostLimitMustRelayZeroEvenWhenTheRequestedAmountHasHeadroom() {
+        // The host's rebuy limit is authoritative. Relaying a positive amount
+        // here would let a stale peer that has not observed the counter yet
+        // create a rebuy the host denied.
+        assertEquals("0", Crupier.canonicalRemoteRebuyAmount("75", 75, true));
+        assertEquals("75", Crupier.canonicalRemoteRebuyAmount("75", 75, false));
+    }
+
+    @Test
     void rejectsOverflowWhitespaceAndInvalidHeadroomWithoutCreatingChips() {
         assertEquals(75, Crupier.normalizeRequestedRebuy(String.valueOf(Integer.MAX_VALUE), 75));
         assertEquals(0, Crupier.normalizeRequestedRebuy("2147483648", 75));

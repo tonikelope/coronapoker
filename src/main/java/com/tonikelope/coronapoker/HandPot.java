@@ -91,7 +91,10 @@ public final class HandPot {
      * leaves their money in, but can't collect it.
      */
     private static boolean compite(Player jugador) {
-        return jugador.getDecision() != Player.FOLD && jugador.isActivo();
+        // An all-in has already put its chips at risk. A later disconnect must
+        // not turn it into dead money nor remove its claim from the pots it matched.
+        return jugador.getDecision() != Player.FOLD
+                && (jugador.isActivo() || jugador.getDecision() == Player.ALLIN);
     }
 
     /**
@@ -175,7 +178,7 @@ public final class HandPot {
 
             for (Player jugador : players) {
 
-                if (jugador.getDecision() != Player.FOLD && jugador.isActivo()) {
+                if (compite(jugador)) {
                     break;
                 } else {
                     i++;
@@ -197,7 +200,7 @@ public final class HandPot {
 
                     for (var jugador : players) {
 
-                        if (jugador.getDecision() != Player.FOLD && jugador.isActivo() && Helpers.doubleSecureCompare(bet, jugador.getBote() - this.diff) < 0) {
+                        if (compite(jugador) && Helpers.doubleSecureCompare(bet, jugador.getBote() - this.diff) < 0) {
 
                             // Contesting this pot with MORE than its bet: goes into the child side pot.
                             sidepot_players.add(jugador);

@@ -4970,6 +4970,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private static int parseRequestedRebuy(String raw) {
+        try {
+            return Integer.parseInt(raw);
+        } catch (RuntimeException ex) {
+            return 0;
+        }
+    }
+
+    static int normalizeRequestedRebuy(String raw, int headroom) {
+        int requested = parseRequestedRebuy(raw);
+        return requested > 0 && headroom > 0 ? Math.min(requested, headroom) : 0;
+    }
+
+    static String canonicalRemoteRebuyAmount(String raw, int headroom) {
+        return String.valueOf(normalizeRequestedRebuy(raw, headroom));
+    }
+
     private void recibirRebuys(ArrayList<String> pending, boolean skip_countdown) {
 
         // Time bar per the local game-over cinematic setting (same one that decides busted
@@ -5033,9 +5050,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // "REBUY!" if they rebought (with only one busted player the wait
                             // ends instantly, so without this there'd be no time to see the
                             // result); otherwise restore, and setSpectator below repaints over it.
-                            boolean recompra = (partes.length > 4)
-                                    ? (!partes[4].equals("0") && !atRebuyLimit(nick))
-                                    : !atRebuyLimit(nick);
+                            int headroom = GameFrame.rebuyHeadroom(jugador.getStack());
+                            String canonicalRebuy = partes.length > 4
+                                    ? canonicalRemoteRebuyAmount(partes[4], headroom) : null;
+                            int safeRebuy = canonicalRebuy != null ? Integer.parseInt(canonicalRebuy) : headroom;
+                            boolean recompra = safeRebuy > 0 && !atRebuyLimit(nick);
                             if (jugador instanceof RemotePlayer) {
                                 if (skip_countdown) {
                                     // No remote countdown was started (local player also
@@ -5047,11 +5066,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
 
                             if (GameFrame.getInstance().isPartida_local()) {
-                                broadcastGAMECommandFromServer("REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
+                                broadcastGAMECommandFromServer("REBUY#" + partes[3]
+                                        + (canonicalRebuy != null ? "#" + canonicalRebuy : ""), nick);
                             }
 
                             if (partes.length > 4) {
-                                if (partes[4].equals("0")) {
+                                if (safeRebuy <= 0) {
                                     // Pressed SPECTATOR on their game over: explicit feedback
                                     // in the spectator visual.
                                     jugador.setSpectator(Translator.translate("rebuy.no_recompra"));
@@ -5062,14 +5082,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     // headroom (table ceiling - stack) so a tampered client
                                     // can't fabricate chips or exceed the ceiling via
                                     // REBUY#...#<arbitrary int>.
-                                    int raw_rebuy = Integer.parseInt(partes[4]);
-                                    int headroom = GameFrame.rebuyHeadroom(jugador.getStack());
-                                    int safe_rebuy = Math.min(raw_rebuy, headroom);
-                                    if (safe_rebuy != raw_rebuy) {
+                                    int raw_rebuy = parseRequestedRebuy(partes[4]);
+                                    if (safeRebuy != raw_rebuy) {
                                         LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} exceeds headroom {2} — clamped to {3}",
-                                                new Object[]{raw_rebuy, nick, headroom, safe_rebuy});
+                                                new Object[]{raw_rebuy, nick, headroom, safeRebuy});
                                     }
-                                    rebuy_now.put(nick, safe_rebuy);
+                                    rebuy_now.put(nick, safeRebuy);
                                 }
                             } else if (atRebuyLimit(nick)) {
                                 jugador.setSpectator(null);
@@ -19751,7 +19769,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             java.util.Iterator<Player> iterator = resisten.iterator();
                             while (iterator.hasNext()) {
                                 Player jugador = iterator.next();
-                                if (jugador.isExit()) {
+                                if (shouldRemoveExitedPlayerFromShowdown(jugador.isExit(), jugador.getDecision())) {
                                     iterator.remove();
                                 }
                             }
@@ -20246,6 +20264,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         GameFrame.getInstance().finTransmision(fin_de_la_transmision);
+    }
+
+    static boolean shouldRemoveExitedPlayerFromShowdown(boolean exited, int decision) {
+        return exited && decision != Player.ALLIN;
     }
 
     public void checkRebuyTime() {

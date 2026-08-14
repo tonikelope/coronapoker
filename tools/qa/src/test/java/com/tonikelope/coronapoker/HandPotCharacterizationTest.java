@@ -79,6 +79,20 @@ public class HandPotCharacterizationTest {
     }
 
     @Test
+    void exitedAllInStillCapsAndCompetesForItsPot() {
+        // A disconnect after committing all chips must not turn that all-in into
+        // dead money: the player remains entitled to the main pot.
+        HandPot pot = topPot(
+                p("a", 50.0, Player.ALLIN, false),
+                p("b", 100.0, Player.BET, true),
+                p("c", 100.0, Player.BET, true));
+
+        assertEquals(50.0, pot.getBet(), EPS, "the exited all-in caps the main pot");
+        assertEquals(150.0, pot.getTotal(), EPS, "the all-in competes for its matched chips");
+        assertEquals(100.0, pot.getSidePot().getTotal(), EPS, "only the deeper callers contest the excess");
+    }
+
+    @Test
     void twoDifferentAllInsMakeTwoLayeredSidePots() {
         // a all-in 2, b all-in 5, c contests 10. Layers: main 2x3=6,
         // side1 (5-2=3) x2 = 6, side2 (10-5=5) x1 = 5.

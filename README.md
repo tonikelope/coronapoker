@@ -263,7 +263,7 @@ including the headless bot smoke, is tagged slow and only selected by the
 explicit `slow-bot` profile.
 
 - **Fast lane (the default)** — domain, money, parsers, protocol and deterministic
-  smoke tests; ~600 tests in about a minute.
+  smoke tests; ~640 tests in about a minute.
 - **`slow-bot`** — bot-quality statistics, matchups, Monte-Carlo hand potential
   and the headless bot game-flow smoke. Its result is quality evidence for bots,
   not a substitute for a game-code regression test.
@@ -343,10 +343,13 @@ You can run the module standalone, but then you must publish the game jar first 
 
 ```bash
 mvn -DskipTests install                                       # publish CoronaPoker to your local ~/.m2
-mvn -f tools/qa/pom.xml test -Dcoronapoker.version=<root pom version>
+mvn -f tools/qa/pom.xml test -Dcoronapoker.version=<root pom version>       # fast, no bot quality
+mvn -f tools/qa/pom.xml test -P slow-bot -Dcoronapoker.version=<root pom version>  # bot quality only
 ```
 
-The same `-P slow` / `-P all` profiles apply.
+The standalone module also accepts `-P slow-crypto`, `-P slow-integration`,
+`-P slow` (all slow lanes) and `-P all` (fast plus every slow lane). These are
+always explicit; the bare command above never runs bot-quality simulations.
 </details>
 
 ### Which tests to run for what you touch

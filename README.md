@@ -256,10 +256,18 @@ java -jar target/CoronaPoker-<version>-jar-with-dependencies.jar
 
 The test suite lives in its own Maven module, **`tools/qa`**, kept deliberately separate from the game: `mvn package` at the repo root builds and ships the game **without** compiling or running a single test. The tests are maintainer tooling, not part of the distributed jar.
 
-They are **JUnit 5**, split into two lanes by an `@Tag("slow")` marker on the heavy classes:
+They are **JUnit 5**. Deterministic game-code tests are kept in the fast lane;
+the expensive tests carry `@Tag("slow")` and are split by purpose:
 
-- **Fast lane (the default)** — everything *except* the slow tests. ~600 tests in **about a minute**; this is what you run while working.
-- **Slow lane** — the heavy regression guards over the stable, rarely-touched subsystems: the bot-AI statistical matchups (`bot/harness`, `smoke/GameFlowSmoke`, the Monte-Carlo hand-potential test) and the crypto perf / differential / cascade suite. **Several minutes.**
+- **Fast lane (the default)** — domain, money, parsers, protocol and deterministic
+  smoke tests; ~600 tests in about a minute.
+- **`slow-bot`** — bot-quality statistics, matchups, Monte-Carlo hand potential
+  and the headless bot game-flow smoke. Its result is quality evidence for bots,
+  not a substitute for a game-code regression test.
+- **`slow-crypto`** — cryptographic performance, differential and cascade tests.
+- **`slow-integration`** — slow real-socket/stall integration checks.
+- **`slow`** — compatibility aggregate for all slow lanes; **`all`** runs fast
+  plus every slow lane. The slow lanes take several minutes.
 
 ### Running the tests
 
@@ -269,7 +277,16 @@ The easiest way is the **opt-in QA reactor** (`tools/reactor/pom.xml`). It build
 # Fast lane — the default. Game + all fast tests (~1 min).
 mvn -f tools/reactor/pom.xml test
 
-# Slow lane only — the bot-AI and crypto heavy tests.
+# Bot-quality lane only (statistical; does not replace fast game tests).
+mvn -f tools/reactor/pom.xml test -P slow-bot
+
+# Heavy crypto lane only.
+mvn -f tools/reactor/pom.xml test -P slow-crypto
+
+# Slow real-socket integration lane only.
+mvn -f tools/reactor/pom.xml test -P slow-integration
+
+# Compatibility aggregate — every slow lane.
 mvn -f tools/reactor/pom.xml test -P slow
 
 # Everything, fast + slow (~5 min). Run before a release.
@@ -298,17 +315,25 @@ The same `-P slow` / `-P all` profiles apply.
 | If you change… | Run |
 |---|---|
 | Game logic, pot / side-pot / blind / bet math, hand-integrity chains | **Fast lane** — it already guards these |
-| The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P slow`** — the statistical matchups + Monte-Carlo potential |
-| The **crypto** stack (`crypto/`, the SRA cascade) | **`-P slow`** — the perf / differential / cascade suite |
-| **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P slow`** for the socket-stall integration |
+| The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P slow-bot`** — statistical matchups + Monte-Carlo potential |
+| The **crypto** stack (`crypto/`, the SRA cascade) | **`-P slow-crypto`** — perf / differential / cascade suite |
+| **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P slow-integration`** for socket-stall checks |
 | Anything, **before committing or opening a PR** | **`-P all`** |
 | Before a **release** | **`-P all`** plus a manual in-game smoke |
 
-Rule of thumb: **fast lane on every change**, **slow lane when you edited that subsystem or before merging**, **the whole suite before a release**.
+Rule of thumb: **fast lane on every change**, the relevant slow lane when you
+edited that subsystem or before merging, and **`-P all` before a release**.
+Manual play is only a short complement for flows that genuinely require Swing,
+two live clients or human timing; it never replaces an automatable regression
+test. Record those steps and the environment in the audit report.
 
 ### Adding a test
 
-Put it in the matching package under `tools/qa/src/test/java`. If it is slow — a bot simulation, a crypto perf/fuzz test, anything over a few seconds — annotate the class with `@Tag("slow")` so it lands in the slow lane and the fast lane stays fast.
+Put it in the matching package under `tools/qa/src/test/java`. If it is slow — a
+bot simulation, a crypto perf/fuzz test, or a real-socket stall check — annotate
+it with `@Tag("slow")` and keep it in the matching `slow-bot`, `slow-crypto` or
+`slow-integration` package so its lane remains explicit. Fast unit/domain tests
+must not be hidden in a slow lane.
 
 ---
 

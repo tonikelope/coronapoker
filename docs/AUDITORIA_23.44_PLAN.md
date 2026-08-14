@@ -73,7 +73,10 @@ no permite saltarse TDD. Se elegirá el nivel más bajo que reproduzca el defect
 
 Cuando un flujo necesite GUI, red o temporización, la prueba de dominio no
 sustituye al smoke de integración. Deben existir ambos cuando cada uno cubra una
-parte distinta del fallo. Un smoke manual complementa TDD, nunca lo reemplaza.
+parte distinta del fallo. Un smoke manual complementa TDD, nunca lo reemplaza;
+queda reducido a UI, dos clientes vivos o timing humano inevitable. Todo lo
+demás se automatiza con unidad, integración, SQLite, protocolo o barreras
+deterministas.
 
 Los commits exclusivamente documentales o de ordenación de tests no son fixes de
 producción; se mantendrán separados y tendrán sus propias comprobaciones
@@ -489,7 +492,14 @@ La suite queda separada en:
 - `fast`: unidad, dominio, dinero, parsers y protocolos deterministas;
 - `integration/smoke`: SQLite, sockets, host/cliente, recovery y lifecycle;
 - `slow-bot`: matchups y simulaciones de calidad estadística de bots;
-- `slow-crypto`: pruebas criptográficas pesadas o diferenciales.
+- `slow-crypto`: pruebas criptográficas pesadas o diferenciales;
+- `slow-integration`: stalls y sockets reales que no deben bloquear el feedback
+  de código.
+
+En `tools/qa/pom.xml` las lanes lentas se pueden ejecutar por separado con los
+perfiles `slow-bot`, `slow-crypto` y `slow-integration`; `slow` es el agregado
+compatible y `all` reúne fast más todas las lentas. Los resultados estadísticos
+de bots nunca sustituyen el test determinista del bug de juego.
 
 Un fix de reglas no se aceptará solo porque pase un matchup estadístico; debe
 pasar primero sus pruebas deterministas y, si toca el flujo correspondiente, su

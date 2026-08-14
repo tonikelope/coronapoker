@@ -169,6 +169,70 @@
             </properties>
         </profile>
 
+        <!-- Bot-quality lane only. It deliberately selects the statistical
+             matchups, Monte-Carlo hand-potential test and the headless game-flow
+             smoke; it does not provide feedback for ordinary game-code changes. -->
+        <profile>
+            <id>slow-bot</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>slow</groups>
+                            <excludedGroups></excludedGroups>
+                            <includes combine.self="override">
+                                <include>**/bot/**/*.java</include>
+                                <include>**/smoke/GameFlowSmoke.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Heavy cryptographic/differential lane only. -->
+        <profile>
+            <id>slow-crypto</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>slow</groups>
+                            <excludedGroups></excludedGroups>
+                            <includes combine.self="override">
+                                <include>**/crypto/**/*.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Slow real-socket integration lane, kept apart from bot quality and
+             from deterministic game-code tests. -->
+        <profile>
+            <id>slow-integration</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>slow</groups>
+                            <excludedGroups></excludedGroups>
+                            <includes combine.self="override">
+                                <include>**/net/SocketStallIntegrationTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <!-- The whole suite, fast + slow. Run before a release. -->
         <profile>
             <id>all</id>

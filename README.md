@@ -269,6 +269,11 @@ the expensive tests carry `@Tag("slow")` and are split by purpose:
 - **`slow`** — compatibility aggregate for all slow lanes; **`all`** runs fast
   plus every slow lane. The slow lanes take several minutes.
 
+Each slow profile explicitly enables the `slow` tag and clears the default
+exclusion, so a successful slow-lane run must report at least one executed
+test. A `BUILD SUCCESS` with `Tests run: 0` is an invalid QA result and should
+be treated as a profile/classpath problem.
+
 ### Running the tests
 
 The easiest way is the **opt-in QA reactor** (`tools/reactor/pom.xml`). It builds the game and runs the tests against it in one reactor, so you don't have to `install` the game jar first or keep a version in sync:

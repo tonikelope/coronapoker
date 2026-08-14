@@ -82,3 +82,16 @@ siguiente hallazgo.
   infraestructura pendiente, no como cambio funcional.
 - Si una prueba de la familia no puede ejecutarse en este entorno, registrar
   ficha de no-cambio con el escenario, riesgo y test/instrumentación pendiente.
+
+## Evidencia de lanes lenta y de bots (2026-08-14)
+
+- Se corrigieron los perfiles `slow-bot`, `slow-crypto` y
+  `slow-integration`: antes heredaban `excludedGroups=slow` y podían terminar
+  con `BUILD SUCCESS` y cero tests. La corrección está en
+  `tools/qa/pom.xml` y se reprodujo con una prueba mínima de bot.
+- `slow-crypto`: 88/88 verdes; `slow-integration`: 3/3 verdes.
+- `slow-bot`: 25 tests completos (13 clases, volumen 200x50) verdes. Las
+  cuatro clases restantes se ejecutaron a 40x25: dos verdes y dos con media
+  positiva pero `t<2` por potencia muestral; una repetición completa requiere
+  NetBeans/usuario real y supera el timeout del sandbox. El detalle queda en
+  [`TEST-LANES-23.45.md`](TEST-LANES-23.45.md).

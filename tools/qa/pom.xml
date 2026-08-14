@@ -174,6 +174,10 @@
              smoke; it does not provide feedback for ordinary game-code changes. -->
         <profile>
             <id>slow-bot</id>
+            <properties>
+                <qa.groups>slow</qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -195,6 +199,10 @@
         <!-- Heavy cryptographic/differential lane only. -->
         <profile>
             <id>slow-crypto</id>
+            <properties>
+                <qa.groups>slow</qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -216,6 +224,10 @@
              from deterministic game-code tests. -->
         <profile>
             <id>slow-integration</id>
+            <properties>
+                <qa.groups>slow</qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
             <build>
                 <plugins>
                     <plugin>

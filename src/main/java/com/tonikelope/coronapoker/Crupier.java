@@ -5865,6 +5865,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Chooses the ordinal to expose after recovery.  The {@code hand.counter} column is the
+     * durable ordinal; a SQL row count is not (and can be affected by historical/void rows).
+     * An open hand is replayed at that same ordinal.  A hand already shown/closed is skipped, so
+     * the next fresh hand uses the following ordinal.
+     */
+    static int handCounterForRecovery(int persistedHandCounter, boolean replayOpenHand) {
+        int persisted = Math.max(0, persistedHandCounter);
+        return replayOpenHand ? Math.max(1, persisted) : persisted + 1;
+    }
+
+    // Kept package-visible so the recovery SQL contract is exercised against a real in-memory
+    // SQLite database.  The last hand's durable `counter`, not the number of rows, is the value
+    // that drives the table and log ordinal after recovery.
+    static final String RECOVERY_GAME_KEY_DATA_SQL = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, hand.hand_id_b64 as hand_id_b64, server, game.start, buyin, rebuy, play_time, hand.counter as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, blinds_time_type, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
+
+    static void bindRecoveryGameKeyDataQuery(PreparedStatement statement, int gameId) throws SQLException {
+        statement.setInt(1, gameId);
+        statement.setInt(2, gameId);
+    }
+
+    /**
      * Blocks until the local Crupier has progressed enough to safely serve a
      * REQ_SRA_UNLOCK_CHAIN for the requested phase, or until the timeout expires.
      *
@@ -8296,16 +8317,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             carta.resetearCarta(false);
         }
 
-        setContaManoLocal(this.conta_mano + 1);
-
-        if (GameFrame.MANOS == conta_mano && GameFrame.getInstance().isPartida_local()) {
-            Helpers.GUIRun(GameFrame.getInstance().getTapete().getCommunityCards()::hand_label_left_click);
-        }
-
-        Bot.BOT_COMMUNITY_CARDS.makeEmpty();
-        // Framed hand header (replaces the old asterisk-strip banner).
-        GameFrame.getInstance().getRegistro().print(
-                Helpers.framedTitle(Translator.translate("game.mano_2") + " (" + this.conta_mano + ")"));
+        final boolean recoveryRequestedForThisHand = GameFrame.isRECOVER();
 
         // Snapshot the current seat holders BEFORE rotating, to animate the dealer/blind chips
         // sliding from the previous seat to the new one. Null on the first hand, so the chips
@@ -8542,6 +8554,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         }
+
+        // Do this only AFTER recovery has classified the latest persisted hand.  Previously the
+        // header was printed at a provisional number and recuperarDatosClavePartida overwrote it
+        // with COUNT(hand.id): stopping at showdown therefore opened the next hand as MANO 1
+        // again.  An open hand replays at its durable counter; a closed/showdown hand starts the
+        // following one.  A recovery with no durable hand naturally starts at one.
+        if (recoveryRequestedForThisHand) {
+            setContaManoLocal(handCounterForRecovery(this.conta_mano, !saltar_primera_mano));
+        } else {
+            setContaManoLocal(this.conta_mano + 1);
+        }
+
+        if (GameFrame.MANOS == conta_mano && GameFrame.getInstance().isPartida_local()) {
+            Helpers.GUIRun(GameFrame.getInstance().getTapete().getCommunityCards()::hand_label_left_click);
+        }
+
+        Bot.BOT_COMMUNITY_CARDS.makeEmpty();
+        // Framed hand header is emitted only after the definitive recovery counter is known.
+        GameFrame.getInstance().getRegistro().print(
+                Helpers.framedTitle(Translator.translate("game.mano_2") + " (" + this.conta_mano + ")"));
 
         this.apuesta_actual = this.ciega_grande;
 
@@ -16636,14 +16668,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             try {
 
-                String sql = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, hand.hand_id_b64 as hand_id_b64, server, game.start, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, blinds_time_type, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
-
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(RECOVERY_GAME_KEY_DATA_SQL)) {
 
                     statement.setQueryTimeout(30);
-                    statement.setInt(1, this.sqlite_id_game);
-                    statement.setInt(2, this.sqlite_id_game);
-                    statement.setInt(3, this.sqlite_id_game);
+                    bindRecoveryGameKeyDataQuery(statement, this.sqlite_id_game);
 
                     try (ResultSet rs = statement.executeQuery()) {
 

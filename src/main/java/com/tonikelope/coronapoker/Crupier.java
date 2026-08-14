@@ -14016,7 +14016,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         while (iterator.hasNext()) {
             Player jugador = iterator.next();
-            if (!jugador.isActivo()) {
+            if (shouldRemoveInactivePlayerFromBettingRound(jugador.isActivo(), jugador.getDecision())) {
                 iterator.remove();
                 continue;
             }
@@ -20268,6 +20268,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     static boolean shouldRemoveExitedPlayerFromShowdown(boolean exited, int decision) {
         return exited && decision != Player.ALLIN;
+    }
+
+    static boolean shouldRemoveInactivePlayerFromBettingRound(boolean activo, int decision) {
+        return !activo && decision != Player.ALLIN;
     }
 
     public void checkRebuyTime() {

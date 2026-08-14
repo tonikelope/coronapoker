@@ -16,6 +16,8 @@
 package com.tonikelope.coronapoker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -90,6 +92,16 @@ public class HandPotCharacterizationTest {
         assertEquals(50.0, pot.getBet(), EPS, "the exited all-in caps the main pot");
         assertEquals(150.0, pot.getTotal(), EPS, "the all-in competes for its matched chips");
         assertEquals(100.0, pot.getSidePot().getTotal(), EPS, "only the deeper callers contest the excess");
+    }
+
+    @Test
+    void exitedAllInSurvivesNextStreetParticipantFilter() {
+        // rondaApuestas() runs this filter before every later street. An exited
+        // all-in must remain in resisten so the run-out and showdown can still
+        // evaluate its already committed hand.
+        assertFalse(Crupier.shouldRemoveInactivePlayerFromBettingRound(false, Player.ALLIN));
+        assertTrue(Crupier.shouldRemoveInactivePlayerFromBettingRound(false, Player.FOLD));
+        assertFalse(Crupier.shouldRemoveInactivePlayerFromBettingRound(true, Player.BET));
     }
 
     @Test

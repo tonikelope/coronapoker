@@ -106,7 +106,10 @@ harness/
 ```
 
 Every `*Test` class above is annotated `@Tag("slow")`, so the default fast
-Surefire lane skips them all — see § 9 for how to run them.
+Surefire lane skips them all — see § 9 for how to run them. This directory is
+the bot-quality lane, not a normal game-code regression suite; it is selected
+only by the explicit `slow-bot` profile. The deterministic evaluator adapter
+test remains in the fast lane, but statistical quality tests never do.
 
 The simulators reuse the production `Bot.java` unchanged. They do not
 hook into Swing, the GameFrame, or any networking code. Everything runs

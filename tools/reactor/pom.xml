@@ -18,10 +18,11 @@
       # (the fast lane is the DEFAULT; no profile needed)
       mvn -f tools/reactor/pom.xml -o test
 
-      # full suite, including the slow bot/harness statistical matchups
+      # full suite, including crypto, socket stalls and (only when requested)
+      # the slow bot/harness statistical matchups
       mvn -f tools/reactor/pom.xml -o test -P all
 
-      # ONLY the slow bot/harness statistical matchups
+      # slow lanes aggregate (bot quality remains a distinct package/profile)
       mvn -f tools/reactor/pom.xml -o test -P slow
 
       # a single test class
@@ -37,7 +38,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-qa-reactor</artifactId>
-    <version>23.41</version>
+    <version>23.45</version>
     <packaging>pom</packaging>
     <name>CoronaPoker QA reactor (opt-in aggregator)</name>
 

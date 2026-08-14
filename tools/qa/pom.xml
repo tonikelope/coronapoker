@@ -33,7 +33,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope.qa</groupId>
     <artifactId>coronapoker-bot-tests</artifactId>
-    <version>21.79</version>
+    <version>23.45</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -159,6 +159,17 @@
              the crypto perf/differential/cascade suite. Measured full suite
              ~4.6 min; fast lane well under a minute. See the Testing section in README.md. -->
 
+        <!-- Explicit name for the normal deterministic lane. The same
+             selection is already the default when no profile is supplied;
+             this profile makes CI/NetBeans invocations self-documenting. -->
+        <profile>
+            <id>fast</id>
+            <properties>
+                <qa.groups></qa.groups>
+                <qa.excludedGroups>slow</qa.excludedGroups>
+            </properties>
+        </profile>
+
         <!-- Only the slow tests. Run before merging or after touching the
              bot AI / crypto. -->
         <profile>
@@ -186,8 +197,13 @@
                         <configuration>
                             <groups>slow</groups>
                             <excludedGroups></excludedGroups>
+                            <!-- Keep bot quality narrowly scoped. The old
+                                 **/bot/**/*.java pattern also scanned fast
+                                 evaluator tests and helper classes, making the
+                                 lane look larger than its statistical scope. -->
                             <includes combine.self="override">
-                                <include>**/bot/**/*.java</include>
+                                <include>**/bot/harness/*Test.java</include>
+                                <include>**/bot/eval/MemoizedHandPotentialTest.java</include>
                                 <include>**/smoke/GameFlowSmoke.java</include>
                             </includes>
                         </configuration>
@@ -212,7 +228,7 @@
                             <groups>slow</groups>
                             <excludedGroups></excludedGroups>
                             <includes combine.self="override">
-                                <include>**/crypto/**/*.java</include>
+                                <include>**/crypto/*Test.java</include>
                             </includes>
                         </configuration>
                     </plugin>

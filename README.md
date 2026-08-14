@@ -57,7 +57,7 @@ Pure P2P, no central servers, no accounts and no third party logs. Your game exi
 - **Adjustable listening port**: defaults to 7234, configurable per game.
 - **Optional password protection** for the table itself, on top of channel encryption.
 - **Smart reconnection**: if a player drops, a 45-second base grace window holds their seat. Once the peer's reauthenticated reconnect intent reaches the host, the window extends to 80 seconds so a flaky link gets a real second chance before the table asks whether to remove them.
-- **Crash recovery**: every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot, for both host and clients.
+- **Crash recovery**: every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot, for both host and clients. An interrupted hand keeps its durable hand number; if showdown had already completed, recovery advances to the following hand number on both the table and the game log.
 - **Late-joiner observer mode**: a player invited mid-recovery watches the in-progress hand as a passive spectator (no cards dealt, no actions requested) and joins normally on the next hand.
 - **Recent-server list**: persisted history of past tables. Browse it with the up and down arrow keys in the Join dialog to reconnect to anyone you've played with before.
 - **Per-peer link telemetry**: host tracks round-trip latency and reconnection count per seat and broadcasts it so flaky links surface early.
@@ -82,7 +82,7 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Saved game presets** | Save an entire new-table setup (initial blinds and the chosen structure, buy-in, rebuy, blind increase/cap, hand limit, ante, straddle and bot difficulty) as a named profile and reload it in one click, just like custom blind ladders. A "Default" entry restores the factory setup. |
 | **Pause & join** | Pause anytime. New players can be added to a running session |
 | **IWTSTH** | "I Want To See That Hand"  |
-| **Rabbit Hunting** | Reveal what would have come on the remaining streets, toggleable |
+| **Rabbit Hunting** | Reveal what would have come on the remaining streets, toggleable. If you also show your hole cards, hovering your displayed hand highlights the resulting Rabbit combination regardless of which action came first. |
 | **Run It Twice** | On a multi-way all-in, the involved players vote to deal the remaining board twice and split each (side)pot between the two run-outs. Unanimous (a single NORMAL vote, or a vote timeout, cancels it), host-toggleable. |
 | **Spectator mode** | Busted-out players can stay at the table and watch the rest of the session |
 | **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (from high card up to royal flush) so newcomers learn how rankings form, browsed with up/down keys |

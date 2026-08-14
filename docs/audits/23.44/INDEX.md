@@ -49,6 +49,11 @@ siguiente hallazgo.
 
 ## Última evidencia
 
+- Fast lane sobre el artefacto 23.45 (POM auxiliar temporal, eliminada al
+  terminar): 734 tests en 128 clases; 725 pasan. Los 9 restantes son los
+  bloqueos de identidad/ACL de Windows ya aislados (3 assertions de
+  `IdentityKeypairAclSmoke` y 6 errores de `ReceiptSignatureTest`), no fallos
+  funcionales del juego.
 - Rojo: `HandPotCharacterizationTest` contra el artefacto 23.44: 15 tests, 1
   failure (`expected side-pot count 1, got 0`).
 - Rojo de la ampliación: contra el artefacto 23.44 faltaban los helpers de

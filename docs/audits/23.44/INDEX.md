@@ -95,3 +95,14 @@ siguiente hallazgo.
   positiva pero `t<2` por potencia muestral; una repetición completa requiere
   NetBeans/usuario real y supera el timeout del sandbox. El detalle queda en
   [`TEST-LANES-23.45.md`](TEST-LANES-23.45.md).
+
+- P0-001: `HandPotCharacterizationTest` ampliado a 17 tests con dos all-ins
+  desconectados en capas distintas. La mutación 23.44 produjo 2 rojos y la
+  lógica 23.45 quedó verde; commit TDD `d921b1d52`.
+- P0-002: `RebuyAmountValidationTest` ampliado a 4 tests (overflow, espacios,
+  `null` y headroom negativo); 4/4 verdes contra el JAR 23.45, commit TDD
+  `84490d8a8`. No se justifica otro cambio de producción sin smoke host/cliente.
+- Las dos familias P0 siguen abiertas únicamente en sus cruces reales de
+  host/cliente, SQLite, retransmisión y recuperación indicados en sus fichas;
+  no se relaja el veredicto criptográfico ni se convierte la lane estadística
+  de bots en una prueba funcional.

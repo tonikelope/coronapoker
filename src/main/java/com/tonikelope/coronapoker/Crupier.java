@@ -5035,7 +5035,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     static void clearImmediateRebuyOnDenied(Map<String, Integer> rebuyNow, String nick) {
-        if (rebuyNow != null && nick != null) {
+        applyCanonicalRemoteRebuy(rebuyNow, nick, 0);
+    }
+
+    /**
+     * Applies the host's canonical end-of-hand amount to a possibly optimistic
+     * client map. Zero is a denial/toggle-off and must remove the old request;
+     * otherwise an originator that received a clamped or denied relay would
+     * carry its raw local amount into the next hand.
+     */
+    static void applyCanonicalRemoteRebuy(Map<String, Integer> rebuyNow, String nick, int canonicalAmount) {
+        if (rebuyNow == null || nick == null) {
+            return;
+        }
+        if (canonicalAmount > 0) {
+            rebuyNow.put(nick, canonicalAmount);
+        } else {
             rebuyNow.remove(nick);
         }
     }
@@ -5121,14 +5136,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
 
                             if (GameFrame.getInstance().isPartida_local()) {
+                                // Relay to every peer, including the originator. A client
+                                // optimistically stores its spinner value before sending;
+                                // excluding it would leave a denied/clamped request alive
+                                // locally and diverge on the next hand.
                                 broadcastGAMECommandFromServer("REBUY#" + partes[3]
-                                        + (canonicalRebuy != null ? "#" + canonicalRebuy : ""), nick);
+                                        + (canonicalRebuy != null ? "#" + canonicalRebuy : ""), null);
                             }
 
                             if (partes.length > 4) {
                                 if (safeRebuy <= 0) {
                                     // Pressed SPECTATOR on their game over: explicit feedback
                                     // in the spectator visual.
+                                    applyCanonicalRemoteRebuy(rebuy_now, nick, 0);
                                     jugador.setSpectator(Translator.translate("rebuy.no_recompra"));
                                 } else if (deniedByLimit) {
                                     jugador.setSpectator(null);
@@ -5142,12 +5162,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} exceeds headroom {2} — clamped to {3}",
                                                 new Object[]{raw_rebuy, nick, headroom, safeRebuy});
                                     }
-                                    rebuy_now.put(nick, safeRebuy);
+                                    applyCanonicalRemoteRebuy(rebuy_now, nick, safeRebuy);
                                 }
                             } else if (deniedByLimit) {
+                                applyCanonicalRemoteRebuy(rebuy_now, nick, 0);
                                 jugador.setSpectator(null);
                             } else {
-                                rebuy_now.put(nick, GameFrame.rebuyHeadroom(jugador.getStack()));
+                                applyCanonicalRemoteRebuy(rebuy_now, nick, safeRebuy);
                             }
                         } else {
                             rejected.add(comando);

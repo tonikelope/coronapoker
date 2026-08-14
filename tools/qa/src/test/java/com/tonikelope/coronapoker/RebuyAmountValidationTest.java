@@ -39,6 +39,20 @@ class RebuyAmountValidationTest {
     }
 
     @Test
+    void canonicalEndOfHandZeroClearsAnOptimisticOriginatorEntry() {
+        Map<String, Integer> rebuyNow = new HashMap<>();
+        rebuyNow.put("nick", 75);
+
+        Crupier.applyCanonicalRemoteRebuy(rebuyNow, "nick", 0);
+
+        assertFalse(rebuyNow.containsKey("nick"),
+                "a host denial must clear the originator's optimistic end-of-hand rebuy");
+
+        Crupier.applyCanonicalRemoteRebuy(rebuyNow, "nick", 40);
+        assertEquals(40, rebuyNow.get("nick"));
+    }
+
+    @Test
     void rejectsOverflowWhitespaceAndInvalidHeadroomWithoutCreatingChips() {
         assertEquals(75, Crupier.normalizeRequestedRebuy(String.valueOf(Integer.MAX_VALUE), 75));
         assertEquals(0, Crupier.normalizeRequestedRebuy("2147483648", 75));

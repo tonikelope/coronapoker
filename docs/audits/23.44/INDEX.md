@@ -144,3 +144,6 @@ rebuy produjo 3 rojos en `RebuyAmountValidationTest`. No se modificó producció
 adicionalmente sin un rojo determinista. Al no existir harness de dos Swing ni
 ACL Windows real, esos cruces permanecen como no-cambio explícito; esta auditoría
 no usa pruebas manuales como criterio de cierre.
+
+El informe global de bugs, tests y mejoras está en
+[`docs/INFORME_23.45_AUDITORIA_FINAL.md`](../../INFORME_23.45_AUDITORIA_FINAL.md).

@@ -8320,6 +8320,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         final boolean recoveryRequestedForThisHand = GameFrame.isRECOVER();
 
+        // Independent of the definitive hand ordinal: clear the bot board at the same early
+        // point as a normal new hand, before recovery performs any potentially slow work.
+        Bot.BOT_COMMUNITY_CARDS.makeEmpty();
+
         // Snapshot the current seat holders BEFORE rotating, to animate the dealer/blind chips
         // sliding from the previous seat to the new one. Null on the first hand, so the chips
         // fly in from the center of the table.
@@ -8571,7 +8575,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.GUIRun(GameFrame.getInstance().getTapete().getCommunityCards()::hand_label_left_click);
         }
 
-        Bot.BOT_COMMUNITY_CARDS.makeEmpty();
         // Framed hand header is emitted only after the definitive recovery counter is known.
         GameFrame.getInstance().getRegistro().print(
                 Helpers.framedTitle(Translator.translate("game.mano_2") + " (" + this.conta_mano + ")"));

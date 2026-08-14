@@ -1,6 +1,8 @@
 # Smoke harness: invariantes rápidas para refactor
 
-Este paquete contiene los **smoke tests de invariantes** que se ejecutan antes de mergear cualquier sprint de refactor (ver `docs/refactoring-audit-2026-05-v2.md`).
+Este paquete contiene los **smoke tests de invariantes** que se ejecutan antes de
+mergear cambios de código (ver la sección **Testing** del `README.md` para las
+lanes y el orden de ejecución).
 
 ## Filosofía
 

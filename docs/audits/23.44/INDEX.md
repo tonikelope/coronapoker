@@ -127,3 +127,20 @@ siguiente hallazgo.
   host/cliente, SQLite, retransmisión y recuperación indicados en sus fichas;
   no se relaja el veredicto criptográfico ni se convierte la lane estadística
   de bots en una prueba funcional.
+
+## Auditoría adversaria automatizada (2026-08-14)
+
+La pasada sin pruebas manuales queda detallada en
+[`ADVERSARIAL-AUDIT-23.45.md`](ADVERSARIAL-AUDIT-23.45.md). Con semilla fija se
+ejecutaron 2.000 manos adversarias de pots y se amplió la matriz TDD de rebuys
+con límites enteros, overflow, texto hostil e idempotencia. La batería dirigida
+terminó 58/58; la fast limpia terminó 640 tests en 88 clases, con 631 verdes y
+los mismos 9 bloqueos ACL/identidad de Windows (3 fallos + 6 errores), sin fallo
+funcional nuevo. `slow-crypto` terminó 88/88 y `slow-integration` 3/3.
+
+Se aplicaron y restauraron mutaciones controladas: la regla antigua de all-in
+desconectado produjo 2 rojos en las caracterizaciones, y eliminar el cap de
+rebuy produjo 3 rojos en `RebuyAmountValidationTest`. No se modificó producción
+adicionalmente sin un rojo determinista. Al no existir harness de dos Swing ni
+ACL Windows real, esos cruces permanecen como no-cambio explícito; esta auditoría
+no usa pruebas manuales como criterio de cierre.

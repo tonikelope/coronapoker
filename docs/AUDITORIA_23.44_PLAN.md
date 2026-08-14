@@ -543,3 +543,26 @@ Siguiente acción exacta:
 
 El siguiente modelo debe continuar desde esa acción, no reiniciar la auditoría
 ni asumir que una prueba verde cubre un flujo no ejecutado.
+
+## 20. Auditoría adversaria automatizada (ejecutada)
+
+Antes del cierre de 23.45 se añadió una fase adversaria obligatoria, sin
+pruebas manuales: generación determinista de pots con semilla fija, matriz de
+límites y máquina de estados de rebuys, framing/socket hostil, y ejecución
+separada de `slow-crypto` y `slow-integration`. Cada resultado debe conservar
+la semántica TDD y los commits deben seguir siendo pequeños y reversibles.
+
+Estado de esta pasada:
+
+- `HandPotAdversarialInvariantTest`: 2.000 manos, conservación/eligibilidad
+  verdes; la mutación de la regla 23.44 rompe 2 caracterizaciones.
+- `RebuyAmountValidationTest`: 9 verdes; la mutación que quita el cap rompe 3.
+- Batería dirigida de pots/rebuys/framing: 58/58.
+- Fast limpia: 640 tests en 88 clases; 631 verdes y sólo 9 resultados de
+  identidad ACL de Windows ya clasificados.
+- `slow-crypto`: 88/88; `slow-integration`: 3/3.
+
+No se deben cerrar como verdes los cruces sin harness determinista de dos
+Swing/cliente ni la ACL del Windows real. Se documentan como no-cambio y no se
+introducen parches especulativos. El detalle reproducible está en
+`docs/audits/23.44/ADVERSARIAL-AUDIT-23.45.md`.

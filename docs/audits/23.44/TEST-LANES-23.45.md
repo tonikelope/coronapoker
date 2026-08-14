@@ -67,6 +67,18 @@ rendimiento, locks, Ristretto/SRA, rotaciones y shuffle.
 
 `SocketStallIntegrationTest`: 3 tests, 0 fallos y 0 errores.
 
+### Auditoría adversaria sin pruebas manuales
+
+La ejecución adversaria reproducible está descrita en
+[`ADVERSARIAL-AUDIT-23.45.md`](ADVERSARIAL-AUDIT-23.45.md). Añade 2.000 manos
+generadas con semilla fija, 9 casos de límites/estado de rebuy y la batería de
+framing/socket. La fast limpia posterior al cambio terminó 640 tests en 88
+clases: 631 verdes y sólo los 9 resultados conocidos de ACL/identidad Windows.
+Las mutaciones controladas de `HandPot.compite` y del cap de rebuy produjeron
+rojos antes de restaurar el código sano. No se mezclan estos resultados con la
+calidad estadística de bots ni se usa una prueba manual para cerrar los cruces
+de dos Swing/cliente o ACL real.
+
 ## Límites del entorno y siguiente verificación
 
 - El reactor `tools/reactor` sigue sin compilar QA en este Windows sandbox

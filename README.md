@@ -332,13 +332,21 @@ The same `-P slow` / `-P all` profiles apply.
 | The **crypto** stack (`crypto/`, the SRA cascade) | **`-P slow-crypto`** — perf / differential / cascade suite |
 | **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P slow-integration`** for socket-stall checks |
 | Anything, **before committing or opening a PR** | **`-P all`** |
-| Before a **release** | **`-P all`** plus a manual in-game smoke |
+| Before a **release** | **`-P all`** plus the adversarial automated audit; manual-only residuals are reported separately |
 
 Rule of thumb: **fast lane on every change**, the relevant slow lane when you
 edited that subsystem or before merging, and **`-P all` before a release**.
 Manual play is only a short complement for flows that genuinely require Swing,
 two live clients or human timing; it never replaces an automatable regression
 test. Record those steps and the environment in the audit report.
+
+For the 23.45 adversarial audit, no manual play is used as a gate. Run the
+deterministic pots/rebuys/property checks together with the fast lane, then run
+`-P slow-crypto` and `-P slow-integration` separately. The `-P slow-bot` lane is
+kept apart because its bot-quality matchups are statistical and intentionally
+slow; it is evidence about bot quality, not a substitute for a TDD regression
+test. Flows that require two Swing/client identities or the real Windows ACL
+remain explicit no-change items until a deterministic harness exists.
 
 ### Adding a test
 

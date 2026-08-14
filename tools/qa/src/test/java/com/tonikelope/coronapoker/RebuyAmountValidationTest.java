@@ -24,4 +24,13 @@ class RebuyAmountValidationTest {
         assertEquals("75", Crupier.canonicalRemoteRebuyAmount("120", 75));
         assertEquals("0", Crupier.canonicalRemoteRebuyAmount("not-a-number", 75));
     }
+
+    @Test
+    void rejectsOverflowWhitespaceAndInvalidHeadroomWithoutCreatingChips() {
+        assertEquals(75, Crupier.normalizeRequestedRebuy(String.valueOf(Integer.MAX_VALUE), 75));
+        assertEquals(0, Crupier.normalizeRequestedRebuy("2147483648", 75));
+        assertEquals(0, Crupier.normalizeRequestedRebuy(" 25 ", 75));
+        assertEquals(0, Crupier.normalizeRequestedRebuy("25", -1));
+        assertEquals("0", Crupier.canonicalRemoteRebuyAmount(null, 75));
+    }
 }

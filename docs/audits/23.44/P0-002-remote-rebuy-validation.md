@@ -60,6 +60,12 @@ Tests run: 3, Failures: 0, Errors: 0
 BUILD SUCCESS
 ```
 
+La regresión se amplió con overflow de entero, espacios, `null` y headroom
+negativo (`rejectsOverflowWhitespaceAndInvalidHeadroomWithoutCreatingChips`).
+La ejecución actual queda en 4/4 verde; el rojo histórico de 23.44 sigue siendo
+la compilación fallida por ausencia de los helpers, y no se abre otro cambio de
+producción porque el normalizador ya mantiene el importe canónico en 0..headroom.
+
 Vecinos verdes (48 tests): `HandPotCharacterizationTest`, `PotMathTest`,
 `BetRulesTest`, `BuyinRulesTest` y `RebuyAmountValidationTest`.
 

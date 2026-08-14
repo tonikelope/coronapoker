@@ -448,6 +448,16 @@ Actualizar la sección Testing de README.md al final, usando resultados medidos:
 Ejecutar cada comando documentado antes del commit. No conservar cifras
 históricas no verificadas.
 
+### Manual residual (mínimo)
+
+La prueba manual solo se abre después de agotar las alternativas automáticas.
+Se reserva para: renderizado Swing y foco de ventanas; dos clientes vivos
+interactuando con tiempos humanos; y una comprobación visual final de recovery
+cuando el defecto dependa de lo que ve la persona. Cada caso debe tener pasos,
+versión, sistema operativo, resultado esperado y resultado observado. Si se
+puede reproducir con una barrera, un socket local, SQLite temporal o una
+asercion de protocolo, deja de ser manual y entra en la suite correspondiente.
+
 ## 18. Verificación por commit y por lote
 
 Por commit funcional:

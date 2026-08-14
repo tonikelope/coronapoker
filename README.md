@@ -298,6 +298,14 @@ mvn -f tools/reactor/pom.xml test -Dtest=PotMathTest -Dsurefire.failIfNoSpecifie
 
 Add `-o` (offline) once your local Maven cache is warm to skip dependency checks. The bot simulations honour two volume knobs for fast local iteration, e.g. `-Dqa.sessions=40 -Dqa.hands=25`.
 
+If the opt-in reactor reports that game classes such as `Helpers` or `Crupier`
+are missing while compiling `tools/qa`, treat that as a Maven/Windows
+classpath or permissions problem, not as a game-test result. Run the standalone
+fallback from NetBeans instead: first `mvn -DskipTests install` at the root,
+then the `tools/qa` command below with the same root version. Record the
+environmental failure in the audit index and do not turn it into a production
+change.
+
 <details><summary><b>Running the <code>tools/qa</code> module on its own (without the reactor)</b></summary>
 
 You can run the module standalone, but then you must publish the game jar first and match its version:

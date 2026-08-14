@@ -55,3 +55,11 @@ Los cambios de esta fase solo se aceptan con una reproducción determinista y un
 - **Descartar:** no cambia producción, duplica 23.44, no reproduce el bug o amplía alcance sin prueba.
 
 Cada lote cerrará con un informe: escenario, severidad, archivos, invariante, prueba y decisión. La release solo avanza si no hay P0/P1 abierto y la batería correspondiente está verde.
+
+## Regla para cambios previamente aceptados
+
+Un fix que parezca correcto se somete igualmente a revisión de alcance: se
+sigue su dato desde la entrada hasta la persistencia, la red y la recuperación;
+se enumeran los estados vecinos y se prueban sus rutas de rechazo. Un hallazgo
+adyacente obliga a ampliar el parche y su regresión, o a retirar el cambio si
+no puede aislarse con seguridad.

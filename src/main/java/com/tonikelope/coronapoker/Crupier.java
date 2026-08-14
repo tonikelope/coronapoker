@@ -5026,6 +5026,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Canonical amount for the legacy {@code REBUY#nick} form, whose omitted
+     * amount means "use all available headroom".  The host must materialize
+     * that meaning before relaying it; otherwise a zero-headroom host can send
+     * an ambiguous command that a stale peer interprets as a positive rebuy.
+     */
+    static String canonicalLegacyRemoteRebuyAmount(int headroom, boolean deniedByLimit) {
+        return String.valueOf(deniedByLimit ? 0 : Math.max(0, headroom));
+    }
+
+    /**
+     * The rebuy-limit counter is authoritative only while processing a client
+     * request on the host.  A client receiving the host's canonical relay must
+     * not re-apply a stale local counter and turn an accepted amount into a
+     * denial.
+     */
+    static boolean hostDeniedByRebuyLimit(boolean host, boolean atLimit) {
+        return host && atLimit;
+    }
+
+    /**
      * Canonical amount for the immediate-rebuy command. The host is the bank:
      * peers must apply the same clamped value that the host accepted, not the
      * raw value supplied by a client whose local stack/headroom may differ.
@@ -5119,11 +5139,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // ends instantly, so without this there'd be no time to see the
                             // result); otherwise restore, and setSpectator below repaints over it.
                             int headroom = GameFrame.rebuyHeadroom(jugador.getStack());
-                            boolean deniedByLimit = atRebuyLimit(nick);
+                            boolean deniedByLimit = hostDeniedByRebuyLimit(
+                                    GameFrame.getInstance().isPartida_local(), atRebuyLimit(nick));
                             String canonicalRebuy = partes.length > 4
                                     ? canonicalRemoteRebuyAmount(partes[4], headroom, deniedByLimit)
-                                    : (deniedByLimit ? "0" : null);
-                            int safeRebuy = canonicalRebuy != null ? Integer.parseInt(canonicalRebuy) : headroom;
+                                    : canonicalLegacyRemoteRebuyAmount(headroom, deniedByLimit);
+                            int safeRebuy = Integer.parseInt(canonicalRebuy);
                             boolean recompra = safeRebuy > 0 && !deniedByLimit;
                             if (jugador instanceof RemotePlayer) {
                                 if (skip_countdown) {
@@ -5141,7 +5162,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // excluding it would leave a denied/clamped request alive
                                 // locally and diverge on the next hand.
                                 broadcastGAMECommandFromServer("REBUY#" + partes[3]
-                                        + (canonicalRebuy != null ? "#" + canonicalRebuy : ""), null);
+                                        + "#" + canonicalRebuy, null);
                             }
 
                             if (partes.length > 4) {

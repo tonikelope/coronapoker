@@ -39,6 +39,26 @@ class RebuyAmountValidationTest {
     }
 
     @Test
+    void legacyRebuyWithoutAmountGetsAnExplicitCanonicalWireAmount() {
+        // The old REBUY#nick form means "use all available headroom". It must
+        // still be materialized as a number before the host relays it: a zero
+        // host headroom must not become a positive rebuy on a stale peer.
+        assertEquals("75", Crupier.canonicalLegacyRemoteRebuyAmount(75, false));
+        assertEquals("0", Crupier.canonicalLegacyRemoteRebuyAmount(0, false));
+        assertEquals("0", Crupier.canonicalLegacyRemoteRebuyAmount(75, true));
+    }
+
+    @Test
+    void onlyTheHostMayApplyItsLocalRebuyLimitToAnIncomingDecision() {
+        // A client must trust the host's already-canonical amount. Reapplying a
+        // stale local counter would turn a host-accepted positive amount into a
+        // local denial and split the next hand.
+        assertTrue(Crupier.hostDeniedByRebuyLimit(true, true));
+        assertFalse(Crupier.hostDeniedByRebuyLimit(true, false));
+        assertFalse(Crupier.hostDeniedByRebuyLimit(false, true));
+    }
+
+    @Test
     void canonicalEndOfHandZeroClearsAnOptimisticOriginatorEntry() {
         Map<String, Integer> rebuyNow = new HashMap<>();
         rebuyNow.put("nick", 75);

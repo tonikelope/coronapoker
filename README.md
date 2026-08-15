@@ -369,7 +369,7 @@ Manual play is only a short complement for flows that genuinely require Swing,
 two live clients or human timing; it never replaces an automatable regression
 test. Record those steps and the environment in the audit report.
 
-For the 23.46 release validation, no manual play is used as a gate. Run the
+For the 23.47 release validation, no manual play is used as a gate. Run the
 deterministic pots/rebuys/property checks in the fast lane, then run
 `-P slow-crypto` and `-P slow-integration` separately. Do not run `-P slow-bot`
 as part of the normal audit unless the bot-quality question is explicitly in

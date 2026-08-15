@@ -2784,7 +2784,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // valid fields.
                                                                 if (partes_bundle.length < 7) {
                                                                     LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformed (fields={0}) — warning user", partes_bundle.length);
-                                                                    cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    cruB.markShuffleProofFailed(cruB.local_mega_packet);
+                                                                    cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                     return;
                                                                 }
                                                                 try {
@@ -2801,13 +2802,17 @@ public class WaitingRoomFrame extends JFrame {
                                                                             pocketCount, cruB.local_mega_packet,
                                                                             csvToBytes(partes_bundle[5]), csvToBytes(partes_bundle[6]),
                                                                             cruB.getMano());
-                                                                    cruB.getShuffleVerifyQueue().enqueue(job);
+                                                                    if (!cruB.getShuffleVerifyQueue().enqueue(job)) {
+                                                                        cruB.markShuffleProofFailed(cruB.local_mega_packet);
+                                                                        cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    }
                                                                 } catch (Exception bundleEx) {
                                                                     // Unparseable (invalid base64, etc.) = anomalous but ambiguous -> warn.
                                                                     // (Only jobs that DO parse and then fail the proof are reported as
                                                                     // "proven dishonest" from the queue; this is just malformation.)
                                                                     LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE unparseable — warning user", bundleEx);
-                                                                    cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    cruB.markShuffleProofFailed(cruB.local_mega_packet);
+                                                                    cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                 }
                                                             });
                                                             break;
@@ -2880,23 +2885,17 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
                                                                         return;
                                                                     }
-                                                                    // "require proof" GATE: I'm about to help reveal community = the window
-                                                                    // where a smuggled card would be read. If this deck comes from a FRESH
-                                                                    // deal I have NOT verified as an honest shuffle (the host never sent
-                                                                    // the bundle, or it arrived broken), warn ONCE. Warn-but-allow: could be
-                                                                    // a bug/network delay -> recommend leaving but let it continue (don't
-                                                                    // break the hand). The bundle arrives ~1s after dealing, well before the
-                                                                    // first community unlock -> zero false positives. Recover doesn't mark
-                                                                    // expect -> no warning.
-                                                                    if (Crupier.shouldWarnMissingShuffleProof(phase, megapacket,
-                                                                            crupier.dual_lock_expect_bundle_for, crupier.dual_lock_verified_megapacket,
-                                                                            crupier.dual_lock_warned_megapacket)) {
-                                                                        crupier.dual_lock_warned_megapacket = megapacket;
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: revealing community without a verified honest-shuffle proof for this deck — red log entry + popup");
-                                                                        // The unlock is still served (the hand is being played: cards already
-                                                                        // dealt). NOT blocked or forced to exit: logged in red + popup (once
-                                                                        // per game).
-                                                                        crupier.warnDeckUnverified();
+                                                                    // Fail closed at the smuggling read window. A proof still queued may
+                                                                    // finish during the bounded wait; missing, malformed or dishonest proof
+                                                                    // enters lockdown and this peer never contributes a community unlock.
+                                                                    if (crupier.awaitShuffleProofGate(phase,
+                                                                            Crupier.SHUFFLE_PROOF_GATE_TIMEOUT_MS)
+                                                                            != Crupier.ShuffleProofGateDecision.ALLOW) {
+                                                                        crupier.markShuffleProofFailed(megapacket);
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: refusing community unlock without a verified honest-shuffle proof");
+                                                                        crupier.triggerSecurityLockdown(
+                                                                                Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                        return;
                                                                     }
                                                                     java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
                                                                     if (items == null) {

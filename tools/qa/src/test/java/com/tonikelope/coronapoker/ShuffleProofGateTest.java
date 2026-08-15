@@ -6,8 +6,7 @@
 package com.tonikelope.coronapoker;
 
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ShuffleProofGateTest {
 
@@ -21,51 +20,46 @@ public class ShuffleProofGateTest {
     }
 
     @Test
-    public void freshUnverifiedCommunityWarns() {
-        // EL CASO QUE IMPORTA: reparto fresco, host no mando bundle, voy a revelar community -> aviso.
+    public void freshUnverifiedCommunityWaits() {
+        // A fresh deal must never reveal community until its proof has verified.
         byte[] m = deck(1);
-        assertTrue(Crupier.shouldWarnMissingShuffleProof(COMMUNITY, m, m, null, null),
-                "fresco + community + no verificado -> avisa");
+        assertEquals(Crupier.ShuffleProofGateDecision.WAIT,
+                Crupier.shuffleProofGateDecision(COMMUNITY, m, m, null, null),
+                "fresh + community + proof pending -> wait");
     }
 
     @Test
-    public void verifiedCommunityDoesNotWarn() {
-        // Caso honesto: el bundle verifico para este mazo -> NO avisa.
+    public void verifiedCommunityAllows() {
         byte[] m = deck(1);
-        assertFalse(Crupier.shouldWarnMissingShuffleProof(COMMUNITY, m, m, deck(1), null),
-                "verificado -> no avisa");
+        assertEquals(Crupier.ShuffleProofGateDecision.ALLOW,
+                Crupier.shuffleProofGateDecision(COMMUNITY, m, m, deck(1), null));
     }
 
     @Test
-    public void pocketPhaseDoesNotWarn() {
-        // Fase pocket no es la ventana de lectura del smuggle -> NO avisa.
+    public void pocketPhaseAllowsWhileProofIsPending() {
         byte[] m = deck(1);
-        assertFalse(Crupier.shouldWarnMissingShuffleProof(POCKET, m, m, null, null),
-                "fase pocket -> no avisa");
+        assertEquals(Crupier.ShuffleProofGateDecision.ALLOW,
+                Crupier.shuffleProofGateDecision(POCKET, m, m, null, null));
     }
 
     @Test
-    public void recoveredDeckDoesNotWarn() {
-        // Recover: el mazo restaurado NO se marco como 'expect' (no paso por el MEGAPACKET fresco) ->
-        // expect es de otro mazo (o null) -> NO avisa (el barajado se verifico pre-crash).
+    public void recoveredDeckWithoutPersistedVerificationRejects() {
         byte[] m = deck(2);
-        assertFalse(Crupier.shouldWarnMissingShuffleProof(COMMUNITY, m, deck(1), null, null),
-                "mazo de recover (expect != mazo) -> no avisa");
-        assertFalse(Crupier.shouldWarnMissingShuffleProof(COMMUNITY, m, null, null, null),
-                "mazo de recover (expect null) -> no avisa");
+        assertEquals(Crupier.ShuffleProofGateDecision.REJECT,
+                Crupier.shuffleProofGateDecision(COMMUNITY, m, null, null, null),
+                "recovery without a persisted proof must fail closed");
     }
 
     @Test
-    public void alreadyWarnedDoesNotWarnAgain() {
-        // Aviso unico por mazo: turn/river del mismo mazo no re-avisan.
+    public void failedProofRejects() {
         byte[] m = deck(1);
-        assertFalse(Crupier.shouldWarnMissingShuffleProof(COMMUNITY, m, m, null, deck(1)),
-                "ya avisado para este mazo -> no re-avisa");
+        assertEquals(Crupier.ShuffleProofGateDecision.REJECT,
+                Crupier.shuffleProofGateDecision(COMMUNITY, m, m, null, deck(1)));
     }
 
     @Test
-    public void nullMegapacketDoesNotWarn() {
-        assertFalse(Crupier.shouldWarnMissingShuffleProof(COMMUNITY, null, null, null, null),
-                "megapacket null -> no avisa");
+    public void nullMegapacketRejectsCommunityUnlock() {
+        assertEquals(Crupier.ShuffleProofGateDecision.REJECT,
+                Crupier.shuffleProofGateDecision(COMMUNITY, null, null, null, null));
     }
 }

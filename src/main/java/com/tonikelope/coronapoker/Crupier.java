@@ -996,20 +996,59 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
 
-    /**
-     * Pure decision for the "require shuffle proof" gate: warn when about to reveal
-     * community cards iff it's the community phase (the smuggle read window), the deck
-     * comes from a FRESH deal ({@code expect}), no honest bundle was verified for it
-     * ({@code verified}), and it hasn't warned already ({@code warned}). Isolated to be
-     * testable without a full game. Recover doesn't set {@code expect} => no warning.
-     */
-    public static boolean shouldWarnMissingShuffleProof(int phase, byte[] megapacket,
-                                                        byte[] expect, byte[] verified, byte[] warned) {
-        return phase != UNLOCK_PHASE_POCKET
-                && megapacket != null
-                && java.util.Arrays.equals(megapacket, expect)
-                && !java.util.Arrays.equals(megapacket, verified)
-                && !java.util.Arrays.equals(megapacket, warned);
+    public enum ShuffleProofGateDecision {
+        ALLOW, WAIT, REJECT
+    }
+
+    /** Pure, fail-closed policy used by the community-unlock gate. */
+    public static ShuffleProofGateDecision shuffleProofGateDecision(int phase, byte[] megapacket,
+                                                                     byte[] expect, byte[] verified,
+                                                                     byte[] failed) {
+        if (phase == UNLOCK_PHASE_POCKET) {
+            return ShuffleProofGateDecision.ALLOW;
+        }
+        if (megapacket == null) {
+            return ShuffleProofGateDecision.REJECT;
+        }
+        if (java.util.Arrays.equals(megapacket, verified)) {
+            return ShuffleProofGateDecision.ALLOW;
+        }
+        if (java.util.Arrays.equals(megapacket, failed)
+                || expect == null || !java.util.Arrays.equals(megapacket, expect)) {
+            return ShuffleProofGateDecision.REJECT;
+        }
+        return ShuffleProofGateDecision.WAIT;
+    }
+
+    /** Waits without holding a socket/game lock until verification reaches a terminal state. */
+    public ShuffleProofGateDecision awaitShuffleProofGate(int phase, long timeoutMs) {
+        long deadline = System.currentTimeMillis() + Math.max(0L, timeoutMs);
+        synchronized (shuffle_proof_gate_lock) {
+            ShuffleProofGateDecision decision;
+            while ((decision = shuffleProofGateDecision(phase, local_mega_packet,
+                    dual_lock_expect_bundle_for, dual_lock_verified_megapacket,
+                    dual_lock_failed_megapacket)) == ShuffleProofGateDecision.WAIT
+                    && !SECURITY_LOCKDOWN) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0L) {
+                    return ShuffleProofGateDecision.REJECT;
+                }
+                try {
+                    shuffle_proof_gate_lock.wait(Math.min(remaining, 1000L));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return ShuffleProofGateDecision.REJECT;
+                }
+            }
+            return decision;
+        }
+    }
+
+    public void markShuffleProofFailed(byte[] megapacket) {
+        synchronized (shuffle_proof_gate_lock) {
+            dual_lock_failed_megapacket = megapacket;
+            shuffle_proof_gate_lock.notifyAll();
+        }
     }
 
     /**
@@ -1036,7 +1075,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         @Override
                         public void onVerified(byte[] megapacket, int handId) {
                             if (java.util.Arrays.equals(megapacket, local_mega_packet)) {
-                                dual_lock_verified_megapacket = megapacket;
+                                synchronized (shuffle_proof_gate_lock) {
+                                    dual_lock_verified_megapacket = megapacket;
+                                    dual_lock_failed_megapacket = null;
+                                    shuffle_proof_gate_lock.notifyAll();
+                                }
+                                guardarFosilSRA();
                             }
                             LOGGER.log(Level.INFO, "SHUFFLE-VERIFY: deck verified OK (hand {0})", handId);
                             // Log: shuffle verified (possibly LATE, even for a hand that's
@@ -1055,17 +1099,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             LOGGER.log(Level.SEVERE,
                                     "SHUFFLE-VERIFY: deck PROVEN DISHONEST (hand {0}) — host cheating or bug, warning + red log entry",
                                     handId);
-                            // Deck PROVEN dishonest: the hand is played (cards already dealt),
-                            // logged in red + popup. Signed evidence already in the receipt +
-                            // disputed_hands.
-                            warnDeckUnverified();
+                            markShuffleProofFailed(megapacket);
+                            triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                         }
 
                         @Override
                         public void onMalformed(byte[] megapacket, int handId, Exception error) {
                             LOGGER.log(Level.SEVERE,
                                     "SHUFFLE-VERIFY: bundle not evaluable (hand " + handId + ") — warning", error);
-                            warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                            markShuffleProofFailed(megapacket);
+                            triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                         }
                     });
                     q.start();
@@ -1266,15 +1309,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile java.util.List<byte[]> cascade_rotation_proofs = null;                  // built in background
     // Proof of the last remote rotation step, parsed in requestRemoteRotation and read by the loop.
     private volatile byte[] last_remote_rotation_proof = null;
-    // "Require proof" gate: the client demands an honest-shuffle bundle for the deck of every FRESH
-    // deal. expect = deck of a fresh deal (set when processing the MEGAPACKET, NOT on recover, which
-    // restores via a different path -> no warning after recover, the shuffle was already verified
-    // pre-crash). verified = deck for which a bundle verified OK. warned = one-shot warning guard per
-    // deck. Keyed by the megapacket itself (changes every hand -> no reset needed). Read by the
-    // community-unlock handler: warns if it's about to reveal community without a verified shuffle.
+    // Fail-closed honest-shuffle gate. Recovery may restore VERIFIED only when the local fossil
+    // persisted that fact after verification; a megapacket by itself proves nothing.
     public volatile byte[] dual_lock_expect_bundle_for = null;
     public volatile byte[] dual_lock_verified_megapacket = null;
-    public volatile byte[] dual_lock_warned_megapacket = null;
+    public volatile byte[] dual_lock_failed_megapacket = null;
+    private final Object shuffle_proof_gate_lock = new Object();
     // Marks "a DUALLOCK_BUNDLE for this deck ARRIVED from the host" (set on receipt, before
     // parsing/verifying). Distinguishes a SLOW peer (bundle received but queue not drained yet ->
     // benign) from a host that never sent the proof (received != live deck -> suspicious). Keyed by megapacket.
@@ -1574,6 +1614,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // block the game. If a proof still doesn't arrive, that step degrades to "no proof" (the bundle
     // isn't broadcast, same as a proofless peer) — worst case a warning, never an incorrect deal or a cheat.
     private static final long CASCADE_ASYNC_PROOF_TIMEOUT_MS = 45000;
+    public static final long SHUFFLE_PROOF_GATE_TIMEOUT_MS = 60000;
 
     // Base64(SHA-256(deck)): content-addressed id of a step's deckOut, to match the client's async
     // proof (DECK_CASCADE_PROOF) to its step in the chain. Unique per hand, so a proof from a stale
@@ -2754,7 +2795,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 new Object[]{fullOk, rotProofsBg.size()});
                         if (fullOk) {
                             // The host also signs "deck verified" in its own receipt (its self-check).
-                            this.dual_lock_verified_megapacket = bgMega;
+                            synchronized (shuffle_proof_gate_lock) {
+                                this.dual_lock_verified_megapacket = bgMega;
+                                this.dual_lock_failed_megapacket = null;
+                                shuffle_proof_gate_lock.notifyAll();
+                            }
+                            guardarFosilSRA();
                             // Log: shuffle honesty verified locally by the host.
                             GameFrame gfBg = GameFrame.getInstance();
                             if (gfBg != null && gfBg.getRegistro() != null) {
@@ -6667,12 +6713,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         String orderMap = null;
                         String[] sraFossilParts = fosil.split("#");
                         byte[] megaPacket = null;
+                        boolean shuffleVerifiedInFossil = false;
 
                         for (String part : sraFossilParts) {
                             if (part.startsWith("ORDER@")) {
                                 orderMap = part.substring("ORDER@".length());
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
+                            } else if (part.equals("SHUFFLE_VERIFIED@1")) {
+                                shuffleVerifiedInFossil = true;
                             } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
                                 // Dual-lock: the community half was saved under SRAKEYS_COMMUNITY@ by
                                 // guardarFosilSRA. Restoring it is what lets cascadeAndDealCommunityPieces
@@ -6810,9 +6859,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         if (orderMap != null && megaPacket != null) {
                             this.local_mega_packet = megaPacket;
-                            // Recover: the shuffle was verified pre-crash and the deck comes from our
-                            // own (trusted) fossil -> mark it verified for the receipt (no false "unverified" alarm).
-                            this.dual_lock_verified_megapacket = megaPacket;
+                            this.dual_lock_expect_bundle_for = megaPacket;
+                            if (shuffleVerifiedInFossil) {
+                                this.dual_lock_verified_megapacket = megaPacket;
+                            } else {
+                                this.dual_lock_failed_megapacket = megaPacket;
+                            }
                             String[] orderTokens = orderMap.split(",");
                             java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
                             for (String token : orderTokens) {
@@ -6915,12 +6967,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String orderMap = null;
                     String[] sraFossilParts = fosil.split("#");
                     byte[] megaPacket = null;
+                    boolean shuffleVerifiedInFossil = false;
 
                     for (String part : sraFossilParts) {
                         if (part.startsWith("ORDER@")) {
                             orderMap = part.substring("ORDER@".length());
                         } else if (part.startsWith("FULLMEGAPACKET@")) {
                             megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
+                        } else if (part.equals("SHUFFLE_VERIFIED@1")) {
+                            shuffleVerifiedInFossil = true;
                         } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
                             // Dual-lock: the community half persisted by guardarFosilSRA.
                             this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
@@ -7052,9 +7107,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     if (orderMap != null && megaPacket != null) {
                         this.local_mega_packet = megaPacket;
-                        // Recover: the shuffle was verified pre-crash and the deck comes from our
-                        // own (trusted) fossil -> mark it verified for the receipt (no false "unverified" alarm).
-                        this.dual_lock_verified_megapacket = megaPacket;
+                        this.dual_lock_expect_bundle_for = megaPacket;
+                        if (shuffleVerifiedInFossil) {
+                            this.dual_lock_verified_megapacket = megaPacket;
+                        } else {
+                            this.dual_lock_failed_megapacket = megaPacket;
+                        }
                         String[] orderTokens = orderMap.split(",");
                         java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
                         for (String token : orderTokens) {
@@ -15072,6 +15130,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append(java.util.Base64.getEncoder().encodeToString(nickRing.getBytes("UTF-8"))).append(",");
             }
             fosil.append("#FULLMEGAPACKET@").append(java.util.Base64.getEncoder().encodeToString(this.local_mega_packet));
+            if (java.util.Arrays.equals(this.local_mega_packet, this.dual_lock_verified_megapacket)) {
+                fosil.append("#SHUFFLE_VERIFIED@1");
+            }
 
             byte[] unlockToSave = this.local_sra_unlock;
             if (unlockToSave == null) {

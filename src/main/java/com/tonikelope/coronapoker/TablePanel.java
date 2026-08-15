@@ -39,6 +39,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -109,6 +110,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     protected volatile boolean invalidate = false;
 
     protected final Object paint_lock = new Object();
+
+    // Auto-fit is launched from resize, fullscreen and zoom paths. Coalesce overlapping requests
+    // without holding a monitor across GUIRunAndWait: the zoom itself already serializes its
+    // worker phases, while this flag only prevents duplicate auto-fit workers.
+    private final AtomicBoolean auto_zoom_running = new AtomicBoolean(false);
 
     public RemotePlayer[] getRemotePlayers() {
         return remotePlayers;
@@ -2528,45 +2534,94 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
      *
      * @param reset if true, resets to the default zoom level before zooming out again
      */
-    public synchronized void autoZoom(boolean reset) {
+    public void autoZoom(boolean reset) {
+        if (java.awt.EventQueue.isDispatchThread()) {
+            Helpers.threadRun(() -> autoZoom(reset));
+            return;
+        }
 
-        for (Player jugador : getPlayers()) {
+        if (!auto_zoom_running.compareAndSet(false, true)) {
+            return;
+        }
 
-            double tapeteBottom = getLocationOnScreen().getY() + getHeight();
-            double tapeteRight = getLocationOnScreen().getX() + getWidth();
-            double playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
-            double playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
+        try {
+            GameFrame frame = GameFrame.getInstance();
+            if (frame == null || !hasOverflowingPlayer()) {
+                return;
+            }
 
-            if (playerBottom > tapeteBottom || playerRight > tapeteRight) {
-
-                if (reset && (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL)) {
-
-                    //RESET ZOOM
-                    Helpers.GUIRunAndWait(GameFrame.getInstance().getZoom_menu_reset()::doClick);
-
-                    tapeteBottom = getLocationOnScreen().getY() + getHeight();
-                    tapeteRight = getLocationOnScreen().getX() + getWidth();
-                    playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
-                    playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
-
-                }
-
-                while (playerBottom > tapeteBottom || playerRight > tapeteRight) {
-
-                    Helpers.GUIRunAndWait(GameFrame.getInstance().getZoom_menu_out()::doClick);
-
-                    tapeteBottom = getLocationOnScreen().getY() + getHeight();
-                    tapeteRight = getLocationOnScreen().getX() + getWidth();
-                    playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
-                    playerRight = ((JPanel) jugador).getLocationOnScreen().getX() + ((JPanel) jugador).getWidth();
-
-                    Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
-
+            boolean changed = false;
+            if (reset && GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
+                changed = frame.applyZoomLevelSynchronouslyForAutoZoom(GameFrame.DEFAULT_ZOOM_LEVEL);
+                if (changed) {
+                    settleLayoutAfterAutoZoom();
                 }
             }
 
-        }
+            while (hasOverflowingPlayer()) {
+                int next_level = GameFrame.ZOOM_LEVEL - 1;
+                if (!frame.applyZoomLevelSynchronouslyForAutoZoom(next_level)) {
+                    break;
+                }
+                changed = true;
+                settleLayoutAfterAutoZoom();
+            }
 
+            // Auto-fit can perform several adjacent level changes. Persist once after the final
+            // level instead of rewriting the whole preferences file for every step.
+            if (changed) {
+                Helpers.savePropertiesFileDeferred();
+            }
+        } finally {
+            auto_zoom_running.set(false);
+        }
+    }
+
+    /** Reads all seat bounds on the EDT, after any queued zoom UI work has been applied. */
+    private boolean hasOverflowingPlayer() {
+        final boolean[] overflowing = new boolean[]{false};
+        Helpers.GUIRunAndWait(() -> {
+            if (!isShowing() || getPlayers() == null) {
+                return;
+            }
+
+            try {
+                java.awt.Point table_location = getLocationOnScreen();
+                double table_bottom = table_location.getY() + getHeight();
+                double table_right = table_location.getX() + getWidth();
+
+                for (Player jugador : getPlayers()) {
+                    if (!(jugador instanceof JPanel) || !((JPanel) jugador).isShowing()) {
+                        continue;
+                    }
+
+                    java.awt.Point player_location = ((JPanel) jugador).getLocationOnScreen();
+                    double player_bottom = player_location.getY() + ((JPanel) jugador).getHeight();
+                    double player_right = player_location.getX() + ((JPanel) jugador).getWidth();
+                    if (player_bottom > table_bottom || player_right > table_right) {
+                        overflowing[0] = true;
+                        return;
+                    }
+                }
+            } catch (java.awt.IllegalComponentStateException ex) {
+                // The table is transitioning between native peers (e.g. fullscreen). A later
+                // resize/fullscreen callback will retry once the hierarchy is showing again.
+            }
+        });
+        return overflowing[0];
+    }
+
+    /** Flushes queued zoom mutations and validates the hierarchy before the next bounds read. */
+    private void settleLayoutAfterAutoZoom() {
+        Helpers.GUIRunAndWait(() -> {
+            revalidate();
+            java.awt.Container root = getRootPane();
+            if (root != null) {
+                root.validate();
+            } else {
+                validate();
+            }
+        });
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

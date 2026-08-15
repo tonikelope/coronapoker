@@ -1984,6 +1984,53 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    /**
+     * Applies one zoom level synchronously for the auto-fit worker.
+     *
+     * The menu listeners intentionally dispatch their heavy work to another worker. That is
+     * correct for a user click, but it means that invoking a menu item with doClick() cannot be
+     * used as a completion barrier: the listener returns before its worker has changed the
+     * table. Auto-fit calls this method directly so its next bounds measurement observes the
+     * completed zoom operation. The caller must not be the EDT.
+     *
+     * @return true when a valid, different level was applied
+     */
+    boolean applyZoomLevelSynchronouslyForAutoZoom(int target) {
+        if (java.awt.EventQueue.isDispatchThread()) {
+            throw new IllegalStateException("Auto-zoom must not run on the EDT");
+        }
+
+        if (Helpers.doubleSecureCompare(0f, 1f + (target * ZOOM_STEP)) >= 0) {
+            return false;
+        }
+
+        synchronized (ZOOM_LOCK) {
+            if (target == ZOOM_LEVEL) {
+                return false;
+            }
+            ZOOM_LEVEL = target;
+        }
+
+        Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+        Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+        zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+        InGameNotifyDialog.notifyZoom();
+
+        if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
+            for (Card carta : jugadas_dialog.getCartas()) {
+                carta.invalidateImagePrecache();
+                carta.refreshCard();
+            }
+            Helpers.GUIRun(jugadas_dialog::pack);
+        }
+
+        if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+            shortcuts_dialog.zoom(Helpers.DIALOG_ZOOM, null);
+        }
+
+        return true;
+    }
+
     public void refresh() {
         Helpers.GUIRun(() -> {
 

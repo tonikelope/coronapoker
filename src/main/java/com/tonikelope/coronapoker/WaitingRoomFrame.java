@@ -2382,20 +2382,8 @@ public class WaitingRoomFrame extends JFrame {
                                 chat_text = new StringBuffer(new String(Base64.getDecoder().decode(recibido.replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8"));
                             }
 
-                            if (hostIdPubkey == null || hostIdSig == null
-                                    || hostIdPubkey.length != 32 || hostIdSig.length != 64
-                                    || !IdentityManager.verifyJoin(this.session_id, server_nick, hostIdPubkey, hostIdSig)) {
-                                closeClientSocket();
-                                throw new IOException("Host identity missing, malformed, or self-signature invalid");
-                            }
-                            TOFUResolver.Resolution hostIdentityResolution = TOFUResolver.resolve(server_nick, hostIdPubkey);
-                            if (!isTofuAdmissionAllowed(hostIdentityResolution)) {
-                                closeClientSocket();
-                                throw new IOException("Host identity rejected by TOFU: " + hostIdentityResolution.getOutcome());
-                            }
-
-                            // Allocate only after both the remaining handshake reads and host
-                            // identity/TOFU validation have completed.
+                            // Keep the later bounded avatar decoder, while restoring the
+                            // pre-23.46 non-blocking TOFU behavior below.
                             File server_avatar = decodeRemoteAvatar(
                                     server_avatar_encoded, server_nick, "server intro");
                             nuevoParticipanteRemoto(server_nick, server_avatar, null, null, null, false,
@@ -2417,14 +2405,23 @@ public class WaitingRoomFrame extends JFrame {
                             // Identity: apply the host's identity to the freshly-created
                             // Participant. Verify self_sig against current session_id; on success,
                             // store on Participant and run TOFU.
-                            Participant hostPar = participantes.get(server_nick);
-                            if (hostPar != null) {
-                                hostPar.setIdentity_pubkey(hostIdPubkey);
-                                hostPar.setIdentity_self_sig(hostIdSig);
+                            if (hostIdPubkey != null && hostIdSig != null
+                                    && hostIdPubkey.length == 32 && hostIdSig.length == 64) {
+                                if (!IdentityManager.verifyJoin(this.session_id, server_nick, hostIdPubkey, hostIdSig)) {
+                                    LOGGER.log(Level.WARNING, "Intro identity bad self_sig for host {0}", server_nick);
+                                } else {
+                                    TOFUResolver.Resolution res = TOFUResolver.resolve(server_nick, hostIdPubkey);
+                                    Participant hostPar = participantes.get(server_nick);
+                                    if (hostPar != null) {
+                                        hostPar.setIdentity_pubkey(hostIdPubkey);
+                                        hostPar.setIdentity_self_sig(hostIdSig);
+                                    }
+                                    LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via intro",
+                                            new Object[]{server_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
+                                }
+                            } else {
+                                LOGGER.log(Level.WARNING, "Intro carried no host identity for {0}", server_nick);
                             }
-                            LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via intro",
-                                    new Object[]{server_nick, hostIdentityResolution.getOutcome(),
-                                        hostIdentityResolution.getSessionsCount(), hostIdentityResolution.isVerifiedOob()});
 
                             Helpers.GUIRunAndWait(() -> {
                                 status.setText(Translator.translate("status.conectado"));
@@ -3703,39 +3700,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                      break;
                                                                  }
 
-                                                                 if (!isBot && (partes_comando.length < 8
-                                                                         || "*".equals(partes_comando[6]) || "*".equals(partes_comando[7]))) {
-                                                                     LOGGER.log(Level.SEVERE, "NEWUSER carried no identity for {0}", nickNew);
-                                                                     borrarParticipante(nickNew);
-                                                                     closeClientSocket();
-                                                                     break;
-                                                                 }
-
-                                                                 if (partes_comando.length >= 8
+                                                                if (partes_comando.length >= 8
                                                                         && !"*".equals(partes_comando[6]) && !"*".equals(partes_comando[7])) {
                                                                     try {
                                                                         byte[] idPubkey = Base64.getDecoder().decode(partes_comando[6]);
                                                                         byte[] idSig = Base64.getDecoder().decode(partes_comando[7]);
-                                                                         if (idPubkey.length != 32 || idSig.length != 64) {
-                                                                             LOGGER.log(Level.WARNING, "NEWUSER identity malformed for {0}", nickNew);
-                                                                             borrarParticipante(nickNew);
-                                                                             closeClientSocket();
-                                                                             break;
-                                                                         } else if (!IdentityManager.verifyJoin(this.session_id, nickNew, idPubkey, idSig)) {
-                                                                             LOGGER.log(Level.WARNING, "NEWUSER identity bad self_sig for {0}", nickNew);
-                                                                             borrarParticipante(nickNew);
-                                                                             closeClientSocket();
-                                                                             break;
+                                                                        if (idPubkey.length != 32 || idSig.length != 64) {
+                                                                            LOGGER.log(Level.WARNING, "NEWUSER identity malformed for {0}", nickNew);
+                                                                        } else if (!IdentityManager.verifyJoin(this.session_id, nickNew, idPubkey, idSig)) {
+                                                                            LOGGER.log(Level.WARNING, "NEWUSER identity bad self_sig for {0}", nickNew);
                                                                         } else {
-                                                                             TOFUResolver.Resolution res = TOFUResolver.resolve(nickNew, idPubkey);
-                                                                             if (!isTofuAdmissionAllowed(res)) {
-                                                                                 LOGGER.log(Level.SEVERE, "TOFU rejected NEWUSER identity for {0}: {1}",
-                                                                                         new Object[]{nickNew, res.getOutcome()});
-                                                                                 borrarParticipante(nickNew);
-                                                                                 closeClientSocket();
-                                                                                 break;
-                                                                             }
-                                                                             Participant p = participantes.get(nickNew);
+                                                                            TOFUResolver.Resolution res = TOFUResolver.resolve(nickNew, idPubkey);
+                                                                            Participant p = participantes.get(nickNew);
                                                                             if (p != null) {
                                                                                 p.setIdentity_pubkey(idPubkey);
                                                                                 p.setIdentity_self_sig(idSig);
@@ -3743,11 +3719,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                             LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via NEWUSER",
                                                                                     new Object[]{nickNew, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
                                                                         }
-                                                                     } catch (Exception idex) {
-                                                                         LOGGER.log(Level.WARNING, "NEWUSER identity decode failed for " + nickNew, idex);
-                                                                         borrarParticipante(nickNew);
-                                                                         closeClientSocket();
-                                                                     }
+                                                                    } catch (Exception idex) {
+                                                                        LOGGER.log(Level.WARNING, "NEWUSER identity decode failed for " + nickNew, idex);
+                                                                    }
                                                                 }
                                                             } catch (Exception e) {
                                                             }
@@ -3784,39 +3758,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                          continue;
                                                                      }
 
-                                                                     if (!isListBot && (user_parts.length < 5
-                                                                             || "*".equals(user_parts[3]) || "*".equals(user_parts[4]))) {
-                                                                         LOGGER.log(Level.SEVERE, "USERSLIST carried no identity for {0}", list_nick);
-                                                                         borrarParticipante(list_nick);
-                                                                         closeClientSocket();
-                                                                         break;
-                                                                     }
-
-                                                                     if (user_parts.length >= 5
+                                                                    if (user_parts.length >= 5
                                                                             && !"*".equals(user_parts[3]) && !"*".equals(user_parts[4])) {
                                                                         try {
                                                                             byte[] idPubkey = Base64.getDecoder().decode(user_parts[3]);
                                                                             byte[] idSig = Base64.getDecoder().decode(user_parts[4]);
-                                                                             if (idPubkey.length != 32 || idSig.length != 64) {
-                                                                                 LOGGER.log(Level.WARNING, "USERSLIST identity malformed for {0}", list_nick);
-                                                                                 borrarParticipante(list_nick);
-                                                                                 closeClientSocket();
-                                                                                 break;
-                                                                             } else if (!IdentityManager.verifyJoin(this.session_id, list_nick, idPubkey, idSig)) {
-                                                                                 LOGGER.log(Level.WARNING, "USERSLIST identity bad self_sig for {0}", list_nick);
-                                                                                 borrarParticipante(list_nick);
-                                                                                 closeClientSocket();
-                                                                                 break;
+                                                                            if (idPubkey.length != 32 || idSig.length != 64) {
+                                                                                LOGGER.log(Level.WARNING, "USERSLIST identity malformed for {0}", list_nick);
+                                                                            } else if (!IdentityManager.verifyJoin(this.session_id, list_nick, idPubkey, idSig)) {
+                                                                                LOGGER.log(Level.WARNING, "USERSLIST identity bad self_sig for {0}", list_nick);
                                                                             } else {
-                                                                                 TOFUResolver.Resolution res = TOFUResolver.resolve(list_nick, idPubkey);
-                                                                                 if (!isTofuAdmissionAllowed(res)) {
-                                                                                     LOGGER.log(Level.SEVERE, "TOFU rejected USERSLIST identity for {0}: {1}",
-                                                                                             new Object[]{list_nick, res.getOutcome()});
-                                                                                     borrarParticipante(list_nick);
-                                                                                     closeClientSocket();
-                                                                                     break;
-                                                                                 }
-                                                                                 Participant p = participantes.get(list_nick);
+                                                                                TOFUResolver.Resolution res = TOFUResolver.resolve(list_nick, idPubkey);
+                                                                                Participant p = participantes.get(list_nick);
                                                                                 if (p != null) {
                                                                                     p.setIdentity_pubkey(idPubkey);
                                                                                     p.setIdentity_self_sig(idSig);
@@ -3824,11 +3777,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via USERSLIST",
                                                                                         new Object[]{list_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
                                                                             }
-                                                                         } catch (Exception idex) {
-                                                                             LOGGER.log(Level.WARNING, "USERSLIST identity decode failed for " + list_nick, idex);
-                                                                             borrarParticipante(list_nick);
-                                                                             closeClientSocket();
-                                                                         }
+                                                                        } catch (Exception idex) {
+                                                                            LOGGER.log(Level.WARNING, "USERSLIST identity decode failed for " + list_nick, idex);
+                                                                        }
                                                                     }
                                                                 } catch (Exception e) {
                                                                 }
@@ -4043,18 +3994,10 @@ public class WaitingRoomFrame extends JFrame {
         }
     }
 
-    static boolean isTofuAdmissionAllowed(TOFUResolver.Resolution resolution) {
-        return resolution != null
-                && (resolution.getOutcome() == TOFUResolver.Outcome.NEW
-                || resolution.getOutcome() == TOFUResolver.Outcome.MATCH);
-    }
-
-    static boolean isReservedRemoteNick(String nick) {
-        return nick != null && nick.startsWith("CoronaBot$");
-    }
-
     /**
-     * Stores an identity which has already passed self-signature and TOFU checks.
+     * Identity: stores the validated identity on the participant entry, runs the
+     * local TOFU resolution, and logs the outcome (NEW / MATCH / CHANGED). Called by
+     * the host right after a successful JOIN.
      */
     private void recordJoinIdentity(Participant par, String pubkeyB64, String selfSigB64) {
         try {
@@ -4062,6 +4005,9 @@ public class WaitingRoomFrame extends JFrame {
             byte[] sig = Base64.getDecoder().decode(selfSigB64);
             par.setIdentity_pubkey(pubkey);
             par.setIdentity_self_sig(sig);
+            TOFUResolver.Resolution res = TOFUResolver.resolve(par.getNick(), pubkey);
+            LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3})",
+                    new Object[]{par.getNick(), res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, "recordJoinIdentity failed for " + par.getNick(), ex);
         }
@@ -4408,8 +4354,7 @@ public class WaitingRoomFrame extends JFrame {
                             client_socket.close();
                         } catch (Exception ex) {
                         }
-                    } else if (isReservedRemoteNick(client_nick)
-                            || participantes.containsKey(client_nick) || nickCollisionNFC(client_nick)) {
+                    } else if (participantes.containsKey(client_nick) || nickCollisionNFC(client_nick)) {
                         // NICKFAIL covers both the exact-same nick AND one that collides in NFC
                         // form (same PLAYER_ID -> would break settlement consensus). See
                         // nickCollisionNFC.
@@ -4439,26 +4384,6 @@ public class WaitingRoomFrame extends JFrame {
                         } catch (Exception ex) {
                         }
                     } else {
-                        byte[] candidatePubkey;
-                        try {
-                            candidatePubkey = Base64.getDecoder().decode(partes[4]);
-                            TOFUResolver.Resolution identityResolution = TOFUResolver.resolve(client_nick, candidatePubkey);
-                            if (!isTofuAdmissionAllowed(identityResolution)) {
-                                LOGGER.log(Level.SEVERE, "TOFU rejected JOIN identity for {0}: {1}",
-                                        new Object[]{client_nick, identityResolution.getOutcome()});
-                                client_socket.close();
-                                net_server.getClient_threads().remove(Thread.currentThread().threadId());
-                                return;
-                            }
-                        } catch (Exception ex) {
-                            LOGGER.log(Level.SEVERE, "TOFU resolution failed during JOIN for " + client_nick, ex);
-                            try {
-                                client_socket.close();
-                            } catch (Exception ignored) {
-                            }
-                            net_server.getClient_threads().remove(Thread.currentThread().threadId());
-                            return;
-                        }
                         // Fourth field (#) ADDED to the same NICKOK command: the FULL config
                         // mirror (serialized GamePreset.Settings) so the newly joined client can
                         // populate its Game tab greyed out. It's an extra field on the SAME

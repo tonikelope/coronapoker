@@ -33,7 +33,7 @@ CoronaPoker was built with one non-negotiable principle: **nobody should ever be
 Every card is shuffled and locked collectively by **every player at the table** through a commutative Mental Poker (SRA) protocol, with a zero-knowledge **verifiable shuffle** that every player re-checks independently, so a malicious host cannot peek, duplicate or relocate a card. Pocket cards stay sealed end-to-end until showdown. Community cards unlock per street. **No single participant, not even the host, can see another player's hole cards or peek at the board before it is legitimately revealed**, and each hand is re-shuffled collectively, so distribution is verifiable and unbiasable. *(Built from scratch over Ristretto255, with DLEQ-chained dealing and a Bayer-Groth shuffle. Full details in the spec linked below.)*
 
 ### Per-nick cryptographic identity & signed actions
-Every player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows ICACLS-locked). Every betting action, every community-card reveal and every showdown reveal is signed under a domain-separated context. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history, and its closing state folds in the hand's **settlement** (who put in how much and who was paid how much), committing the pot payout alongside the actions. After the hand, peers exchange short **receipts** (`HAND_ID || H_final || flags || sig`). A divergent receipt (peers disagreeing on the actions, the board or the money) surfaces as a logged dispute. A first-contact identicon dialog lets two players verify each other's pubkey out-of-band (TOFU).
+Every player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows ICACLS-locked). Every betting action, every community-card reveal and every showdown reveal is signed under a domain-separated context. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history, and its closing state folds in the hand's **settlement** (who put in how much and who was paid how much), committing the pot payout alongside the actions. Before durable close, every peer enforces exact-cent conservation (`paid + closing carry = contributed + opening carry`) and exchanges signed receipts. A conservation error, divergent or missing receipt, or invalid-signature flag stops SQLite close and hand advancement, preserving the open state for recovery. TOFU pins the first key seen for the NFC-canonical nick; a later key change is rejected without replacing that pin. A first-contact identicon dialog lets two players verify each other's pubkey out-of-band.
 
 ### End-to-end encrypted channels
 All traffic between players is encrypted with **AES-256-CBC + HMAC-SHA256** over keys negotiated via **ECDH key exchange**. Anyone on the network path sees only opaque blocks. Game state, chat messages and player actions are unreadable. The recovery payload reader installs a strict **`ObjectInputFilter` whitelist** (HashMap / String / numeric boxes only, 10 MB cap, 20-deep) so a malicious host cannot exploit Java deserialization gadgets.
@@ -41,8 +41,8 @@ All traffic between players is encrypted with **AES-256-CBC + HMAC-SHA256** over
 ### Password-bound keys
 In password-protected games the symmetric channel keys are derived from the password with **HMAC-SHA512** over the raw ECDH shared secret. A passive MITM cannot complete the handshake without the password.
 
-### Atomic security lockdown
-Any cryptographic anomaly (an off-curve point, a bad Ed25519 signature, a mismatched community reveal, an early-cascade attack) flips an atomic lockdown flag that immediately aborts the hand and refuses further commands from the offending peer, logged with a precise reason.
+### Context-aware security response
+Structural SRA failures, forged community reveals and unsafe early-cascade requests trigger immediate lockdown or MISDEAL. An invalid signed betting `ACTION` is neutralised as a deterministic synthetic fold, recorded in the hand flags and causes receipt consensus to reject the durable close. Each response is logged with its precise reason.
 
 ### Fully decentralised
 Pure P2P, no central servers, no accounts and no third party logs. Your game exists only between the machines at the table.
@@ -57,7 +57,7 @@ Pure P2P, no central servers, no accounts and no third party logs. Your game exi
 - **Adjustable listening port**: defaults to 7234, configurable per game.
 - **Optional password protection** for the table itself, on top of channel encryption.
 - **Smart reconnection**: if a player drops, a 45-second base grace window holds their seat. Once the peer's reauthenticated reconnect intent reaches the host, the window extends to 80 seconds so a flaky link gets a real second chance before the table asks whether to remove them.
-- **Crash recovery**: every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot, for both host and clients. An interrupted hand keeps its durable hand number; if showdown had already completed, recovery advances to the following hand number on both the table and the game log.
+- **Crash recovery**: every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot, for both host and clients. Hand creation commits the hand row and its complete unique balance roster atomically and publishes the generated id only after commit. Normal close and MISDEAL likewise commit metadata and the exact final/refunded roster atomically; any failed row rolls the operation back and prevents advancement. An interrupted hand keeps its durable hand number; if showdown had already completed, recovery advances to the following hand number on both the table and the game log.
 - **Late-joiner observer mode**: a player invited mid-recovery watches the in-progress hand as a passive spectator (no cards dealt, no actions requested) and joins normally on the next hand.
 - **Recent-server list**: persisted history of past tables. Browse it with the up and down arrow keys in the Join dialog to reconnect to anyone you've played with before.
 - **Per-peer link telemetry**: host tracks round-trip latency and reconnection count per seat and broadcasts it so flaky links surface early.
@@ -161,7 +161,7 @@ Walkie-talkie style, push-to-record: **hold a key (F9 by default, rebindable), s
 Right-click any speaker icon for the audio settings dialog: **master volume** (two-way synced with the global Shift + Up/Down shortcut, persisted across sessions), **output device** selection with instant hot-switching (background music jumps to the new device immediately), and **microphone** enablement, device selection and push-to-record key binding for voice messages.
 
 ### Player avatars
-Each player picks a local **avatar image** (or falls back to a built-in default) that the host distributes to the rest of the table at join time. Bots use a dedicated bot avatar. Avatars are decorative, not authoritative. Identity binding lives in the Ed25519 keypair (see the Security section), and a separate **identicon dialog** lets you compare deterministic mosaics out-of-band: at the table, click a player's avatar for their **Ed25519 pubkey** identicon (with a TOFU "mark verified" button to remember future connections). In the waiting room, right-click your own nick for the **session-key (AES channel)** identicon for detecting a network MITM.
+Each player picks a local **avatar image** (or falls back to a built-in default) that the host distributes to the rest of the table at join time. Remote PNG/JPEG/GIF avatars are rejected before rasterization when their Base64/decoded size, dimensions, frame count or total canvas work exceeds the bounded policy; temporary files and thumbnails are owned by the room session and cleaned together. Client rosters are capped at the same ten participants as the host before any avatar allocation. Bots use a dedicated bot avatar. Avatars are decorative, not authoritative. Identity binding lives in the Ed25519 keypair (see the Security section), and a separate **identicon dialog** lets you compare deterministic mosaics out-of-band: at the table, click a player's avatar for their **Ed25519 pubkey** identicon (with a TOFU "mark verified" button to remember future connections). In the waiting room, right-click your own nick for the **session-key (AES channel)** identicon for detecting a network MITM.
 
 ### Action sounds & character voices
 Distinct sounds for every action (deal, check, call, raise, fold, all-in, showdown, winner) plus comedy voice clips that can be triggered on common actions. Everything is toggleable and replaceable.
@@ -263,7 +263,7 @@ including the headless bot smoke, is tagged slow and only selected by the
 explicit `slow-bot` profile.
 
 - **Fast lane (the default)** — domain, money, parsers, protocol and deterministic
-  smoke tests; ~660 tests in about a minute.
+  smoke tests; ~700 tests in about a minute.
 - **`slow-bot`** — bot-quality statistics, matchups, Monte-Carlo hand potential
   and the headless bot game-flow smoke. Its result is quality evidence for bots,
   not a substitute for a game-code regression test.
@@ -369,7 +369,7 @@ Manual play is only a short complement for flows that genuinely require Swing,
 two live clients or human timing; it never replaces an automatable regression
 test. Record those steps and the environment in the audit report.
 
-For the 23.45 adversarial audit, no manual play is used as a gate. Run the
+For the 23.46 release validation, no manual play is used as a gate. Run the
 deterministic pots/rebuys/property checks in the fast lane, then run
 `-P slow-crypto` and `-P slow-integration` separately. Do not run `-P slow-bot`
 as part of the normal audit unless the bot-quality question is explicitly in

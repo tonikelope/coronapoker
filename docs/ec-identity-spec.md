@@ -14,9 +14,9 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 
 | Vector | Defense |
 |---|---|
-| Hostile host substituting another player's identity | Ed25519 long-term keys + silent TOFU pinning + optional OOB fingerprint comparison via identicons |
+| Hostile host substituting another player's established identity | Ed25519 long-term keys + NFC-canonical TOFU pinning; changed keys preserve the old pin and fail admission. Optional OOB fingerprint comparison upgrades the pin |
 | Hostile host rewriting hand history (action injection, reordering) | Per-action Ed25519 signatures + `H_t` hash chain with `PREV_H` binding |
-| Hostile host or peer reporting a false pot payout | Each peer recomputes the hand's settlement independently and binds it into `H_final` as a terminal record (§5.3). A divergent payout diverges the signed receipt |
+| Hostile host or peer reporting a false pot payout | Each peer recomputes and conserves the settlement independently, binds it into `H_final`, and refuses durable close when receipts diverge (§5.3, §6) |
 | Network MITM on the ECDH handshake | `Helpers.deriveChannelSecret` (HMAC-SHA512 binding with the shared password) + session-key identicon for OOB compare (waiting room, right-click your own nick) |
 | Cross-recipient board fork (host announces different community cards to different peers) | Per-recipient encrypted community pieces decoded locally, cross-checked against a host-signed `ACTION_COMMUNITY` reveal absorbed into every peer's `H_t` |
 | Post-game disputes about what actions occurred | Final receipts signed with Ed25519 identity keys, archivable as evidence |
@@ -25,10 +25,10 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 
 - **Local trojan / Ring-0 attacker on a victim's machine.** Private keys live under `<user.home>/.coronapoker/` and in JVM heap. A sufficiently privileged local attacker reads them. Out of scope.
 - **MITM during the first encounter between peers that never met before.** TOFU has no anchor on first contact. Mitigation is **optional, opt-in** OOB fingerprint comparison via the identicon dialog. Never forced, never blocking.
-- **Collusion of N-1 peers against 1 victim.** Inherent to any consensus without a trusted third party. The victim sees the divergent receipt in the consensus log and can refuse to settle informally.
+- **Collusion of N-1 peers against 1 victim.** Inherent to any consensus without a trusted third party. Divergent/missing receipts automatically block durable close, but colluders can still deny service or present one consistent dishonest view.
 - **Cross-device identity portability.** Each install generates its own keypair per nick. A player using the same nick on two machines will present a different pubkey on each. That is the natural and correct behavior.
-- **Identification by pubkey for stats/recover.** Nick remains the identifier for SQLite stats and recovery. No changes to the existing stats/recover schema.
-- **Chain recovery on mid-hand reconnection.** A peer that drops mid-hand and reconnects cannot rejoin the in-progress hand. Its absent receipt makes that hand close as `MISSING` for it.
+- **Identification by pubkey for stats/recover.** Nick remains the logical identity for SQLite stats and recovery. The balance table is migrated to exactly one row per `(id_hand, player)`.
+- **Chain recovery on mid-hand reconnection.** A peer that drops mid-hand and reconnects cannot rejoin the in-progress hand. An absent receipt is classified `MISSING` and prevents durable close/advance.
 
 ---
 
@@ -50,7 +50,7 @@ An Ed25519 keypair is generated on first use of a given nick on a given machine.
   - Windows: `icacls /inheritance:r /grant:r <user>:(F)`: strip inheritance, grant full control to the current user only.
   - The `.pub` sidecar is public by definition and gets no restrictive ACL.
 - **At-rest encryption**: deliberately not done. FS permissions are the user's responsibility. A leaked privkey ⇒ delete the file and re-pair via TOFU.
-- **No rotation**: deleting the file generates a fresh keypair next launch. Peers see a silent TOFU pubkey change on next connect.
+- **No automatic rotation**: deleting the file generates a fresh keypair next launch. Peers with an existing pin reject the changed key; rotation requires an explicit local trust/reset workflow.
 - **Fail-loud at use**: if `<user.home>/.coronapoker/` cannot be created or the keypair cannot be written/loaded, the manager records the error and reports `isReady() == false`. Networked code paths check `isReady()`. Any attempt to `sign()` without a ready identity throws. The app does not fall back to an ephemeral in-memory identity for networked games.
 - **Singleton**: `IdentityManager.initializeForNick(nick)` reuses the existing instance when the canonical nick is unchanged and swaps to a fresh per-nick instance when the nick changes.
 
@@ -61,8 +61,8 @@ The nick identifies a **player**. The keypair is bound to that nick **on a speci
 Implications, all expected and correct:
 
 - Two players sharing one machine: two nicks, two distinct keypair files. `known_identities` has one row per nick.
-- One player using two machines: the same nick yields a different keypair on each machine, so peers see the pubkey change when the player switches devices. `verified_oob` resets to 0 (unverified) silently.
-- An impostor claiming another player's nick is accepted silently into TOFU, but per-action signatures expose them at their first action: they cannot produce a signature matching the genuine pinned pubkey.
+- One player using two machines: the same nick yields a different keypair on each machine, so peers with an existing pin reject the second machine until trust is explicitly reset.
+- An impostor claiming an already-pinned nick is rejected during admission. First contact remains ordinary TOFU and therefore still needs password/OOB verification when that risk matters.
 
 ### 2.3 Fingerprint format
 
@@ -121,13 +121,14 @@ After verifying the self-sig, each peer resolves `(nick, pubkey)` against its lo
 |---|---|---|
 | `NEW`: unknown nick | `INSERT` row, `sessions_count=1`, `verified_oob=0` | 0 (unverified) |
 | `MATCH`: known nick, pubkey byte-identical | `UPDATE last_seen`, `sessions_count++`. `verified_oob` untouched | unchanged (0 or 1) |
-| `CHANGED`: known nick, pubkey differs | `UPDATE pubkey`, `last_seen`, `sessions_count++`, **`verified_oob = 0`** (last-write-wins) | reset to 0 |
+| `CHANGED`: known canonical nick, pubkey differs | Return `CHANGED`; a preceding unambiguous legacy-alias migration may canonicalize the row, but the pinned pubkey, trust flag and counter are preserved | unchanged |
+| `ERROR`: alias conflict or storage/migration failure | Fail closed; a completed alias migration may precede a later storage error, but no key rotation or trust reset occurs | unchanged |
 
-**No blocking modal.** On `CHANGED` the new pubkey silently replaces the old one (a `WARNING` is logged). The user only discovers it by opening the identity identicon dialog, which reflects the current verification state. There is no passive at-a-glance indicator.
+**Fail-closed admission, no modal.** `JOIN`, server intro, `NEWUSER` and `USERSLIST` admit only `NEW` or byte-identical `MATCH`. `CHANGED`/`ERROR`, missing identity, malformed keys or invalid self-signatures close the relevant channel before a key is installed. TOFU keys are indexed by NFC-canonical nick; an unambiguous legacy alias is migrated, while conflicting aliases fail closed. There is still no passive at-a-glance indicator.
 
 ### Manual verification
 
-The identity identicon dialog offers a **"Verify identity"** button. Clicking it runs `UPDATE known_identities SET verified_oob = 1 WHERE nick = ?` (guarded by a byte-exact check that the stored pubkey still matches the one being verified). `markVerified` / `isVerified` persist and read this flag. The dialog then shows "✓ Identity verified" instead of the button, and the flag stays set across sessions until the pubkey changes (which resets it to 0).
+The identity identicon dialog offers a **"Verify identity"** button. Clicking it runs `UPDATE known_identities SET verified_oob = 1 WHERE nick = ?` (guarded by a byte-exact check that the stored pubkey still matches the one being verified). `markVerified` / `isVerified` persist and read this flag. The dialog then shows "✓ Identity verified" instead of the button. A rejected key change cannot clear this flag or replace its key.
 
 ---
 
@@ -292,13 +293,14 @@ After the last action and community-card reveal, the chain absorbs one terminal 
 Layout ([`SettlementRecord.java`](../src/main/java/com/tonikelope/coronapoker/SettlementRecord.java), big-endian, no padding):
 
 ```
-HAND_ID(16) || N(uint8)
+HAND_ID(16) || VERSION(0x02) || N(uint8)
   || per participant, sorted ascending by PLAYER_ID:
        PLAYER_ID(32) || bote_cents(int64) || pagar_cents(int64)
-  || sobrante_cents(int64)        // odd-chip remainder, credited to no player
+  || opening_remainder_cents(int64)
+  || closing_remainder_cents(int64)
 ```
 
-`bote_cents` is the player's total contribution to the pot, `pagar_cents` the chips it was paid, `sobrante_cents` the table-level odd-chip remainder. Amounts are integer cents at chip precision (host-independent). Participants are sorted by `PLAYER_ID` so map iteration order does not affect the bytes. `SettlementRecord.encode` sorts and rejects duplicate `PLAYER_ID`s but applies no other filter; which participants appear at all (e.g. skipping any with neither a contribution nor a payout) is decided by the **caller** that assembles the entry list, not by the encoder.
+`bote_cents` is the player's total contribution and `pagar_cents` the amount paid. The two remainder fields distinguish carry entering and leaving the hand. `Crupier.settlementAmountToCents` rejects non-finite, negative or out-of-range floating-point inputs. A recovered negative carry separately latches `settlement_accounting_invalid`. Once values are integer cents, `SettlementRecord.amountsBalance` enforces with overflow-safe arithmetic: `Σ pagar + closing_remainder = Σ bote + opening_remainder`. Participants are sorted by `PLAYER_ID`; duplicate ids are rejected. The legacy three-argument encoder with only a closing remainder remains solely for historical fixtures/records; production consensus must use v2.
 
 Absorb (a distinct domain separator keeps a settlement table from ever being parsed as an action record):
 
@@ -355,25 +357,25 @@ The outcomes, in descending priority (only the strongest is surfaced):
 | `DECK_UNVERIFIED` | otherwise clean, but some peer's proof is still verifying (bit1 alone, slow peer) | WARNING (silent: JUL + row, no popup) | `reason='DECK_UNVERIFIED'` |
 | `OK` | all present, unanimous, no flag bit set | INFO | No |
 
-**The hand always settles** in every case. Consensus is **signaletic, not gating**. The existing `cancelarManoYDevolverApuestas` / `MISDEAL` flow is untouched and reserved for genuine SRA-level catastrophes.
+Consensus gates durable close for `DIVERGENT`, `MISSING` and `INVALID_SIG_SEEN`. The engine ends transmission and skips SQL close, reset and advancement. It does not reverse the already-computed payout; the open SQL hand and in-memory accounting remain available for recovery. `DECK_NO_PROOF` and `DECK_UNVERIFIED` remain forensic receipt outcomes because the separate shuffle-proof gate already blocked any unverified community unlock before reveal.
 
 #### Why divergence is essentially proof of a malicious host
 
 Every action is individually Ed25519-signed by its emitter and the `H_t` chain is computed locally by each peer from the actions received over TCP. For two peers to reach byte-different `H_final`, the host must have sent different/omitted/reordered actions to different peers (or a serious relay bug did). TCP guarantees in-order delivery or breaks the connection, so packet loss manifests as a **missing** receipt, never a silently **divergent** one. Hence `DIVERGENT` is smoking-gun evidence of host manipulation. `MISSING` is ambiguous and treated more mildly.
 
-#### Why not abort on divergence
+#### Why preserve rather than refund
 
-Aborting would be a trivial griefing vector (any peer could rage-quit mid-river to cancel an unwanted hand). Settling and warning fits the friendly home-game model. Humans at the table discuss offline, and the strong wording of the divergent alert makes the pattern impossible to ignore.
+The payout calculation may already exist in memory when receipt consensus fails. Refunding or settling again would risk double movement. The safe response is to stop, leave the durable hand open, retain its accounting and recover or investigate from that single state.
 
 ### 6.4 User-facing messaging
 
-The Crupier log shows one of the verification outcomes at hand close. On divergence / missing / invalid-sig / deck-no-proof a modal `Helpers.mostrarMensajeInformativo` is shown (none on `OK`, and none on the deliberately silent `DECK_UNVERIFIED`), and the JUL `LOGGER` records INFO / WARNING / SEVERE accordingly. The translatable strings live under the `game.mano_verificada_consenso`, `game.mano_verificacion_divergente`, `game.mano_verificacion_jugador_ausente`, `game.popup_verificacion_firma_invalida`, `game.popup_verificacion_divergente` and `game.popup_verificacion_ausente` keys in `messages_es.properties` / `messages_en.properties`.
+The Crupier log shows one of the verification outcomes at hand close. Divergence, missing receipt and invalid-signature outcomes show a modal, terminate transmission and block durable close; deck-proof receipt flags remain forensic as described above. `DECK_UNVERIFIED` stays deliberately silent. JUL records INFO / WARNING / SEVERE accordingly.
 
 ---
 
 ## 7. SQLite schema additions
 
-All additive, no existing tables touched. Created with `CREATE TABLE IF NOT EXISTS` on startup ([`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java)).
+Identity and dispute tables are created with `CREATE TABLE IF NOT EXISTS` on startup ([`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java)). The existing `balance` table is also migrated transactionally: null identities are rejected, legacy duplicates retain the greatest row id, and a unique `(id_hand, player)` index is installed. Hand creation and close then require an exact roster and strict row counts.
 
 ```sql
 CREATE TABLE IF NOT EXISTS known_identities (

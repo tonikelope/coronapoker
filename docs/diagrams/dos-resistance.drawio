@@ -20,7 +20,7 @@
           <mxGeometry x="60" y="138" width="620" height="150" as="geometry" />
         </mxCell>
 
-        <mxCell id="f2" value="&lt;b&gt;F2. Inbound rate limit and AUTO-EXPEL&lt;/b&gt;&lt;br&gt;&lt;br&gt;A per-peer size cap and token bucket gate every inbound text command before the switch. Over budget drops the frame (SILENT-REFUSE) and adds a strike. Enough strikes AUTO-EXPEL the peer while the table plays on. Thresholds sit far above any real game.&lt;br&gt;&lt;br&gt;The binary channel (voice notes, stats-sync database) runs inline on the reader thread and never reached the text bucket, so it has its own generous token bucket. A binary flood is dropped without a strike, because a large but legitimate stats burst looks the same as abuse and dropping is harmless (imports are idempotent)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="f2" value="&lt;b&gt;F2. Bounded inbound resources and AUTO-EXPEL&lt;/b&gt;&lt;br&gt;&lt;br&gt;A per-peer size cap and token bucket gate every inbound text command. Enough strikes AUTO-EXPEL the peer. Voice/stats binary frames use a separate generous bucket and safe drops.&lt;br&gt;&lt;br&gt;AvatarIO rejects oversized Base64, bytes, dimensions, frames and GIF canvas work before rasterization; owned files/thumbnails share a bounded lifecycle. NEWUSER/USERSLIST also enforce the ten-seat roster and NFC uniqueness before avatar allocation." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="60" y="300" width="620" height="210" as="geometry" />
         </mxCell>
 
@@ -41,7 +41,7 @@
         <mxCell id="r3" value="&lt;b&gt;FORFEIT&lt;/b&gt;   Kill one peer's hand, its cards stay sealed, the hand settles for everyone else. host only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="740" y="290" width="580" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="r4" value="&lt;b&gt;MISDEAL&lt;/b&gt;   Abort the hand, refund all bets, continue to the next hand. host only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="r4" value="&lt;b&gt;MISDEAL&lt;/b&gt;   Host + client refund and atomically close locally; stop transmission; host routes recovery (zero-trust may exit)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="740" y="360" width="580" height="60" as="geometry" />
         </mxCell>
         <mxCell id="r5" value="&lt;b&gt;AUTO-EXPEL&lt;/b&gt;   Remove one abusive peer and keep the table running. The reserved response for availability attacks (flood, or withholding a needed message). host only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">

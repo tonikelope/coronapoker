@@ -249,7 +249,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // once. Individually: shuffle (shuffle.wav), deal (deal.wav), uncover (uncover.wav) with
     // a "my cards" sub-option (only YOUR hole cards being dealt, depends on the general
     // uncover setting), bet (bet.wav), fold (fold.wav, the fold effect, NOT the SONIDOS_CHORRA
-    // joke clips) and count (balance_count.wav from the final screen). All on by default.
+    // joke clips), final count (balance_count.wav from the end screen) and initial stack fill
+    // (the same coin-counting clip). All on by default.
     public static volatile boolean SONIDO_EFECTOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_efectos", "true"));
     public static volatile boolean SONIDO_BARAJADO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_barajado", "true"));
     public static volatile boolean SONIDO_REPARTO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_reparto", "true"));
@@ -258,6 +259,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean SONIDO_APOSTAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_apostar", "true"));
     public static volatile boolean SONIDO_FOLD = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_fold", "true"));
     public static volatile boolean SONIDO_CONTEO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_conteo", "true"));
+    public static volatile boolean SONIDO_CARGA_STACKS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_carga_stacks", "true"));
     // Enter (laser.wav: create/join game, new participant, add bot) and leave (toilet.wav:
     // kicked/leaves the waiting room). Same "sound effects" group.
     public static volatile boolean SONIDO_ENTRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_entra", "true"));
@@ -581,6 +583,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return SONIDO_EFECTOS && SONIDO_CONTEO;
     }
 
+    public static boolean cargaStacksSonidoOn() {
+        return SONIDO_EFECTOS && SONIDO_CARGA_STACKS;
+    }
+
     public static boolean entraSonidoOn() {
         return SONIDO_EFECTOS && SONIDO_ENTRA;
     }
@@ -712,6 +718,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // used by the animated stack fill on rebuy.
     public static String cashRegisterSound() {
         return cajaSonidoOn() ? "misc/cash_register.wav" : null;
+    }
+
+    // Coin-counting clip used by the opening stack-fill animation. It is deliberately a
+    // separate preference from the identical clip used by the end-of-game count.
+    public static String initialStackFillSound() {
+        return cargaStacksSonidoOn() ? "misc/balance_count.wav" : null;
     }
 
     // ---- Per-player shuffle overlay controller (synchronized via the SHUFFLE_TURN command)
@@ -3429,6 +3441,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.SONIDO_CONTEO = on;
 
         Helpers.PROPERTIES.setProperty("sonido_conteo", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setSonidoCargaStacks(boolean on) {
+
+        GameFrame.SONIDO_CARGA_STACKS = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_carga_stacks", String.valueOf(on));
         Helpers.savePropertiesFile();
     }
 

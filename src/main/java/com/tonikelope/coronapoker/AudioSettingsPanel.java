@@ -83,6 +83,7 @@ public class AudioSettingsPanel extends JPanel {
     private final JCheckBox sonido_apostar_checkbox;
     private final JCheckBox sonido_fold_checkbox;
     private final JCheckBox sonido_conteo_checkbox;
+    private final JCheckBox sonido_carga_stacks_checkbox;
     private final JCheckBox sonido_entra_checkbox;
     private final JCheckBox sonido_sale_checkbox;
     private final JCheckBox sonido_interruptor_checkbox;
@@ -164,6 +165,7 @@ public class AudioSettingsPanel extends JPanel {
     private final boolean snap_sonido_apostar;
     private final boolean snap_sonido_fold;
     private final boolean snap_sonido_conteo;
+    private final boolean snap_sonido_carga_stacks;
     private final boolean snap_sonido_entra;
     private final boolean snap_sonido_sale;
     private final boolean snap_sonido_interruptor;
@@ -247,6 +249,7 @@ public class AudioSettingsPanel extends JPanel {
         snap_sonido_apostar = GameFrame.SONIDO_APOSTAR;
         snap_sonido_fold = GameFrame.SONIDO_FOLD;
         snap_sonido_conteo = GameFrame.SONIDO_CONTEO;
+        snap_sonido_carga_stacks = GameFrame.SONIDO_CARGA_STACKS;
         snap_sonido_entra = GameFrame.SONIDO_ENTRA;
         snap_sonido_sale = GameFrame.SONIDO_SALE;
         snap_sonido_interruptor = GameFrame.SONIDO_INTERRUPTOR;
@@ -402,6 +405,9 @@ public class AudioSettingsPanel extends JPanel {
 
         sonido_conteo_checkbox = tog("audio.sonido_conteo", GameFrame.SONIDO_CONTEO);
         sonido_conteo_checkbox.addActionListener(e -> GameFrame.setSonidoConteo(sonido_conteo_checkbox.isSelected()));
+
+        sonido_carga_stacks_checkbox = tog("audio.sonido_carga_stacks", GameFrame.SONIDO_CARGA_STACKS);
+        sonido_carga_stacks_checkbox.addActionListener(e -> GameFrame.setSonidoCargaStacks(sonido_carga_stacks_checkbox.isSelected()));
 
         sonido_entra_checkbox = tog("audio.sonido_entra", GameFrame.SONIDO_ENTRA);
         sonido_entra_checkbox.addActionListener(e -> GameFrame.setSonidoEntra(sonido_entra_checkbox.isSelected()));
@@ -565,6 +571,7 @@ public class AudioSettingsPanel extends JPanel {
         fx_col_b.add(effectRow(menuIcon("/images/menu/rebuy.png"), sonido_caja_checkbox, false, previewButton("misc/cash_register.wav")));
         fx_col_b.add(effectRow(menuIcon("/images/menu/last_hand.png"), sonido_ultima_mano_checkbox, false, previewButton("misc/last_hand_on.wav")));
         fx_col_b.add(effectRow(menuIcon("/images/menu/meter.png"), sonido_conteo_checkbox, false, previewButton("misc/balance_count.wav")));
+        fx_col_b.add(effectRow(menuIcon("/images/menu/chips.png"), sonido_carga_stacks_checkbox, false, previewButton("misc/balance_count.wav", 1000)));
         fx_col_b.add(effectRow(menuIcon("/images/menu/video.png"), sonido_iwtsth_checkbox, false, previewButton("misc/iwtsth.wav")));
         fx_col_b.add(effectRow(fitIcon("/images/lights_on.png", EFFECT_ICON_CELL_W, EFFECT_ICON_CELL_H), sonido_interruptor_checkbox, false, previewButton("misc/button_on.wav")));
         fx_col_b.add(effectRow(scaledIcon("/images/pause.png", 24), sonido_pausa_checkbox, false, previewButton("misc/pause.wav")));
@@ -1041,6 +1048,7 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDO_APOSTAR != snap_sonido_apostar
                 || GameFrame.SONIDO_FOLD != snap_sonido_fold
                 || GameFrame.SONIDO_CONTEO != snap_sonido_conteo
+                || GameFrame.SONIDO_CARGA_STACKS != snap_sonido_carga_stacks
                 || GameFrame.SONIDO_ENTRA != snap_sonido_entra
                 || GameFrame.SONIDO_SALE != snap_sonido_sale
                 || GameFrame.SONIDO_INTERRUPTOR != snap_sonido_interruptor
@@ -1139,6 +1147,9 @@ public class AudioSettingsPanel extends JPanel {
         }
         if (GameFrame.SONIDO_CONTEO != snap_sonido_conteo) {
             GameFrame.setSonidoConteo(snap_sonido_conteo);
+        }
+        if (GameFrame.SONIDO_CARGA_STACKS != snap_sonido_carga_stacks) {
+            GameFrame.setSonidoCargaStacks(snap_sonido_carga_stacks);
         }
         if (GameFrame.SONIDO_ENTRA != snap_sonido_entra) {
             GameFrame.setSonidoEntra(snap_sonido_entra);
@@ -1284,6 +1295,7 @@ public class AudioSettingsPanel extends JPanel {
         applyDefault(GameFrame::setSonidoApostar, sonido_apostar_checkbox, true);
         applyDefault(GameFrame::setSonidoFold, sonido_fold_checkbox, true);
         applyDefault(GameFrame::setSonidoConteo, sonido_conteo_checkbox, true);
+        applyDefault(GameFrame::setSonidoCargaStacks, sonido_carga_stacks_checkbox, true);
         applyDefault(GameFrame::setSonidoEntra, sonido_entra_checkbox, true);
         applyDefault(GameFrame::setSonidoSale, sonido_sale_checkbox, true);
         applyDefault(GameFrame::setSonidoInterruptor, sonido_interruptor_checkbox, true);
@@ -1386,6 +1398,7 @@ public class AudioSettingsPanel extends JPanel {
         sonido_apostar_checkbox.setEnabled(fx_on);
         sonido_fold_checkbox.setEnabled(fx_on);
         sonido_conteo_checkbox.setEnabled(fx_on);
+        sonido_carga_stacks_checkbox.setEnabled(fx_on);
         sonido_entra_checkbox.setEnabled(fx_on);
         sonido_sale_checkbox.setEnabled(fx_on);
         sonido_interruptor_checkbox.setEnabled(fx_on);
@@ -1736,11 +1749,16 @@ public class AudioSettingsPanel extends JPanel {
     }
 
     // Unified preview button (music or effect, depending on the resource): pressing it
-    // plays up to 10s and the button switches to "stop" to cut it short; it returns to "play"
-    // when it ends (natural end, 10s timeout, or stop). Only one preview at a time: starting
-    // another (here or on any other button) stops the previous one, whose button reverts to
-    // "play" on its own via its on_stop callback.
+    // plays up to 10s by default and the button switches to "stop" to cut it short; it
+    // returns to "play" when it ends (natural end, timeout, or stop). Only one preview at
+    // a time: starting another (here or on any other button) stops the previous one, whose
+    // button reverts to "play" on its own via its on_stop callback.
     private static JButton previewButton(String sound) {
+        return previewButton(sound, 10000);
+    }
+
+    // Variant for previews whose sound is deliberately shorter than the default cap.
+    private static JButton previewButton(String sound, int max_millis) {
         JButton b = previewButtonBase();
         final boolean[] playing = {false};
         b.addActionListener(e -> {
@@ -1750,7 +1768,7 @@ public class AudioSettingsPanel extends JPanel {
                 playing[0] = true;
                 b.setIcon(previewGlyph(true));
                 b.setToolTipText(Translator.translate("audio.preview_parar"));
-                Audio.previewResource(sound, 10000, () -> {
+                Audio.previewResource(sound, max_millis, () -> {
                     playing[0] = false;
                     b.setIcon(previewGlyph(false));
                     b.setToolTipText(Translator.translate("audio.preview_escuchar"));

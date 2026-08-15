@@ -3730,7 +3730,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Animates each label linearly from from[i] to to[i] over the same fixed duration
     // (STACK_FILL_MS), progressing by wall clock (robust to frame drops), no ease-out (that's
     // the final counter's job). Visual only (setStackDisplay, model untouched). Blocks the
-    // caller until the last frame via a CountDownLatch. Plays start_sound if set.
+    // caller until the last frame via a CountDownLatch. Plays start_sound if set and cuts it
+    // when the final stack frame lands, so a longer clip cannot outlive the visual fill.
     private void animateStackFill(java.util.List<Player> players, double[] from, double[] to, String start_sound) {
         if (players == null || players.isEmpty()) {
             return;
@@ -3779,6 +3780,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // synchronized, so reading it on the EDT can't deadlock with a worker
                         // thread (see setStack/setBet).
                         players.get(i).setStackDisplay(players.get(i).getStack());
+                    }
+                    if (start_sound != null) {
+                        Audio.stopWavResource(start_sound);
                     }
                     latch.countDown();
                     return;
@@ -3855,7 +3859,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             to[i] = players.get(i).getStack();
         }
 
-        animateStackFill(players, from, to, null);
+        animateStackFill(players, from, to, GameFrame.initialStackFillSound());
         awaitInitialStackFill();
     }
 

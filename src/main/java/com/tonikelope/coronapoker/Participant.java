@@ -336,10 +336,18 @@ public class Participant implements Runnable {
             try {
                 // The peer's avatar lives in tmpdir; its _chat thumbnail is a
                 // sibling temp file. Clean it up on exit (the base avatar is
-                // already deleteOnExit-registered at its creation site).
-                File avatar_chat = new File(avatar.getAbsolutePath() + "_chat");
-                avatar_chat.deleteOnExit();
-                ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", avatar_chat);
+                // owned and explicitly cleaned by the waiting-room AvatarIO store).
+                java.awt.image.BufferedImage thumbnail = Helpers.toBufferedImage(
+                        new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage()
+                                .getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage());
+                File avatar_chat;
+                if (espera.isOwnedRemoteAvatar(avatar)) {
+                    avatar_chat = espera.writeRemoteAvatarThumbnail(avatar, thumbnail);
+                } else {
+                    avatar_chat = new File(avatar.getAbsolutePath() + "_chat");
+                    avatar_chat.deleteOnExit();
+                    ImageIO.write(thumbnail, "png", avatar_chat);
+                }
                 avatar_chat_src = avatar_chat.toURI().toURL().toExternalForm();
             } catch (IOException ex) {
                 avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
@@ -1831,7 +1839,8 @@ public class Participant implements Runnable {
                                                     ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
                                                     : GameFrame.getInstance().getCrupier().isShow_time();
                                             if (acceptRabbit) {
-                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(nick, Integer.parseInt(partes_comando[4]));
+                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
+                                                        nick, Integer.parseInt(partes_comando[4]), rabbitHid);
                                             }
                                             break;
                                         }

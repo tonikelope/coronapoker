@@ -119,6 +119,21 @@ public class WaitingRoomFrame extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(WaitingRoomFrame.class.getName());
 
     public static final int MAX_PARTICIPANTES = 10;
+
+    enum RemoteRosterAdmission {
+        ADMIT,
+        DUPLICATE,
+        REJECT
+    }
+
+    static RemoteRosterAdmission remoteRosterAdmission(int currentSize, boolean exactDuplicate,
+            boolean nfcCollision) {
+        if (exactDuplicate) {
+            return RemoteRosterAdmission.DUPLICATE;
+        }
+        return currentSize >= MAX_PARTICIPANTES || nfcCollision
+                ? RemoteRosterAdmission.REJECT : RemoteRosterAdmission.ADMIT;
+    }
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
@@ -185,6 +200,9 @@ public class WaitingRoomFrame extends JFrame {
     private static volatile WaitingRoomFrame THIS = null;
 
     private final File local_avatar;
+    // Every avatar received from the wire is validated before Swing/ImageIO can
+    // rasterize it and is stored in this room-owned directory.
+    private final AvatarIO avatar_io = AvatarIO.createDefault();
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
 
     // Pre-auth anti-DoS: cap on SIMULTANEOUS handshakes (EC keygen + thread). The accept
@@ -397,6 +415,7 @@ public class WaitingRoomFrame extends JFrame {
             THIS.net_client.getLate_clients_warning().clear();
         }
         THIS.setVisible(false);
+        THIS.avatar_io.close();
         THIS.dispose();
         THIS = null;
     }
@@ -2335,22 +2354,7 @@ public class WaitingRoomFrame extends JFrame {
                             partes = recibido.split("#");
                             server_nick = new String(Base64.getDecoder().decode(partes[0].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8").trim();
 
-                            String server_avatar_base64 = partes.length > 1 && !"*".equals(partes[1])
-                                    ? partes[1].replaceAll("[^A-Za-z0-9+/=]", "")
-                                    : "";
-                            File server_avatar = null;
-                            try {
-                                if (server_avatar_base64.length() > 0) {
-                                    int file_id = Math.abs(Helpers.CSPRNG_GENERATOR.nextInt());
-                                    server_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(server_nick) + "_avatar" + file_id);
-                                    server_avatar.deleteOnExit();
-                                    try (FileOutputStream os = new FileOutputStream(server_avatar)) {
-                                        os.write(Base64.getDecoder().decode(server_avatar_base64));
-                                    }
-                                }
-                            } catch (Exception ex) {
-                                server_avatar = null;
-                            }
+                            String server_avatar_encoded = partes.length > 1 ? partes[1] : "*";
 
                             // Identity: host identity rides on the same intro packet that
                             // carries nick + avatar. Capture pubkey+sig here; verify and apply
@@ -2378,7 +2382,24 @@ public class WaitingRoomFrame extends JFrame {
                                 chat_text = new StringBuffer(new String(Base64.getDecoder().decode(recibido.replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8"));
                             }
 
-                            nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
+                            if (hostIdPubkey == null || hostIdSig == null
+                                    || hostIdPubkey.length != 32 || hostIdSig.length != 64
+                                    || !IdentityManager.verifyJoin(this.session_id, server_nick, hostIdPubkey, hostIdSig)) {
+                                closeClientSocket();
+                                throw new IOException("Host identity missing, malformed, or self-signature invalid");
+                            }
+                            TOFUResolver.Resolution hostIdentityResolution = TOFUResolver.resolve(server_nick, hostIdPubkey);
+                            if (!isTofuAdmissionAllowed(hostIdentityResolution)) {
+                                closeClientSocket();
+                                throw new IOException("Host identity rejected by TOFU: " + hostIdentityResolution.getOutcome());
+                            }
+
+                            // Allocate only after both the remaining handshake reads and host
+                            // identity/TOFU validation have completed.
+                            File server_avatar = decodeRemoteAvatar(
+                                    server_avatar_encoded, server_nick, "server intro");
+                            nuevoParticipanteRemoto(server_nick, server_avatar, null, null, null, false,
+                                    THIS.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
                             // Handshake complete: the client's subsequent reads (GAME, PING/PONG,
@@ -2396,23 +2417,14 @@ public class WaitingRoomFrame extends JFrame {
                             // Identity: apply the host's identity to the freshly-created
                             // Participant. Verify self_sig against current session_id; on success,
                             // store on Participant and run TOFU.
-                            if (hostIdPubkey != null && hostIdSig != null
-                                    && hostIdPubkey.length == 32 && hostIdSig.length == 64) {
-                                if (!IdentityManager.verifyJoin(this.session_id, server_nick, hostIdPubkey, hostIdSig)) {
-                                    LOGGER.log(Level.WARNING, "Intro identity bad self_sig for host {0}", server_nick);
-                                } else {
-                                    TOFUResolver.Resolution res = TOFUResolver.resolve(server_nick, hostIdPubkey);
-                                    Participant hostPar = participantes.get(server_nick);
-                                    if (hostPar != null) {
-                                        hostPar.setIdentity_pubkey(hostIdPubkey);
-                                        hostPar.setIdentity_self_sig(hostIdSig);
-                                    }
-                                    LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via intro",
-                                            new Object[]{server_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
-                                }
-                            } else {
-                                LOGGER.log(Level.WARNING, "Intro carried no host identity for {0}", server_nick);
+                            Participant hostPar = participantes.get(server_nick);
+                            if (hostPar != null) {
+                                hostPar.setIdentity_pubkey(hostIdPubkey);
+                                hostPar.setIdentity_self_sig(hostIdSig);
                             }
+                            LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via intro",
+                                    new Object[]{server_nick, hostIdentityResolution.getOutcome(),
+                                        hostIdentityResolution.getSessionsCount(), hostIdentityResolution.isVerifiedOob()});
 
                             Helpers.GUIRunAndWait(() -> {
                                 status.setText(Translator.translate("status.conectado"));
@@ -2784,7 +2796,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // valid fields.
                                                                 if (partes_bundle.length < 7) {
                                                                     LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformed (fields={0}) — warning user", partes_bundle.length);
-                                                                    cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    cruB.markShuffleProofFailed(cruB.local_mega_packet);
+                                                                    cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                     return;
                                                                 }
                                                                 try {
@@ -2801,13 +2814,17 @@ public class WaitingRoomFrame extends JFrame {
                                                                             pocketCount, cruB.local_mega_packet,
                                                                             csvToBytes(partes_bundle[5]), csvToBytes(partes_bundle[6]),
                                                                             cruB.getMano());
-                                                                    cruB.getShuffleVerifyQueue().enqueue(job);
+                                                                    if (!cruB.getShuffleVerifyQueue().enqueue(job)) {
+                                                                        cruB.markShuffleProofFailed(cruB.local_mega_packet);
+                                                                        cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    }
                                                                 } catch (Exception bundleEx) {
                                                                     // Unparseable (invalid base64, etc.) = anomalous but ambiguous -> warn.
                                                                     // (Only jobs that DO parse and then fail the proof are reported as
                                                                     // "proven dishonest" from the queue; this is just malformation.)
                                                                     LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE unparseable — warning user", bundleEx);
-                                                                    cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    cruB.markShuffleProofFailed(cruB.local_mega_packet);
+                                                                    cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                 }
                                                             });
                                                             break;
@@ -2880,23 +2897,17 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
                                                                         return;
                                                                     }
-                                                                    // "require proof" GATE: I'm about to help reveal community = the window
-                                                                    // where a smuggled card would be read. If this deck comes from a FRESH
-                                                                    // deal I have NOT verified as an honest shuffle (the host never sent
-                                                                    // the bundle, or it arrived broken), warn ONCE. Warn-but-allow: could be
-                                                                    // a bug/network delay -> recommend leaving but let it continue (don't
-                                                                    // break the hand). The bundle arrives ~1s after dealing, well before the
-                                                                    // first community unlock -> zero false positives. Recover doesn't mark
-                                                                    // expect -> no warning.
-                                                                    if (Crupier.shouldWarnMissingShuffleProof(phase, megapacket,
-                                                                            crupier.dual_lock_expect_bundle_for, crupier.dual_lock_verified_megapacket,
-                                                                            crupier.dual_lock_warned_megapacket)) {
-                                                                        crupier.dual_lock_warned_megapacket = megapacket;
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: revealing community without a verified honest-shuffle proof for this deck — red log entry + popup");
-                                                                        // The unlock is still served (the hand is being played: cards already
-                                                                        // dealt). NOT blocked or forced to exit: logged in red + popup (once
-                                                                        // per game).
-                                                                        crupier.warnDeckUnverified();
+                                                                    // Fail closed at the smuggling read window. A proof still queued may
+                                                                    // finish during the bounded wait; missing, malformed or dishonest proof
+                                                                    // enters lockdown and this peer never contributes a community unlock.
+                                                                    if (crupier.awaitShuffleProofGate(phase,
+                                                                            Crupier.SHUFFLE_PROOF_GATE_TIMEOUT_MS)
+                                                                            != Crupier.ShuffleProofGateDecision.ALLOW) {
+                                                                        crupier.markShuffleProofFailed(megapacket);
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: refusing community unlock without a verified honest-shuffle proof");
+                                                                        crupier.triggerSecurityLockdown(
+                                                                                Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                        return;
                                                                     }
                                                                     java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
                                                                     if (items == null) {
@@ -3234,7 +3245,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                         : GameFrame.getInstance().getCrupier().isShow_time();
                                                                 if (acceptRabbit) {
                                                                     String rNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    GameFrame.getInstance().getCrupier().RABBIT_HANDLER(rNick, Integer.parseInt(partes_comando[4]));
+                                                                    GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
+                                                                            rNick, Integer.parseInt(partes_comando[4]), rabbitHid);
                                                                 }
                                                             } catch (Exception e) {
                                                             }
@@ -3679,36 +3691,51 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             try {
                                                                 String nickNew = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                File avatarNew = null;
-                                                                int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                if (file_id < 0) {
-                                                                    file_id *= -1;
-                                                                }
-                                                                if (partes_comando.length >= 6 && !"*".equals(partes_comando[5])) {
-                                                                    avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(nickNew) + "_avatar" + String.valueOf(file_id));
-                                                                    avatarNew.deleteOnExit();
-                                                                    try (FileOutputStream os = new FileOutputStream(avatarNew)) {
-                                                                        os.write(Base64.getDecoder().decode(partes_comando[5]));
-                                                                    } catch (Exception e) {
-                                                                    }
-                                                                }
                                                                 boolean isBot = nickNew.startsWith("CoronaBot$");
-                                                                if (!participantes.containsKey(nickNew)) {
-                                                                    nuevoParticipante(nickNew, avatarNew, null, null, null, isBot, "1".equals(partes_comando[4]));
-                                                                }
+                                                                 RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant(
+                                                                         nickNew,
+                                                                         partes_comando.length >= 6 ? partes_comando[5] : "*",
+                                                                         isBot, "1".equals(partes_comando[4]), "NEWUSER");
+                                                                 if (rosterAdmission == RemoteRosterAdmission.REJECT) {
+                                                                     rejectRemoteRoster(nickNew, "NEWUSER");
+                                                                     break;
+                                                                 } else if (rosterAdmission == RemoteRosterAdmission.DUPLICATE) {
+                                                                     break;
+                                                                 }
 
-                                                                if (partes_comando.length >= 8
+                                                                 if (!isBot && (partes_comando.length < 8
+                                                                         || "*".equals(partes_comando[6]) || "*".equals(partes_comando[7]))) {
+                                                                     LOGGER.log(Level.SEVERE, "NEWUSER carried no identity for {0}", nickNew);
+                                                                     borrarParticipante(nickNew);
+                                                                     closeClientSocket();
+                                                                     break;
+                                                                 }
+
+                                                                 if (partes_comando.length >= 8
                                                                         && !"*".equals(partes_comando[6]) && !"*".equals(partes_comando[7])) {
                                                                     try {
                                                                         byte[] idPubkey = Base64.getDecoder().decode(partes_comando[6]);
                                                                         byte[] idSig = Base64.getDecoder().decode(partes_comando[7]);
-                                                                        if (idPubkey.length != 32 || idSig.length != 64) {
-                                                                            LOGGER.log(Level.WARNING, "NEWUSER identity malformed for {0}", nickNew);
-                                                                        } else if (!IdentityManager.verifyJoin(this.session_id, nickNew, idPubkey, idSig)) {
-                                                                            LOGGER.log(Level.WARNING, "NEWUSER identity bad self_sig for {0}", nickNew);
+                                                                         if (idPubkey.length != 32 || idSig.length != 64) {
+                                                                             LOGGER.log(Level.WARNING, "NEWUSER identity malformed for {0}", nickNew);
+                                                                             borrarParticipante(nickNew);
+                                                                             closeClientSocket();
+                                                                             break;
+                                                                         } else if (!IdentityManager.verifyJoin(this.session_id, nickNew, idPubkey, idSig)) {
+                                                                             LOGGER.log(Level.WARNING, "NEWUSER identity bad self_sig for {0}", nickNew);
+                                                                             borrarParticipante(nickNew);
+                                                                             closeClientSocket();
+                                                                             break;
                                                                         } else {
-                                                                            TOFUResolver.Resolution res = TOFUResolver.resolve(nickNew, idPubkey);
-                                                                            Participant p = participantes.get(nickNew);
+                                                                             TOFUResolver.Resolution res = TOFUResolver.resolve(nickNew, idPubkey);
+                                                                             if (!isTofuAdmissionAllowed(res)) {
+                                                                                 LOGGER.log(Level.SEVERE, "TOFU rejected NEWUSER identity for {0}: {1}",
+                                                                                         new Object[]{nickNew, res.getOutcome()});
+                                                                                 borrarParticipante(nickNew);
+                                                                                 closeClientSocket();
+                                                                                 break;
+                                                                             }
+                                                                             Participant p = participantes.get(nickNew);
                                                                             if (p != null) {
                                                                                 p.setIdentity_pubkey(idPubkey);
                                                                                 p.setIdentity_self_sig(idSig);
@@ -3716,9 +3743,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                             LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via NEWUSER",
                                                                                     new Object[]{nickNew, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
                                                                         }
-                                                                    } catch (Exception idex) {
-                                                                        LOGGER.log(Level.WARNING, "NEWUSER identity decode failed for " + nickNew, idex);
-                                                                    }
+                                                                     } catch (Exception idex) {
+                                                                         LOGGER.log(Level.WARNING, "NEWUSER identity decode failed for " + nickNew, idex);
+                                                                         borrarParticipante(nickNew);
+                                                                         closeClientSocket();
+                                                                     }
                                                                 }
                                                             } catch (Exception e) {
                                                             }
@@ -3743,36 +3772,51 @@ public class WaitingRoomFrame extends JFrame {
                                                                 String[] user_parts = user.split("\\|");
                                                                 try {
                                                                     String list_nick = new String(Base64.getDecoder().decode(user_parts[0]), "UTF-8");
-                                                                    File list_avatar = null;
-                                                                    if (user_parts.length >= 3 && !"*".equals(user_parts[2])) {
-                                                                        int fid = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                        if (fid < 0) {
-                                                                            fid *= -1;
-                                                                        }
-                                                                        list_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(list_nick) + "_avatar" + String.valueOf(fid));
-                                                                        list_avatar.deleteOnExit();
-                                                                        try (FileOutputStream os = new FileOutputStream(list_avatar)) {
-                                                                            os.write(Base64.getDecoder().decode(user_parts[2]));
-                                                                        } catch (Exception e) {
-                                                                        }
-                                                                    }
                                                                     boolean isListBot = list_nick.startsWith("CoronaBot$");
-                                                                    if (!participantes.containsKey(list_nick)) {
-                                                                        nuevoParticipante(list_nick, list_avatar, null, null, null, isListBot, "1".equals(user_parts[1]));
-                                                                    }
+                                                                     RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant(
+                                                                             list_nick,
+                                                                             user_parts.length >= 3 ? user_parts[2] : "*",
+                                                                             isListBot, "1".equals(user_parts[1]), "USERSLIST");
+                                                                     if (rosterAdmission == RemoteRosterAdmission.REJECT) {
+                                                                         rejectRemoteRoster(list_nick, "USERSLIST");
+                                                                         break;
+                                                                     } else if (rosterAdmission == RemoteRosterAdmission.DUPLICATE) {
+                                                                         continue;
+                                                                     }
 
-                                                                    if (user_parts.length >= 5
+                                                                     if (!isListBot && (user_parts.length < 5
+                                                                             || "*".equals(user_parts[3]) || "*".equals(user_parts[4]))) {
+                                                                         LOGGER.log(Level.SEVERE, "USERSLIST carried no identity for {0}", list_nick);
+                                                                         borrarParticipante(list_nick);
+                                                                         closeClientSocket();
+                                                                         break;
+                                                                     }
+
+                                                                     if (user_parts.length >= 5
                                                                             && !"*".equals(user_parts[3]) && !"*".equals(user_parts[4])) {
                                                                         try {
                                                                             byte[] idPubkey = Base64.getDecoder().decode(user_parts[3]);
                                                                             byte[] idSig = Base64.getDecoder().decode(user_parts[4]);
-                                                                            if (idPubkey.length != 32 || idSig.length != 64) {
-                                                                                LOGGER.log(Level.WARNING, "USERSLIST identity malformed for {0}", list_nick);
-                                                                            } else if (!IdentityManager.verifyJoin(this.session_id, list_nick, idPubkey, idSig)) {
-                                                                                LOGGER.log(Level.WARNING, "USERSLIST identity bad self_sig for {0}", list_nick);
+                                                                             if (idPubkey.length != 32 || idSig.length != 64) {
+                                                                                 LOGGER.log(Level.WARNING, "USERSLIST identity malformed for {0}", list_nick);
+                                                                                 borrarParticipante(list_nick);
+                                                                                 closeClientSocket();
+                                                                                 break;
+                                                                             } else if (!IdentityManager.verifyJoin(this.session_id, list_nick, idPubkey, idSig)) {
+                                                                                 LOGGER.log(Level.WARNING, "USERSLIST identity bad self_sig for {0}", list_nick);
+                                                                                 borrarParticipante(list_nick);
+                                                                                 closeClientSocket();
+                                                                                 break;
                                                                             } else {
-                                                                                TOFUResolver.Resolution res = TOFUResolver.resolve(list_nick, idPubkey);
-                                                                                Participant p = participantes.get(list_nick);
+                                                                                 TOFUResolver.Resolution res = TOFUResolver.resolve(list_nick, idPubkey);
+                                                                                 if (!isTofuAdmissionAllowed(res)) {
+                                                                                     LOGGER.log(Level.SEVERE, "TOFU rejected USERSLIST identity for {0}: {1}",
+                                                                                             new Object[]{list_nick, res.getOutcome()});
+                                                                                     borrarParticipante(list_nick);
+                                                                                     closeClientSocket();
+                                                                                     break;
+                                                                                 }
+                                                                                 Participant p = participantes.get(list_nick);
                                                                                 if (p != null) {
                                                                                     p.setIdentity_pubkey(idPubkey);
                                                                                     p.setIdentity_self_sig(idSig);
@@ -3780,9 +3824,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via USERSLIST",
                                                                                         new Object[]{list_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
                                                                             }
-                                                                        } catch (Exception idex) {
-                                                                            LOGGER.log(Level.WARNING, "USERSLIST identity decode failed for " + list_nick, idex);
-                                                                        }
+                                                                         } catch (Exception idex) {
+                                                                             LOGGER.log(Level.WARNING, "USERSLIST identity decode failed for " + list_nick, idex);
+                                                                             borrarParticipante(list_nick);
+                                                                             closeClientSocket();
+                                                                         }
                                                                     }
                                                                 } catch (Exception e) {
                                                                 }
@@ -3954,6 +4000,7 @@ public class WaitingRoomFrame extends JFrame {
                     // maximized if it was) on the screen the waiting room is on.
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
                             Init.LAUNCH_FRAME_SIZE, Init.LAUNCH_FRAME_MAXIMIZED);
+                    avatar_io.close();
                     dispose();
                     // Release the singleton on this return-to-menu path (connect failed/cancelled):
                     // otherwise getInstance() keeps handing out a DISPOSED frame and its whole
@@ -3996,10 +4043,18 @@ public class WaitingRoomFrame extends JFrame {
         }
     }
 
+    static boolean isTofuAdmissionAllowed(TOFUResolver.Resolution resolution) {
+        return resolution != null
+                && (resolution.getOutcome() == TOFUResolver.Outcome.NEW
+                || resolution.getOutcome() == TOFUResolver.Outcome.MATCH);
+    }
+
+    static boolean isReservedRemoteNick(String nick) {
+        return nick != null && nick.startsWith("CoronaBot$");
+    }
+
     /**
-     * Identity: stores the validated identity on the participant entry, runs the
-     * local TOFU resolution, and logs the outcome (NEW / MATCH / CHANGED). Called by
-     * the host right after a successful JOIN.
+     * Stores an identity which has already passed self-signature and TOFU checks.
      */
     private void recordJoinIdentity(Participant par, String pubkeyB64, String selfSigB64) {
         try {
@@ -4007,9 +4062,6 @@ public class WaitingRoomFrame extends JFrame {
             byte[] sig = Base64.getDecoder().decode(selfSigB64);
             par.setIdentity_pubkey(pubkey);
             par.setIdentity_self_sig(sig);
-            TOFUResolver.Resolution res = TOFUResolver.resolve(par.getNick(), pubkey);
-            LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3})",
-                    new Object[]{par.getNick(), res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, "recordJoinIdentity failed for " + par.getNick(), ex);
         }
@@ -4356,7 +4408,8 @@ public class WaitingRoomFrame extends JFrame {
                             client_socket.close();
                         } catch (Exception ex) {
                         }
-                    } else if (participantes.containsKey(client_nick) || nickCollisionNFC(client_nick)) {
+                    } else if (isReservedRemoteNick(client_nick)
+                            || participantes.containsKey(client_nick) || nickCollisionNFC(client_nick)) {
                         // NICKFAIL covers both the exact-same nick AND one that collides in NFC
                         // form (same PLAYER_ID -> would break settlement consensus). See
                         // nickCollisionNFC.
@@ -4386,25 +4439,26 @@ public class WaitingRoomFrame extends JFrame {
                         } catch (Exception ex) {
                         }
                     } else {
-                        String client_avatar_base64 = partes[2];
+                        byte[] candidatePubkey;
                         try {
-                            if (!"*".equals(client_avatar_base64)) {
-                                int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                if (file_id < 0) {
-                                    file_id *= -1;
-                                }
-                                client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(client_nick)
-                                        + "_avatar" + String.valueOf(file_id));
-                                client_avatar.deleteOnExit();
-
-                                try (FileOutputStream os = new FileOutputStream(client_avatar)) {
-                                    os.write(Base64.getDecoder().decode(client_avatar_base64));
-                                }
+                            candidatePubkey = Base64.getDecoder().decode(partes[4]);
+                            TOFUResolver.Resolution identityResolution = TOFUResolver.resolve(client_nick, candidatePubkey);
+                            if (!isTofuAdmissionAllowed(identityResolution)) {
+                                LOGGER.log(Level.SEVERE, "TOFU rejected JOIN identity for {0}: {1}",
+                                        new Object[]{client_nick, identityResolution.getOutcome()});
+                                client_socket.close();
+                                net_server.getClient_threads().remove(Thread.currentThread().threadId());
+                                return;
                             }
                         } catch (Exception ex) {
-                            client_avatar = null;
+                            LOGGER.log(Level.SEVERE, "TOFU resolution failed during JOIN for " + client_nick, ex);
+                            try {
+                                client_socket.close();
+                            } catch (Exception ignored) {
+                            }
+                            net_server.getClient_threads().remove(Thread.currentThread().threadId());
+                            return;
                         }
-
                         // Fourth field (#) ADDED to the same NICKOK command: the FULL config
                         // mirror (serialized GamePreset.Settings) so the newly joined client can
                         // populate its Game tab greyed out. It's an extra field on the SAME
@@ -4465,6 +4519,7 @@ public class WaitingRoomFrame extends JFrame {
                                         && !WaitingRoomFrame.getInstance().isPartida_empezada()
                                         && !participantes.containsKey(client_nick)
                                         && !nickCollisionNFC(client_nick)) {
+                                    client_avatar = decodeRemoteAvatar(partes[2], client_nick, "JOIN");
                                     // Handshake complete: the Participant takes control of the
                                     // socket and its normal reads (PING/PONG, GAME, etc.) must not
                                     // inherit the handshake deadline.
@@ -4473,7 +4528,7 @@ public class WaitingRoomFrame extends JFrame {
                                     } catch (Exception ex) {
                                         LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on new join", ex);
                                     }
-                                    nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key,
+                                    nuevoParticipanteRemoto(client_nick, client_avatar, client_socket, aes_key, hmac_key,
                                             false, false);
                                     // Identity: cache pubkey+self_sig on the new Participant
                                     // and run local TOFU resolution. partes[4] / partes[5] were
@@ -4682,6 +4737,7 @@ public class WaitingRoomFrame extends JFrame {
                     // maximized if it was) on the screen the waiting room is on.
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
                             Init.LAUNCH_FRAME_SIZE, Init.LAUNCH_FRAME_MAXIMIZED);
+                    avatar_io.close();
                     dispose();
                     // Release the singleton on this return-to-menu path (room cancelled / bind
                     // failed): otherwise getInstance() keeps handing out a DISPOSED frame and its
@@ -5060,7 +5116,8 @@ public class WaitingRoomFrame extends JFrame {
 
         participantes.remove(nick);
 
-        onParticipantRemoved(nick, avatar_src);
+        onParticipantRemoved(nick, avatar_src,
+                !isPartida_empezada() && avatar_io.owns(pToDel.getAvatar()) ? pToDel.getAvatar() : null);
 
         // A client can leave the lobby at any time: drop its stats-sync tracking
         // so the host stops considering it for re-forwards.
@@ -5072,6 +5129,58 @@ public class WaitingRoomFrame extends JFrame {
                 net_server.broadcastASYNCGAMECommand(comando, pToDel);
             } catch (UnsupportedEncodingException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    private File decodeRemoteAvatar(String encoded, String nick, String source) {
+        try {
+            return avatar_io.decodeValidateStore(encoded);
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.log(Level.WARNING, "Rejected remote avatar for {0} via {1}: {2}",
+                    new Object[]{nick, source, ex.getMessage()});
+            return null;
+        }
+    }
+
+    private synchronized RemoteRosterAdmission admitRemoteRosterParticipant(String nick, String encodedAvatar,
+            boolean cpu, boolean unsecure, String source) {
+        boolean exactDuplicate = participantes.containsKey(nick);
+        RemoteRosterAdmission admission = remoteRosterAdmission(participantes.size(),
+                exactDuplicate, !exactDuplicate && nickCollisionNFC(nick));
+        if (admission != RemoteRosterAdmission.ADMIT) {
+            return admission;
+        }
+
+        File avatar = decodeRemoteAvatar(encodedAvatar, nick, source);
+        nuevoParticipanteRemoto(nick, avatar, null, null, null, cpu, unsecure);
+        return RemoteRosterAdmission.ADMIT;
+    }
+
+    private void rejectRemoteRoster(String nick, String source) {
+        LOGGER.log(Level.SEVERE,
+                "Rejected impossible remote roster entry for {0} via {1}; closing host channel",
+                new Object[]{nick, source});
+        closeClientSocket();
+    }
+
+    boolean isOwnedRemoteAvatar(File avatar) {
+        return avatar_io.owns(avatar);
+    }
+
+    File writeRemoteAvatarThumbnail(File avatar, java.awt.image.BufferedImage thumbnail) throws IOException {
+        return avatar_io.writeThumbnail(avatar, thumbnail);
+    }
+
+    private void nuevoParticipanteRemoto(String nick, File avatar, Socket socket, SecretKeySpec aes_k,
+            SecretKeySpec hmac_k, boolean cpu, boolean unsecure) {
+        boolean adopted = false;
+        try {
+            nuevoParticipante(nick, avatar, socket, aes_k, hmac_k, cpu, unsecure);
+            adopted = true;
+        } finally {
+            if (!adopted) {
+                avatar_io.deleteOwned(avatar);
             }
         }
     }
@@ -5144,6 +5253,12 @@ public class WaitingRoomFrame extends JFrame {
      * from the list, adjusts the counter and buttons, notes the exit in chat).
      */
     public void onParticipantRemoved(String nick, String avatar_chat_src) {
+        onParticipantRemoved(nick, avatar_chat_src, null);
+    }
+
+    private void onParticipantRemoved(String nick, String avatar_chat_src, File avatarToDelete) {
+        final String exitAvatarSrc = avatarToDelete == null
+                ? avatar_chat_src : getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         Helpers.GUIRun(() -> {
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
 
@@ -5168,7 +5283,23 @@ public class WaitingRoomFrame extends JFrame {
                 new_bot_button.setEnabled(true);
             }
 
-            chatHTMLAppendExitUser(nick, avatar_chat_src);
+            if (avatarToDelete != null) {
+                // Existing chat bubbles still reference this participant's thumbnail.
+                // Replace that URL in the current document before deleting it. This keeps
+                // join/leave notices (which are HTML-only, not part of chat_text) intact.
+                String currentHtml = chat.getText();
+                String safeHtml = currentHtml.replace(avatar_chat_src, exitAvatarSrc);
+                if (safeHtml.equals(currentHtml)) {
+                    // Defensive fallback for an editor that canonicalized the file URL.
+                    safeHtml = "<html><body style='background-image: url(" + background_chat_src + ")'>"
+                            + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString()))
+                            + "</body></html>";
+                }
+                chat.setText(safeHtml);
+                avatar_io.deleteAvatarArtifacts(avatarToDelete);
+            }
+
+            chatHTMLAppendExitUser(nick, exitAvatarSrc);
         });
     }
 

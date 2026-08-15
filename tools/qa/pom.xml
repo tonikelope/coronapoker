@@ -35,7 +35,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope.qa</groupId>
     <artifactId>coronapoker-bot-tests</artifactId>
-    <version>23.45</version>
+    <version>23.46</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -45,7 +45,7 @@
         <!-- Override with -Dcoronapoker.version=X.Y if you have a different
              local install. Bump this property in sync with the root pom version
              so `mvn -o test` resolves against the just-installed jar. -->
-        <coronapoker.version>23.45</coronapoker.version>
+        <coronapoker.version>23.46</coronapoker.version>
 
         <!-- Test lane selection (JUnit 5 tags). Defaults give the FAST lane:
              run everything EXCEPT tests tagged @Tag("slow"). The `slow` and

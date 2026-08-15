@@ -129,6 +129,26 @@ public class IwtsthRabbitPauseGateTest {
         assertFalse(Crupier.handIdMatches(a, new byte[]{1, 2, 3}), "longitud distinta -> rechaza");
     }
 
+    @Test
+    public void queuedRabbitCannotCrossIntoNextHand() {
+        byte[] oldHand = new byte[]{1, 2, 3};
+        byte[] nextHand = new byte[]{4, 5, 6};
+        assertTrue(Crupier.rabbitFeeMayApply(oldHand, null, oldHand, oldHand));
+        assertFalse(Crupier.rabbitFeeMayApply(oldHand, nextHand, null, nextHand));
+    }
+
+    @Test
+    public void rabbitRequiresExplicitShowdownWindowForThatHand() {
+        byte[] hand = new byte[]{1, 2, 3};
+        byte[] other = new byte[]{4, 5, 6};
+        assertFalse(Crupier.rabbitFeeMayApply(hand, hand, null, null),
+                "current hand id alone must not open rabbit during betting");
+        assertFalse(Crupier.rabbitFeeMayApply(hand, hand, null, other));
+        assertTrue(Crupier.rabbitFeeMayApply(hand, hand, null, hand));
+        assertTrue(Crupier.rabbitFeeMayApply(hand, null, hand, hand),
+                "the latched showdown remains open between hands");
+    }
+
     // ---- rabbitRelayHandIdField (lado EMISOR del gate de RABBIT) ----
     // El bug que esto fija: entre manos (current_hand_id ya limpiado por readyForNextHand,
     // pero rabbit_fee_window_hand_id aun vivo) el host relayaba "*", y el receptor lo RECHAZA

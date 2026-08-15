@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.text.Normalizer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -33,12 +34,11 @@ import java.util.logging.Logger;
  *   NEW      Unknown nick. INSERT row, sessions_count=1, verified_oob=0.     Grey
  *   MATCH    Known nick, pubkey byte-identical. UPDATE last_seen +           Grey or
  *            sessions_count++; verified_oob untouched.                       green
- *   CHANGED  Known nick, pubkey differs. UPDATE pubkey + last_seen +         Grey
- *            sessions_count++ + verified_oob reset to 0. Silent — the
- *            user only discovers this by inspecting the identicon.
+ *   CHANGED  Known nick, pubkey differs. Preserve the trusted pin and reject.
+ *   ERROR    Persistence failed. No identity may be admitted.
  *
- * The resolution is intentionally non-interactive (no blocking modal) to keep the
- * UX friction-free. Spec §3 "TOFU resolution".
+ * A changed identity is never rotated implicitly. Rotation requires a separate,
+ * explicit user action.
  */
 public final class TOFUResolver {
 
@@ -47,7 +47,8 @@ public final class TOFUResolver {
     public enum Outcome {
         NEW,
         MATCH,
-        CHANGED
+        CHANGED,
+        ERROR
     }
 
     public static final class Resolution {
@@ -90,31 +91,46 @@ public final class TOFUResolver {
         if (pubkey == null || pubkey.length != 32) {
             throw new IllegalArgumentException("pubkey must be 32 raw bytes");
         }
+        nick = Normalizer.normalize(nick, Normalizer.Form.NFC);
         long now = System.currentTimeMillis() / 1000L;
 
         synchronized (GameFrame.SQL_LOCK) {
-            // Declared outside try so the catch (Exception) below can propagate the
-            // CORRECT outcome (CHANGED / MATCH / NEW) even if the SQL UPDATE/INSERT
-            // throws AFTER the SELECT already established what we know. The previous
-            // catch returned Outcome.NEW unconditionally, which silently downgraded
-            // a CHANGED identity (a MITM rotating pubkeys under a known nick) to
-            // "first time we see this nick" when SQL hiccupped mid-operation.
+            // Keep the last durable state for diagnostics. Any SQL failure returns
+            // ERROR; callers must not admit an identity on an in-memory guess.
             byte[] existingPubkey = null;
             boolean existingVerified = false;
             int existingSessionsCount = 0;
             boolean found = false;
+            String storedNick = null;
             try {
                 Connection conn = Helpers.getSQLITE();
 
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "SELECT pubkey, verified_oob, sessions_count FROM known_identities WHERE nick = ?")) {
-                    ps.setString(1, nick);
+                        "SELECT nick, pubkey, verified_oob, sessions_count FROM known_identities")) {
                     try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            existingPubkey = rs.getBytes(1);
-                            existingVerified = rs.getInt(2) != 0;
-                            existingSessionsCount = rs.getInt(3);
-                            found = true;
+                        while (rs.next()) {
+                            String rowNick = rs.getString(1);
+                            if (nick.equals(Normalizer.normalize(rowNick, Normalizer.Form.NFC))) {
+                                if (found) {
+                                    throw new java.sql.SQLException("Conflicting TOFU pins collapse to NFC nick " + nick);
+                                }
+                                storedNick = rowNick;
+                                existingPubkey = rs.getBytes(2);
+                                existingVerified = rs.getInt(3) != 0;
+                                existingSessionsCount = rs.getInt(4);
+                                found = true;
+                            }
+                        }
+                    }
+                }
+
+                if (found && !nick.equals(storedNick)) {
+                    try (PreparedStatement ps = conn.prepareStatement(
+                            "UPDATE known_identities SET nick = ? WHERE nick = ?")) {
+                        ps.setString(1, nick);
+                        ps.setString(2, storedNick);
+                        if (ps.executeUpdate() != 1) {
+                            throw new java.sql.SQLException("TOFU NFC migration affected an unexpected row count");
                         }
                     }
                 }
@@ -127,7 +143,9 @@ public final class TOFUResolver {
                         ps.setBytes(2, pubkey);
                         ps.setLong(3, now);
                         ps.setLong(4, now);
-                        ps.executeUpdate();
+                        if (ps.executeUpdate() != 1) {
+                            throw new java.sql.SQLException("TOFU pin insert affected an unexpected row count");
+                        }
                     }
                     LOGGER.log(Level.INFO, "TOFU: NEW identity for {0}", nick);
                     return new Resolution(Outcome.NEW, false, 1);
@@ -142,41 +160,18 @@ public final class TOFUResolver {
                         ps.setLong(1, now);
                         ps.setInt(2, newCount);
                         ps.setString(3, nick);
-                        ps.executeUpdate();
+                        if (ps.executeUpdate() != 1) {
+                            throw new java.sql.SQLException("TOFU match update affected an unexpected row count");
+                        }
                     }
                     return new Resolution(Outcome.MATCH, existingVerified, newCount);
                 } else {
-                    int newCount = existingSessionsCount + 1;
-                    try (PreparedStatement ps = conn.prepareStatement(
-                            "UPDATE known_identities SET pubkey = ?, last_seen = ?, sessions_count = ?, verified_oob = 0 WHERE nick = ?")) {
-                        ps.setBytes(1, pubkey);
-                        ps.setLong(2, now);
-                        ps.setInt(3, newCount);
-                        ps.setString(4, nick);
-                        ps.executeUpdate();
-                    }
-                    LOGGER.log(Level.WARNING, "TOFU: pubkey CHANGED for {0} (verified_oob reset to 0)", nick);
-                    return new Resolution(Outcome.CHANGED, false, newCount);
+                    LOGGER.log(Level.SEVERE, "TOFU: rejected changed pubkey for {0}; trusted pin preserved", nick);
+                    return new Resolution(Outcome.CHANGED, existingVerified, existingSessionsCount);
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "TOFU: resolve failed for nick " + nick, ex);
-                // Defense: if the initial SELECT read an existing pubkey that does NOT
-                // match the presented one, propagate CHANGED — not NEW — even if the
-                // later UPDATE/INSERT failed. Returning NEW here would hide a successful
-                // MITM from the user (their only visual cue for CHANGED is the identicon,
-                // which isn't refreshed when the outcome is NEW).
-                if (found && existingPubkey != null
-                        && !java.security.MessageDigest.isEqual(existingPubkey, pubkey)) {
-                    return new Resolution(Outcome.CHANGED, false, existingSessionsCount + 1);
-                }
-                // SELECT saw the same pubkey and the last_seen UPDATE failed: behave as
-                // MATCH so a transient I/O failure doesn't reset trust.
-                if (found) {
-                    return new Resolution(Outcome.MATCH, existingVerified, existingSessionsCount + 1);
-                }
-                // We never got to see the peer (SELECT or INSERT failed): NEW is the
-                // only honest answer — we have no information to say otherwise.
-                return new Resolution(Outcome.NEW, false, 0);
+                return new Resolution(Outcome.ERROR, existingVerified, existingSessionsCount);
             }
         }
     }
@@ -190,6 +185,7 @@ public final class TOFUResolver {
         if (nick == null || pubkey == null || pubkey.length != 32) {
             return false;
         }
+        nick = Normalizer.normalize(nick, Normalizer.Form.NFC);
         synchronized (GameFrame.SQL_LOCK) {
             try {
                 Connection conn = Helpers.getSQLITE();
@@ -228,6 +224,7 @@ public final class TOFUResolver {
         if (nick == null || nick.isEmpty()) {
             return null;
         }
+        nick = Normalizer.normalize(nick, Normalizer.Form.NFC);
         synchronized (GameFrame.SQL_LOCK) {
             try {
                 Connection conn = Helpers.getSQLITE();
@@ -255,6 +252,7 @@ public final class TOFUResolver {
         if (nick == null || pubkey == null || pubkey.length != 32) {
             return false;
         }
+        nick = Normalizer.normalize(nick, Normalizer.Form.NFC);
         synchronized (GameFrame.SQL_LOCK) {
             try {
                 Connection conn = Helpers.getSQLITE();

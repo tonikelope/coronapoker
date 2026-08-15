@@ -8968,7 +8968,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.sqlite_id_hand = -1;
             }
             if (this.sqlite_id_hand == -1) {
-                sqlNewHand();
+                if (!sqlNewHand()) {
+                    setFin_de_la_transmision(true);
+                    return false;
+                }
             }
 
             this.apuestas = 0f;
@@ -9210,7 +9213,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void sqlNewHand() {
+    private boolean sqlNewHand() {
         synchronized (GameFrame.SQL_LOCK) {
 
             ArrayList<String> jugadores = new ArrayList<>();
@@ -9222,25 +9225,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         LOGGER.log(Level.SEVERE, null, ex);
                     }
                 }
-            }
-
-            String sql = "INSERT INTO hand(id_game, counter, sbval, blinds_double, dealer, sb, bb, start, preflop_players) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-                statement.setInt(1, this.sqlite_id_game);
-                statement.setInt(2, this.conta_mano);
-                statement.setDouble(3, Helpers.doubleClean(this.ciega_pequeña));
-                statement.setInt(4, this.ciegas_double);
-                statement.setString(5, this.dealer_nick);
-                statement.setString(6, this.small_blind_nick);
-                statement.setString(7, this.big_blind_nick);
-                statement.setLong(8, System.currentTimeMillis());
-                statement.setString(9, String.join("#", jugadores.toArray(new String[0])));
-                statement.executeUpdate();
-
-                sqlite_id_hand = statement.getGeneratedKeys().getInt(1);
-            } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             // Auditor invariant must hold across "exited cleanly + come back
@@ -9260,16 +9244,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // state on the LATEST hand of the game. Warming-up players
             // (spectator && stack>0 && !exit) still get no row — they should
             // not contribute to balance until they enter a hand for real.
+            ArrayList<HandCreateTransaction.BalanceRow> balances = new ArrayList<>();
             for (HandCloseTransaction.BalanceUpdate row : collectHandBalanceSnapshot(true)) {
-                this.sqlNewHandBalance(row.nick, row.stack, row.buyin);
+                balances.add(new HandCreateTransaction.BalanceRow(
+                        row.nick, row.stack, row.buyin, row.rebuyCount));
+            }
+            try {
+                HandCreateTransaction.HandRow hand = new HandCreateTransaction.HandRow(
+                        this.sqlite_id_game, this.conta_mano, this.ciega_pequeña,
+                        this.ciegas_double, this.dealer_nick, this.small_blind_nick,
+                        this.big_blind_nick, System.currentTimeMillis(),
+                        String.join("#", jugadores.toArray(new String[0])));
+                int committedHandId = HandCreateTransaction.create(
+                        Helpers.getSQLITE(), hand, balances);
+                // Publish only after HandCreateTransaction has committed the hand and
+                // its complete balance roster.
+                this.sqlite_id_hand = committedHandId;
+                return true;
+            } catch (Exception ex) {
+                this.sqlite_id_hand = -1;
+                LOGGER.log(Level.SEVERE,
+                        "Failed to atomically create hand and balances", ex);
+                return false;
             }
         }
     }
 
     /**
-     * Builds the canonical balance roster shared by hand creation and MISDEAL
-     * close. For later hands, auditor-only players must remain present because
-     * recovery reads its complete snapshot exclusively from the latest hand.
+     * Builds the canonical closing roster shared with the opening rules. Later
+     * hands retain auditor-only players because recovery loads the latest hand.
      */
     private ArrayList<HandCloseTransaction.BalanceUpdate> collectHandBalanceSnapshot(
             boolean includeCurrentBet) {
@@ -9774,7 +9777,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         synchronized (GameFrame.SQL_LOCK) {
 
             try (PreparedStatement statement = Helpers.getSQLITE()
-                    .prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin, rebuy_count) VALUES (?,?,?,?,?)")) {
+                    .prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin, rebuy_count) VALUES (?,?,?,?,?) "
+                            + "ON CONFLICT(id_hand, player) DO UPDATE SET "
+                            + "stack=excluded.stack, buyin=excluded.buyin, rebuy_count=excluded.rebuy_count")) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, this.sqlite_id_hand);
                 statement.setString(2, nick);

@@ -1669,6 +1669,10 @@ public class Helpers {
                     statement.execute("ALTER TABLE balance ADD rebuy_count INTEGER DEFAULT 0");
                 } catch (Exception ex) {
                 }
+                // Recovery requires one unambiguous snapshot row per player and hand.
+                // Legacy MISDEAL paths could append duplicates; retain the newest row
+                // deterministically before enforcing the invariant.
+                HandCreateTransaction.ensureUniqueBalanceRows(getSQLITE());
                 // Recovery: per-hand cryptographic HAND_ID (16 bytes,
                 // base64). Needed to rebuild HandStateChain on recovery — the SQL
                 // hand.id is an auto-increment PK and does NOT match the bytes that

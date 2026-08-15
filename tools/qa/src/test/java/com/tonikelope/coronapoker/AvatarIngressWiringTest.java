@@ -49,13 +49,16 @@ class AvatarIngressWiringTest {
         int usersList = source.indexOf("case \"USERSLIST\":", newUserGate);
         int usersListGate = source.indexOf("admitRemoteRosterParticipant(", usersList);
         int init = source.indexOf("case \"INIT\":", usersListGate);
-        int admissionHelper = source.indexOf("private RemoteRosterAdmission admitRemoteRosterParticipant(");
+        int admissionHelper = source.indexOf("private synchronized RemoteRosterAdmission admitRemoteRosterParticipant(");
         int capacityGate = source.indexOf("remoteRosterAdmission(participantes.size()", admissionHelper);
         int avatarDecode = source.indexOf("decodeRemoteAvatar(encodedAvatar, nick, source)", capacityGate);
+        int helperEnd = source.indexOf("private void rejectRemoteRoster", admissionHelper);
 
         assertTrue(newUser >= 0 && newUserGate > newUser && usersList > newUserGate);
         assertTrue(usersListGate > usersList && init > usersListGate);
         assertTrue(admissionHelper >= 0 && capacityGate > admissionHelper && avatarDecode > capacityGate);
+        assertFalse(source.substring(admissionHelper, helperEnd).contains("synchronized (participantes)"),
+                "roster admission must keep the global frame -> synchronizedMap lock order");
         assertEquals(2, count(source, "RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant("));
         assertTrue(source.contains("RemoteRosterAdmission.REJECT"));
         assertTrue(source.contains("closeClientSocket();"));

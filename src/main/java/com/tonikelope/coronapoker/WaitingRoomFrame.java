@@ -5143,20 +5143,18 @@ public class WaitingRoomFrame extends JFrame {
         }
     }
 
-    private RemoteRosterAdmission admitRemoteRosterParticipant(String nick, String encodedAvatar,
+    private synchronized RemoteRosterAdmission admitRemoteRosterParticipant(String nick, String encodedAvatar,
             boolean cpu, boolean unsecure, String source) {
-        synchronized (participantes) {
-            boolean exactDuplicate = participantes.containsKey(nick);
-            RemoteRosterAdmission admission = remoteRosterAdmission(participantes.size(),
-                    exactDuplicate, !exactDuplicate && nickCollisionNFC(nick));
-            if (admission != RemoteRosterAdmission.ADMIT) {
-                return admission;
-            }
-
-            File avatar = decodeRemoteAvatar(encodedAvatar, nick, source);
-            nuevoParticipanteRemoto(nick, avatar, null, null, null, cpu, unsecure);
-            return RemoteRosterAdmission.ADMIT;
+        boolean exactDuplicate = participantes.containsKey(nick);
+        RemoteRosterAdmission admission = remoteRosterAdmission(participantes.size(),
+                exactDuplicate, !exactDuplicate && nickCollisionNFC(nick));
+        if (admission != RemoteRosterAdmission.ADMIT) {
+            return admission;
         }
+
+        File avatar = decodeRemoteAvatar(encodedAvatar, nick, source);
+        nuevoParticipanteRemoto(nick, avatar, null, null, null, cpu, unsecure);
+        return RemoteRosterAdmission.ADMIT;
     }
 
     private void rejectRemoteRoster(String nick, String source) {

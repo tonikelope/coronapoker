@@ -3810,6 +3810,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /**
+     * Waits for the opening stack curtain before the first hand is prepared.
+     * This runs on the Crupier worker, never on the EDT, so the 16 ms fill Timer
+     * can continue updating the labels without competing with the first
+     * position-chip flight.
+     */
+    private void awaitInitialStackFill() {
+        java.util.concurrent.CountDownLatch l = this.stack_fill_latch;
+        if (l == null) {
+            return;
+        }
+        try {
+            l.await(STACK_FILL_MS + 1500, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     // Table opening: every seated player's stack rises from 0 to their buy-in together,
     // before the first hand (and before blinds post/fly). animateStackFill's barrier
     // ensures the hand doesn't start until stacks are full; GameFrame's constructor already
@@ -3838,6 +3856,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         animateStackFill(players, from, to, null);
+        awaitInitialStackFill();
     }
 
     // Animated rebuy: before nuevaMano -> reComprar applies the rebuy to the model, each

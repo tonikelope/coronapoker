@@ -1508,10 +1508,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static void resetInstance() {
 
-        GameFrame.getInstance().getFull_screen_menu().setEnabled(false);
+        GameFrame frame = THIS;
+        if (frame == null) {
+            return;
+        }
 
-        if (GameFrame.getInstance().isFull_screen()) {
-            GameFrame.getInstance().toggleFullScreen();
+        frame.getFull_screen_menu().setEnabled(false);
+
+        // The frame is being discarded, so do not toggle fullscreen here. Toggling would
+        // dispose/recreate the native peer, show and maximize it, and resetInstance would
+        // immediately hide and dispose it again. Release an exclusive fullscreen device
+        // directly where necessary, then dispose the frame exactly once.
+        if (!Helpers.OSValidator.isWindows() && frame.device != null
+                && frame.device.getFullScreenWindow() == frame) {
+            frame.device.setFullScreenWindow(null);
         }
 
         GameFrame.IWTSTH_RULE = false;
@@ -1532,16 +1542,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.RECOVER_ID = -1;
         GameFrame.UGI = null;
 
-        THIS.setVisible(false);
+        frame.setVisible(false);
 
         // Stop THIS game's dealer shuffle-verify queue before discarding the GameFrame: its
         // daemon worker sits blocked in take(), holding the whole Crupier via the Sink,
         // leaking a thread plus its object graph for every game played in the same app session.
-        if (THIS.getCrupier() != null) {
-            THIS.getCrupier().shutdownShuffleVerifyQueue();
+        if (frame.getCrupier() != null) {
+            frame.getCrupier().shutdownShuffleVerifyQueue();
         }
 
-        THIS.dispose();
+        frame.dispose();
 
         THIS = null;
     }
@@ -1845,7 +1855,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
      * Safe to call from any thread.
      */
     private void forceForegroundDeferred() {
-        SwingUtilities.invokeLater(this::forceForeground);
+        SwingUtilities.invokeLater(() -> {
+            // A fullscreen toggle may have queued this callback just before the game ended.
+            // Do not focus a disposed frame or steal focus from the newly shown main menu.
+            if (THIS == this && isDisplayable() && isVisible()) {
+                forceForeground();
+            }
+        });
     }
 
     public ConcurrentHashMap<String, String> getNick2avatar() {
@@ -1966,6 +1982,53 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         synchronized (ZOOM_LOCK) {
             ZOOM_LEVEL--;
         }
+    }
+
+    /**
+     * Applies one zoom level synchronously for the auto-fit worker.
+     *
+     * The menu listeners intentionally dispatch their heavy work to another worker. That is
+     * correct for a user click, but it means that invoking a menu item with doClick() cannot be
+     * used as a completion barrier: the listener returns before its worker has changed the
+     * table. Auto-fit calls this method directly so its next bounds measurement observes the
+     * completed zoom operation. The caller must not be the EDT.
+     *
+     * @return true when a valid, different level was applied
+     */
+    boolean applyZoomLevelSynchronouslyForAutoZoom(int target) {
+        if (java.awt.EventQueue.isDispatchThread()) {
+            throw new IllegalStateException("Auto-zoom must not run on the EDT");
+        }
+
+        if (Helpers.doubleSecureCompare(0f, 1f + (target * ZOOM_STEP)) >= 0) {
+            return false;
+        }
+
+        synchronized (ZOOM_LOCK) {
+            if (target == ZOOM_LEVEL) {
+                return false;
+            }
+            ZOOM_LEVEL = target;
+        }
+
+        Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+        Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+        zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+        InGameNotifyDialog.notifyZoom();
+
+        if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
+            for (Card carta : jugadas_dialog.getCartas()) {
+                carta.invalidateImagePrecache();
+                carta.refreshCard();
+            }
+            Helpers.GUIRun(jugadas_dialog::pack);
+        }
+
+        if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+            shortcuts_dialog.zoom(Helpers.DIALOG_ZOOM, null);
+        }
+
+        return true;
     }
 
     public void refresh() {
@@ -4399,8 +4462,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
+        java.util.concurrent.CountDownLatch balance_latch = null;
+        BalanceScreen[] balance_ref = new BalanceScreen[1];
+        boolean run_cleanup = false;
+
         synchronized (GameFrame.SQL_LOCK) {
             if (!fin) {
+
+                run_cleanup = true;
 
                 fin = true;
 
@@ -4624,73 +4693,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         // transmission, outside the EDT) waits on the latch for the player to
                         // choose continue/menu, the same way it used to wait for the modal
                         // dialog to close, without freezing the EDT.
-                        final java.util.concurrent.CountDownLatch balance_latch = new java.util.concurrent.CountDownLatch(1);
-                        final BalanceScreen[] balance_ref = new BalanceScreen[1];
+                        final java.util.concurrent.CountDownLatch screen_latch = new java.util.concurrent.CountDownLatch(1);
+                        balance_latch = screen_latch;
 
                         Helpers.GUIRun(() -> {
                             // The button ONLY counts down the latch. It does NOT touch the
                             // database lock: this runs on the EDT, and requesting it here would
-                            // leave it waiting for whoever holds it. With two clicks in a row that
-                            // used to be a fresh deadlock: the second click would wait for the
-                            // lock while the thread that just woke up, holding it, waited for the
-                            // EDT to dismiss the screen. The wait below finds out anyway, since it
-                            // polls the counter every quarter second; that delay on a final
-                            // screen is imperceptible.
-                            BalanceScreen balance = new BalanceScreen(GameFrame.getInstance(), balance_latch::countDown);
+                            // leave it waiting for whoever holds it. The transmission thread
+                            // releases SQL_LOCK before awaiting this signal, so the direct latch
+                            // notification cannot deadlock with a settings save.
+                            BalanceScreen balance = new BalanceScreen(GameFrame.getInstance(), screen_latch::countDown);
                             balance_ref[0] = balance;
                             showBalanceOverlay(balance);
                         });
-
-                        // This wait is for the PLAYER to click, i.e. indefinite, and we're
-                        // INSIDE SQL_LOCK. Waiting here with a latch would hold the lock the
-                        // whole time, and the EDT would get stuck on that same lock the moment
-                        // anyone hits SAVE in settings: the whole game freezes and no one can
-                        // even click the button that would unblock this.
-                        // Sleeping on SQL_LOCK itself fully RELEASES the monitor, even if
-                        // acquired multiple times, so while we wait, settings save normally.
-                        // The counter is polled every quarter second: nothing notifies us on
-                        // purpose, since notifying would require requesting this same lock from
-                        // the EDT, which is exactly what must not happen.
-                        synchronized (GameFrame.SQL_LOCK) {
-                            while (balance_latch.getCount() > 0) {
-                                try {
-                                    GameFrame.SQL_LOCK.wait(WAIT_QUEUES);
-                                } catch (InterruptedException ex) {
-                                    Thread.currentThread().interrupt();
-                                    break;
-                                }
-                            }
-                        }
-
-                        recover = balance_ref[0] != null && balance_ref[0].isRecover();
-
-                        // Hide the final-screen overlay WITHOUT holding SQL_LOCK across the EDT
-                        // round-trip. A GUIRunAndWait here would block on the EDT while this thread
-                        // still holds the outer SQL_LOCK, and the EDT would deadlock the instant it
-                        // tried to take that lock (e.g. a settings SAVE) -- the very hazard the
-                        // balance-latch wait above is written to avoid. Same release-the-monitor
-                        // trick: SQL_LOCK.wait() fully relinquishes the monitor (even re-entrant)
-                        // while we wait for the EDT to finish hiding the overlay, so the ordering
-                        // guarantee (overlay gone BEFORE SQLITEVAC/closeSQLITE/RESET_GAME) is kept
-                        // without pinning the lock.
-                        final java.util.concurrent.CountDownLatch hide_latch = new java.util.concurrent.CountDownLatch(1);
-                        Helpers.GUIRun(() -> {
-                            try {
-                                hideBalanceOverlay(balance_ref[0]);
-                            } finally {
-                                hide_latch.countDown();
-                            }
-                        });
-                        synchronized (GameFrame.SQL_LOCK) {
-                            while (hide_latch.getCount() > 0) {
-                                try {
-                                    GameFrame.SQL_LOCK.wait(WAIT_QUEUES);
-                                } catch (InterruptedException ex) {
-                                    Thread.currentThread().interrupt();
-                                    break;
-                                }
-                            }
-                        }
                     } else if (!isPartida_local()) {
                         Helpers.GUIRun(() -> {
                             InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("conn.el_servidor_ha_detenido_la"), Color.WHITE, Color.BLACK, getClass().getResource("/images/stop.png"), HALT_PAUSE, true);
@@ -4702,21 +4717,46 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 }
 
-                Helpers.SQLITEVAC();
-
-                Helpers.closeSQLITE();
-
-                KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-
-                if (GameFrame.key_event_dispatcher != null) {
-                    kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
-                    GameFrame.key_event_dispatcher = null;
-                }
-
-                RESET_GAME(recover);
             }
 
         }
+
+        if (!run_cleanup) {
+            return;
+        }
+
+        // Do not wait while holding SQL_LOCK. The final-screen button signals this latch
+        // directly on the EDT, and other database users remain free while the player reads
+        // the result. This replaces the old SQL_LOCK.wait(250 ms) polling loop.
+        if (balance_latch != null) {
+            awaitLatch(balance_latch);
+            recover = balance_ref[0] != null && balance_ref[0].isRecover();
+
+            final java.util.concurrent.CountDownLatch hide_latch = new java.util.concurrent.CountDownLatch(1);
+            Helpers.GUIRun(() -> {
+                try {
+                    hideBalanceOverlay(balance_ref[0]);
+                } finally {
+                    hide_latch.countDown();
+                }
+            });
+            awaitLatch(hide_latch);
+        }
+
+        synchronized (GameFrame.SQL_LOCK) {
+            Helpers.SQLITEVAC();
+
+            Helpers.closeSQLITE();
+
+            KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+
+            if (GameFrame.key_event_dispatcher != null) {
+                kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
+                GameFrame.key_event_dispatcher = null;
+            }
+        }
+
+        RESET_GAME(recover);
 
     }
 
@@ -4779,6 +4819,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (glass instanceof JComponent) {
             ((JComponent) glass).removeAll();
+        }
+    }
+
+    private static void awaitLatch(java.util.concurrent.CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
         }
     }
 

@@ -46,14 +46,16 @@ class AvatarIngressWiringTest {
         String source = readWaitingRoomSource();
         int newUser = source.indexOf("case \"NEWUSER\":");
         int newUserGate = source.indexOf("admitRemoteRosterParticipant(", newUser);
-        int newUserIdentity = source.indexOf("NEWUSER carried no identity", newUserGate);
-        int usersList = source.indexOf("case \"USERSLIST\":", newUserIdentity);
+        int usersList = source.indexOf("case \"USERSLIST\":", newUserGate);
         int usersListGate = source.indexOf("admitRemoteRosterParticipant(", usersList);
-        int usersListIdentity = source.indexOf("USERSLIST carried no identity", usersListGate);
+        int init = source.indexOf("case \"INIT\":", usersListGate);
+        int admissionHelper = source.indexOf("private RemoteRosterAdmission admitRemoteRosterParticipant(");
+        int capacityGate = source.indexOf("remoteRosterAdmission(participantes.size()", admissionHelper);
+        int avatarDecode = source.indexOf("decodeRemoteAvatar(encodedAvatar, nick, source)", capacityGate);
 
-        assertTrue(newUser >= 0 && newUserGate > newUser && newUserIdentity > newUserGate);
-        assertTrue(usersList > newUserIdentity && usersListGate > usersList
-                && usersListIdentity > usersListGate);
+        assertTrue(newUser >= 0 && newUserGate > newUser && usersList > newUserGate);
+        assertTrue(usersListGate > usersList && init > usersListGate);
+        assertTrue(admissionHelper >= 0 && capacityGate > admissionHelper && avatarDecode > capacityGate);
         assertEquals(2, count(source, "RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant("));
         assertTrue(source.contains("RemoteRosterAdmission.REJECT"));
         assertTrue(source.contains("closeClientSocket();"));

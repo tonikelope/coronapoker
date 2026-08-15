@@ -85,6 +85,19 @@ public class SettlementRecordTest {
     }
 
     @Test
+    public void openingRemainderIsCommittedInVersionedTranscript() {
+        byte[] hid = handId(0x45);
+        List<Entry> e = Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 201L));
+        byte[] noCarry = SettlementRecord.encode(hid, e, 0L, 0L);
+        byte[] oneCentCarry = SettlementRecord.encode(hid, e, 1L, 0L);
+        assertNotEquals(Arrays.toString(noCarry), Arrays.toString(oneCentCarry));
+        assertEquals(SettlementRecord.FORMAT_VERSION, oneCentCarry[16] & 0xFF);
+        assertEquals(2, oneCentCarry[17] & 0xFF);
+        assertEquals(2, SettlementRecord.readParticipantCount(oneCentCarry));
+        assertEquals(16 + 2 + 2 * SettlementRecord.ENTRY_BYTES + 16, oneCentCarry.length);
+    }
+
+    @Test
     public void encodedLengthMatchesLayout() {
         byte[] hid = handId(0x55);
         List<Entry> e = Arrays.asList(
@@ -113,6 +126,10 @@ public class SettlementRecordTest {
                 () -> SettlementRecord.encode(handId(0), Collections.emptyList(), 0L));
         assertThrows(IllegalArgumentException.class,
                 () -> SettlementRecord.encode(handId(0), ok, -1L));
+        assertThrows(IllegalArgumentException.class,
+                () -> SettlementRecord.encode(handId(0), ok, -1L, 0L));
+        assertThrows(IllegalArgumentException.class,
+                () -> SettlementRecord.encode(handId(0), ok, 0L, -1L));
     }
 
     @Test
@@ -144,5 +161,27 @@ public class SettlementRecordTest {
         // bob is over-paid by 50 with no remainder to explain it -> bug.
         List<Entry> e = Arrays.asList(entry("alice", 100L, 0L), entry("bob", 100L, 250L));
         assertFalse(SettlementRecord.amountsBalance(e, 0L));
+    }
+
+    @Test
+    public void amountsBalanceIncludesOpeningRemainder() {
+        List<Entry> e = Arrays.asList(entry("alice", 50L, 0L), entry("bob", 50L, 101L));
+        assertTrue(SettlementRecord.amountsBalance(e, 1L, 0L));
+        assertFalse(SettlementRecord.amountsBalance(e, 0L));
+    }
+
+    @Test
+    public void amountsBalanceRejectsOverpaymentWithOpeningRemainder() {
+        List<Entry> e = Arrays.asList(entry("alice", 50L, 0L), entry("bob", 50L, 102L));
+        assertFalse(SettlementRecord.amountsBalance(e, 1L, 0L));
+    }
+
+    @Test
+    public void amountsBalanceCarriesOddCentAcrossTwoHands() {
+        List<Entry> first = Arrays.asList(
+                entry("alice", 34L, 33L), entry("bob", 33L, 33L), entry("charlie", 33L, 33L));
+        List<Entry> second = Arrays.asList(entry("alice", 50L, 0L), entry("bob", 50L, 101L));
+        assertTrue(SettlementRecord.amountsBalance(first, 0L, 1L));
+        assertTrue(SettlementRecord.amountsBalance(second, 1L, 0L));
     }
 }

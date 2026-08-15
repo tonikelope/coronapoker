@@ -404,10 +404,10 @@ at the qa pom:
 
 ```sh
 mvn -DskipTests install                                   # from the repo root
-mvn -f tools/qa/pom.xml test -P slow-bot -Dcoronapoker.version=23.45
+mvn -f tools/qa/pom.xml test -P slow-bot -Dcoronapoker.version=23.46
 ```
 
-Keep `-Dcoronapoker.version` in sync with the root pom (currently 23.45).
+Keep `-Dcoronapoker.version` in sync with the root pom (currently 23.46).
 
 ### 9.3 A subset by name pattern
 

@@ -1831,7 +1831,8 @@ public class Participant implements Runnable {
                                                     ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
                                                     : GameFrame.getInstance().getCrupier().isShow_time();
                                             if (acceptRabbit) {
-                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(nick, Integer.parseInt(partes_comando[4]));
+                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
+                                                        nick, Integer.parseInt(partes_comando[4]), rabbitHid);
                                             }
                                             break;
                                         }

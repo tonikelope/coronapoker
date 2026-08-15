@@ -3236,7 +3236,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                         : GameFrame.getInstance().getCrupier().isShow_time();
                                                                 if (acceptRabbit) {
                                                                     String rNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    GameFrame.getInstance().getCrupier().RABBIT_HANDLER(rNick, Integer.parseInt(partes_comando[4]));
+                                                                    GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
+                                                                            rNick, Integer.parseInt(partes_comando[4]), rabbitHid);
                                                                 }
                                                             } catch (Exception e) {
                                                             }

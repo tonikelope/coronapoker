@@ -3682,6 +3682,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(() -> {
                 player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/" + icon)).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
 
+                // setWinner/setLoser fit the text before installing their icon. Refit
+                // after the icon changes so its width is included in the measurement.
+                setActionTextFittedRaw(player_action.getText());
+
                 repaint();
             });
         }
@@ -3691,6 +3695,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(() -> {
             player_action.setIcon(null);
+            setActionTextFittedRaw(player_action.getText());
         });
 
     }
@@ -3718,6 +3723,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Insets insets = player_action.getInsets();
 
         int available_width = (player_action.getWidth() > 0 ? player_action.getWidth() : player_action.getPreferredSize().width) - (insets != null ? insets.left + insets.right : 0);
+
+        // JLabel lays the icon and the text out side by side. The old calculation
+        // measured the text against the whole label, so adding the winner/loser
+        // icon after fitting could still clip the end of a long hand name.
+        javax.swing.Icon icon = player_action.getIcon();
+        if (icon != null && msg != null && !msg.isEmpty()) {
+            available_width -= icon.getIconWidth() + player_action.getIconTextGap();
+        }
 
         Font fitted_font = Helpers.fitFontToWidth(player_action, msg, base_font, available_width, Math.max(9, Math.round(base_font.getSize() * 0.5f)));
 

@@ -7596,7 +7596,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // The danger alert loops until the user closes the popup.
             Audio.stopDangerAlertLoop();
         }
-        rollbackAbortedHand();
+        if (!rollbackAbortedHand()) {
+            LOGGER.log(Level.SEVERE,
+                    "Aborted hand remains open for recovery because its atomic close failed");
+        }
         setFin_de_la_transmision(true);
 
         if (broadcast && GameFrame.getInstance().isPartida_local()) {
@@ -7619,7 +7622,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * -- just like after an exit that waited for hand end -- and the next NUEVA_MANO
      * starts fresh. See the inline comment for the transactional detail.
      */
-    private void rollbackAbortedHand() {
+    private boolean rollbackAbortedHand() {
+        boolean persisted = true;
         // Without this UPDATE+INSERT, recovery would find an empty SQL result -> dealer_nick
         // null -> repartir() crashing, plus an empty balance -> players stuck as spectators
         // with no cards.
@@ -7632,46 +7636,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // it all-or-nothing: a crash before commit rolls back to a still-open hand, a state
             // recovery already knows how to handle.
             synchronized (GameFrame.SQL_LOCK) {
-                Connection con = null;
-                boolean prev_autocommit = true;
-                boolean tx = false;
                 try {
-                    con = Helpers.getSQLITE();
-                    prev_autocommit = con.getAutoCommit();
-                    con.setAutoCommit(false);
-                    tx = true;
-
-                    try (PreparedStatement statement = con.prepareStatement("UPDATE hand SET end=?, pot=0 WHERE id=?")) {
-                        statement.setQueryTimeout(30);
-                        statement.setLong(1, System.currentTimeMillis());
-                        statement.setInt(2, sqlite_id_hand);
-                        statement.executeUpdate();
-                    }
-
-                    for (Player j : GameFrame.getInstance().getJugadores()) {
-                        if (j != null && !j.isExit()) {
-                            sqlNewHandBalance(j.getNickname(), Helpers.doubleClean(j.getStack()), j.getBuyin());
-                        }
-                    }
-
-                    con.commit();
+                    ArrayList<HandCloseTransaction.BalanceUpdate> balances
+                            = collectHandBalanceSnapshot(false);
+                    HandCloseTransaction.closeAborted(Helpers.getSQLITE(), sqlite_id_hand,
+                            System.currentTimeMillis(), balances);
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, "Failed to persist aborted-hand close — rolling back", ex);
-                    if (tx && con != null) {
-                        try {
-                            con.rollback();
-                        } catch (SQLException e2) {
-                            LOGGER.log(Level.SEVERE, "Aborted-hand close rollback failed", e2);
-                        }
-                    }
-                } finally {
-                    if (tx && con != null) {
-                        try {
-                            con.setAutoCommit(prev_autocommit);
-                        } catch (SQLException e3) {
-                            LOGGER.log(Level.SEVERE, "Aborted-hand close autocommit restore failed", e3);
-                        }
-                    }
+                    persisted = false;
                 }
             }
         }
@@ -7683,6 +7655,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_sra_lock_community = null;
         this.local_sra_unlock_community = null;
         this.local_original_cards = new byte[2];
+        return persisted;
     }
 
     /**
@@ -9287,26 +9260,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // state on the LATEST hand of the game. Warming-up players
             // (spectator && stack>0 && !exit) still get no row — they should
             // not contribute to balance until they enter a hand for real.
-            if (this.conta_mano == 1) {
-                for (Player jugador : GameFrame.getInstance().getJugadores()) {
-                    if (jugador.isActivo() || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0 || jugador.isExit()) {
-                        this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
-                    }
+            for (HandCloseTransaction.BalanceUpdate row : collectHandBalanceSnapshot(true)) {
+                this.sqlNewHandBalance(row.nick, row.stack, row.buyin);
+            }
+        }
+    }
+
+    /**
+     * Builds the canonical balance roster shared by hand creation and MISDEAL
+     * close. For later hands, auditor-only players must remain present because
+     * recovery reads its complete snapshot exclusively from the latest hand.
+     */
+    private ArrayList<HandCloseTransaction.BalanceUpdate> collectHandBalanceSnapshot(
+            boolean includeCurrentBet) {
+        ArrayList<HandCloseTransaction.BalanceUpdate> rows = new ArrayList<>();
+        if (this.conta_mano == 1) {
+            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                if (jugador != null && (jugador.isActivo()
+                        || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0
+                        || jugador.isExit())) {
+                    double stack = jugador.getStack() + (includeCurrentBet ? jugador.getBet() : 0d);
+                    rows.add(new HandCloseTransaction.BalanceUpdate(jugador.getNickname(), stack,
+                            jugador.getBuyin(), getRebuyCount(jugador.getNickname())));
                 }
-            } else {
-                for (Map.Entry<String, Double[]> entry : auditor.entrySet()) {
-                    Player jugador = nick2player.get(entry.getKey());
-                    if (jugador != null) {
-                        if (jugador.isActivo() || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0 || jugador.isExit()) {
-                            this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
-                        }
-                    } else {
-                        Double[] pasta = entry.getValue();
-                        this.sqlNewHandBalance(entry.getKey(), pasta[0], (int) Math.round(pasta[1]));
+            }
+        } else {
+            for (Map.Entry<String, Double[]> entry : auditor.entrySet()) {
+                Player jugador = nick2player.get(entry.getKey());
+                if (jugador != null) {
+                    if (jugador.isActivo()
+                            || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0
+                            || jugador.isExit()) {
+                        double stack = jugador.getStack() + (includeCurrentBet ? jugador.getBet() : 0d);
+                        rows.add(new HandCloseTransaction.BalanceUpdate(jugador.getNickname(), stack,
+                                jugador.getBuyin(), getRebuyCount(jugador.getNickname())));
                     }
+                } else {
+                    Double[] pasta = entry.getValue();
+                    rows.add(new HandCloseTransaction.BalanceUpdate(entry.getKey(), pasta[0],
+                            (int) Math.round(pasta[1]), getRebuyCount(entry.getKey())));
                 }
             }
         }
+        return rows;
     }
 
     private void sqlNewAction(Player current_player, byte[] actionRecord, byte[] actionSig) {
@@ -9579,7 +9575,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void sqlUpdateHandEnd(double bote_tot) {
+    private boolean sqlUpdateHandEnd(double bote_tot) {
         synchronized (GameFrame.SQL_LOCK) {
 
             // ArrayList, not an indexed String[auditor.size()]: since auditor is a
@@ -9588,6 +9584,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // size()-presized array with ArrayIndexOutOfBounds. A growable list has no such
             // assumption.
             ArrayList<String> balance_float = new ArrayList<>();
+            ArrayList<HandCloseTransaction.BalanceUpdate> balance_updates = new ArrayList<>();
 
             // UPDATE hand + this hand's balances in ONE transaction: with per-statement
             // autocommit, a crash between the hand UPDATE and the balance UPDATEs would leave
@@ -9599,19 +9596,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Connection con = null;
             boolean prev_autocommit = true;
             boolean tx = false;
+            boolean committed = false;
             try {
                 con = Helpers.getSQLITE();
                 prev_autocommit = con.getAutoCommit();
                 con.setAutoCommit(false);
                 tx = true;
-
-                try (PreparedStatement statement = con.prepareStatement("UPDATE hand SET end=?, pot=? WHERE id=?")) {
-                    statement.setQueryTimeout(30);
-                    statement.setLong(1, System.currentTimeMillis());
-                    statement.setDouble(2, Helpers.doubleClean(bote_tot));
-                    statement.setInt(3, this.sqlite_id_hand);
-                    statement.executeUpdate();
-                }
 
                 for (Map.Entry<String, Double[]> entry : auditor.entrySet()) {
 
@@ -9620,9 +9610,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     try {
                         if (jugador != null) {
 
-                            sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack()
-                                    + (Helpers.doubleSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f),
-                                    jugador.getBuyin());
+                            double finalStack = jugador.getStack()
+                                    + (Helpers.doubleSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f);
+                            // sqlNewHand intentionally has no row for a positive-stack warming
+                            // spectator. Mirror that eligibility here; every row that should
+                            // exist remains strict, while an intentional non-participant is not
+                            // misclassified as a zero-row persistence failure.
+                            if (jugador.isActivo()
+                                    || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0
+                                    || jugador.isExit()) {
+                                balance_updates.add(new HandCloseTransaction.BalanceUpdate(
+                                        jugador.getNickname(), finalStack, jugador.getBuyin(),
+                                        getRebuyCount(jugador.getNickname())));
+                            }
                             balance_float.add(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
                                     + "|"
                                     + String.valueOf(Helpers.doubleClean(jugador.getStack()
@@ -9633,17 +9633,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         } else {
 
                             Double[] pasta = entry.getValue();
-                            sqlUpdateHandBalance(entry.getKey(), pasta[0], (int) Math.round(pasta[1]));
+                            balance_updates.add(new HandCloseTransaction.BalanceUpdate(
+                                    entry.getKey(), pasta[0], (int) Math.round(pasta[1]),
+                                    getRebuyCount(entry.getKey())));
                             balance_float.add(Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")) + "|"
                                     + String.valueOf(Helpers.doubleClean(pasta[0])) + "|" + String.valueOf(Math.round(pasta[1]))
                                     + "|" + String.valueOf(getRebuyCount(entry.getKey())));
                         }
-                    } catch (Exception ex) {
+                    } catch (UnsupportedEncodingException ex) {
                         LOGGER.log(Level.SEVERE, null, ex);
                     }
                 }
 
+                HandCloseTransaction.close(con, this.sqlite_id_hand,
+                        System.currentTimeMillis(), bote_tot, balance_updates);
                 con.commit();
+                committed = true;
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "Failed to persist hand-end close — rolling back", ex);
                 if (tx && con != null) {
@@ -9661,6 +9666,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         LOGGER.log(Level.SEVERE, "Hand-end close autocommit restore failed", e3);
                     }
                 }
+            }
+
+            if (!committed) {
+                return false;
             }
 
             LOGGER.log(Level.INFO, () -> "Balance after hand " + String.valueOf(conta_mano) + " -> " + String.join("@", balance_float));
@@ -9688,6 +9697,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
+            return true;
         }
     }
 
@@ -9777,24 +9787,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-        }
-    }
-
-    private void sqlUpdateHandBalance(String nick, double stack, int buyin) {
-        synchronized (GameFrame.SQL_LOCK) {
-            try (PreparedStatement statement = Helpers.getSQLITE()
-                    .prepareStatement("UPDATE balance SET stack=?, buyin=?, rebuy_count=? WHERE id_hand=? and player=?")) {
-                statement.setQueryTimeout(30);
-                statement.setDouble(1, Helpers.doubleClean(stack));
-                statement.setInt(2, buyin);
-                statement.setInt(3, getRebuyCount(nick));
-                statement.setInt(4, this.sqlite_id_hand);
-                statement.setString(5, nick);
-                statement.executeUpdate();
-
-            } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
         }
     }
 
@@ -20708,7 +20700,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     // and performs only the normal transmission teardown.
                                     continue;
                                 }
-                                sqlUpdateHandEnd(sql_bote_total);
+                                if (!sqlUpdateHandEnd(sql_bote_total)) {
+                                    setFin_de_la_transmision(true);
+                                    // Keep the in-memory hand intact and its SQL row open so
+                                    // recovery can retry from the last atomic state.
+                                    continue;
+                                }
                             }
 
                             if (this.update_game_seats) {

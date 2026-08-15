@@ -39,6 +39,8 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.util.Base64;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -75,6 +77,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private volatile Font pot_orig_font = null;
     private volatile int hand_label_click_type = 0;
     private volatile boolean ready = false;
+    private final CountDownLatch ready_latch = new CountDownLatch(1);
     private volatile Timer icon_zoom_timer = null;
     private final Object zoom_lock = new Object();
     // The two lights-switch icons, pre-scaled to the pot row's height, plus the height they
@@ -541,6 +544,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             refreshLightsIcon();
 
             ready = true;
+            ready_latch.countDown();
         });
 
     }
@@ -1332,8 +1336,21 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     @Override
     public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 
-        while (!ready) {
-            Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
+        if (!ready) {
+            try {
+                if (!ready_latch.await(2, TimeUnit.SECONDS)) {
+                    Logger.getLogger(CommunityCardsPanel.class.getName()).log(Level.WARNING,
+                            "Community cards panel was not laid out before zoom timeout");
+                    notifyZoomCompletion(notifier);
+                    return;
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                Helpers.logCooperativeCancellation(Logger.getLogger(CommunityCardsPanel.class.getName()),
+                        "community cards layout wait", ex);
+                notifyZoomCompletion(notifier);
+                return;
+            }
         }
 
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
@@ -1397,14 +1414,15 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             }
         }
 
-        if (notifier != null) {
+        notifyZoomCompletion(notifier);
+    }
 
+    private void notifyZoomCompletion(ConcurrentLinkedQueue<Long> notifier) {
+        if (notifier != null) {
             notifier.add(Thread.currentThread().threadId());
 
             synchronized (notifier) {
-
                 notifier.notifyAll();
-
             }
         }
     }

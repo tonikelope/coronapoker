@@ -22,8 +22,8 @@ class AvatarIngressWiringTest {
         assertTrue(source.contains("partes_comando.length >= 6 ? partes_comando[5] : \"*\""));
         assertTrue(source.contains("user_parts.length >= 3 ? user_parts[2] : \"*\""));
         assertTrue(source.contains("decodeRemoteAvatar(partes[2], client_nick, \"JOIN\")"));
-        assertEquals(5, count(source, "decodeRemoteAvatar("),
-                "four callers plus the helper declaration must remain");
+        assertEquals(4, count(source, "decodeRemoteAvatar("),
+                "server intro, JOIN, bounded roster helper and decoder declaration must remain");
 
         assertFalse(source.contains("Base64.getDecoder().decode(partes_comando[5])"));
         assertFalse(source.contains("Base64.getDecoder().decode(user_parts[2])"));
@@ -39,6 +39,24 @@ class AvatarIngressWiringTest {
 
         assertTrue(lock >= 0 && raceGate > lock && decode > raceGate && adopt > decode);
         assertTrue(source.contains("if (!adopted) {\n                avatar_io.deleteOwned(avatar);"));
+    }
+
+    @Test
+    void clientRosterAdmissionPrecedesAvatarAllocationForBothIngresses() throws IOException {
+        String source = readWaitingRoomSource();
+        int newUser = source.indexOf("case \"NEWUSER\":");
+        int newUserGate = source.indexOf("admitRemoteRosterParticipant(", newUser);
+        int newUserIdentity = source.indexOf("NEWUSER carried no identity", newUserGate);
+        int usersList = source.indexOf("case \"USERSLIST\":", newUserIdentity);
+        int usersListGate = source.indexOf("admitRemoteRosterParticipant(", usersList);
+        int usersListIdentity = source.indexOf("USERSLIST carried no identity", usersListGate);
+
+        assertTrue(newUser >= 0 && newUserGate > newUser && newUserIdentity > newUserGate);
+        assertTrue(usersList > newUserIdentity && usersListGate > usersList
+                && usersListIdentity > usersListGate);
+        assertEquals(2, count(source, "RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant("));
+        assertTrue(source.contains("RemoteRosterAdmission.REJECT"));
+        assertTrue(source.contains("closeClientSocket();"));
     }
 
     private static int count(String text, String needle) {

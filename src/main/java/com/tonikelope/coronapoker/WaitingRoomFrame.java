@@ -119,6 +119,21 @@ public class WaitingRoomFrame extends JFrame {
     private static final Logger LOGGER = Logger.getLogger(WaitingRoomFrame.class.getName());
 
     public static final int MAX_PARTICIPANTES = 10;
+
+    enum RemoteRosterAdmission {
+        ADMIT,
+        DUPLICATE,
+        REJECT
+    }
+
+    static RemoteRosterAdmission remoteRosterAdmission(int currentSize, boolean exactDuplicate,
+            boolean nfcCollision) {
+        if (exactDuplicate) {
+            return RemoteRosterAdmission.DUPLICATE;
+        }
+        return currentSize >= MAX_PARTICIPANTES || nfcCollision
+                ? RemoteRosterAdmission.REJECT : RemoteRosterAdmission.ADMIT;
+    }
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
@@ -3677,12 +3692,15 @@ public class WaitingRoomFrame extends JFrame {
                                                             try {
                                                                 String nickNew = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 boolean isBot = nickNew.startsWith("CoronaBot$");
-                                                                 if (!participantes.containsKey(nickNew)) {
-                                                                     File avatarNew = decodeRemoteAvatar(
-                                                                             partes_comando.length >= 6 ? partes_comando[5] : "*",
-                                                                            nickNew, "NEWUSER");
-                                                                     nuevoParticipanteRemoto(nickNew, avatarNew, null, null, null,
-                                                                             isBot, "1".equals(partes_comando[4]));
+                                                                 RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant(
+                                                                         nickNew,
+                                                                         partes_comando.length >= 6 ? partes_comando[5] : "*",
+                                                                         isBot, "1".equals(partes_comando[4]), "NEWUSER");
+                                                                 if (rosterAdmission == RemoteRosterAdmission.REJECT) {
+                                                                     rejectRemoteRoster(nickNew, "NEWUSER");
+                                                                     break;
+                                                                 } else if (rosterAdmission == RemoteRosterAdmission.DUPLICATE) {
+                                                                     break;
                                                                  }
 
                                                                  if (!isBot && (partes_comando.length < 8
@@ -3755,12 +3773,15 @@ public class WaitingRoomFrame extends JFrame {
                                                                 try {
                                                                     String list_nick = new String(Base64.getDecoder().decode(user_parts[0]), "UTF-8");
                                                                     boolean isListBot = list_nick.startsWith("CoronaBot$");
-                                                                     if (!participantes.containsKey(list_nick)) {
-                                                                         File list_avatar = decodeRemoteAvatar(
-                                                                                 user_parts.length >= 3 ? user_parts[2] : "*",
-                                                                                list_nick, "USERSLIST");
-                                                                         nuevoParticipanteRemoto(list_nick, list_avatar, null, null,
-                                                                                 null, isListBot, "1".equals(user_parts[1]));
+                                                                     RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant(
+                                                                             list_nick,
+                                                                             user_parts.length >= 3 ? user_parts[2] : "*",
+                                                                             isListBot, "1".equals(user_parts[1]), "USERSLIST");
+                                                                     if (rosterAdmission == RemoteRosterAdmission.REJECT) {
+                                                                         rejectRemoteRoster(list_nick, "USERSLIST");
+                                                                         break;
+                                                                     } else if (rosterAdmission == RemoteRosterAdmission.DUPLICATE) {
+                                                                         continue;
                                                                      }
 
                                                                      if (!isListBot && (user_parts.length < 5
@@ -5120,6 +5141,29 @@ public class WaitingRoomFrame extends JFrame {
                     new Object[]{nick, source, ex.getMessage()});
             return null;
         }
+    }
+
+    private RemoteRosterAdmission admitRemoteRosterParticipant(String nick, String encodedAvatar,
+            boolean cpu, boolean unsecure, String source) {
+        synchronized (participantes) {
+            boolean exactDuplicate = participantes.containsKey(nick);
+            RemoteRosterAdmission admission = remoteRosterAdmission(participantes.size(),
+                    exactDuplicate, !exactDuplicate && nickCollisionNFC(nick));
+            if (admission != RemoteRosterAdmission.ADMIT) {
+                return admission;
+            }
+
+            File avatar = decodeRemoteAvatar(encodedAvatar, nick, source);
+            nuevoParticipanteRemoto(nick, avatar, null, null, null, cpu, unsecure);
+            return RemoteRosterAdmission.ADMIT;
+        }
+    }
+
+    private void rejectRemoteRoster(String nick, String source) {
+        LOGGER.log(Level.SEVERE,
+                "Rejected impossible remote roster entry for {0} via {1}; closing host channel",
+                new Object[]{nick, source});
+        closeClientSocket();
     }
 
     boolean isOwnedRemoteAvatar(File avatar) {

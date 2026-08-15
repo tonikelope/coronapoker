@@ -263,7 +263,7 @@ including the headless bot smoke, is tagged slow and only selected by the
 explicit `slow-bot` profile.
 
 - **Fast lane (the default)** — domain, money, parsers, protocol and deterministic
-  smoke tests; ~640 tests in about a minute.
+  smoke tests; ~660 tests in about a minute.
 - **`slow-bot`** — bot-quality statistics, matchups, Monte-Carlo hand potential
   and the headless bot game-flow smoke. Its result is quality evidence for bots,
   not a substitute for a game-code regression test.

@@ -185,6 +185,9 @@ public class WaitingRoomFrame extends JFrame {
     private static volatile WaitingRoomFrame THIS = null;
 
     private final File local_avatar;
+    // Every avatar received from the wire is validated before Swing/ImageIO can
+    // rasterize it and is stored in this room-owned directory.
+    private final AvatarIO avatar_io = AvatarIO.createDefault();
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
 
     // Pre-auth anti-DoS: cap on SIMULTANEOUS handshakes (EC keygen + thread). The accept
@@ -397,6 +400,7 @@ public class WaitingRoomFrame extends JFrame {
             THIS.net_client.getLate_clients_warning().clear();
         }
         THIS.setVisible(false);
+        THIS.avatar_io.close();
         THIS.dispose();
         THIS = null;
     }
@@ -2335,22 +2339,7 @@ public class WaitingRoomFrame extends JFrame {
                             partes = recibido.split("#");
                             server_nick = new String(Base64.getDecoder().decode(partes[0].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8").trim();
 
-                            String server_avatar_base64 = partes.length > 1 && !"*".equals(partes[1])
-                                    ? partes[1].replaceAll("[^A-Za-z0-9+/=]", "")
-                                    : "";
-                            File server_avatar = null;
-                            try {
-                                if (server_avatar_base64.length() > 0) {
-                                    int file_id = Math.abs(Helpers.CSPRNG_GENERATOR.nextInt());
-                                    server_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(server_nick) + "_avatar" + file_id);
-                                    server_avatar.deleteOnExit();
-                                    try (FileOutputStream os = new FileOutputStream(server_avatar)) {
-                                        os.write(Base64.getDecoder().decode(server_avatar_base64));
-                                    }
-                                }
-                            } catch (Exception ex) {
-                                server_avatar = null;
-                            }
+                            String server_avatar_encoded = partes.length > 1 ? partes[1] : "*";
 
                             // Identity: host identity rides on the same intro packet that
                             // carries nick + avatar. Capture pubkey+sig here; verify and apply
@@ -2390,7 +2379,12 @@ public class WaitingRoomFrame extends JFrame {
                                 throw new IOException("Host identity rejected by TOFU: " + hostIdentityResolution.getOutcome());
                             }
 
-                            nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
+                            // Allocate only after both the remaining handshake reads and host
+                            // identity/TOFU validation have completed.
+                            File server_avatar = decodeRemoteAvatar(
+                                    server_avatar_encoded, server_nick, "server intro");
+                            nuevoParticipanteRemoto(server_nick, server_avatar, null, null, null, false,
+                                    THIS.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
                             // Handshake complete: the client's subsequent reads (GAME, PING/PONG,
@@ -3682,22 +3676,13 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             try {
                                                                 String nickNew = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                File avatarNew = null;
-                                                                int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                if (file_id < 0) {
-                                                                    file_id *= -1;
-                                                                }
-                                                                if (partes_comando.length >= 6 && !"*".equals(partes_comando[5])) {
-                                                                    avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(nickNew) + "_avatar" + String.valueOf(file_id));
-                                                                    avatarNew.deleteOnExit();
-                                                                    try (FileOutputStream os = new FileOutputStream(avatarNew)) {
-                                                                        os.write(Base64.getDecoder().decode(partes_comando[5]));
-                                                                    } catch (Exception e) {
-                                                                    }
-                                                                }
                                                                 boolean isBot = nickNew.startsWith("CoronaBot$");
                                                                  if (!participantes.containsKey(nickNew)) {
-                                                                     nuevoParticipante(nickNew, avatarNew, null, null, null, isBot, "1".equals(partes_comando[4]));
+                                                                     File avatarNew = decodeRemoteAvatar(
+                                                                             partes_comando.length >= 6 ? partes_comando[5] : "*",
+                                                                            nickNew, "NEWUSER");
+                                                                     nuevoParticipanteRemoto(nickNew, avatarNew, null, null, null,
+                                                                             isBot, "1".equals(partes_comando[4]));
                                                                  }
 
                                                                  if (!isBot && (partes_comando.length < 8
@@ -3769,22 +3754,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                 String[] user_parts = user.split("\\|");
                                                                 try {
                                                                     String list_nick = new String(Base64.getDecoder().decode(user_parts[0]), "UTF-8");
-                                                                    File list_avatar = null;
-                                                                    if (user_parts.length >= 3 && !"*".equals(user_parts[2])) {
-                                                                        int fid = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                        if (fid < 0) {
-                                                                            fid *= -1;
-                                                                        }
-                                                                        list_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(list_nick) + "_avatar" + String.valueOf(fid));
-                                                                        list_avatar.deleteOnExit();
-                                                                        try (FileOutputStream os = new FileOutputStream(list_avatar)) {
-                                                                            os.write(Base64.getDecoder().decode(user_parts[2]));
-                                                                        } catch (Exception e) {
-                                                                        }
-                                                                    }
                                                                     boolean isListBot = list_nick.startsWith("CoronaBot$");
                                                                      if (!participantes.containsKey(list_nick)) {
-                                                                         nuevoParticipante(list_nick, list_avatar, null, null, null, isListBot, "1".equals(user_parts[1]));
+                                                                         File list_avatar = decodeRemoteAvatar(
+                                                                                 user_parts.length >= 3 ? user_parts[2] : "*",
+                                                                                list_nick, "USERSLIST");
+                                                                         nuevoParticipanteRemoto(list_nick, list_avatar, null, null,
+                                                                                 null, isListBot, "1".equals(user_parts[1]));
                                                                      }
 
                                                                      if (!isListBot && (user_parts.length < 5
@@ -4003,6 +3979,7 @@ public class WaitingRoomFrame extends JFrame {
                     // maximized if it was) on the screen the waiting room is on.
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
                             Init.LAUNCH_FRAME_SIZE, Init.LAUNCH_FRAME_MAXIMIZED);
+                    avatar_io.close();
                     dispose();
                     // Release the singleton on this return-to-menu path (connect failed/cancelled):
                     // otherwise getInstance() keeps handing out a DISPOSED frame and its whole
@@ -4461,26 +4438,6 @@ public class WaitingRoomFrame extends JFrame {
                             net_server.getClient_threads().remove(Thread.currentThread().threadId());
                             return;
                         }
-
-                        String client_avatar_base64 = partes[2];
-                        try {
-                            if (!"*".equals(client_avatar_base64)) {
-                                int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                if (file_id < 0) {
-                                    file_id *= -1;
-                                }
-                                client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(client_nick)
-                                        + "_avatar" + String.valueOf(file_id));
-                                client_avatar.deleteOnExit();
-
-                                try (FileOutputStream os = new FileOutputStream(client_avatar)) {
-                                    os.write(Base64.getDecoder().decode(client_avatar_base64));
-                                }
-                            }
-                        } catch (Exception ex) {
-                            client_avatar = null;
-                        }
-
                         // Fourth field (#) ADDED to the same NICKOK command: the FULL config
                         // mirror (serialized GamePreset.Settings) so the newly joined client can
                         // populate its Game tab greyed out. It's an extra field on the SAME
@@ -4541,6 +4498,7 @@ public class WaitingRoomFrame extends JFrame {
                                         && !WaitingRoomFrame.getInstance().isPartida_empezada()
                                         && !participantes.containsKey(client_nick)
                                         && !nickCollisionNFC(client_nick)) {
+                                    client_avatar = decodeRemoteAvatar(partes[2], client_nick, "JOIN");
                                     // Handshake complete: the Participant takes control of the
                                     // socket and its normal reads (PING/PONG, GAME, etc.) must not
                                     // inherit the handshake deadline.
@@ -4549,7 +4507,7 @@ public class WaitingRoomFrame extends JFrame {
                                     } catch (Exception ex) {
                                         LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on new join", ex);
                                     }
-                                    nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key,
+                                    nuevoParticipanteRemoto(client_nick, client_avatar, client_socket, aes_key, hmac_key,
                                             false, false);
                                     // Identity: cache pubkey+self_sig on the new Participant
                                     // and run local TOFU resolution. partes[4] / partes[5] were
@@ -4758,6 +4716,7 @@ public class WaitingRoomFrame extends JFrame {
                     // maximized if it was) on the screen the waiting room is on.
                     Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration(),
                             Init.LAUNCH_FRAME_SIZE, Init.LAUNCH_FRAME_MAXIMIZED);
+                    avatar_io.close();
                     dispose();
                     // Release the singleton on this return-to-menu path (room cancelled / bind
                     // failed): otherwise getInstance() keeps handing out a DISPOSED frame and its
@@ -5136,7 +5095,8 @@ public class WaitingRoomFrame extends JFrame {
 
         participantes.remove(nick);
 
-        onParticipantRemoved(nick, avatar_src);
+        onParticipantRemoved(nick, avatar_src,
+                !isPartida_empezada() && avatar_io.owns(pToDel.getAvatar()) ? pToDel.getAvatar() : null);
 
         // A client can leave the lobby at any time: drop its stats-sync tracking
         // so the host stops considering it for re-forwards.
@@ -5148,6 +5108,37 @@ public class WaitingRoomFrame extends JFrame {
                 net_server.broadcastASYNCGAMECommand(comando, pToDel);
             } catch (UnsupportedEncodingException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
+    private File decodeRemoteAvatar(String encoded, String nick, String source) {
+        try {
+            return avatar_io.decodeValidateStore(encoded);
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.log(Level.WARNING, "Rejected remote avatar for {0} via {1}: {2}",
+                    new Object[]{nick, source, ex.getMessage()});
+            return null;
+        }
+    }
+
+    boolean isOwnedRemoteAvatar(File avatar) {
+        return avatar_io.owns(avatar);
+    }
+
+    File writeRemoteAvatarThumbnail(File avatar, java.awt.image.BufferedImage thumbnail) throws IOException {
+        return avatar_io.writeThumbnail(avatar, thumbnail);
+    }
+
+    private void nuevoParticipanteRemoto(String nick, File avatar, Socket socket, SecretKeySpec aes_k,
+            SecretKeySpec hmac_k, boolean cpu, boolean unsecure) {
+        boolean adopted = false;
+        try {
+            nuevoParticipante(nick, avatar, socket, aes_k, hmac_k, cpu, unsecure);
+            adopted = true;
+        } finally {
+            if (!adopted) {
+                avatar_io.deleteOwned(avatar);
             }
         }
     }
@@ -5220,6 +5211,12 @@ public class WaitingRoomFrame extends JFrame {
      * from the list, adjusts the counter and buttons, notes the exit in chat).
      */
     public void onParticipantRemoved(String nick, String avatar_chat_src) {
+        onParticipantRemoved(nick, avatar_chat_src, null);
+    }
+
+    private void onParticipantRemoved(String nick, String avatar_chat_src, File avatarToDelete) {
+        final String exitAvatarSrc = avatarToDelete == null
+                ? avatar_chat_src : getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         Helpers.GUIRun(() -> {
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
 
@@ -5244,7 +5241,23 @@ public class WaitingRoomFrame extends JFrame {
                 new_bot_button.setEnabled(true);
             }
 
-            chatHTMLAppendExitUser(nick, avatar_chat_src);
+            if (avatarToDelete != null) {
+                // Existing chat bubbles still reference this participant's thumbnail.
+                // Replace that URL in the current document before deleting it. This keeps
+                // join/leave notices (which are HTML-only, not part of chat_text) intact.
+                String currentHtml = chat.getText();
+                String safeHtml = currentHtml.replace(avatar_chat_src, exitAvatarSrc);
+                if (safeHtml.equals(currentHtml)) {
+                    // Defensive fallback for an editor that canonicalized the file URL.
+                    safeHtml = "<html><body style='background-image: url(" + background_chat_src + ")'>"
+                            + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString()))
+                            + "</body></html>";
+                }
+                chat.setText(safeHtml);
+                avatar_io.deleteAvatarArtifacts(avatarToDelete);
+            }
+
+            chatHTMLAppendExitUser(nick, exitAvatarSrc);
         });
     }
 

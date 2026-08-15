@@ -16,6 +16,8 @@
 package com.tonikelope.coronapoker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -76,6 +78,50 @@ public class HandPotCharacterizationTest {
         assertEquals(16.0, side.getTotal(), EPS, "side pot = 8 x 2");
 
         assertEquals(22.0, sumAllPots(pot), EPS, "conservation: 2 + 10 + 10");
+    }
+
+    @Test
+    void exitedAllInStillCapsAndCompetesForItsPot() {
+        // A disconnect after committing all chips must not turn that all-in into
+        // dead money: the player remains entitled to the main pot.
+        HandPot pot = topPot(
+                p("a", 50.0, Player.ALLIN, false),
+                p("b", 100.0, Player.BET, true),
+                p("c", 100.0, Player.BET, true));
+
+        assertEquals(50.0, pot.getBet(), EPS, "the exited all-in caps the main pot");
+        assertEquals(150.0, pot.getTotal(), EPS, "the all-in competes for its matched chips");
+        assertEquals(100.0, pot.getSidePot().getTotal(), EPS, "only the deeper callers contest the excess");
+    }
+
+    @Test
+    void multipleExitedAllInsRemainEligibleAcrossEveryPotLayer() {
+        // Both short stacks disconnected after going all-in. They must still
+        // establish and contest their matched layers: 2 x 4, 3 x 3 and 5 x 2.
+        // Treating either one as dead money collapses the corresponding side
+        // pot and can award chips to a player who never matched that layer.
+        HandPot pot = topPot(
+                p("short-exited", 2.0, Player.ALLIN, false),
+                p("mid-exited", 5.0, Player.ALLIN, false),
+                p("caller-a", 10.0, Player.BET, true),
+                p("caller-b", 10.0, Player.BET, true));
+
+        assertEquals(2, pot.getSide_pot_count(), "two exited all-ins -> two side pots");
+        assertEquals(8.0, pot.getTotal(), EPS, "main layer = 2 x 4");
+        assertEquals(9.0, pot.getSidePot().getTotal(), EPS, "middle layer = 3 x 3");
+        assertEquals(10.0, pot.getSidePot().getSidePot().getTotal(), EPS,
+                "top layer = 5 x 2");
+        assertEquals(27.0, sumAllPots(pot), EPS, "conservation: 2 + 5 + 10 + 10");
+    }
+
+    @Test
+    void exitedAllInSurvivesNextStreetParticipantFilter() {
+        // rondaApuestas() runs this filter before every later street. An exited
+        // all-in must remain in resisten so the run-out and showdown can still
+        // evaluate its already committed hand.
+        assertFalse(Crupier.shouldRemoveInactivePlayerFromBettingRound(false, Player.ALLIN));
+        assertTrue(Crupier.shouldRemoveInactivePlayerFromBettingRound(false, Player.FOLD));
+        assertFalse(Crupier.shouldRemoveInactivePlayerFromBettingRound(true, Player.BET));
     }
 
     @Test

@@ -256,20 +256,49 @@ java -jar target/CoronaPoker-<version>-jar-with-dependencies.jar
 
 The test suite lives in its own Maven module, **`tools/qa`**, kept deliberately separate from the game: `mvn package` at the repo root builds and ships the game **without** compiling or running a single test. The tests are maintainer tooling, not part of the distributed jar.
 
-They are **JUnit 5**, split into two lanes by an `@Tag("slow")` marker on the heavy classes:
+They are **JUnit 5**. Deterministic game-code tests are kept in the fast lane;
+the expensive tests carry `@Tag("slow")` and are split by purpose. The normal
+QA command never runs bot-quality simulations: every bot-quality class,
+including the headless bot smoke, is tagged slow and only selected by the
+explicit `slow-bot` profile.
 
-- **Fast lane (the default)** — everything *except* the slow tests. ~600 tests in **about a minute**; this is what you run while working.
-- **Slow lane** — the heavy regression guards over the stable, rarely-touched subsystems: the bot-AI statistical matchups (`bot/harness`, `smoke/GameFlowSmoke`, the Monte-Carlo hand-potential test) and the crypto perf / differential / cascade suite. **Several minutes.**
+- **Fast lane (the default)** — domain, money, parsers, protocol and deterministic
+  smoke tests; ~660 tests in about a minute.
+- **`slow-bot`** — bot-quality statistics, matchups, Monte-Carlo hand potential
+  and the headless bot game-flow smoke. Its result is quality evidence for bots,
+  not a substitute for a game-code regression test.
+- **`slow-crypto`** — cryptographic performance, differential and cascade tests.
+- **`slow-integration`** — slow real-socket/stall integration checks.
+- **`slow`** — compatibility aggregate for all slow lanes; **`all`** runs fast
+  plus every slow lane. The slow lanes take several minutes and are never part
+  of the normal/default run.
+
+Each slow profile explicitly enables the `slow` tag and clears the default
+exclusion, so a successful slow-lane run must report at least one executed
+test. A `BUILD SUCCESS` with `Tests run: 0` is an invalid QA result and should
+be treated as a profile/classpath problem.
 
 ### Running the tests
 
 The easiest way is the **opt-in QA reactor** (`tools/reactor/pom.xml`). It builds the game and runs the tests against it in one reactor, so you don't have to `install` the game jar first or keep a version in sync:
 
 ```bash
-# Fast lane — the default. Game + all fast tests (~1 min).
+# Fast lane — the default. Game + all deterministic code tests (~1 min).
+# Bot-quality simulations are excluded by the slow tag.
 mvn -f tools/reactor/pom.xml test
+# Explicit equivalent for CI/NetBeans scripts:
+mvn -f tools/reactor/pom.xml test -P fast
 
-# Slow lane only — the bot-AI and crypto heavy tests.
+# Bot-quality lane only (statistical; does not replace fast game tests).
+mvn -f tools/reactor/pom.xml test -P slow-bot
+
+# Heavy crypto lane only.
+mvn -f tools/reactor/pom.xml test -P slow-crypto
+
+# Slow real-socket integration lane only.
+mvn -f tools/reactor/pom.xml test -P slow-integration
+
+# Compatibility aggregate — every slow lane.
 mvn -f tools/reactor/pom.xml test -P slow
 
 # Everything, fast + slow (~5 min). Run before a release.
@@ -279,7 +308,34 @@ mvn -f tools/reactor/pom.xml test -P all
 mvn -f tools/reactor/pom.xml test -Dtest=PotMathTest -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
+### Lane order and ownership
+
+Run the lanes in this order when auditing or preparing a release. A failure in
+one lane is recorded against that lane; it is not hidden by a later aggregate
+run.
+
+| Order | Lane | Contents | Normal run? |
+|---:|---|---|---|
+| 1 | fast | Rules, money, pots, recovery, parsers, framing, deterministic smoke and TDD regressions | Yes |
+| 2 | slow-crypto | Heavy crypto/SRA differential, cascade and performance checks | No |
+| 3 | slow-integration | Real socket framing/stall checks | No |
+| 4 | slow-bot | Statistical bot quality, matchups, Monte-Carlo and bot-flow smoke | No, explicit only |
+| 5 | all | Fast plus every slow lane, as a release aggregate | No, explicit only |
+
+The bot lane is deliberately last and separate: its statistical `FAIL` signal
+means that a quality threshold was not met for that sample, not that a
+deterministic game-code assertion failed. It must not gate ordinary code tests
+or be silently folded into the default lane.
+
 Add `-o` (offline) once your local Maven cache is warm to skip dependency checks. The bot simulations honour two volume knobs for fast local iteration, e.g. `-Dqa.sessions=40 -Dqa.hands=25`.
+
+If the opt-in reactor reports that game classes such as `Helpers` or `Crupier`
+are missing while compiling `tools/qa`, treat that as a Maven/Windows
+classpath or permissions problem, not as a game-test result. Run the standalone
+fallback from NetBeans instead: first `mvn -DskipTests install` at the root,
+then the `tools/qa` command below with the same root version. Record the
+environmental failure in the audit index and do not turn it into a production
+change.
 
 <details><summary><b>Running the <code>tools/qa</code> module on its own (without the reactor)</b></summary>
 
@@ -287,10 +343,13 @@ You can run the module standalone, but then you must publish the game jar first 
 
 ```bash
 mvn -DskipTests install                                       # publish CoronaPoker to your local ~/.m2
-mvn -f tools/qa/pom.xml test -Dcoronapoker.version=<root pom version>
+mvn -f tools/qa/pom.xml test -Dcoronapoker.version=<root pom version>       # fast, no bot quality
+mvn -f tools/qa/pom.xml test -P slow-bot -Dcoronapoker.version=<root pom version>  # bot quality only
 ```
 
-The same `-P slow` / `-P all` profiles apply.
+The standalone module also accepts `-P slow-crypto`, `-P slow-integration`,
+`-P slow` (all slow lanes) and `-P all` (fast plus every slow lane). These are
+always explicit; the bare command above never runs bot-quality simulations.
 </details>
 
 ### Which tests to run for what you touch
@@ -298,17 +357,34 @@ The same `-P slow` / `-P all` profiles apply.
 | If you change… | Run |
 |---|---|
 | Game logic, pot / side-pot / blind / bet math, hand-integrity chains | **Fast lane** — it already guards these |
-| The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P slow`** — the statistical matchups + Monte-Carlo potential |
-| The **crypto** stack (`crypto/`, the SRA cascade) | **`-P slow`** — the perf / differential / cascade suite |
-| **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P slow`** for the socket-stall integration |
+| The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P slow-bot`** — statistical matchups + Monte-Carlo potential |
+| The **crypto** stack (`crypto/`, the SRA cascade) | **`-P slow-crypto`** — perf / differential / cascade suite |
+| **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P slow-integration`** for socket-stall checks |
 | Anything, **before committing or opening a PR** | **`-P all`** |
-| Before a **release** | **`-P all`** plus a manual in-game smoke |
+| Before a **release** | **`-P all`** plus the adversarial automated audit; manual-only residuals are reported separately |
 
-Rule of thumb: **fast lane on every change**, **slow lane when you edited that subsystem or before merging**, **the whole suite before a release**.
+Rule of thumb: **fast lane on every change**, the relevant slow lane when you
+edited that subsystem or before merging, and **`-P all` before a release**.
+Manual play is only a short complement for flows that genuinely require Swing,
+two live clients or human timing; it never replaces an automatable regression
+test. Record those steps and the environment in the audit report.
+
+For the 23.45 adversarial audit, no manual play is used as a gate. Run the
+deterministic pots/rebuys/property checks in the fast lane, then run
+`-P slow-crypto` and `-P slow-integration` separately. Do not run `-P slow-bot`
+as part of the normal audit unless the bot-quality question is explicitly in
+scope. Flows that require two Swing/client identities or the real Windows ACL
+remain explicit no-change items until a deterministic harness exists.
 
 ### Adding a test
 
-Put it in the matching package under `tools/qa/src/test/java`. If it is slow — a bot simulation, a crypto perf/fuzz test, anything over a few seconds — annotate the class with `@Tag("slow")` so it lands in the slow lane and the fast lane stays fast.
+Put it in the matching package under `tools/qa/src/test/java`. If it is slow — a
+bot simulation, a crypto perf/fuzz test, or a real-socket stall check — annotate
+it with `@Tag("slow")` and keep it in the matching `slow-bot`, `slow-crypto` or
+`slow-integration` package so its lane remains explicit. Fast unit/domain tests
+must not be hidden in a slow lane. Add a deterministic red test before changing
+production, then keep the regression in the fast lane unless it genuinely
+requires a slow harness.
 
 ---
 

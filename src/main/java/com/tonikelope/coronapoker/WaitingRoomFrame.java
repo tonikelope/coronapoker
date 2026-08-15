@@ -228,6 +228,13 @@ public class WaitingRoomFrame extends JFrame {
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
     private final java.util.concurrent.atomic.AtomicLong password_version = new java.util.concurrent.atomic.AtomicLong();
+    // The socket consumer must remain asynchronous for REBUYNOW (it also reads the CONF that
+    // the rebuy sender is waiting for). A cached pool may execute those tasks out of order, so
+    // stamp every rebuy relay/denial as it arrives and let Crupier discard late tasks.
+    private final java.util.concurrent.atomic.AtomicLong rebuy_relay_sequence = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong pause_relay_sequence = new java.util.concurrent.atomic.AtomicLong();
+    private final Object pause_relay_order_lock = new Object();
+    private long pause_relay_applied_sequence = 0L;
     private volatile boolean exit = false;
     // The host has started a CLEAN exit (game over or "stop game" with force_recover):
     // arrives as GAME#<id>#SERVEREXIT[RECOVER] and the host closes the socket right
@@ -268,6 +275,16 @@ public class WaitingRoomFrame extends JFrame {
 
     public byte[] getHost_self_sig() {
         return host_self_sig;
+    }
+
+    /** Called by the single socket-consumer thread before dispatching a rebuy task. */
+    private long nextRebuyRelaySequence() {
+        return rebuy_relay_sequence.incrementAndGet();
+    }
+
+    /** Called by the single socket-consumer thread before dispatching a PAUSE task. */
+    private long nextPauseRelaySequence() {
+        return pause_relay_sequence.incrementAndGet();
     }
 
     public NetServer getNet_server() {
@@ -3285,28 +3302,38 @@ public class WaitingRoomFrame extends JFrame {
                                                             // lock_rebuynow and never read our own rebuy's CONF -> self-deadlock
                                                             // (same class of bug as the pause).
                                                             try {
-                                                                String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                int rbBuyin = Integer.parseInt(partes_comando[4]);
-                                                                Helpers.threadRun(() -> GameFrame.getInstance().getCrupier().rebuyNow(rbNick, rbBuyin));
+                                                                final String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                final int rbBuyin = Integer.parseInt(partes_comando[4]);
+                                                                final long rbSequence = nextRebuyRelaySequence();
+                                                                Helpers.threadRun(() -> GameFrame.getInstance().getCrupier()
+                                                                        .applyRemoteRebuyNow(rbNick, rbBuyin, rbSequence));
                                                             } catch (Exception e) {
                                                             }
                                                             break;
                                                         case "REBUYDENIED":
                                                             try {
-                                                                String dnNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                int dnLimit = Integer.parseInt(partes_comando[4]);
-                                                                if (GameFrame.getInstance().getLocalPlayer() != null
-                                                                        && dnNick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                                                                    Helpers.GUIRun(() -> {
-                                                                        if (GameFrame.getInstance().getRebuy_now_menu() != null) {
-                                                                            GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
-                                                                            GameFrame.getInstance().getRebuy_now_menu().setEnabled(true);
-                                                                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
-                                                                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
-                                                                        }
-                                                                        Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("rebuy.limite_alcanzado", String.valueOf(dnLimit)));
-                                                                    });
-                                                                }
+                                                                final String dnNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                final int dnLimit = Integer.parseInt(partes_comando[4]);
+                                                                final long dnSequence = nextRebuyRelaySequence();
+                                                                Helpers.threadRun(() -> {
+                                                                    // A denial is an ordered zero relay. Applying it through the same
+                                                                    // sequence gate prevents an older positive task from restoring the
+                                                                    // optimistic entry after the host has rejected it.
+                                                                    GameFrame.getInstance().getCrupier()
+                                                                            .applyRemoteRebuyNow(dnNick, 0, dnSequence);
+                                                                    if (GameFrame.getInstance().getLocalPlayer() != null
+                                                                            && dnNick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                                                                        Helpers.GUIRun(() -> {
+                                                                            if (GameFrame.getInstance().getRebuy_now_menu() != null) {
+                                                                                GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
+                                                                                GameFrame.getInstance().getRebuy_now_menu().setEnabled(true);
+                                                                                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+                                                                                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                                                                            }
+                                                                            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("rebuy.limite_alcanzado", String.valueOf(dnLimit)));
+                                                                        });
+                                                                    }
+                                                                });
                                                             } catch (Exception e) {
                                                             }
                                                             break;
@@ -3503,15 +3530,29 @@ public class WaitingRoomFrame extends JFrame {
                                                             // consumer to read the CONF. The check-then-act runs under
                                                             // lock_pause, same as the host.
                                                             try {
-                                                                final String[] partes_pause = partes_comando;
+                                                                if (partes_comando.length < 4
+                                                                        || (!"0".equals(partes_comando[3]) && !"1".equals(partes_comando[3]))) {
+                                                                    throw new IllegalArgumentException("invalid PAUSE value");
+                                                                }
+                                                                final String pause_value = partes_comando[3];
                                                                 final String pauser = (partes_comando.length >= 5)
                                                                         ? new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8")
                                                                         : server_nick;
+                                                                final long pause_sequence = nextPauseRelaySequence();
                                                                 Helpers.threadRun(() -> {
-                                                                    synchronized (GameFrame.getInstance().getLock_pause()) {
-                                                                        if (("0".equals(partes_pause[3]) && GameFrame.getInstance().isTimba_pausada())
-                                                                                || ("1".equals(partes_pause[3]) && !GameFrame.getInstance().isTimba_pausada())) {
-                                                                            GameFrame.getInstance().pauseTimba(pauser);
+                                                                    // Keep this asynchronous to avoid the CONF self-deadlock, but
+                                                                    // serialize the sequence gate with the state transition so a
+                                                                    // late pool task cannot undo a newer host decision.
+                                                                    synchronized (pause_relay_order_lock) {
+                                                                        if (!Crupier.shouldApplyAsyncSequence(pause_sequence, pause_relay_applied_sequence)) {
+                                                                            return;
+                                                                        }
+                                                                        synchronized (GameFrame.getInstance().getLock_pause()) {
+                                                                            pause_relay_applied_sequence = pause_sequence;
+                                                                            if (("0".equals(pause_value) && GameFrame.getInstance().isTimba_pausada())
+                                                                                    || ("1".equals(pause_value) && !GameFrame.getInstance().isTimba_pausada())) {
+                                                                                GameFrame.getInstance().pauseTimba(pauser);
+                                                                            }
                                                                         }
                                                                     }
                                                                 });

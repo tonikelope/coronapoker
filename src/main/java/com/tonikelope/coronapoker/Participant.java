@@ -42,6 +42,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.spec.SecretKeySpec;
@@ -57,6 +58,7 @@ import javax.swing.ImageIcon;
 public class Participant implements Runnable {
 
     private static final Logger LOGGER = Logger.getLogger(Participant.class.getName());
+    private static final AtomicLong NEXT_REBUY_SOURCE_ID = new AtomicLong();
 
     public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
 
@@ -130,6 +132,14 @@ public class Participant implements Runnable {
     private final LinkedBlockingQueue<String> socket_reader_queue = new LinkedBlockingQueue<>(SOCKET_READER_QUEUE_CAPACITY);
     private final WaitingRoomFrame sala_espera;
     private final String nick;
+    // The reader is the sole owner of this counter. It is copied into the async task before
+    // Helpers.THREAD_POOL can reorder execution, and the source id distinguishes reconnects
+    // that happen to use the same nickname.
+    private final long rebuy_source_id = NEXT_REBUY_SOURCE_ID.incrementAndGet();
+    private long rebuy_inbound_sequence = 0L;
+    private final Object pause_sequence_lock = new Object();
+    private long pause_inbound_sequence = 0L;
+    private long pause_applied_sequence = 0L;
     private final File avatar;
 
     private volatile Socket socket = null;
@@ -917,6 +927,20 @@ public class Participant implements Runnable {
 
     public String getNick() {
         return nick;
+    }
+
+    long getRebuySourceId() {
+        return rebuy_source_id;
+    }
+
+    /** Called only by this Participant's socket-reader/consumer thread. */
+    long nextRebuyInboundSequence() {
+        return ++rebuy_inbound_sequence;
+    }
+
+    /** Called only by this Participant's socket-reader/consumer thread. */
+    long nextPauseInboundSequence() {
+        return ++pause_inbound_sequence;
     }
 
     /**
@@ -1757,13 +1781,31 @@ public class Participant implements Runnable {
                                     switch (subcomando) {
 
                                         case "PAUSE":
-                                            final String[] partes_final_pause = partes_comando;
+                                            if (partes_comando.length < 4
+                                                    || (!"0".equals(partes_comando[3]) && !"1".equals(partes_comando[3]))) {
+                                                LOGGER.log(Level.WARNING, "Dropping malformed PAUSE from {0}", nick);
+                                                break;
+                                            }
+                                            final String pause_value = partes_comando[3];
+                                            final long pause_sequence = nextPauseInboundSequence();
                                             Helpers.threadRun(() -> {
-                                                synchronized (GameFrame.getInstance().getLock_pause()) {
-                                                    if (("0".equals(partes_final_pause[3]) && GameFrame.getInstance().isTimba_pausada()) && nick.equals(GameFrame.getInstance().getNick_pause()) || ("1".equals(partes_final_pause[3]) && !GameFrame.getInstance().isTimba_pausada())) {
-                                                        GameFrame.getInstance().pauseTimba(nick);
-                                                        if (GameFrame.getInstance().isTimba_pausada()) {
-                                                            GameFrame.getInstance().getRegistro().print("PAUSE (" + nick + ")");
+                                                // The reader must stay free to consume CONF, but the
+                                                // cached pool can execute pause/resume tasks backwards.
+                                                // Serialize the sequence check with the state transition so
+                                                // a late task cannot undo the newer toggle.
+                                                synchronized (pause_sequence_lock) {
+                                                    if (!Crupier.shouldApplyAsyncSequence(pause_sequence, pause_applied_sequence)) {
+                                                        return;
+                                                    }
+                                                    synchronized (GameFrame.getInstance().getLock_pause()) {
+                                                        pause_applied_sequence = pause_sequence;
+                                                        if (("0".equals(pause_value) && GameFrame.getInstance().isTimba_pausada())
+                                                                && nick.equals(GameFrame.getInstance().getNick_pause())
+                                                                || ("1".equals(pause_value) && !GameFrame.getInstance().isTimba_pausada())) {
+                                                            GameFrame.getInstance().pauseTimba(nick);
+                                                            if (GameFrame.getInstance().isTimba_pausada()) {
+                                                                GameFrame.getInstance().getRegistro().print("PAUSE (" + nick + ")");
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1804,8 +1846,19 @@ public class Participant implements Runnable {
                                             // is blocked on lock_rebuynow and never reads that CONF -> a deadlock
                                             // that hangs the table (same class of bug as the pause one). Taking it
                                             // off the reader thread closes this.
-                                            final int rebuy_buyin = Integer.parseInt(partes_comando[3]);
-                                            Helpers.threadRun(() -> GameFrame.getInstance().getCrupier().rebuyNow(nick, rebuy_buyin));
+                                            if (partes_comando.length < 4) {
+                                                LOGGER.log(Level.WARNING, "Dropping malformed REBUYNOW from {0}", nick);
+                                                break;
+                                            }
+                                            try {
+                                                final int rebuy_buyin = Integer.parseInt(partes_comando[3]);
+                                                final long rebuy_sequence = nextRebuyInboundSequence();
+                                                final long rebuy_source = getRebuySourceId();
+                                                Helpers.threadRun(() -> GameFrame.getInstance().getCrupier()
+                                                        .rebuyNowFromClient(nick, rebuy_buyin, rebuy_source, rebuy_sequence));
+                                            } catch (NumberFormatException ex) {
+                                                LOGGER.log(Level.WARNING, "Dropping malformed REBUYNOW amount from {0}", nick);
+                                            }
                                             break;
                                         case "SHOWCARDS":
                                             Helpers.threadRun(() -> {

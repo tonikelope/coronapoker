@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Standalone Maven module for the off-line bot QA test suite.
+  Standalone Maven module for the off-line QA suite. Deterministic game-code
+  tests are the default; bot-quality simulations are explicitly opt-in.
 
   This module is intentionally NOT a sub-module of the main CoronaPoker
   pom.xml — building or packaging the game (`mvn package` in the repo
@@ -11,7 +12,7 @@
   To run the suite:
 
       cd tools/qa
-      mvn -o test
+      mvn -o test                    # deterministic fast lane; bot quality is opt-in
 
   See ./src/test/java/com/tonikelope/coronapoker/bot/harness/README.md
   for the full description of what these tests measure and how to
@@ -25,7 +26,8 @@
   Then any time you want to run the bot QA suite:
 
       cd tools/qa
-      mvn -o test                    # runs all bot tests
+      mvn -o test                    # fast code/regression tests (no bot quality)
+      mvn -o test -P slow-bot        # explicit bot-quality lane only
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -33,7 +35,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope.qa</groupId>
     <artifactId>coronapoker-bot-tests</artifactId>
-    <version>21.79</version>
+    <version>23.45</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -43,7 +45,7 @@
         <!-- Override with -Dcoronapoker.version=X.Y if you have a different
              local install. Bump this property in sync with the root pom version
              so `mvn -o test` resolves against the just-installed jar. -->
-        <coronapoker.version>23.44</coronapoker.version>
+        <coronapoker.version>23.45</coronapoker.version>
 
         <!-- Test lane selection (JUnit 5 tags). Defaults give the FAST lane:
              run everything EXCEPT tests tagged @Tag("slow"). The `slow` and
@@ -159,6 +161,17 @@
              the crypto perf/differential/cascade suite. Measured full suite
              ~4.6 min; fast lane well under a minute. See the Testing section in README.md. -->
 
+        <!-- Explicit name for the normal deterministic lane. The same
+             selection is already the default when no profile is supplied;
+             this profile makes CI/NetBeans invocations self-documenting. -->
+        <profile>
+            <id>fast</id>
+            <properties>
+                <qa.groups></qa.groups>
+                <qa.excludedGroups>slow</qa.excludedGroups>
+            </properties>
+        </profile>
+
         <!-- Only the slow tests. Run before merging or after touching the
              bot AI / crypto. -->
         <profile>
@@ -167,6 +180,87 @@
                 <qa.groups>slow</qa.groups>
                 <qa.excludedGroups></qa.excludedGroups>
             </properties>
+        </profile>
+
+        <!-- Bot-quality lane only. It deliberately selects the statistical
+             matchups, Monte-Carlo hand-potential test and the headless game-flow
+             smoke; it does not provide feedback for ordinary game-code changes. -->
+        <profile>
+            <id>slow-bot</id>
+            <properties>
+                <qa.groups>slow</qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>slow</groups>
+                            <excludedGroups></excludedGroups>
+                            <!-- Keep bot quality narrowly scoped. The old
+                                 **/bot/**/*.java pattern also scanned fast
+                                 evaluator tests and helper classes, making the
+                                 lane look larger than its statistical scope. -->
+                            <includes combine.self="override">
+                                <include>**/bot/harness/*Test.java</include>
+                                <include>**/bot/eval/MemoizedHandPotentialTest.java</include>
+                                <include>**/smoke/GameFlowSmoke.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Heavy cryptographic/differential lane only. -->
+        <profile>
+            <id>slow-crypto</id>
+            <properties>
+                <qa.groups>slow</qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>slow</groups>
+                            <excludedGroups></excludedGroups>
+                            <includes combine.self="override">
+                                <include>**/crypto/*Test.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Slow real-socket integration lane, kept apart from bot quality and
+             from deterministic game-code tests. -->
+        <profile>
+            <id>slow-integration</id>
+            <properties>
+                <qa.groups>slow</qa.groups>
+                <qa.excludedGroups></qa.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>slow</groups>
+                            <excludedGroups></excludedGroups>
+                            <includes combine.self="override">
+                                <include>**/net/SocketStallIntegrationTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
 
         <!-- The whole suite, fast + slow. Run before a release. -->

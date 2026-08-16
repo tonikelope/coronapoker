@@ -1742,8 +1742,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Repositions the GameFrame on the monitor where the WaitingRoomFrame currently sits, so
-     * (auto)fullscreen / MAXIMIZED_BOTH lands on that screen instead of the default monitor.
+     * Gives the GameFrame sane normal-state bounds on the monitor where the WaitingRoomFrame
+     * currently sits, so (auto)fullscreen / MAXIMIZED_BOTH lands on that screen instead of
+     * the default monitor and restoring the window does not expose initComponents' tiny
+     * {@code pack()} size.
      * Needed on Windows because setExtendedState(MAXIMIZED_BOTH) honors the monitor the window
      * is currently on; also useful on Mac before the native setVisible. toggleFullScreen's X11
      * branch already uses the waiting room's device explicitly.
@@ -1754,11 +1756,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         Helpers.GUIRunAndWait(() -> {
             Rectangle r = sala_espera.getGraphicsConfiguration().getBounds();
-            int w = getWidth() > 0 ? getWidth() : Math.min(r.width, 1024);
-            int h = getHeight() > 0 ? getHeight() : Math.min(r.height, 768);
-            int x = r.x + Math.max(0, (r.width - w) / 2);
-            int y = r.y + Math.max(0, (r.height - h) / 2);
-            setLocation(x, y);
+            // Match the launch window: establish centered 80% restored bounds BEFORE
+            // maximizing. Swing/Windows retains these bounds underneath MAXIMIZED_BOTH.
+            setBounds(Helpers.defaultFrameBounds(r));
         });
     }
 

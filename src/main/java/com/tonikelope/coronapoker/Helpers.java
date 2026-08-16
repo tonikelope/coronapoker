@@ -4515,11 +4515,10 @@ public class Helpers {
                         screen.width - insets.left - insets.right,
                         screen.height - insets.top - insets.bottom);
 
-                int rw = (int) Math.round(screen.width * 0.8);
-                int rh = (int) Math.round(screen.height * 0.8);
+                Rectangle restored = defaultFrameBounds(screen);
 
                 frame.setExtendedState(JFrame.NORMAL);
-                frame.setBounds(screen.x + (screen.width - rw) / 2, screen.y + (screen.height - rh) / 2, rw, rh);
+                frame.setBounds(restored);
                 frame.setMaximizedBounds(usable);
 
                 // On Windows (default Direct3D pipeline) setting MAXIMIZED_BOTH BEFORE
@@ -4549,6 +4548,21 @@ public class Helpers {
      */
     public static void showFrameOnScreen(JFrame frame, java.awt.GraphicsConfiguration gc) {
         showFrameOnScreen(frame, gc, null, true);
+    }
+
+    /**
+     * Normal-state bounds retained underneath an initially maximized frame.
+     * Keeping this calculation shared prevents a frame restored by the user
+     * from falling back to whatever tiny preferred size {@code pack()} found.
+     */
+    static Rectangle defaultFrameBounds(Rectangle screen) {
+        int width = (int) Math.round(screen.width * 0.8);
+        int height = (int) Math.round(screen.height * 0.8);
+        return new Rectangle(
+                screen.x + (screen.width - width) / 2,
+                screen.y + (screen.height - height) / 2,
+                width,
+                height);
     }
 
     public static void mostrarMensajeInformativo(Container container, String msg, ImageIcon icon) {

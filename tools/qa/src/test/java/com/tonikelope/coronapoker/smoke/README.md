@@ -14,19 +14,19 @@ Diseñados para responder UNA pregunta: *después de mi cambio, ¿el flujo bási
 
 - **Después de cualquier cambio en `Crupier.java`, `Bot.java`, `bot/*` o cualquier código que afecte al flujo de mano.**
 - Antes de mergear cualquier rama `sprint-*` a master.
-- Los 16 smoke rápidos SÍ se ejecutan automáticamente con `mvn test`: el `pom.xml` de la suite añade `**/*Smoke.java` a los `includes`, así que entran en el lane rápido por defecto. El único que NO es `GameFlowSmoke`, marcado `@Tag("slow")`: queda fuera del lane por defecto y sólo corre con `-P slow-bot` (o el agregado explícito `-P slow`/`-P all`).
+- Los 16 smoke rápidos SÍ se ejecutan automáticamente con `mvn test`: el `pom.xml` de la suite añade `**/*Smoke.java` a los `includes`, así que entran en el lane rápido por defecto. El único que NO es `GameFlowSmoke`, marcado `@Tag("slow")`: queda fuera del lane por defecto y sólo corre con `-P qa-bots` (y nunca con los agregados `qa-heavy`/`qa-release`).
 
 ## Cómo ejecutar (solo los smoke, sin pisar la máquina)
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.1.8-hotspot"
 cd tools\qa
-& "C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd" -o test -Dtest='*Smoke' -P fast
+& "C:\Program Files\Apache NetBeans\java\maven\bin\mvn.cmd" -o test -Dtest='*Smoke' -P qa-fast
 ```
 
-`-Dtest='*Smoke'` a secas corre los 16 smoke rápidos pero **SALTA `GameFlowSmoke`**: su `@Tag("slow")` lo excluye del lane por defecto. Añade `-P slow-bot` para incluir únicamente `GameFlowSmoke` (o `-P all` para la suite completa; `-P slow` agrega todas las lanes lentas).
+`-Dtest='*Smoke'` a secas corre los 16 smoke rápidos pero **SALTA `GameFlowSmoke`**: su `@Tag("slow")` lo excluye del lane por defecto. Añade `-P qa-bots` para incluir únicamente `GameFlowSmoke`; `qa-heavy` y `qa-release` lo excluyen deliberadamente.
 
-**Tiempo estimado:** los 16 smoke rápidos, unos segundos; con `-P all`, `GameFlowSmoke` (lane slow) añade hasta ~30 s (su objetivo declarado en el Javadoc de la clase).
+**Tiempo estimado:** los 16 smoke rápidos, unos segundos; con `-P qa-bots`, `GameFlowSmoke` añade hasta ~30 s (su objetivo declarado en el Javadoc de la clase).
 
 ## Qué NO está aquí (intencionalmente)
 
@@ -37,11 +37,11 @@ cd tools\qa
 
 ## Estructura
 
-Los 17 smoke actuales. El lane `rápido` corre por defecto con `mvn test`; `GameFlowSmoke` pertenece a `slow-bot` y sólo corre con ese perfil (o con los agregados explícitos `-P slow` / `-P all`).
+Los 17 smoke actuales. El lane `qa-fast` corre por defecto con `mvn test`; `GameFlowSmoke` pertenece a `qa-bots` y sólo corre con ese perfil.
 
 | Clase | Qué valida | Lane |
 |---|---|---|
-| `GameFlowSmoke` | Bot engine + flujo de juego en 3/6/9 seats y las 3 difficulties (vía `MultiwaySimulator`): chip conservation, sin NaN/Inf, stack ≥ 0, contador de mano monotónico, winners válidos. 4 métodos `@Test` | slow |
+| `GameFlowSmoke` | Bot engine + flujo de juego en 3/6/9 seats y las 3 difficulties (vía `MultiwaySimulator`): chip conservation, sin NaN/Inf, stack ≥ 0, contador de mano monotónico, winners válidos. 4 métodos `@Test` | qa-bots |
 | `HandEvaluatorSmoke` | Evaluador `Hand.calcularMejorJugada`: los 10 rankings + edge cases (wheel A-5, kickers, full vs trío+pareja, escalera de color). Se salta si el JVM es headless | rápido |
 | `AnteStraddleRecoverCompatSmoke` | Persistencia ANTE/STRADDLE: round-trip por `GameFrame` serialize/apply; un save previo a la feature deja ambos flags en OFF | rápido |
 | `DifficultyRecoverCompatSmoke` | Persistencia de dificultad tras el merge 4→3: los 3 niveles hacen round-trip; el token legacy `EXPERT` resuelve a `HARD` | rápido |

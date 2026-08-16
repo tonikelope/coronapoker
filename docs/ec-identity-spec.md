@@ -14,7 +14,7 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 
 | Vector | Defense |
 |---|---|
-| Hostile host substituting another player's established identity | Ed25519 long-term keys + NFC-canonical TOFU pinning; changed keys preserve the old pin and fail admission. Optional OOB fingerprint comparison upgrades the pin |
+| Hostile host substituting another player's established identity | Ed25519 long-term keys + TOFU pinning; a changed key is reported as `CHANGED`, replaces the stored pin and clears OOB verification, so continuity requires an OOB fingerprint comparison |
 | Hostile host rewriting hand history (action injection, reordering) | Per-action Ed25519 signatures + `H_t` hash chain with `PREV_H` binding |
 | Hostile host or peer reporting a false pot payout | Each peer recomputes and conserves the settlement independently, binds it into `H_final`, and refuses durable close when receipts diverge (§5.3, §6) |
 | Network MITM on the ECDH handshake | `Helpers.deriveChannelSecret` (HMAC-SHA512 binding with the shared password) + session-key identicon for OOB compare (waiting room, right-click your own nick) |
@@ -49,8 +49,8 @@ An Ed25519 keypair is generated on first use of a given nick on a given machine.
   - POSIX: `rw-------` (`0600`) on the private key.
   - Windows: `icacls /inheritance:r /grant:r <user>:(F)`: strip inheritance, grant full control to the current user only.
   - The `.pub` sidecar is public by definition and gets no restrictive ACL.
-- **At-rest encryption**: deliberately not done. FS permissions are the user's responsibility. A leaked privkey ⇒ delete the file and re-pair via TOFU.
-- **No automatic rotation**: deleting the file generates a fresh keypair next launch. Peers with an existing pin reject the changed key; rotation requires an explicit local trust/reset workflow.
+- **At-rest encryption**: deliberately not done. FS permissions are the user's responsibility. A leaked privkey ⇒ delete the file and treat the next encounter as a fresh TOFU transition (`CHANGED` for peers that still have the old pin).
+- **No automatic rotation while the key files exist**: deleting the file generates a fresh keypair next launch. Peers with an existing pin accept the changed key, replace their stored pin and clear `verified_oob`; users who need continuity must verify the new fingerprint out of band.
 - **Fail-loud at use**: if `<user.home>/.coronapoker/` cannot be created or the keypair cannot be written/loaded, the manager records the error and reports `isReady() == false`. Networked code paths check `isReady()`. Any attempt to `sign()` without a ready identity throws. The app does not fall back to an ephemeral in-memory identity for networked games.
 - **Singleton**: `IdentityManager.initializeForNick(nick)` reuses the existing instance when the canonical nick is unchanged and swaps to a fresh per-nick instance when the nick changes.
 
@@ -61,8 +61,8 @@ The nick identifies a **player**. The keypair is bound to that nick **on a speci
 Implications, all expected and correct:
 
 - Two players sharing one machine: two nicks, two distinct keypair files. `known_identities` has one row per nick.
-- One player using two machines: the same nick yields a different keypair on each machine, so peers with an existing pin reject the second machine until trust is explicitly reset.
-- An impostor claiming an already-pinned nick is rejected during admission. First contact remains ordinary TOFU and therefore still needs password/OOB verification when that risk matters.
+- One player using two machines: the same nick yields a different keypair on each machine, so peers with an existing pin record `CHANGED`, replace the stored key and clear `verified_oob`; they do not reject the second machine automatically.
+- An impostor claiming an already-pinned nick can pass the cryptographic JOIN self-signature with its own key and is admitted as `CHANGED`; only an OOB comparison can establish that the new key is really the expected one. First contact remains ordinary TOFU and therefore still needs password/OOB verification when that risk matters.
 
 ### 2.3 Fingerprint format
 
@@ -113,7 +113,7 @@ Each game has a fresh `session_id`. A `self_sig` is valid only for the session w
 
 Compatibility is enforced by **strict equality** of the client's `version` field against the host's `AboutDialog.VERSION`. A mismatch returns `BADVERSION#<host_version>` and the join is refused. There is no min-compatible range, so every peer in a game runs the identical wire format. Any change to it is gated simply by bumping the version string.
 
-### TOFU resolution (silent, no user interaction)
+### TOFU resolution (silent, non-blocking)
 
 After verifying the self-sig, each peer resolves `(nick, pubkey)` against its local `known_identities` ([`TOFUResolver.java`](../src/main/java/com/tonikelope/coronapoker/TOFUResolver.java)):
 
@@ -121,14 +121,13 @@ After verifying the self-sig, each peer resolves `(nick, pubkey)` against its lo
 |---|---|---|
 | `NEW`: unknown nick | `INSERT` row, `sessions_count=1`, `verified_oob=0` | 0 (unverified) |
 | `MATCH`: known nick, pubkey byte-identical | `UPDATE last_seen`, `sessions_count++`. `verified_oob` untouched | unchanged (0 or 1) |
-| `CHANGED`: known canonical nick, pubkey differs | Return `CHANGED`; a preceding unambiguous legacy-alias migration may canonicalize the row, but the pinned pubkey, trust flag and counter are preserved | unchanged |
-| `ERROR`: alias conflict or storage/migration failure | Fail closed; a completed alias migration may precede a later storage error, but no key rotation or trust reset occurs | unchanged |
+| `CHANGED`: known nick string, pubkey differs | `UPDATE pubkey, last_seen, sessions_count, verified_oob=0`; return `CHANGED` | 0 (the new key must be checked OOB again) |
 
-**Fail-closed admission, no modal.** `JOIN`, server intro, `NEWUSER` and `USERSLIST` admit only `NEW` or byte-identical `MATCH`. `CHANGED`/`ERROR`, missing identity, malformed keys or invalid self-signatures close the relevant channel before a key is installed. TOFU keys are indexed by NFC-canonical nick; an unambiguous legacy alias is migrated, while conflicting aliases fail closed. There is still no passive at-a-glance indicator.
+**TOFU is not an admission gate, and there is no modal.** The host-side initial `JOIN` requires the six-field payload and a valid `JOIN` self-signature; after that structural/signature check, the participant is admitted and the `NEW`/`MATCH`/`CHANGED` result is logged. On a client, server intro and `NEWUSER`/`USERSLIST` roster entries are admitted by their separate capacity, exact/NFC-collision and avatar checks. Identity fields are verified when present, but missing/malformed self-signatures and TOFU outcomes are logged without closing the channel or removing the roster entry. The resolver indexes the nick string it receives; `IdentityManager` still NFC-normalizes the local key binding and JOIN signature, but `TOFUResolver` does not perform legacy alias migration. There is still no passive at-a-glance indicator.
 
 ### Manual verification
 
-The identity identicon dialog offers a **"Verify identity"** button. Clicking it runs `UPDATE known_identities SET verified_oob = 1 WHERE nick = ?` (guarded by a byte-exact check that the stored pubkey still matches the one being verified). `markVerified` / `isVerified` persist and read this flag. The dialog then shows "✓ Identity verified" instead of the button. A rejected key change cannot clear this flag or replace its key.
+The identity identicon dialog offers a **"Verify identity"** button. Clicking it runs `UPDATE known_identities SET verified_oob = 1 WHERE nick = ?` (guarded by a byte-exact check that the stored pubkey still matches the one being verified). `markVerified` / `isVerified` persist and read this flag. The dialog then shows "✓ Identity verified" instead of the button. A later `CHANGED` transition replaces the stored pubkey and clears `verified_oob`, so the new key must be checked again.
 
 ---
 
@@ -432,7 +431,7 @@ Wire-incompatible changes are gated by the strict `AboutDialog.VERSION` equality
 
 ## 10. Bot identity
 
-**Bots have no cryptographic identity of their own.** The host operates each bot and **signs bot actions with the host's own Ed25519 private key**. Receivers therefore verify a bot's actions against the **host's** pinned pubkey (the signer resolution maps any `Participant.isCpu()` actor to the host's identity). Bots are not inserted into `known_identities` and expose no identity affordance in the UI (their avatar click is a no-op).
+**Bots have no cryptographic identity of their own.** The host operates each bot and **signs bot actions with the host's own Ed25519 private key**. Receivers therefore verify a bot's actions against the **host's** pinned pubkey (the signer resolution maps any `Participant.isCpu()` actor to the host's identity). Bots are not inserted into `known_identities` and expose no identity affordance in the UI (their avatar click is a no-op). The `$` character is reserved for bot nicknames: the human nick-entry path ([`NewGameDialog.java`](../src/main/java/com/tonikelope/coronapoker/NewGameDialog.java)) strips it before identity initialization, and the host rejects any remote `JOIN` containing it ([`WaitingRoomFrame.java`](../src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java)). Host-generated bot names carry it. `CoronaBot$<number>` is the current bot naming/classification convention; the reservation is the `$` character itself.
 
 A malicious host can of course abuse the bots it operates, but every bot action still carries the host's signature and lands in `H_t` like any other action, so it is independently verifiable and attributable to the host in the chain.
 

@@ -27,7 +27,7 @@
 
       cd tools/qa
       mvn -o test                    # fast code/regression tests (no bot quality)
-      mvn -o test -P slow-bot        # explicit bot-quality lane only
+      mvn -o test -P qa-bots         # explicit bot-quality lane only
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -35,7 +35,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope.qa</groupId>
     <artifactId>coronapoker-bot-tests</artifactId>
-    <version>23.50</version>
+    <version>23.51</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -45,11 +45,13 @@
         <!-- Override with -Dcoronapoker.version=X.Y if you have a different
              local install. Bump this property in sync with the root pom version
              so `mvn -o test` resolves against the just-installed jar. -->
-        <coronapoker.version>23.50</coronapoker.version>
+        <coronapoker.version>23.51</coronapoker.version>
 
         <!-- Test lane selection (JUnit 5 tags). Defaults give the FAST lane:
-             run everything EXCEPT tests tagged @Tag("slow"). The `slow` and
-             `all` profiles below flip these. See the Testing section in README.md. -->
+             run everything EXCEPT tests tagged @Tag("slow"). The `qa-heavy`
+             and `qa-release` profiles select the non-bot slow lanes; the
+             statistical bot lane is only selected by the explicit `qa-bots`
+             profile. See the Testing section in README.md. -->
         <qa.groups></qa.groups>
         <qa.excludedGroups>slow</qa.excludedGroups>
     </properties>
@@ -77,8 +79,8 @@
                     <runOrder>balanced</runOrder>
                     <!-- JUnit 5 tag lanes. Empty qa.groups = no positive
                          filter; qa.excludedGroups=slow (the default) skips the
-                         heavy tests. Overridable by the slow/all profiles or
-                         directly, e.g. -Dqa.excludedGroups= to run everything. -->
+                         heavy tests. Overridable by the qa-heavy/qa-release
+                         profiles or directly, e.g. -Dqa.excludedGroups= to run everything. -->
                     <groups>${qa.groups}</groups>
                     <excludedGroups>${qa.excludedGroups}</excludedGroups>
                     <!-- Los ficheros *Smoke NO los recoge el patron por defecto, que solo
@@ -165,28 +167,43 @@
              selection is already the default when no profile is supplied;
              this profile makes CI/NetBeans invocations self-documenting. -->
         <profile>
-            <id>fast</id>
+            <id>qa-fast</id>
             <properties>
                 <qa.groups></qa.groups>
                 <qa.excludedGroups>slow</qa.excludedGroups>
             </properties>
         </profile>
 
-        <!-- Only the slow tests. Run before merging or after touching the
-             bot AI / crypto. -->
+        <!-- Non-bot slow tests only. Statistical bot quality remains a separate
+             explicit lane so this aggregate cannot saturate a developer host. -->
         <profile>
-            <id>slow</id>
+            <id>qa-heavy</id>
             <properties>
                 <qa.groups>slow</qa.groups>
                 <qa.excludedGroups></qa.excludedGroups>
             </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/bot/harness/*Test.java</exclude>
+                                <exclude>**/bot/eval/MemoizedHandPotentialTest.java</exclude>
+                                <exclude>**/smoke/GameFlowSmoke.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
 
         <!-- Bot-quality lane only. It deliberately selects the statistical
              matchups, Monte-Carlo hand-potential test and the headless game-flow
              smoke; it does not provide feedback for ordinary game-code changes. -->
         <profile>
-            <id>slow-bot</id>
+            <id>qa-bots</id>
             <properties>
                 <qa.groups>slow</qa.groups>
                 <qa.excludedGroups></qa.excludedGroups>
@@ -216,7 +233,7 @@
 
         <!-- Heavy cryptographic/differential lane only. -->
         <profile>
-            <id>slow-crypto</id>
+            <id>qa-crypto</id>
             <properties>
                 <qa.groups>slow</qa.groups>
                 <qa.excludedGroups></qa.excludedGroups>
@@ -241,7 +258,7 @@
         <!-- Slow real-socket integration lane, kept apart from bot quality and
              from deterministic game-code tests. -->
         <profile>
-            <id>slow-integration</id>
+            <id>qa-network</id>
             <properties>
                 <qa.groups>slow</qa.groups>
                 <qa.excludedGroups></qa.excludedGroups>
@@ -263,13 +280,29 @@
             </build>
         </profile>
 
-        <!-- The whole suite, fast + slow. Run before a release. -->
+        <!-- Whole deterministic suite plus non-bot slow lanes. Statistical bot
+             quality is deliberately excluded and requires -P qa-bots. -->
         <profile>
-            <id>all</id>
+            <id>qa-release</id>
             <properties>
                 <qa.groups></qa.groups>
                 <qa.excludedGroups></qa.excludedGroups>
             </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/bot/harness/*Test.java</exclude>
+                                <exclude>**/bot/eval/MemoizedHandPotentialTest.java</exclude>
+                                <exclude>**/smoke/GameFlowSmoke.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>

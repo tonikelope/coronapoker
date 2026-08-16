@@ -108,7 +108,7 @@ harness/
 Every `*Test` class above is annotated `@Tag("slow")`, so the default fast
 Surefire lane skips them all — see § 9 for how to run them. This directory is
 the bot-quality lane, not a normal game-code regression suite; it is selected
-only by the explicit `slow-bot` profile. The deterministic evaluator adapter
+only by the explicit `qa-bots` profile. The deterministic evaluator adapter
 test remains in the fast lane, but statistical quality tests never do.
 
 The simulators reuse the production `Bot.java` unchanged. They do not
@@ -375,7 +375,7 @@ Lessons we took away:
 
 **Every class in this directory is annotated `@Tag("slow")`.** The default
 Surefire lane sets `qa.excludedGroups=slow` (see `tools/qa/pom.xml`), so a bare
-`mvn test` runs **zero** of these harness tests. You must select the slow lane
+`mvn test` runs **zero** of these harness tests. You must select `qa-bots`
 explicitly, with one of the flows below.
 
 ### 9.1 Reactor (preferred)
@@ -386,14 +386,14 @@ suite against it in one pass — no `mvn install` of the jar, no
 
 ```sh
 # only the bot-quality lane (statistical bot sims + GameFlowSmoke)
-mvn -f tools/reactor/pom.xml test -P slow-bot
+mvn -f tools/reactor/pom.xml test -P qa-bots
 
-# the whole suite, fast + slow
-mvn -f tools/reactor/pom.xml test -P all
+# deterministic suite plus non-bot slow checks
+mvn -f tools/reactor/pom.xml test -P qa-release
 ```
 
-The `slow` and `all` profiles are declared in `tools/qa/pom.xml`; `-P` activates
-them on the qa module inside the reactor. Add `-o` (offline) once the local
+The `qa-heavy` and `qa-release` profiles are declared in `tools/qa/pom.xml`;
+`-P` activates them on the qa module inside the reactor. Add `-o` (offline) once the local
 Maven cache is warm. `forkCount=0.6C` (≈ 5 concurrent JVMs on an 8-core
 machine) is set in `tools/qa/pom.xml`'s `maven-surefire-plugin` configuration.
 
@@ -404,35 +404,35 @@ at the qa pom:
 
 ```sh
 mvn -DskipTests install                                   # from the repo root
-mvn -f tools/qa/pom.xml test -P slow-bot -Dcoronapoker.version=23.49
+mvn -f tools/qa/pom.xml test -P qa-bots -Dcoronapoker.version=23.51
 ```
 
-Keep `-Dcoronapoker.version` in sync with the root pom (currently 23.49).
+Keep `-Dcoronapoker.version` in sync with the root pom (currently 23.51).
 
 ### 9.3 A subset by name pattern
 
-Combine the slow lane with a `-Dtest` glob. Add
+Combine `qa-bots` with a `-Dtest` glob. Add
 `-Dsurefire.failIfNoSpecifiedTests=false` so the run does not fail on the game
 module (or any module) that has none of the matching classes:
 
 ```sh
 # 6-max gradient tests
-mvn -f tools/reactor/pom.xml test -P slow-bot \
+mvn -f tools/reactor/pom.xml test -P qa-bots \
     -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false
 
 # 6-max baseline tests
-mvn -f tools/reactor/pom.xml test -P slow-bot \
+mvn -f tools/reactor/pom.xml test -P qa-bots \
     -Dtest='MultiwayBaseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
 
 # HU tests (legacy reference)
-mvn -f tools/reactor/pom.xml test -P slow-bot \
+mvn -f tools/reactor/pom.xml test -P qa-bots \
     -Dtest='MixedMatchup_*Test,Baseline*Test' -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
 ### 9.4 One specific matchup
 
 ```sh
-mvn -f tools/reactor/pom.xml test -P slow-bot \
+mvn -f tools/reactor/pom.xml test -P qa-bots \
     -Dtest=Multiway_HardVs5EasyTest -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
@@ -446,7 +446,7 @@ Volume is controlled at runtime (no source edits needed) via two system
 properties read by `QaConfig` and forwarded into the surefire forks:
 
 ```sh
-mvn -f tools/reactor/pom.xml -o test -P slow-bot \
+mvn -f tools/reactor/pom.xml -o test -P qa-bots \
     -Dtest='Multiway_*Test' -Dsurefire.failIfNoSpecifiedTests=false \
     -Dqa.sessions=40 -Dqa.hands=25
 ```
@@ -464,9 +464,8 @@ FAIL on significance only). Re-run at full volume to sign off a change.
 
 The hand evaluator is memoized (`MemoizedAlbertaEvaluator`, ~8× faster than the
 raw Alberta path on Windows), so a reduced-volume iteration pass returns in
-seconds; the full QA suite (fast + slow lanes, all matchups at the 10 000-hand
-default) is measured at ~4.6 minutes wall-clock under `forkCount=0.6C` (see
-`tools/qa/pom.xml`).
+seconds; the bot lane itself runs the matchups at the 10 000-hand default and
+is deliberately separate from `qa-release` (see `tools/qa/pom.xml`).
 
 ---
 
@@ -474,7 +473,7 @@ default) is measured at ~4.6 minutes wall-clock under `forkCount=0.6C` (see
 
 Volume: **200 sessions × 50 hands = 10 000 hands per matchup**, parallelised
 under `forkCount=0.6C`. With the memoized evaluator the full QA suite
-(fast + slow lanes) is measured at ~4.6 minutes wall-clock (see
+(fast + non-bot slow lanes) is measured separately from `qa-bots` (see
 `tools/qa/pom.xml`).
 
 ### 10.1 Baseline-quality (10 000 hands × 3 matchups)

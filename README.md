@@ -33,7 +33,7 @@ CoronaPoker was built with one non-negotiable principle: **nobody should ever be
 Every card is shuffled and locked collectively by **every player at the table** through a commutative Mental Poker (SRA) protocol, with a zero-knowledge **verifiable shuffle** that every player re-checks independently, so a malicious host cannot peek, duplicate or relocate a card. Pocket cards stay sealed end-to-end until showdown. Community cards unlock per street. **No single participant, not even the host, can see another player's hole cards or peek at the board before it is legitimately revealed**, and each hand is re-shuffled collectively, so distribution is verifiable and unbiasable. *(Built from scratch over Ristretto255, with DLEQ-chained dealing and a Bayer-Groth shuffle. Full details in the spec linked below.)*
 
 ### Per-nick cryptographic identity & signed actions
-Every player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows ICACLS-locked). Every betting action, every community-card reveal and every showdown reveal is signed under a domain-separated context. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history, and its closing state folds in the hand's **settlement** (who put in how much and who was paid how much), committing the pot payout alongside the actions. Before durable close, every peer enforces exact-cent conservation (`paid + closing carry = contributed + opening carry`) and exchanges signed receipts. A conservation error, divergent or missing receipt, or invalid-signature flag stops SQLite close and hand advancement, preserving the open state for recovery. TOFU pins the first key seen for the NFC-canonical nick; a later key change is rejected without replacing that pin. A first-contact identicon dialog lets two players verify each other's pubkey out-of-band.
+Every player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows ICACLS-locked). Every betting action, every community-card reveal and every showdown reveal is signed under a domain-separated context. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history, and its closing state folds in the hand's **settlement** (who put in how much and who was paid how much), committing the pot payout alongside the actions. Before durable close, every peer enforces exact-cent conservation (`paid + closing carry = contributed + opening carry`) and exchanges signed receipts. A conservation error, divergent or missing receipt, or invalid-signature flag stops SQLite close and hand advancement, preserving the open state for recovery. TOFU records the first key seen for a nick; a later different key is accepted as `CHANGED`, replaces the stored key, increments the session count and clears the out-of-band verification flag. This transition is non-blocking and has no modal, so compare the identity identicon/fingerprint out-of-band whenever key continuity matters. A first-contact identicon dialog lets two players verify each other's pubkey out-of-band.
 
 ### End-to-end encrypted channels
 All traffic between players is encrypted with **AES-256-CBC + HMAC-SHA256** over keys negotiated via **ECDH key exchange**. Anyone on the network path sees only opaque blocks. Game state, chat messages and player actions are unreadable. The recovery payload reader installs a strict **`ObjectInputFilter` whitelist** (HashMap / String / numeric boxes only, 10 MB cap, 20-deep) so a malicious host cannot exploit Java deserialization gadgets.
@@ -260,18 +260,18 @@ They are **JUnit 5**. Deterministic game-code tests are kept in the fast lane;
 the expensive tests carry `@Tag("slow")` and are split by purpose. The normal
 QA command never runs bot-quality simulations: every bot-quality class,
 including the headless bot smoke, is tagged slow and only selected by the
-explicit `slow-bot` profile.
+explicit `qa-bots` profile.
 
 - **Fast lane (the default)** — domain, money, parsers, protocol and deterministic
   smoke tests; ~700 tests in about a minute.
-- **`slow-bot`** — bot-quality statistics, matchups, Monte-Carlo hand potential
+- **`qa-bots`** — bot-quality statistics, matchups, Monte-Carlo hand potential
   and the headless bot game-flow smoke. Its result is quality evidence for bots,
   not a substitute for a game-code regression test.
-- **`slow-crypto`** — cryptographic performance, differential and cascade tests.
-- **`slow-integration`** — slow real-socket/stall integration checks.
-- **`slow`** — compatibility aggregate for all slow lanes; **`all`** runs fast
-  plus every slow lane. The slow lanes take several minutes and are never part
-  of the normal/default run.
+- **`qa-crypto`** — cryptographic performance, differential and cascade tests.
+- **`qa-network`** — slow real-socket/stall integration checks.
+- **`qa-heavy`** — aggregate of the non-bot slow lanes; statistical bot quality
+  remains separate. **`qa-release`** runs fast plus the non-bot slow lanes.
+  The slow lanes are never part of the normal/default run.
 
 Each slow profile explicitly enables the `slow` tag and clears the default
 exclusion, so a successful slow-lane run must report at least one executed
@@ -287,22 +287,23 @@ The easiest way is the **opt-in QA reactor** (`tools/reactor/pom.xml`). It build
 # Bot-quality simulations are excluded by the slow tag.
 mvn -f tools/reactor/pom.xml test
 # Explicit equivalent for CI/NetBeans scripts:
-mvn -f tools/reactor/pom.xml test -P fast
+mvn -f tools/reactor/pom.xml test -P qa-fast
 
 # Bot-quality lane only (statistical; does not replace fast game tests).
-mvn -f tools/reactor/pom.xml test -P slow-bot
+mvn -f tools/reactor/pom.xml test -P qa-bots
 
 # Heavy crypto lane only.
-mvn -f tools/reactor/pom.xml test -P slow-crypto
+mvn -f tools/reactor/pom.xml test -P qa-crypto
 
 # Slow real-socket integration lane only.
-mvn -f tools/reactor/pom.xml test -P slow-integration
+mvn -f tools/reactor/pom.xml test -P qa-network
 
-# Compatibility aggregate — every slow lane.
-mvn -f tools/reactor/pom.xml test -P slow
+# Aggregate non-bot slow lanes.
+mvn -f tools/reactor/pom.xml test -P qa-heavy
 
-# Everything, fast + slow (~5 min). Run before a release.
-mvn -f tools/reactor/pom.xml test -P all
+# Everything except statistical bot quality: fast + non-bot slow lanes.
+# Run before a release; use -P qa-bots only when bot quality is explicitly in scope.
+mvn -f tools/reactor/pom.xml test -P qa-release
 
 # A single test class (the flag skips the test-less game module).
 mvn -f tools/reactor/pom.xml test -Dtest=PotMathTest -Dsurefire.failIfNoSpecifiedTests=false
@@ -316,11 +317,12 @@ run.
 
 | Order | Lane | Contents | Normal run? |
 |---:|---|---|---|
-| 1 | fast | Rules, money, pots, recovery, parsers, framing, deterministic smoke and TDD regressions | Yes |
-| 2 | slow-crypto | Heavy crypto/SRA differential, cascade and performance checks | No |
-| 3 | slow-integration | Real socket framing/stall checks | No |
-| 4 | slow-bot | Statistical bot quality, matchups, Monte-Carlo and bot-flow smoke | No, explicit only |
-| 5 | all | Fast plus every slow lane, as a release aggregate | No, explicit only |
+| 1 | qa-fast | Rules, money, pots, recovery, parsers, framing, deterministic smoke and TDD regressions | Yes |
+| 2 | qa-crypto | Heavy crypto/SRA differential, cascade and performance checks | No |
+| 3 | qa-network | Real socket framing/stall checks | No |
+| 4 | qa-heavy | Aggregate non-bot slow lanes | No, explicit only |
+| 5 | qa-bots | Statistical bot quality, matchups, Monte-Carlo and bot-flow smoke | No, explicit only |
+| 6 | qa-release | Fast plus non-bot slow lanes; bot quality remains separate | No, explicit only |
 
 The bot lane is deliberately last and separate: its statistical `FAIL` signal
 means that a quality threshold was not met for that sample, not that a
@@ -344,12 +346,13 @@ You can run the module standalone, but then you must publish the game jar first 
 ```bash
 mvn -DskipTests install                                       # publish CoronaPoker to your local ~/.m2
 mvn -f tools/qa/pom.xml test -Dcoronapoker.version=<root pom version>       # fast, no bot quality
-mvn -f tools/qa/pom.xml test -P slow-bot -Dcoronapoker.version=<root pom version>  # bot quality only
+mvn -f tools/qa/pom.xml test -P qa-bots -Dcoronapoker.version=<root pom version>  # bot quality only
 ```
 
-The standalone module also accepts `-P slow-crypto`, `-P slow-integration`,
-`-P slow` (all slow lanes) and `-P all` (fast plus every slow lane). These are
-always explicit; the bare command above never runs bot-quality simulations.
+The standalone module also accepts `-P qa-crypto`, `-P qa-network`,
+`-P qa-heavy` (non-bot slow lanes) and `-P qa-release` (fast plus non-bot slow
+lanes). These are always explicit; the bare command above never runs bot-quality
+simulations. Only `-P qa-bots` selects the statistical bot lane.
 </details>
 
 ### Which tests to run for what you touch
@@ -357,21 +360,21 @@ always explicit; the bare command above never runs bot-quality simulations.
 | If you change… | Run |
 |---|---|
 | Game logic, pot / side-pot / blind / bet math, hand-integrity chains | **Fast lane** — it already guards these |
-| The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P slow-bot`** — statistical matchups + Monte-Carlo potential |
-| The **crypto** stack (`crypto/`, the SRA cascade) | **`-P slow-crypto`** — perf / differential / cascade suite |
-| **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P slow-integration`** for socket-stall checks |
-| Anything, **before committing or opening a PR** | **`-P all`** |
-| Before a **release** | **`-P all`** plus the adversarial automated audit; manual-only residuals are reported separately |
+| The **bot AI** (`bot/`, `org/alberta/`, `Bot.java`) | **`-P qa-bots`** — statistical matchups + Monte-Carlo potential |
+| The **crypto** stack (`crypto/`, the SRA cascade) | **`-P qa-crypto`** — perf / differential / cascade suite |
+| **Networking** (`Net*`, `WireFrame`, `Participant`) | Fast lane covers wire & framing; add **`-P qa-network`** for socket-stall checks |
+| Anything, **before committing or opening a PR** | **`-P qa-release`** |
+| Before a **release** | **`-P qa-release`** plus the adversarial automated audit; manual-only residuals are reported separately |
 
 Rule of thumb: **fast lane on every change**, the relevant slow lane when you
-edited that subsystem or before merging, and **`-P all` before a release**.
+edited that subsystem or before merging, and **`-P qa-release` before a release**.
 Manual play is only a short complement for flows that genuinely require Swing,
 two live clients or human timing; it never replaces an automatable regression
 test. Record those steps and the environment in the audit report.
 
 For the 23.49 release validation, no manual play is used as a gate. Run the
 deterministic pots/rebuys/property checks in the fast lane, then run
-`-P slow-crypto` and `-P slow-integration` separately. Do not run `-P slow-bot`
+`-P qa-crypto` and `-P qa-network` separately. Do not run `-P qa-bots`
 as part of the normal audit unless the bot-quality question is explicitly in
 scope. Flows that require two Swing/client identities or the real Windows ACL
 remain explicit no-change items until a deterministic harness exists.
@@ -380,8 +383,8 @@ remain explicit no-change items until a deterministic harness exists.
 
 Put it in the matching package under `tools/qa/src/test/java`. If it is slow — a
 bot simulation, a crypto perf/fuzz test, or a real-socket stall check — annotate
-it with `@Tag("slow")` and keep it in the matching `slow-bot`, `slow-crypto` or
-`slow-integration` package so its lane remains explicit. Fast unit/domain tests
+it with `@Tag("slow")` and keep it in the matching `qa-bots`, `qa-crypto` or
+`qa-network` package so its lane remains explicit. Fast unit/domain tests
 must not be hidden in a slow lane. Add a deterministic red test before changing
 production, then keep the regression in the fast lane unless it genuinely
 requires a slow harness.

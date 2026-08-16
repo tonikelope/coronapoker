@@ -18,19 +18,20 @@
       # (the fast lane is the DEFAULT; no profile needed)
       mvn -f tools/reactor/pom.xml -o test
 
-      # full suite, including crypto, socket stalls and (only when requested)
-      # the slow bot/harness statistical matchups
-      mvn -f tools/reactor/pom.xml -o test -P all
+      # full deterministic suite plus crypto and socket-stall checks;
+      # statistical bot/harness quality is excluded from this aggregate
+      mvn -f tools/reactor/pom.xml -o test -P qa-release
 
-      # slow lanes aggregate (bot quality remains a distinct package/profile)
-      mvn -f tools/reactor/pom.xml -o test -P slow
+      # non-bot slow lanes aggregate (bot quality remains explicit)
+      mvn -f tools/reactor/pom.xml -o test -P qa-heavy
 
       # a single test class
       mvn -f tools/reactor/pom.xml -o test -Dtest=BetRulesTest
 
-  The fast lane is the DEFAULT (no profile). The `slow` and `all` profiles are
-  declared in tools/qa/pom.xml and flip which @Tag("slow") tests run inside this
-  reactor; see that pom for what each lane covers.
+  The fast lane is the DEFAULT (no profile). The `qa-heavy` and `qa-release`
+  profiles are declared in tools/qa/pom.xml and select the non-bot slow tests
+  inside this reactor; `qa-bots` is the separate statistical lane. See that pom
+  for what each lane covers.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -38,7 +39,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>coronapoker-qa-reactor</artifactId>
-    <version>23.50</version>
+    <version>23.51</version>
     <packaging>pom</packaging>
     <name>CoronaPoker QA reactor (opt-in aggregator)</name>
 

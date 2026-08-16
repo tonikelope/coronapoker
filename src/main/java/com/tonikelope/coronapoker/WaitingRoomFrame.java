@@ -134,6 +134,15 @@ public class WaitingRoomFrame extends JFrame {
         return currentSize >= MAX_PARTICIPANTES || nfcCollision
                 ? RemoteRosterAdmission.REJECT : RemoteRosterAdmission.ADMIT;
     }
+
+    /**
+     * The dollar sign is reserved for host-created bot nicknames. Bots never
+     * arrive through the network JOIN path, so an incoming client nick that
+     * contains it is unauthorized and must be rejected before admission.
+     */
+    static boolean hasReservedBotNickCharacter(String nick) {
+        return nick != null && nick.indexOf('$') >= 0;
+    }
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
@@ -2324,6 +2333,10 @@ public class WaitingRoomFrame extends JFrame {
                             exit = true;
                             mostrarMensajeError(THIS, Translator.translate("conn.nick_taken"));
                             break;
+                        case "NICKUNAUTHORIZED":
+                            exit = true;
+                            mostrarMensajeError(THIS, Translator.translate("conn.nick_unauthorized"));
+                            break;
                         case "NICKOK":
                             if ("0".equals(partes[1])) {
                                 Helpers.GUIRun(() -> {
@@ -4298,6 +4311,17 @@ public class WaitingRoomFrame extends JFrame {
                     } else if (!AboutDialog.VERSION.equals(client_version)) {
                         writeCommandFromServer(
                                 Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key),
+                                client_socket);
+                        try {
+                            client_socket.close();
+                        } catch (Exception ex) {
+                        }
+                    } else if (hasReservedBotNickCharacter(client_nick)) {
+                        LOGGER.log(Level.WARNING,
+                                "Rejected unauthorized remote nick {0}: '$' is reserved for bots",
+                                client_nick);
+                        writeCommandFromServer(
+                                Helpers.encryptCommand("NICKUNAUTHORIZED", aes_key, hmac_key),
                                 client_socket);
                         try {
                             client_socket.close();

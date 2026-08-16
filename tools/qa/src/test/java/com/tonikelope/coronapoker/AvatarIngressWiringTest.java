@@ -42,6 +42,18 @@ class AvatarIngressWiringTest {
     }
 
     @Test
+    void hostRejectsDollarJoinWithDedicatedUnauthorizedNickError() throws IOException {
+        String source = readWaitingRoomSource();
+        int guard = source.indexOf("hasReservedBotNickCharacter(client_nick)");
+        int response = source.indexOf("\"NICKUNAUTHORIZED\"", guard);
+        int identity = source.indexOf("verifyJoinSelfSig(client_nick", guard);
+
+        assertTrue(guard >= 0 && response > guard && identity > response,
+                "reserved-nick rejection must happen before JOIN identity admission");
+        assertTrue(source.contains("Translator.translate(\"conn.nick_unauthorized\")"));
+    }
+
+    @Test
     void clientRosterAdmissionPrecedesAvatarAllocationForBothIngresses() throws IOException {
         String source = readWaitingRoomSource();
         int newUser = source.indexOf("case \"NEWUSER\":");

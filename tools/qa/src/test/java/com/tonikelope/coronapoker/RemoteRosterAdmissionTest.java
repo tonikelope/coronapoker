@@ -1,6 +1,8 @@
 package com.tonikelope.coronapoker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -23,5 +25,13 @@ class RemoteRosterAdmissionTest {
                         WaitingRoomFrame.MAX_PARTICIPANTES, false, false));
         assertEquals(WaitingRoomFrame.RemoteRosterAdmission.REJECT,
                 WaitingRoomFrame.remoteRosterAdmission(2, false, true));
+    }
+
+    @Test
+    void dollarCharacterIsReservedForBotNicknames() {
+        assertTrue(WaitingRoomFrame.hasReservedBotNickCharacter("CoronaBot$1"));
+        assertTrue(WaitingRoomFrame.hasReservedBotNickCharacter("human$alias"));
+        assertFalse(WaitingRoomFrame.hasReservedBotNickCharacter("human"));
+        assertFalse(WaitingRoomFrame.hasReservedBotNickCharacter(null));
     }
 }

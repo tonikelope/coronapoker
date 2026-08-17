@@ -936,10 +936,28 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     double s = (u < 0.5) ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
                     double bump = Math.sin(Math.PI * s); // 0 at the ends, 1 at the crossing
 
-                    fl.setCenter(lx + (rx - lx) * s, ly + (ry - ly) * s - arc_amt * bump);
-                    fr.setCenter(rx + (lx - rx) * s, ry + (ly - ry) * s + arc_amt * bump);
-                    fl.repaint();
-                    fr.repaint();
+                    int flx = fl.getX();
+                    int fly = fl.getY();
+                    int frx = fr.getX();
+                    int fry = fr.getY();
+
+                    fl.setCenter(
+                            lx + (rx - lx) * s,
+                            ly + (ry - ly) * s - arc_amt * bump
+                    );
+
+                    fr.setCenter(
+                            rx + (lx - rx) * s,
+                            ry + (ly - ry) * s + arc_amt * bump
+                    );
+
+                    if (fl.getX() != flx || fl.getY() != fly) {
+                        fl.repaint();
+                    }
+
+                    if (fr.getX() != frx || fr.getY() != fry) {
+                        fr.repaint();
+                    }
 
                     if (u >= 1.0 || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                         player.stop();

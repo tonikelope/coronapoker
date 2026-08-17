@@ -43,7 +43,9 @@ public class ParticipantJListData {
     private int latency2;
     private ImageIcon avatar;
 
-    /** Sentinel meaning "no latency sample yet". */
+    /**
+     * Sentinel meaning "no latency sample yet".
+     */
     public static final int NO_LATENCY = -2;
 
     public ParticipantJListData(String nick) {

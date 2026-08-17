@@ -48,15 +48,15 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 /**
- * Voluntary straddle: right after the deal, the UTG player decides blind (hole cards face
- * down) whether to post the straddle. Non-modal dialog overlaid on their two hidden hole
- * cards, spanning both, with the game's orange border, a green POST button and a red NO
- * button, plus a countdown. If the bar expires (or the table closes) it resolves as NO. The
- * result is delivered via callback on the EDT: 1 = post, 0 = don't post. Single-shot
- * resolution.
+ * Voluntary straddle: right after the deal, the UTG player decides blind (hole
+ * cards face down) whether to post the straddle. Non-modal dialog overlaid on
+ * their two hidden hole cards, spanning both, with the game's orange border, a
+ * green POST button and a red NO button, plus a countdown. If the bar expires
+ * (or the table closes) it resolves as NO. The result is delivered via callback
+ * on the EDT: 1 = post, 0 = don't post. Single-shot resolution.
  *
- * Modeled on {@link AutoActionDialog} (same border/countdown/non-modal look), but with two
- * buttons anchored over two components (the two hole cards).
+ * Modeled on {@link AutoActionDialog} (same border/countdown/non-modal look),
+ * but with two buttons anchored over two components (the two hole cards).
  *
  * @author tonikelope
  */
@@ -93,17 +93,18 @@ public class VoluntaryStraddleDialog extends JPanel {
     }
 
     /**
-     * Closes the dialog externally (e.g. on receiving the host's canonical result before the
-     * player answers, or when the table goes down): resolves as NO. Idempotent — safe to call
-     * even if already resolved by the countdown or the button.
+     * Closes the dialog externally (e.g. on receiving the host's canonical
+     * result before the player answers, or when the table goes down): resolves
+     * as NO. Idempotent — safe to call even if already resolved by the
+     * countdown or the button.
      */
     public void cancel() {
         resolve(NO_STRADDLE);
     }
 
     /**
-     * Accepts externally (SPACE keyboard shortcut): posts the straddle. Idempotent, safe to
-     * call even if already resolved.
+     * Accepts externally (SPACE keyboard shortcut): posts the straddle.
+     * Idempotent, safe to call even if already resolved.
      */
     public void accept() {
         resolve(POST_STRADDLE);
@@ -115,8 +116,10 @@ public class VoluntaryStraddleDialog extends JPanel {
      * @param card1 first hidden hole card, used to anchor/size the overlay
      * @param card2 second hidden hole card, used to anchor/size the overlay
      * @param seconds countdown length in seconds
-     * @param amount_text optional straddle amount label, or {@code null}/empty to omit it
-     * @param on_resolve callback invoked on the EDT with {@link #POST_STRADDLE} or {@link #NO_STRADDLE}
+     * @param amount_text optional straddle amount label, or {@code null}/empty
+     * to omit it
+     * @param on_resolve callback invoked on the EDT with {@link #POST_STRADDLE}
+     * or {@link #NO_STRADDLE}
      */
     public VoluntaryStraddleDialog(Component card1, Component card2, int seconds, String amount_text, IntConsumer on_resolve) {
 
@@ -261,10 +264,11 @@ public class VoluntaryStraddleDialog extends JPanel {
     }
 
     /**
-     * Mounts the overlay onto the table (a {@link JLayeredPane}), anchored to span the UTG's
-     * two hidden hole cards and vertically centered on their height, in table coordinates.
-     * Replaces the old JDialog's screen-coordinate setLocation, which some Linux window
-     * managers ignored (the window would land at 0,0).
+     * Mounts the overlay onto the table (a {@link JLayeredPane}), anchored to
+     * span the UTG's two hidden hole cards and vertically centered on their
+     * height, in table coordinates. Replaces the old JDialog's
+     * screen-coordinate setLocation, which some Linux window managers ignored
+     * (the window would land at 0,0).
      *
      * @param tapete table panel to attach the overlay to; no-op if {@code null}
      */

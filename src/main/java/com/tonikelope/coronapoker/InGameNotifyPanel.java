@@ -35,9 +35,9 @@ import java.awt.RenderingHints;
 import javax.swing.JLabel;
 
 /**
- * Body of an in-game notification: a rounded-corner box in the color the
- * alert requests (background = fill, foreground = text) with an optional
- * countdown bar painted inside the box itself.
+ * Body of an in-game notification: a rounded-corner box in the color the alert
+ * requests (background = fill, foreground = text) with an optional countdown
+ * bar painted inside the box itself.
  *
  * @author tonikelope
  */

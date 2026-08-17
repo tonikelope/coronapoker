@@ -15,43 +15,51 @@ import org.alberta.poker.HandEvaluator;
 /**
  * Memoized re-implementation of the University of Alberta hand-potential
  * calculation ({@code HandPotential.ppot_raw}, Papp 1998 §5.3). This is the
- * PPot/NPot engine the production bot runs (wired through {@link MemoizedAlbertaEvaluator}).
+ * PPot/NPot engine the production bot runs (wired through
+ * {@link MemoizedAlbertaEvaluator}).
  *
- * <p><b>Why this exists.</b> The reference {@link AlbertaEvaluatorAdapter} computes
- * PPot/NPot through {@code HandPotential.ppot_raw} — the variant with <em>no</em>
+ * <p>
+ * <b>Why this exists.</b> The reference {@link AlbertaEvaluatorAdapter}
+ * computes PPot/NPot through {@code HandPotential.ppot_raw} — the variant with
+ * <em>no</em>
  * rank caching. On the flop (full two-card look-ahead) that evaluates a 7-card
  * hand ~2.7 million times, the overwhelming majority of them redundant; with no
  * native {@code libeval} present (every platform except Linux/Solaris) each one
- * goes through {@code rankHand_Java}. This class caches those repeated ranks and
- * is ~8x faster on the flop while producing numerically identical PPot/NPot — so
- * the production bot decides exactly the same, only quicker.</p>
+ * goes through {@code rankHand_Java}. This class caches those repeated ranks
+ * and is ~8x faster on the flop while producing numerically identical PPot/NPot
+ * — so the production bot decides exactly the same, only quicker.</p>
  *
- * <p>The obvious fix — switching the adapter to {@code HandPotential.ppot} (the
+ * <p>
+ * The obvious fix — switching the adapter to {@code HandPotential.ppot} (the
  * cached variant) — is a trap: its {@code getCachedRank} helpers call
- * {@code HandEvaluator.rankHand7}, a <em>native method with no Java fallback</em>
- * ({@code CRankHandFast7}). On Windows that throws {@code UnsatisfiedLinkError}.
- * That is exactly why the adapter uses {@code ppot_raw} in the first place.</p>
+ * {@code HandEvaluator.rankHand7}, a <em>native method with no Java
+ * fallback</em> ({@code CRankHandFast7}). On Windows that throws
+ * {@code UnsatisfiedLinkError}. That is exactly why the adapter uses
+ * {@code ppot_raw} in the first place.</p>
  *
- * <p>This class ports the algorithm into our own package (the {@code org.alberta}
+ * <p>
+ * This class ports the algorithm into our own package (the {@code org.alberta}
  * library is treated as immutable) using only {@code HandEvaluator.rankHand}
  * (which has the {@code rankHand_Java} fallback) and adds two caches:</p>
  * <ul>
- *   <li><b>our-hand cache</b>: {@code rank(hole + board + future)} does not depend
- *       on the opponent's cards, so it is computed once per future card (1-card)
- *       or future pair (2-card) and reused across every opponent pair.</li>
- *   <li><b>opponent-hand cache</b>: {@code rank(opp + board + future)} keyed by the
- *       bitmask of the varying cards. A primitive open-addressing {@code long->int}
- *       table is used rather than {@code HashMap<Long,Integer>}: profiling showed
- *       the boxing in the latter ate most of the cache's benefit (2.6x), whereas
- *       the primitive table reaches ~8x.</li>
+ * <li><b>our-hand cache</b>: {@code rank(hole + board + future)} does not
+ * depend on the opponent's cards, so it is computed once per future card
+ * (1-card) or future pair (2-card) and reused across every opponent pair.</li>
+ * <li><b>opponent-hand cache</b>: {@code rank(opp + board + future)} keyed by
+ * the bitmask of the varying cards. A primitive open-addressing
+ * {@code long->int} table is used rather than {@code HashMap<Long,Integer>}:
+ * profiling showed the boxing in the latter ate most of the cache's benefit
+ * (2.6x), whereas the primitive table reaches ~8x.</li>
  * </ul>
  *
- * <p>The counting (AHEAD/TIED/BEHIND tallies, the {@code mult} normaliser of
+ * <p>
+ * The counting (AHEAD/TIED/BEHIND tallies, the {@code mult} normaliser of
  * 990/45, the den/num formulas) is identical to {@code ppot_raw}; addition is
- * commutative so enumeration order is irrelevant. {@code MemoizedHandPotentialTest}
- * asserts ppot/npot equality against the Alberta original over thousands of
- * random spots. <b>Not thread-safe</b>: production shares a single instance across
- * all bots, which is safe only because bot decisions are evaluated sequentially.</p>
+ * commutative so enumeration order is irrelevant.
+ * {@code MemoizedHandPotentialTest} asserts ppot/npot equality against the
+ * Alberta original over thousands of random spots. <b>Not thread-safe</b>:
+ * production shares a single instance across all bots, which is safe only
+ * because bot decisions are evaluated sequentially.</p>
  */
 final class MemoizedHandPotential {
 
@@ -76,9 +84,9 @@ final class MemoizedHandPotential {
 
     /**
      * @return {@code [ppot, npot]}. Mirrors {@code HandPotential.ppot_raw}: a
-     * two-card look-ahead is performed only when {@code board.length == 3 && full};
-     * a 4-card board does a one-card look-ahead; 5 cards (or fewer than 3) yield
-     * {@code [0, 0]}.
+     * two-card look-ahead is performed only when
+     * {@code board.length == 3 && full}; a 4-card board does a one-card
+     * look-ahead; 5 cards (or fewer than 3) yield {@code [0, 0]}.
      */
     double[] ppotNpot(int hole1, int hole2, int[] board, boolean full) {
         int n = board.length;
@@ -270,7 +278,9 @@ final class MemoizedHandPotential {
         }
     }
 
-    /** SplitMix64 finaliser — spreads the sparse card bitmask across all bits. */
+    /**
+     * SplitMix64 finaliser — spreads the sparse card bitmask across all bits.
+     */
     private static long mix(long z) {
         z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
         z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;

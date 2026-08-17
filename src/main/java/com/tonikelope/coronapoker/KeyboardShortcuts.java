@@ -27,19 +27,22 @@ import java.util.logging.Logger;
 import javax.swing.KeyStroke;
 
 /**
- * Central registry of the game's customizable keyboard shortcuts. Each action has a STABLE id
- * (matching its AbstractAction name in the {@link GameFrame} and {@link Init} dispatchers) and a
- * default key combination; the user can reassign it from the "Shortcuts" tab in Settings, and the
- * override persists in {@code coronapoker.properties} under key {@code shortcut.<id>}.
+ * Central registry of the game's customizable keyboard shortcuts. Each action
+ * has a STABLE id (matching its AbstractAction name in the {@link GameFrame}
+ * and {@link Init} dispatchers) and a default key combination; the user can
+ * reassign it from the "Shortcuts" tab in Settings, and the override persists
+ * in {@code coronapoker.properties} under key {@code shortcut.<id>}.
  *
- * The two global dispatchers resolve by id via {@link #idFor(KeyStroke)} and run the fixed body
- * registered for that id, so a reassignment takes effect LIVE with nothing to rebuild. The reverse
- * map (KeyStroke -&gt; id) is published atomically (a volatile reference swapped to a new map) so
- * reads from the keyboard thread always see a consistent snapshot.
+ * The two global dispatchers resolve by id via {@link #idFor(KeyStroke)} and
+ * run the fixed body registered for that id, so a reassignment takes effect
+ * LIVE with nothing to rebuild. The reverse map (KeyStroke -&gt; id) is
+ * published atomically (a volatile reference swapped to a new map) so reads
+ * from the keyboard thread always see a consistent snapshot.
  *
- * Only keyCode-based shortcuts (with or without modifiers) are modeled. Left out, being of a
- * different nature or fragile across keyboard layouts: the mouse-wheel zoom, the quick fastchat
- * key {@code 'º'} (a dead-key "typed" event), and the internal keys of the chat/image dialogs.
+ * Only keyCode-based shortcuts (with or without modifiers) are modeled. Left
+ * out, being of a different nature or fragile across keyboard layouts: the
+ * mouse-wheel zoom, the quick fastchat key {@code 'º'} (a dead-key "typed"
+ * event), and the internal keys of the chat/image dialogs.
  *
  * @author tonikelope
  */
@@ -92,11 +95,13 @@ public final class KeyboardShortcuts {
     public static final String FASTCHAT_IMAGE = "FASTCHAT-IMAGE";
 
     /**
-     * Definition of a reassignable action: id, i18n keys for section/label (reused from
-     * {@link ShortcutsDialog}: {@code shortcuts.sec_*} / {@code shortcuts.act_*}), default
-     * combination, and FIXED aliases: extra keys that are always active and NOT reassignable (e.g.
-     * the horizontal bet arrows), registered in the reverse map both to fire and to reserve the key
-     * so nothing else can claim it.
+     * Definition of a reassignable action: id, i18n keys for section/label
+     * (reused from
+     * {@link ShortcutsDialog}: {@code shortcuts.sec_*} / {@code shortcuts.act_*}),
+     * default combination, and FIXED aliases: extra keys that are always active
+     * and NOT reassignable (e.g. the horizontal bet arrows), registered in the
+     * reverse map both to fire and to reserve the key so nothing else can claim
+     * it.
      */
     public static final class Def {
 
@@ -250,8 +255,8 @@ public final class KeyboardShortcuts {
 
     /**
      * @param id action id
-     * @return the current combination (default unless overridden), or {@code null} if the id is
-     * unknown
+     * @return the current combination (default unless overridden), or
+     * {@code null} if the id is unknown
      */
     public static KeyStroke get(String id) {
         return current.get(id);
@@ -259,7 +264,8 @@ public final class KeyboardShortcuts {
 
     /**
      * @param id action id
-     * @return true if the action is keycode-only, ignoring modifiers (voice note push-to-record)
+     * @return true if the action is keycode-only, ignoring modifiers (voice
+     * note push-to-record)
      */
     public static boolean isKeycodeOnly(String id) {
         Def d = BY_ID.get(id);
@@ -277,8 +283,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * keyCode of the action's current combination, for dispatchers that compare by keyCode (e.g.
-     * the FOLD/CHECK guards, the volume beep).
+     * keyCode of the action's current combination, for dispatchers that compare
+     * by keyCode (e.g. the FOLD/CHECK guards, the volume beep).
      *
      * @param id action id
      * @return the keyCode, or {@link KeyEvent#VK_UNDEFINED} if not applicable
@@ -289,8 +295,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Resolves which action owns a combination (including fixed aliases); used by the dispatchers
-     * and by assignment conflict detection.
+     * Resolves which action owns a combination (including fixed aliases); used
+     * by the dispatchers and by assignment conflict detection.
      *
      * @param ks combination to look up
      * @return the owning action id, or {@code null} if none
@@ -302,8 +308,8 @@ public final class KeyboardShortcuts {
     /**
      * @param ks combination to check
      * @param target_id action that would receive it
-     * @return true if free or already owned by {@code target_id}; false if another action (or a
-     * fixed alias) already uses it
+     * @return true if free or already owned by {@code target_id}; false if
+     * another action (or a fixed alias) already uses it
      */
     public static boolean isAssignable(KeyStroke ks, String target_id) {
         if (ks == null) {
@@ -314,9 +320,10 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Reassigns an action to a new combination LIVE (dispatchers see it instantly). Not persisted —
-     * editing is transactional and only written to disk by {@link #commit()}. Does not validate
-     * conflicts; callers must check {@link #isAssignable} first.
+     * Reassigns an action to a new combination LIVE (dispatchers see it
+     * instantly). Not persisted — editing is transactional and only written to
+     * disk by {@link #commit()}. Does not validate conflicts; callers must
+     * check {@link #isAssignable} first.
      *
      * @param id action id
      * @param ks new combination
@@ -334,7 +341,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Restores one action to its factory combination LIVE (not persisted; see {@link #commit()}).
+     * Restores one action to its factory combination LIVE (not persisted; see
+     * {@link #commit()}).
      *
      * @param id action id
      */
@@ -353,8 +361,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Restores ALL actions to their factory combinations LIVE (not persisted until
-     * {@link #commit()}).
+     * Restores ALL actions to their factory combinations LIVE (not persisted
+     * until {@link #commit()}).
      */
     public static synchronized void resetAll() {
 
@@ -386,8 +394,9 @@ public final class KeyboardShortcuts {
     private static volatile Map<String, KeyStroke> snapshot = null;
 
     /**
-     * Opens a transactional edit by snapshotting the current state. Changes apply live but aren't
-     * persisted until {@link #commit()}; {@link #revert()} restores this snapshot.
+     * Opens a transactional edit by snapshotting the current state. Changes
+     * apply live but aren't persisted until
+     * {@link #commit()}; {@link #revert()} restores this snapshot.
      */
     public static synchronized void beginTransaction() {
         snapshot = new HashMap<>(current);
@@ -402,8 +411,9 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Confirms the edit: persists the current state (one override per action that differs from its
-     * default, clearing the key for those at factory settings) and closes the transaction.
+     * Confirms the edit: persists the current state (one override per action
+     * that differs from its default, clearing the key for those at factory
+     * settings) and closes the transaction.
      */
     public static synchronized void commit() {
 
@@ -426,7 +436,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Discards the edit: restores the opening state (live) without touching the properties file.
+     * Discards the edit: restores the opening state (live) without touching the
+     * properties file.
      */
     public static synchronized void revert() {
         Map<String, KeyStroke> snap = snapshot;
@@ -438,7 +449,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * @return the ordered catalog of reassignable actions, for building the Shortcuts tab
+     * @return the ordered catalog of reassignable actions, for building the
+     * Shortcuts tab
      */
     public static List<Def> defs() {
         return DEFS;
@@ -471,7 +483,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Builds the combination for a key-PRESSED event, keeping only the relevant modifiers.
+     * Builds the combination for a key-PRESSED event, keeping only the relevant
+     * modifiers.
      *
      * @param e key event
      * @return the combination, or {@code null} if the key is a bare modifier
@@ -482,8 +495,8 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Same as {@link #fromKeyEvent(KeyEvent)} but drops modifiers when {@code keycode_only} (for
-     * keycode-only actions, such as the voice note).
+     * Same as {@link #fromKeyEvent(KeyEvent)} but drops modifiers when
+     * {@code keycode_only} (for keycode-only actions, such as the voice note).
      *
      * @param e key event
      * @param keycode_only true to ignore modifiers
@@ -507,11 +520,12 @@ public final class KeyboardShortcuts {
     }
 
     /**
-     * Human-readable parts of a combination for display (e.g. "CTRL + ALT + ESC", "ALT + P"), in
-     * UPPERCASE and in CTRL, ALT, SHIFT, META, key order.
+     * Human-readable parts of a combination for display (e.g. "CTRL + ALT +
+     * ESC", "ALT + P"), in UPPERCASE and in CTRL, ALT, SHIFT, META, key order.
      *
      * @param ks combination, or {@code null}
-     * @return the display parts (a single {@code "?"} element if {@code ks} is null)
+     * @return the display parts (a single {@code "?"} element if {@code ks} is
+     * null)
      */
     public static String[] keyCapStrings(KeyStroke ks) {
 

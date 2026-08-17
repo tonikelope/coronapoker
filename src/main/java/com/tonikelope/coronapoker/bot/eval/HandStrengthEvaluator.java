@@ -16,8 +16,8 @@ package com.tonikelope.coronapoker.bot.eval;
 /**
  * Estimates how often a hole-card pair currently wins against opponent ranges.
  *
- * Card indices follow the canonical encoding used by the bot subsystem
- * (rank in [0..12], suit in [0..3], index = rank + suit * 13, range [0..51]).
+ * Card indices follow the canonical encoding used by the bot subsystem (rank in
+ * [0..12], suit in [0..3], index = rank + suit * 13, range [0..51]).
  */
 public interface HandStrengthEvaluator {
 
@@ -43,8 +43,8 @@ public interface HandStrengthEvaluator {
     /**
      * Probability that the given two-card hand beats an opponent whose range is
      * described by a weighted 52x52 matrix. Weights outside the diagonal must
-     * be symmetric (weights[i][j] == weights[j][i]); the diagonal is ignored
-     * (a player cannot hold two copies of the same card).
+     * be symmetric (weights[i][j] == weights[j][i]); the diagonal is ignored (a
+     * player cannot hold two copies of the same card).
      */
     double handStrengthVsRange(int hole1, int hole2, int[] board, double[][] rangeWeights);
 }

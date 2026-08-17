@@ -33,9 +33,9 @@ import java.util.Collections;
 import java.util.Comparator;
 
 /**
- * One pot in a hand's pot/side-pot chain. Tracks who is contesting the pot and how
- * much it takes to be in it; {@link #genSidePots()} splits off child pots for players
- * who went all-in for less than everyone else.
+ * One pot in a hand's pot/side-pot chain. Tracks who is contesting the pot and
+ * how much it takes to be in it; {@link #genSidePots()} splits off child pots
+ * for players who went all-in for less than everyone else.
  *
  * @author tonikelope
  */
@@ -87,8 +87,8 @@ public final class HandPot {
     }
 
     /**
-     * Does this player COMPETE for the pot? A folded (or otherwise inactive) player
-     * leaves their money in, but can't collect it.
+     * Does this player COMPETE for the pot? A folded (or otherwise inactive)
+     * player leaves their money in, but can't collect it.
      */
     private static boolean compite(Player jugador) {
         // An all-in has already put its chips at risk. A later disconnect must
@@ -98,15 +98,16 @@ public final class HandPot {
     }
 
     /**
-     * What a non-competing player contributes to THIS pot. Counted from the pot's
-     * floor ({@code diff}) and capped at its ceiling ({@code bet}): anything put in
-     * above that belongs to a deeper side pot, collectable only by players who reached
-     * that level. Without the cap, all dead money would fall into the main pot and get
-     * swept up by a short all-in that never matched it.
+     * What a non-competing player contributes to THIS pot. Counted from the
+     * pot's floor ({@code diff}) and capped at its ceiling ({@code bet}):
+     * anything put in above that belongs to a deeper side pot, collectable only
+     * by players who reached that level. Without the cap, all dead money would
+     * fall into the main pot and get swept up by a short all-in that never
+     * matched it.
      *
-     * The deepest pot (no side pot below it) doesn't cap: there's no higher level left
-     * to send the remainder to, so it absorbs it all and the pots still sum to exactly
-     * what was bet.
+     * The deepest pot (no side pot below it) doesn't cap: there's no higher
+     * level left to send the remainder to, so it absorbs it all and the pots
+     * still sum to exactly what was bet.
      */
     private double aportacionMuerta(Player jugador) {
 
@@ -143,8 +144,9 @@ public final class HandPot {
     }
 
     /**
-     * Adds dead money inherited from a lower-level pot. Does NOT touch {@code bet}:
-     * a folded player doesn't set a pot's ceiling, they only contribute their share.
+     * Adds dead money inherited from a lower-level pot. Does NOT touch
+     * {@code bet}: a folded player doesn't set a pot's ceiling, they only
+     * contribute their share.
      */
     void addDeadMoney(Player jugador) {
 
@@ -165,8 +167,9 @@ public final class HandPot {
     }
 
     /**
-     * Splits off a side pot when some player is contesting this pot with a smaller
-     * bet than the rest (i.e. went all-in short); recurses to build the full chain.
+     * Splits off a side pot when some player is contesting this pot with a
+     * smaller bet than the rest (i.e. went all-in short); recurses to build the
+     * full chain.
      */
     public void genSidePots() {
 

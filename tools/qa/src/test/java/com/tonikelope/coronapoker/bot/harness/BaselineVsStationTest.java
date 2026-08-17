@@ -12,7 +12,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 
-/** HARD (the top level) must crush a calling station opponent heads-up. */
+/**
+ * HARD (the top level) must crush a calling station opponent heads-up.
+ */
 @Tag("slow")
 class BaselineVsStationTest extends BaselineQualityBase {
 

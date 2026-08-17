@@ -48,11 +48,12 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 
 /**
- * In-game log console: a translucent, borderless HUD showing {@link #LOG_TEXT} (the
- * hand-by-hand plain-text log) with syntax highlighting — cards, amounts, balance
- * tables and result lines — rendered into a styled {@link JTextPane} that replaces the
- * generated plain {@code JTextArea}. One instance is reused for the session; hiding it
- * just calls {@code setVisible(false)}, it's never disposed.
+ * In-game log console: a translucent, borderless HUD showing {@link #LOG_TEXT}
+ * (the hand-by-hand plain-text log) with syntax highlighting — cards, amounts,
+ * balance tables and result lines — rendered into a styled {@link JTextPane}
+ * that replaces the generated plain {@code JTextArea}. One instance is reused
+ * for the session; hiding it just calls {@code setVisible(false)}, it's never
+ * disposed.
  *
  * @author tonikelope
  */
@@ -781,10 +782,30 @@ public final class GameLogDialog extends JDialog {
                     int x = st[2], y = st[3], w = st[4], h = st[5];
                     int nw, nh, nx, ny;
                     switch (corner) {
-                        case 0: nw = Math.max(360, w - dx); nh = Math.max(240, h - dy); nx = x + w - nw; ny = y + h - nh; break; // NW
-                        case 1: nw = Math.max(360, w + dx); nh = Math.max(240, h - dy); nx = x; ny = y + h - nh; break; // NE
-                        case 2: nw = Math.max(360, w - dx); nh = Math.max(240, h + dy); nx = x + w - nw; ny = y; break; // SW
-                        default: nw = Math.max(360, w + dx); nh = Math.max(240, h + dy); nx = x; ny = y; break; // SE
+                        case 0:
+                            nw = Math.max(360, w - dx);
+                            nh = Math.max(240, h - dy);
+                            nx = x + w - nw;
+                            ny = y + h - nh;
+                            break; // NW
+                        case 1:
+                            nw = Math.max(360, w + dx);
+                            nh = Math.max(240, h - dy);
+                            nx = x;
+                            ny = y + h - nh;
+                            break; // NE
+                        case 2:
+                            nw = Math.max(360, w - dx);
+                            nh = Math.max(240, h + dy);
+                            nx = x + w - nw;
+                            ny = y;
+                            break; // SW
+                        default:
+                            nw = Math.max(360, w + dx);
+                            nh = Math.max(240, h + dy);
+                            nx = x;
+                            ny = y;
+                            break; // SE
                     }
                     setBounds(nx, ny, nw, nh);
                 }
@@ -1097,7 +1118,8 @@ public final class GameLogDialog extends JDialog {
     }
 
     /**
-     * Creates the game log dialog (initially hidden; the caller shows/positions it).
+     * Creates the game log dialog (initially hidden; the caller shows/positions
+     * it).
      *
      * @param parent owning frame
      * @param modal whether the dialog blocks input to its owner
@@ -1167,11 +1189,13 @@ public final class GameLogDialog extends JDialog {
     }
 
     /**
-     * Reveals showdown cards for players who mucked (or were auto-shown) by rewriting
-     * their "(---)" hole-card placeholder(s) already printed in {@link #LOG_TEXT}, then
-     * re-renders the log. A no-op if nothing in the text actually changes.
+     * Reveals showdown cards for players who mucked (or were auto-shown) by
+     * rewriting their "(---)" hole-card placeholder(s) already printed in
+     * {@link #LOG_TEXT}, then re-renders the log. A no-op if nothing in the
+     * text actually changes.
      *
-     * @param perdedores losers (or shown hands) for the just-finished hand, keyed by player
+     * @param perdedores losers (or shown hands) for the just-finished hand,
+     * keyed by player
      */
     public void actualizarCartasPerdedores(ConcurrentHashMap<Player, Hand> perdedores) {
 
@@ -1223,7 +1247,8 @@ public final class GameLogDialog extends JDialog {
     }
 
     /**
-     * Translates and appends a log line, unless the dialog's transmission has ended.
+     * Translates and appends a log line, unless the dialog's transmission has
+     * ended.
      *
      * @param msg a translator key or literal line to append
      */
@@ -1272,11 +1297,11 @@ public final class GameLogDialog extends JDialog {
             public void windowActivated(java.awt.event.WindowEvent evt) {
                 formWindowActivated(evt);
             }
+
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
             }
         });
-
 
         textarea.setEditable(false);
         textarea.setBackground(new java.awt.Color(102, 102, 102));
@@ -1287,7 +1312,6 @@ public final class GameLogDialog extends JDialog {
         textarea.setRows(5);
         textarea.setText("\n");
         jScrollPane1.setViewportView(textarea);
-
 
         opciones_menu.setMnemonic('p');
         opciones_menu.setText("Preferencias");
@@ -1312,12 +1336,12 @@ public final class GameLogDialog extends JDialog {
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 962, Short.MAX_VALUE)
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 962, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 493, Short.MAX_VALUE)
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 493, Short.MAX_VALUE)
         );
 
         pack();

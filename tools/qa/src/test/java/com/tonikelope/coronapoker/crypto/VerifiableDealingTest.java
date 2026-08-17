@@ -35,7 +35,10 @@ public class VerifiableDealingTest {
         }
     }
 
-    /** Builds one MEGAPACKET slot: genesis card `cardIdx` locked by every peer's lock. */
+    /**
+     * Builds one MEGAPACKET slot: genesis card `cardIdx` locked by every peer's
+     * lock.
+     */
     private static byte[] committedSlot(byte[][] locks, int cardIdx) {
         byte[] genesis = RistrettoSRA.getGenesisDeck();
         byte[] slot = new byte[CARD_BYTES];

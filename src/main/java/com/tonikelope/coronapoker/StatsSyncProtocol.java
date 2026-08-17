@@ -43,16 +43,18 @@ import java.util.zip.GZIPOutputStream;
  * Wire format of a stats-sync message — the {@code rest} payload of a
  * {@link BinaryWire#TYPE_DB} binary frame (which is itself channel-encrypted).
  *
- * <p>A message is a single leading subtype byte followed by a body:
+ * <p>
+ * A message is a single leading subtype byte followed by a body:
  * <ul>
- *   <li>{@link #MANIFEST} {@code 'M'} — body is a gzipped list of the sender's
- *       shareable game ugis. Its mere arrival means "I want to receive; here is
- *       what I already have", so the receiver can push back what the sender lacks.</li>
- *   <li>{@link #GAMES} {@code 'G'} — body is a {@link StatsSync#exportGames} blob
- *       (already gzipped) carrying one batch of game subtrees to import.</li>
+ * <li>{@link #MANIFEST} {@code 'M'} — body is a gzipped list of the sender's
+ * shareable game ugis. Its mere arrival means "I want to receive; here is what
+ * I already have", so the receiver can push back what the sender lacks.</li>
+ * <li>{@link #GAMES} {@code 'G'} — body is a {@link StatsSync#exportGames} blob
+ * (already gzipped) carrying one batch of game subtrees to import.</li>
  * </ul>
  *
- * <p>This class is the pure codec; sending/receiving, encryption and the
+ * <p>
+ * This class is the pure codec; sending/receiving, encryption and the
  * push/import orchestration live in the waiting-room layer.
  */
 public final class StatsSyncProtocol {
@@ -73,7 +75,9 @@ public final class StatsSyncProtocol {
     private StatsSyncProtocol() {
     }
 
-    /** The subtype byte, or 0 for an empty message. */
+    /**
+     * The subtype byte, or 0 for an empty message.
+     */
     public static byte subtype(byte[] message) {
         return (message != null && message.length > 0) ? message[0] : 0;
     }
@@ -131,7 +135,8 @@ public final class StatsSyncProtocol {
 
     /**
      * A decoded manifest: the sender's shareable ugis plus whether the sender
-     * wants to receive games back (so the peer only pushes to a willing receiver).
+     * wants to receive games back (so the peer only pushes to a willing
+     * receiver).
      */
     public static final class Manifest {
 
@@ -144,7 +149,9 @@ public final class StatsSyncProtocol {
         }
     }
 
-    /** Wraps a {@link StatsSync#exportGames} blob into a GAMES message. */
+    /**
+     * Wraps a {@link StatsSync#exportGames} blob into a GAMES message.
+     */
     public static byte[] gamesMessage(byte[] exportBlob) {
         byte[] out = new byte[1 + exportBlob.length];
         out[0] = GAMES;
@@ -152,7 +159,10 @@ public final class StatsSyncProtocol {
         return out;
     }
 
-    /** Extracts the export blob from a GAMES message (to feed {@link StatsSync#importGames}). */
+    /**
+     * Extracts the export blob from a GAMES message (to feed
+     * {@link StatsSync#importGames}).
+     */
     public static byte[] gamesBlob(byte[] message) throws IOException {
         if (subtype(message) != GAMES) {
             throw new IOException("not a games message");

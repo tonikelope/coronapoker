@@ -50,10 +50,10 @@ import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
 /**
- * Host-side handle for a single peer's connection: owns its socket, the reader /
- * writer / ping-pong threads, the reconnect grace-period state machine, per-peer
- * anti-DoS rate limiting, and dispatches incoming GAME subcommands into the
- * Crupier's command queue.
+ * Host-side handle for a single peer's connection: owns its socket, the reader
+ * / writer / ping-pong threads, the reconnect grace-period state machine,
+ * per-peer anti-DoS rate limiting, and dispatches incoming GAME subcommands
+ * into the Crupier's command queue.
  */
 public class Participant implements Runnable {
 
@@ -303,9 +303,9 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Telemetry: number of successful reconnects of this peer to the server since this
-     * Participant was created (game start or joining the room). Only counts reconnects that
-     * reached reset_socket=true.
+     * Telemetry: number of successful reconnects of this peer to the server
+     * since this Participant was created (game start or joining the room). Only
+     * counts reconnects that reached reset_socket=true.
      *
      * @return the reconnect count
      */
@@ -316,11 +316,13 @@ public class Participant implements Runnable {
     /**
      * @param espera the waiting room this peer belongs to
      * @param nick the peer's authenticated nick
-     * @param avatar the peer's avatar image file, or {@code null} for the default avatar
+     * @param avatar the peer's avatar image file, or {@code null} for the
+     * default avatar
      * @param socket the peer's already-connected socket
      * @param aes_k session AES key for this peer's channel
      * @param hmac_k session HMAC key for this peer's channel
-     * @param cpu whether this Participant represents a bot seat rather than a real peer
+     * @param cpu whether this Participant represents a bot seat rather than a
+     * real peer
      */
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
         this.nick = nick;
@@ -366,13 +368,14 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Anti-DoS: true if this peer's socket is DOWN or mid-reconnect (reset in progress, host-
-     * forced reconnect, or a null/closed socket). A peer that's STALLING (alive, answering
-     * PING but not sending what's expected) returns false — its socket is still open.
-     * Broadcast/recovery progress deadlines use this to NOT expel a peer that's legitimately
-     * reconnecting (give it its grace) but DO expel a live one that's stalling. Player.timeout
-     * isn't used here because those loops set it themselves on pending players (to show
-     * "waiting"), which would contaminate the signal.
+     * Anti-DoS: true if this peer's socket is DOWN or mid-reconnect (reset in
+     * progress, host- forced reconnect, or a null/closed socket). A peer that's
+     * STALLING (alive, answering PING but not sending what's expected) returns
+     * false — its socket is still open. Broadcast/recovery progress deadlines
+     * use this to NOT expel a peer that's legitimately reconnecting (give it
+     * its grace) but DO expel a live one that's stalling. Player.timeout isn't
+     * used here because those loops set it themselves on pending players (to
+     * show "waiting"), which would contaminate the signal.
      *
      * @return true if the socket is down or reconnecting
      */
@@ -410,166 +413,166 @@ public class Participant implements Runnable {
         ping_pong_thread_alive = true;
         Helpers.threadRun(() -> {
             try {
-            while (!exit && WaitingRoomFrame.getInstance() != null) {
-                final int ping = Helpers.CSPRNG_GENERATOR.nextInt();
-                pong = null;
-                pong2 = null;
-                latency = -1;
-                latency2 = -1;
-                long pingStartNs = System.nanoTime();
+                while (!exit && WaitingRoomFrame.getInstance() != null) {
+                    final int ping = Helpers.CSPRNG_GENERATOR.nextInt();
+                    pong = null;
+                    pong2 = null;
+                    latency = -1;
+                    latency2 = -1;
+                    long pingStartNs = System.nanoTime();
 
-                // The PING write is capped. Writing to a socket whose peer isn't reading
-                // eventually fills the OS buffer and the write just hangs, with no deadline,
-                // holding the socket's write monitor: the very watchdog meant to catch that
-                // peer would get stuck inside the write it was supposed to be watching, and
-                // block anyone else trying to write to it too.
-                //
-                // Mind the cap: that monitor is shared with BINARY sends (a voice note, an
-                // avatar, recovery data, a stats batch), which with several peers and thin
-                // upload can legitimately take a while even when everyone's healthy; and while
-                // a reconnect is in progress, the write is SUPPOSED to wait. So the timeout is
-                // generous, doesn't count while the peer is reconnecting, and needs SEVERAL in
-                // a row — same threshold as the lost-PONGs close below. The counter resets on
-                // reconnect so stalls on the old socket aren't inherited by the new one. And
-                // hitting the limit doesn't kick anyone: it just closes the socket so the
-                // reader can open the grace period.
-                java.util.concurrent.Future<?> ping_write;
+                    // The PING write is capped. Writing to a socket whose peer isn't reading
+                    // eventually fills the OS buffer and the write just hangs, with no deadline,
+                    // holding the socket's write monitor: the very watchdog meant to catch that
+                    // peer would get stuck inside the write it was supposed to be watching, and
+                    // block anyone else trying to write to it too.
+                    //
+                    // Mind the cap: that monitor is shared with BINARY sends (a voice note, an
+                    // avatar, recovery data, a stats batch), which with several peers and thin
+                    // upload can legitimately take a while even when everyone's healthy; and while
+                    // a reconnect is in progress, the write is SUPPOSED to wait. So the timeout is
+                    // generous, doesn't count while the peer is reconnecting, and needs SEVERAL in
+                    // a row — same threshold as the lost-PONGs close below. The counter resets on
+                    // reconnect so stalls on the old socket aren't inherited by the new one. And
+                    // hitting the limit doesn't kick anyone: it just closes the socket so the
+                    // reader can open the grace period.
+                    java.util.concurrent.Future<?> ping_write;
 
-                try {
-                    ping_write = Helpers.THREAD_POOL.submit(
-                            () -> writeCommandFromServer("PING#" + String.valueOf(ping)));
-                } catch (Exception ex) {
-                    break;
-                }
-
-                try {
-                    ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
-                    ping_write_stall_counter = 0;
-                } catch (java.util.concurrent.TimeoutException ex) {
-                    if (!exit && !resetting_socket && !force_reset_socket
-                            && ++ping_write_stall_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES) {
-                        LOGGER.log(Level.SEVERE,
-                                "PING write to {0} stalled {1} times in a row ({2} ms each) — peer is not reading; closing its socket",
-                                new Object[]{nick, ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
-                        // The peer is NOT given up on here: this only closes the socket, same
-                        // as the lost-heartbeat twin below. Closing wakes the reader, which is
-                        // what opens the grace period and gives the peer its window to return
-                        // — a laptop that suspends for a while shouldn't be kicked for not
-                        // reading. And if it were actually holding up the table, that's
-                        // already handled by the progress deadlines, which expel whoever's
-                        // stalling.
-                        //
-                        // The marker is essential: the write that just timed out is still
-                        // stuck on this socket, and closing it wakes it with an IOException
-                        // whose catch block would give up on the peer before the reader got a
-                        // chance to open the grace period.
-                        ping_pong_thread_alive = false;
-                        stall_close_ns = System.nanoTime();
-                        try {
-                            socketClose();
-                        } catch (Exception ignored) {
-                        }
+                    try {
+                        ping_write = Helpers.THREAD_POOL.submit(
+                                () -> writeCommandFromServer("PING#" + String.valueOf(ping)));
+                    } catch (Exception ex) {
                         break;
                     }
 
-                    // The write is left to run its course (cancelling it wouldn't unblock a
-                    // stuck write, and the socket may be mid-reinstall). The PONG counter is
-                    // left alone: without a PING there can be no PONG, and counting it as lost
-                    // would kick the peer through the other path. Wait the normal interval and
-                    // retry.
-                    Helpers.pausar(WaitingRoomFrame.PING_INTERVAL_MS);
-                    continue;
-                } catch (Exception ex) {
-                    break;
-                }
-
-                long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
-
-                while (!exit && (pong == null || pong2 == null) && System.currentTimeMillis() < end) {
-                    synchronized (ping_pong_lock) {
-                        // Re-check inside the monitor before sleeping: a PONG arriving between
-                        // the while condition and acquiring the lock would lose its notify and
-                        // we'd sleep the full PING_PONG_TIMEOUT (which can trigger a spurious
-                        // socket close). The remaining>0 guard also avoids wait(0)=indefinite
-                        // wait and wait(<0)=IAE in the race window of computing the remaining
-                        // time.
-                        long remaining = end - System.currentTimeMillis();
-                        if ((pong == null || pong2 == null) && remaining > 0) {
+                    try {
+                        ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
+                        ping_write_stall_counter = 0;
+                    } catch (java.util.concurrent.TimeoutException ex) {
+                        if (!exit && !resetting_socket && !force_reset_socket
+                                && ++ping_write_stall_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES) {
+                            LOGGER.log(Level.SEVERE,
+                                    "PING write to {0} stalled {1} times in a row ({2} ms each) — peer is not reading; closing its socket",
+                                    new Object[]{nick, ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
+                            // The peer is NOT given up on here: this only closes the socket, same
+                            // as the lost-heartbeat twin below. Closing wakes the reader, which is
+                            // what opens the grace period and gives the peer its window to return
+                            // — a laptop that suspends for a while shouldn't be kicked for not
+                            // reading. And if it were actually holding up the table, that's
+                            // already handled by the progress deadlines, which expel whoever's
+                            // stalling.
+                            //
+                            // The marker is essential: the write that just timed out is still
+                            // stuck on this socket, and closing it wakes it with an IOException
+                            // whose catch block would give up on the peer before the reader got a
+                            // chance to open the grace period.
+                            ping_pong_thread_alive = false;
+                            stall_close_ns = System.nanoTime();
                             try {
-                                ping_pong_lock.wait(remaining);
-                            } catch (InterruptedException ignored) {
+                                socketClose();
+                            } catch (Exception ignored) {
+                            }
+                            break;
+                        }
+
+                        // The write is left to run its course (cancelling it wouldn't unblock a
+                        // stuck write, and the socket may be mid-reinstall). The PONG counter is
+                        // left alone: without a PING there can be no PONG, and counting it as lost
+                        // would kick the peer through the other path. Wait the normal interval and
+                        // retry.
+                        Helpers.pausar(WaitingRoomFrame.PING_INTERVAL_MS);
+                        continue;
+                    } catch (Exception ex) {
+                        break;
+                    }
+
+                    long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
+
+                    while (!exit && (pong == null || pong2 == null) && System.currentTimeMillis() < end) {
+                        synchronized (ping_pong_lock) {
+                            // Re-check inside the monitor before sleeping: a PONG arriving between
+                            // the while condition and acquiring the lock would lose its notify and
+                            // we'd sleep the full PING_PONG_TIMEOUT (which can trigger a spurious
+                            // socket close). The remaining>0 guard also avoids wait(0)=indefinite
+                            // wait and wait(<0)=IAE in the race window of computing the remaining
+                            // time.
+                            long remaining = end - System.currentTimeMillis();
+                            if ((pong == null || pong2 == null) && remaining > 0) {
+                                try {
+                                    ping_pong_lock.wait(remaining);
+                                } catch (InterruptedException ignored) {
+                                }
+                            }
+                        }
+                        if (latency == -1 && pong != null && pong == ping + 1) {
+                            latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+                        }
+                        if (latency2 == -1 && pong2 != null && pong2 == ping + 2) {
+                            latency2 = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+                        }
+                    }
+
+                    if (latency == -1) {
+                        pong_timeout_counter++;
+                    } else {
+                        pong_timeout_counter = 0;
+                    }
+                    if (latency2 == -1) {
+                        pong2_timeout_counter++;
+                    } else {
+                        pong2_timeout_counter = 0;
+                    }
+
+                    // Safety net for "mute" sockets (peer killed without RST, one-way partition,
+                    // infinite GC stall). The primary path is still the IOException in
+                    // writeCommandFromServer, but if the peer only ever receives without anyone
+                    // writing anything besides PING, that PING write DOES throw IOException...
+                    // unless the OS keeps buffering the send unacked with no error. In that edge
+                    // case, this threshold (N=3 consecutive lost PONGs) closes the socket on our
+                    // own initiative and lets runSocketReaderThread take the normal grace path.
+                    //
+                    // Anti-race guard: mid-resetSocket/forceSocketReconnect the counters may still
+                    // be accumulated against the old socket. Closing now would wrongly close the
+                    // newly installed socket instead.
+                    if (!exit && !resetting_socket && !force_reset_socket
+                            && (pong_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES
+                            || pong2_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES)) {
+                        LOGGER.log(Level.WARNING,
+                                "PEER: Participant {0} lost {1}/{2} consecutive PONGs — closing socket",
+                                new Object[]{nick, pong_timeout_counter, pong2_timeout_counter});
+                        // alive=false BEFORE closing: so resetSocket's resurrection check sees the
+                        // thread dead and relaunches it. Without this, in the break->finally
+                        // window the check would see alive=true and skip the resurrection. The
+                        // finally block sets it false again (idempotent).
+                        // This close is deliberately NOT marked as our own stall close, unlike the
+                        // stalled-write one above, even though that looks inconsistent: marking it
+                        // was tried and reverted, because the window it opens interacts badly with
+                        // how the Crupier's progress deadlines freeze and resume. Don't change
+                        // this without understanding why.
+                        ping_pong_thread_alive = false;
+                        socketClose();
+                        break;
+                    }
+
+                    if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                        RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
+                        if (jugador != null) {
+                            if (latency != -1 && latency2 != -1) {
+                                jugador.updateLatency(Translator.translate("conn.latencia_format", String.valueOf(latency), String.valueOf(latency2)), false);
+                            } else {
+                                jugador.updateLatency(Translator.translate("conn.latencia_format", (latency != -1 ? String.valueOf(latency) : "-"), (latency2 != -1 ? String.valueOf(latency2) : "-")), true);
                             }
                         }
                     }
-                    if (latency == -1 && pong != null && pong == ping + 1) {
-                        latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+
+                    if (WaitingRoomFrame.getInstance() != null && !isCpu() && (!WaitingRoomFrame.getInstance().isPartida_empezada() || WaitingRoomFrame.getInstance().isVisible())) {
+                        WaitingRoomFrame.getInstance().updateParticipantLatency(nick, latency, latency2);
                     }
-                    if (latency2 == -1 && pong2 != null && pong2 == ping + 2) {
-                        latency2 = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
-                    }
-                }
 
-                if (latency == -1) {
-                    pong_timeout_counter++;
-                } else {
-                    pong_timeout_counter = 0;
-                }
-                if (latency2 == -1) {
-                    pong2_timeout_counter++;
-                } else {
-                    pong2_timeout_counter = 0;
-                }
-
-                // Safety net for "mute" sockets (peer killed without RST, one-way partition,
-                // infinite GC stall). The primary path is still the IOException in
-                // writeCommandFromServer, but if the peer only ever receives without anyone
-                // writing anything besides PING, that PING write DOES throw IOException...
-                // unless the OS keeps buffering the send unacked with no error. In that edge
-                // case, this threshold (N=3 consecutive lost PONGs) closes the socket on our
-                // own initiative and lets runSocketReaderThread take the normal grace path.
-                //
-                // Anti-race guard: mid-resetSocket/forceSocketReconnect the counters may still
-                // be accumulated against the old socket. Closing now would wrongly close the
-                // newly installed socket instead.
-                if (!exit && !resetting_socket && !force_reset_socket
-                        && (pong_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES
-                        || pong2_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES)) {
-                    LOGGER.log(Level.WARNING,
-                            "PEER: Participant {0} lost {1}/{2} consecutive PONGs — closing socket",
-                            new Object[]{nick, pong_timeout_counter, pong2_timeout_counter});
-                    // alive=false BEFORE closing: so resetSocket's resurrection check sees the
-                    // thread dead and relaunches it. Without this, in the break->finally
-                    // window the check would see alive=true and skip the resurrection. The
-                    // finally block sets it false again (idempotent).
-                    // This close is deliberately NOT marked as our own stall close, unlike the
-                    // stalled-write one above, even though that looks inconsistent: marking it
-                    // was tried and reverted, because the window it opens interacts badly with
-                    // how the Crupier's progress deadlines freeze and resume. Don't change
-                    // this without understanding why.
-                    ping_pong_thread_alive = false;
-                    socketClose();
-                    break;
-                }
-
-                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
-                    RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
-                    if (jugador != null) {
-                        if (latency != -1 && latency2 != -1) {
-                            jugador.updateLatency(Translator.translate("conn.latencia_format", String.valueOf(latency), String.valueOf(latency2)), false);
-                        } else {
-                            jugador.updateLatency(Translator.translate("conn.latencia_format", (latency != -1 ? String.valueOf(latency) : "-"), (latency2 != -1 ? String.valueOf(latency2) : "-")), true);
-                        }
+                    if (!exit && WaitingRoomFrame.getInstance() != null) {
+                        Helpers.pausar(PING_INTERVAL_MS);
                     }
                 }
-
-                if (WaitingRoomFrame.getInstance() != null && !isCpu() && (!WaitingRoomFrame.getInstance().isPartida_empezada() || WaitingRoomFrame.getInstance().isVisible())) {
-                    WaitingRoomFrame.getInstance().updateParticipantLatency(nick, latency, latency2);
-                }
-
-                if (!exit && WaitingRoomFrame.getInstance() != null) {
-                    Helpers.pausar(PING_INTERVAL_MS);
-                }
-            }
             } finally {
                 ping_pong_thread_alive = false;
             }
@@ -829,8 +832,9 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Marks this peer as running a modified/unsecure client build. Setting it true for the
-     * first time pops a warning in the room and flags the player as a cheater.
+     * Marks this peer as running a modified/unsecure client build. Setting it
+     * true for the first time pops a warning in the room and flags the player
+     * as a cheater.
      *
      * @param val whether the peer's game binary is untrusted
      */
@@ -909,8 +913,8 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Marks this Participant exited and, if connected, tells the peer (pre-game only, via a
-     * plain EXIT command) and closes its socket.
+     * Marks this Participant exited and, if connected, tells the peer (pre-game
+     * only, via a plain EXIT command) and closes its socket.
      */
     public void exitAndCloseSocket() {
         this.exit = true;
@@ -941,12 +945,16 @@ public class Participant implements Runnable {
         return rebuy_source_id;
     }
 
-    /** Called only by this Participant's socket-reader/consumer thread. */
+    /**
+     * Called only by this Participant's socket-reader/consumer thread.
+     */
     long nextRebuyInboundSequence() {
         return ++rebuy_inbound_sequence;
     }
 
-    /** Called only by this Participant's socket-reader/consumer thread. */
+    /**
+     * Called only by this Participant's socket-reader/consumer thread.
+     */
     long nextPauseInboundSequence() {
         return ++pause_inbound_sequence;
     }
@@ -954,14 +962,18 @@ public class Participant implements Runnable {
     /**
      * Queues what was read from the socket, respecting the queue cap.
      *
-     * <p>Drops nothing while the peer is still in the game: retries every second while the
-     * queue is full, letting TCP backpressure do the rest (we stop reading the socket, its
-     * window closes, the sender backs off). A plain {@code put} would do the same but silently
-     * and without an exit: once the peer is given up on, it would wait for room forever in a
-     * queue nobody will drain. The only message actually lost is one from a peer already given
-     * up on.
+     * <p>
+     * Drops nothing while the peer is still in the game: retries every second
+     * while the queue is full, letting TCP backpressure do the rest (we stop
+     * reading the socket, its window closes, the sender backs off). A plain
+     * {@code put} would do the same but silently and without an exit: once the
+     * peer is given up on, it would wait for room forever in a queue nobody
+     * will drain. The only message actually lost is one from a peer already
+     * given up on.
      *
-     * <p>Not suitable for the close signal — use {@link #encolarSenalCierre()} for that.
+     * <p>
+     * Not suitable for the close signal — use {@link #encolarSenalCierre()} for
+     * that.
      */
     private void encolarLeido(String mensaje) {
         try {
@@ -981,23 +993,28 @@ public class Participant implements Runnable {
     /**
      * Delivers the room's new password to THIS peer, discarding late arrivals.
      *
-     * <p>The lock is per-peer, not room-wide. Writing to a peer can stall for a while (while
-     * it's reconnecting, or stuck behind a voice note holding the socket's write turn), so a
-     * global lock would leave EVERYONE ELSE without the new password for that whole stretch,
-     * and anyone who dropped in that window couldn't rejoin. The caller also spawns one thread
-     * per peer, which is what actually stops a stuck peer from blocking the others — the lock
+     * <p>
+     * The lock is per-peer, not room-wide. Writing to a peer can stall for a
+     * while (while it's reconnecting, or stuck behind a voice note holding the
+     * socket's write turn), so a global lock would leave EVERYONE ELSE without
+     * the new password for that whole stretch, and anyone who dropped in that
+     * window couldn't rejoin. The caller also spawns one thread per peer, which
+     * is what actually stops a stuck peer from blocking the others — the lock
      * alone wasn't enough, since the old loop went one peer at a time.
      *
-     * <p>Ordering is guaranteed where it matters — per socket: the version number is recorded
-     * INSIDE the lock, so it doesn't matter which caller gets there first. If the new change
-     * enters first, the old one finds the number already bumped and doesn't write; if the old
-     * one enters first, the new one writes right after and leaves the correct password in
-     * place. Checking the version outside the write wasn't safe: the long wait is INSIDE the
-     * lock, so two threads could both pass the check, both stall there, and exit in either
-     * order.
+     * <p>
+     * Ordering is guaranteed where it matters — per socket: the version number
+     * is recorded INSIDE the lock, so it doesn't matter which caller gets there
+     * first. If the new change enters first, the old one finds the number
+     * already bumped and doesn't write; if the old one enters first, the new
+     * one writes right after and leaves the correct password in place. Checking
+     * the version outside the write wasn't safe: the long wait is INSIDE the
+     * lock, so two threads could both pass the check, both stall there, and
+     * exit in either order.
      *
      * @param version change number, to discard late arrivals
-     * @param payload the base64 password, or the sentinel meaning "no password anymore"
+     * @param payload the base64 password, or the sentinel meaning "no password
+     * anymore"
      */
     public void writeRoomPassword(long version, String payload) {
         synchronized (password_write_lock) {
@@ -1028,9 +1045,9 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Whether we just closed the socket ourselves over a stalled write, so the error that
-     * causes in any writes that were stuck doesn't count as the peer having left. See
-     * {@link #stall_close_ns}.
+     * Whether we just closed the socket ourselves over a stalled write, so the
+     * error that causes in any writes that were stuck doesn't count as the peer
+     * having left. See {@link #stall_close_ns}.
      *
      * @return true if within the stall-close grace window
      */
@@ -1043,20 +1060,26 @@ public class Participant implements Runnable {
     /**
      * Queues the close signal no matter what.
      *
-     * <p>It's the only thing that gets the consumer out of its {@code take()}, and from there
-     * flow the descriptor close and the death of its own thread. That's why {@code exit} isn't
-     * checked here: when another thread orders the exit (an expulsion, an expired deadline, a
-     * failed write), {@code exit} is already true by the time this runs, and waiting for it to
-     * go false would leave the signal unqueued and the consumer asleep forever, with its
-     * thread and socket hanging for the rest of the game.
+     * <p>
+     * It's the only thing that gets the consumer out of its {@code take()}, and
+     * from there flow the descriptor close and the death of its own thread.
+     * That's why {@code exit} isn't checked here: when another thread orders
+     * the exit (an expulsion, an expired deadline, a failed write),
+     * {@code exit} is already true by the time this runs, and waiting for it to
+     * go false would leave the signal unqueued and the consumer asleep forever,
+     * with its thread and socket hanging for the rest of the game.
      *
-     * <p>That teardown is also where the rest of the table learns this player left, which is
-     * the most important part today: without the signal, the consumer never wakes,
-     * {@code remotePlayerQuit} is never called, and nobody broadcasts anything, leaving the
-     * table waiting on the turn of someone who's already gone.
+     * <p>
+     * That teardown is also where the rest of the table learns this player
+     * left, which is the most important part today: without the signal, the
+     * consumer never wakes, {@code remotePlayerQuit} is never called, and
+     * nobody broadcasts anything, leaving the table waiting on the turn of
+     * someone who's already gone.
      *
-     * <p>If the queue were full, room is made by dropping the oldest entry: those are commands
-     * from a peer that's already gone, and none of them matter more than the signal itself.
+     * <p>
+     * If the queue were full, room is made by dropping the oldest entry: those
+     * are commands from a peer that's already gone, and none of them matter
+     * more than the signal itself.
      */
     private void encolarSenalCierre() {
         for (int intentos = 0; intentos < SOCKET_READER_QUEUE_CAPACITY && !socket_reader_queue.offer(POISON_PILL); intentos++) {
@@ -1068,8 +1091,9 @@ public class Participant implements Runnable {
      * Writes a text command to this peer's socket.
      *
      * @param command the plaintext (or already-encrypted) command line to send
-     * @return {@code true} if the write failed (peer likely dropped); {@code false} on
-     *         success — note the inverted sense, callers read it as "did this fail?"
+     * @return {@code true} if the write failed (peer likely dropped);
+     * {@code false} on success — note the inverted sense, callers read it as
+     * "did this fail?"
      */
     public boolean writeCommandFromServer(String command) {
         while ((resetting_socket || force_reset_socket) && !exit) {
@@ -1117,14 +1141,14 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Binary sibling of {@link #writeCommandFromServer(String)}: writes a binary
-     * {@link WireFrame} (a voice/avatar blob) to this peer. Synchronizes on the same
-     * OutputStream monitor as the text writers, so a binary frame and a text line can
-     * never interleave on the socket.
+     * Binary sibling of {@link #writeCommandFromServer(String)}: writes a
+     * binary {@link WireFrame} (a voice/avatar blob) to this peer. Synchronizes
+     * on the same OutputStream monitor as the text writers, so a binary frame
+     * and a text line can never interleave on the socket.
      *
      * @param frameBody the raw binary payload to send
-     * @return {@code true} if the write failed; {@code false} on success (same inverted
-     *         convention as {@link #writeCommandFromServer(String)})
+     * @return {@code true} if the write failed; {@code false} on success (same
+     * inverted convention as {@link #writeCommandFromServer(String)})
      */
     public boolean writeBinaryFromServer(byte[] frameBody) {
         while ((resetting_socket || force_reset_socket) && !exit) {
@@ -1176,16 +1200,19 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Marks this Participant exit=true AND propagates it to the associated Player
-     * (RemotePlayer.setExit), notifies every relevant wait, and wakes the Crupier's command
-     * queue so any wait on DECISION/ACTION/RESP_SRA_UNLOCK from the dropped peer returns
+     * Marks this Participant exit=true AND propagates it to the associated
+     * Player (RemotePlayer.setExit), notifies every relevant wait, and wakes
+     * the Crupier's command queue so any wait on
+     * DECISION/ACTION/RESP_SRA_UNLOCK from the dropped peer returns
      * immediately.
      *
-     * <p>Without this, marking only Participant.exit left the Crupier's loop (which checks
-     * Player.isExit, not Participant.isExit) hanging indefinitely, with the wait on
-     * received_commands never notified.
+     * <p>
+     * Without this, marking only Participant.exit left the Crupier's loop
+     * (which checks Player.isExit, not Participant.isExit) hanging
+     * indefinitely, with the wait on received_commands never notified.
      *
-     * @param reason short description of why this peer is being marked exited, for logs
+     * @param reason short description of why this peer is being marked exited,
+     * for logs
      */
     public void markExitAndNotify(String reason) {
         if (exit) {
@@ -1236,8 +1263,9 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Blocks reading the next decrypted text command from this peer's socket, handling binary
-     * frames inline and dropping frames that fail authentication.
+     * Blocks reading the next decrypted text command from this peer's socket,
+     * handling binary frames inline and dropping frames that fail
+     * authentication.
      *
      * @return the decrypted command line, or {@code null} on EOF/read failure
      */
@@ -1288,10 +1316,11 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Decrypts and dispatches a binary frame received from this peer. A voice note is
-     * attributed to the connection's AUTHENTICATED nick (never the frame's claimed
-     * nick), preserving the anti-spoof guarantee of the legacy VOICEMSG text path.
-     * A malformed or HMAC-failing frame is dropped without tearing down the reader.
+     * Decrypts and dispatches a binary frame received from this peer. A voice
+     * note is attributed to the connection's AUTHENTICATED nick (never the
+     * frame's claimed nick), preserving the anti-spoof guarantee of the legacy
+     * VOICEMSG text path. A malformed or HMAC-failing frame is dropped without
+     * tearing down the reader.
      */
     private void handleBinaryFromClient(byte[] frameBody) {
         // F2 ANTI-DoS: rate-limit the binary channel BEFORE decrypting/processing. Cuts off a
@@ -1344,15 +1373,17 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Signals that a cryptographically authenticated reconnect attempt has arrived (the nick's
-     * HMAC verified against hmac_key_orig). Raises grace_deadline_floor to
-     * now()+CLIENT_RECON_TIMEOUT (monotonic) and wakes the reader's wait so it rearms its
-     * deadline to the new floor.
+     * Signals that a cryptographically authenticated reconnect attempt has
+     * arrived (the nick's HMAC verified against hmac_key_orig). Raises
+     * grace_deadline_floor to now()+CLIENT_RECON_TIMEOUT (monotonic) and wakes
+     * the reader's wait so it rearms its deadline to the new floor.
      *
-     * <p>Must only be called from the server socket handler after identity is verified: never
-     * on an invalid HMAC, never on IP match alone. This lets a dropped peer that still holds
-     * its original session key extend the grace as many times as it needs while retrying the
-     * handshake, without an outside attacker being able to do the same.
+     * <p>
+     * Must only be called from the server socket handler after identity is
+     * verified: never on an invalid HMAC, never on IP match alone. This lets a
+     * dropped peer that still holds its original session key extend the grace
+     * as many times as it needs while retrying the handshake, without an
+     * outside attacker being able to do the same.
      */
     public void signalReconnectIntent() {
         long candidate = System.currentTimeMillis() + GameFrame.CLIENT_RECON_TIMEOUT;
@@ -1365,11 +1396,12 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Synchronized on participant_socket_lock: closes the current socket (and a pending
-     * recon_socket, if any) and sets force_reset_socket. Used to mutate
-     * socket/recon_socket/force_reset_socket WITHOUT a lock, racing with resetSocket and with
-     * the "Force reconnect" menu (which calls it in parallel across all peers). Re-entrant:
-     * resetSocket invokes it while already holding the lock.
+     * Synchronized on participant_socket_lock: closes the current socket (and a
+     * pending recon_socket, if any) and sets force_reset_socket. Used to mutate
+     * socket/recon_socket/force_reset_socket WITHOUT a lock, racing with
+     * resetSocket and with the "Force reconnect" menu (which calls it in
+     * parallel across all peers). Re-entrant: resetSocket invokes it while
+     * already holding the lock.
      */
     public void forceSocketReconnect() {
         synchronized (getParticipant_socket_lock()) {
@@ -1390,15 +1422,17 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Called by the host's "Force reconnect" menu (GameFrame). Closes the socket to force the
-     * peer to reconnect AND starts a watchdog: if the peer does NOT return within the grace
-     * (CLIENT_RECON_TIMEOUT), it clears force_reset_socket and gives up on the peer. Without
-     * this, a forced peer that never reconnects left readCommandFromClient (the reader thread
+     * Called by the host's "Force reconnect" menu (GameFrame). Closes the
+     * socket to force the peer to reconnect AND starts a watchdog: if the peer
+     * does NOT return within the grace (CLIENT_RECON_TIMEOUT), it clears
+     * force_reset_socket and gives up on the peer. Without this, a forced peer
+     * that never reconnects left readCommandFromClient (the reader thread
      * itself), writers, and getters BLOCKED FOREVER in
-     * while((resetting_socket||force_reset_socket)&&!exit): force_reset_socket is only cleared
-     * by a successful resetSocket (which never happens here), and the reader, blocked in that
-     * wait, never reaches markExit -> exit was never set. The watchdog is a daemon thread: it
-     * doesn't hold up JVM shutdown even while sleeping through the grace.
+     * while((resetting_socket||force_reset_socket)&&!exit): force_reset_socket
+     * is only cleared by a successful resetSocket (which never happens here),
+     * and the reader, blocked in that wait, never reaches markExit -> exit was
+     * never set. The watchdog is a daemon thread: it doesn't hold up JVM
+     * shutdown even while sleeping through the grace.
      */
     public void forceSocketReconnectWithWatchdog() {
         final int myGen;
@@ -1486,13 +1520,14 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Installs a new socket/keys for this peer after a successful reconnect. The ENTIRE swap
-     * happens under participant_socket_lock — the prologue used to run OUTSIDE the lock
-     * (resetting_socket, forceSocketReconnect, recon_socket): two concurrent reconnects for
-     * the SAME nick, or the "Force reconnect" menu running in parallel, would interleave and
-     * leave socket/stream/keys inconsistent (NPE on recon_socket==null, crossed keys). Now
-     * it's atomic: the latest reconnect cleanly wins, without corrupting the Participant's
-     * state.
+     * Installs a new socket/keys for this peer after a successful reconnect.
+     * The ENTIRE swap happens under participant_socket_lock — the prologue used
+     * to run OUTSIDE the lock (resetting_socket, forceSocketReconnect,
+     * recon_socket): two concurrent reconnects for the SAME nick, or the "Force
+     * reconnect" menu running in parallel, would interleave and leave
+     * socket/stream/keys inconsistent (NPE on recon_socket==null, crossed
+     * keys). Now it's atomic: the latest reconnect cleanly wins, without
+     * corrupting the Participant's state.
      *
      * @param sock the peer's newly accepted socket
      * @param aes_k new session AES key
@@ -1581,12 +1616,14 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Waits for this peer to confirm the pre-game command with the given id, removing
-     * confirmed nicks from {@code pending} as they arrive.
+     * Waits for this peer to confirm the pre-game command with the given id,
+     * removing confirmed nicks from {@code pending} as they arrive.
      *
-     * @param id command id (confirmations carry id+1, see the "CONF" case in {@link #run()})
+     * @param id command id (confirmations carry id+1, see the "CONF" case in
+     * {@link #run()})
      * @param pending nicks still awaiting confirmation; mutated in place
-     * @return {@code true} if the confirmation deadline expired with peers still pending
+     * @return {@code true} if the confirmation deadline expired with peers
+     * still pending
      */
     public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending) {
         long start_time = System.currentTimeMillis();

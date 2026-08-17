@@ -12,7 +12,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 
-/** Report-only: HARD vs deterministic TAG. Expect roughly -20 to +50 bb/100. */
+/**
+ * Report-only: HARD vs deterministic TAG. Expect roughly -20 to +50 bb/100.
+ */
 @Tag("slow")
 class BaselineVsTagTest extends BaselineQualityBase {
 

@@ -41,9 +41,10 @@ import java.util.logging.Logger;
  * <p>
  * Usage: {@code Translator.translate("some.key")}.
  * <p>
- * Translation files live under {@code /i18n/messages_XX.properties}, where XX is the
- * language code (es, en, ...). Spanish (es) is the default language; if a key is missing
- * from the active language it falls back to the default, and finally to the key itself.
+ * Translation files live under {@code /i18n/messages_XX.properties}, where XX
+ * is the language code (es, en, ...). Spanish (es) is the default language; if
+ * a key is missing from the active language it falls back to the default, and
+ * finally to the key itself.
  *
  * @author tonikelope
  */
@@ -104,9 +105,10 @@ public class Translator {
     }
 
     /**
-     * Translates a key and substitutes {@code args} via {@link java.text.MessageFormat}.
+     * Translates a key and substitutes {@code args} via
+     * {@link java.text.MessageFormat}.
      *
-     * @param key  i18n key
+     * @param key i18n key
      * @param args format arguments
      * @return formatted, translated string
      */
@@ -115,9 +117,10 @@ public class Translator {
     }
 
     /**
-     * Translates a key, optionally forcing English regardless of the active language.
+     * Translates a key, optionally forcing English regardless of the active
+     * language.
      *
-     * @param key     i18n key
+     * @param key i18n key
      * @param forceEn {@code true} to try the English properties first
      * @return translated string, or {@code key} itself if not found
      */
@@ -126,12 +129,12 @@ public class Translator {
     }
 
     /**
-     * Translates a key, optionally forcing English, and substitutes {@code args} via
-     * {@link java.text.MessageFormat}.
+     * Translates a key, optionally forcing English, and substitutes
+     * {@code args} via {@link java.text.MessageFormat}.
      *
-     * @param key     i18n key
+     * @param key i18n key
      * @param forceEn {@code true} to try the English properties first
-     * @param args    format arguments
+     * @param args format arguments
      * @return formatted, translated string
      */
     public static String translate(String key, boolean forceEn, Object... args) {

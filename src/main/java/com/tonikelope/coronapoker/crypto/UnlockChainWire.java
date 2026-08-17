@@ -22,26 +22,28 @@ import java.util.Base64;
 import java.util.List;
 
 /**
- * Wire (de)serialization for the verifiable unlock batch. The whole
- * item list travels as ONE base64 field of the REQ/RESP command, so it never
- * interacts with the surrounding '#'-split; inside, items are '\n'-separated and
- * fields '\t'-separated (DealChain chains use only ':' ';' Base64, never '\t'/'\n').
+ * Wire (de)serialization for the verifiable unlock batch. The whole item list
+ * travels as ONE base64 field of the REQ/RESP command, so it never interacts
+ * with the surrounding '#'-split; inside, items are '\n'-separated and fields
+ * '\t'-separated (DealChain chains use only ':' ';' Base64, never '\t'/'\n').
  *
- * REQ item: peerIdx, offsetBase (first MEGAPACKET point index), and one DealChain
- * wire per point. RESP item: peerIdx and the extended chains. This is pure string
- * plumbing, unit-tested for round-trip and for the full host->peer->host flow, so
- * the only thing left to manual smoke is the socket I/O and orchestration.
+ * REQ item: peerIdx, offsetBase (first MEGAPACKET point index), and one
+ * DealChain wire per point. RESP item: peerIdx and the extended chains. This is
+ * pure string plumbing, unit-tested for round-trip and for the full
+ * host->peer->host flow, so the only thing left to manual smoke is the socket
+ * I/O and orchestration.
  */
 public final class UnlockChainWire {
 
     /**
-     * Tope defensivo del indice de punto que admite el wire. El MEGAPACKET lleva un punto
-     * por carta del mazo, asi que cualquier valor por encima de esto es basura o un intento
-     * de desbordar la aritmetica de offsets aguas abajo: el handler calcula el
-     * desplazamiento como pointIdx * 32 en int, y 2^27 puntos son exactamente 2^32 bytes,
-     * de modo que un offsetBase = slot + 2^27 vuelve a caer sobre el MISMO punto tras el
-     * wraparound mientras burla tanto el guard de rango como las igualdades que protegen
-     * el pocket propio. Cortarlo aqui deja esos guards operando siempre sobre valores
+     * Tope defensivo del indice de punto que admite el wire. El MEGAPACKET
+     * lleva un punto por carta del mazo, asi que cualquier valor por encima de
+     * esto es basura o un intento de desbordar la aritmetica de offsets aguas
+     * abajo: el handler calcula el desplazamiento como pointIdx * 32 en int, y
+     * 2^27 puntos son exactamente 2^32 bytes, de modo que un offsetBase = slot
+     * + 2^27 vuelve a caer sobre el MISMO punto tras el wraparound mientras
+     * burla tanto el guard de rango como las igualdades que protegen el pocket
+     * propio. Cortarlo aqui deja esos guards operando siempre sobre valores
      * pequenos, donde su aritmetica es exacta.
      */
     public static final int MAX_POINT_INDEX = 4095;
@@ -49,8 +51,12 @@ public final class UnlockChainWire {
     private UnlockChainWire() {
     }
 
-    /** A REQ item: which recipient slot, where its points live, and the chain per point. */
+    /**
+     * A REQ item: which recipient slot, where its points live, and the chain
+     * per point.
+     */
     public static final class ReqItem {
+
         public final int peerIdx;
         public final int offsetBase;       // index of the first point in the MEGAPACKET
         public final List<String> chains;  // one DealChain wire per point ("" if empty)
@@ -62,8 +68,11 @@ public final class UnlockChainWire {
         }
     }
 
-    /** A RESP item: the recipient slot and its extended chains. */
+    /**
+     * A RESP item: the recipient slot and its extended chains.
+     */
     public static final class RespItem {
+
         public final int peerIdx;
         public final List<String> chains;
 
@@ -81,7 +90,9 @@ public final class UnlockChainWire {
         return new String(Base64.getDecoder().decode(s), StandardCharsets.UTF_8);
     }
 
-    /** Serializes REQ items to a single base64 wire field. */
+    /**
+     * Serializes REQ items to a single base64 wire field.
+     */
     public static String serializeReq(List<ReqItem> items) {
         StringBuilder sb = new StringBuilder();
         for (ReqItem it : items) {
@@ -96,7 +107,9 @@ public final class UnlockChainWire {
         return Base64.getEncoder().encodeToString(sb.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    /** Parses REQ items, or null on any malformed input. */
+    /**
+     * Parses REQ items, or null on any malformed input.
+     */
     public static List<ReqItem> parseReq(String field) {
         try {
             String body = new String(Base64.getDecoder().decode(field), StandardCharsets.UTF_8);
@@ -131,7 +144,9 @@ public final class UnlockChainWire {
         }
     }
 
-    /** Serializes RESP items to a single base64 wire field. */
+    /**
+     * Serializes RESP items to a single base64 wire field.
+     */
     public static String serializeResp(List<RespItem> items) {
         StringBuilder sb = new StringBuilder();
         for (RespItem it : items) {
@@ -146,7 +161,9 @@ public final class UnlockChainWire {
         return Base64.getEncoder().encodeToString(sb.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    /** Parses RESP items, or null on any malformed input. */
+    /**
+     * Parses RESP items, or null on any malformed input.
+     */
     public static List<RespItem> parseResp(String field) {
         try {
             String body = new String(Base64.getDecoder().decode(field), StandardCharsets.UTF_8);

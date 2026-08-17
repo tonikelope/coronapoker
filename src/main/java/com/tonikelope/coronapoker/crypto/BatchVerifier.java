@@ -21,30 +21,40 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Batch verifier for a set of multi-scalar-multiplication equalities, each of the form
- * {@code multiscalarMul(scalars_j, points_j) == expected_j}. Instead of checking every equation with
- * its own ~252-doubling ladder, it draws one independent Fiat–Shamir weight {@code rho_j} PER equation,
- * each bound to every equation's points and scalars, and checks the random linear combination
- * {@code Σ_j rho_j·(lhs_j − expected_j) == O} in a SINGLE multi-scalar multiplication (one shared
- * ladder). Verify-side only: it never touches a proof or the wire format, so it is fully backward
- * compatible — the prover is unchanged.
+ * Batch verifier for a set of multi-scalar-multiplication equalities, each of
+ * the form {@code multiscalarMul(scalars_j, points_j) == expected_j}. Instead
+ * of checking every equation with its own ~252-doubling ladder, it draws one
+ * independent Fiat–Shamir weight {@code rho_j} PER equation, each bound to
+ * every equation's points and scalars, and checks the random linear combination
+ * {@code Σ_j rho_j·(lhs_j − expected_j) == O} in a SINGLE multi-scalar
+ * multiplication (one shared ladder). Verify-side only: it never touches a
+ * proof or the wire format, so it is fully backward compatible — the prover is
+ * unchanged.
  *
- * <p><b>Soundness.</b> If some equation j has {@code d_j = lhs_j − expected_j != O}, then for the
- * independent uniform weights the combination {@code Σ rho_j·d_j} equals {@code O} with probability
- * exactly {@code 1/L}: fix all weights but {@code rho_j}; since {@code d_j} has order {@code L}, the map
- * {@code rho_j ↦ rho_j·d_j} is a bijection, so exactly one {@code rho_j} value hits the required point.
- * The weights are a hash of ALL the equations' points and scalars, so a malicious prover cannot craft a
- * proof whose induced weights land in the kernel: changing any element reshuffles every weight
- * unpredictably. {@code 1/L ≈ 2^-252} is negligible, and unlike powers-of-a-single-challenge there is
- * no degenerate weight (a zero {@code rho_j} still leaves the other equations checked by their own
- * weight; the argument above uses only {@code rho_j} of the failing equation).
+ * <p>
+ * <b>Soundness.</b> If some equation j has
+ * {@code d_j = lhs_j − expected_j != O}, then for the independent uniform
+ * weights the combination {@code Σ rho_j·d_j} equals {@code O} with probability
+ * exactly {@code 1/L}: fix all weights but {@code rho_j}; since {@code d_j} has
+ * order {@code L}, the map {@code rho_j ↦ rho_j·d_j} is a bijection, so exactly
+ * one {@code rho_j} value hits the required point. The weights are a hash of
+ * ALL the equations' points and scalars, so a malicious prover cannot craft a
+ * proof whose induced weights land in the kernel: changing any element
+ * reshuffles every weight unpredictably. {@code 1/L ≈ 2^-252} is negligible,
+ * and unlike powers-of-a-single-challenge there is no degenerate weight (a zero
+ * {@code rho_j} still leaves the other equations checked by their own weight;
+ * the argument above uses only {@code rho_j} of the failing equation).
  *
- * <p><b>Completeness.</b> If every {@code d_j == O}, the combination is {@code O} for every choice of
- * weights, so a valid set of equations always passes — no false rejects.
+ * <p>
+ * <b>Completeness.</b> If every {@code d_j == O}, the combination is {@code O}
+ * for every choice of weights, so a valid set of equations always passes — no
+ * false rejects.
  *
- * <p>A null/malformed equation poisons the batch ({@link #allHold} returns false): a missing point can
- * never satisfy an equation, and this mirrors the pre-batch behaviour of rejecting on a failed decode.
- * Package-private; exercised directly by {@code BatchVerifierTest}.
+ * <p>
+ * A null/malformed equation poisons the batch ({@link #allHold} returns false):
+ * a missing point can never satisfy an equation, and this mirrors the pre-batch
+ * behaviour of rejecting on a failed decode. Package-private; exercised
+ * directly by {@code BatchVerifierTest}.
  */
 final class BatchVerifier {
 
@@ -61,9 +71,11 @@ final class BatchVerifier {
     }
 
     /**
-     * Adds the equation {@code multiscalarMul(eqScalars, eqPoints) == expectedPoint} and absorbs every
-     * element so the batch weights bind to it. A null array, a length mismatch, or any null element
-     * poisons the batch so {@link #allHold} returns false.
+     * Adds the equation
+     * {@code multiscalarMul(eqScalars, eqPoints) == expectedPoint} and absorbs
+     * every element so the batch weights bind to it. A null array, a length
+     * mismatch, or any null element poisons the batch so {@link #allHold}
+     * returns false.
      */
     void addEquation(BigInteger[] eqScalars, EdwardsPoint[] eqPoints, EdwardsPoint expectedPoint) {
         if (poisoned) {
@@ -90,9 +102,10 @@ final class BatchVerifier {
     }
 
     /**
-     * True iff every added equation holds, checked as {@code Σ rho_j·(lhs_j − expected_j) == O} in one
-     * multi-scalar multiplication. False if the batch was poisoned by a null/malformed equation. An
-     * empty batch holds vacuously.
+     * True iff every added equation holds, checked as
+     * {@code Σ rho_j·(lhs_j − expected_j) == O} in one multi-scalar
+     * multiplication. False if the batch was poisoned by a null/malformed
+     * equation. An empty batch holds vacuously.
      */
     boolean allHold() {
         if (poisoned) {
@@ -120,8 +133,11 @@ final class BatchVerifier {
         return Ristretto255.isIdentity(combined);
     }
 
-    /** Four-byte big-endian frame for a count, so absorbed positions/lengths are unambiguous even
-     *  past 2^16 equations (a latent bound an auditor flagged; unreachable here at <= 53 per deck). */
+    /**
+     * Four-byte big-endian frame for a count, so absorbed positions/lengths are
+     * unambiguous even past 2^16 equations (a latent bound an auditor flagged;
+     * unreachable here at <= 53 per deck).
+     */
     private static byte[] frame(int v) {
         return new byte[]{(byte) (v >>> 24), (byte) (v >>> 16), (byte) (v >>> 8), (byte) v};
     }

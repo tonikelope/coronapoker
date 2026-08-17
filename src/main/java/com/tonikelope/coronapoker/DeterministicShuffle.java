@@ -33,19 +33,23 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Deterministic, seed-driven deck shuffle for the SRA cascade (formerly part of the legacy
- * CryptoSRA engine, whose Montgomery point math was retired by the Ristretto255 migration).
+ * Deterministic, seed-driven deck shuffle for the SRA cascade (formerly part of
+ * the legacy CryptoSRA engine, whose Montgomery point math was retired by the
+ * Ristretto255 migration).
  *
- * A peer's cascade step reorders the deck with a Fisher-Yates shuffle whose index draws come
- * from an AES-256-CTR stream expanded from the per-hand seed, using rejection sampling so the
- * draw is unbiased. Determinism is the point: {@link #shufflePermutation} replays the exact
- * same swaps to recover the permutation the peer applied, which the Bayer-Groth shuffle
- * argument needs as a witness (the permutation is never revealed on the wire).
+ * A peer's cascade step reorders the deck with a Fisher-Yates shuffle whose
+ * index draws come from an AES-256-CTR stream expanded from the per-hand seed,
+ * using rejection sampling so the draw is unbiased. Determinism is the point:
+ * {@link #shufflePermutation} replays the exact same swaps to recover the
+ * permutation the peer applied, which the Bayer-Groth shuffle argument needs as
+ * a witness (the permutation is never revealed on the wire).
  */
 public class DeterministicShuffle {
 
     /**
-     * Shuffles a flat array of 32-byte points deterministically using AES-256-CTR.
+     * Shuffles a flat array of 32-byte points deterministically using
+     * AES-256-CTR.
+     *
      * @param deck The deck to be shuffled
      * @param seed The deterministic seed (32-byte key, optionally + 16-byte IV)
      * @return The shuffled deck
@@ -76,13 +80,17 @@ public class DeterministicShuffle {
     }
 
     /**
-     * The permutation that {@link #shuffleDeck} applies for a given seed, as an index array:
-     * {@code perm[i]} is the original position whose card ends up at position {@code i}, i.e.
-     * {@code shuffleDeck(deck, seed)[i] == deck[perm[i]]}. Replays the exact same Fisher–Yates
-     * swaps on an identity index array, so it stays in lock-step with {@code shuffleDeck}.
+     * The permutation that {@link #shuffleDeck} applies for a given seed, as an
+     * index array: {@code perm[i]} is the original position whose card ends up
+     * at position {@code i}, i.e.
+     * {@code shuffleDeck(deck, seed)[i] == deck[perm[i]]}. Replays the exact
+     * same Fisher–Yates swaps on an identity index array, so it stays in
+     * lock-step with {@code shuffleDeck}.
      *
-     * <p>Needed by the verifiable-shuffle engine: a peer must know its own permutation to prove its
-     * cascade step was an honest shuffle (it is never revealed on the wire).
+     * <p>
+     * Needed by the verifiable-shuffle engine: a peer must know its own
+     * permutation to prove its cascade step was an honest shuffle (it is never
+     * revealed on the wire).
      */
     public static int[] shufflePermutation(int numCards, byte[] seed) {
         int[] perm = new int[numCards];
@@ -109,6 +117,7 @@ public class DeterministicShuffle {
     // having to manage the counter by hand.
     // =========================================================================
     private static final class DeterministicStream {
+
         private final Cipher cipher;
         private final byte[] zeroBlock = new byte[64];
         private byte[] buffer = new byte[0];
@@ -133,6 +142,7 @@ public class DeterministicShuffle {
 
         /**
          * Extracts an integer using Rejection Sampling to prevent Modulo Bias
+         *
          * @param range The maximum limit (exclusive)
          * @return An unbiased uniformly distributed integer in [0, range)
          */

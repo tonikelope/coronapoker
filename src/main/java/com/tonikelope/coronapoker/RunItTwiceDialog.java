@@ -219,7 +219,8 @@ public class RunItTwiceDialog extends JDialog {
     }
 
     /**
-     * Host-driven close: zeroes the countdown bar and disposes the dialog on the EDT.
+     * Host-driven close: zeroes the countdown bar and disposes the dialog on
+     * the EDT.
      */
     public void closeDialog() {
         disposing = true;

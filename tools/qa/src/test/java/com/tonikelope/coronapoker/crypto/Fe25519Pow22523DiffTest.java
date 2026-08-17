@@ -15,9 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 @Tag("slow")
 public class Fe25519Pow22523DiffTest {
 
-    /** (p-5)/8 = 2^252 - 3, el exponente que sqrtRatioM1 aplica en cada encode/decode. */
-    private static final BigInteger EXP =
-            Fe25519.P.subtract(BigInteger.valueOf(5)).divide(BigInteger.valueOf(8));
+    /**
+     * (p-5)/8 = 2^252 - 3, el exponente que sqrtRatioM1 aplica en cada
+     * encode/decode.
+     */
+    private static final BigInteger EXP
+            = Fe25519.P.subtract(BigInteger.valueOf(5)).divide(BigInteger.valueOf(8));
 
     private static void check(Fe25519 x) {
         assertArrayEquals(x.pow(EXP).toBytes(), x.pow22523().toBytes());

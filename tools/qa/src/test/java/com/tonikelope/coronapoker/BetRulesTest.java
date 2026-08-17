@@ -59,7 +59,6 @@ public class BetRulesTest {
     }
 
     // ----- double money overloads: float -> double migration safety net -------
-
     @Test
     void doubleOverloadsAgreeWithFloatBelowCeiling() {
         double[] bbs = {0.05, 0.10, 0.20, 0.50, 1.0, 2.0, 5.0, 12.34};

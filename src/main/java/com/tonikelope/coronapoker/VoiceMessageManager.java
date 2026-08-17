@@ -407,9 +407,9 @@ public class VoiceMessageManager {
     }
 
     /**
-     * Plays a stored voice note when its chat line is clicked. The line shows
-     * a "playing" label while it plays and reverts afterwards; clicking
-     * another note cuts the current one (whose label reverts on its own).
+     * Plays a stored voice note when its chat line is clicked. The line shows a
+     * "playing" label while it plays and reverts afterwards; clicking another
+     * note cuts the current one (whose label reverts on its own).
      *
      * @param filename voice note file name (validated, resolved under
      * {@code Init.VOICE_DIR})

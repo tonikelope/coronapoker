@@ -47,30 +47,35 @@ import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 
 /**
- * "Appearance settings" content as a JPanel (tab of the unified settings dialog).
+ * "Appearance settings" content as a JPanel (tab of the unified settings
+ * dialog).
  *
- * Has TWO modes depending on whether a game is running ({@code GameFrame.getInstance()}):
+ * Has TWO modes depending on whether a game is running
+ * ({@code GameFrame.getInstance()}):
  *
- * - IN-GAME (gf != null): each control MIRRORS the current state and DELEGATES to the
- *   matching GameFrame menu item via {@code doClick()} (or its setter), which applies the
- *   effect LIVE on the table + persists it + reflects it in the felt popup. Control and
- *   item start in sync and both toggle one step per click, so they never drift apart.
+ * - IN-GAME (gf != null): each control MIRRORS the current state and DELEGATES
+ * to the matching GameFrame menu item via {@code doClick()} (or its setter),
+ * which applies the effect LIVE on the table + persists it + reflects it in the
+ * felt popup. Control and item start in sync and both toggle one step per
+ * click, so they never drift apart.
  *
- * - OUT OF GAME (gf == null: launcher / waiting room): there is no table to preview
- *   against, so controls only PERSIST the preference (static flag + {@code
- *   Helpers.PROPERTIES} + {@code savePropertiesFile()}); it takes effect when the next
- *   game is created (GameFrame reads these preferences on construction). No live effect,
- *   EXCEPT the felt color: the launcher screen paints its background with it ({@code
- *   InitPanel}), so changing it refreshes the launcher on the fly as a preview (and
- *   reverts on cancel, same as in-game).
+ * - OUT OF GAME (gf == null: launcher / waiting room): there is no table to
+ * preview against, so controls only PERSIST the preference (static flag + {@code
+ *   Helpers.PROPERTIES} + {@code savePropertiesFile()}); it takes effect when the
+ * next game is created (GameFrame reads these preferences on construction). No
+ * live effect, EXCEPT the felt color: the launcher screen paints its background
+ * with it ({@code
+ *   InitPanel}), so changing it refreshes the launcher on the fly as a preview
+ * (and reverts on cancel, same as in-game).
  *
- * The dialog is TRANSACTIONAL in both modes: changes revert to the opening state on
- * cancel (revert()); SAVE keeps them.
+ * The dialog is TRANSACTIONAL in both modes: changes revert to the opening
+ * state on cancel (revert()); SAVE keeps them.
  *
- * NOTE: each animation toggle's preference lives both in its menu item's isSelected and
- * in its PROPERTIES key, kept in sync (the item persists the key on every change and
- * initializes from it). That's why this class always reads from PROPERTIES: it's
- * equivalent to reading the item and doesn't depend on GameFrame existing.
+ * NOTE: each animation toggle's preference lives both in its menu item's
+ * isSelected and in its PROPERTIES key, kept in sync (the item persists the key
+ * on every change and initializes from it). That's why this class always reads
+ * from PROPERTIES: it's equivalent to reading the item and doesn't depend on
+ * GameFrame existing.
  *
  * @author tonikelope
  */
@@ -324,7 +329,6 @@ public class AppearanceSettingsPanel extends JPanel {
         // open an empty strip inside its titled border. The right column's leftover space
         // is absorbed BETWEEN Table and Screen (see the right_inner assembly), not inside
         // this panel.
-
         // Display mode, table-zoom sub-group, compact view and dialog zoom, each as a
         // full-width row with its control aligned on the card's right edge.
         JLabel display_label = new JLabel(Translator.translate("settings.modo_pantalla") + ":");
@@ -671,7 +675,12 @@ public class AppearanceSettingsPanel extends JPanel {
         // it). Parent + nested sub-controls inside a thin grouping box.
         addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_barajado",
                 null, "animacion_barajado",
-                v -> { GameFrame.ANIMACION_BARAJADO_PREF = v; if (v) { Crupier.warmShuffleAnimCache(); } },
+                v -> {
+                    GameFrame.ANIMACION_BARAJADO_PREF = v;
+                    if (v) {
+                        Crupier.warmShuffleAnimCache();
+                    }
+                },
                 GameFrame.ANIMACION_BARAJADO_PREF));
         final JCheckBox barajado_cb = anim_sub_cb.get(anim_sub_cb.size() - 1);
         JPanel barajado_group = guideGroup();
@@ -1109,12 +1118,13 @@ public class AppearanceSettingsPanel extends JPanel {
     }
 
     /**
-     * Applies the display mode chosen in the combo. Called by the dialog on SAVE (not
-     * live: toggling disposes and recreates the frame, which would corrupt the open
-     * dialog). Only acts if the user CHANGED the combo from the opening state; otherwise
-     * it leaves AUTO_FULLSCREEN untouched, so saving an unrelated setting doesn't rewrite
-     * the startup preference (e.g. after a transient ALT+F that doesn't change it).
-     * In-game it changes the frame's mode; out of game it only persists the preference.
+     * Applies the display mode chosen in the combo. Called by the dialog on
+     * SAVE (not live: toggling disposes and recreates the frame, which would
+     * corrupt the open dialog). Only acts if the user CHANGED the combo from
+     * the opening state; otherwise it leaves AUTO_FULLSCREEN untouched, so
+     * saving an unrelated setting doesn't rewrite the startup preference (e.g.
+     * after a transient ALT+F that doesn't change it). In-game it changes the
+     * frame's mode; out of game it only persists the preference.
      */
     public void applyPendingDisplayMode() {
         if (pending_fullscreen == snap_fullscreen) {
@@ -1130,9 +1140,9 @@ public class AppearanceSettingsPanel extends JPanel {
 
     /**
      * Applies the pending dialog zoom. Not previewed live (it would affect the
-     * discard-changes dialog itself on cancel) -- applied and persisted only on SAVE.
-     * Takes effect on dialogs opened after this point (they read Helpers.DIALOG_ZOOM at
-     * construction). Called by SettingsDialog on Save.
+     * discard-changes dialog itself on cancel) -- applied and persisted only on
+     * SAVE. Takes effect on dialogs opened after this point (they read
+     * Helpers.DIALOG_ZOOM at construction). Called by SettingsDialog on Save.
      */
     public void applyPendingDialogZoom() {
         if (pending_dialog_zoom == snap_dialog_zoom) {
@@ -1144,12 +1154,14 @@ public class AppearanceSettingsPanel extends JPanel {
     }
 
     /**
-     * Whether appearance changed from the opening state (includes the pending display
-     * mode, not yet applied). Used by the dialog to confirm before discarding on cancel.
-     * Animation preferences are read from PROPERTIES (equivalent to the menu item, see
-     * class note), so this doesn't depend on gf.
+     * Whether appearance changed from the opening state (includes the pending
+     * display mode, not yet applied). Used by the dialog to confirm before
+     * discarding on cancel. Animation preferences are read from PROPERTIES
+     * (equivalent to the menu item, see class note), so this doesn't depend on
+     * gf.
      *
-     * @return true if any appearance setting differs from the snapshot taken on open
+     * @return true if any appearance setting differs from the snapshot taken on
+     * open
      */
     public boolean isDirty() {
         return GameFrame.ZOOM_LEVEL != snap_zoom_level
@@ -1192,9 +1204,10 @@ public class AppearanceSettingsPanel extends JPanel {
     }
 
     /**
-     * Reverts (on CANCEL of the transactional dialog) the appearance settings to the
-     * state captured on open. In-game each one is re-applied through its normal path
-     * (live effect); out of game only the preferences are re-persisted.
+     * Reverts (on CANCEL of the transactional dialog) the appearance settings
+     * to the state captured on open. In-game each one is re-applied through its
+     * normal path (live effect); out of game only the preferences are
+     * re-persisted.
      */
     public void revert() {
         if (gf != null) {
@@ -1205,11 +1218,11 @@ public class AppearanceSettingsPanel extends JPanel {
     }
 
     /**
-     * Restores ALL appearance settings to their factory values, applying them LIVE like
-     * any other edit (transactional dialog: SAVE keeps them, Cancel reverts to the
-     * opening state). Follows the same path as a user click on each control, so in-game
-     * the effect is live and out of game it's persist-only. Called by the dialog's
-     * "Restore defaults" button.
+     * Restores ALL appearance settings to their factory values, applying them
+     * LIVE like any other edit (transactional dialog: SAVE keeps them, Cancel
+     * reverts to the opening state). Follows the same path as a user click on
+     * each control, so in-game the effect is live and out of game it's
+     * persist-only. Called by the dialog's "Restore defaults" button.
      */
     public void restoreDefaults() {
         // 1) Re-enables the animation MASTER (default ON) BEFORE the children: with the
@@ -1689,7 +1702,6 @@ public class AppearanceSettingsPanel extends JPanel {
     // Card / row / guide / sub-grid / toggle / icon helpers are shared across the settings tabs
     // via SettingsUI (statically imported); only the appearance-specific mirror helpers below
     // (delegatingCheckbox / animCheckbox) stay here.
-
     // Checkbox that MIRRORS an appearance toggle. In-game (menu != null) a click = a
     // click on the menu item (applies live + persists + reflects in the popup). Out of
     // game (menu == null) it runs the supplied persist-only action.
@@ -1805,7 +1817,6 @@ public class AppearanceSettingsPanel extends JPanel {
         anim_sub_menu.add(menu);
         return alignedRow(0, label, cb);
     }
-
 
     private int currentTapeteIndex() {
         String ct = GameFrame.COLOR_TAPETE;

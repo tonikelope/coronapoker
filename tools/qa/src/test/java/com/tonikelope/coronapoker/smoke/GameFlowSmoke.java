@@ -28,25 +28,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Headless game-flow smoke. Exercises the bot engine and game flow across
  * multiple seat counts and difficulties with hard invariants per hand.
  *
- * Scope (Sprint 0 minimum viable):
- *   - bot engine end-to-end (production Bot.java, BotEvaluator, OpponentTracker).
- *   - game flow via MultiwaySimulator (blinds, action order, street rotation,
- *     showdown, button rotation).
+ * Scope (Sprint 0 minimum viable): - bot engine end-to-end (production
+ * Bot.java, BotEvaluator, OpponentTracker). - game flow via MultiwaySimulator
+ * (blinds, action order, street rotation, showdown, button rotation).
  *
- * Out of scope (intentionally): real Crupier state machine, NetServer/NetClient,
- * SQL persistence, the SRA crypto engine. Those layers are validated by their own
- * dedicated tests under com.tonikelope.coronapoker.crypto / .sra and by manual
- * smoke checklists per sprint (docs/smoke-checklist/).
+ * Out of scope (intentionally): real Crupier state machine,
+ * NetServer/NetClient, SQL persistence, the SRA crypto engine. Those layers are
+ * validated by their own dedicated tests under
+ * com.tonikelope.coronapoker.crypto / .sra and by manual smoke checklists per
+ * sprint (docs/smoke-checklist/).
  *
- * Asserts on EVERY hand:
- *   - chip conservation: Sigma stacks == numSeats * startingStack (epsilon 0.5f)
- *   - no NaN, no Infinity in any stack or bet
- *   - every stack >= 0
- *   - hand counter strictly monotonic
+ * Asserts on EVERY hand: - chip conservation: Sigma stacks == numSeats *
+ * startingStack (epsilon 0.5f) - no NaN, no Infinity in any stack or bet -
+ * every stack >= 0 - hand counter strictly monotonic
  *
- * Asserts at session end:
- *   - at least one hand had a real winner (i.e. game-flow does not deadlock
- *     into all-ties or no-action).
+ * Asserts at session end: - at least one hand had a real winner (i.e. game-flow
+ * does not deadlock into all-ties or no-action).
  *
  * Target runtime: under 30 seconds for the full class.
  */
@@ -140,7 +137,7 @@ class GameFlowSmoke {
             double expected = numSeats * STARTING_STACK;
             assertEquals(expected, total, EPS,
                     "Chip conservation violated at " + ctxHand(numSeats, difficulty, handIdx)
-                            + ": got " + total + ", expected " + expected);
+                    + ": got " + total + ", expected " + expected);
 
             // Pot validity
             double pot = result.pot;
@@ -161,7 +158,7 @@ class GameFlowSmoke {
 
         assertTrue(realWinners > 0,
                 "Session " + numSeats + "-seat " + difficulty + " produced zero real winners over "
-                        + numHands + " hands — game flow may be deadlocked");
+                + numHands + " hands — game flow may be deadlocked");
     }
 
     private static String ctxHand(int numSeats, Bot.Difficulty d, int handIdx) {

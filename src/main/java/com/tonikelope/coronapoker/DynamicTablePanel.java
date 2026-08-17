@@ -35,15 +35,15 @@ import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 
 /**
- * Single dynamic table panel that positions the N players by geometry, replacing
- * the 9 fixed .form panels (TablePanel2..TablePanel10).
+ * Single dynamic table panel that positions the N players by geometry,
+ * replacing the 9 fixed .form panels (TablePanel2..TablePanel10).
  *
  * The seat positions are not invented: they were extracted from the original
  * panels (by instantiating them and reading where their GroupLayout placed each
- * seat) and stored as FRACTIONS of the table's width/height (see {@link #ANCHORS}).
- * That reproduces their exact layout - including the equal side gaps, the bottom
- * corners at 8 players, and the off-center local seat at 10 - and, being
- * fractions, scales to any resolution/window size.
+ * seat) and stored as FRACTIONS of the table's width/height (see
+ * {@link #ANCHORS}). That reproduces their exact layout - including the equal
+ * side gaps, the bottom corners at 8 players, and the off-center local seat at
+ * 10 - and, being fractions, scales to any resolution/window size.
  *
  * All the shared logic (deal/chip animations, overlays, zoom, autoZoom, felt
  * painting) lives in the base class {@link TablePanel} and is geometry-agnostic
@@ -172,7 +172,6 @@ public class DynamicTablePanel extends TablePanel {
         // The base class (super()) has already set up its empty layout and added
         // the overlays to its layers (fastbuttons, central_label, shuffling_label,
         // call_cost_label). Here we create the seats and switch to manual placement.
-
         Helpers.GUIRunAndWait(() -> {
 
             // No layout manager: positioning is done by doLayout() via geometry.
@@ -369,14 +368,16 @@ public class DynamicTablePanel extends TablePanel {
     }
 
     /**
-     * Animates the N-to-M player transition when someone leaves: departing seats
-     * FADE OUT (a snapshot ghost, alpha 1-&gt;0) and survivors SLIDE from their current
-     * position (N-player table) to their slot at the M-player table, preserving ring
-     * order. Works for one or several departures at once. Blocks the caller (dealer
-     * thread, NEVER the EDT) until done. Meant to be called RIGHT BEFORE the table
-     * swap ({@code downgradeAndRefreshTapete}): once finished, survivors sit at the
-     * M-player positions, which is where the new table will place its copies, so the
-     * swap is imperceptible. Doesn't touch game logic (player arrays): purely visual.
+     * Animates the N-to-M player transition when someone leaves: departing
+     * seats FADE OUT (a snapshot ghost, alpha 1-&gt;0) and survivors SLIDE from
+     * their current position (N-player table) to their slot at the M-player
+     * table, preserving ring order. Works for one or several departures at
+     * once. Blocks the caller (dealer thread, NEVER the EDT) until done. Meant
+     * to be called RIGHT BEFORE the table swap
+     * ({@code downgradeAndRefreshTapete}): once finished, survivors sit at the
+     * M-player positions, which is where the new table will place its copies,
+     * so the swap is imperceptible. Doesn't touch game logic (player arrays):
+     * purely visual.
      *
      * @param duration_ms animation duration in milliseconds
      */

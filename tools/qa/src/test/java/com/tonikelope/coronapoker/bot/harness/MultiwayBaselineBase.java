@@ -17,13 +17,12 @@ import org.junit.jupiter.api.BeforeAll;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Baseline-quality tests for the production HARD bot in 6-max — the
- * scenario CoronaPoker is actually played in. Each concrete subclass
- * seats HARD at a rotating position and fills the remaining five
- * seats with a deterministic {@link FixedStrategyBot} archetype to
- * measure how the bot prints (or bleeds) value against a known table
- * shape. Together with the gradient acid test these tests gate AAA
- * quality without requiring a human at the table.
+ * Baseline-quality tests for the production HARD bot in 6-max — the scenario
+ * CoronaPoker is actually played in. Each concrete subclass seats HARD at a
+ * rotating position and fills the remaining five seats with a deterministic
+ * {@link FixedStrategyBot} archetype to measure how the bot prints (or bleeds)
+ * value against a known table shape. Together with the gradient acid test these
+ * tests gate AAA quality without requiring a human at the table.
  */
 abstract class MultiwayBaselineBase {
 

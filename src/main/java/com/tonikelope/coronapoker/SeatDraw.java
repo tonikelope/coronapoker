@@ -40,20 +40,27 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * Pure, network-free crypto for the verifiable seat draw (commit-reveal randomness beacon).
+ * Pure, network-free crypto for the verifiable seat draw (commit-reveal
+ * randomness beacon).
  *
- * <p>The host used to shuffle the seats locally with its own CSPRNG and broadcast the result,
- * which every client accepted blindly, so a hostile host could hand-pick the seating (and, by
- * extension, the first dealer/blinds, both derived from the permutation's head). This class is
- * the deterministic core of the replacement: every human peer contributes a secret, all secrets
- * are committed before any is revealed, and the final permutation is a fixed function of the
- * combined reveals. No single participant (host included) can bias the outcome, and every peer
- * derives the exact same order independently — the host stops being trusted for the draw.
+ * <p>
+ * The host used to shuffle the seats locally with its own CSPRNG and broadcast
+ * the result, which every client accepted blindly, so a hostile host could
+ * hand-pick the seating (and, by extension, the first dealer/blinds, both
+ * derived from the permutation's head). This class is the deterministic core of
+ * the replacement: every human peer contributes a secret, all secrets are
+ * committed before any is revealed, and the final permutation is a fixed
+ * function of the combined reveals. No single participant (host included) can
+ * bias the outcome, and every peer derives the exact same order independently —
+ * the host stops being trusted for the draw.
  *
- * <p>Everything here is deterministic and side-effect free so it can be unit-tested without a
- * table: {@link #commit} binds a reveal, {@link #verifyCommit} checks a reveal against its
- * commit, {@link #deriveSeed} folds every reveal into a 48-byte seed, and {@link #deriveOrder}
- * turns that seed into the seated order via {@link DeterministicShuffle#shufflePermutation}.
+ * <p>
+ * Everything here is deterministic and side-effect free so it can be
+ * unit-tested without a table: {@link #commit} binds a reveal,
+ * {@link #verifyCommit} checks a reveal against its commit, {@link #deriveSeed}
+ * folds every reveal into a 48-byte seed, and {@link #deriveOrder} turns that
+ * seed into the seated order via
+ * {@link DeterministicShuffle#shufflePermutation}.
  */
 public class SeatDraw {
 
@@ -74,9 +81,11 @@ public class SeatDraw {
     }
 
     /**
-     * Commitment to a per-peer reveal: {@code SHA-256(COMMIT_DOMAIN || nonce || len(nick) || nick || r)}.
-     * A peer broadcasts this in the commit phase; it hides {@code r} (pre-image resistance) yet binds
-     * it (collision resistance), so no one can pick their reveal after seeing anyone else's.
+     * Commitment to a per-peer reveal:
+     * {@code SHA-256(COMMIT_DOMAIN || nonce || len(nick) || nick || r)}. A peer
+     * broadcasts this in the commit phase; it hides {@code r} (pre-image
+     * resistance) yet binds it (collision resistance), so no one can pick their
+     * reveal after seeing anyone else's.
      */
     public static byte[] commit(byte[] nonce, String nick, byte[] reveal) {
         requireNonce(nonce);
@@ -96,8 +105,9 @@ public class SeatDraw {
     }
 
     /**
-     * Constant-time check that {@code reveal} is the pre-image behind {@code expectedCommit} for
-     * this {@code (nonce, nick)}. false on any malformed input or mismatch.
+     * Constant-time check that {@code reveal} is the pre-image behind
+     * {@code expectedCommit} for this {@code (nonce, nick)}. false on any
+     * malformed input or mismatch.
      */
     public static boolean verifyCommit(byte[] nonce, String nick, byte[] reveal, byte[] expectedCommit) {
         if (nonce == null || nick == null || nick.isEmpty() || reveal == null
@@ -112,12 +122,15 @@ public class SeatDraw {
      * Folds every contributor's reveal into a 48-byte seed:
      * {@code SHA-512(SEED_DOMAIN || nonce || for each nick asc: len(nick) || nick || r)[0..48]}.
      *
-     * <p>Contributors are processed in ascending nick order so every peer, given the same reveal
-     * set, derives byte-identical material regardless of arrival order. Each nick is length-prefixed
-     * so the concatenation is unambiguous. The seed depends on <em>all</em> reveals, so a single
-     * honest contributor is enough to make the result unpredictable to everyone else.
+     * <p>
+     * Contributors are processed in ascending nick order so every peer, given
+     * the same reveal set, derives byte-identical material regardless of
+     * arrival order. Each nick is length-prefixed so the concatenation is
+     * unambiguous. The seed depends on <em>all</em> reveals, so a single honest
+     * contributor is enough to make the result unpredictable to everyone else.
      *
-     * @param reveals nick -&gt; 32-byte reveal, one entry per contributor (must be non-empty)
+     * @param reveals nick -&gt; 32-byte reveal, one entry per contributor (must
+     * be non-empty)
      */
     public static byte[] deriveSeed(byte[] nonce, Map<String, byte[]> reveals) {
         requireNonce(nonce);
@@ -148,12 +161,14 @@ public class SeatDraw {
     }
 
     /**
-     * Deterministically seats the {@code roster} using {@code seed}: the roster is first sorted into
-     * a canonical ascending order (so the input never depends on the order the host announced it in),
-     * then permuted by {@link DeterministicShuffle#shufflePermutation}. Every peer that feeds the same
-     * roster and seed gets the exact same array back.
+     * Deterministically seats the {@code roster} using {@code seed}: the roster
+     * is first sorted into a canonical ascending order (so the input never
+     * depends on the order the host announced it in), then permuted by
+     * {@link DeterministicShuffle#shufflePermutation}. Every peer that feeds
+     * the same roster and seed gets the exact same array back.
      *
-     * @return the seated order (index 0 = first seat), a fresh array; never mutates {@code roster}
+     * @return the seated order (index 0 = first seat), a fresh array; never
+     * mutates {@code roster}
      */
     public static String[] deriveOrder(List<String> roster, byte[] seed) {
         if (roster == null || roster.isEmpty()) {
@@ -174,19 +189,24 @@ public class SeatDraw {
     }
 
     /**
-     * RECOVER tamper check. On recover the host reproduces the seating over the legacy wire and each
-     * client used to accept it blindly. This lets a client cross-check it against its OWN persisted
-     * seat ring (which, for a fresh game, came from this same verified draw — not the host's word), the
-     * way the anti-chip-theft path already reconciles balances.
+     * RECOVER tamper check. On recover the host reproduces the seating over the
+     * legacy wire and each client used to accept it blindly. This lets a client
+     * cross-check it against its OWN persisted seat ring (which, for a fresh
+     * game, came from this same verified draw — not the host's word), the way
+     * the anti-chip-theft path already reconciles balances.
      *
-     * <p>The only thing checked is that the players present in BOTH the client's ring and the host's
-     * recovered order keep their <em>cyclic relative order</em> — the host must not swap who sits next
-     * to whom among the seats the client already knew. The comparison is rotation-invariant (each peer
-     * stores the ring rotated to its own pivot, and the recovered order may start at a different seat).
-     * Players who joined after the recover (present only in hostOrder) and players who left (present
-     * only in localRing) are both legitimate and ignored — their legitimacy is a join/identity concern,
-     * not a seating-order one. Returns true when consistent — or when there is not enough overlap to
-     * judge — and false only on a concrete reordering of the shared players.
+     * <p>
+     * The only thing checked is that the players present in BOTH the client's
+     * ring and the host's recovered order keep their <em>cyclic relative
+     * order</em> — the host must not swap who sits next to whom among the seats
+     * the client already knew. The comparison is rotation-invariant (each peer
+     * stores the ring rotated to its own pivot, and the recovered order may
+     * start at a different seat). Players who joined after the recover (present
+     * only in hostOrder) and players who left (present only in localRing) are
+     * both legitimate and ignored — their legitimacy is a join/identity
+     * concern, not a seating-order one. Returns true when consistent — or when
+     * there is not enough overlap to judge — and false only on a concrete
+     * reordering of the shared players.
      */
     public static boolean recoveredSeatingConsistent(List<String> localRing, List<String> hostOrder) {
         if (localRing == null || hostOrder == null || hostOrder.isEmpty() || localRing.size() < 2) {
@@ -241,18 +261,23 @@ public class SeatDraw {
     }
 
     /**
-     * Deterministic, host-independent order for players appended to the TAIL of the ring when they
-     * join mid-game — which can happen many times, in separate batches, as the table pauses and
-     * players come and go. Within a batch the newcomers are sorted by {@code H(anchor || nick)}, where
-     * {@code anchor} is a hash of the CANONICAL (sorted) membership of the current ring. So every peer,
-     * holding the same ring set and the same set of newcomers, computes the same tail order and the
-     * host cannot bias the relative order of who joins. The key rides on the evolving verified ring, so
-     * it resists casual gaming; it is not a hard commitment, though — a joiner able to mint arbitrary
-     * identities could grind a nick to shift its own slot AMONG simultaneous co-joiners (never the
-     * existing seats, and never with a single joiner). Canonicalizing the anchor makes it invariant to each peer's
-     * private rotation of the ring, and the ring is itself transitively anchored to the commit-reveal
-     * draw. Batches are independent, so a bust-out/leave that shrank the ring earlier simply yields a
-     * different (still unanimous) anchor for the next batch. Returns a fresh list; inputs untouched.
+     * Deterministic, host-independent order for players appended to the TAIL of
+     * the ring when they join mid-game — which can happen many times, in
+     * separate batches, as the table pauses and players come and go. Within a
+     * batch the newcomers are sorted by {@code H(anchor || nick)}, where
+     * {@code anchor} is a hash of the CANONICAL (sorted) membership of the
+     * current ring. So every peer, holding the same ring set and the same set
+     * of newcomers, computes the same tail order and the host cannot bias the
+     * relative order of who joins. The key rides on the evolving verified ring,
+     * so it resists casual gaming; it is not a hard commitment, though — a
+     * joiner able to mint arbitrary identities could grind a nick to shift its
+     * own slot AMONG simultaneous co-joiners (never the existing seats, and
+     * never with a single joiner). Canonicalizing the anchor makes it invariant
+     * to each peer's private rotation of the ring, and the ring is itself
+     * transitively anchored to the commit-reveal draw. Batches are independent,
+     * so a bust-out/leave that shrank the ring earlier simply yields a
+     * different (still unanimous) anchor for the next batch. Returns a fresh
+     * list; inputs untouched.
      */
     public static List<String> orderNewcomers(List<String> currentRing, List<String> newcomers) {
         if (newcomers == null) {

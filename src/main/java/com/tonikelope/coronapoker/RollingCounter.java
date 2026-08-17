@@ -19,24 +19,24 @@ package com.tonikelope.coronapoker;
 import java.util.function.DoubleConsumer;
 
 /**
- * Numeric counter that rolls toward a target value, used for the game's live counters
- * (player stack / player pot / main pot).
+ * Numeric counter that rolls toward a target value, used for the game's live
+ * counters (player stack / player pot / main pot).
  *
- * Fire-and-forget (never blocks a thread) and coalescing: if the target changes mid-roll,
- * the current leg is recalculated from the value currently shown toward the new target,
- * without falling behind or jumping. Two modes:
+ * Fire-and-forget (never blocks a thread) and coalescing: if the target changes
+ * mid-roll, the current leg is recalculated from the value currently shown
+ * toward the new target, without falling behind or jumping. Two modes:
  * <ul>
- * <li>constant SPEED (3-arg constructor below): leg duration = distance / speed, clamped
- * to [min_ms, max_ms].</li>
- * <li>constant TIME ({@link #RollingCounter(DoubleConsumer, long)}): every leg takes the
- * same fixed duration regardless of distance, so several counters started together finish
- * together (e.g. all-in probabilities).</li>
+ * <li>constant SPEED (3-arg constructor below): leg duration = distance /
+ * speed, clamped to [min_ms, max_ms].</li>
+ * <li>constant TIME ({@link #RollingCounter(DoubleConsumer, long)}): every leg
+ * takes the same fixed duration regardless of distance, so several counters
+ * started together finish together (e.g. all-in probabilities).</li>
  * </ul>
  *
- * EDT-only: roll/set/invalidate and the Timer tick all run on the Event Dispatch Thread,
- * so the fields need no synchronization. The actual painting is done by the {@code render}
- * callback (writes the label's text for a given value); this class only drives the
- * interpolation.
+ * EDT-only: roll/set/invalidate and the Timer tick all run on the Event
+ * Dispatch Thread, so the fields need no synchronization. The actual painting
+ * is done by the {@code render} callback (writes the label's text for a given
+ * value); this class only drives the interpolation.
  */
 public class RollingCounter {
 
@@ -76,8 +76,9 @@ public class RollingCounter {
     }
 
     /**
-     * Rolls toward {@code value}. Jumps instantly if {@code animate} is false or the
-     * displayed value isn't valid (came from a non-numeric state). EDT-only.
+     * Rolls toward {@code value}. Jumps instantly if {@code animate} is false
+     * or the displayed value isn't valid (came from a non-numeric state).
+     * EDT-only.
      */
     public void roll(double value, boolean animate) {
         value = Helpers.doubleClean(value);
@@ -146,9 +147,9 @@ public class RollingCounter {
     }
 
     /**
-     * Sets {@code value} immediately (no animation) and marks it valid. EDT-only.
-     * Used by resets/recover and by the counting overlay (which already animates
-     * frame by frame on its own).
+     * Sets {@code value} immediately (no animation) and marks it valid.
+     * EDT-only. Used by resets/recover and by the counting overlay (which
+     * already animates frame by frame on its own).
      */
     public void set(double value) {
         if (timer != null) {
@@ -164,9 +165,9 @@ public class RollingCounter {
     }
 
     /**
-     * Marks the label as now showing non-numeric text (painted by the caller). The
-     * next roll() will jump instead of animating from a value that no longer applies.
-     * EDT-only.
+     * Marks the label as now showing non-numeric text (painted by the caller).
+     * The next roll() will jump instead of animating from a value that no
+     * longer applies. EDT-only.
      */
     public void invalidate() {
         if (timer != null) {
@@ -176,8 +177,8 @@ public class RollingCounter {
     }
 
     /**
-     * True if the displayed value is numeric and valid (i.e. can be animated FROM).
-     * False after invalidate() or before the first set/roll. EDT-only.
+     * True if the displayed value is numeric and valid (i.e. can be animated
+     * FROM). False after invalidate() or before the first set/roll. EDT-only.
      */
     public boolean isValid() {
         return shown_valid;

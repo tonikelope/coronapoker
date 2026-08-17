@@ -42,15 +42,15 @@ import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 
 /**
- * Viewer (gallery) for the voice notes saved under {@link Init#VOICE_DIR}. Each row
- * shows the player nick, timestamp and duration, with a play/stop preview button that
- * reuses the SAME playback system as the Audio tab ({@link Audio#previewResource}), plus
- * a delete button with confirmation.
+ * Viewer (gallery) for the voice notes saved under {@link Init#VOICE_DIR}. Each
+ * row shows the player nick, timestamp and duration, with a play/stop preview
+ * button that reuses the SAME playback system as the Audio tab
+ * ({@link Audio#previewResource}), plus a delete button with confirmation.
  *
  * Metadata is derived from the file itself: the name follows the pattern
  * {@code <millisEpoch>_<sanitizedNick>_<random8>.wav} (see
- * {@code WaitingRoomFrame.recibirNotaVoz}), which yields the timestamp and nick; the
- * duration is read from the WAV header.
+ * {@code WaitingRoomFrame.recibirNotaVoz}), which yields the timestamp and
+ * nick; the duration is read from the WAV header.
  *
  * @author tonikelope
  */
@@ -89,8 +89,8 @@ public class VoiceNotesViewerDialog extends javax.swing.JDialog {
     private volatile boolean refresh_pending = false;
 
     /**
-     * Opens the viewer (or brings it to front and refreshes it if already open for
-     * the same owner). Must be called on the EDT.
+     * Opens the viewer (or brings it to front and refreshes it if already open
+     * for the same owner). Must be called on the EDT.
      *
      * @param owner window that will own the dialog
      */

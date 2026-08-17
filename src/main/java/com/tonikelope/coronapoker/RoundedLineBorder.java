@@ -39,14 +39,14 @@ import java.awt.geom.RoundRectangle2D;
 import javax.swing.border.Border;
 
 /**
- * Line border with ROUNDED corners (Swing's {@code createLineBorder} only draws square ones).
- * Same color and thickness as a plain LineBorder, but strokes a rounded rectangle with
- * antialiasing. Used for the thin grouping boxes in config dialogs (blind cap/escalation,
- * rebuy).
+ * Line border with ROUNDED corners (Swing's {@code createLineBorder} only draws
+ * square ones). Same color and thickness as a plain LineBorder, but strokes a
+ * rounded rectangle with antialiasing. Used for the thin grouping boxes in
+ * config dialogs (blind cap/escalation, rebuy).
  *
- * The panel corners outside the arc show the panel's own background; since that matches the
- * container's background in Nimbus dialogs, the rounding looks clean without making the panel
- * non-opaque.
+ * The panel corners outside the arc show the panel's own background; since that
+ * matches the container's background in Nimbus dialogs, the rounding looks
+ * clean without making the panel non-opaque.
  *
  * @author tonikelope
  */

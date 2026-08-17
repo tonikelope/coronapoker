@@ -32,9 +32,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * OutputStream that duplicates every write to two underlying streams, like
- * the UNIX {@code tee} command, while filtering out non-breaking-space
- * (0xA0) sequences and replacing them with a regular space.
+ * OutputStream that duplicates every write to two underlying streams, like the
+ * UNIX {@code tee} command, while filtering out non-breaking-space (0xA0)
+ * sequences and replacing them with a regular space.
  */
 public class TeeOutputStream extends OutputStream {
 

@@ -19,20 +19,26 @@ package com.tonikelope.coronapoker.crypto;
 import java.math.BigInteger;
 
 /**
- * Batch-DLEQ proof that one cascade <b>rotation</b> step is an honest <b>in-place re-key</b>:
- * {@code out[i] = s·in[i]} for ALL positions {@code i} with a single secret scalar {@code s} and NO
- * reordering — without revealing {@code s} (revealing it would leak the community lock). This closes the
+ * Batch-DLEQ proof that one cascade <b>rotation</b> step is an honest
+ * <b>in-place re-key</b>: {@code out[i] = s·in[i]} for ALL positions {@code i}
+ * with a single secret scalar {@code s} and NO reordering — without revealing
+ * {@code s} (revealing it would leak the community lock). This closes the
  * dual-lock rotation smuggle flank: the {@code ShuffleArgument} cascade proves
- * genesis→pre-rotation is an honest shuffle, and this proves pre-rotation→MEGAPACKET is an honest
- * per-position rekey, so every dealt point is tied back to genesis with no relocation/duplication.
+ * genesis→pre-rotation is an honest shuffle, and this proves
+ * pre-rotation→MEGAPACKET is an honest per-position rekey, so every dealt point
+ * is tied back to genesis with no relocation/duplication.
  *
- * <p>Construction. Honest rotation applies one scalar to every community piece in place
- * ({@code RistrettoSRA.applyCommutativeLock}). The verifier draws Fiat–Shamir weights {@code w_i = H(in, out, i)},
- * aggregates {@code G = Σ w_i·in_i}, {@code H = Σ w_i·out_i}, and the prover gives a Schnorr PoK of
- * {@code s} with {@code H = s·G}. If any {@code out_j ≠ s·in_j}, or a permutation {@code out_i = s·in_{π(i)}}
- * with {@code π ≠ id}, then {@code Σ w_i·(out_i − s·in_i) ≠ O} for random weights except with probability
- * {@code ≤ n/L} (Schwartz–Zippel over DL-independent deck points), so the aggregate {@code H = s·G} fails.
- * Complete, sound, honest-verifier ZK (the Schnorr mask hides {@code s}).
+ * <p>
+ * Construction. Honest rotation applies one scalar to every community piece in
+ * place ({@code RistrettoSRA.applyCommutativeLock}). The verifier draws
+ * Fiat–Shamir weights {@code w_i = H(in, out, i)}, aggregates
+ * {@code G = Σ w_i·in_i}, {@code H = Σ w_i·out_i}, and the prover gives a
+ * Schnorr PoK of {@code s} with {@code H = s·G}. If any {@code out_j ≠ s·in_j},
+ * or a permutation {@code out_i = s·in_{π(i)}} with {@code π ≠ id}, then
+ * {@code Σ w_i·(out_i − s·in_i) ≠ O} for random weights except with probability
+ * {@code ≤ n/L} (Schwartz–Zippel over DL-independent deck points), so the
+ * aggregate {@code H = s·G} fails. Complete, sound, honest-verifier ZK (the
+ * Schnorr mask hides {@code s}).
  */
 public final class RotationProof {
 
@@ -44,6 +50,7 @@ public final class RotationProof {
     }
 
     public static final class Proof {
+
         final byte[] t;       // Schnorr commitment T = r·G
         final BigInteger z;   // z = r + e·s
 
@@ -61,7 +68,9 @@ public final class RotationProof {
         return s != null && s.signum() >= 0 && s.compareTo(L) < 0;
     }
 
-    /** Fiat–Shamir weights bound to the full (in, out) statement. */
+    /**
+     * Fiat–Shamir weights bound to the full (in, out) statement.
+     */
     private static BigInteger[] weights(EdwardsPoint[] in, EdwardsPoint[] out) {
         Transcript tr = new Transcript(FS_WEIGHTS_DOMAIN);
         tr.absorb("n", new byte[]{(byte) (in.length >>> 8), (byte) in.length});
@@ -91,8 +100,9 @@ public final class RotationProof {
     }
 
     /**
-     * Prove {@code out[i] = s·in[i]} for all {@code i}. The caller supplies the secret rekey scalar
-     * {@code s} it actually applied and the input/output community point arrays.
+     * Prove {@code out[i] = s·in[i]} for all {@code i}. The caller supplies the
+     * secret rekey scalar {@code s} it actually applied and the input/output
+     * community point arrays.
      */
     public static Proof prove(BigInteger s, EdwardsPoint[] in, EdwardsPoint[] out) {
         BigInteger[] w = weights(in, out);
@@ -105,7 +115,10 @@ public final class RotationProof {
         return new Proof(Ristretto255.encode(t), z);
     }
 
-    /** Verify that {@code out} is an honest in-place common-scalar rekey of {@code in}. */
+    /**
+     * Verify that {@code out} is an honest in-place common-scalar rekey of
+     * {@code in}.
+     */
     public static boolean verify(EdwardsPoint[] in, EdwardsPoint[] out, Proof proof) {
         if (proof == null || in == null || out == null || in.length == 0 || out.length != in.length
                 || proof.t == null || !inRange(proof.z)) {

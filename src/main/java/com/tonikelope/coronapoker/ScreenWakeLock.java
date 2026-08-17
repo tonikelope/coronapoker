@@ -39,20 +39,22 @@ import java.util.logging.Logger;
  * Keeps the screen awake while the game is fullscreen.
  *
  * <ul>
- *   <li><b>Windows</b>: {@code SetThreadExecutionState} (Kernel32, via JNA). Tells the OS not to
- *       turn off the display or suspend — it does NOT simulate input (no mouse/keyboard). The
- *       state is per-thread, so this is always invoked from the same timer thread; the OS
- *       releases it on its own when the app exits.</li>
- *   <li><b>Linux and macOS</b>: there is no native inhibition API that's clean and uniform across
- *       both (on Linux it would differ between X11/Wayland, and D-Bus would pull in another
- *       dependency), so a no-op key (F15) is sent via Robot instead: unlike a mouse jiggle it
- *       doesn't move the cursor or trigger hover events, and is harmless. This is the only place
- *       where input is simulated, deliberately, for lack of a clean native alternative, and it
- *       works the same under X11 and Wayland.</li>
+ * <li><b>Windows</b>: {@code SetThreadExecutionState} (Kernel32, via JNA).
+ * Tells the OS not to turn off the display or suspend — it does NOT simulate
+ * input (no mouse/keyboard). The state is per-thread, so this is always invoked
+ * from the same timer thread; the OS releases it on its own when the app
+ * exits.</li>
+ * <li><b>Linux and macOS</b>: there is no native inhibition API that's clean
+ * and uniform across both (on Linux it would differ between X11/Wayland, and
+ * D-Bus would pull in another dependency), so a no-op key (F15) is sent via
+ * Robot instead: unlike a mouse jiggle it doesn't move the cursor or trigger
+ * hover events, and is harmless. This is the only place where input is
+ * simulated, deliberately, for lack of a clean native alternative, and it works
+ * the same under X11 and Wayland.</li>
  * </ul>
  *
- * Any failure on the Windows native path (JNA missing, etc.) is caught and degrades to the key
- * fallback without breaking — this class never propagates.
+ * Any failure on the Windows native path (JNA missing, etc.) is caught and
+ * degrades to the key fallback without breaking — this class never propagates.
  *
  * @author tonikelope
  */
@@ -66,13 +68,14 @@ public final class ScreenWakeLock {
     }
 
     /**
-     * Refreshes the wake-lock based on the fullscreen state. Meant to be called periodically (the
-     * anti-screensaver timer). Idempotent and silent on failure.
+     * Refreshes the wake-lock based on the fullscreen state. Meant to be called
+     * periodically (the anti-screensaver timer). Idempotent and silent on
+     * failure.
      *
-     * @param fullscreen true if the game is fullscreen (the only state in which the screen is
-     * kept awake)
-     * @param fallback_robot reusable Robot for the key fallback (Linux/macOS); may be null, in
-     * which case the fallback simply does nothing
+     * @param fullscreen true if the game is fullscreen (the only state in which
+     * the screen is kept awake)
+     * @param fallback_robot reusable Robot for the key fallback (Linux/macOS);
+     * may be null, in which case the fallback simply does nothing
      */
     public static void refresh(boolean fullscreen, Robot fallback_robot) {
 

@@ -17,16 +17,18 @@ import org.alberta.poker.ai.HandPotential;
  * {@link MemoizedHandPotential}, cutting the flop two-card look-ahead from
  * ~2.7M hand evaluations to the few hundred thousand distinct ones.
  *
- * <p>Hand strength, rank and compare are not the bottleneck and are delegated to
- * a plain {@link AlbertaEvaluatorAdapter} sharing the same {@link HandEvaluator}.
+ * <p>
+ * Hand strength, rank and compare are not the bottleneck and are delegated to a
+ * plain {@link AlbertaEvaluatorAdapter} sharing the same {@link HandEvaluator}.
  * Range-weighted potential is rarely used and also delegated unchanged.</p>
  *
- * <p>This is the evaluator wired into {@code Bot.EVALUATOR} in production. Its
- * PPot/NPot are numerically identical to the Alberta adapter — the equivalence is
- * gated by {@code MemoizedHandPotentialTest} — so it changes bot speed, never bot
- * decisions. Not thread-safe: a single shared instance is correct only because bot
- * decisions are evaluated sequentially, the same contract as the
- * {@link AlbertaEvaluatorAdapter} it replaced.</p>
+ * <p>
+ * This is the evaluator wired into {@code Bot.EVALUATOR} in production. Its
+ * PPot/NPot are numerically identical to the Alberta adapter — the equivalence
+ * is gated by {@code MemoizedHandPotentialTest} — so it changes bot speed,
+ * never bot decisions. Not thread-safe: a single shared instance is correct
+ * only because bot decisions are evaluated sequentially, the same contract as
+ * the {@link AlbertaEvaluatorAdapter} it replaced.</p>
  */
 public final class MemoizedAlbertaEvaluator implements BotEvaluator {
 

@@ -58,10 +58,11 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 
 /**
- * Screenshot gallery viewer (CTRL+P) for files saved under {@link Init#SCREENSHOTS_DIR}. Opens
- * on the most recent screenshot; navigate back/forward in time with the ◀ / ▶ buttons (or ← / →).
- * The image is scaled to fit the dialog, preserving aspect ratio and capped at 100% of its
- * native size (never enlarged). The title shows the file's OS creation date/time.
+ * Screenshot gallery viewer (CTRL+P) for files saved under
+ * {@link Init#SCREENSHOTS_DIR}. Opens on the most recent screenshot; navigate
+ * back/forward in time with the ◀ / ▶ buttons (or ← / →). The image is scaled
+ * to fit the dialog, preserving aspect ratio and capped at 100% of its native
+ * size (never enlarged). The title shows the file's OS creation date/time.
  *
  * @author tonikelope
  */
@@ -118,8 +119,8 @@ public class ScreenshotViewerDialog extends javax.swing.JDialog {
     private volatile long load_token = 0;
 
     /**
-     * Opens the viewer (or brings it to front and refreshes it if already open for the same
-     * owner). Must be called on the EDT.
+     * Opens the viewer (or brings it to front and refreshes it if already open
+     * for the same owner). Must be called on the EDT.
      *
      * @param owner window that owns the dialog
      */

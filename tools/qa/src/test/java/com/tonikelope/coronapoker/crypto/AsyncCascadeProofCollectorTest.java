@@ -70,6 +70,7 @@ public class AsyncCascadeProofCollectorTest {
 
     // Un paso REMOTO real (perm null en la lista de perms) con su prueba valida serializada.
     private static final class Step {
+
         List<byte[]> decks;
         List<int[]> perms;
         String hash;

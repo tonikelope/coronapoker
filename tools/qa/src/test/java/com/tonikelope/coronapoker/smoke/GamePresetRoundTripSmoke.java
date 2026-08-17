@@ -25,11 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Guards the {@link GamePreset} contract: a preset must round-trip EVERY new-game
- * setting (including the chosen blind structure), the registry must persist
- * renames/deletions, and corrupt entries must be skipped rather than fatal.
+ * Guards the {@link GamePreset} contract: a preset must round-trip EVERY
+ * new-game setting (including the chosen blind structure), the registry must
+ * persist renames/deletions, and corrupt entries must be skipped rather than
+ * fatal.
  *
- * <p>Pure logic — exercises the {@link GamePreset.Settings} carrier and a local
+ * <p>
+ * Pure logic — exercises the {@link GamePreset.Settings} carrier and a local
  * {@link Properties}, so it never reads or writes the user's real
  * {@code coronapoker.properties} and never mutates global game state.
  */

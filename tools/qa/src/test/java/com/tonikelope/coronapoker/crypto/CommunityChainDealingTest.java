@@ -43,8 +43,8 @@ public class CommunityChainDealingTest {
     // Strip every community-lock except the recipient's, over the chain, anchored to
     // the shared megapacket point. Returns the tail (single-locked by the recipient).
     private byte[] dealToRecipientOverChain(byte[] megapacketPoint, String recipient,
-                                            String[] ring, Map<String, byte[]> communityLocks,
-                                            Map<String, byte[]> commitments) {
+            String[] ring, Map<String, byte[]> communityLocks,
+            Map<String, byte[]> commitments) {
         String wire = ""; // empty chain = anchored at the committed megapacket point
         for (String peer : ring) {
             if (peer.equals(recipient)) {
@@ -122,7 +122,7 @@ public class CommunityChainDealingTest {
 
     // Rebuild the "all peers except recipient" chain wire (helper input the host would send).
     private String buildWireFor(byte[] megapacketPoint, String recipient, String[] ring,
-                                Map<String, byte[]> communityLocks, Map<String, byte[]> commitments) {
+            Map<String, byte[]> communityLocks, Map<String, byte[]> commitments) {
         String wire = "";
         List<String> order = new ArrayList<>();
         for (String peer : ring) {

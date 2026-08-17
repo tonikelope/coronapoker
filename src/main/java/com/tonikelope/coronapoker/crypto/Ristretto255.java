@@ -23,35 +23,48 @@ import java.util.Arrays;
  * Ristretto255 encode/decode (RFC 9496 §4.3) over the edwards25519 point group.
  *
  * Ristretto255 is a prime-order group abstraction over edwards25519: canonical
- * 32-byte encodings, no cofactor, equal points encode equally. This replaces the
- * Montgomery x-only representation of the current SRA and removes the cofactor /
- * small-subgroup caveats entirely.
+ * 32-byte encodings, no cofactor, equal points encode equally. This replaces
+ * the Montgomery x-only representation of the current SRA and removes the
+ * cofactor / small-subgroup caveats entirely.
  *
  * Constants are taken from RFC 9496 §4.1 and self-validated in Ristretto255Test
- * (square relations), so a transcription error cannot slip through. Correctness-
- * first (Fe25519 / BigInteger backend); not constant-time.
+ * (square relations), so a transcription error cannot slip through.
+ * Correctness- first (Fe25519 / BigInteger backend); not constant-time.
  */
 public final class Ristretto255 {
 
-    /** d = -121665/121666 (RFC 9496 §4.1). */
+    /**
+     * d = -121665/121666 (RFC 9496 §4.1).
+     */
     public static final Fe25519 D = EdwardsPoint.D;
 
-    /** sqrt(-1) mod p. */
+    /**
+     * sqrt(-1) mod p.
+     */
     public static final Fe25519 SQRT_M1 = Fe25519.of(Fe25519.SQRT_M1);
 
-    /** 1/sqrt(a-d) with a=-1, i.e. 1/sqrt(-1-d). */
+    /**
+     * 1/sqrt(a-d) with a=-1, i.e. 1/sqrt(-1-d).
+     */
     public static final Fe25519 INVSQRT_A_MINUS_D = Fe25519.of(new BigInteger(
             "54469307008909316920995813868745141605393597292927456921205312896311721017578"));
 
-    /** sqrt(a*d - 1) with a=-1, i.e. sqrt(-d-1) (used by Elligator hash-to-group). */
+    /**
+     * sqrt(a*d - 1) with a=-1, i.e. sqrt(-d-1) (used by Elligator
+     * hash-to-group).
+     */
     public static final Fe25519 SQRT_AD_MINUS_ONE = Fe25519.of(new BigInteger(
             "25063068953384623474111414158702152701244531502492656460079210482610430750235"));
 
-    /** 1 - d^2 (used by Elligator hash-to-group). */
+    /**
+     * 1 - d^2 (used by Elligator hash-to-group).
+     */
     public static final Fe25519 ONE_MINUS_D_SQ = Fe25519.of(new BigInteger(
             "1159843021668779879193775521855586647937357759715417654439879720876111806838"));
 
-    /** (d - 1)^2 (used by Elligator hash-to-group). */
+    /**
+     * (d - 1)^2 (used by Elligator hash-to-group).
+     */
     public static final Fe25519 D_MINUS_ONE_SQ = Fe25519.of(new BigInteger(
             "40440834346308536858101042469323190826248399146238708352240133220865137265952"));
 
@@ -59,8 +72,8 @@ public final class Ristretto255 {
     }
 
     /**
-     * Encodes a ristretto255 group element (given as an edwards25519 point) to its
-     * canonical 32-byte representation (RFC 9496 §4.3.2).
+     * Encodes a ristretto255 group element (given as an edwards25519 point) to
+     * its canonical 32-byte representation (RFC 9496 §4.3.2).
      */
     public static byte[] encode(EdwardsPoint p) {
         byte[] cached = p.ristrettoCache();
@@ -104,11 +117,11 @@ public final class Ristretto255 {
     }
 
     /**
-     * Decodes a canonical 32-byte ristretto255 encoding to an edwards25519 point,
-     * or returns null if the input is not a valid canonical encoding (RFC 9496
-     * §4.3.1). This is the security gate that replaces arePointsOnCurve: it refuses
-     * non-canonical field encodings, negative field elements, non-square inputs and
-     * the s = -1 (y = 0) case.
+     * Decodes a canonical 32-byte ristretto255 encoding to an edwards25519
+     * point, or returns null if the input is not a valid canonical encoding
+     * (RFC 9496 §4.3.1). This is the security gate that replaces
+     * arePointsOnCurve: it refuses non-canonical field encodings, negative
+     * field elements, non-square inputs and the s = -1 (y = 0) case.
      */
     public static EdwardsPoint decode(byte[] in) {
         Fe25519 s = Fe25519.fromBytesCanonical(in);
@@ -148,12 +161,13 @@ public final class Ristretto255 {
     }
 
     /**
-     * Native Ristretto255 group-element equality of two edwards25519 representatives:
-     * {@code X1·Y2 == Y1·X2} (invariant under the identity / {@code (0,-1)} coset translations) OR
-     * {@code Y1·Y2 == X1·X2} (under the {@code (±i,0)} ones) — together, exactly "same E[4] coset",
-     * i.e. the same relation as comparing canonical encodings, in four field multiplies instead of
-     * two sqrt-ratio exponentiations. Validated against encode-equality by fuzz, torsion included
-     * (RistrettoEqualityTest).
+     * Native Ristretto255 group-element equality of two edwards25519
+     * representatives: {@code X1·Y2 == Y1·X2} (invariant under the identity /
+     * {@code (0,-1)} coset translations) OR {@code Y1·Y2 == X1·X2} (under the
+     * {@code (±i,0)} ones) — together, exactly "same E[4] coset", i.e. the same
+     * relation as comparing canonical encodings, in four field multiplies
+     * instead of two sqrt-ratio exponentiations. Validated against
+     * encode-equality by fuzz, torsion included (RistrettoEqualityTest).
      */
     public static boolean equalPoints(EdwardsPoint a, EdwardsPoint b) {
         if (a.extX().mul(b.extY()).ctEq(a.extY().mul(b.extX()))) {
@@ -163,19 +177,20 @@ public final class Ristretto255 {
     }
 
     /**
-     * True iff the point is the Ristretto255 identity element, i.e. lies in the E[4] coset of
-     * {@code (0,1)}: exactly {@code X == 0} (the {@code (0,±1)} members) or {@code Y == 0} (the
-     * {@code (±i,0)} ones). Two zero checks instead of a full encode.
+     * True iff the point is the Ristretto255 identity element, i.e. lies in the
+     * E[4] coset of {@code (0,1)}: exactly {@code X == 0} (the {@code (0,±1)}
+     * members) or {@code Y == 0} (the {@code (±i,0)} ones). Two zero checks
+     * instead of a full encode.
      */
     public static boolean isIdentity(EdwardsPoint p) {
         return p.extX().isZero() || p.extY().isZero();
     }
 
     /**
-     * The ristretto255 one-way MAP from a field element to a group element
-     * (RFC 9496 §4.3.4). Used by {@link #hashToGroup} to build the genesis deck:
-     * the resulting points have unknown mutual discrete logs (unlike s*B), which
-     * is required so a locked deck cannot be de-permuted by matching card ratios.
+     * The ristretto255 one-way MAP from a field element to a group element (RFC
+     * 9496 §4.3.4). Used by {@link #hashToGroup} to build the genesis deck: the
+     * resulting points have unknown mutual discrete logs (unlike s*B), which is
+     * required so a locked deck cannot be de-permuted by matching card ratios.
      */
     static EdwardsPoint map(Fe25519 t) {
         Fe25519 r = SQRT_M1.mul(t.sqr());
@@ -214,7 +229,9 @@ public final class Ristretto255 {
         return map(t0).add(map(t1));
     }
 
-    /** Convenience: canonical 32-byte encoding of {@link #hashToGroup}. */
+    /**
+     * Convenience: canonical 32-byte encoding of {@link #hashToGroup}.
+     */
     public static byte[] hashToGroupEncoded(byte[] uniform64) {
         return encode(hashToGroup(uniform64));
     }

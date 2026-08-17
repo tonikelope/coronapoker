@@ -26,10 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * AAA tests for {@link BinaryWire} (the voice/avatar binary payload layout) and the full
- * voice wire pipeline: encodeVoice → encryptBytes → writeBinary → read → decryptBytes →
- * decode, which is exactly what the send/receive sites do for a note. Includes a size
- * assertion proving the binary path is ~240 KB, not the ~427 KB of the double-Base64 path.
+ * AAA tests for {@link BinaryWire} (the voice/avatar binary payload layout) and
+ * the full voice wire pipeline: encodeVoice → encryptBytes → writeBinary → read
+ * → decryptBytes → decode, which is exactly what the send/receive sites do for
+ * a note. Includes a size assertion proving the binary path is ~240 KB, not the
+ * ~427 KB of the double-Base64 path.
  */
 class BinaryVoiceWireTest {
 

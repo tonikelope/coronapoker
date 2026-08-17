@@ -149,11 +149,12 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * Image currently shown by card_image (front face-up, back face-down). Used by animation
-     * overlays (e.g. the hole-card sort swap) so the flying card is pixel-identical to the static
-     * one.
+     * Image currently shown by card_image (front face-up, back face-down). Used
+     * by animation overlays (e.g. the hole-card sort swap) so the flying card
+     * is pixel-identical to the static one.
      *
-     * @return the current image, or {@code null} if no icon is set yet; must be called on the EDT
+     * @return the current image, or {@code null} if no icon is set yet; must be
+     * called on the EDT
      */
     public java.awt.Image getDisplayedImage() {
         javax.swing.Icon ic = card_image.getIcon();
@@ -191,11 +192,13 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * Recomputes all zoom-dependent card/chip images and clears the front/disabled image caches
-     * when {@code zoom} changes (or unconditionally if {@code force}); no-op otherwise.
+     * Recomputes all zoom-dependent card/chip images and clears the
+     * front/disabled image caches when {@code zoom} changes (or unconditionally
+     * if {@code force}); no-op otherwise.
      *
-     * @param zoom  target zoom factor
-     * @param force recompute even if {@code zoom} matches the currently cached value
+     * @param zoom target zoom factor
+     * @param force recompute even if {@code zoom} matches the currently cached
+     * value
      */
     public static synchronized void updateCachedImages(float zoom, boolean force) {
 
@@ -306,9 +309,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * Current deck's back image, scaled to the current card size (kept in sync with the zoom by
-     * {@link #updateCachedImages}). Used by the deal animation so the flying card matches the
-     * covered card that lands in the seat.
+     * Current deck's back image, scaled to the current card size (kept in sync
+     * with the zoom by {@link #updateCachedImages}). Used by the deal animation
+     * so the flying card matches the covered card that lands in the seat.
      *
      * @return the cached back-of-card icon
      */
@@ -391,8 +394,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * Deck backs offered in the settings dropdown: one per available deck (built-in + mods),
-     * keyed by deck name. Same source as the deck combo box.
+     * Deck backs offered in the settings dropdown: one per available deck
+     * (built-in + mods), keyed by deck name. Same source as the deck combo box.
      *
      * @return the available deck names
      */
@@ -507,8 +510,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     /**
      * Creates new form PlayingCard.
      *
-     * @param g {@code false} to skip GUI refreshes ({@link #refreshCard} becomes a no-op), for
-     *          cards used only as data holders (e.g. offline hand generation / stats)
+     * @param g {@code false} to skip GUI refreshes ({@link #refreshCard}
+     * becomes a no-op), for cards used only as data holders (e.g. offline hand
+     * generation / stats)
      */
     public Card(boolean g) {
 
@@ -603,12 +607,15 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * Recomputes and applies this card's displayed icon off the EDT, then applies it on the EDT.
-     * When {@code notifier} is non-null the update runs synchronously: this thread's id is pushed
-     * to it once the icon is applied, so a caller can wait on it (see {@link #destaparSync}).
+     * Recomputes and applies this card's displayed icon off the EDT, then
+     * applies it on the EDT. When {@code notifier} is non-null the update runs
+     * synchronously: this thread's id is pushed to it once the icon is applied,
+     * so a caller can wait on it (see {@link #destaparSync}).
      *
-     * @param pre_cache reuse the front/disabled image cache instead of forcing a reload
-     * @param notifier  queue signalled on completion, or {@code null} to fire-and-forget
+     * @param pre_cache reuse the front/disabled image cache instead of forcing
+     * a reload
+     * @param notifier queue signalled on completion, or {@code null} to
+     * fire-and-forget
      */
     public void refreshCard(boolean pre_cache, final ConcurrentLinkedQueue<Long> notifier) {
         if (this.gui) {
@@ -789,8 +796,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * @return the cards' {@link #toString()} forms joined with spaces, or {@code null} if the
-     *         list is null/empty
+     * @return the cards' {@link #toString()} forms joined with spaces, or
+     * {@code null} if the list is null/empty
      */
     public static String collection2String(List<Card> cartas) {
 
@@ -806,8 +813,8 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * @return the cards' {@link #toShortString()} forms joined with "#", or {@code null} if the
-     *         list is null/empty
+     * @return the cards' {@link #toShortString()} forms joined with "#", or
+     * {@code null} if the list is null/empty
      */
     public static String collection2ShortString(List<Card> cartas) {
 
@@ -822,7 +829,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return null;
     }
 
-    /** Sorts descending, ranking the ace low (1). */
+    /**
+     * Sorts descending, ranking the ace low (1).
+     */
     public static void sortAceLowCollection(List<Card> cartas) {
         if (cartas != null) {
             Collections.sort(cartas, new Card.AceLowSortingComparator());
@@ -831,7 +840,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         }
     }
 
-    /** Sorts descending, ranking the ace high (14) — the natural order. */
+    /**
+     * Sorts descending, ranking the ace high (14) — the natural order.
+     */
     public static void sortCollection(List<Card> cartas) {
 
         if (cartas != null) {
@@ -846,14 +857,17 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return "[" + this.valor + Card.UNICODE_TABLE.get(this.palo) + "]";
     }
 
-    /** @return the compact "VALUE_SUIT" form used as a cache/lookup key */
+    /**
+     * @return the compact "VALUE_SUIT" form used as a cache/lookup key
+     */
     public String toShortString() {
         return this.valor + "_" + this.palo;
     }
 
     /**
      * @param id card index 0-51 (id/13 selects the suit, id%13 the rank)
-     * @return the short-form string ("VALUE_SUIT"), or {@code null} if out of range
+     * @return the short-form string ("VALUE_SUIT"), or {@code null} if out of
+     * range
      */
     public static String shortStringFromIndex(int id) {
         if (id < 0 || id > 51) {
@@ -942,14 +956,17 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * @return this card encoded as 1-52 (ace-low), the same encoding consumed by
-     *         {@link #actualizarConValorNumerico(int)} / {@link #iniciarConValorNumerico(int)}
+     * @return this card encoded as 1-52 (ace-low), the same encoding consumed
+     * by
+     * {@link #actualizarConValorNumerico(int)} / {@link #iniciarConValorNumerico(int)}
      */
     public int getCartaComoEntero() {
         return PALOS_STRING.indexOf(getPalo()) * 13 + getValorNumerico(true);
     }
 
-    /** @return this card's rank (2-14, ace high), or -1 if unset */
+    /**
+     * @return this card's rank (2-14, ace high), or -1 if unset
+     */
     public int getValorNumerico() {
         return getValorNumerico(false);
     }
@@ -1015,15 +1032,19 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * Synchronous, silent reveal: doesn't return until the front face is applied on the EDT. Used
-     * by the community-card flip animation to splice the static card in UNDER the GIF's last
-     * frame before hiding it, so the handoff never shows a blank gap (the classic async reveal
-     * leaves a variable-length window with nothing there). The deadline covers the one path where
-     * the refresh worker dies without signalling (an exception loading the card image): rather
-     * than freeze the hand, it falls back to the same visual result as the async reveal.
+     * Synchronous, silent reveal: doesn't return until the front face is
+     * applied on the EDT. Used by the community-card flip animation to splice
+     * the static card in UNDER the GIF's last frame before hiding it, so the
+     * handoff never shows a blank gap (the classic async reveal leaves a
+     * variable-length window with nothing there). The deadline covers the one
+     * path where the refresh worker dies without signalling (an exception
+     * loading the card image): rather than freeze the hand, it falls back to
+     * the same visual result as the async reveal.
      *
-     * <p>Must always be called off the EDT: the worker needs the EDT to apply the icon, so calling
-     * this from the EDT would just burn the whole deadline waiting on itself.
+     * <p>
+     * Must always be called off the EDT: the worker needs the EDT to apply the
+     * icon, so calling this from the EDT would just burn the whole deadline
+     * waiting on itself.
      */
     public void destaparSync() {
 
@@ -1088,9 +1109,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * Marks this card for the showdown yellow tint, painted over the card (see {@link #paint})
-     * without touching the image or focus state, while the mouse hovers a losing player's hand
-     * label. A full repaint of this Card is enough — no need to rebuild the icon.
+     * Marks this card for the showdown yellow tint, painted over the card (see
+     * {@link #paint}) without touching the image or focus state, while the
+     * mouse hovers a losing player's hand label. A full repaint of this Card is
+     * enough — no need to rebuild the icon.
      */
     public void marcarTinteShowdown() {
         if (!this.tinte_showdown) {
@@ -1099,7 +1121,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         }
     }
 
-    /** Clears the tint set by {@link #marcarTinteShowdown()}. */
+    /**
+     * Clears the tint set by {@link #marcarTinteShowdown()}.
+     */
     public void desmarcarTinteShowdown() {
         if (this.tinte_showdown) {
             this.tinte_showdown = false;
@@ -1175,8 +1199,9 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     /**
-     * Plays the deck's configured sound effect if this card is one of its special/easter-egg
-     * cards ({@code CARTAS_SONIDO}) and that setting is enabled.
+     * Plays the deck's configured sound effect if this card is one of its
+     * special/easter-egg cards ({@code CARTAS_SONIDO}) and that setting is
+     * enabled.
      *
      * @return {@code true} if a sound was triggered
      */

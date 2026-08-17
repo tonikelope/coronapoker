@@ -116,10 +116,11 @@ public class MoneyTranscriptGoldenTest {
     /**
      * Plays the fixed scenario through the chain and returns H_final.
      *
-     * 3-handed, blinds 0.25/0.50, host = alice (button). bob posts the 0.25 small
-     * blind then folds preflop (his 0.25 stays in the pot); carol (big blind) and
-     * alice go to a checked-down river and split a 13.35 pot two ways — an odd cent
-     * carried by PotMath. Streets carry host-signed community reveals.
+     * 3-handed, blinds 0.25/0.50, host = alice (button). bob posts the 0.25
+     * small blind then folds preflop (his 0.25 stays in the pot); carol (big
+     * blind) and alice go to a checked-down river and split a 13.35 pot two
+     * ways — an odd cent carried by PotMath. Streets carry host-signed
+     * community reveals.
      */
     private static byte[] playGoldenHand() {
         byte[] handId = handId();
@@ -180,8 +181,8 @@ public class MoneyTranscriptGoldenTest {
 
     // The pinned transcript digest. Frozen against the current (float) money path;
     // the migration to double must leave it byte-identical (that is the test).
-    private static final String GOLDEN_HFINAL =
-            "1b12232c746d0fa418ea77351c1e6cf33558e34734a884da3c4223158ec4a436";
+    private static final String GOLDEN_HFINAL
+            = "1b12232c746d0fa418ea77351c1e6cf33558e34734a884da3c4223158ec4a436";
 
     @Test
     void fullHandTranscriptMatchesGolden() {

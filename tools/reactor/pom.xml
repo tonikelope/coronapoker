@@ -45,10 +45,10 @@
 
     <modules>
         <!-- The game (repo root). Reactor build order is derived from the
-             dependency graph, so qa always builds after the game. -->
+        dependency graph, so qa always builds after the game. -->
         <module>../../</module>
         <!-- The JUnit 5 QA test suite. Its CoronaPoker dependency (same
-             groupId/artifactId/version) resolves from the reactor. -->
+        groupId/artifactId/version) resolves from the reactor. -->
         <module>../qa</module>
     </modules>
 </project>

@@ -14,9 +14,9 @@
 package com.tonikelope.coronapoker.bot.eval;
 
 /**
- * Umbrella aggregate of the evaluation contracts required by the bot
- * subsystem. Provided as a convenience so that wiring code can inject a single
- * dependency rather than three.
+ * Umbrella aggregate of the evaluation contracts required by the bot subsystem.
+ * Provided as a convenience so that wiring code can inject a single dependency
+ * rather than three.
  */
 public interface BotEvaluator extends HandStrengthEvaluator, DrawPotentialEvaluator, HandRankResolver {
 }

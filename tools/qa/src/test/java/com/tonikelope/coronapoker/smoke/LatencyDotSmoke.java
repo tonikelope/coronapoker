@@ -18,15 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * AAA test del LatencyDot — Sprint 7 component. Cubre el mapping
- * latencia → color que decide visualmente la calidad de enlace.
+ * AAA test del LatencyDot — Sprint 7 component. Cubre el mapping latencia →
+ * color que decide visualmente la calidad de enlace.
  *
- * Cobertura:
- *   - umbrales exactos (boundary values: 80, 81, 200, 201, 400, 401).
- *   - latencia negativa (-1 unknown/timeout) → ROJO.
- *   - edad > STALE_THRESHOLD_MS → GRIS (independiente de la latencia).
- *   - edad muy fresh + latencia normal → color por latencia.
- *   - setLatency persiste los 3 valores leíbles desde getters.
+ * Cobertura: - umbrales exactos (boundary values: 80, 81, 200, 201, 400, 401).
+ * - latencia negativa (-1 unknown/timeout) → ROJO. - edad > STALE_THRESHOLD_MS
+ * → GRIS (independiente de la latencia). - edad muy fresh + latencia normal →
+ * color por latencia. - setLatency persiste los 3 valores leíbles desde
+ * getters.
  */
 class LatencyDotSmoke {
 

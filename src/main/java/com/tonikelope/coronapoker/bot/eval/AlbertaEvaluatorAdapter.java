@@ -20,8 +20,8 @@ import org.alberta.poker.ai.model.WeightTable;
  * Adapter that exposes the legacy University of Alberta Poker Research Group
  * library (org.alberta.poker.*) behind {@link BotEvaluator}.
  *
- * Card indices accepted by this adapter must use the canonical encoding
- * shared with the Alberta library (rank + suit * 13).
+ * Card indices accepted by this adapter must use the canonical encoding shared
+ * with the Alberta library (rank + suit * 13).
  *
  * This implementation is not thread-safe by itself: the underlying
  * {@link HandPotential} caches data between calls. A single bot decision is

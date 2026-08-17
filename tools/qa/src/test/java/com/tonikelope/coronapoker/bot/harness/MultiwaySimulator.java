@@ -23,28 +23,30 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * N-handed no-limit Texas hold'em simulator. Generalizes the heads-up
- * harness so the bot's full-ring decision paths get exercised: UTG cold
- * fold, multi-way limped pots, isolation raises, multi-opponent c-bets,
- * and the cliffs in equity that only appear with 3+ live opponents.
+ * N-handed no-limit Texas hold'em simulator. Generalizes the heads-up harness
+ * so the bot's full-ring decision paths get exercised: UTG cold fold, multi-way
+ * limped pots, isolation raises, multi-opponent c-bets, and the cliffs in
+ * equity that only appear with 3+ live opponents.
  *
- * <p>This is the target environment for AAA validation — CoronaPoker is
- * played multi-way (3-9 seats), not heads-up. The button rotates every
- * hand and per-street action order follows standard rules:</p>
+ * <p>
+ * This is the target environment for AAA validation — CoronaPoker is played
+ * multi-way (3-9 seats), not heads-up. The button rotates every hand and
+ * per-street action order follows standard rules:</p>
  *
  * <ul>
- *   <li>Preflop first-to-act = UTG (button + 3 mod N).</li>
- *   <li>Postflop first-to-act = SB (button + 1 mod N), or the first
- *       active seat after that.</li>
- *   <li>A betting round closes when no active live-stack player still
- *       owes an action and every active player has matched the current
- *       bet (or is all-in).</li>
+ * <li>Preflop first-to-act = UTG (button + 3 mod N).</li>
+ * <li>Postflop first-to-act = SB (button + 1 mod N), or the first active seat
+ * after that.</li>
+ * <li>A betting round closes when no active live-stack player still owes an
+ * action and every active player has matched the current bet (or is
+ * all-in).</li>
  * </ul>
  *
- * <p>Mirrors {@link HeadsUpSimulator} for blind posting, action
- * recording, c-bet detection, OpponentTracker feeding, and showdown
- * resolution. Showdown selects winners by pairwise comparison; the pot
- * is split evenly if multiple seats tie.</p>
+ * <p>
+ * Mirrors {@link HeadsUpSimulator} for blind posting, action recording, c-bet
+ * detection, OpponentTracker feeding, and showdown resolution. Showdown selects
+ * winners by pairwise comparison; the pot is split evenly if multiple seats
+ * tie.</p>
  */
 public final class MultiwaySimulator {
 
@@ -55,7 +57,9 @@ public final class MultiwaySimulator {
         GameFrame.CIEGA_PEQUEÑA = 1.0f;
     }
 
-    /** Safety net against infinite action loops within a street. */
+    /**
+     * Safety net against infinite action loops within a street.
+     */
     private static final int MAX_ACTIONS_PER_STREET = 120;
 
     private final int numSeats;
@@ -79,7 +83,7 @@ public final class MultiwaySimulator {
     private int handCounter = 0;
 
     public MultiwaySimulator(int numSeats, long seed, double startingStack,
-                             double bigBlind, BotEvaluator evaluator) {
+            double bigBlind, BotEvaluator evaluator) {
         if (numSeats < 3 || numSeats > 9) {
             throw new IllegalArgumentException("numSeats must be 3..9, got " + numSeats);
         }
@@ -143,7 +147,9 @@ public final class MultiwaySimulator {
         bots[seat].setContext(dealer, evaluator);
     }
 
-    /** Bulk difficulty assignment; array length must equal numSeats. */
+    /**
+     * Bulk difficulty assignment; array length must equal numSeats.
+     */
     public void setSeatDifficulties(Bot.Difficulty... difficulties) {
         if (difficulties.length != numSeats) {
             throw new IllegalArgumentException("difficulties.length must equal numSeats");
@@ -164,9 +170,9 @@ public final class MultiwaySimulator {
     }
 
     /**
-     * Play one hand to completion. Rotates the button afterwards.
-     * Returns the set of winners (one or more, in case of split pot) and
-     * the final pot size.
+     * Play one hand to completion. Rotates the button afterwards. Returns the
+     * set of winners (one or more, in case of split pot) and the final pot
+     * size.
      */
     public HandResult playOneHand() {
         int[] deck = shuffledDeck();
@@ -178,8 +184,8 @@ public final class MultiwaySimulator {
             players[i].setBet(0f);
         }
         int[] runout = {
-                deck[2 * numSeats], deck[2 * numSeats + 1], deck[2 * numSeats + 2],
-                deck[2 * numSeats + 3], deck[2 * numSeats + 4]
+            deck[2 * numSeats], deck[2 * numSeats + 1], deck[2 * numSeats + 2],
+            deck[2 * numSeats + 3], deck[2 * numSeats + 4]
         };
 
         Arrays.fill(handVoluntary, false);
@@ -572,7 +578,9 @@ public final class MultiwaySimulator {
         trackerFor(players[seat]).recordPostFlopBetOrRaise();
     }
 
-    /** Raw equity of a seat's hand vs one random hand on the current board. */
+    /**
+     * Raw equity of a seat's hand vs one random hand on the current board.
+     */
     private double handStrengthOf(int seat) {
         int bs = dealer.getBoardSize();
         int[] board = new int[bs];
@@ -616,6 +624,7 @@ public final class MultiwaySimulator {
     }
 
     public static final class HandResult {
+
         public final Set<Integer> winners;
         public final double pot;
 

@@ -164,7 +164,6 @@ public class HandPotCharacterizationTest {
     // The case the benign scenarios above never reach: a folder who committed MORE
     // than the short all-in that caps the main pot. Its chips must NOT all land in
     // the main pot, or the short all-in collects money it never matched.
-
     @Test
     void deadMoneyAboveTheCapDoesNotFeedTheShortAllIn() {
         // a is all-in for 5; b bet 35 and folded to c's 40. The main pot may only
@@ -245,7 +244,6 @@ public class HandPotCharacterizationTest {
     // Antes are dead money folded into each player's getBote(); the existing
     // getBote()-keyed side-pot math must absorb them with no structural change.
     // This is exactly why option A was chosen over big-blind ante.
-
     @Test
     void symmetricAntesRideTheNormalPot() {
         // Each player antes 0.25 then calls the 2.00 big blind -> bote 2.25 each.
@@ -293,7 +291,6 @@ public class HandPotCharacterizationTest {
     // side-pot math absorbs it with no structural change. These pin the pot
     // composition of a straddle hand (SB 1, BB 2, straddle 4) so the voluntary
     // straddle cannot drift it (e.g. by double-counting the posted straddle).
-
     @Test
     void postedStraddleRidesTheNormalPot() {
         // UTG straddles 4 (2x BB); SB and BB complete to 4 and the straddler

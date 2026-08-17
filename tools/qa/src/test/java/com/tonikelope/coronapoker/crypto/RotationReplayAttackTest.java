@@ -36,9 +36,9 @@ public class RotationReplayAttackTest {
     }
 
     /**
-     * A repeated rotation on a blinded point leaks the peer's pocket-unlock applied to
-     * that point — recovering a genesis card. This is exactly what one rotation per
-     * cascade (anti-replay) denies the host.
+     * A repeated rotation on a blinded point leaks the peer's pocket-unlock
+     * applied to that point — recovering a genesis card. This is exactly what
+     * one rotation per cascade (anti-replay) denies the host.
      */
     @Test
     public void repeatedRotationOnBlindedPointIsAPocketUnlockOracle() {
@@ -77,10 +77,11 @@ public class RotationReplayAttackTest {
     }
 
     /**
-     * The mitigation invariant: a rotation is legitimate only the FIRST time in a cascade.
-     * The handler tracks rotation_served_this_cascade (reset on DECK_CASCADE_REQ, set after
-     * serving); a second rotation without a fresh cascade is refused (warnSuspiciousHost).
-     * This models that state machine so the rule is pinned.
+     * The mitigation invariant: a rotation is legitimate only the FIRST time in
+     * a cascade. The handler tracks rotation_served_this_cascade (reset on
+     * DECK_CASCADE_REQ, set after serving); a second rotation without a fresh
+     * cascade is refused (warnSuspiciousHost). This models that state machine
+     * so the rule is pinned.
      */
     @Test
     public void oneRotationPerCascade() {

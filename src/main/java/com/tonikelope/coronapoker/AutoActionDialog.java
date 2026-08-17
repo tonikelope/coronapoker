@@ -49,11 +49,13 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 /**
- * Veto overlay for AUTO MODE: before an auto-action fires (the pre-armed AUTO buttons), shows a
- * countdown with a red Cancel button. Non-modal — the player can still use the board/menu (click,
- * right-click) while it runs. Resolution is delivered once via callback on the EDT: on timeout the
- * action runs; on cancel (or if the turn resolves another way, or the table goes down) it does
- * not. {@code keep_waiting} lets the caller abort the countdown if the player acts manually.
+ * Veto overlay for AUTO MODE: before an auto-action fires (the pre-armed AUTO
+ * buttons), shows a countdown with a red Cancel button. Non-modal — the player
+ * can still use the board/menu (click, right-click) while it runs. Resolution
+ * is delivered once via callback on the EDT: on timeout the action runs; on
+ * cancel (or if the turn resolves another way, or the table goes down) it does
+ * not. {@code keep_waiting} lets the caller abort the countdown if the player
+ * acts manually.
  *
  * @author tonikelope
  */
@@ -88,31 +90,39 @@ public class AutoActionDialog extends JPanel {
     }
 
     /**
-     * Closes the veto from outside (e.g. the table hiding because the player left the game, or
-     * the hand ended): resolves as CANCELLED — the auto-action does not run — and closes the
-     * overlay. Idempotent, so it's harmless even if the countdown already resolved on its own.
+     * Closes the veto from outside (e.g. the table hiding because the player
+     * left the game, or the hand ended): resolves as CANCELLED — the
+     * auto-action does not run — and closes the overlay. Idempotent, so it's
+     * harmless even if the countdown already resolved on its own.
      */
     public void cancel() {
         resolve(true);
     }
 
     /**
-     * Accepts from outside (SPACE keyboard shortcut): runs the auto-action immediately, as if
-     * the countdown had expired. Idempotent, harmless if already resolved.
+     * Accepts from outside (SPACE keyboard shortcut): runs the auto-action
+     * immediately, as if the countdown had expired. Idempotent, harmless if
+     * already resolved.
      */
     public void accept() {
         resolve(false);
     }
 
     /**
-     * Builds the veto overlay; it is not shown until {@link #showOn(TablePanel)} is called.
+     * Builds the veto overlay; it is not shown until
+     * {@link #showOn(TablePanel)} is called.
      *
-     * @param center_over local seat used to vertically center the overlay in showOn()
-     * @param width_ref action button row used for the overlay's column and width in showOn()
+     * @param center_over local seat used to vertically center the overlay in
+     * showOn()
+     * @param width_ref action button row used for the overlay's column and
+     * width in showOn()
      * @param seconds countdown length in seconds
-     * @param action_text optional action label shown under the title; may be null/empty
-     * @param keep_waiting polled once per second; returning false aborts the countdown
-     * @param on_resolve callback run on the EDT with the resolution (true = cancelled, false = executed)
+     * @param action_text optional action label shown under the title; may be
+     * null/empty
+     * @param keep_waiting polled once per second; returning false aborts the
+     * countdown
+     * @param on_resolve callback run on the EDT with the resolution (true =
+     * cancelled, false = executed)
      */
     public AutoActionDialog(Component center_over, Component width_ref, int seconds, String action_text, BooleanSupplier keep_waiting, Consumer<Boolean> on_resolve) {
 
@@ -234,10 +244,11 @@ public class AutoActionDialog extends JPanel {
     }
 
     /**
-     * Mounts the veto as an overlay on the table (a {@link JLayeredPane}), anchored to the local
-     * seat's height and to the action row's column/width, in table coordinates. Replaces the old
-     * JDialog's screen-coordinate setLocation, which some Linux window managers ignored (the
-     * window would land at 0,0).
+     * Mounts the veto as an overlay on the table (a {@link JLayeredPane}),
+     * anchored to the local seat's height and to the action row's column/width,
+     * in table coordinates. Replaces the old JDialog's screen-coordinate
+     * setLocation, which some Linux window managers ignored (the window would
+     * land at 0,0).
      *
      * @param tapete table panel to mount the overlay on; no-op if null
      */

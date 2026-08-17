@@ -19,14 +19,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The client's socket reader queue used to be unbounded, so a hostile host could OOM its
- * clients. It now carries the same cap as the host (Participant.SOCKET_READER_QUEUE_CAPACITY)
- * plus the twin enqueue helpers. This pins the property that matters most and that a naive
- * cap would break: the close signal (POISON_PILL) still reaches the consumer even when the
- * queue is full, so bounding it does not reintroduce the "reader blocks on a full queue and
- * the table waits forever" bug that a plain put() would cause.
+ * The client's socket reader queue used to be unbounded, so a hostile host
+ * could OOM its clients. It now carries the same cap as the host
+ * (Participant.SOCKET_READER_QUEUE_CAPACITY) plus the twin enqueue helpers.
+ * This pins the property that matters most and that a naive cap would break:
+ * the close signal (POISON_PILL) still reaches the consumer even when the queue
+ * is full, so bounding it does not reintroduce the "reader blocks on a full
+ * queue and the table waits forever" bug that a plain put() would cause.
  *
- * encolarSenalCierre does not touch the WaitingRoomFrame, so a null one is fine here.
+ * encolarSenalCierre does not touch the WaitingRoomFrame, so a null one is fine
+ * here.
  */
 class NetClientQueueTest {
 

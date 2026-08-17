@@ -147,10 +147,11 @@ public class ImageCacheManager {
     /**
      * Downloads the resource to the local file system.
      *
-     * <p>Se baja a un temporal y solo al terminar se pone en su sitio: escribir
-     * directamente sobre el destino dejaba, si la descarga se cortaba, un fichero a
-     * medias que YA EXISTE, y a partir de ahi la imagen rota se daba por buena para
-     * siempre porque la cache solo mira si el fichero esta.
+     * <p>
+     * Se baja a un temporal y solo al terminar se pone en su sitio: escribir
+     * directamente sobre el destino dejaba, si la descarga se cortaba, un
+     * fichero a medias que YA EXISTE, y a partir de ahi la imagen rota se daba
+     * por buena para siempre porque la cache solo mira si el fichero esta.
      */
     private static boolean downloadImage(URL url, File destination) {
         File parent = destination.getParentFile();
@@ -193,13 +194,14 @@ public class ImageCacheManager {
     }
 
     /**
-     * Purga la cache de imagenes de chat si se ha pasado del tope, borrando de lo mas
-     * viejo a lo mas nuevo. El directorio no se limpiaba NUNCA: cada imagen que alguien
-     * pegara en el chat se quedaba ahi para siempre.
+     * Purga la cache de imagenes de chat si se ha pasado del tope, borrando de
+     * lo mas viejo a lo mas nuevo. El directorio no se limpiaba NUNCA: cada
+     * imagen que alguien pegara en el chat se quedaba ahi para siempre.
      *
-     * <p>Se llama al arrancar, antes de que nadie use la cache. Puede correr dos veces
-     * (el inicializador de Helpers y el arranque llaman los dos), y la segunda no
-     * encuentra nada que podar.
+     * <p>
+     * Se llama al arrancar, antes de que nadie use la cache. Puede correr dos
+     * veces (el inicializador de Helpers y el arranque llaman los dos), y la
+     * segunda no encuentra nada que podar.
      */
     public static void purgeCache() {
         try {

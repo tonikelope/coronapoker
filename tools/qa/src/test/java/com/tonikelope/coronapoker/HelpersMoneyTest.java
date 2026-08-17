@@ -48,7 +48,6 @@ public class HelpersMoneyTest {
     }
 
     // ----- float -> double money migration safety net -------------------------
-
     @Test
     void doubleCleanMatchesFloatCleanOnTheLegacyGridBelowCeiling() {
         // Byte-identity guarantee: the double money cleaner agrees with the legacy

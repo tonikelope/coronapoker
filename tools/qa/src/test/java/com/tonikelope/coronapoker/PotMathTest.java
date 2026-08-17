@@ -81,7 +81,6 @@ public class PotMathTest {
     }
 
     // ----- double money overload: float -> double migration safety net --------
-
     @Test
     void doubleSplitMatchesFloatCentForCentBelowCeiling() {
         // The double overload must divide pots to the same cents as the float

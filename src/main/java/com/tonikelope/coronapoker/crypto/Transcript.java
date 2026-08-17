@@ -21,22 +21,26 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 /**
- * Fiat–Shamir transcript for non-interactive proofs (verifiable-shuffle engine; see
- * {@code docs/SECURITY.md}). A running SHA-512 state that absorbs every public
- * value the proof depends on and derives challenges from it. Two correctness invariants the whole
- * soundness rests on, and that the test suite pins:
+ * Fiat–Shamir transcript for non-interactive proofs (verifiable-shuffle engine;
+ * see {@code docs/SECURITY.md}). A running SHA-512 state that absorbs every
+ * public value the proof depends on and derives challenges from it. Two
+ * correctness invariants the whole soundness rests on, and that the test suite
+ * pins:
  *
  * <ul>
- *   <li><b>Everything is bound.</b> Each absorb is framed and <b>length-prefixed</b>, so distinct
- *       inputs can never collide by concatenation ambiguity (e.g. {@code absorb("ab")} differs from
- *       {@code absorb("a") + absorb("b")}). An omitted or unframed value is the classic Fiat–Shamir
- *       hole; here every value passes through {@link #absorb}.</li>
- *   <li><b>Challenges advance the state.</b> Producing a challenge folds its output back into the
- *       state, so two challenges in a row are independent and a prover that already saw one
- *       challenge cannot replay it.</li>
+ * <li><b>Everything is bound.</b> Each absorb is framed and
+ * <b>length-prefixed</b>, so distinct inputs can never collide by concatenation
+ * ambiguity (e.g. {@code absorb("ab")} differs from
+ * {@code absorb("a") + absorb("b")}). An omitted or unframed value is the
+ * classic Fiat–Shamir hole; here every value passes through
+ * {@link #absorb}.</li>
+ * <li><b>Challenges advance the state.</b> Producing a challenge folds its
+ * output back into the state, so two challenges in a row are independent and a
+ * prover that already saw one challenge cannot replay it.</li>
  * </ul>
  *
- * Domain-separated by construction. Not thread-safe (a transcript is a single proof's running state).
+ * Domain-separated by construction. Not thread-safe (a transcript is a single
+ * proof's running state).
  */
 public final class Transcript {
 
@@ -53,7 +57,10 @@ public final class Transcript {
     // Transcript is not thread-safe (one proof's state), so one digest per instance is safe.
     private final MessageDigest md;
 
-    /** Starts a fresh transcript, domain-separated on {@code domain} (empty string if null). */
+    /**
+     * Starts a fresh transcript, domain-separated on {@code domain} (empty
+     * string if null).
+     */
     public Transcript(String domain) {
         if (domain == null) {
             domain = "";
@@ -74,7 +81,10 @@ public final class Transcript {
         return md.digest();
     }
 
-    /** Big-endian 8-byte length prefix + payload, so framed fields are unambiguous. */
+    /**
+     * Big-endian 8-byte length prefix + payload, so framed fields are
+     * unambiguous.
+     */
     private static byte[] lenPrefixed(byte[] data) {
         byte[] out = new byte[8 + data.length];
         long len = data.length;
@@ -85,7 +95,10 @@ public final class Transcript {
         return out;
     }
 
-    /** Absorb a labelled public value into the transcript (both label and data are length-framed). */
+    /**
+     * Absorb a labelled public value into the transcript (both label and data
+     * are length-framed).
+     */
     public void absorb(String label, byte[] data) {
         if (label == null) {
             label = "";
@@ -98,12 +111,17 @@ public final class Transcript {
                 lenPrefixed(data));
     }
 
-    /** Absorb a Ristretto point by its canonical encoding. */
+    /**
+     * Absorb a Ristretto point by its canonical encoding.
+     */
     public void absorbPoint(String label, EdwardsPoint p) {
         absorb(label, Ristretto255.encode(p));
     }
 
-    /** Absorb a scalar (reduced mod L, fixed 32-byte big-endian) so equal scalars frame equally. */
+    /**
+     * Absorb a scalar (reduced mod L, fixed 32-byte big-endian) so equal
+     * scalars frame equally.
+     */
     public void absorbScalar(String label, BigInteger s) {
         byte[] mod = s.mod(EdwardsPoint.L).toByteArray();
         byte[] fixed = new byte[32];
@@ -112,7 +130,10 @@ public final class Transcript {
         absorb(label, fixed);
     }
 
-    /** {@code n} pseudo-random challenge bytes bound to the current state, then fold them back in. */
+    /**
+     * {@code n} pseudo-random challenge bytes bound to the current state, then
+     * fold them back in.
+     */
     public byte[] challengeBytes(String label, int n) {
         if (label == null) {
             label = "";
@@ -135,7 +156,10 @@ public final class Transcript {
         return out;
     }
 
-    /** A challenge scalar uniform in {@code [0, L)} (64 bytes reduced mod L; negligible bias). */
+    /**
+     * A challenge scalar uniform in {@code [0, L)} (64 bytes reduced mod L;
+     * negligible bias).
+     */
     public BigInteger challengeScalar(String label) {
         return new BigInteger(1, challengeBytes(label, 64)).mod(EdwardsPoint.L);
     }

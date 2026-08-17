@@ -63,10 +63,11 @@ import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
 
 /**
- * Dialog for creating a new local game (host + bots) or joining a remote one: collects
- * nick/avatar/password, blind structure and buy-in rules, rebuy/rabbit/IWTSTH/run-it-twice
- * settings, and optional game presets. Also drives the "recover previous game" flow, which
- * loads and locks the recovered game's economy while leaving its "Game" settings editable.
+ * Dialog for creating a new local game (host + bots) or joining a remote one:
+ * collects nick/avatar/password, blind structure and buy-in rules,
+ * rebuy/rabbit/IWTSTH/run-it-twice settings, and optional game presets. Also
+ * drives the "recover previous game" flow, which loads and locks the recovered
+ * game's economy while leaving its "Game" settings editable.
  *
  * @author tonikelope
  */
@@ -181,7 +182,8 @@ public class NewGameDialog extends JDialog {
      *
      * @param parent owner frame
      * @param modal whether the dialog blocks input to the owner
-     * @param loc {@code true} for "create game" (host, local), {@code false} for "join game"
+     * @param loc {@code true} for "create game" (host, local), {@code false}
+     * for "join game"
      */
     public NewGameDialog(java.awt.Frame parent, boolean modal, boolean loc) {
         super(parent, modal);
@@ -465,12 +467,12 @@ public class NewGameDialog extends JDialog {
     }
 
     /**
-     * Titled borders for the four configuration groups (blinds, buy-in, game and
-     * bots), so each block reads on its own. A TitledBorder is not a component, so
-     * Helpers.updateFonts cannot reach it: the title font is set here from an
-     * already-scaled label font (same approach as SettingsDialog). Must be
-     * called after Helpers.updateFonts and before pack() so the border insets are
-     * accounted for in the dialog's preferred size.
+     * Titled borders for the four configuration groups (blinds, buy-in, game
+     * and bots), so each block reads on its own. A TitledBorder is not a
+     * component, so Helpers.updateFonts cannot reach it: the title font is set
+     * here from an already-scaled label font (same approach as SettingsDialog).
+     * Must be called after Helpers.updateFonts and before pack() so the border
+     * insets are accounted for in the dialog's preferred size.
      */
     private javax.swing.JLabel ante_label;
 
@@ -624,12 +626,18 @@ public class NewGameDialog extends JDialog {
         }
     }
 
-    /** EDT. Sets "Vamos" enabled iff nick + server IP + port are all filled (the normal condition). */
+    /**
+     * EDT. Sets "Vamos" enabled iff nick + server IP + port are all filled (the
+     * normal condition).
+     */
     private void restoreVamosEnabled() {
         vamos.setEnabled(!nick.getText().isBlank() && !server_ip_textfield.getText().isBlank() && !server_port_textfield.getText().isBlank());
     }
 
-    /** EDT. Populates the dialog fields from the recovered game's row (read off the EDT). */
+    /**
+     * EDT. Populates the dialog fields from the recovered game's row (read off
+     * the EDT).
+     */
     private void applyLoadedLastGame(int id, long start, String server, String settings, boolean rebuy) {
         Timestamp ts = new Timestamp(start);
         DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
@@ -784,6 +792,7 @@ public class NewGameDialog extends JDialog {
             public void windowActivated(java.awt.event.WindowEvent evt) {
                 formWindowActivated(evt);
             }
+
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
             }
@@ -848,31 +857,31 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout url_panelLayout = new javax.swing.GroupLayout(url_panel);
         url_panel.setLayout(url_panelLayout);
         url_panelLayout.setHorizontalGroup(
-            url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(url_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(server_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(server_ip_textfield, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGap(0, 0, 0)
-                .addComponent(server_port_puntos)
-                .addGap(0, 0, 0)
-                .addComponent(server_port_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(upnp_row))
+                url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(url_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(server_label)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(server_ip_textfield, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addGap(0, 0, 0)
+                                .addComponent(server_port_puntos)
+                                .addGap(0, 0, 0)
+                                .addComponent(server_port_textfield, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(upnp_row))
         );
         url_panelLayout.setVerticalGroup(
-            url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-            .addGroup(javax.swing.GroupLayout.Alignment.LEADING, url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                .addComponent(server_ip_textfield, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(server_label))
-            .addGroup(url_panelLayout.createSequentialGroup()
-                .addGap(0, 0, Short.MAX_VALUE)
-                .addComponent(upnp_row))
-            .addGroup(javax.swing.GroupLayout.Alignment.LEADING, url_panelLayout.createSequentialGroup()
-                .addComponent(server_port_puntos)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addComponent(server_port_textfield)
+                url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                        .addGroup(javax.swing.GroupLayout.Alignment.LEADING, url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(server_ip_textfield, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(server_label))
+                        .addGroup(url_panelLayout.createSequentialGroup()
+                                .addGap(0, 0, Short.MAX_VALUE)
+                                .addComponent(upnp_row))
+                        .addGroup(javax.swing.GroupLayout.Alignment.LEADING, url_panelLayout.createSequentialGroup()
+                                .addComponent(server_port_puntos)
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addComponent(server_port_textfield)
         );
 
         server_label.putClientProperty("i18n.key", "ui.servidor");
@@ -915,28 +924,28 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout presets_panelLayout = new javax.swing.GroupLayout(presets_panel);
         presets_panel.setLayout(presets_panelLayout);
         presets_panelLayout.setHorizontalGroup(
-            presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(presets_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(preset_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(presets_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(preset_save_button)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(preset_delete_button)
-                .addContainerGap())
+                presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(presets_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(preset_label)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(presets_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(preset_save_button)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(preset_delete_button)
+                                .addContainerGap())
         );
         presets_panelLayout.setVerticalGroup(
-            presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(presets_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(preset_label)
-                    .addComponent(presets_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(32 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(preset_save_button)
-                    .addComponent(preset_delete_button))
-                .addContainerGap())
+                presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(presets_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(preset_label)
+                                        .addComponent(presets_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(32 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(preset_save_button)
+                                        .addComponent(preset_delete_button))
+                                .addContainerGap())
         );
 
         config_partida_panel.setOpaque(false);
@@ -960,7 +969,7 @@ public class NewGameDialog extends JDialog {
         ciegas_label.setDoubleBuffered(true);
 
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,10 / 0,20":"0.10 / 0.20", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,20 / 0,40":"0.20 / 0.40", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,30 / 0,60":"0.30 / 0.60", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,50 / 1":"0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000" }));
+        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,10 / 0,20" : "0.10 / 0.20", GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,20 / 0,40" : "0.20 / 0.40", GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,30 / 0,60" : "0.30 / 0.60", GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,50 / 1" : "0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000"}));
         ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ciegas_combobox.setDoubleBuffered(true);
         ciegas_combobox.addActionListener(new java.awt.event.ActionListener() {
@@ -1035,46 +1044,46 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout aumento_panelLayout = new javax.swing.GroupLayout(aumento_panel);
         aumento_panel.setLayout(aumento_panelLayout);
         aumento_panelLayout.setHorizontalGroup(
-            aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(aumento_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // "Aumentar ciegas" = cabecera (sin sangrar); sus sub-opciones van sangradas
-                    .addComponent(doblar_row)
-                    .addGroup(aumento_panelLayout.createSequentialGroup()
-                        .addGap(Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM))
-                        .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(double_blinds_radio_manos)
-                            .addComponent(double_blinds_radio_minutos)
-                            .addComponent(blind_cap_row))))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(160 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(160 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(blind_cap_label)
-                    .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
+                aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(aumento_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        // "Aumentar ciegas" = cabecera (sin sangrar); sus sub-opciones van sangradas
+                                        .addComponent(doblar_row)
+                                        .addGroup(aumento_panelLayout.createSequentialGroup()
+                                                .addGap(Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM))
+                                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(double_blinds_radio_manos)
+                                                        .addComponent(double_blinds_radio_minutos)
+                                                        .addComponent(blind_cap_row))))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                        .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(160 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(160 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(blind_cap_label)
+                                        .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addContainerGap())
         );
         aumento_panelLayout.setVerticalGroup(
-            aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(aumento_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(doblar_row)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(double_blinds_radio_manos)
-                    .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(double_blinds_radio_minutos)
-                    .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(blind_cap_row)
-                    .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(blind_cap_label)
-                .addContainerGap())
+                aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(aumento_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(doblar_row)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(double_blinds_radio_manos)
+                                        .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(double_blinds_radio_minutos)
+                                        .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(blind_cap_row)
+                                        .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(blind_cap_label)
+                                .addContainerGap())
         );
 
         doblar_label.putClientProperty("i18n.key", "stats.aumentar_ciegas");
@@ -1106,43 +1115,43 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);
         ciegas_panelLayout.setHorizontalGroup(
-            ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(ciegas_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(ciegas_panelLayout.createSequentialGroup()
-                        .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(estructura_label)
-                            .addComponent(ciegas_label))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(estructura_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                    .addComponent(aumento_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(ciegas_panelLayout.createSequentialGroup()
-                        .addComponent(ante_row)
-                        .addGap(Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM))
-                        .addComponent(straddle_row)))
-                .addContainerGap())
+                ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(ciegas_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addGroup(ciegas_panelLayout.createSequentialGroup()
+                                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(estructura_label)
+                                                        .addComponent(ciegas_label))
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(estructura_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                                        .addComponent(aumento_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addGroup(ciegas_panelLayout.createSequentialGroup()
+                                                .addComponent(ante_row)
+                                                .addGap(Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(straddle_row)))
+                                .addContainerGap())
         );
         ciegas_panelLayout.setVerticalGroup(
-            ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(ciegas_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(estructura_label)
-                    .addComponent(estructura_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(32 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(ciegas_label)
-                    .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(32 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(aumento_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(ante_row)
-                    .addComponent(straddle_row))
-                .addContainerGap())
+                ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(ciegas_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(estructura_label)
+                                        .addComponent(estructura_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(32 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(ciegas_label)
+                                        .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(32 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(aumento_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(ante_row)
+                                        .addComponent(straddle_row))
+                                .addContainerGap())
         );
 
         estructura_label.putClientProperty("i18n.key", "blinds.estructura");
@@ -1251,45 +1260,45 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout recompra_panelLayout = new javax.swing.GroupLayout(recompra_panel);
         recompra_panel.setLayout(recompra_panelLayout);
         recompra_panelLayout.setHorizontalGroup(
-            recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(recompra_panelLayout.createSequentialGroup()
-                .addGap(Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM))
-                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // "Recomprar" = cabecera del bloque (sin sangrar)
-                    .addGroup(recompra_panelLayout.createSequentialGroup()
-                        .addComponent(recomprar_label)
-                        .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
-                        .addComponent(rebuy_checkbox))
-                    // Sub-opciones de "Recomprar" (limite + tope) sangradas a la derecha
-                    .addGroup(recompra_panelLayout.createSequentialGroup()
-                        .addGap(Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM))
-                        .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(recompra_panelLayout.createSequentialGroup()
-                                .addComponent(rebuy_limit_row)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(recompra_panelLayout.createSequentialGroup()
-                                .addComponent(rebuy_cap_label)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
-                .addContainerGap())
+                recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                .addGap(Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM), Math.round(10 * Helpers.DIALOG_ZOOM))
+                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        // "Recomprar" = cabecera del bloque (sin sangrar)
+                                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                                .addComponent(recomprar_label)
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(rebuy_checkbox))
+                                        // Sub-opciones de "Recomprar" (limite + tope) sangradas a la derecha
+                                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                                .addGap(Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM), Math.round(22 * Helpers.DIALOG_ZOOM))
+                                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                                                .addComponent(rebuy_limit_row)
+                                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                                .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(80 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                                                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                                                .addComponent(rebuy_cap_label)
+                                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                                .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                                .addContainerGap())
         );
         recompra_panelLayout.setVerticalGroup(
-            recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(recompra_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(rebuy_checkbox)
-                    .addComponent(recomprar_label))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(rebuy_limit_row)
-                    .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(rebuy_cap_label)
-                    .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
+                recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(rebuy_checkbox)
+                                        .addComponent(recomprar_label))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(rebuy_limit_row)
+                                        .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(rebuy_cap_label)
+                                        .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addContainerGap())
         );
 
         recomprar_label.putClientProperty("i18n.key", "rebuy.recomprar_2");
@@ -1299,48 +1308,48 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout compra_panelLayout = new javax.swing.GroupLayout(compra_panel);
         compra_panel.setLayout(compra_panelLayout);
         compra_panelLayout.setHorizontalGroup(
-            compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(compra_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(recompra_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(compra_panelLayout.createSequentialGroup()
-                        .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(buyin_label)
-                            .addComponent(buyin_range_label))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(buyin_spinner)
-                            .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE))
-                        .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(compra_panelLayout.createSequentialGroup()
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(buyin_range_sep_label)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(compra_panelLayout.createSequentialGroup()
-                                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
-                                .addComponent(fixed_buyin_row)))
-                        .addGap(0, 0, Short.MAX_VALUE)))
-                .addContainerGap())
+                compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(recompra_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(buyin_label)
+                                                        .addComponent(buyin_range_label))
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                                        .addComponent(buyin_spinner)
+                                                        .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE))
+                                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                                .addComponent(buyin_range_sep_label)
+                                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                                .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(90 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                                                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                                                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
+                                                                .addComponent(fixed_buyin_row)))
+                                                .addGap(0, 0, Short.MAX_VALUE)))
+                                .addContainerGap())
         );
         compra_panelLayout.setVerticalGroup(
-            compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(compra_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(buyin_label)
-                    .addComponent(buyin_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(fixed_buyin_row))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(buyin_range_label)
-                    .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(buyin_range_sep_label)
-                    .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(recompra_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(buyin_label)
+                                        .addComponent(buyin_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(fixed_buyin_row))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(buyin_range_label)
+                                        .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(buyin_range_sep_label)
+                                        .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(recompra_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         buyin_label.putClientProperty("i18n.key", "blinds.compra_inicial");
@@ -1450,75 +1459,75 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout partida_panelLayout = new javax.swing.GroupLayout(partida_panel);
         partida_panel.setLayout(partida_panelLayout);
         partida_panelLayout.setHorizontalGroup(
-            partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(partida_panelLayout.createSequentialGroup()
-                .addGap(Math.round(11 * Helpers.DIALOG_ZOOM), Math.round(11 * Helpers.DIALOG_ZOOM), Math.round(11 * Helpers.DIALOG_ZOOM))
-                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // Limite de manos / Tiempo de pensar / Tiempo de showdown comparten tres
-                    // columnas (etiqueta | toggle | spinner) para que los TRES spinners queden
-                    // alineados por su borde izquierdo. Showdown no tiene toggle: deja el hueco
-                    // en la columna de toggle, entre su etiqueta y su spinner.
-                    .addGroup(partida_panelLayout.createSequentialGroup()
-                        .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(limite_manos_label)
-                            .addComponent(think_time_label)
-                            .addComponent(showdown_time_label))
-                        .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
-                        .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(manos_checkbox)
-                            .addComponent(think_time_checkbox))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)))
-                    .addGroup(partida_panelLayout.createSequentialGroup()
-                        .addComponent(iwtsth_icon)
-                        .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
-                        .addComponent(iwtsth_checkbox))
-                    .addGroup(partida_panelLayout.createSequentialGroup()
-                        .addComponent(rit_icon)
-                        .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
-                        .addComponent(rit_checkbox))
-                    .addGroup(partida_panelLayout.createSequentialGroup()
-                        .addComponent(rabbit_icon)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(rabbit_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(partida_panelLayout.createSequentialGroup()
+                                .addGap(Math.round(11 * Helpers.DIALOG_ZOOM), Math.round(11 * Helpers.DIALOG_ZOOM), Math.round(11 * Helpers.DIALOG_ZOOM))
+                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        // Limite de manos / Tiempo de pensar / Tiempo de showdown comparten tres
+                                        // columnas (etiqueta | toggle | spinner) para que los TRES spinners queden
+                                        // alineados por su borde izquierdo. Showdown no tiene toggle: deja el hueco
+                                        // en la columna de toggle, entre su etiqueta y su spinner.
+                                        .addGroup(partida_panelLayout.createSequentialGroup()
+                                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(limite_manos_label)
+                                                        .addComponent(think_time_label)
+                                                        .addComponent(showdown_time_label))
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(manos_checkbox)
+                                                        .addComponent(think_time_checkbox))
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                        .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                        .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(140 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                        .addGroup(partida_panelLayout.createSequentialGroup()
+                                                .addComponent(iwtsth_icon)
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(iwtsth_checkbox))
+                                        .addGroup(partida_panelLayout.createSequentialGroup()
+                                                .addComponent(rit_icon)
+                                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(rit_checkbox))
+                                        .addGroup(partida_panelLayout.createSequentialGroup()
+                                                .addComponent(rabbit_icon)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addComponent(rabbit_label)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         partida_panelLayout.setVerticalGroup(
-            partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(partida_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(manos_checkbox)
-                    .addComponent(limite_manos_label)
-                    .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
-                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(think_time_checkbox)
-                    .addComponent(think_time_label)
-                    .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
-                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(showdown_time_label)
-                    .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
-                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(iwtsth_icon)
-                    .addComponent(iwtsth_checkbox))
-                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
-                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(rit_icon)
-                    .addComponent(rit_checkbox))
-                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
-                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(rabbit_icon)
-                    .addComponent(rabbit_label)
-                    .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(partida_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(manos_checkbox)
+                                        .addComponent(limite_manos_label)
+                                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
+                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(think_time_checkbox)
+                                        .addComponent(think_time_label)
+                                        .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
+                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(showdown_time_label)
+                                        .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
+                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(iwtsth_icon)
+                                        .addComponent(iwtsth_checkbox))
+                                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
+                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(rit_icon)
+                                        .addComponent(rit_checkbox))
+                                .addGap(Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM), Math.round(12 * Helpers.DIALOG_ZOOM))
+                                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(rabbit_icon)
+                                        .addComponent(rabbit_label)
+                                        .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         limite_manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
@@ -1554,33 +1563,33 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout bots_panelLayout = new javax.swing.GroupLayout(bots_panel);
         bots_panel.setLayout(bots_panelLayout);
         bots_panelLayout.setHorizontalGroup(
-            bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(bots_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(bots_panelLayout.createSequentialGroup()
-                        .addComponent(bots_avatar_label)
-                        .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
-                        .addComponent(bots_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(bot_rebuy_row)
-                    .addComponent(bot_balance_row))
-                .addContainerGap(Math.round(72 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE))
+                bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(bots_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addGroup(bots_panelLayout.createSequentialGroup()
+                                                .addComponent(bots_avatar_label)
+                                                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(bots_label)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                        .addComponent(bot_rebuy_row)
+                                        .addComponent(bot_balance_row))
+                                .addContainerGap(Math.round(72 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE))
         );
         bots_panelLayout.setVerticalGroup(
-            bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(bots_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(bots_avatar_label)
-                    .addComponent(bots_label)
-                    .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(bot_rebuy_row)
-                .addGap(Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM))
-                .addComponent(bot_balance_row)
-                .addContainerGap())
+                bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(bots_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(bots_avatar_label)
+                                        .addComponent(bots_label)
+                                        .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(bot_rebuy_row)
+                                .addGap(Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM))
+                                .addComponent(bot_balance_row)
+                                .addContainerGap())
         );
 
         bot_rebuy_label.putClientProperty("i18n.key", "rebuy.permitir_bots");
@@ -1599,34 +1608,34 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout config_partida_panelLayout = new javax.swing.GroupLayout(config_partida_panel);
         config_partida_panel.setLayout(config_partida_panelLayout);
         config_partida_panelLayout.setHorizontalGroup(
-            config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(config_partida_panelLayout.createSequentialGroup()
-                // Left column (Buy-in on top, Game below). Fillable: absorbs the leftover width
-                // instead of shrinking to its content and leaving the gap in a central spring +
-                // another at the end (variable whitespace).
-                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(compra_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(partida_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                // Fixed gap between columns = platform RELATED gap (same PREFERRED width as the old
-                // central spring, so the dialog isn't widened); the fillable columns absorb the
-                // leftover instead of leaving whitespace on the right.
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                // Right column (Blinds on top, Bots below), also fillable
-                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(bots_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(ciegas_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(config_partida_panelLayout.createSequentialGroup()
+                                // Left column (Buy-in on top, Game below). Fillable: absorbs the leftover width
+                                // instead of shrinking to its content and leaving the gap in a central spring +
+                                // another at the end (variable whitespace).
+                                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(compra_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(partida_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                // Fixed gap between columns = platform RELATED gap (same PREFERRED width as the old
+                                // central spring, so the dialog isn't widened); the fillable columns absorb the
+                                // leftover instead of leaving whitespace on the right.
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                // Right column (Blinds on top, Bots below), also fillable
+                                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(bots_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(ciegas_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         config_partida_panelLayout.setVerticalGroup(
-            config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(config_partida_panelLayout.createSequentialGroup()
-                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(compra_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(ciegas_card, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(partida_card, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(bots_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
+                config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(config_partida_panelLayout.createSequentialGroup()
+                                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(compra_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(ciegas_card, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(partida_card, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(bots_card, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addContainerGap())
         );
 
         nick.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
@@ -1671,34 +1680,34 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout nick_pass_panelLayout = new javax.swing.GroupLayout(nick_pass_panel);
         nick_pass_panel.setLayout(nick_pass_panelLayout);
         nick_pass_panelLayout.setHorizontalGroup(
-            nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(nick_pass_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(avatar_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(password)
-                    .addComponent(nick_label))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(nick)
-                    .addComponent(pass_text))
-                .addGap(0, 0, 0))
+                nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(nick_pass_panelLayout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addComponent(avatar_label)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(password)
+                                        .addComponent(nick_label))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(nick)
+                                        .addComponent(pass_text))
+                                .addGap(0, 0, 0))
         );
         nick_pass_panelLayout.setVerticalGroup(
-            nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(nick_pass_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(nick_pass_panelLayout.createSequentialGroup()
-                        .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(nick_label)
-                            .addComponent(nick, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(password)
-                            .addComponent(pass_text, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(nick_pass_panelLayout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                        .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addGroup(nick_pass_panelLayout.createSequentialGroup()
+                                                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                                        .addComponent(nick_label)
+                                                        .addComponent(nick, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                                .addGroup(nick_pass_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                                        .addComponent(password)
+                                                        .addComponent(pass_text, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
         );
 
         password.putClientProperty("i18n.key", "ui.password");
@@ -1728,24 +1737,24 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout recover_panelLayout = new javax.swing.GroupLayout(recover_panel);
         recover_panel.setLayout(recover_panelLayout);
         recover_panelLayout.setHorizontalGroup(
-            recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(recover_panelLayout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(recover_checkbox_label)
-                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
-                .addComponent(recover_checkbox)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(game_label)
-                .addGap(Math.round(85 * Helpers.DIALOG_ZOOM), Math.round(85 * Helpers.DIALOG_ZOOM), Math.round(85 * Helpers.DIALOG_ZOOM)))
+                recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(recover_panelLayout.createSequentialGroup()
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(recover_checkbox_label)
+                                .addGap(Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM), Math.round(8 * Helpers.DIALOG_ZOOM))
+                                .addComponent(recover_checkbox)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(game_label)
+                                .addGap(Math.round(85 * Helpers.DIALOG_ZOOM), Math.round(85 * Helpers.DIALOG_ZOOM), Math.round(85 * Helpers.DIALOG_ZOOM)))
         );
         recover_panelLayout.setVerticalGroup(
-            recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(recover_panelLayout.createSequentialGroup()
-                .addGroup(recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                    .addComponent(recover_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(recover_checkbox_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(game_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(0, 0, Short.MAX_VALUE))
+                recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(recover_panelLayout.createSequentialGroup()
+                                .addGroup(recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                        .addComponent(recover_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(recover_checkbox_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(game_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         cancel_button.setBackground(new java.awt.Color(204, 0, 0));
@@ -1763,25 +1772,25 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
         main_panel.setLayout(main_panelLayout);
         main_panelLayout.setHorizontalGroup(
-            main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(url_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(presets_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(recover_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(url_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(presets_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(recover_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         main_panelLayout.setVerticalGroup(
-            main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(main_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(url_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(recover_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(presets_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGap(0, 0, 0))
+                main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(main_panelLayout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addComponent(url_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(recover_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(presets_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addGap(0, 0, 0))
         );
 
         scroll_panel.setViewportView(main_panel);
@@ -1797,49 +1806,49 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(scroll_panel)
-                .addContainerGap())
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addContainerGap())
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(400 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(400 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
-                .addContainerGap())
-            .addComponent(titulo_ventana, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(scroll_panel)
+                                .addContainerGap())
+                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addContainerGap())
+                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(400 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(400 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
+                                .addContainerGap())
+                        .addComponent(titulo_ventana, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addComponent(titulo_ventana)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
+                jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addComponent(titulo_ventana)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                        .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addContainerGap())
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         pack();
@@ -2240,9 +2249,10 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_recover_checkboxActionPerformed
 
     /**
-     * EDT. Applies the "recover selected" UI state: locks the fixed game economy (buy-in, blinds,
-     * structure, ante/straddle, presets), keeps the editable game settings enabled, and shows the
-     * recovered game key. Assumes {@code last_game_key} is already set (by applyLoadedLastGame).
+     * EDT. Applies the "recover selected" UI state: locks the fixed game
+     * economy (buy-in, blinds, structure, ante/straddle, presets), keeps the
+     * editable game settings enabled, and shows the recovered game key. Assumes
+     * {@code last_game_key} is already set (by applyLoadedLastGame).
      */
     private void applyRecoverSelectedUi() {
         this.game_label.setText(this.last_game_key);
@@ -2331,7 +2341,10 @@ public class NewGameDialog extends JDialog {
         }
     }
 
-    /** EDT. Shown when there is no recoverable game: unticks and disables the recover checkbox. */
+    /**
+     * EDT. Shown when there is no recoverable game: unticks and disables the
+     * recover checkbox.
+     */
     private void showNoRecoverableGamesUi() {
         this.recover_checkbox_label.setOpaque(false);
         this.recover_checkbox_label.setBackground(null);
@@ -2644,7 +2657,6 @@ public class NewGameDialog extends JDialog {
     // blind_cap_label shows the resulting level live. Internally GameFrame.BLIND_CAP is
     // still the big blind of that level (double), so the blind-freezing / recover /
     // network logic doesn't change.
-
     // Big blind (second number) of a levels-combo item.
     private double parseBlindLevelBB(String item) {
         return Double.parseDouble(item.replace(",", ".").split("/")[1].trim());
@@ -2927,7 +2939,6 @@ public class NewGameDialog extends JDialog {
     // touches GameFrame: the buy-in range and rebuy-cap policy go through the dialog's own
     // local working store instead (working_min_bb/working_max_bb, see
     // initBuyinRangeAndCapUI). Loading a preset and then canceling leaves no trace.
-
     private static final int MAX_PRESET_NAME_LENGTH = 40;
     // Suppresses loading while repopulating the combo, or whenever the internal guard requires it.
     private boolean suppress_preset_combo = false;

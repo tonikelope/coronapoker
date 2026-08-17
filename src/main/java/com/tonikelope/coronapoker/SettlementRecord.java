@@ -29,7 +29,8 @@ import java.util.List;
  * closing receipt. Two peers that disagree on the money produce a different
  * {@code H_final} and the divergence surfaces in the consensus check.
  *
- * <p>Production byte layout (v2; all multi-byte integers big-endian,
+ * <p>
+ * Production byte layout (v2; all multi-byte integers big-endian,
  * host-independent):
  *
  * <pre>
@@ -44,35 +45,46 @@ import java.util.List;
  *    26+N*48 8              CLOSING_REMAINDER Carry leaving this hand
  * </pre>
  *
- * <p>The three-argument {@link #encode(byte[], List, long)} method retains the
+ * <p>
+ * The three-argument {@link #encode(byte[], List, long)} method retains the
  * original unversioned layout for reading historical fixtures and records. New
  * settlement consensus must use the four-argument v2 encoder.
  *
- * <p>Determinism guarantees, mirroring {@link CanonicalActionRecord}:
+ * <p>
+ * Determinism guarantees, mirroring {@link CanonicalActionRecord}:
  * <ul>
- *   <li>Entries are sorted by {@code player_id} (unsigned), so map iteration
- *       order or join order never changes the bytes.</li>
- *   <li>Chip amounts arrive already converted to integer cents via
- *       {@link CanonicalActionRecord#amountToCents(float)} (double-widened, kills
- *       IEEE-754 float jitter); this class only accepts the integer values.</li>
- *   <li>Big-endian encoding is independent of host byte order.</li>
+ * <li>Entries are sorted by {@code player_id} (unsigned), so map iteration
+ * order or join order never changes the bytes.</li>
+ * <li>Chip amounts arrive already converted to integer cents via
+ * {@link CanonicalActionRecord#amountToCents(float)} (double-widened, kills
+ * IEEE-754 float jitter); this class only accepts the integer values.</li>
+ * <li>Big-endian encoding is independent of host byte order.</li>
  * </ul>
  *
- * <p>This class is the single source of truth for the layout; callers MUST NOT
+ * <p>
+ * This class is the single source of truth for the layout; callers MUST NOT
  * recreate it inline.
  */
 public final class SettlementRecord {
 
-    /** Settlement transcript format carrying both opening and closing remainder. */
+    /**
+     * Settlement transcript format carrying both opening and closing remainder.
+     */
     public static final int FORMAT_VERSION = 2;
 
-    /** Length in bytes of {@code HAND_ID}. */
+    /**
+     * Length in bytes of {@code HAND_ID}.
+     */
     public static final int HAND_ID_BYTES = CanonicalActionRecord.HAND_ID_BYTES;
 
-    /** Length in bytes of a {@code PLAYER_ID}. */
+    /**
+     * Length in bytes of a {@code PLAYER_ID}.
+     */
     public static final int PLAYER_ID_BYTES = CanonicalActionRecord.HASH_BYTES;
 
-    /** Size in bytes of a single settled-participant entry. */
+    /**
+     * Size in bytes of a single settled-participant entry.
+     */
     public static final int ENTRY_BYTES = PLAYER_ID_BYTES + 8 + 8;
 
     private SettlementRecord() {
@@ -121,14 +133,16 @@ public final class SettlementRecord {
     /**
      * Encodes the settlement table into its canonical byte form.
      *
-     * <p>The returned array is fresh on every call and never null. Entries are
-     * sorted by {@code player_id} internally, so the caller may pass them in any
-     * order. Duplicate {@code player_id}s are rejected (each participant settles
-     * exactly once).
+     * <p>
+     * The returned array is fresh on every call and never null. Entries are
+     * sorted by {@code player_id} internally, so the caller may pass them in
+     * any order. Duplicate {@code player_id}s are rejected (each participant
+     * settles exactly once).
      *
-     * @param handId        per-hand identifier from the host, exactly 16 bytes
-     * @param entries       one {@link Entry} per settled participant, 1..255 of them
-     * @param sobranteCents odd-chip remainder not credited to any player, {@code >= 0}
+     * @param handId per-hand identifier from the host, exactly 16 bytes
+     * @param entries one {@link Entry} per settled participant, 1..255 of them
+     * @param sobranteCents odd-chip remainder not credited to any player,
+     * {@code >= 0}
      * @return the canonical settlement-table bytes
      */
     public static byte[] encode(byte[] handId, List<Entry> entries, long sobranteCents) {
@@ -236,7 +250,8 @@ public final class SettlementRecord {
 
     /**
      * Exact conservation check including chips carried into this hand from the
-     * previous one: paid + closing remainder = contributions + opening remainder.
+     * previous one: paid + closing remainder = contributions + opening
+     * remainder.
      */
     public static boolean amountsBalance(List<Entry> entries, long openingRemainderCents,
             long closingRemainderCents) {
@@ -287,7 +302,7 @@ public final class SettlementRecord {
     }
 
     private static void writeInt64BE(byte[] buf, int offset, long v) {
-        buf[offset]     = (byte) ((v >>> 56) & 0xFF);
+        buf[offset] = (byte) ((v >>> 56) & 0xFF);
         buf[offset + 1] = (byte) ((v >>> 48) & 0xFF);
         buf[offset + 2] = (byte) ((v >>> 40) & 0xFF);
         buf[offset + 3] = (byte) ((v >>> 32) & 0xFF);

@@ -21,20 +21,26 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 
 /**
- * "Game settings" content for the WAITING ROOM, as a tab of the unified settings dialog. Lets
- * the HOST configure the game before it starts: blinds + rules (like the live Game tab), plus
- * buy-in, rebuy, bots and presets, none of which can change mid-game.
+ * "Game settings" content for the WAITING ROOM, as a tab of the unified
+ * settings dialog. Lets the HOST configure the game before it starts: blinds +
+ * rules (like the live Game tab), plus buy-in, rebuy, bots and presets, none of
+ * which can change mid-game.
  *
- * <p>Unlike {@link GameSettingsPanel} (the live Game tab, which operates on the Crupier and
- * broadcasts changes immediately), there is no Crupier or GameFrame instance here: the panel
- * works directly on the static {@code GameFrame.*} fields. {@link GamePreset.Settings} is the
- * single carrier: the HOST populates it via {@link GamePreset.Settings#fromGameFrame()} and,
- * on SAVE, writes it back with {@link GamePreset.Settings#applyToGameFrame(boolean)} and
- * broadcasts the full config to clients (mirror). For CLIENTS the panel is READ-ONLY, populated
- * from the received mirror ({@link WaitingRoomFrame#GAMECONFIG_MIRROR}).
+ * <p>
+ * Unlike {@link GameSettingsPanel} (the live Game tab, which operates on the
+ * Crupier and broadcasts changes immediately), there is no Crupier or GameFrame
+ * instance here: the panel works directly on the static {@code GameFrame.*}
+ * fields. {@link GamePreset.Settings} is the single carrier: the HOST populates
+ * it via {@link GamePreset.Settings#fromGameFrame()} and, on SAVE, writes it
+ * back with {@link GamePreset.Settings#applyToGameFrame(boolean)} and
+ * broadcasts the full config to clients (mirror). For CLIENTS the panel is
+ * READ-ONLY, populated from the received mirror
+ * ({@link WaitingRoomFrame#GAMECONFIG_MIRROR}).
  *
- * <p>The blinds/buy-in/structure/preset logic is the (Crupier-free) logic from NewGameDialog,
- * ported here; the blinds/misc layout mirrors {@link GameSettingsPanel}.
+ * <p>
+ * The blinds/buy-in/structure/preset logic is the (Crupier-free) logic from
+ * NewGameDialog, ported here; the blinds/misc layout mirrors
+ * {@link GameSettingsPanel}.
  *
  * @author tonikelope
  */
@@ -241,10 +247,12 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Whether there are unsaved changes. Used by the dialog to confirm before discarding on
-     * Cancel. Never dirty in read-only mode (its controls never change).
+     * Whether there are unsaved changes. Used by the dialog to confirm before
+     * discarding on Cancel. Never dirty in read-only mode (its controls never
+     * change).
      *
-     * @return {@code true} if the controls differ from the snapshot taken on open
+     * @return {@code true} if the controls differ from the snapshot taken on
+     * open
      */
     public boolean isDirty() {
         return !read_only && !controlsSignature().equals(snap_signature);
@@ -272,8 +280,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     }
 
     /**
-     * Refreshes a client's (read-only) panel with the mirror just received over the network.
-     * Triggered by {@code WaitingRoomFrame} processing a GAMECONFIG, via {@code SettingsDialog}.
+     * Refreshes a client's (read-only) panel with the mirror just received over
+     * the network. Triggered by {@code WaitingRoomFrame} processing a
+     * GAMECONFIG, via {@code SettingsDialog}.
      */
     public void refreshFromMirror() {
         if (!read_only) {
@@ -286,8 +295,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
 
     // ===================== Apply (triggered by SAVE in the unified dialog) =====================
     /**
-     * Only the HOST applies: writes the static {@code GameFrame.*} fields (like the old UPDATE
-     * branch) and broadcasts the full config to clients (mirror) + refreshes the room's labels.
+     * Only the HOST applies: writes the static {@code GameFrame.*} fields (like
+     * the old UPDATE branch) and broadcasts the full config to clients (mirror)
+     * + refreshes the room's labels.
      */
     public void applyToGame() {
         if (read_only) {
@@ -598,71 +608,71 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         javax.swing.GroupLayout rules_panelLayout = new javax.swing.GroupLayout(rules_panel);
         rules_panel.setLayout(rules_panelLayout);
         rules_panelLayout.setHorizontalGroup(
-            rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(rules_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // hand-limit/think-time/showdown share columns (checkbox | label | spinner)
-                    // to line up the three spinners (same as room and game tabs). Showdown, with
-                    // no checkbox, leaves the gap and aligns its label with the other two.
-                    .addGroup(rules_panelLayout.createSequentialGroup()
-                        .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(manos_checkbox)
-                            .addComponent(think_time_checkbox))
-                        .addGap(0, 0, 0)
-                        .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(manos_label)
-                            .addComponent(think_time_label)
-                            .addComponent(showdown_time_label))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                    .addGroup(rules_panelLayout.createSequentialGroup()
-                        .addComponent(iwtsth_checkbox)
-                        .addGap(0, 0, 0)
-                        .addComponent(iwtsth_label))
-                    .addGroup(rules_panelLayout.createSequentialGroup()
-                        .addComponent(rit_checkbox)
-                        .addGap(0, 0, 0)
-                        .addComponent(rit_label))
-                    .addGroup(rules_panelLayout.createSequentialGroup()
-                        .addComponent(rabbit_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(rules_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        // hand-limit/think-time/showdown share columns (checkbox | label | spinner)
+                                        // to line up the three spinners (same as room and game tabs). Showdown, with
+                                        // no checkbox, leaves the gap and aligns its label with the other two.
+                                        .addGroup(rules_panelLayout.createSequentialGroup()
+                                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(manos_checkbox)
+                                                        .addComponent(think_time_checkbox))
+                                                .addGap(0, 0, 0)
+                                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(manos_label)
+                                                        .addComponent(think_time_label)
+                                                        .addComponent(showdown_time_label))
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                        .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                        .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                        .addGroup(rules_panelLayout.createSequentialGroup()
+                                                .addComponent(iwtsth_checkbox)
+                                                .addGap(0, 0, 0)
+                                                .addComponent(iwtsth_label))
+                                        .addGroup(rules_panelLayout.createSequentialGroup()
+                                                .addComponent(rit_checkbox)
+                                                .addGap(0, 0, 0)
+                                                .addComponent(rit_label))
+                                        .addGroup(rules_panelLayout.createSequentialGroup()
+                                                .addComponent(rabbit_label)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         rules_panelLayout.setVerticalGroup(
-            rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(rules_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(manos_checkbox)
-                    .addComponent(manos_label)
-                    .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(12, 12, 12)
-                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(think_time_checkbox)
-                    .addComponent(think_time_label)
-                    .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(12, 12, 12)
-                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(showdown_time_label)
-                    .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(12, 12, 12)
-                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(iwtsth_checkbox)
-                    .addComponent(iwtsth_label))
-                .addGap(12, 12, 12)
-                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(rit_checkbox)
-                    .addComponent(rit_label))
-                .addGap(12, 12, 12)
-                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(rabbit_label)
-                    .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(rules_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(manos_checkbox)
+                                        .addComponent(manos_label)
+                                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(12, 12, 12)
+                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(think_time_checkbox)
+                                        .addComponent(think_time_label)
+                                        .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(12, 12, 12)
+                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(showdown_time_label)
+                                        .addComponent(showdown_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addGap(12, 12, 12)
+                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(iwtsth_checkbox)
+                                        .addComponent(iwtsth_label))
+                                .addGap(12, 12, 12)
+                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(rit_checkbox)
+                                        .addComponent(rit_label))
+                                .addGap(12, 12, 12)
+                                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(rabbit_label)
+                                        .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         // ---------------- Blinds (titled subpanel) ----------------
@@ -734,46 +744,46 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         javax.swing.GroupLayout aumento_panelLayout = new javax.swing.GroupLayout(aumento_panel);
         aumento_panel.setLayout(aumento_panelLayout);
         aumento_panelLayout.setHorizontalGroup(
-            aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(aumento_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // "Increase blinds" = header (not indented); its sub-options are indented
-                    .addComponent(doblar_row)
-                    .addGroup(aumento_panelLayout.createSequentialGroup()
-                        .addGap(22, 22, 22)
-                        .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(double_blinds_radio_manos)
-                            .addComponent(double_blinds_radio_minutos)
-                            .addComponent(blind_cap_row))))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, 160, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, 160, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(blind_cap_label)
-                    .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
+                aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(aumento_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        // "Increase blinds" = header (not indented); its sub-options are indented
+                                        .addComponent(doblar_row)
+                                        .addGroup(aumento_panelLayout.createSequentialGroup()
+                                                .addGap(22, 22, 22)
+                                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(double_blinds_radio_manos)
+                                                        .addComponent(double_blinds_radio_minutos)
+                                                        .addComponent(blind_cap_row))))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                        .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, 160, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, 160, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(blind_cap_label)
+                                        .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addContainerGap())
         );
         aumento_panelLayout.setVerticalGroup(
-            aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(aumento_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(doblar_row)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(double_blinds_radio_manos)
-                    .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(double_blinds_radio_minutos)
-                    .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(blind_cap_row)
-                    .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(blind_cap_label)
-                .addContainerGap())
+                aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(aumento_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(doblar_row)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(double_blinds_radio_manos)
+                                        .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(double_blinds_radio_minutos)
+                                        .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addGroup(aumento_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(blind_cap_row)
+                                        .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(blind_cap_label)
+                                .addContainerGap())
         );
 
         ante_label = new javax.swing.JLabel("Ante");
@@ -803,43 +813,43 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);
         ciegas_panelLayout.setHorizontalGroup(
-            ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(ciegas_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(ciegas_panelLayout.createSequentialGroup()
-                        .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(estructura_label)
-                            .addComponent(ciegas_label))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(estructura_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                    .addComponent(aumento_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(ciegas_panelLayout.createSequentialGroup()
-                        .addComponent(ante_row)
-                        .addGap(Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM))
-                        .addComponent(straddle_row)))
-                .addContainerGap())
+                ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(ciegas_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addGroup(ciegas_panelLayout.createSequentialGroup()
+                                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(estructura_label)
+                                                        .addComponent(ciegas_label))
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(estructura_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                                        .addComponent(aumento_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addGroup(ciegas_panelLayout.createSequentialGroup()
+                                                .addComponent(ante_row)
+                                                .addGap(Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM), Math.round(48 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(straddle_row)))
+                                .addContainerGap())
         );
         ciegas_panelLayout.setVerticalGroup(
-            ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(ciegas_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(estructura_label)
-                    .addComponent(estructura_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(ciegas_label)
-                    .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(aumento_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(ante_row)
-                    .addComponent(straddle_row))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(ciegas_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(estructura_label)
+                                        .addComponent(estructura_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(ciegas_label)
+                                        .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(aumento_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(ante_row)
+                                        .addComponent(straddle_row))
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         // ---------------- Buy-in + rebuy ----------------
@@ -936,92 +946,92 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         javax.swing.GroupLayout recompra_panelLayout = new javax.swing.GroupLayout(recompra_panel);
         recompra_panel.setLayout(recompra_panelLayout);
         recompra_panelLayout.setHorizontalGroup(
-            recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(recompra_panelLayout.createSequentialGroup()
-                .addGap(10, 10, 10)
-                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    // "Rebuy" = block header (not indented)
-                    .addGroup(recompra_panelLayout.createSequentialGroup()
-                        .addComponent(rebuy_checkbox)
-                        .addGap(0, 0, 0)
-                        .addComponent(recomprar_label))
-                    // "Rebuy" sub-options (limit + cap) indented to the right
-                    .addGroup(recompra_panelLayout.createSequentialGroup()
-                        .addGap(22, 22, 22)
-                        .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(recompra_panelLayout.createSequentialGroup()
-                                .addComponent(rebuy_limit_row)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(recompra_panelLayout.createSequentialGroup()
-                                .addComponent(rebuy_cap_label)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
-                .addContainerGap())
+                recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                .addGap(10, 10, 10)
+                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        // "Rebuy" = block header (not indented)
+                                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                                .addComponent(rebuy_checkbox)
+                                                .addGap(0, 0, 0)
+                                                .addComponent(recomprar_label))
+                                        // "Rebuy" sub-options (limit + cap) indented to the right
+                                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                                .addGap(22, 22, 22)
+                                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                                                .addComponent(rebuy_limit_row)
+                                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                                .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                                                .addComponent(rebuy_cap_label)
+                                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                                .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                                .addContainerGap())
         );
         recompra_panelLayout.setVerticalGroup(
-            recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(recompra_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(rebuy_checkbox)
-                    .addComponent(recomprar_label))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(rebuy_limit_row)
-                    .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(rebuy_cap_label)
-                    .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
+                recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(recompra_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(rebuy_checkbox)
+                                        .addComponent(recomprar_label))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(rebuy_limit_row)
+                                        .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(rebuy_cap_label)
+                                        .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addContainerGap())
         );
 
         javax.swing.GroupLayout compra_panelLayout = new javax.swing.GroupLayout(compra_panel);
         compra_panel.setLayout(compra_panelLayout);
         compra_panelLayout.setHorizontalGroup(
-            compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(compra_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(recompra_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(compra_panelLayout.createSequentialGroup()
-                        .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(buyin_label)
-                            .addComponent(buyin_range_label))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(buyin_spinner)
-                            .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, 90, Short.MAX_VALUE))
-                        .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(compra_panelLayout.createSequentialGroup()
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(buyin_range_sep_label)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(compra_panelLayout.createSequentialGroup()
-                                .addGap(18, 18, 18)
-                                .addComponent(fixed_buyin_row)))
-                        .addGap(0, 0, Short.MAX_VALUE)))
-                .addContainerGap())
+                compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(recompra_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(buyin_label)
+                                                        .addComponent(buyin_range_label))
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                                        .addComponent(buyin_spinner)
+                                                        .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, 90, Short.MAX_VALUE))
+                                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                                .addComponent(buyin_range_sep_label)
+                                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                                .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                                                .addGap(18, 18, 18)
+                                                                .addComponent(fixed_buyin_row)))
+                                                .addGap(0, 0, Short.MAX_VALUE)))
+                                .addContainerGap())
         );
         compra_panelLayout.setVerticalGroup(
-            compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(compra_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(buyin_label)
-                    .addComponent(buyin_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(fixed_buyin_row))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(buyin_range_label)
-                    .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(buyin_range_sep_label)
-                    .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(recompra_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(compra_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(buyin_label)
+                                        .addComponent(buyin_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(fixed_buyin_row))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(compra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(buyin_range_label)
+                                        .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(buyin_range_sep_label)
+                                        .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(recompra_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         // ---------------- Bots ----------------
@@ -1043,33 +1053,33 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         javax.swing.GroupLayout bots_panelLayout = new javax.swing.GroupLayout(bots_panel);
         bots_panel.setLayout(bots_panelLayout);
         bots_panelLayout.setHorizontalGroup(
-            bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(bots_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(bots_panelLayout.createSequentialGroup()
-                        .addComponent(bots_avatar_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(bots_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(bot_rebuy_row)
-                    .addComponent(bot_balance_row))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(bots_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addGroup(bots_panelLayout.createSequentialGroup()
+                                                .addComponent(bots_avatar_label)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addComponent(bots_label)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                        .addComponent(bot_rebuy_row)
+                                        .addComponent(bot_balance_row))
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         bots_panelLayout.setVerticalGroup(
-            bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(bots_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                    .addComponent(bots_avatar_label)
-                    .addComponent(bots_label)
-                    .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(bot_rebuy_row)
-                .addGap(Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM))
-                .addComponent(bot_balance_row)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(bots_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                                        .addComponent(bots_avatar_label)
+                                        .addComponent(bots_label)
+                                        .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(bot_rebuy_row)
+                                .addGap(Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM), Math.round(6 * Helpers.DIALOG_ZOOM))
+                                .addComponent(bot_balance_row)
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         // ---------------- Presets ----------------
@@ -1099,28 +1109,28 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         javax.swing.GroupLayout presets_panelLayout = new javax.swing.GroupLayout(presets_panel);
         presets_panel.setLayout(presets_panelLayout);
         presets_panelLayout.setHorizontalGroup(
-            presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(presets_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(preset_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(presets_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(preset_save_button)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(preset_delete_button)
-                .addContainerGap())
+                presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(presets_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(preset_label)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(presets_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(preset_save_button)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(preset_delete_button)
+                                .addContainerGap())
         );
         presets_panelLayout.setVerticalGroup(
-            presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(presets_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(preset_label)
-                    .addComponent(presets_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(preset_save_button)
-                    .addComponent(preset_delete_button))
-                .addContainerGap())
+                presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(presets_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(preset_label)
+                                        .addComponent(presets_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(preset_save_button)
+                                        .addComponent(preset_delete_button))
+                                .addContainerGap())
         );
 
         // ---------------- Assembly ----------------

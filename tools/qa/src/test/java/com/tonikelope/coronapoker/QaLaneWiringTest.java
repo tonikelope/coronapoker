@@ -8,7 +8,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.jupiter.api.Test;
 
-/** Keeps the aggregate QA lanes from silently re-enabling statistical bots. */
+/**
+ * Keeps the aggregate QA lanes from silently re-enabling statistical bots.
+ */
 class QaLaneWiringTest {
 
     private static final String[] BOT_SELECTORS = {

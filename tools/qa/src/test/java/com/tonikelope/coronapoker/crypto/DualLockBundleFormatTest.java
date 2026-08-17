@@ -38,7 +38,9 @@ public class DualLockBundleFormatTest {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
-    /** Replica EXACTA de Crupier.joinB64. */
+    /**
+     * Replica EXACTA de Crupier.joinB64.
+     */
     private static String joinB64(List<byte[]> items) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < items.size(); i++) {
@@ -50,7 +52,9 @@ public class DualLockBundleFormatTest {
         return sb.toString();
     }
 
-    /** Replica EXACTA de WaitingRoomFrame.csvToBytes. */
+    /**
+     * Replica EXACTA de WaitingRoomFrame.csvToBytes.
+     */
     private static List<byte[]> csvToBytes(String csv) {
         List<byte[]> out = new ArrayList<>();
         if (csv == null || csv.isEmpty()) {
@@ -80,7 +84,10 @@ public class DualLockBundleFormatTest {
         assertTrue(csvToBytes(joinB64(new ArrayList<>())).isEmpty(), "lista vacia -> vacia");
     }
 
-    /** Construye un reparto dual-lock honesto y devuelve {genesisB, decksB, cProofsB, megaB, rStatesB, rProofsB} en bytes. */
+    /**
+     * Construye un reparto dual-lock honesto y devuelve {genesisB, decksB,
+     * cProofsB, megaB, rStatesB, rProofsB} en bytes.
+     */
     private static Object[] honestDeal() {
         EdwardsPoint[] genesis = new EdwardsPoint[DECK];
         for (int i = 0; i < DECK; i++) {

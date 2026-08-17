@@ -27,38 +27,46 @@ import java.nio.charset.StandardCharsets;
  * Transport frame codec that lets newline-delimited text commands and raw
  * binary payloads share a single socket stream without ambiguity.
  *
- * <p>The legacy wire is a text line: {@code *<base64(HMAC||IV||ciphertext)>\n}.
- * Those lines always start with a printable ASCII byte (the {@code '*'} encrypted
- * prefix, or an uppercase verb letter for the rare plaintext command), never with
- * {@code 0x00}. A binary frame is therefore introduced with a {@code 0x00}
- * sentinel followed by a big-endian {@code uint32} length and that many body
- * bytes:
+ * <p>
+ * The legacy wire is a text line: {@code *<base64(HMAC||IV||ciphertext)>\n}.
+ * Those lines always start with a printable ASCII byte (the {@code '*'}
+ * encrypted prefix, or an uppercase verb letter for the rare plaintext
+ * command), never with {@code 0x00}. A binary frame is therefore introduced
+ * with a {@code 0x00} sentinel followed by a big-endian {@code uint32} length
+ * and that many body bytes:
  *
  * <pre>
  *   text line     : &lt;byte != 0x00&gt; ... up to and including '\n'
  *   binary frame  : 0x00 | uint32 len (big-endian) | len bytes
  * </pre>
  *
- * <p>{@link #read(InputStream, int)} peeks the first byte to dispatch: {@code 0x00}
- * reads a length-prefixed binary frame, anything else reads a line with the exact
- * semantics of {@link Helpers#readBoundedLine(java.io.BufferedReader, int)} (CR
- * skipped, LF terminates, {@code cap} bounds the accumulated length, clean EOF with
- * no bytes returns {@code null}). Text bodies are decoded ISO-8859-1, which is a
- * lossless byte→char map and identical to the legacy UTF-8/default decode for the
- * ASCII-only wire.
+ * <p>
+ * {@link #read(InputStream, int)} peeks the first byte to dispatch:
+ * {@code 0x00} reads a length-prefixed binary frame, anything else reads a line
+ * with the exact semantics of
+ * {@link Helpers#readBoundedLine(java.io.BufferedReader, int)} (CR skipped, LF
+ * terminates, {@code cap} bounds the accumulated length, clean EOF with no
+ * bytes returns {@code null}). Text bodies are decoded ISO-8859-1, which is a
+ * lossless byte→char map and identical to the legacy UTF-8/default decode for
+ * the ASCII-only wire.
  *
- * <p>The {@code cap} bound is checked BEFORE allocating the binary body buffer, so a
- * forged huge length cannot trigger an OOM (parity with the line DoS guard).
+ * <p>
+ * The {@code cap} bound is checked BEFORE allocating the binary body buffer, so
+ * a forged huge length cannot trigger an OOM (parity with the line DoS guard).
  */
 public final class WireFrame {
 
-    /** First byte of a binary frame. Text lines never begin with this. */
+    /**
+     * First byte of a binary frame. Text lines never begin with this.
+     */
     public static final int BINARY_SENTINEL = 0x00;
 
     private WireFrame() {
     }
 
-    /** Discriminates the two wire forms a single read can return. */
+    /**
+     * Discriminates the two wire forms a single read can return.
+     */
     public enum Kind {
         TEXT, BINARY
     }
@@ -100,23 +108,28 @@ public final class WireFrame {
             return kind == Kind.BINARY;
         }
 
-        /** The decoded line (no trailing CR/LF) when {@link #isText()}, else null. */
+        /**
+         * The decoded line (no trailing CR/LF) when {@link #isText()}, else
+         * null.
+         */
         public String text() {
             return text;
         }
 
-        /** The raw body bytes when {@link #isBinary()}, else null. */
+        /**
+         * The raw body bytes when {@link #isBinary()}, else null.
+         */
         public byte[] binary() {
             return binary;
         }
     }
 
     /**
-     * Writes a binary frame ({@code 0x00 | uint32 len | body}) to {@code out} as a
-     * single {@link OutputStream#write(byte[])} call followed by a flush. The single
-     * write keeps the frame atomic relative to other writers; callers that share the
-     * stream must still hold their usual per-stream write lock so a binary frame and
-     * a text line never interleave.
+     * Writes a binary frame ({@code 0x00 | uint32 len | body}) to {@code out}
+     * as a single {@link OutputStream#write(byte[])} call followed by a flush.
+     * The single write keeps the frame atomic relative to other writers;
+     * callers that share the stream must still hold their usual per-stream
+     * write lock so a binary frame and a text line never interleave.
      */
     public static void writeBinary(OutputStream out, byte[] body) throws IOException {
         if (body == null) {
@@ -135,12 +148,14 @@ public final class WireFrame {
     }
 
     /**
-     * Reads the next frame from {@code in}. Returns a TEXT result for a legacy line,
-     * a BINARY result for a {@code 0x00}-prefixed frame, or {@code null} on clean EOF
-     * before any byte (matching {@link Helpers#readBoundedLine}'s null contract).
+     * Reads the next frame from {@code in}. Returns a TEXT result for a legacy
+     * line, a BINARY result for a {@code 0x00}-prefixed frame, or {@code null}
+     * on clean EOF before any byte (matching {@link Helpers#readBoundedLine}'s
+     * null contract).
      *
-     * @param cap maximum line length / binary body length in bytes; a binary length
-     *            outside {@code [0, cap]} or an over-cap line throws {@link IOException}.
+     * @param cap maximum line length / binary body length in bytes; a binary
+     * length outside {@code [0, cap]} or an over-cap line throws
+     * {@link IOException}.
      */
     public static Result read(InputStream in, int cap) throws IOException {
         int first = in.read();

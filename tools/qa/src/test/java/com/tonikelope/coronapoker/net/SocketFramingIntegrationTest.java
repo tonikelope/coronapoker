@@ -32,13 +32,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Integration test over a real localhost socket pair, exercising the exact Phase 1
- * read mechanism (a persistent {@link BufferedInputStream} read by {@link WireFrame#read})
- * carrying the live encrypted text wire, plus a mixed binary frame (the Phase 2 receive
- * path) — to confirm the framing survives real TCP fragmentation, not just in-memory streams.
+ * Integration test over a real localhost socket pair, exercising the exact
+ * Phase 1 read mechanism (a persistent {@link BufferedInputStream} read by
+ * {@link WireFrame#read}) carrying the live encrypted text wire, plus a mixed
+ * binary frame (the Phase 2 receive path) — to confirm the framing survives
+ * real TCP fragmentation, not just in-memory streams.
  *
- * The full ECDH handshake and resetSocket reconnect live in the UI classes and are covered
- * by the author's focused smoke; this test isolates and proves the transport layer they sit on.
+ * The full ECDH handshake and resetSocket reconnect live in the UI classes and
+ * are covered by the author's focused smoke; this test isolates and proves the
+ * transport layer they sit on.
  */
 class SocketFramingIntegrationTest {
 
@@ -89,7 +91,9 @@ class SocketFramingIntegrationTest {
         }
     }
 
-    /** Mirrors the production text writers: encryptCommand(...) + "\n". */
+    /**
+     * Mirrors the production text writers: encryptCommand(...) + "\n".
+     */
     private void writeText(String command) throws Exception {
         OutputStream os = writerSide.getOutputStream();
         os.write((Helpers.encryptCommand(command, AES, HMAC) + "\n").getBytes(StandardCharsets.UTF_8));
@@ -104,8 +108,9 @@ class SocketFramingIntegrationTest {
 
     /**
      * Mirrors the production reader loop (Participant.readCommandFromClient and
-     * NetClient.readCommand): binary frames are handled inline, a frame that fails the
-     * channel is dropped and reading continues, and only a real EOF returns null.
+     * NetClient.readCommand): binary frames are handled inline, a frame that
+     * fails the channel is dropped and reading continues, and only a real EOF
+     * returns null.
      */
     private String readLikeProduction() throws Exception {
         while (true) {
@@ -124,7 +129,9 @@ class SocketFramingIntegrationTest {
         }
     }
 
-    /** Writes a raw line exactly as the plaintext keepalive senders do. */
+    /**
+     * Writes a raw line exactly as the plaintext keepalive senders do.
+     */
     private void writeRaw(String line) throws Exception {
         OutputStream os = writerSide.getOutputStream();
         os.write((line + "\n").getBytes(StandardCharsets.UTF_8));
@@ -346,10 +353,10 @@ class SocketFramingIntegrationTest {
         // reader only treats KeyException as "drop this frame"; anything else falls through to
         // its EOF path and tears the connection down, so these must surface as KeyException.
         String[] malformed = {
-            "*",              // empty body -> 0 bytes < HMAC+IV
-            "*AA==",          // valid Base64 but 1 byte < HMAC+IV
-            "*@@@@",          // characters outside the Base64 alphabet
-            "*ABC",           // length not a multiple of 4, no padding
+            "*", // empty body -> 0 bytes < HMAC+IV
+            "*AA==", // valid Base64 but 1 byte < HMAC+IV
+            "*@@@@", // characters outside the Base64 alphabet
+            "*ABC", // length not a multiple of 4, no padding
         };
         for (String frame : malformed) {
             assertThrows(KeyException.class, () -> Helpers.decryptCommand(frame, AES, HMAC),

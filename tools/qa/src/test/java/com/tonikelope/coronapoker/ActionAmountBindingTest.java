@@ -30,7 +30,10 @@ public class ActionAmountBindingTest {
         return out;
     }
 
-    /** Builds a real 92-byte record carrying {@code amountCents}, then reads it back. */
+    /**
+     * Builds a real 92-byte record carrying {@code amountCents}, then reads it
+     * back.
+     */
     private static long roundTripAmount(long amountCents, boolean isAllin) {
         byte[] record = CanonicalActionRecord.encode(
                 fill(32, (byte) 0x11), fill(16, (byte) 0x22), fill(32, (byte) 0x33),
@@ -41,7 +44,6 @@ public class ActionAmountBindingTest {
     }
 
     // ---- the pure formula, per action type -------------------------------
-
     @Test
     public void foldIsAlwaysZero() {
         // No money moves on a fold, whatever the state.
@@ -79,7 +81,6 @@ public class ActionAmountBindingTest {
     }
 
     // ---- the accept / reject decision against a real record --------------
-
     @Test
     public void honestRecordAmountMatchesExpected() {
         // Signer and receiver run the SAME formula over the SAME pre-action
@@ -137,12 +138,14 @@ public class ActionAmountBindingTest {
     }
 
     // ---- full binding: TYPE + PLAYER_ID + HAND_ID + AMOUNT ----------------
-
     // The identifiers baked into every record built by recordWith().
     private static final byte[] PID = fill(32, (byte) 0x33);
     private static final byte[] HID = fill(16, (byte) 0x22);
 
-    /** Builds a record with a chosen ACTION_TYPE/amount and the canonical PID/HID above. */
+    /**
+     * Builds a record with a chosen ACTION_TYPE/amount and the canonical
+     * PID/HID above.
+     */
     private static byte[] recordWith(int wireActionType, long amountCents, boolean isAllin) {
         return CanonicalActionRecord.encode(
                 fill(32, (byte) 0x11), fill(16, (byte) 0x22), fill(32, (byte) 0x33),
@@ -251,8 +254,10 @@ public class ActionAmountBindingTest {
     // Closes the HIGH: on recovery the client replays its OWN actions from the
     // host's copy and re-signs them; this state-free bind stops a hostile host
     // from serving a forged decision/amount for the victim's own action.
-
-    /** A record carrying nick's real PLAYER_ID and a chosen hand id / type / amount. */
+    /**
+     * A record carrying nick's real PLAYER_ID and a chosen hand id / type /
+     * amount.
+     */
     private static byte[] recoveryRecord(String nick, byte[] handId, int wireActionType, long amountCents) {
         return CanonicalActionRecord.encode(
                 fill(32, (byte) 0x11), handId, CanonicalActionRecord.playerIdFromNick(nick),

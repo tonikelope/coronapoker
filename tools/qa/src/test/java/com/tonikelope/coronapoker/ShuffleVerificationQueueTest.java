@@ -18,8 +18,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ShuffleVerificationQueueTest {
 
-    /** Records every verdict (thread-safe) and counts down a latch so the test can await processing. */
+    /**
+     * Records every verdict (thread-safe) and counts down a latch so the test
+     * can await processing.
+     */
     private static final class RecordingSink implements ShuffleVerificationQueue.Sink {
+
         final List<Integer> verified = Collections.synchronizedList(new ArrayList<>());
         final List<Integer> dishonest = Collections.synchronizedList(new ArrayList<>());
         final List<Integer> malformed = Collections.synchronizedList(new ArrayList<>());

@@ -68,10 +68,11 @@ import javax.swing.JLabel;
 import javax.swing.Timer;
 
 /**
- * Static audio subsystem: WAV/MP3 playback (including background music loops), Google
- * Translate TTS and voice-message playback, the volume/mute state machine (master switch,
- * per-window mutes, TTS ducking, voice-recording silence), the Settings-dialog preview
- * ("audition") player, and the looping danger alert used by fatal-error popups.
+ * Static audio subsystem: WAV/MP3 playback (including background music loops),
+ * Google Translate TTS and voice-message playback, the volume/mute state
+ * machine (master switch, per-window mutes, TTS ducking, voice-recording
+ * silence), the Settings-dialog preview ("audition") player, and the looping
+ * danger alert used by fatal-error popups.
  *
  * @author tonikelope
  */
@@ -407,14 +408,16 @@ public class Audio {
     }
 
     /**
-     * Computes the effective playback volume for a background music loop, applying every mute
-     * source. Each track has its own per-window toggle (in-game music governed by
-     * {@code MUSICA_AMBIENTAL}, waiting-room music by {@code MUSICA_SALA}, etc.) — living here
-     * rather than in {@link #MP3_LOOP_MUTED} lets those flags take effect from startup and be
-     * read from anywhere in the game. A track is off if its own toggle is off OR the music
-     * MASTER ({@code MUSICA}) is off.
+     * Computes the effective playback volume for a background music loop,
+     * applying every mute source. Each track has its own per-window toggle
+     * (in-game music governed by {@code MUSICA_AMBIENTAL}, waiting-room music
+     * by {@code MUSICA_SALA}, etc.) — living here rather than in
+     * {@link #MP3_LOOP_MUTED} lets those flags take effect from startup and be
+     * read from anywhere in the game. A track is off if its own toggle is off
+     * OR the music MASTER ({@code MUSICA}) is off.
      *
-     * @param sound the loop's resource key (its map entry key in {@link #MP3_LOOP})
+     * @param sound the loop's resource key (its map entry key in
+     * {@link #MP3_LOOP})
      * @return the volume to apply, 0 when muted
      */
     public static float effectiveLoopVolume(String sound) {
@@ -445,9 +448,9 @@ public class Audio {
     }
 
     /**
-     * Re-applies the effective volume to a loop that's currently playing (no-op if inactive).
-     * Used by the ambient-music toggle so the change is heard instantly without stopping or
-     * reopening the line.
+     * Re-applies the effective volume to a loop that's currently playing (no-op
+     * if inactive). Used by the ambient-music toggle so the change is heard
+     * instantly without stopping or reopening the line.
      */
     public static void refreshLoopVolume(String sound) {
 
@@ -469,15 +472,16 @@ public class Audio {
     /**
      * Applies the effective volume (or mute) to an open clip.
      *
-     * @param bypass_muted skip {@code MUTED_ALL}/{@code MUTED_WAV} (other silence sources still
-     * apply)
-     * @param force_silent mutes THIS specific clip (as if the sound were muted) WITHOUT skipping
-     * playback, so {@code playWavResourceAndWait} still waits out its full duration. Used by
-     * disable-able BLOCKING effects (game over, timeout) to go silent while keeping the pacing
-     * the wav's wait imposes.
-     * @param force_preview AUDITION (Settings play button): forces normal volume, skipping ALL
-     * gates (master SONIDOS off, mutes, force_silent, recording), so an effect can be heard even
-     * with its checkbox disabled. Only goes silent if the master volume is 0.
+     * @param bypass_muted skip {@code MUTED_ALL}/{@code MUTED_WAV} (other
+     * silence sources still apply)
+     * @param force_silent mutes THIS specific clip (as if the sound were muted)
+     * WITHOUT skipping playback, so {@code playWavResourceAndWait} still waits
+     * out its full duration. Used by disable-able BLOCKING effects (game over,
+     * timeout) to go silent while keeping the pacing the wav's wait imposes.
+     * @param force_preview AUDITION (Settings play button): forces normal
+     * volume, skipping ALL gates (master SONIDOS off, mutes, force_silent,
+     * recording), so an effect can be heard even with its checkbox disabled.
+     * Only goes silent if the master volume is 0.
      */
     public static void setClipVolume(String sound, Clip clip, boolean bypass_muted, boolean force_silent, boolean force_preview) {
 
@@ -520,23 +524,28 @@ public class Audio {
     }
 
     /**
-     * @param force_silent play the wav in SILENCE (clip muted) but still wait out its full
-     * duration; for disable-able blocking effects whose wait time must be preserved
+     * @param force_silent play the wav in SILENCE (clip muted) but still wait
+     * out its full duration; for disable-able blocking effects whose wait time
+     * must be preserved
      */
     public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted, boolean force_silent) {
         return playWavResourceAndWait(sound, force_close, bypass_muted, force_silent, false);
     }
 
     /**
-     * Plays a WAV resource synchronously, waiting for it to finish (or to be stopped).
+     * Plays a WAV resource synchronously, waiting for it to finish (or to be
+     * stopped).
      *
-     * @param force_close stop and clear any other clips already playing this sound first
-     * @param bypass_muted skip {@code MUTED_ALL}/{@code MUTED_WAV} (see {@link #setClipVolume})
+     * @param force_close stop and clear any other clips already playing this
+     * sound first
+     * @param bypass_muted skip {@code MUTED_ALL}/{@code MUTED_WAV} (see
+     * {@link #setClipVolume})
      * @param force_silent see the 4-arg overload
-     * @param force_preview AUDITION: plays at normal volume, skipping the sound gates (see
-     * {@link #setClipVolume}); used by {@link #previewWav} for the Settings play button
-     * @return true if playback (or its silent/emulated equivalent) completed; false if the
-     * sound couldn't be found/opened
+     * @param force_preview AUDITION: plays at normal volume, skipping the sound
+     * gates (see {@link #setClipVolume}); used by {@link #previewWav} for the
+     * Settings play button
+     * @return true if playback (or its silent/emulated equivalent) completed;
+     * false if the sound couldn't be found/opened
      */
     public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted, boolean force_silent, boolean force_preview) {
         if (!GameFrame.TEST_MODE) {
@@ -1169,11 +1178,11 @@ public class Audio {
     // at max_millis. Only one audition at a time: starting another cuts the previous one. The
     // button flips to "stop" while playing and back to "play" when it ends (natural end, cap or
     // manual stop) via on_stop. Music uses the streaming player; effects use a clip.
-
     /**
-     * Cuts off any audition in progress (music or effect). Its thread runs on_stop (which flips
-     * the button back to "play") and, for music, restores the background track. Called by the
-     * stop button, by switching auditions, and by closing the Settings dialog.
+     * Cuts off any audition in progress (music or effect). Its thread runs
+     * on_stop (which flips the button back to "play") and, for music, restores
+     * the background track. Called by the stop button, by switching auditions,
+     * and by closing the Settings dialog.
      */
     public static void stopPreview() {
 
@@ -1189,8 +1198,9 @@ public class Audio {
     }
 
     /**
-     * Routes by extension: {@code .mp3} = music (streaming), anything else = effect (clip).
-     * Stops any other audition first so only one plays at a time.
+     * Routes by extension: {@code .mp3} = music (streaming), anything else =
+     * effect (clip). Stops any other audition first so only one plays at a
+     * time.
      */
     public static void previewResource(String sound, int max_millis, Runnable on_stop) {
 
@@ -1296,11 +1306,11 @@ public class Audio {
     }
 
     // --- Looping danger alert (voided-hand / security-violation popup) ---
-
     /**
-     * Starts the alert LOOPING (Clip.LOOP_CONTINUOUSLY) until {@link #stopDangerAlertLoop()}:
-     * plays for as long as the fatal-error popup stays open. Honors volume and mutes like any
-     * other effect ({@link #setClipVolume}). No-op in TEST_MODE / dead file / no device.
+     * Starts the alert LOOPING (Clip.LOOP_CONTINUOUSLY) until
+     * {@link #stopDangerAlertLoop()}: plays for as long as the fatal-error
+     * popup stays open. Honors volume and mutes like any other effect
+     * ({@link #setClipVolume}). No-op in TEST_MODE / dead file / no device.
      * Idempotent: stops any previous alert before starting.
      */
     public static void startDangerAlertLoop(String sound) {
@@ -1347,7 +1357,8 @@ public class Audio {
     }
 
     /**
-     * Stops the danger alert (if playing) and releases its line. Called when the popup closes.
+     * Stops the danger alert (if playing) and releases its line. Called when
+     * the popup closes.
      */
     public static void stopDangerAlertLoop() {
 
@@ -1371,13 +1382,15 @@ public class Audio {
     }
 
     /**
-     * The OS takes time to "wake up" the audio endpoint the first time it's opened and a line
-     * is started in this process (tens to hundreds of ms on Windows), and during that
-     * activation it used to eat the first samples of the first audible sound — the startup
-     * init.wav would occasionally come out clipped. This synchronously plays a line of SILENCE
-     * to pay for that cold start without anything being heard, leaving the device active so the
-     * first real sound plays in full. Best-effort: if there's no device or the format isn't
-     * supported, it's skipped (the sound plays as before, nothing gets worse).
+     * The OS takes time to "wake up" the audio endpoint the first time it's
+     * opened and a line is started in this process (tens to hundreds of ms on
+     * Windows), and during that activation it used to eat the first samples of
+     * the first audible sound — the startup init.wav would occasionally come
+     * out clipped. This synchronously plays a line of SILENCE to pay for that
+     * cold start without anything being heard, leaving the device active so the
+     * first real sound plays in full. Best-effort: if there's no device or the
+     * format isn't supported, it's skipped (the sound plays as before, nothing
+     * gets worse).
      */
     public static void warmAudioDevice() {
 
@@ -1411,9 +1424,9 @@ public class Audio {
     }
 
     /**
-     * Opens (once) and keeps a reusable clip for a sound. Idempotent; safe to call off the EDT
-     * before an animation. No-op in TEST_MODE, for blacklisted/missing files, or when no audio
-     * device is available.
+     * Opens (once) and keeps a reusable clip for a sound. Idempotent; safe to
+     * call off the EDT before an animation. No-op in TEST_MODE, for
+     * blacklisted/missing files, or when no audio device is available.
      */
     public static void preloadWav(String sound) {
 
@@ -1455,8 +1468,9 @@ public class Audio {
     }
 
     /**
-     * (Re)starts a preloaded sound from frame 0 — instant, no line acquisition, so it never
-     * loses a race against a concurrent stop. Lazily preloads if needed.
+     * (Re)starts a preloaded sound from frame 0 — instant, no line acquisition,
+     * so it never loses a race against a concurrent stop. Lazily preloads if
+     * needed.
      */
     public static void playPreloadedWav(String sound) {
 
@@ -1634,8 +1648,8 @@ public class Audio {
     }
 
     /**
-     * Mutes everything except MP3 loops, which are ducked instead so the music stays audible but
-     * lowered under the TTS voice.
+     * Mutes everything except MP3 loops, which are ducked instead so the music
+     * stays audible but lowered under the TTS voice.
      */
     public static void muteAllExceptMp3Loops() {
 
@@ -1649,10 +1663,11 @@ public class Audio {
     }
 
     /**
-     * Counterpart of {@link #muteAllExceptMp3Loops()}. Do NOT use {@link #unmuteAll()} here:
-     * that one also lifts the music's silence, which this method never applied (it only ducks
-     * it) — so a Crupier sting that was silencing the music mid-play would lose its silence
-     * and the music would come back over it.
+     * Counterpart of {@link #muteAllExceptMp3Loops()}. Do NOT use
+     * {@link #unmuteAll()} here: that one also lifts the music's silence, which
+     * this method never applied (it only ducks it) — so a Crupier sting that
+     * was silencing the music mid-play would lose its silence and the music
+     * would come back over it.
      */
     public static void unmuteAllExceptMp3Loops() {
 

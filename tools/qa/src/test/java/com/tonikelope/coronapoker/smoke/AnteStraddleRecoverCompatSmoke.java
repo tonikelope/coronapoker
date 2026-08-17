@@ -17,11 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Guards the ANTE / STRADDLE persistence contract added in the ante+straddle
- * sprint (config plumbing phase). Both flags must round-trip through
- * {@link GameFrame#serializeRecoverSettings()} /
- * {@link GameFrame#applyRecoverSettings(String)}, and a recover row saved before
- * the feature (no ANTE/STRADDLE keys) must leave them at their OFF default
- * rather than inheriting a stale value from another game in the same session.
+ * sprint (config plumbing phase). Both flags must round-trip through null {@link GameFrame#serializeRecoverSettings()} /
+ * {@link GameFrame#applyRecoverSettings(String)}, and a recover row saved
+ * before the feature (no ANTE/STRADDLE keys) must leave them at their OFF
+ * default rather than inheriting a stale value from another game in the same
+ * session.
  */
 class AnteStraddleRecoverCompatSmoke {
 

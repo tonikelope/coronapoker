@@ -56,7 +56,6 @@ public class ShuffleArgumentAuditTest {
     }
 
     // --- Degenerados / identidad ---
-
     @Test
     public void zeroScalarAllIdentityDeckRejected() {
         // k=0 -> B todo identidad. Antes el proof lo atestiguaba (mazo basura). Ahora se rechaza.
@@ -94,7 +93,6 @@ public class ShuffleArgumentAuditTest {
     }
 
     // --- Proof malformado: null / fuera de rango (antes NPE) ---
-
     @Test
     public void outOfRangeSchnorrResponseRejectedCleanly() {
         int n = 9;
@@ -144,7 +142,6 @@ public class ShuffleArgumentAuditTest {
     }
 
     // --- Composicion honesta de 2 pasos (anclaje preserva DL-independencia) ---
-
     @Test
     public void honestTwoStepCompositionVerifies() {
         // genesis DL-independiente -> paso1 honesto -> su salida (DL-independiente) -> paso2 honesto.

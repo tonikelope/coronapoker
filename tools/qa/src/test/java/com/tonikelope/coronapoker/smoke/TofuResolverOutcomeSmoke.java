@@ -31,19 +31,17 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
  * CHANGED como NEW cuando el SELECT detectó pubkey distinto pero el UPDATE
  * posterior falló.
  *
- * Cobertura:
- *   1. Happy path NEW (primer encuentro)
- *   2. Happy path MATCH (mismo pubkey)
- *   3. Happy path CHANGED (pubkey distinto)
- *   4. UPDATE de CHANGED falla → outcome SIGUE siendo CHANGED (no NEW)
- *   5. UPDATE de MATCH falla → outcome SIGUE siendo MATCH (no NEW)
+ * Cobertura: 1. Happy path NEW (primer encuentro) 2. Happy path MATCH (mismo
+ * pubkey) 3. Happy path CHANGED (pubkey distinto) 4. UPDATE de CHANGED falla →
+ * outcome SIGUE siendo CHANGED (no NEW) 5. UPDATE de MATCH falla → outcome
+ * SIGUE siendo MATCH (no NEW)
  *
  * Test 4 es el bug que el fix arregla. Tests 1-3 validan que no hay regresión.
  *
  * Setup: instala una Connection SQLite en memoria en Init.SQLITE para que
- * Helpers.getSQLITE() la devuelva. Crea la tabla known_identities a mano.
- * Para los tests 4-5, envuelve la Connection con un dynamic Proxy que hace
- * fallar prepareStatement("UPDATE...") en demanda.
+ * Helpers.getSQLITE() la devuelva. Crea la tabla known_identities a mano. Para
+ * los tests 4-5, envuelve la Connection con un dynamic Proxy que hace fallar
+ * prepareStatement("UPDATE...") en demanda.
  */
 class TofuResolverOutcomeSmoke {
 
@@ -141,8 +139,9 @@ class TofuResolverOutcomeSmoke {
     }
 
     /**
-     * Dynamic proxy que delega TODO al wrapped Connection EXCEPT prepareStatement
-     * con SQL que empiece por UPDATE, en cuyo caso lanza SQLException.
+     * Dynamic proxy que delega TODO al wrapped Connection EXCEPT
+     * prepareStatement con SQL que empiece por UPDATE, en cuyo caso lanza
+     * SQLException.
      */
     private static Connection wrapWithUpdateFailure(Connection real, AtomicBoolean failUpdates) {
         InvocationHandler handler = new InvocationHandler() {

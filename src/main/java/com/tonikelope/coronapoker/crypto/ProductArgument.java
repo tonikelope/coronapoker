@@ -19,19 +19,24 @@ package com.tonikelope.coronapoker.crypto;
 import java.math.BigInteger;
 
 /**
- * Product argument: given single-value Pedersen commitments {@code C_a[0..n-1]} (with
- * {@code C_a[i] = Comm([a_i], r_i)}), proves that {@code Π a_i == b} for a PUBLIC target {@code b},
- * in zero knowledge (the {@code a_i} stay hidden). The combinatorial core of the permutation /
- * shuffle argument (see {@code docs/SECURITY.md}): a permutation of a public vector
- * {@code d} is characterised by {@code Π(x − d'_i) == Π(x − d_i)} for a random challenge {@code x},
- * and the right-hand side is exactly such a public product.
+ * Product argument: given single-value Pedersen commitments {@code C_a[0..n-1]}
+ * (with {@code C_a[i] = Comm([a_i], r_i)}), proves that {@code Π a_i == b} for
+ * a PUBLIC target {@code b}, in zero knowledge (the {@code a_i} stay hidden).
+ * The combinatorial core of the permutation / shuffle argument (see
+ * {@code docs/SECURITY.md}): a permutation of a public vector {@code d} is
+ * characterised by {@code Π(x − d'_i) == Π(x − d_i)} for a random challenge
+ * {@code x}, and the right-hand side is exactly such a public product.
  *
- * <p>Construction — grand-product. Partial products {@code p_0 = a_0}, {@code p_i = p_{i-1}·a_i}, so
- * {@code p_{n-1} = b}. The prover commits {@code C_p[i] = Comm([p_i], ρ_i)} (with {@code C_p[0] = C_a[0]})
- * and gives, per step, a {@link MultiplicationProof} that {@code C_p[i]} commits {@code p_{i-1}·a_i}
- * (product of {@code C_p[i-1]} and {@code C_a[i]}). It closes with a Schnorr-on-{@code H} proof that
- * the final {@code C_p[n-1]} opens to the public {@code b} (i.e. its {@code G_0}-component is exactly
- * {@code b}). Each multiplication gate is special-sound, so the whole chain binds {@code Π a_i = b}.
+ * <p>
+ * Construction — grand-product. Partial products {@code p_0 = a_0},
+ * {@code p_i = p_{i-1}·a_i}, so {@code p_{n-1} = b}. The prover commits
+ * {@code C_p[i] = Comm([p_i], ρ_i)} (with {@code C_p[0] = C_a[0]}) and gives,
+ * per step, a {@link MultiplicationProof} that {@code C_p[i]} commits
+ * {@code p_{i-1}·a_i} (product of {@code C_p[i-1]} and {@code C_a[i]}). It
+ * closes with a Schnorr-on-{@code H} proof that the final {@code C_p[n-1]}
+ * opens to the public {@code b} (i.e. its {@code G_0}-component is exactly
+ * {@code b}). Each multiplication gate is special-sound, so the whole chain
+ * binds {@code Π a_i = b}.
  */
 public final class ProductArgument {
 
@@ -42,6 +47,7 @@ public final class ProductArgument {
     }
 
     public static final class Proof {
+
         final byte[][] cp;                       // C_p[1..n-1] (C_p[0] = C_a[0], implicit); length n-1
         final MultiplicationProof.Proof[] steps; // one per multiplication step; length n-1
         final byte[] openT;                      // Schnorr-on-H: T = k·H
@@ -60,8 +66,9 @@ public final class ProductArgument {
     }
 
     /**
-     * Point {@code C − b·G_0} (should equal {@code ρ·H} when {@code C} commits {@code b}).
-     * The subtraction is a free point negation, not a scalar multiplication by {@code L−1};
+     * Point {@code C − b·G_0} (should equal {@code ρ·H} when {@code C} commits
+     * {@code b}). The subtraction is a free point negation, not a scalar
+     * multiplication by {@code L−1};
      * {@code null} if {@code c} fails to decode.
      */
     private static EdwardsPoint minusValue(byte[] c, BigInteger b) {
@@ -82,8 +89,9 @@ public final class ProductArgument {
     }
 
     /**
-     * Prove {@code Π a_i == b}. The caller supplies the openings {@code a}, {@code ra} and the matching
-     * published commitments {@code ca[i] = Comm([a_i], ra[i])}.
+     * Prove {@code Π a_i == b}. The caller supplies the openings {@code a},
+     * {@code ra} and the matching published commitments
+     * {@code ca[i] = Comm([a_i], ra[i])}.
      */
     public static Proof prove(BigInteger[] a, BigInteger[] ra, byte[][] ca, BigInteger b) {
         int n = a.length;
@@ -114,7 +122,10 @@ public final class ProductArgument {
         return new Proof(cp, steps, t, z);
     }
 
-    /** Verify that the committed factors {@code ca} multiply to the public target {@code b}. */
+    /**
+     * Verify that the committed factors {@code ca} multiply to the public
+     * target {@code b}.
+     */
     public static boolean verify(byte[][] ca, BigInteger b, Proof proof) {
         if (proof == null || ca == null || ca.length == 0 || proof.openT == null
                 || proof.openZ == null || proof.openZ.signum() < 0 || proof.openZ.compareTo(L) >= 0) {

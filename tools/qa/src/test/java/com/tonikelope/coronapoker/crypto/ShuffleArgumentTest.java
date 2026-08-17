@@ -41,7 +41,9 @@ public class ShuffleArgumentTest {
         return a;
     }
 
-    /** Derangement determinista (rotacion + swap), sin depender del RNG. */
+    /**
+     * Derangement determinista (rotacion + swap), sin depender del RNG.
+     */
     private static int[] permutation(int n) {
         int[] p = new int[n];
         for (int i = 0; i < n; i++) {

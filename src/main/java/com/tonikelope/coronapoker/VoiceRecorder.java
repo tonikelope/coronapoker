@@ -41,16 +41,16 @@ import javax.sound.sampled.TargetDataLine;
 
 /**
  * One-shot microphone recorder for voice messages: captures PCM 16 kHz mono
- * from the capture device selected in the audio settings and encodes the
- * result as a u-law WAV held in memory (no external codec dependencies).
+ * from the capture device selected in the audio settings and encodes the result
+ * as a u-law WAV held in memory (no external codec dependencies).
  *
  * @author tonikelope
  */
 public class VoiceRecorder {
 
     /**
-     * How the recording ended. The manager turns it into the on-screen
-     * warning, so that a note that produces nothing never fails in silence.
+     * How the recording ended. The manager turns it into the on-screen warning,
+     * so that a note that produces nothing never fails in silence.
      */
     public enum Outcome {
         // start()
@@ -97,17 +97,17 @@ public class VoiceRecorder {
 
     /**
      * Opens the microphone and captures in a pool thread until stop() or the
-     * MAX_SECONDS cap. Blocking (the device open takes 100-400ms): call it
-     * off the EDT.
+     * MAX_SECONDS cap. Blocking (the device open takes 100-400ms): call it off
+     * the EDT.
      *
      * on_live runs ONCE (on the capture thread) when the first real audio
      * arrives from the device: line.start() returns before the driver is
-     * actually delivering samples, so this is the only honest talk-now
-     * signal. The line is fully closed after every note (an open mic is
-     * audible as background noise on some setups).
+     * actually delivering samples, so this is the only honest talk-now signal.
+     * The line is fully closed after every note (an open mic is audible as
+     * background noise on some setups).
      *
-     * on_ended runs when the capture stops on its own while nobody asked it
-     * to: the manager has to tear the dialog down instead of leaving the user
+     * on_ended runs when the capture stops on its own while nobody asked it to:
+     * the manager has to tear the dialog down instead of leaving the user
      * talking into a mic that is no longer recording.
      */
     public Outcome start(Runnable on_live, Runnable on_ended) {
@@ -248,8 +248,8 @@ public class VoiceRecorder {
     }
 
     /**
-     * Stops the line and pulls whatever the hardware had already buffered.
-     * Most of the tail is actually delivered by the grace stop() waits before
+     * Stops the line and pulls whatever the hardware had already buffered. Most
+     * of the tail is actually delivered by the grace stop() waits before
      * lowering the flag, but a provider that does keep buffered frames after
      * stop() gets them picked up here instead of closed away.
      */

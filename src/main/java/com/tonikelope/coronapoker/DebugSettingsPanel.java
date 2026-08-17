@@ -34,17 +34,19 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 
 /**
- * "Debug" tab of the Settings dialog: a read-only, syntax-highlighted console showing the
- * {@code java.util.logging} dump buffered by {@link DebugLog}.
+ * "Debug" tab of the Settings dialog: a read-only, syntax-highlighted console
+ * showing the {@code java.util.logging} dump buffered by {@link DebugLog}.
  *
- * Each record is coloured by log level (INFO green, WARNING amber, SEVERE red band, FINE dim),
- * with the timestamp/package dimmed, the source class in cyan and numeric values highlighted, so
- * the important lines stand out at a glance. Relies on {@link DebugLog}'s locale-independent
- * format (English level names, ISO timestamps) to classify each line reliably.
+ * Each record is coloured by log level (INFO green, WARNING amber, SEVERE red
+ * band, FINE dim), with the timestamp/package dimmed, the source class in cyan
+ * and numeric values highlighted, so the important lines stand out at a glance.
+ * Relies on {@link DebugLog}'s locale-independent format (English level names,
+ * ISO timestamps) to classify each line reliably.
  *
- * Subscribes to {@link DebugLog} on construction and unsubscribes in {@link #cleanup()} (called by
- * SettingsDialog on close, so the static DebugLog listener doesn't keep this discarded panel
- * alive). Reuses the console look ({@code LOG_BG}/{@code LOG_FONT}) and the sticky autoscroll
+ * Subscribes to {@link DebugLog} on construction and unsubscribes in
+ * {@link #cleanup()} (called by SettingsDialog on close, so the static DebugLog
+ * listener doesn't keep this discarded panel alive). Reuses the console look
+ * ({@code LOG_BG}/{@code LOG_FONT}) and the sticky autoscroll
  * ({@code BottomFollower}) from {@link GameLogDialog}.
  *
  * @author tonikelope
@@ -377,16 +379,17 @@ public class DebugSettingsPanel extends JPanel {
     }
 
     /**
-     * Restores the monospace console font after SettingsDialog's {@code setUniformFont} pass, which
-     * would otherwise overwrite it with {@code GUI_FONT}. Call this after that pass.
+     * Restores the monospace console font after SettingsDialog's
+     * {@code setUniformFont} pass, which would otherwise overwrite it with
+     * {@code GUI_FONT}. Call this after that pass.
      */
     public void reapplyConsoleFont() {
         debug_pane.setFont(consoleFont());
     }
 
     /**
-     * Jumps to the bottom of the console. Called when the dialog opens, to show the most recent log
-     * lines.
+     * Jumps to the bottom of the console. Called when the dialog opens, to show
+     * the most recent log lines.
      */
     public void snapToBottom() {
         follow.snapToBottom();

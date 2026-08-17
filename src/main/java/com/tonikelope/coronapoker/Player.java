@@ -35,8 +35,8 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
 /**
- * A poker player at the table — local or remote — covering hand state, stack/bet, actions and the
- * GUI hooks the table drives to render them.
+ * A poker player at the table — local or remote — covering hand state,
+ * stack/bet, actions and the GUI hooks the table drives to render them.
  *
  * @author tonikelope
  */
@@ -111,28 +111,28 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     public void setLoser(String msg);
 
     /**
-     * Records the cards that make up this LOSER's hand at showdown (no kickers, same as
-     * {@code jugada.getWinners()} for a winner), so hovering the hand label can highlight them
-     * (RESALTAR_JUGADA_SHOWDOWN). {@code null} means no highlight (hidden hand or not
-     * applicable); cleared between hands.
+     * Records the cards that make up this LOSER's hand at showdown (no kickers,
+     * same as {@code jugada.getWinners()} for a winner), so hovering the hand
+     * label can highlight them (RESALTAR_JUGADA_SHOWDOWN). {@code null} means
+     * no highlight (hidden hand or not applicable); cleared between hands.
      *
      * @param cartas the losing hand's cards, or {@code null}
      */
     public void setShowdownHand(java.util.List<Card> cartas);
 
     /**
-     * Run-it-twice rewind: re-applies the last action's render and clears SIDE-A's
-     * winner/loser state before SIDE-B runs.
+     * Run-it-twice rewind: re-applies the last action's render and clears
+     * SIDE-A's winner/loser state before SIDE-B runs.
      */
     public void repaintLastAction();
 
     public void pagar(double pasta, Integer sec_pot);
 
     /**
-     * Run-it-twice: flags (deduplicated) that this player wins side pot {@code sec_pot} (the
-     * "black stripe"), without paying it out — the money is paid separately via
-     * {@link #pagar(double, Integer)}. Avoids a duplicate index when the same pot is won on
-     * both boards.
+     * Run-it-twice: flags (deduplicated) that this player wins side pot
+     * {@code sec_pot} (the "black stripe"), without paying it out — the money
+     * is paid separately via {@link #pagar(double, Integer)}. Avoids a
+     * duplicate index when the same pot is won on both boards.
      *
      * @param sec_pot side pot index
      */
@@ -157,12 +157,14 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     public JLabel getChip_label();
 
     /**
-     * Screen-space center where this seat's position chip rests, for a chip of size
-     * ({@code chip_w}, {@code chip_h}). Must be called on the EDT (reads the Swing hierarchy).
+     * Screen-space center where this seat's position chip rests, for a chip of
+     * size ({@code chip_w}, {@code chip_h}). Must be called on the EDT (reads
+     * the Swing hierarchy).
      *
      * @param chip_w chip width in pixels
      * @param chip_h chip height in pixels
-     * @return the screen center point, or {@code null} if the seat isn't showing
+     * @return the screen center point, or {@code null} if the seat isn't
+     * showing
      */
     public java.awt.geom.Point2D getPositionChipScreenCenter(int chip_w, int chip_h);
 
@@ -173,35 +175,38 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     public int getDecision();
 
     /**
-     * Recovery: silently marks this seat as FOLDED (decision=FOLD, painted gray, no sound or
-     * animation). Used by the mutual-timeout skip so a player who left mid-hand and reconnects
-     * shows as folded for that hand, instead of looking like they never acted.
+     * Recovery: silently marks this seat as FOLDED (decision=FOLD, painted
+     * gray, no sound or animation). Used by the mutual-timeout skip so a player
+     * who left mid-hand and reconnects shows as folded for that hand, instead
+     * of looking like they never acted.
      */
     public void markFoldedOnRecover();
 
     public void setStack(double stack);
 
     /**
-     * Paints only the stack label with {@code value}, without touching the model. Used by the
-     * stack fill-in animation (table opening / rebuy) to roll the counter frame by frame; the
-     * caller sets the real stack separately.
+     * Paints only the stack label with {@code value}, without touching the
+     * model. Used by the stack fill-in animation (table opening / rebuy) to
+     * roll the counter frame by frame; the caller sets the real stack
+     * separately.
      *
      * @param value the value to display
      */
     public void setStackDisplay(double value);
 
     /**
-     * Marks that the live roll animation for stack and bet must NOT fire from setStack/setBet
-     * (labels stay at their previous value). Set by the action handler right before a chip
-     * flies, so the counters don't get ahead of it.
+     * Marks that the live roll animation for stack and bet must NOT fire from
+     * setStack/setBet (labels stay at their previous value). Set by the action
+     * handler right before a chip flies, so the counters don't get ahead of it.
      *
-     * @param deferred {@code true} to suppress rolling until {@link #rollCountersToModel()}
+     * @param deferred {@code true} to suppress rolling until
+     * {@link #rollCountersToModel()}
      */
     public void setCounterRollDeferred(boolean deferred);
 
     /**
-     * Rolls the stack and bet counters to their current model value (in step with the pot
-     * bump/flash on chip landing). Clears the deferred flag.
+     * Rolls the stack and bet counters to their current model value (in step
+     * with the pot bump/flash on chip landing). Clears the deferred flag.
      */
     public void rollCountersToModel();
 
@@ -210,9 +215,9 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     public void setBet(double bet);
 
     /**
-     * Posts an ante (dead money: stack to pot, without touching bet) for the given amount, or
-     * the whole stack if it doesn't cover it (all-in on the ante). Only called when
-     * {@code GameFrame.ANTE} is on.
+     * Posts an ante (dead money: stack to pot, without touching bet) for the
+     * given amount, or the whole stack if it doesn't cover it (all-in on the
+     * ante). Only called when {@code GameFrame.ANTE} is on.
      *
      * @param ante amount to post
      * @return the amount actually posted
@@ -220,9 +225,9 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     public double postAnte(double ante);
 
     /**
-     * Posts a straddle (a LIVE blind: it DOES count as a bet to call, via bet) for the given
-     * amount, or the whole stack if it doesn't cover it (all-in). Only called when
-     * {@code GameFrame.STRADDLE} is on.
+     * Posts a straddle (a LIVE blind: it DOES count as a bet to call, via bet)
+     * for the given amount, or the whole stack if it doesn't cover it (all-in).
+     * Only called when {@code GameFrame.STRADDLE} is on.
      *
      * @param amount amount to post
      * @return the amount actually posted
@@ -272,10 +277,11 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     public boolean isMuestra();
 
     /**
-     * Shows the shuffle GIF overlay and white highlight border while this player's step of the
-     * SRA shuffle cascade is running. Kept in sync across peers via the SHUFFLE_TURN command;
-     * GameFrame's controller ({@code onShuffleTurn}) invokes it on whichever player (local or
-     * remote) has the turn. May block loading the GIF — do not call from the EDT.
+     * Shows the shuffle GIF overlay and white highlight border while this
+     * player's step of the SRA shuffle cascade is running. Kept in sync across
+     * peers via the SHUFFLE_TURN command; GameFrame's controller
+     * ({@code onShuffleTurn}) invokes it on whichever player (local or remote)
+     * has the turn. May block loading the GIF — do not call from the EDT.
      */
     public void showShuffleCascadeOverlay();
 

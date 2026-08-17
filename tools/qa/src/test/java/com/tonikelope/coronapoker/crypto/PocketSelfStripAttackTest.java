@@ -39,11 +39,12 @@ public class PocketSelfStripAttackTest {
     }
 
     /**
-     * Ring [host, H], H in slot 1 → H's pocket lives at megapacket points 2 and 3.
-     * After the normal deal the host already holds H's pocket single-locked by H.
-     * If H could be tricked into stripping its OWN lock off point 2/3, the host
-     * would read H's cards. The test shows that strip yields the cleartext card,
-     * and that the stripped point index is exactly what the handler guard rejects.
+     * Ring [host, H], H in slot 1 → H's pocket lives at megapacket points 2 and
+     * 3. After the normal deal the host already holds H's pocket single-locked
+     * by H. If H could be tricked into stripping its OWN lock off point 2/3,
+     * the host would read H's cards. The test shows that strip yields the
+     * cleartext card, and that the stripped point index is exactly what the
+     * handler guard rejects.
      */
     @Test
     public void hostStripsHelperPocketViaDecoupledOffset_isCleartextLeak_andGuardCatchesIt() {
@@ -104,14 +105,16 @@ public class PocketSelfStripAttackTest {
     }
 
     /**
-     * Same attack, smuggled past the guard through INT OVERFLOW instead of a direct hit.
+     * Same attack, smuggled past the guard through INT OVERFLOW instead of a
+     * direct hit.
      *
-     * The handler derives the byte offset as pointIdx * 32, in int arithmetic. Since
-     * 2^27 points are exactly 2^32 bytes, offsetBase = mySlot*2 + 2^27 wraps around to
-     * the very same byte as mySlot*2, while the guard's equality checks
-     * (pointIdx == mySlot*2) no longer recognise it — and the range check overflows too,
-     * so it does not fire either. The wire layer must reject the offset outright, before
-     * the handler gets a chance to compute anything with it.
+     * The handler derives the byte offset as pointIdx * 32, in int arithmetic.
+     * Since 2^27 points are exactly 2^32 bytes, offsetBase = mySlot*2 + 2^27
+     * wraps around to the very same byte as mySlot*2, while the guard's
+     * equality checks (pointIdx == mySlot*2) no longer recognise it — and the
+     * range check overflows too, so it does not fire either. The wire layer
+     * must reject the offset outright, before the handler gets a chance to
+     * compute anything with it.
      */
     @Test
     public void pocketSelfStripViaIntOverflowOffset_isRejectedByTheWire() {

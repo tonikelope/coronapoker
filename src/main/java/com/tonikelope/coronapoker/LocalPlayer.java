@@ -71,8 +71,8 @@ import javax.swing.Timer;
 import javax.swing.border.LineBorder;
 
 /**
- * Swing panel for the local human player's seat: action buttons, bet
- * spinner, stack/pot labels, hole cards and showdown/overlay effects.
+ * Swing panel for the local human player's seat: action buttons, bet spinner,
+ * stack/pot labels, hole cards and showdown/overlay effects.
  *
  * @author tonikelope
  */
@@ -217,8 +217,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Telemetry: updates the LatencyDot widget. No-op if it hasn't
-     * been wired up yet via setLatencyDot.
+     * Telemetry: updates the LatencyDot widget. No-op if it hasn't been wired
+     * up yet via setLatencyDot.
      */
     public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
         LatencyDot dot = this.latency_dot;
@@ -1217,10 +1217,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Shows the shuffle GIF (MUTED, looping) + white border over this LOCAL player. Invoked by
-     * GameFrame's controller from its serializer thread (NOT the EDT) when the cascade turn
-     * belongs to the local nick. Loads the GIF SYNCHRONOUSLY (do not call from the EDT) and
-     * paints on the EDT.
+     * Shows the shuffle GIF (MUTED, looping) + white border over this LOCAL
+     * player. Invoked by GameFrame's controller from its serializer thread (NOT
+     * the EDT) when the cascade turn belongs to the local nick. Loads the GIF
+     * SYNCHRONOUSLY (do not call from the EDT) and paints on the EDT.
      */
     @Override
     public void showShuffleCascadeOverlay() {
@@ -1287,8 +1287,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Decodes (once per instance, cache-busted) the current deck's shuffle.gif ImageIcon and
-     * counts its frames; null if there's no GIF. Mirrors RemotePlayer.ensureShuffleCascadeIcon.
+     * Decodes (once per instance, cache-busted) the current deck's shuffle.gif
+     * ImageIcon and counts its frames; null if there's no GIF. Mirrors
+     * RemotePlayer.ensureShuffleCascadeIcon.
      */
     private ImageIcon ensureShuffleCascadeIcon() throws Exception {
         URL url = Crupier.shuffleGifUrl();
@@ -1780,7 +1781,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                 // setValue(response_counter) is redundant: smoothCountdown already
                                 // has its own internal Timer updating the bar every 50ms.
-
                                 if (GameFrame.THINK_TIME_ENABLED && response_counter == GameFrame.getHurryupThreshold()) {
                                     if (GameFrame.avisoTiempoSonidoOn()) {
                                         Audio.playWavResource("misc/hurryup.wav");
@@ -3730,7 +3730,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 || nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())
                 || nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())
                 || (GameFrame.getInstance().getCrupier().isStraddle_posted()
-                        && nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick()))) {
+                && nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick()))) {
 
             // Cycles the position chip's 3 states: normal -> 70% -> hidden -> normal.
             GameFrame.LOCAL_POSITION_CHIP = (GameFrame.LOCAL_POSITION_CHIP + 1) % 3;

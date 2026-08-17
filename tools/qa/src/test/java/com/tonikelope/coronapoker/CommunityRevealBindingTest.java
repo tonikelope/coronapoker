@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
-/** TDD coverage for the host COMM_REVEAL context/replay gate. */
+/**
+ * TDD coverage for the host COMM_REVEAL context/replay gate.
+ */
 class CommunityRevealBindingTest {
 
     @Test

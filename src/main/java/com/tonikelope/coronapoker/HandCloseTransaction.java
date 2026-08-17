@@ -25,7 +25,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Strict, all-or-nothing persistence for normal and aborted hand closes. */
+/**
+ * Strict, all-or-nothing persistence for normal and aborted hand closes.
+ */
 public final class HandCloseTransaction {
 
     private HandCloseTransaction() {
@@ -86,8 +88,7 @@ public final class HandCloseTransaction {
                 requireOne(hand.executeUpdate(), "aborted hand close", String.valueOf(handId));
             }
             try (PreparedStatement update = con.prepareStatement(
-                    "UPDATE balance SET stack=?, buyin=?, rebuy_count=? WHERE id_hand=? AND player=?");
-                    PreparedStatement insert = con.prepareStatement(
+                    "UPDATE balance SET stack=?, buyin=?, rebuy_count=? WHERE id_hand=? AND player=?"); PreparedStatement insert = con.prepareStatement(
                             "INSERT INTO balance(id_hand, player, stack, buyin, rebuy_count) VALUES (?,?,?,?,?)")) {
                 update.setQueryTimeout(30);
                 insert.setQueryTimeout(30);

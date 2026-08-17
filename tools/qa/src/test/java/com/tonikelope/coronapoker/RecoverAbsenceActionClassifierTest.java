@@ -15,23 +15,25 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * ZERO-TRUST RECOVER: telling a benign "action played while I was out of the hand"
- * apart from a forged action, when the host replays one of MY OWN actions with no
- * verifiable record (bare, record="*").
+ * ZERO-TRUST RECOVER: telling a benign "action played while I was out of the
+ * hand" apart from a forged action, when the host replays one of MY OWN actions
+ * with no verifiable record (bare, record="*").
  *
  * When a player leaves mid-hand the host synthesises its FOLD with no signature
- * (§4.5: nobody may sign in the actor's name) and stores it bare. On reconnect the
- * host replays it as "...#*#*". That is legitimate and unverifiable — the client
- * was gone — so it must be ACCEPTED with a soft notice, NOT rejected as a forgery.
+ * (§4.5: nobody may sign in the actor's name) and stores it bare. On reconnect
+ * the host replays it as "...#*#*". That is legitimate and unverifiable — the
+ * client was gone — so it must be ACCEPTED with a soft notice, NOT rejected as
+ * a forgery.
  *
- * {@link Crupier#isBenignPostAbsenceRecover} draws the line with two facts the peer
- * already holds locally: the 1-based replay index of the action and how many of the
- * peer's own actions it managed to persist before reconnecting. Benign iff the
- * action is a FOLD (an absent seat can only end up folded — a bet would move money
- * the peer never authorised) AND its index is strictly beyond what the peer stored
- * (it happened during the absence, so there is no local record to confront it with).
- * A bare action at or before the stored count means the host stripped the signature
- * of an action the peer actually witnessed: a forgery, and the hard warning stands.
+ * {@link Crupier#isBenignPostAbsenceRecover} draws the line with two facts the
+ * peer already holds locally: the 1-based replay index of the action and how
+ * many of the peer's own actions it managed to persist before reconnecting.
+ * Benign iff the action is a FOLD (an absent seat can only end up folded — a
+ * bet would move money the peer never authorised) AND its index is strictly
+ * beyond what the peer stored (it happened during the absence, so there is no
+ * local record to confront it with). A bare action at or before the stored
+ * count means the host stripped the signature of an action the peer actually
+ * witnessed: a forgery, and the hard warning stands.
  */
 class RecoverAbsenceActionClassifierTest {
 

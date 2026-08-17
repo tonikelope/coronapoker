@@ -62,18 +62,18 @@ import javax.swing.text.ViewFactory;
 
 /**
  * Single-line JTextPane that supports inline emoji icons rendered alongside
- * text. Each emoji is stored as a single dummy char in the Document carrying
- * an Icon attribute plus an integer "emoji.id" attribute. {@link #getRawText}
+ * text. Each emoji is stored as a single dummy char in the Document carrying an
+ * Icon attribute plus an integer "emoji.id" attribute. {@link #getRawText}
  * rebuilds the legacy " #N# " wire format from the document. Caret nav,
  * backspace and delete treat the emoji as one normal character.
  *
  * Visual layout: component height is fixed to {@link #FIXED_HEIGHT} to match
  * the surrounding chat row buttons. A custom {@code PaddedLabelView} reports
  * the text view's preferred Y span as the emoji height so the line height is
- * constant whether or not emojis are present — that keeps the text from
- * jumping when an emoji is inserted. Text is painted vertically centered
- * inside that padded allocation; the IconView is also center-aligned so the
- * icon sits next to the text rather than baseline-anchored below.
+ * constant whether or not emojis are present — that keeps the text from jumping
+ * when an emoji is inserted. Text is painted vertically centered inside that
+ * padded allocation; the IconView is also center-aligned so the icon sits next
+ * to the text rather than baseline-anchored below.
  */
 public class EmojiChatBox extends JTextPane {
 
@@ -264,11 +264,11 @@ public class EmojiChatBox extends JTextPane {
     }
 
     /**
-     * LabelView whose Y span is padded to LINE_HEIGHT so the row keeps the
-     * same height regardless of whether it contains emojis. Text is painted
-     * vertically centered inside the padded allocation. The natural text
-     * height is computed from the font (not from super.getPreferredSpan,
-     * which would return the already-padded value).
+     * LabelView whose Y span is padded to LINE_HEIGHT so the row keeps the same
+     * height regardless of whether it contains emojis. Text is painted
+     * vertically centered inside the padded allocation. The natural text height
+     * is computed from the font (not from super.getPreferredSpan, which would
+     * return the already-padded value).
      */
     private static final class PaddedLabelView extends LabelView {
 

@@ -45,9 +45,9 @@ import javax.swing.table.DefaultTableModel;
  * new-game dialog. The built-in default ladder is NOT listed here: it lives
  * implicitly in the new-game combo and is never editable.
  *
- * Hand-coded (no .form), following the same idiom as SettingsDialog: a
- * modal dialog assembled with plain layout managers, translated and font-scaled
- * via Helpers. Editing happens on an in-memory working copy keyed by name; the
+ * Hand-coded (no .form), following the same idiom as SettingsDialog: a modal
+ * dialog assembled with plain layout managers, translated and font-scaled via
+ * Helpers. Editing happens on an in-memory working copy keyed by name; the
  * level table commits each cell live into that copy (reverting unparseable
  * input) and the whole set is validated and persisted only on Save.
  *
@@ -210,7 +210,6 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     }
 
     // ----- Selection / table population ---------------------------------------
-
     private String selectedStructure() {
         return structure_list.getSelectedValue();
     }
@@ -243,7 +242,6 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     }
 
     // ----- Live cell commit ---------------------------------------------------
-
     private void onLevelCellChanged(javax.swing.event.TableModelEvent e) {
         if (loading_table || e.getType() != javax.swing.event.TableModelEvent.UPDATE) {
             return;
@@ -288,7 +286,6 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     }
 
     // ----- Structure CRUD -----------------------------------------------------
-
     private void onNew() {
         String name = promptName(null);
         if (name == null) {
@@ -364,7 +361,6 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     }
 
     // ----- Level add / remove -------------------------------------------------
-
     private void onAddLevel() {
         String name = selectedStructure();
         if (name == null) {
@@ -424,7 +420,6 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     }
 
     // ----- Save / close -------------------------------------------------------
-
     private void onSave() {
         // Validate every structure; stop at the first offender, select it and
         // explain why, so the user lands exactly on what needs fixing.
@@ -457,7 +452,6 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     }
 
     // ----- Name prompting / uniqueness ---------------------------------------
-
     // Prompts for a structure name, validating format and uniqueness (the
     // current name, when renaming, is allowed). Returns null on cancel/invalid.
     private String promptName(String current) {
@@ -521,7 +515,9 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         return candidate;
     }
 
-    /** Truncates to the maximum length a structure name allows. */
+    /**
+     * Truncates to the maximum length a structure name allows.
+     */
     private static String truncarNombre(String nombre) {
         return nombre.length() > BlindStructure.MAX_NAME_LENGTH
                 ? nombre.substring(0, BlindStructure.MAX_NAME_LENGTH)

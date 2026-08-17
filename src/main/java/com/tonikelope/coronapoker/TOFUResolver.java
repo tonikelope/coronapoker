@@ -25,20 +25,19 @@ import java.util.logging.Logger;
 /**
  * Identity: persistence layer for Trust-On-First-Use identity pinning.
  *
- * Reads and updates the SQLite known_identities table created by Helpers.initSQLITE.
- * Resolution semantics:
+ * Reads and updates the SQLite known_identities table created by
+ * Helpers.initSQLITE. Resolution semantics:
  *
- *   Outcome  Behavior                                                        Shield
- *   -------  --------------------------------------------------------------  -------
- *   NEW      Unknown nick. INSERT row, sessions_count=1, verified_oob=0.     Grey
- *   MATCH    Known nick, pubkey byte-identical. UPDATE last_seen +           Grey or
- *            sessions_count++; verified_oob untouched.                       green
- *   CHANGED  Known nick, pubkey differs. UPDATE pubkey + last_seen +         Grey
- *            sessions_count++ + verified_oob reset to 0. Silent — the
- *            user only discovers this by inspecting the identicon.
+ * Outcome Behavior Shield -------
+ * -------------------------------------------------------------- ------- NEW
+ * Unknown nick. INSERT row, sessions_count=1, verified_oob=0. Grey MATCH Known
+ * nick, pubkey byte-identical. UPDATE last_seen + Grey or sessions_count++;
+ * verified_oob untouched. green CHANGED Known nick, pubkey differs. UPDATE
+ * pubkey + last_seen + Grey sessions_count++ + verified_oob reset to 0. Silent
+ * — the user only discovers this by inspecting the identicon.
  *
- * The resolution is intentionally non-interactive (no blocking modal) to keep the
- * UX friction-free. Spec §3 "TOFU resolution".
+ * The resolution is intentionally non-interactive (no blocking modal) to keep
+ * the UX friction-free. Spec §3 "TOFU resolution".
  */
 public final class TOFUResolver {
 
@@ -79,9 +78,9 @@ public final class TOFUResolver {
     }
 
     /**
-     * Resolves a (nick, pubkey) pair against the local pinning store, updating it
-     * according to TOFU rules. The pubkey is the 32 raw bytes of an Ed25519 public
-     * key. Returns the outcome category and the post-update state.
+     * Resolves a (nick, pubkey) pair against the local pinning store, updating
+     * it according to TOFU rules. The pubkey is the 32 raw bytes of an Ed25519
+     * public key. Returns the outcome category and the post-update state.
      */
     public static Resolution resolve(String nick, byte[] pubkey) {
         if (nick == null || nick.isEmpty()) {
@@ -183,8 +182,8 @@ public final class TOFUResolver {
 
     /**
      * Marks a (nick, pubkey) pair as verified out-of-band. Only succeeds if the
-     * stored pubkey for the nick byte-matches the supplied one (defensive guard so
-     * verification cannot be forged from stale UI state).
+     * stored pubkey for the nick byte-matches the supplied one (defensive guard
+     * so verification cannot be forged from stale UI state).
      */
     public static boolean markVerified(String nick, byte[] pubkey) {
         if (nick == null || pubkey == null || pubkey.length != 32) {
@@ -248,8 +247,9 @@ public final class TOFUResolver {
     }
 
     /**
-     * Returns true if the pinned pubkey for this nick matches and has been verified
-     * out-of-band by the user. Used to decide whether to render the shield in green.
+     * Returns true if the pinned pubkey for this nick matches and has been
+     * verified out-of-band by the user. Used to decide whether to render the
+     * shield in green.
      */
     public static boolean isVerified(String nick, byte[] pubkey) {
         if (nick == null || pubkey == null || pubkey.length != 32) {

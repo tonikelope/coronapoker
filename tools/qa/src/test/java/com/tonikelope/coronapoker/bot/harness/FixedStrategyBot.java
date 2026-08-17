@@ -17,47 +17,44 @@ import com.tonikelope.coronapoker.bot.context.DealerView;
 
 /**
  * Deterministic opponent benchmarks for the bot suite. These never make
- * adaptive decisions — they implement a single archetype consistently so
- * the production {@link Bot} can be measured against well-known strategy
- * shapes (calling station, rock, maniac, simple TAG).
+ * adaptive decisions — they implement a single archetype consistently so the
+ * production {@link Bot} can be measured against well-known strategy shapes
+ * (calling station, rock, maniac, simple TAG).
  *
- * <p>If the production bot cannot beat a calling station by a wide margin
- * over thousands of hands, something is fundamentally wrong with its
- * value-betting / range construction. These benchmarks exist precisely to
- * catch that class of regression without requiring a human to sit at the
- * table.</p>
+ * <p>
+ * If the production bot cannot beat a calling station by a wide margin over
+ * thousands of hands, something is fundamentally wrong with its value-betting /
+ * range construction. These benchmarks exist precisely to catch that class of
+ * regression without requiring a human to sit at the table.</p>
  */
 public final class FixedStrategyBot extends Bot {
 
     public enum Strategy {
         /**
-         * Calling station: never folds when toCall > 0 (unless all-in),
-         * never raises. Postflop always checks. A profitable target for
-         * value bets — any competent bot should crush this by hundreds of
-         * bb/100.
+         * Calling station: never folds when toCall > 0 (unless all-in), never
+         * raises. Postflop always checks. A profitable target for value bets —
+         * any competent bot should crush this by hundreds of bb/100.
          */
         STATION,
         /**
-         * Rock: only voluntarily plays AA, KK, QQ, JJ, AKs, AKo. Always
-         * raises preflop with these and goes for value. Folds everything
-         * else preflop. Postflop bets and calls with top pair good kicker
-         * or better, folds otherwise. A competent bot should steal the
-         * blinds enough to net positive bb/100.
+         * Rock: only voluntarily plays AA, KK, QQ, JJ, AKs, AKo. Always raises
+         * preflop with these and goes for value. Folds everything else preflop.
+         * Postflop bets and calls with top pair good kicker or better, folds
+         * otherwise. A competent bot should steal the blinds enough to net
+         * positive bb/100.
          */
         ROCK,
         /**
-         * Maniac: raises 100% preflop when no bet (3-4x BB), shoves over
-         * any raise with any two cards. Postflop bets pot. Catastrophic
-         * variance — a competent bot should print money by trapping with
-         * strong hands.
+         * Maniac: raises 100% preflop when no bet (3-4x BB), shoves over any
+         * raise with any two cards. Postflop bets pot. Catastrophic variance —
+         * a competent bot should print money by trapping with strong hands.
          */
         MANIAC,
         /**
-         * Simple TAG: open-raises top ~25% preflop, c-bets 65% of flops,
-         * folds to 3bet ~50% of the time, calls down with top-pair+. A
-         * reasonable benchmark opponent — a competent bot should be at
-         * most slightly negative against this archetype without opponent
-         * modeling.
+         * Simple TAG: open-raises top ~25% preflop, c-bets 65% of flops, folds
+         * to 3bet ~50% of the time, calls down with top-pair+. A reasonable
+         * benchmark opponent — a competent bot should be at most slightly
+         * negative against this archetype without opponent modeling.
          */
         TAG
     }
@@ -120,7 +117,7 @@ public final class FixedStrategyBot extends Bot {
     }
 
     private int decideRock(boolean preflop, double toCall, boolean pair, int high, int low,
-                           boolean suited, DealerView d) {
+            boolean suited, DealerView d) {
         boolean premium = pair && high >= 9
                 || (high == 12 && low == 11)
                 || (high == 12 && low == 12);
@@ -170,7 +167,7 @@ public final class FixedStrategyBot extends Bot {
     }
 
     private int decideTag(boolean preflop, double toCall, boolean pair, int high, int low,
-                          boolean suited, DealerView d) {
+            boolean suited, DealerView d) {
         boolean top25 = isTop25(pair, high, low, suited);
         int betCount = d.getConta_bet();
         if (preflop) {

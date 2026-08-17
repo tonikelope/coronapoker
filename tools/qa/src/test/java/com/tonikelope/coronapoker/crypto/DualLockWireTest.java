@@ -129,7 +129,6 @@ public class DualLockWireTest {
     // --- verifyRotationStepWire: autenticacion por-paso de la prueba de rotacion REMOTA en la ingestion.
     // El host la usa para NO aceptar de un peer una prueba basura bien formada que rotaria las piezas OK
     // pero haria fallar su full-chain self-check mientras difunde el bundle igual (falso "host deshonesto").
-
     // Un paso de rotacion honesto: after[i] = s · before[i]; proof = RotationProof.prove(s, before, after).
     // Devuelve {beforeBytes, afterBytes, proofBytes}.
     private static byte[][] honestRotationStep() {

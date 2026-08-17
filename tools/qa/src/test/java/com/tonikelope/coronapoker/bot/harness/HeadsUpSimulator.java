@@ -41,7 +41,10 @@ public final class HeadsUpSimulator {
         GameFrame.CIEGA_PEQUEÑA = 1.0f;
     }
 
-    /** Maximum number of decisions per street. Safety net against infinite loops. */
+    /**
+     * Maximum number of decisions per street. Safety net against infinite
+     * loops.
+     */
     private static final int MAX_ACTIONS_PER_STREET = 12;
 
     private final TestBotPlayer p1;
@@ -112,8 +115,8 @@ public final class HeadsUpSimulator {
 
     /**
      * Replace bot at seat A with an externally constructed instance (e.g. a
-     * {@link FixedStrategyBot} benchmark). The new bot must already be bound
-     * to {@link #playerA()}; this method wires up the dealer context.
+     * {@link FixedStrategyBot} benchmark). The new bot must already be bound to
+     * {@link #playerA()}; this method wires up the dealer context.
      */
     public void setBotA(Bot bot) {
         this.bot1 = bot;
@@ -143,8 +146,8 @@ public final class HeadsUpSimulator {
     }
 
     /**
-     * Top up both stacks back to the configured starting amount. Useful so
-     * each hand is measured in isolation (constant effective stack).
+     * Top up both stacks back to the configured starting amount. Useful so each
+     * hand is measured in isolation (constant effective stack).
      */
     public void resetStacks() {
         p1.setStack(startingStack);
@@ -155,8 +158,7 @@ public final class HeadsUpSimulator {
      * Play one heads-up hand to completion.
      *
      * @param aIsButton if true, player A posts the small blind (acts first
-     *                  preflop and last postflop); if false, player B is the
-     *                  button.
+     * preflop and last postflop); if false, player B is the button.
      * @return result with the winning index (0=A, 1=B, -1=tie) and pot size.
      */
     public HandResult playOneHand(boolean aIsButton) {
@@ -265,7 +267,7 @@ public final class HeadsUpSimulator {
     }
 
     private void finalizeHandStats(double aStartStack, double bStartStack,
-                                   boolean reachedShowdown, int winnerIndex) {
+            boolean reachedShowdown, int winnerIndex) {
         statsA.handsPlayed++;
         statsB.handsPlayed++;
         statsA.netChipsWon += (p1.getStack() - aStartStack);
@@ -334,7 +336,7 @@ public final class HeadsUpSimulator {
     }
 
     private BettingResult runBettingRound(Bot firstBot, TestBotPlayer firstPlayer,
-                                          Bot secondBot, TestBotPlayer secondPlayer) {
+            Bot secondBot, TestBotPlayer secondPlayer) {
         Bot toActBot = firstBot;
         TestBotPlayer toActPlayer = firstPlayer;
         Bot waitingBot = secondBot;
@@ -350,8 +352,12 @@ public final class HeadsUpSimulator {
                 if (actions >= 2 && bothMatched()) {
                     return BettingResult.STREET_DONE;
                 }
-                Bot tmpB = toActBot; toActBot = waitingBot; waitingBot = tmpB;
-                TestBotPlayer tmpP = toActPlayer; toActPlayer = waitingPlayer; waitingPlayer = tmpP;
+                Bot tmpB = toActBot;
+                toActBot = waitingBot;
+                waitingBot = tmpB;
+                TestBotPlayer tmpP = toActPlayer;
+                toActPlayer = waitingPlayer;
+                waitingPlayer = tmpP;
                 continue;
             }
 
@@ -426,14 +432,17 @@ public final class HeadsUpSimulator {
                 actions++;
             }
 
-            Bot tmpB = toActBot; toActBot = waitingBot; waitingBot = tmpB;
-            TestBotPlayer tmpP = toActPlayer; toActPlayer = waitingPlayer; waitingPlayer = tmpP;
+            Bot tmpB = toActBot;
+            toActBot = waitingBot;
+            waitingBot = tmpB;
+            TestBotPlayer tmpP = toActPlayer;
+            toActPlayer = waitingPlayer;
+            waitingPlayer = tmpP;
         }
         return BettingResult.STREET_DONE;
     }
 
     // --- stat update helpers -------------------------------------------------
-
     private Bot.OpponentTracker trackerFor(TestBotPlayer p) {
         return Bot.TRACKER_MEMORY.computeIfAbsent(p.getNickname(),
                 k -> new Bot.OpponentTracker());
@@ -497,7 +506,9 @@ public final class HeadsUpSimulator {
         trackerFor(actorIsA ? p1 : p2).recordPostFlopBetOrRaise();
     }
 
-    /** Raw equity of a player's hand vs one random hand on the current board. */
+    /**
+     * Raw equity of a player's hand vs one random hand on the current board.
+     */
     private double handStrengthOf(TestBotPlayer p) {
         int bs = dealer.getBoardSize();
         int[] board = new int[bs];
@@ -574,7 +585,9 @@ public final class HeadsUpSimulator {
 
     public static final class HandResult {
 
-        /** 0 = player A wins, 1 = player B wins, -1 = tie. */
+        /**
+         * 0 = player A wins, 1 = player B wins, -1 = tie.
+         */
         public final int winnerIndex;
         public final double pot;
 

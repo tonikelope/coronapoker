@@ -24,10 +24,10 @@ public class RistrettoEqualityTest {
 
     // Torsion E[4] de edwards25519: (0,-1) de orden 2 y (±i, 0) de orden 4. Sumar cualquiera de
     // ellos a un punto NO cambia el elemento Ristretto que representa.
-    private static final EdwardsPoint T2 =
-            EdwardsPoint.fromAffine(Fe25519.ZERO, Fe25519.ONE.negate());
-    private static final EdwardsPoint T4 =
-            EdwardsPoint.fromAffine(Ristretto255.SQRT_M1, Fe25519.ZERO);
+    private static final EdwardsPoint T2
+            = EdwardsPoint.fromAffine(Fe25519.ZERO, Fe25519.ONE.negate());
+    private static final EdwardsPoint T4
+            = EdwardsPoint.fromAffine(Ristretto255.SQRT_M1, Fe25519.ZERO);
 
     @BeforeAll
     public static void ensureRng() {

@@ -25,13 +25,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * AAA tests for {@link Helpers#encryptBytes}/{@link Helpers#decryptBytes}, the raw-bytes
- * siblings of encryptString/decryptString used as binary {@link com.tonikelope.coronapoker.WireFrame}
- * bodies.
+ * AAA tests for {@link Helpers#encryptBytes}/{@link Helpers#decryptBytes}, the
+ * raw-bytes siblings of encryptString/decryptString used as binary
+ * {@link com.tonikelope.coronapoker.WireFrame} bodies.
  *
- * The load-bearing test is {@link #equivalenceWithStringPath()}: it pins that the new byte
- * path produces, modulo Base64, the EXACT same crypto bytes as the untouched string path,
- * so the in-game channel and the binary path can never silently diverge.
+ * The load-bearing test is {@link #equivalenceWithStringPath()}: it pins that
+ * the new byte path produces, modulo Base64, the EXACT same crypto bytes as the
+ * untouched string path, so the in-game channel and the binary path can never
+ * silently diverge.
  */
 class EncryptBytesTest {
 

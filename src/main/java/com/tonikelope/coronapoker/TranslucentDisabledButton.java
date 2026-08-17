@@ -14,14 +14,14 @@ import java.awt.Graphics2D;
 import javax.swing.JButton;
 
 /**
- * JButton that paints translucent while disabled, instead of the default solid gray, so the
- * unavailable action dims and lets the felt show through behind it. When enabled it paints
- * exactly like a normal JButton (no extra cost).
+ * JButton that paints translucent while disabled, instead of the default solid
+ * gray, so the unavailable action dims and lets the felt show through behind
+ * it. When enabled it paints exactly like a normal JButton (no extra cost).
  *
- * Used in LocalPlayer's action buttons (check/fold/bet/all-in), wired via the .form file like the
- * rest of the project's custom components. Deliberately non-opaque: on repaint, Swing first
- * refreshes the opaque ancestor (the felt), and the alpha composite is then applied over fresh
- * pixels.
+ * Used in LocalPlayer's action buttons (check/fold/bet/all-in), wired via the
+ * .form file like the rest of the project's custom components. Deliberately
+ * non-opaque: on repaint, Swing first refreshes the opaque ancestor (the felt),
+ * and the alpha composite is then applied over fresh pixels.
  *
  * @author tonikelope
  */

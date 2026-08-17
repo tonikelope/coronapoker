@@ -142,8 +142,8 @@ public class Fe25519FastReduceTest {
         BigInteger P = Fe25519.P;
         BigInteger[] vals = {
             BigInteger.ZERO, BigInteger.ONE, BigInteger.TWO,
-            P.subtract(BigInteger.ONE),                  // p-1
-            P.subtract(BigInteger.TWO),                  // p-2
+            P.subtract(BigInteger.ONE), // p-1
+            P.subtract(BigInteger.TWO), // p-2
             BigInteger.ONE.shiftLeft(255).subtract(BigInteger.ONE), // 2^255-1 (> p)
             BigInteger.ONE.shiftLeft(254),
             BigInteger.valueOf(19), BigInteger.valueOf(38)

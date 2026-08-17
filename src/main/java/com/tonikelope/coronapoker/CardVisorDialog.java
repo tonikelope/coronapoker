@@ -53,8 +53,8 @@ public class CardVisorDialog extends javax.swing.JDialog {
     private final static HashMap<String, CardVisorDialog> OPEN_VISORS = new HashMap<>();
 
     /**
-     * Converts a rank+suit pair to the card index used by the visor (same formula as
-     * the index-based constructor).
+     * Converts a rank+suit pair to the card index used by the visor (same
+     * formula as the index-based constructor).
      *
      * @param valor rank ("A", "J", "Q", "K", or a numeric string)
      * @param palo suit letter, one of {@link #PALOS}
@@ -84,8 +84,8 @@ public class CardVisorDialog extends javax.swing.JDialog {
     }
 
     /**
-     * Opens the visor for a card, or brings the existing one to front if a visor is
-     * already open for that same card (no duplicates).
+     * Opens the visor for a card, or brings the existing one to front if a
+     * visor is already open for that same card (no duplicates).
      *
      * @param parent owner frame, used to center the visor
      * @param carta visor card index (see {@link #cartaFrom})

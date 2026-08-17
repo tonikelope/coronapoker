@@ -19,28 +19,37 @@ package com.tonikelope.coronapoker.crypto;
 import java.util.Arrays;
 
 /**
- * Verifies the WHOLE dual-lock deal chain end-to-end, genesis → MEGAPACKET, so that every dealt point
- * is provably tied back to the public genesis with no relocation or duplication anywhere — closing the
- * rotation smuggle that {@link ShuffleCascade} alone leaves open (it covers only genesis→pre-rotation).
+ * Verifies the WHOLE dual-lock deal chain end-to-end, genesis → MEGAPACKET, so
+ * that every dealt point is provably tied back to the public genesis with no
+ * relocation or duplication anywhere — closing the rotation smuggle that
+ * {@link ShuffleCascade} alone leaves open (it covers only
+ * genesis→pre-rotation).
  *
- * <p>The chain has two segments:
+ * <p>
+ * The chain has two segments:
  * <ol>
- *   <li><b>Cascade</b> (genesis → pre-rotation deck): every step an honest re-encryption shuffle,
- *       verified by {@link ShuffleCascade#verifyChain} (Bayer–Groth, anchored to genesis).</li>
- *   <li><b>Rotation</b> (pre-rotation community region → MEGAPACKET community region): every peer's
- *       step an honest in-place common-scalar re-key, verified by {@link RotationProof} (batch-DLEQ),
- *       chained from the pre-rotation community region.</li>
+ * <li><b>Cascade</b> (genesis → pre-rotation deck): every step an honest
+ * re-encryption shuffle, verified by {@link ShuffleCascade#verifyChain}
+ * (Bayer–Groth, anchored to genesis).</li>
+ * <li><b>Rotation</b> (pre-rotation community region → MEGAPACKET community
+ * region): every peer's step an honest in-place common-scalar re-key, verified
+ * by {@link RotationProof} (batch-DLEQ), chained from the pre-rotation
+ * community region.</li>
  * </ol>
- * Plus two structural invariants: the MEGAPACKET <b>pocket region equals the pre-rotation pocket region
- * byte-for-byte</b> (the rotation must not touch pocket pieces), and the MEGAPACKET <b>community region
- * equals the rotation chain's output</b>. Together these force the MEGAPACKET to be a genuine
- * permutation+relock of genesis: a host cannot park one player's pocket point into a community slot,
- * nor duplicate a card, without failing a proof or an invariant.
+ * Plus two structural invariants: the MEGAPACKET <b>pocket region equals the
+ * pre-rotation pocket region byte-for-byte</b> (the rotation must not touch
+ * pocket pieces), and the MEGAPACKET <b>community region equals the rotation
+ * chain's output</b>. Together these force the MEGAPACKET to be a genuine
+ * permutation+relock of genesis: a host cannot park one player's pocket point
+ * into a community slot, nor duplicate a card, without failing a proof or an
+ * invariant.
  *
- * <p>Point-level API (the network layer feeds decoded decks). Like {@link ShuffleCascade}, this only
- * verifies — the wiring (broadcasting the proofs + each peer running this before the unlock window) is
- * what makes it effective; verifying against a caller-supplied genesis is not sound (the anchor must be
- * the independently-recomputed genesis).
+ * <p>
+ * Point-level API (the network layer feeds decoded decks). Like
+ * {@link ShuffleCascade}, this only verifies — the wiring (broadcasting the
+ * proofs + each peer running this before the unlock window) is what makes it
+ * effective; verifying against a caller-supplied genesis is not sound (the
+ * anchor must be the independently-recomputed genesis).
  */
 public final class DualLockCascade {
 
@@ -63,18 +72,24 @@ public final class DualLockCascade {
     /**
      * Verify the full genesis → MEGAPACKET dual-lock chain.
      *
-     * @param genesis        the public genesis deck (the anchor; every peer recomputes it independently)
-     * @param cascadeDecks   {@code [genesis, ..., preRotation]} — the Bayer–Groth cascade decks
-     * @param cascadeProofs  one {@link ShuffleArgument} proof per cascade step
-     * @param pocketCount    number of pocket positions = numPlayers·2 (the community region is the rest)
-     * @param megapacket     the dealt deck (pocket region from the cascade, community region rotated)
-     * @param rotationStates {@code [preRotationCommunity, ..., megapacketCommunity]} — per-peer rekey states
+     * @param genesis the public genesis deck (the anchor; every peer recomputes
+     * it independently)
+     * @param cascadeDecks {@code [genesis, ..., preRotation]} — the Bayer–Groth
+     * cascade decks
+     * @param cascadeProofs one {@link ShuffleArgument} proof per cascade step
+     * @param pocketCount number of pocket positions = numPlayers·2 (the
+     * community region is the rest)
+     * @param megapacket the dealt deck (pocket region from the cascade,
+     * community region rotated)
+     * @param rotationStates
+     * {@code [preRotationCommunity, ..., megapacketCommunity]} — per-peer rekey
+     * states
      * @param rotationProofs one {@link RotationProof} per rotation step
      */
     public static boolean verifyFullChain(EdwardsPoint[] genesis,
-                                          EdwardsPoint[][] cascadeDecks, ShuffleArgument.Proof[] cascadeProofs,
-                                          int pocketCount, EdwardsPoint[] megapacket,
-                                          EdwardsPoint[][] rotationStates, RotationProof.Proof[] rotationProofs) {
+            EdwardsPoint[][] cascadeDecks, ShuffleArgument.Proof[] cascadeProofs,
+            int pocketCount, EdwardsPoint[] megapacket,
+            EdwardsPoint[][] rotationStates, RotationProof.Proof[] rotationProofs) {
         if (genesis == null || cascadeDecks == null || megapacket == null
                 || rotationStates == null || rotationProofs == null
                 || cascadeDecks.length < 1 || rotationStates.length < 1

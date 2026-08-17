@@ -17,13 +17,14 @@ import org.junit.jupiter.api.BeforeAll;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Shared infrastructure for the per-matchup mixed-difficulty acid tests.
- * The split into one concrete class per matchup lets surefire fork each
- * matchup into its own JVM (forkCount in pom.xml). Each matchup runs in
- * parallel and gets its own clean {@link Bot#TRACKER_MEMORY}.
+ * Shared infrastructure for the per-matchup mixed-difficulty acid tests. The
+ * split into one concrete class per matchup lets surefire fork each matchup
+ * into its own JVM (forkCount in pom.xml). Each matchup runs in parallel and
+ * gets its own clean {@link Bot#TRACKER_MEMORY}.
  *
- * <p>This class deliberately does not end in {@code Test} so surefire
- * does not try to run it on its own.</p>
+ * <p>
+ * This class deliberately does not end in {@code Test} so surefire does not try
+ * to run it on its own.</p>
  */
 abstract class BotMixedMatchupBase {
 
@@ -116,6 +117,7 @@ abstract class BotMixedMatchupBase {
     }
 
     private static final class MatchupResult {
+
         final Bot.Difficulty hi;
         final Bot.Difficulty lo;
         final BotStats hiStats;
@@ -124,7 +126,7 @@ abstract class BotMixedMatchupBase {
         final double seDelta;
 
         MatchupResult(Bot.Difficulty hi, Bot.Difficulty lo, BotStats hiStats, BotStats loStats,
-                      double meanDelta, double seDelta) {
+                double meanDelta, double seDelta) {
             this.hi = hi;
             this.lo = lo;
             this.hiStats = hiStats;

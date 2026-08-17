@@ -23,14 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * AAA test del helper Helpers.readBoundedLine introducido en Sprint 1 commit 2.
  *
- * Cobertura:
- *   - linea normal con \n -> devuelve cuerpo sin el \n
- *   - linea con CR-LF -> devuelve cuerpo sin CR ni LF
- *   - EOF inmediato sin leer nada -> devuelve null (semantica de readLine())
- *   - EOF con bytes leidos pero sin \n -> devuelve los bytes acumulados
- *   - linea que supera el cap -> lanza IOException
- *   - cap aplica exactamente sobre el numero de chars, no inclusive
- *   - hash y caracteres del wire format (#, +, /, =) pasan limpios
+ * Cobertura: - linea normal con \n -> devuelve cuerpo sin el \n - linea con
+ * CR-LF -> devuelve cuerpo sin CR ni LF - EOF inmediato sin leer nada ->
+ * devuelve null (semantica de readLine()) - EOF con bytes leidos pero sin \n ->
+ * devuelve los bytes acumulados - linea que supera el cap -> lanza IOException
+ * - cap aplica exactamente sobre el numero de chars, no inclusive - hash y
+ * caracteres del wire format (#, +, /, =) pasan limpios
  */
 class ReadBoundedLineSmoke {
 

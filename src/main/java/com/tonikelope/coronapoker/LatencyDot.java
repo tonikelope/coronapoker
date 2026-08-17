@@ -18,36 +18,50 @@ import java.awt.RenderingHints;
 import javax.swing.JLabel;
 
 /**
- * Standalone UI widget showing a remote peer's connection telemetry (latency + reconnection
- * count) as a colored dot (green/yellow/orange/red/gray), driven by the host's TELEMETRY
- * broadcast.
+ * Standalone UI widget showing a remote peer's connection telemetry (latency +
+ * reconnection count) as a colored dot (green/yellow/orange/red/gray), driven
+ * by the host's TELEMETRY broadcast.
  *
- * <p>{@link #setLatency} is thread-safe and may be called off the EDT; the repaint is always
- * deferred via {@code SwingUtilities.invokeLater}. If no update arrives within
- * {@link #STALE_THRESHOLD_MS}, the dot turns gray ("no data") rather than showing a stale value.
+ * <p>
+ * {@link #setLatency} is thread-safe and may be called off the EDT; the repaint
+ * is always deferred via {@code SwingUtilities.invokeLater}. If no update
+ * arrives within {@link #STALE_THRESHOLD_MS}, the dot turns gray ("no data")
+ * rather than showing a stale value.
  */
 // Extends JLabel (not JComponent) so NetBeans can bind it to a field declared as JLabel in the
 // .form file without a type error. paintComponent() overrides the JLabel's own text/icon
 // painting (without calling super.paintComponent), so the JLabel here just acts as a container.
 public class LatencyDot extends JLabel {
 
-    /** Displayed latency (ms). -1 = unknown / timeout / not yet measured. */
+    /**
+     * Displayed latency (ms). -1 = unknown / timeout / not yet measured.
+     */
     private volatile int latency_ms = -1;
-    /** Peer's cumulative reconnection count. */
+    /**
+     * Peer's cumulative reconnection count.
+     */
     private volatile int reconnection_count = 0;
-    /** Local timestamp (System.currentTimeMillis) of the last successful setLatency call. */
+    /**
+     * Local timestamp (System.currentTimeMillis) of the last successful
+     * setLatency call.
+     */
     private volatile long last_update_ms = 0L;
 
-    /** Past this threshold with no update, the dot paints gray ("no data"). */
+    /**
+     * Past this threshold with no update, the dot paints gray ("no data").
+     */
     public static final long STALE_THRESHOLD_MS = 15_000;
 
     /**
-     * Base side (px) of the dot at zoom 1.0. {@link #applyZoom} multiplies it so the dot scales
-     * with the rest of the player cell (avatar, icons, fonts) as the table zoom changes.
+     * Base side (px) of the dot at zoom 1.0. {@link #applyZoom} multiplies it
+     * so the dot scales with the rest of the player cell (avatar, icons, fonts)
+     * as the table zoom changes.
      */
     public static final int BASE_SIZE = 22;
 
-    /** Latency thresholds (ms) used to classify latency into a color. */
+    /**
+     * Latency thresholds (ms) used to classify latency into a color.
+     */
     public static final int THRESHOLD_GREEN_MS = 100;
     public static final int THRESHOLD_YELLOW_MS = 250;
     public static final int THRESHOLD_ORANGE_MS = 400;
@@ -73,9 +87,9 @@ public class LatencyDot extends JLabel {
     }
 
     /**
-     * Rescales the dot to {@code BASE_SIZE * factor} to track the table zoom (like the player's
-     * avatar/icons/fonts). Must be called on the EDT; revalidates the container so GroupLayout
-     * repositions the cell.
+     * Rescales the dot to {@code BASE_SIZE * factor} to track the table zoom
+     * (like the player's avatar/icons/fonts). Must be called on the EDT;
+     * revalidates the container so GroupLayout repositions the cell.
      *
      * @param factor absolute table scale (1f = neutral zoom)
      */
@@ -91,8 +105,8 @@ public class LatencyDot extends JLabel {
     }
 
     /**
-     * Updates the peer's latency and reconnection count. Thread-safe; schedules a repaint on
-     * the EDT.
+     * Updates the peer's latency and reconnection count. Thread-safe; schedules
+     * a repaint on the EDT.
      *
      * @param latencyMs latency in ms, or -1 for timeout/unknown
      * @param reconnectionCount peer's cumulative reconnection count
@@ -120,8 +134,8 @@ public class LatencyDot extends JLabel {
     }
 
     /**
-     * Maps latency (and staleness) to the final dot color. Static so the mapping can be unit
-     * tested without instantiating Swing.
+     * Maps latency (and staleness) to the final dot color. Static so the
+     * mapping can be unit tested without instantiating Swing.
      */
     public static Color colorFor(int latencyMs, long ageMs) {
         if (ageMs > STALE_THRESHOLD_MS) {

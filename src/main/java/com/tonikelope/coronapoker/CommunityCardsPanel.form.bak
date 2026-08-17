@@ -1,511 +1,511 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <Form version="1.3" maxVersion="1.9" type="org.netbeans.modules.form.forminfo.JPanelFormInfo">
-  <Properties>
-    <Property name="focusable" type="boolean" value="false"/>
-    <Property name="opaque" type="boolean" value="false"/>
-  </Properties>
-  <AuxValues>
-    <AuxValue name="FormSettings_autoResourcing" type="java.lang.Integer" value="0"/>
-    <AuxValue name="FormSettings_autoSetComponentName" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_generateFQN" type="java.lang.Boolean" value="true"/>
-    <AuxValue name="FormSettings_generateMnemonicsCode" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_i18nAutoMode" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_layoutCodeTarget" type="java.lang.Integer" value="1"/>
-    <AuxValue name="FormSettings_listenerGenerationStyle" type="java.lang.Integer" value="0"/>
-    <AuxValue name="FormSettings_variablesLocal" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_variablesModifier" type="java.lang.Integer" value="2"/>
-  </AuxValues>
-
-  <Layout>
-    <DimensionLayout dim="0">
-      <Group type="103" groupAlignment="0" attributes="0">
-          <Group type="102" alignment="0" attributes="0">
-              <Component id="pot_panel" max="32767" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-              <Component id="bet_label" min="-2" max="-2" attributes="0"/>
-          </Group>
-          <Group type="102" attributes="0">
-              <Component id="settings_icon" min="-2" max="-2" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-              <Component id="sound_icon" min="-2" max="-2" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-              <Component id="blinds_panel" min="-2" max="-2" attributes="0"/>
-              <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
-              <Component id="pause_button" min="-2" max="-2" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-              <Component id="lights_label" min="-2" max="-2" attributes="0"/>
-              <EmptySpace max="32767" attributes="0"/>
-              <Component id="tiempo_partida" min="-2" max="-2" attributes="0"/>
-              <EmptySpace type="unrelated" max="-2" attributes="0"/>
-              <Component id="hand_limit_spinner" max="32767" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-              <Component id="max_hands_button" min="-2" max="-2" attributes="0"/>
-              <EmptySpace type="unrelated" max="-2" attributes="0"/>
-              <Component id="hand_panel" min="-2" max="-2" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-          </Group>
-          <Component id="panel_barra" alignment="1" max="32767" attributes="0"/>
-          <Component id="cards_panel" alignment="0" max="32767" attributes="0"/>
-          <Component id="last_hand_panel" alignment="0" max="32767" attributes="0"/>
-      </Group>
-    </DimensionLayout>
-    <DimensionLayout dim="1">
-      <Group type="103" groupAlignment="0" attributes="0">
-          <Group type="102" alignment="0" attributes="0">
-              <Group type="103" groupAlignment="0" attributes="0">
-                  <Component id="bet_label" min="-2" max="-2" attributes="0"/>
-                  <Component id="pot_panel" min="-2" max="-2" attributes="0"/>
-              </Group>
-              <EmptySpace max="-2" attributes="0"/>
-              <Component id="last_hand_panel" min="-2" max="-2" attributes="0"/>
-              <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
-              <Component id="cards_panel" max="32767" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-              <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" attributes="0">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="103" groupAlignment="3" attributes="0">
-                              <Component id="pause_button" alignment="3" min="-2" max="-2" attributes="0"/>
-                              <Component id="hand_limit_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
-                              <Component id="max_hands_button" alignment="3" min="-2" max="-2" attributes="0"/>
-                              <Component id="lights_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                          </Group>
-                          <Component id="hand_panel" min="-2" max="-2" attributes="0"/>
-                          <Component id="blinds_panel" alignment="0" min="-2" max="-2" attributes="0"/>
-                          <Component id="tiempo_partida" alignment="1" min="-2" max="-2" attributes="0"/>
-                      </Group>
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="panel_barra" max="32767" attributes="0"/>
-                  </Group>
-                  <Group type="102" attributes="0">
-                      <Group type="103" groupAlignment="3" attributes="0">
-                          <Component id="settings_icon" alignment="3" max="-2" attributes="0"/>
-                          <Component id="sound_icon" alignment="3" max="-2" attributes="0"/>
-                      </Group>
-                      <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
-                  </Group>
-              </Group>
-              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-          </Group>
-      </Group>
-    </DimensionLayout>
-  </Layout>
-  <SubComponents>
-    <Component class="javax.swing.JLabel" name="bet_label">
-      <Properties>
-        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="30" style="1"/>
-        </Property>
-        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-          <Color blue="0" green="cc" red="99" type="rgb"/>
-        </Property>
-        <Property name="text" type="java.lang.String" value=" "/>
-        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-          <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
-            <EmptyBorder/>
-          </Border>
-        </Property>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="focusable" type="boolean" value="false"/>
-      </Properties>
-    </Component>
-    <Component class="javax.swing.JLabel" name="tiempo_partida">
-      <Properties>
-        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Monospaced" size="28" style="1"/>
-        </Property>
-        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-          <Color blue="0" green="cc" red="99" type="rgb"/>
-        </Property>
-        <Property name="horizontalAlignment" type="int" value="0"/>
-        <Property name="text" type="java.lang.String" value="00:00:00"/>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="focusable" type="boolean" value="false"/>
-      </Properties>
-    </Component>
-    <Component class="javax.swing.JLabel" name="sound_icon">
-      <Properties>
-        <Property name="toolTipText" type="java.lang.String" value="Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)"/>
-        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-          <Color id="Cursor de Mano"/>
-        </Property>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="focusable" type="boolean" value="false"/>
-        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-          <Dimension value="[30, 30]"/>
-        </Property>
-      </Properties>
-      <Events>
-        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="sound_iconMouseClicked"/>
-      </Events>
-    </Component>
-    <Component class="javax.swing.JLabel" name="settings_icon">
-      <Properties>
-        <Property name="toolTipText" type="java.lang.String" value="Ajustes de partida"/>
-        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-          <Color id="Cursor de Mano"/>
-        </Property>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="focusable" type="boolean" value="false"/>
-        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-          <Dimension value="[30, 30]"/>
-        </Property>
-      </Properties>
-      <Events>
-        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="settings_iconMouseClicked"/>
-      </Events>
-    </Component>
-    <Container class="javax.swing.JPanel" name="panel_barra">
-      <Properties>
+    <Properties>
         <Property name="focusable" type="boolean" value="false"/>
         <Property name="opaque" type="boolean" value="false"/>
-      </Properties>
+    </Properties>
+    <AuxValues>
+        <AuxValue name="FormSettings_autoResourcing" type="java.lang.Integer" value="0"/>
+        <AuxValue name="FormSettings_autoSetComponentName" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_generateFQN" type="java.lang.Boolean" value="true"/>
+        <AuxValue name="FormSettings_generateMnemonicsCode" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_i18nAutoMode" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_layoutCodeTarget" type="java.lang.Integer" value="1"/>
+        <AuxValue name="FormSettings_listenerGenerationStyle" type="java.lang.Integer" value="0"/>
+        <AuxValue name="FormSettings_variablesLocal" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_variablesModifier" type="java.lang.Integer" value="2"/>
+    </AuxValues>
 
-      <Layout>
+    <Layout>
         <DimensionLayout dim="0">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Component id="barra_tiempo" alignment="0" max="32767" attributes="0"/>
-          </Group>
+            <Group type="103" groupAlignment="0" attributes="0">
+                <Group type="102" alignment="0" attributes="0">
+                    <Component id="pot_panel" max="32767" attributes="0"/>
+                    <EmptySpace max="-2" attributes="0"/>
+                    <Component id="bet_label" min="-2" max="-2" attributes="0"/>
+                </Group>
+                <Group type="102" attributes="0">
+                    <Component id="settings_icon" min="-2" max="-2" attributes="0"/>
+                    <EmptySpace max="-2" attributes="0"/>
+                    <Component id="sound_icon" min="-2" max="-2" attributes="0"/>
+                    <EmptySpace max="-2" attributes="0"/>
+                    <Component id="blinds_panel" min="-2" max="-2" attributes="0"/>
+                    <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
+                    <Component id="pause_button" min="-2" max="-2" attributes="0"/>
+                    <EmptySpace max="-2" attributes="0"/>
+                    <Component id="lights_label" min="-2" max="-2" attributes="0"/>
+                    <EmptySpace max="32767" attributes="0"/>
+                    <Component id="tiempo_partida" min="-2" max="-2" attributes="0"/>
+                    <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                    <Component id="hand_limit_spinner" max="32767" attributes="0"/>
+                    <EmptySpace max="-2" attributes="0"/>
+                    <Component id="max_hands_button" min="-2" max="-2" attributes="0"/>
+                    <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                    <Component id="hand_panel" min="-2" max="-2" attributes="0"/>
+                    <EmptySpace max="-2" attributes="0"/>
+                </Group>
+                <Component id="panel_barra" alignment="1" max="32767" attributes="0"/>
+                <Component id="cards_panel" alignment="0" max="32767" attributes="0"/>
+                <Component id="last_hand_panel" alignment="0" max="32767" attributes="0"/>
+            </Group>
         </DimensionLayout>
         <DimensionLayout dim="1">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Component id="barra_tiempo" alignment="0" pref="2" max="32767" attributes="0"/>
-          </Group>
+            <Group type="103" groupAlignment="0" attributes="0">
+                <Group type="102" alignment="0" attributes="0">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Component id="bet_label" min="-2" max="-2" attributes="0"/>
+                        <Component id="pot_panel" min="-2" max="-2" attributes="0"/>
+                    </Group>
+                    <EmptySpace max="-2" attributes="0"/>
+                    <Component id="last_hand_panel" min="-2" max="-2" attributes="0"/>
+                    <EmptySpace min="-2" pref="12" max="-2" attributes="0"/>
+                    <Component id="cards_panel" max="32767" attributes="0"/>
+                    <EmptySpace max="-2" attributes="0"/>
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" attributes="0">
+                            <Group type="103" groupAlignment="0" attributes="0">
+                                <Group type="103" groupAlignment="3" attributes="0">
+                                    <Component id="pause_button" alignment="3" min="-2" max="-2" attributes="0"/>
+                                    <Component id="hand_limit_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
+                                    <Component id="max_hands_button" alignment="3" min="-2" max="-2" attributes="0"/>
+                                    <Component id="lights_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                </Group>
+                                <Component id="hand_panel" min="-2" max="-2" attributes="0"/>
+                                <Component id="blinds_panel" alignment="0" min="-2" max="-2" attributes="0"/>
+                                <Component id="tiempo_partida" alignment="1" min="-2" max="-2" attributes="0"/>
+                            </Group>
+                            <EmptySpace max="-2" attributes="0"/>
+                            <Component id="panel_barra" max="32767" attributes="0"/>
+                        </Group>
+                        <Group type="102" attributes="0">
+                            <Group type="103" groupAlignment="3" attributes="0">
+                                <Component id="settings_icon" alignment="3" max="-2" attributes="0"/>
+                                <Component id="sound_icon" alignment="3" max="-2" attributes="0"/>
+                            </Group>
+                            <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
+                        </Group>
+                    </Group>
+                    <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                </Group>
+            </Group>
         </DimensionLayout>
-      </Layout>
-      <SubComponents>
-        <Component class="javax.swing.JProgressBar" name="barra_tiempo">
-          <Properties>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="focusable" type="boolean" value="false"/>
-            <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-              <Dimension value="[1, 1]"/>
-            </Property>
-            <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-              <Connection code="new Dimension(-1, (int)Math.round((float)pot_label.getHeight()*0.65))" type="code"/>
-            </Property>
-          </Properties>
+    </Layout>
+    <SubComponents>
+        <Component class="javax.swing.JLabel" name="bet_label">
+            <Properties>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                    <Font name="Dialog" size="30" style="1"/>
+                </Property>
+                <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                    <Color blue="0" green="cc" red="99" type="rgb"/>
+                </Property>
+                <Property name="text" type="java.lang.String" value=" "/>
+                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                    <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
+                        <EmptyBorder/>
+                    </Border>
+                </Property>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
+            </Properties>
         </Component>
-      </SubComponents>
-    </Container>
-    <Container class="javax.swing.JPanel" name="cards_panel">
-      <Properties>
-        <Property name="focusable" type="boolean" value="false"/>
-        <Property name="opaque" type="boolean" value="false"/>
-      </Properties>
+        <Component class="javax.swing.JLabel" name="tiempo_partida">
+            <Properties>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                    <Font name="Monospaced" size="28" style="1"/>
+                </Property>
+                <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                    <Color blue="0" green="cc" red="99" type="rgb"/>
+                </Property>
+                <Property name="horizontalAlignment" type="int" value="0"/>
+                <Property name="text" type="java.lang.String" value="00:00:00"/>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
+            </Properties>
+        </Component>
+        <Component class="javax.swing.JLabel" name="sound_icon">
+            <Properties>
+                <Property name="toolTipText" type="java.lang.String" value="Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)"/>
+                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                    <Color id="Cursor de Mano"/>
+                </Property>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
+                <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                    <Dimension value="[30, 30]"/>
+                </Property>
+            </Properties>
+            <Events>
+                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="sound_iconMouseClicked"/>
+            </Events>
+        </Component>
+        <Component class="javax.swing.JLabel" name="settings_icon">
+            <Properties>
+                <Property name="toolTipText" type="java.lang.String" value="Ajustes de partida"/>
+                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                    <Color id="Cursor de Mano"/>
+                </Property>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
+                <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                    <Dimension value="[30, 30]"/>
+                </Property>
+            </Properties>
+            <Events>
+                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="settings_iconMouseClicked"/>
+            </Events>
+        </Component>
+        <Container class="javax.swing.JPanel" name="panel_barra">
+            <Properties>
+                <Property name="focusable" type="boolean" value="false"/>
+                <Property name="opaque" type="boolean" value="false"/>
+            </Properties>
 
-      <Layout>
-        <DimensionLayout dim="0">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" alignment="0" attributes="0">
-                  <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
-                  <Component id="flop1" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace type="separate" max="-2" attributes="0"/>
-                  <Component id="flop2" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace type="separate" max="-2" attributes="0"/>
-                  <Component id="flop3" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace type="separate" max="-2" attributes="0"/>
-                  <Component id="turn" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace type="separate" max="-2" attributes="0"/>
-                  <Component id="river" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-        <DimensionLayout dim="1">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" alignment="0" attributes="0">
-                  <Group type="103" groupAlignment="0" attributes="0">
-                      <Component id="flop2" alignment="0" min="-2" max="-2" attributes="0"/>
-                      <Component id="flop3" alignment="0" min="-2" max="-2" attributes="0"/>
-                      <Component id="turn" alignment="0" min="-2" max="-2" attributes="0"/>
-                      <Component id="river" alignment="0" min="-2" max="-2" attributes="0"/>
-                      <Component id="flop1" alignment="1" min="-2" max="-2" attributes="0"/>
-                  </Group>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-      </Layout>
-      <SubComponents>
-        <Component class="com.tonikelope.coronapoker.Card" name="flop3">
-        </Component>
-        <Component class="com.tonikelope.coronapoker.Card" name="river">
-        </Component>
-        <Component class="com.tonikelope.coronapoker.Card" name="flop2">
-        </Component>
-        <Component class="com.tonikelope.coronapoker.Card" name="turn">
-        </Component>
-        <Component class="com.tonikelope.coronapoker.Card" name="flop1">
-        </Component>
-      </SubComponents>
-    </Container>
-    <Component class="javax.swing.JButton" name="pause_button">
-      <Properties>
-        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="18" style="1"/>
-        </Property>
-        <Property name="text" type="java.lang.String" value="PAUSAR"/>
-        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-          <Color id="Cursor de Mano"/>
-        </Property>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="focusable" type="boolean" value="false"/>
-      </Properties>
-      <Events>
-        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="pause_buttonActionPerformed"/>
-      </Events>
-    </Component>
-    <Component class="javax.swing.JSpinner" name="hand_limit_spinner">
-      <Properties>
-        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="22" style="1"/>
-        </Property>
-        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-          <Color id="Cursor de Mano"/>
-        </Property>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="focusable" type="boolean" value="false"/>
-      </Properties>
-    </Component>
-    <Component class="javax.swing.JButton" name="max_hands_button">
-      <Properties>
-        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="20" style="1"/>
-        </Property>
-        <Property name="text" type="java.lang.String" value="OK"/>
-        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-          <Color id="Cursor de Mano"/>
-        </Property>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="focusable" type="boolean" value="false"/>
-      </Properties>
-      <Events>
-        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="max_hands_buttonActionPerformed"/>
-      </Events>
-    </Component>
-    <Component class="javax.swing.JLabel" name="lights_label">
-      <Properties>
-        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="18" style="1"/>
-        </Property>
-        <Property name="text" type="java.lang.String" value=" "/>
-        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-          <Color id="Cursor de Mano"/>
-        </Property>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-      </Properties>
-      <Events>
-        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="lights_labelMouseReleased"/>
-      </Events>
-    </Component>
-    <Container class="javax.swing.JPanel" name="pot_panel">
-      <Properties>
-        <Property name="opaque" type="boolean" value="false"/>
-      </Properties>
-      <AuxValues>
-        <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new RoundedPanel(20)"/>
-      </AuxValues>
+            <Layout>
+                <DimensionLayout dim="0">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Component id="barra_tiempo" alignment="0" max="32767" attributes="0"/>
+                    </Group>
+                </DimensionLayout>
+                <DimensionLayout dim="1">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Component id="barra_tiempo" alignment="0" pref="2" max="32767" attributes="0"/>
+                    </Group>
+                </DimensionLayout>
+            </Layout>
+            <SubComponents>
+                <Component class="javax.swing.JProgressBar" name="barra_tiempo">
+                    <Properties>
+                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                        <Property name="focusable" type="boolean" value="false"/>
+                        <Property name="minimumSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                            <Dimension value="[1, 1]"/>
+                        </Property>
+                        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                            <Connection code="new Dimension(-1, (int)Math.round((float)pot_label.getHeight()*0.65))" type="code"/>
+                        </Property>
+                    </Properties>
+                </Component>
+            </SubComponents>
+        </Container>
+        <Container class="javax.swing.JPanel" name="cards_panel">
+            <Properties>
+                <Property name="focusable" type="boolean" value="false"/>
+                <Property name="opaque" type="boolean" value="false"/>
+            </Properties>
 
-      <Layout>
-        <DimensionLayout dim="0">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" attributes="0">
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="pot_label" max="32767" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-        <DimensionLayout dim="1">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" attributes="0">
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="pot_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-      </Layout>
-      <SubComponents>
-        <Component class="javax.swing.JLabel" name="pot_label">
-          <Properties>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="30" style="1"/>
-            </Property>
-            <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-              <Color blue="0" green="cc" red="99" type="rgb"/>
-            </Property>
-            <Property name="text" type="java.lang.String" value=" "/>
-            <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-              <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
-                <EmptyBorder bottom="1" left="5" right="5" top="1"/>
-              </Border>
-            </Property>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
+            <Layout>
+                <DimensionLayout dim="0">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" alignment="0" attributes="0">
+                            <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
+                            <Component id="flop1" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace type="separate" max="-2" attributes="0"/>
+                            <Component id="flop2" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace type="separate" max="-2" attributes="0"/>
+                            <Component id="flop3" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace type="separate" max="-2" attributes="0"/>
+                            <Component id="turn" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace type="separate" max="-2" attributes="0"/>
+                            <Component id="river" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+                <DimensionLayout dim="1">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" alignment="0" attributes="0">
+                            <Group type="103" groupAlignment="0" attributes="0">
+                                <Component id="flop2" alignment="0" min="-2" max="-2" attributes="0"/>
+                                <Component id="flop3" alignment="0" min="-2" max="-2" attributes="0"/>
+                                <Component id="turn" alignment="0" min="-2" max="-2" attributes="0"/>
+                                <Component id="river" alignment="0" min="-2" max="-2" attributes="0"/>
+                                <Component id="flop1" alignment="1" min="-2" max="-2" attributes="0"/>
+                            </Group>
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+            </Layout>
+            <SubComponents>
+                <Component class="com.tonikelope.coronapoker.Card" name="flop3">
+                </Component>
+                <Component class="com.tonikelope.coronapoker.Card" name="river">
+                </Component>
+                <Component class="com.tonikelope.coronapoker.Card" name="flop2">
+                </Component>
+                <Component class="com.tonikelope.coronapoker.Card" name="turn">
+                </Component>
+                <Component class="com.tonikelope.coronapoker.Card" name="flop1">
+                </Component>
+            </SubComponents>
+        </Container>
+        <Component class="javax.swing.JButton" name="pause_button">
+            <Properties>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                    <Font name="Dialog" size="18" style="1"/>
+                </Property>
+                <Property name="text" type="java.lang.String" value="PAUSAR"/>
+                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                    <Color id="Cursor de Mano"/>
+                </Property>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
+            </Properties>
+            <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="pause_buttonActionPerformed"/>
+            </Events>
         </Component>
-      </SubComponents>
-    </Container>
-    <Container class="javax.swing.JPanel" name="last_hand_panel">
-      <Properties>
-        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-          <Color blue="0" green="ff" red="ff" type="rgb"/>
-        </Property>
-      </Properties>
-      <AuxValues>
-        <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new RoundedPanel(20)"/>
-      </AuxValues>
+        <Component class="javax.swing.JSpinner" name="hand_limit_spinner">
+            <Properties>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                    <Font name="Dialog" size="22" style="1"/>
+                </Property>
+                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                    <Color id="Cursor de Mano"/>
+                </Property>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
+            </Properties>
+        </Component>
+        <Component class="javax.swing.JButton" name="max_hands_button">
+            <Properties>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                    <Font name="Dialog" size="20" style="1"/>
+                </Property>
+                <Property name="text" type="java.lang.String" value="OK"/>
+                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                    <Color id="Cursor de Mano"/>
+                </Property>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="focusable" type="boolean" value="false"/>
+            </Properties>
+            <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="max_hands_buttonActionPerformed"/>
+            </Events>
+        </Component>
+        <Component class="javax.swing.JLabel" name="lights_label">
+            <Properties>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                    <Font name="Dialog" size="18" style="1"/>
+                </Property>
+                <Property name="text" type="java.lang.String" value=" "/>
+                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                    <Color id="Cursor de Mano"/>
+                </Property>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+            </Properties>
+            <Events>
+                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="lights_labelMouseReleased"/>
+            </Events>
+        </Component>
+        <Container class="javax.swing.JPanel" name="pot_panel">
+            <Properties>
+                <Property name="opaque" type="boolean" value="false"/>
+            </Properties>
+            <AuxValues>
+                <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new RoundedPanel(20)"/>
+            </AuxValues>
 
-      <Layout>
-        <DimensionLayout dim="0">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" attributes="0">
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="last_hand_label" alignment="0" max="32767" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-        <DimensionLayout dim="1">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" attributes="0">
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="last_hand_label" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-      </Layout>
-      <SubComponents>
-        <Component class="javax.swing.JLabel" name="last_hand_label">
-          <Properties>
-            <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-              <Color blue="0" green="ff" red="ff" type="rgb"/>
-            </Property>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="20" style="1"/>
-            </Property>
-            <Property name="horizontalAlignment" type="int" value="0"/>
-            <Property name="text" type="java.lang.String" value="&#xda;LTIMA MANO"/>
-            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-              <Color id="Cursor de Mano"/>
-            </Property>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
-          <Events>
-            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="last_hand_labelMouseClicked"/>
-          </Events>
-        </Component>
-      </SubComponents>
-    </Container>
-    <Container class="javax.swing.JPanel" name="hand_panel">
-      <Properties>
-        <Property name="opaque" type="boolean" value="false"/>
-      </Properties>
-      <AuxValues>
-        <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new RoundedPanel(20)"/>
-      </AuxValues>
+            <Layout>
+                <DimensionLayout dim="0">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" attributes="0">
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                            <Component id="pot_label" max="32767" attributes="0"/>
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+                <DimensionLayout dim="1">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" attributes="0">
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                            <Component id="pot_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+            </Layout>
+            <SubComponents>
+                <Component class="javax.swing.JLabel" name="pot_label">
+                    <Properties>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                            <Font name="Dialog" size="30" style="1"/>
+                        </Property>
+                        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                            <Color blue="0" green="cc" red="99" type="rgb"/>
+                        </Property>
+                        <Property name="text" type="java.lang.String" value=" "/>
+                        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                            <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
+                                <EmptyBorder bottom="1" left="5" right="5" top="1"/>
+                            </Border>
+                        </Property>
+                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                        <Property name="focusable" type="boolean" value="false"/>
+                    </Properties>
+                </Component>
+            </SubComponents>
+        </Container>
+        <Container class="javax.swing.JPanel" name="last_hand_panel">
+            <Properties>
+                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                    <Color blue="0" green="ff" red="ff" type="rgb"/>
+                </Property>
+            </Properties>
+            <AuxValues>
+                <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new RoundedPanel(20)"/>
+            </AuxValues>
 
-      <Layout>
-        <DimensionLayout dim="0">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" attributes="0">
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="hand_label" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-        <DimensionLayout dim="1">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" attributes="0">
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="hand_label" alignment="0" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-      </Layout>
-      <SubComponents>
-        <Component class="javax.swing.JLabel" name="hand_label">
-          <Properties>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="26" style="1"/>
-            </Property>
-            <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-              <Color blue="0" green="cc" red="99" type="rgb"/>
-            </Property>
-            <Property name="text" type="java.lang.String" value=" "/>
-            <Property name="toolTipText" type="java.lang.String" value="CLICK IZQ: &#xda;LTIMA MANO / CLICK DCHO: L&#xcd;MITE DE MANOS"/>
-            <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-              <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
-                <EmptyBorder/>
-              </Border>
-            </Property>
-            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-              <Color id="Cursor de Mano"/>
-            </Property>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
-          <Events>
-            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="hand_labelMouseClicked"/>
-          </Events>
-        </Component>
-      </SubComponents>
-    </Container>
-    <Container class="javax.swing.JPanel" name="blinds_panel">
-      <AuxValues>
-        <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new RoundedPanel(20)"/>
-      </AuxValues>
+            <Layout>
+                <DimensionLayout dim="0">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" attributes="0">
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                            <Component id="last_hand_label" alignment="0" max="32767" attributes="0"/>
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+                <DimensionLayout dim="1">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" attributes="0">
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                            <Component id="last_hand_label" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+            </Layout>
+            <SubComponents>
+                <Component class="javax.swing.JLabel" name="last_hand_label">
+                    <Properties>
+                        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                            <Color blue="0" green="ff" red="ff" type="rgb"/>
+                        </Property>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                            <Font name="Dialog" size="20" style="1"/>
+                        </Property>
+                        <Property name="horizontalAlignment" type="int" value="0"/>
+                        <Property name="text" type="java.lang.String" value="&#xda;LTIMA MANO"/>
+                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                            <Color id="Cursor de Mano"/>
+                        </Property>
+                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                        <Property name="focusable" type="boolean" value="false"/>
+                    </Properties>
+                    <Events>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="last_hand_labelMouseClicked"/>
+                    </Events>
+                </Component>
+            </SubComponents>
+        </Container>
+        <Container class="javax.swing.JPanel" name="hand_panel">
+            <Properties>
+                <Property name="opaque" type="boolean" value="false"/>
+            </Properties>
+            <AuxValues>
+                <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new RoundedPanel(20)"/>
+            </AuxValues>
 
-      <Layout>
-        <DimensionLayout dim="0">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" attributes="0">
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="blinds_label" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-        <DimensionLayout dim="1">
-          <Group type="103" groupAlignment="0" attributes="0">
-              <Group type="102" attributes="0">
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  <Component id="blinds_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-              </Group>
-          </Group>
-        </DimensionLayout>
-      </Layout>
-      <SubComponents>
-        <Component class="javax.swing.JLabel" name="blinds_label">
-          <Properties>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="26" style="1"/>
-            </Property>
-            <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-              <Color blue="0" green="cc" red="99" type="rgb"/>
-            </Property>
-            <Property name="text" type="java.lang.String" value=" "/>
-            <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-              <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
-                <EmptyBorder/>
-              </Border>
-            </Property>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="focusable" type="boolean" value="false"/>
-          </Properties>
-          <Events>
-            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="blinds_labelMouseClicked"/>
-          </Events>
-        </Component>
-      </SubComponents>
-    </Container>
-  </SubComponents>
+            <Layout>
+                <DimensionLayout dim="0">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" attributes="0">
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                            <Component id="hand_label" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+                <DimensionLayout dim="1">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" attributes="0">
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                            <Component id="hand_label" alignment="0" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+            </Layout>
+            <SubComponents>
+                <Component class="javax.swing.JLabel" name="hand_label">
+                    <Properties>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                            <Font name="Dialog" size="26" style="1"/>
+                        </Property>
+                        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                            <Color blue="0" green="cc" red="99" type="rgb"/>
+                        </Property>
+                        <Property name="text" type="java.lang.String" value=" "/>
+                        <Property name="toolTipText" type="java.lang.String" value="CLICK IZQ: &#xda;LTIMA MANO / CLICK DCHO: L&#xcd;MITE DE MANOS"/>
+                        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                            <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
+                                <EmptyBorder/>
+                            </Border>
+                        </Property>
+                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                            <Color id="Cursor de Mano"/>
+                        </Property>
+                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                        <Property name="focusable" type="boolean" value="false"/>
+                    </Properties>
+                    <Events>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="hand_labelMouseClicked"/>
+                    </Events>
+                </Component>
+            </SubComponents>
+        </Container>
+        <Container class="javax.swing.JPanel" name="blinds_panel">
+            <AuxValues>
+                <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new RoundedPanel(20)"/>
+            </AuxValues>
+
+            <Layout>
+                <DimensionLayout dim="0">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" attributes="0">
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                            <Component id="blinds_label" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+                <DimensionLayout dim="1">
+                    <Group type="103" groupAlignment="0" attributes="0">
+                        <Group type="102" attributes="0">
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                            <Component id="blinds_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                        </Group>
+                    </Group>
+                </DimensionLayout>
+            </Layout>
+            <SubComponents>
+                <Component class="javax.swing.JLabel" name="blinds_label">
+                    <Properties>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                            <Font name="Dialog" size="26" style="1"/>
+                        </Property>
+                        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                            <Color blue="0" green="cc" red="99" type="rgb"/>
+                        </Property>
+                        <Property name="text" type="java.lang.String" value=" "/>
+                        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                            <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
+                                <EmptyBorder/>
+                            </Border>
+                        </Property>
+                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                        <Property name="focusable" type="boolean" value="false"/>
+                    </Properties>
+                    <Events>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="blinds_labelMouseClicked"/>
+                    </Events>
+                </Component>
+            </SubComponents>
+        </Container>
+    </SubComponents>
 </Form>

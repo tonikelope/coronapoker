@@ -19,44 +19,62 @@ package com.tonikelope.coronapoker.crypto;
 import java.math.BigInteger;
 
 /**
- * Verifiable shuffle argument (Bayer–Groth assembly) for one cascade step: given PUBLIC input deck
- * {@code A} and output deck {@code B}, proves there exist a hidden permutation {@code π} and a hidden
- * common scalar {@code k} with {@code B[i] = k·A[π(i)]} for all {@code i} — in zero knowledge of
- * {@code π} and {@code k}. This is the missing half of the SRA mental-poker engine: it forces the deck
- * to be an HONEST re-encryption shuffle (a real permutation of distinct cards, uniformly relocked),
- * which closes the rotation-smuggle vulnerability (a smuggled duplicate is not a permutation, so the
- * proof fails). See {@code docs/SECURITY.md}.
+ * Verifiable shuffle argument (Bayer–Groth assembly) for one cascade step:
+ * given PUBLIC input deck {@code A} and output deck {@code B}, proves there
+ * exist a hidden permutation {@code π} and a hidden common scalar {@code k}
+ * with {@code B[i] = k·A[π(i)]} for all {@code i} — in zero knowledge of
+ * {@code π} and {@code k}. This is the missing half of the SRA mental-poker
+ * engine: it forces the deck to be an HONEST re-encryption shuffle (a real
+ * permutation of distinct cards, uniformly relocked), which closes the
+ * rotation-smuggle vulnerability (a smuggled duplicate is not a permutation, so
+ * the proof fails). See {@code docs/SECURITY.md}.
  *
- * <p>Construction (Neff/Bayer–Groth). A challenge vector {@code e = H(A, B)} is drawn (Fiat–Shamir).
- * The prover commits the permuted challenges {@code f_i = e[π(i)]} and shows:
+ * <p>
+ * Construction (Neff/Bayer–Groth). A challenge vector {@code e = H(A, B)} is
+ * drawn (Fiat–Shamir). The prover commits the permuted challenges
+ * {@code f_i = e[π(i)]} and shows:
  * <ol>
- *   <li><b>{@code f} is a permutation of {@code e}</b> — {@link PermutationArgument} (so {@code f_i = e_{σ(i)}}
- *       for some committed {@code σ});</li>
- *   <li><b>{@code Q = Σ f_i·B_i}</b> for a revealed point {@code Q} — {@link WeightedSumArgument};</li>
- *   <li><b>{@code Q = k·P_A}</b> where {@code P_A = Σ e_j·A_j} is public — a Schnorr proof of the common scalar.</li>
+ * <li><b>{@code f} is a permutation of {@code e}</b> —
+ * {@link PermutationArgument} (so {@code f_i = e_{σ(i)}} for some committed
+ * {@code σ});</li>
+ * <li><b>{@code Q = Σ f_i·B_i}</b> for a revealed point {@code Q} —
+ * {@link WeightedSumArgument};</li>
+ * <li><b>{@code Q = k·P_A}</b> where {@code P_A = Σ e_j·A_j} is public — a
+ * Schnorr proof of the common scalar.</li>
  * </ol>
- * Combining: {@code Σ_j e_j·(B_{σ⁻¹(j)} − k·A_j) = 0} for the random {@code e}. Forcing each bracket to
- * zero (hence {@code B_i = k·A_{σ(i)}}) is the random-linear-combination step, and it is sound
- * <b>only because the deck points {@code A_j} are discrete-log-independent</b> random group elements:
- * with no prover-known relation {@code Σ_j λ_j·A_j = O}, the formal coefficient of each {@code A_j} must
- * vanish independently. Honest-verifier ZK from the sub-protocols; the single revealed point
- * {@code Q = k·P_A} leaks neither {@code k} (a discrete log) nor {@code σ} ({@code Q} is permutation-invariant).
+ * Combining: {@code Σ_j e_j·(B_{σ⁻¹(j)} − k·A_j) = 0} for the random {@code e}.
+ * Forcing each bracket to zero (hence {@code B_i = k·A_{σ(i)}}) is the
+ * random-linear-combination step, and it is sound
+ * <b>only because the deck points {@code A_j} are discrete-log-independent</b>
+ * random group elements: with no prover-known relation {@code Σ_j λ_j·A_j = O},
+ * the formal coefficient of each {@code A_j} must vanish independently.
+ * Honest-verifier ZK from the sub-protocols; the single revealed point
+ * {@code Q = k·P_A} leaks neither {@code k} (a discrete log) nor {@code σ}
+ * ({@code Q} is permutation-invariant).
  *
- * <p><b>SECURITY PRECONDITION — discrete-log independence of {@code A} (load-bearing).</b> The soundness
- * above collapses if a malicious prover knows a linear relation among the input points {@code A_j}: it
- * could then satisfy the combined equation with a non-permutation {@code B} (a smuggled/duplicated card it
- * can read). The genesis deck (NUMS hash-to-group card points) is DL-independent; and an honest re-encryption
- * shuffle of DL-independent points stays DL-independent (scalar-mul + reorder introduces no relation). So the
- * caller MUST verify each cascade step against an {@code A} that is provably anchored to the recomputable
- * genesis: step 0's input equals genesis, and step {@code m}'s input equals step {@code m−1}'s ALREADY-VERIFIED
- * output. Under that induction every {@code A} is DL-independent and the smuggle is impossible. <b>Verifying an
- * isolated step against an unanchored / caller-supplied {@code A} is NOT sound</b> — {@link #verify} cannot
- * detect provenance, so the cascade wiring is responsible for the anchor + chain (as
- * {@link ShuffleCascade#verifyChain} does, via {@code decksEqual(genesis, decks[0])}).
+ * <p>
+ * <b>SECURITY PRECONDITION — discrete-log independence of {@code A}
+ * (load-bearing).</b> The soundness above collapses if a malicious prover knows
+ * a linear relation among the input points {@code A_j}: it could then satisfy
+ * the combined equation with a non-permutation {@code B} (a smuggled/duplicated
+ * card it can read). The genesis deck (NUMS hash-to-group card points) is
+ * DL-independent; and an honest re-encryption shuffle of DL-independent points
+ * stays DL-independent (scalar-mul + reorder introduces no relation). So the
+ * caller MUST verify each cascade step against an {@code A} that is provably
+ * anchored to the recomputable genesis: step 0's input equals genesis, and step
+ * {@code m}'s input equals step {@code m−1}'s ALREADY-VERIFIED output. Under
+ * that induction every {@code A} is DL-independent and the smuggle is
+ * impossible. <b>Verifying an isolated step against an unanchored /
+ * caller-supplied {@code A} is NOT sound</b> — {@link #verify} cannot detect
+ * provenance, so the cascade wiring is responsible for the anchor + chain (as
+ * {@link ShuffleCascade#verifyChain} does, via
+ * {@code decksEqual(genesis, decks[0])}).
  *
- * <p>Defensive hygiene: {@link #verify} additionally rejects identity deck points / {@code Q} / {@code P_A}
- * (which would attest a degenerate all-identity deck, i.e. {@code k = 0}) and rejects out-of-range response
- * scalars (canonical proofs only).
+ * <p>
+ * Defensive hygiene: {@link #verify} additionally rejects identity deck points
+ * / {@code Q} / {@code P_A} (which would attest a degenerate all-identity deck,
+ * i.e. {@code k = 0}) and rejects out-of-range response scalars (canonical
+ * proofs only).
  */
 public final class ShuffleArgument {
 
@@ -68,6 +86,7 @@ public final class ShuffleArgument {
     }
 
     public static final class Proof {
+
         final byte[][] cf;                       // commitments to the permuted challenges f
         final PermutationArgument.Proof perm;
         final byte[] q;                          // encoded Q = Σ f_i·B_i = k·P_A
@@ -90,17 +109,24 @@ public final class ShuffleArgument {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
-    /** True iff the point is null or the group identity (a degenerate / k=0 deck position). */
+    /**
+     * True iff the point is null or the group identity (a degenerate / k=0 deck
+     * position).
+     */
     private static boolean isIdentity(EdwardsPoint p) {
         return p == null || Ristretto255.isIdentity(p);
     }
 
-    /** Canonical scalar response: present and reduced into {@code [0, L)}. */
+    /**
+     * Canonical scalar response: present and reduced into {@code [0, L)}.
+     */
     private static boolean inRange(BigInteger s) {
         return s != null && s.signum() >= 0 && s.compareTo(L) < 0;
     }
 
-    /** Challenge vector {@code e_0..e_{n-1} = H(A, B)} (Fiat–Shamir). */
+    /**
+     * Challenge vector {@code e_0..e_{n-1} = H(A, B)} (Fiat–Shamir).
+     */
     private static BigInteger[] challengeVector(EdwardsPoint[] a, EdwardsPoint[] b) {
         Transcript tr = new Transcript(FS_CHALLENGE_DOMAIN);
         int n = a.length;
@@ -118,7 +144,9 @@ public final class ShuffleArgument {
         return e;
     }
 
-    /** {@code P_A = Σ e_j·A_j} (Straus: shared doubling ladder). */
+    /**
+     * {@code P_A = Σ e_j·A_j} (Straus: shared doubling ladder).
+     */
     private static EdwardsPoint multiExpPublic(BigInteger[] e, EdwardsPoint[] a) {
         return EdwardsPoint.multiscalarMul(e, a);
     }
@@ -132,12 +160,14 @@ public final class ShuffleArgument {
     }
 
     /**
-     * Prove that {@code B[i] = k·A[pi[i]]} for the given hidden permutation {@code pi} and scalar {@code k}.
+     * Prove that {@code B[i] = k·A[pi[i]]} for the given hidden permutation
+     * {@code pi} and scalar {@code k}.
      *
-     * @param a  public input deck points
-     * @param b  public output deck points ({@code b[i] = k·a[pi[i]]})
-     * @param pi permutation: output position {@code i} carries input {@code pi[i]}
-     * @param k  the common relock scalar
+     * @param a public input deck points
+     * @param b public output deck points ({@code b[i] = k·a[pi[i]]})
+     * @param pi permutation: output position {@code i} carries input
+     * {@code pi[i]}
+     * @param k the common relock scalar
      */
     public static Proof prove(EdwardsPoint[] a, EdwardsPoint[] b, int[] pi, BigInteger k) {
         int n = a.length;
@@ -167,7 +197,10 @@ public final class ShuffleArgument {
         return new Proof(cf, perm, Ristretto255.encode(q), wsum, Ristretto255.encode(t), z);
     }
 
-    /** Verify that {@code B} is an honest re-encryption shuffle of {@code A} (some {@code π}, single {@code k}). */
+    /**
+     * Verify that {@code B} is an honest re-encryption shuffle of {@code A}
+     * (some {@code π}, single {@code k}).
+     */
     public static boolean verify(EdwardsPoint[] a, EdwardsPoint[] b, Proof proof) {
         if (proof == null || a == null || b == null || a.length == 0 || b.length != a.length
                 || proof.cf == null || proof.cf.length != a.length || proof.q == null

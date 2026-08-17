@@ -19,11 +19,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Shared infrastructure for the per-archetype baseline quality tests. Each
  * concrete subclass pits HARD against one deterministic
- * {@link FixedStrategyBot} archetype. Splitting one test per file lets
- * surefire fork each baseline matchup into its own JVM.
+ * {@link FixedStrategyBot} archetype. Splitting one test per file lets surefire
+ * fork each baseline matchup into its own JVM.
  *
- * <p>This base class deliberately does not end in {@code Test} so surefire
- * does not run it on its own.</p>
+ * <p>
+ * This base class deliberately does not end in {@code Test} so surefire does
+ * not run it on its own.</p>
  */
 abstract class BaselineQualityBase {
 

@@ -31,8 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The socket behaviour the peer-drop handling is built on, over a real localhost
- * pair.
+ * The socket behaviour the peer-drop handling is built on, over a real
+ * localhost pair.
  *
  * None of this tests our own code: it pins the three assumptions the reasoning
  * rests on, because if any of them were false the whole design would be wrong
@@ -41,16 +41,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * suspended laptop.
  *
  * <ol>
- *   <li>writing to a peer that never reads eventually BLOCKS, once the kernel
- *       buffers fill up. This is what makes a stalled heartbeat write possible
- *       at all, and why the watchdog wraps that write in a timeout;</li>
- *   <li>closing that socket from another thread WAKES the blocked write with an
- *       exception. The whole stall handling depends on this: it closes the
- *       socket precisely to unblock the writer and let the reader take over,
- *       and it marks the close as ours so the resulting exception is not
- *       mistaken for the peer dropping;</li>
- *   <li>closing the socket also wakes a blocked read, which is what lets the
- *       reader notice and open the grace period.</li>
+ * <li>writing to a peer that never reads eventually BLOCKS, once the kernel
+ * buffers fill up. This is what makes a stalled heartbeat write possible at
+ * all, and why the watchdog wraps that write in a timeout;</li>
+ * <li>closing that socket from another thread WAKES the blocked write with an
+ * exception. The whole stall handling depends on this: it closes the socket
+ * precisely to unblock the writer and let the reader take over, and it marks
+ * the close as ours so the resulting exception is not mistaken for the peer
+ * dropping;</li>
+ * <li>closing the socket also wakes a blocked read, which is what lets the
+ * reader notice and open the grace period.</li>
  * </ol>
  *
  * Kernel buffer sizes vary, so the volumes here are deliberately generous and
@@ -59,12 +59,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag("slow")
 class SocketStallIntegrationTest {
 
-    /** Far more than any socket buffer pair will absorb. */
+    /**
+     * Far more than any socket buffer pair will absorb.
+     */
     private static final int FLOOD_BYTES = 64 * 1024 * 1024;
 
     private static final int CHUNK = 64 * 1024;
 
-    /** Long enough that a non-blocking write would have finished many times over. */
+    /**
+     * Long enough that a non-blocking write would have finished many times
+     * over.
+     */
     private static final long BLOCKED_CHECK_MS = 2000;
 
     private ServerSocket server;
@@ -91,8 +96,8 @@ class SocketStallIntegrationTest {
     }
 
     /**
-     * Floods the writer side from its own thread. The reader side is never read,
-     * so this is expected to wedge partway through.
+     * Floods the writer side from its own thread. The reader side is never
+     * read, so this is expected to wedge partway through.
      */
     private Thread floodInBackground(AtomicLong written, AtomicReference<Exception> failure,
             CountDownLatch finished, CountDownLatch started) {

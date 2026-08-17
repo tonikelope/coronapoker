@@ -29,7 +29,9 @@ public class SettlementRecordTest {
 
     private static byte[] handId(int seed) {
         byte[] out = new byte[16];
-        for (int i = 0; i < 16; i++) out[i] = (byte) (seed + i);
+        for (int i = 0; i < 16; i++) {
+            out[i] = (byte) (seed + i);
+        }
         return out;
     }
 

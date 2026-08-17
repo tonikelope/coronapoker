@@ -33,8 +33,8 @@ import java.awt.Graphics;
 import javax.swing.ImageIcon;
 
 /**
- * Panel wrapping a {@link GifLabel}, optionally painting the table's
- * brightness overlay on top of it.
+ * Panel wrapping a {@link GifLabel}, optionally painting the table's brightness
+ * overlay on top of it.
  *
  * @author tonikelope
  */

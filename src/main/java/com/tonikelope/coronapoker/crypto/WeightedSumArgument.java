@@ -20,20 +20,25 @@ import java.math.BigInteger;
 import java.util.Arrays;
 
 /**
- * Weighted-sum (multi-exponentiation over individually-committed weights) argument: given
- * single-value Pedersen commitments {@code C_f[i] = Comm([f_i], s_i)} and PUBLIC bases {@code B_i},
- * proves a claimed point {@code Q == Σ f_i·B_i} in zero knowledge of the weights {@code f}. Shares the
- * individual-commitment substrate with {@link PermutationArgument}, so the same committed vector can be
- * proven (a) a permutation of a public vector AND (b) the weights of a multi-exponentiation of the
- * encrypted deck — which is exactly how the shuffle ties its hidden permutation to the deck points
- * (see {@code docs/SECURITY.md}).
+ * Weighted-sum (multi-exponentiation over individually-committed weights)
+ * argument: given single-value Pedersen commitments
+ * {@code C_f[i] = Comm([f_i], s_i)} and PUBLIC bases {@code B_i}, proves a
+ * claimed point {@code Q == Σ f_i·B_i} in zero knowledge of the weights
+ * {@code f}. Shares the individual-commitment substrate with
+ * {@link PermutationArgument}, so the same committed vector can be proven (a) a
+ * permutation of a public vector AND (b) the weights of a multi-exponentiation
+ * of the encrypted deck — which is exactly how the shuffle ties its hidden
+ * permutation to the deck points (see {@code docs/SECURITY.md}).
  *
- * <p>Protocol. Masks {@code (β_i, σ_i)}; sends per-element {@code T_i = β_i·G_0 + σ_i·H} and the
- * aggregate {@code T_Q = Σ β_i·B_i}. Challenge {@code e = H(C_f, B, Q, T, T_Q)}. Responses
- * {@code z_i = β_i + e·f_i}, {@code zs_i = σ_i + e·s_i}. Verifier accepts iff, for every {@code i},
- * {@code z_i·G_0 + zs_i·H == T_i ⊕ e·C_f[i]} (knowledge of the committed weight) AND
- * {@code Σ z_i·B_i == T_Q ⊕ e·Q} (the multi-exponentiation linkage). The shared {@code z_i} forces the
- * weights used in both checks to coincide. Complete, special-sound, honest-verifier ZK.
+ * <p>
+ * Protocol. Masks {@code (β_i, σ_i)}; sends per-element
+ * {@code T_i = β_i·G_0 + σ_i·H} and the aggregate {@code T_Q = Σ β_i·B_i}.
+ * Challenge {@code e = H(C_f, B, Q, T, T_Q)}. Responses
+ * {@code z_i = β_i + e·f_i}, {@code zs_i = σ_i + e·s_i}. Verifier accepts iff,
+ * for every {@code i}, {@code z_i·G_0 + zs_i·H == T_i ⊕ e·C_f[i]} (knowledge of
+ * the committed weight) AND {@code Σ z_i·B_i == T_Q ⊕ e·Q} (the
+ * multi-exponentiation linkage). The shared {@code z_i} forces the weights used
+ * in both checks to coincide. Complete, special-sound, honest-verifier ZK.
  */
 public final class WeightedSumArgument {
 
@@ -44,6 +49,7 @@ public final class WeightedSumArgument {
     }
 
     public static final class Proof {
+
         final byte[][] t;        // per-element mask commitments T_i
         final byte[] tq;         // encoded Σ β_i·B_i
         final BigInteger[] z;    // z_i = β_i + e·f_i
@@ -61,7 +67,9 @@ public final class WeightedSumArgument {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
-    /** Canonical scalar response: present and reduced into {@code [0, L)}. */
+    /**
+     * Canonical scalar response: present and reduced into {@code [0, L)}.
+     */
     private static boolean inRange(BigInteger s) {
         return s != null && s.signum() >= 0 && s.compareTo(L) < 0;
     }
@@ -84,8 +92,8 @@ public final class WeightedSumArgument {
     }
 
     /**
-     * Prove {@code q == Σ f_i·b_i} for individually-committed weights {@code cf[i] = Comm([f_i], s[i])}
-     * and public bases {@code b}.
+     * Prove {@code q == Σ f_i·b_i} for individually-committed weights
+     * {@code cf[i] = Comm([f_i], s[i])} and public bases {@code b}.
      */
     public static Proof prove(BigInteger[] f, BigInteger[] s, byte[][] cf, EdwardsPoint[] b, EdwardsPoint q) {
         int n = f.length;
@@ -108,7 +116,9 @@ public final class WeightedSumArgument {
         return new Proof(t, tq, z, zs);
     }
 
-    /** Verify the weighted-sum claim {@code q == Σ f_i·b_i}. */
+    /**
+     * Verify the weighted-sum claim {@code q == Σ f_i·b_i}.
+     */
     public static boolean verify(byte[][] cf, EdwardsPoint[] b, EdwardsPoint q, Proof proof) {
         if (proof == null || cf == null || b == null || q == null || cf.length != b.length
                 || proof.t == null || proof.t.length != cf.length || proof.tq == null

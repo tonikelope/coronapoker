@@ -47,14 +47,16 @@ import javax.swing.JSlider;
 import javax.swing.ListSelectionModel;
 
 /**
- * Reusable audio settings panel: content of the "Audio" tab in the unified settings
- * dialog ({@link SettingsDialog}), reachable from the gear icon in the launcher, the
- * waiting room and the game itself. Every change is applied and persisted immediately
- * (the master volume is the same value driven by the global Shift+Up/Down shortcut).
+ * Reusable audio settings panel: content of the "Audio" tab in the unified
+ * settings dialog ({@link SettingsDialog}), reachable from the gear icon in the
+ * launcher, the waiting room and the game itself. Every change is applied and
+ * persisted immediately (the master volume is the same value driven by the
+ * global Shift+Up/Down shortcut).
  *
- * <p>The host dialog must call {@link #applyFontsAndSizing()} after adding the panel,
- * manage the modal stack, and call {@link #cleanup()} on close (otherwise the key
- * capture dispatcher leaks and the volume change is lost).
+ * <p>
+ * The host dialog must call {@link #applyFontsAndSizing()} after adding the
+ * panel, manage the modal stack, and call {@link #cleanup()} on close
+ * (otherwise the key capture dispatcher leaks and the volume change is lost).
  *
  * @author tonikelope
  */
@@ -206,8 +208,8 @@ public class AudioSettingsPanel extends JPanel {
     private volatile boolean loading = true;
 
     /**
-     * Syncs the volume slider when the global shortcut changes the volume while an audio
-     * panel is open, whichever host owns it.
+     * Syncs the volume slider when the global shortcut changes the volume while
+     * an audio panel is open, whichever host owns it.
      */
     public static void refreshVolume() {
 
@@ -225,8 +227,8 @@ public class AudioSettingsPanel extends JPanel {
     }
 
     /**
-     * Builds the panel: snapshots current audio settings, then builds and wires every
-     * control, applying each change live as it happens.
+     * Builds the panel: snapshots current audio settings, then builds and wires
+     * every control, applying each change live as it happens.
      */
     public AudioSettingsPanel() {
 
@@ -980,18 +982,18 @@ public class AudioSettingsPanel extends JPanel {
     }
 
     /**
-     * Applies the scaled audio font (1.2x, like the old dialog) and the fixes that depend
-     * on it: border-title fonts (updateFonts doesn't reach them) and max heights for
-     * rows/panels that shouldn't stretch.
+     * Applies the scaled audio font (1.2x, like the old dialog) and the fixes
+     * that depend on it: border-title fonts (updateFonts doesn't reach them)
+     * and max heights for rows/panels that shouldn't stretch.
      *
-     * <p>The host must call this AFTER its own general updateFonts.
+     * <p>
+     * The host must call this AFTER its own general updateFonts.
      */
     public void applyFontsAndSizing() {
 
         // Note: the HOST applies the font before calling this. The section titles are painted by
         // SettingsUI.card (independent of the host font), so there are no border titles to restyle
         // here anymore — only the row/panel heights.
-
         // In the vertical BoxLayout, the retention and purge rows must keep their natural
         // height instead of stretching to fill the gap.
         retention_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, retention_panel.getPreferredSize().height));
@@ -1009,8 +1011,8 @@ public class AudioSettingsPanel extends JPanel {
     }
 
     /**
-     * The host MUST call this on close: persists the master volume and releases the live
-     * instance reference.
+     * The host MUST call this on close: persists the master volume and releases
+     * the live instance reference.
      */
     public void cleanup() {
 
@@ -1026,8 +1028,8 @@ public class AudioSettingsPanel extends JPanel {
     }
 
     /**
-     * Whether any audio setting differs from the state captured on open. Used by the host
-     * to confirm before discarding on cancel.
+     * Whether any audio setting differs from the state captured on open. Used
+     * by the host to confirm before discarding on cancel.
      *
      * @return {@code true} if something changed since the panel was opened
      */
@@ -1091,9 +1093,9 @@ public class AudioSettingsPanel extends JPanel {
     }
 
     /**
-     * Reverts audio settings to the state captured on open (CANCEL of the transactional
-     * dialog), re-applying each one through its normal setter — global changes re-emit
-     * their broadcast, restoring clients too.
+     * Reverts audio settings to the state captured on open (CANCEL of the
+     * transactional dialog), re-applying each one through its normal setter —
+     * global changes re-emit their broadcast, restoring clients too.
      */
     public void revert() {
 
@@ -1265,11 +1267,12 @@ public class AudioSettingsPanel extends JPanel {
     }
 
     /**
-     * Restores ALL audio settings to their factory values, applying them LIVE like any
-     * other edit (transactional dialog: SAVE keeps them, Cancel reverts to the state on
-     * open). Covers master volume, every sound/music/joke toggle, devices, microphone,
-     * voice notes, retention and local TTS. GLOBAL table rules (TTS and voice notes) are
-     * only reset when NOT a client (a client gets them from the server). Invoked by the
+     * Restores ALL audio settings to their factory values, applying them LIVE
+     * like any other edit (transactional dialog: SAVE keeps them, Cancel
+     * reverts to the state on open). Covers master volume, every
+     * sound/music/joke toggle, devices, microphone, voice notes, retention and
+     * local TTS. GLOBAL table rules (TTS and voice notes) are only reset when
+     * NOT a client (a client gets them from the server). Invoked by the
      * dialog's "Restore defaults" button.
      */
     public void restoreDefaults() {

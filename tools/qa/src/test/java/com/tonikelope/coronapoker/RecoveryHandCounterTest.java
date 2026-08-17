@@ -10,9 +10,10 @@ import java.sql.Statement;
 import org.junit.jupiter.api.Test;
 
 /**
- * Recovery must not confuse the row count with the ordinal printed on the table and in the game
- * log.  A hand interrupted before showdown is replayed at its persisted ordinal; a hand already
- * shown at showdown is skipped and the next hand must use that ordinal plus one.
+ * Recovery must not confuse the row count with the ordinal printed on the table
+ * and in the game log. A hand interrupted before showdown is replayed at its
+ * persisted ordinal; a hand already shown at showdown is skipped and the next
+ * hand must use that ordinal plus one.
  */
 class RecoveryHandCounterTest {
 
@@ -34,8 +35,7 @@ class RecoveryHandCounterTest {
     @Test
     void recoveryQueryReadsTheLatestHandsDurableOrdinalNotItsRowCount() throws Exception {
         Class.forName("org.sqlite.JDBC");
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:");
-                Statement statement = connection.createStatement()) {
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:"); Statement statement = connection.createStatement()) {
             statement.execute("CREATE TABLE game (id INTEGER PRIMARY KEY, server TEXT, start INTEGER, buyin INTEGER, rebuy BOOLEAN, play_time INTEGER, blinds_time INTEGER, blinds_time_type INTEGER)");
             statement.execute("CREATE TABLE hand (id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, end INTEGER, preflop_players TEXT, hand_id_b64 TEXT, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT)");
             statement.execute("INSERT INTO game VALUES (42, 'server', 1, 100, 1, 0, 0, 0)");

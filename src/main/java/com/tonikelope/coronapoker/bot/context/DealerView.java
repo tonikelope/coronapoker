@@ -21,8 +21,8 @@ import java.util.List;
  * provide a lightweight fake dealer instead of bootstrapping the full game.
  *
  * Spanish method names match the existing fields in {@code Crupier} so that
- * Crupier can satisfy the contract by adding a single {@code implements}
- * clause and one delegation for the players-in-seating-order view.
+ * Crupier can satisfy the contract by adding a single {@code implements} clause
+ * and one delegation for the players-in-seating-order view.
  */
 public interface DealerView {
 
@@ -74,8 +74,8 @@ public interface DealerView {
     int getBoardCardIndex(int i);
 
     /**
-     * Number of community cards currently visible (0 preflop, 3 flop, 4 turn,
-     * 5 river).
+     * Number of community cards currently visible (0 preflop, 3 flop, 4 turn, 5
+     * river).
      */
     int getBoardSize();
 }

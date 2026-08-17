@@ -16,14 +16,13 @@ package com.tonikelope.coronapoker.bot.harness;
  * Counter semantics follow the standard poker tracker conventions:
  *
  * <ul>
- *   <li><b>VPIP</b> = hands where the bot voluntarily put money in the pot
- *       preflop (calls or raises, not blinds posted).</li>
- *   <li><b>PFR</b>  = hands with at least one preflop raise.</li>
- *   <li><b>AF</b>   = postflop aggression factor =
- *       (bets + raises) / calls.</li>
- *   <li><b>WTSD</b> = % of hands that reached showdown.</li>
- *   <li><b>W$SD</b> = % of showdowns won.</li>
- *   <li><b>bb/100</b> = winrate in big blinds per 100 hands.</li>
+ * <li><b>VPIP</b> = hands where the bot voluntarily put money in the pot
+ * preflop (calls or raises, not blinds posted).</li>
+ * <li><b>PFR</b> = hands with at least one preflop raise.</li>
+ * <li><b>AF</b> = postflop aggression factor = (bets + raises) / calls.</li>
+ * <li><b>WTSD</b> = % of hands that reached showdown.</li>
+ * <li><b>W$SD</b> = % of showdowns won.</li>
+ * <li><b>bb/100</b> = winrate in big blinds per 100 hands.</li>
  * </ul>
  */
 public final class BotStats {
@@ -69,7 +68,9 @@ public final class BotStats {
         this.label = label;
     }
 
-    /** Accumulate counters from another BotStats into this one. */
+    /**
+     * Accumulate counters from another BotStats into this one.
+     */
     public void add(BotStats other) {
         handsPlayed += other.handsPlayed;
         handsVoluntaryMoneyPreflop += other.handsVoluntaryMoneyPreflop;
@@ -123,22 +124,32 @@ public final class BotStats {
         return cbetOpportunities == 0 ? 0 : 100.0 * cbetExecuted / cbetOpportunities;
     }
 
-    /** Share of postflop bets/raises made with a weak hand (bluffs + air semibluffs). */
+    /**
+     * Share of postflop bets/raises made with a weak hand (bluffs + air
+     * semibluffs).
+     */
     public double bluffBetPct() {
         return postflopBetsRaises == 0 ? 0 : 100.0 * postflopBluffBets / postflopBetsRaises;
     }
 
-    /** Share of postflop bets/raises made with a strong made hand (value). */
+    /**
+     * Share of postflop bets/raises made with a strong made hand (value).
+     */
     public double valueBetPct() {
         return postflopBetsRaises == 0 ? 0 : 100.0 * postflopValueBets / postflopBetsRaises;
     }
 
-    /** Share of river bets that are bluffs — the most telling readability metric. */
+    /**
+     * Share of river bets that are bluffs — the most telling readability
+     * metric.
+     */
     public double riverBluffPct() {
         return riverBets == 0 ? 0 : 100.0 * riverBluffBets / riverBets;
     }
 
-    /** Share of turn bets that are bluffs. */
+    /**
+     * Share of turn bets that are bluffs.
+     */
     public double turnBluffPct() {
         return turnBets == 0 ? 0 : 100.0 * turnBluffBets / turnBets;
     }
@@ -147,7 +158,9 @@ public final class BotStats {
         return handsPlayed == 0 ? 0 : 100.0 * netChipsWon / (handsPlayed * bb);
     }
 
-    /** Format as a single-line summary for benchmark logs. */
+    /**
+     * Format as a single-line summary for benchmark logs.
+     */
     public String summary(float bb) {
         return String.format(
                 "%-22s n=%4d  VPIP=%5.1f%%  PFR=%5.1f%%  AF=%4.2f  WTSD=%5.1f%%  W$SD=%5.1f%%  cbet=%5.1f%%  bluff=%4.1f%%  tnBluff=%4.1f%%  rvBluff=%4.1f%%  Win=%5.1f%%  bb/100=%+7.1f",

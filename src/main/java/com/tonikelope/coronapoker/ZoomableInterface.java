@@ -39,8 +39,8 @@ public interface ZoomableInterface {
 
     /**
      * Applies the given zoom factor. Implementations run asynchronously and
-     * signal completion by pushing to {@code notifier}, so callers can wait
-     * on multiple zoomables in parallel without blocking the UI thread.
+     * signal completion by pushing to {@code notifier}, so callers can wait on
+     * multiple zoomables in parallel without blocking the UI thread.
      *
      * @param factor zoom scale factor
      * @param notifier queue used to signal that this zoomable finished zooming

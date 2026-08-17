@@ -34,11 +34,12 @@ import java.awt.Graphics2D;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * State and painting of the table's "lights off" overlay. Painted by the table at the end of
- * its {@code paint()}, and also by the GIF panel (a separate window that darkens on its own).
- * Previously the overlay was the {@code LayerUI} of a {@code JLayer} wrapping the whole table,
- * but a {@code JLayer} forces every repaint of any of its components to start there, even with
- * the lights on, which is 99% of the game.
+ * State and painting of the table's "lights off" overlay. Painted by the table
+ * at the end of its {@code paint()}, and also by the GIF panel (a separate
+ * window that darkens on its own). Previously the overlay was the
+ * {@code LayerUI} of a {@code JLayer} wrapping the whole table, but a
+ * {@code JLayer} forces every repaint of any of its components to start there,
+ * even with the lights on, which is 99% of the game.
  */
 public class BrightnessOverlay {
 
@@ -67,15 +68,18 @@ public class BrightnessOverlay {
     private float cached_brightness = -1f;
 
     /**
-     * Black-overlay opacity for the configured light level: its complement (50% light -&gt; 0.50
-     * overlay). Clamped to the setting's range in case the config value was hand-edited outside it.
+     * Black-overlay opacity for the configured light level: its complement (50%
+     * light -&gt; 0.50 overlay). Clamped to the setting's range in case the
+     * config value was hand-edited outside it.
      */
     private static float lightsOffBrightness() {
 
         return (100 - Math.max(GameFrame.NIVEL_LUZ_MIN, Math.min(GameFrame.NIVEL_LUZ, GameFrame.NIVEL_LUZ_MAX))) / 100f;
     }
 
-    /** Player-driven switch. */
+    /**
+     * Player-driven switch.
+     */
     public void lightsOFF() {
 
         user_lights_off = true;
@@ -89,16 +93,18 @@ public class BrightnessOverlay {
     }
 
     /**
-     * What the player asked for, REGARDLESS of any temporary blackout the game may currently be
-     * forcing: this is what decides whether their next click turns lights on or off.
+     * What the player asked for, REGARDLESS of any temporary blackout the game
+     * may currently be forcing: this is what decides whether their next click
+     * turns lights on or off.
      */
     public boolean isUserLightsOff() {
         return user_lights_off;
     }
 
     /**
-     * Temporary blackout requested by the game. Always call in pairs (push/pop), preferably with
-     * the pop in a {@code finally}: a leaked push leaves the table dark forever.
+     * Temporary blackout requested by the game. Always call in pairs
+     * (push/pop), preferably with the pop in a {@code finally}: a leaked push
+     * leaves the table dark forever.
      */
     public void pushForcedLightsOFF() {
 
@@ -115,8 +121,8 @@ public class BrightnessOverlay {
     }
 
     /**
-     * Recomputes the effective brightness. Public because changing the light level in Settings
-     * must be reflected in an overlay that's already up.
+     * Recomputes the effective brightness. Public because changing the light
+     * level in Settings must be reflected in an overlay that's already up.
      */
     public synchronized void refreshBrightness() {
 
@@ -128,8 +134,9 @@ public class BrightnessOverlay {
     }
 
     /**
-     * Paints the overlay over the given surface; no-op with the lights on. Must be called AFTER
-     * painting content (from {@code paint()}, not {@code paintComponent()}) so it ends up on top.
+     * Paints the overlay over the given surface; no-op with the lights on. Must
+     * be called AFTER painting content (from {@code paint()}, not
+     * {@code paintComponent()}) so it ends up on top.
      */
     public void paintOverlay(Graphics g, int width, int height) {
 

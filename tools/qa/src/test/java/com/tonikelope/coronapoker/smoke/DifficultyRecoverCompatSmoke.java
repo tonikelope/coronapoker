@@ -19,8 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * merge. The three current levels must round-trip through
  * {@link GameFrame#applyRecoverSettings(String)}, and the legacy {@code EXPERT}
  * token that a game saved before the merge may still carry must resolve to the
- * current top level {@code HARD} rather than throwing and leaving the difficulty
- * stuck at its previous value.
+ * current top level {@code HARD} rather than throwing and leaving the
+ * difficulty stuck at its previous value.
  */
 class DifficultyRecoverCompatSmoke {
 

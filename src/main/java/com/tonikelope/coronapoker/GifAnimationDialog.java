@@ -54,8 +54,9 @@ public class GifAnimationDialog extends JDialog {
     }
 
     /**
-     * Same as {@link #GifAnimationDialog(java.awt.Frame, boolean, ImageIcon, int)}
-     * with {@code frames = 0}.
+     * Same as
+     * {@link #GifAnimationDialog(java.awt.Frame, boolean, ImageIcon, int)} with
+     * {@code frames = 0}.
      */
     public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon) {
         this(parent, modal, icon, 0);

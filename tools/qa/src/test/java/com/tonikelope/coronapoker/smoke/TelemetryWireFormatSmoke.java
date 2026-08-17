@@ -25,13 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * AAA test del wire format TELEMETRY del Sprint 7.
  *
- * Cobertura:
- *   - Round-trip ts + map (un peer, varios peers, vacío).
- *   - Nicks con caracteres conflictivos (#, @, =, /, espacio, unicode).
- *   - Decoder tolera payloads malformados (skip silencioso, no excepción).
- *   - Decoder devuelve null para input vacío / null.
- *   - Decoder rechaza ts no numérico (devuelve null).
- *   - Entradas individuales malformadas se saltan sin romper las demás.
+ * Cobertura: - Round-trip ts + map (un peer, varios peers, vacío). - Nicks con
+ * caracteres conflictivos (#, @, =, /, espacio, unicode). - Decoder tolera
+ * payloads malformados (skip silencioso, no excepción). - Decoder devuelve null
+ * para input vacío / null. - Decoder rechaza ts no numérico (devuelve null). -
+ * Entradas individuales malformadas se saltan sin romper las demás.
  */
 class TelemetryWireFormatSmoke {
 

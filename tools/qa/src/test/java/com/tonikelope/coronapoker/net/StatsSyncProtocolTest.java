@@ -19,8 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * AAA tests for {@link StatsSyncProtocol} — the manifest/games message codec that
- * rides inside a {@link com.tonikelope.coronapoker.BinaryWire#TYPE_DB} frame.
+ * AAA tests for {@link StatsSyncProtocol} — the manifest/games message codec
+ * that rides inside a {@link com.tonikelope.coronapoker.BinaryWire#TYPE_DB}
+ * frame.
  */
 class StatsSyncProtocolTest {
 

@@ -50,21 +50,23 @@ import java.util.zip.GZIPOutputStream;
 /**
  * Peer-to-peer statistics database synchronization — data layer.
  *
- * <p>Serializes complete game subtrees ({@code game} → {@code hand}s → each
- * hand's {@code action}/{@code showdown}/{@code balance}/{@code showcards}) and
- * merges them into the local SQLite database, deduplicating by the
- * globally-shared {@code game.ugi}. The host generates the ugi once per table
- * and propagates it to every client in the INIT command, so the same real game
- * carries the same ugi in everyone's database — that is the only cross-database
- * identity. Auto-increment primary keys are dropped on export and regenerated
- * on import.
+ * <p>
+ * Serializes complete game subtrees ({@code game} → {@code hand}s → each hand's
+ * {@code action}/{@code showdown}/{@code balance}/{@code showcards}) and merges
+ * them into the local SQLite database, deduplicating by the globally-shared
+ * {@code game.ugi}. The host generates the ugi once per table and propagates it
+ * to every client in the INIT command, so the same real game carries the same
+ * ugi in everyone's database — that is the only cross-database identity.
+ * Auto-increment primary keys are dropped on export and regenerated on import.
  *
- * <p>Import is <b>atomic per game</b> and <b>idempotent</b>: a game whose ugi
+ * <p>
+ * Import is <b>atomic per game</b> and <b>idempotent</b>: a game whose ugi
  * already exists is skipped, and a malformed game is rolled back and skipped
  * without ever leaving partial rows behind. The whole blob is decoded and
  * validated in memory before any row is written.
  *
- * <p>The {@link Connection}-taking methods are the core (used by tests with a
+ * <p>
+ * The {@link Connection}-taking methods are the core (used by tests with a
  * throwaway database); the no-argument production wrappers operate on
  * {@link Helpers#getSQLITE()} under {@link GameFrame#SQL_LOCK} and never let an
  * exception escape into the sync thread.
@@ -127,26 +129,30 @@ public final class StatsSync {
     // =========================================================================
     // Production wrappers (local DB, locked, exception-safe)
     // =========================================================================
-
     /**
-     * UGIs of the games this peer is willing to share: finished games that carry
-     * a merge key ({@code ugi}), minus the user's share-exclusions. Pre-ugi games
-     * (no key) and unfinished games (no {@code end}) are never propagated.
+     * UGIs of the games this peer is willing to share: finished games that
+     * carry a merge key ({@code ugi}), minus the user's share-exclusions.
+     * Pre-ugi games (no key) and unfinished games (no {@code end}) are never
+     * propagated.
      *
-     * <p>The user can carve out a subset of their own games from what they share
-     * (see the "Exclude" dialog in {@link StatsDialog}), read here from three global
-     * preferences: exclude private games (ON by default, the historical behavior),
-     * and exclude every game in which any of a comma-separated nick list took part
-     * (OFF by default). These filters shape a single source of truth — every point
-     * that decides what to send (manifest, push, host re-forward) calls this — so an
-     * excluded game is invisible to the whole share path.
+     * <p>
+     * The user can carve out a subset of their own games from what they share
+     * (see the "Exclude" dialog in {@link StatsDialog}), read here from three
+     * global preferences: exclude private games (ON by default, the historical
+     * behavior), and exclude every game in which any of a comma-separated nick
+     * list took part (OFF by default). These filters shape a single source of
+     * truth — every point that decides what to send (manifest, push, host
+     * re-forward) calls this — so an excluded game is invisible to the whole
+     * share path.
      *
-     * <p>The {@code game.local} column is deliberately NOT a filter here: it means
+     * <p>
+     * The {@code game.local} column is deliberately NOT a filter here: it means
      * "this machine was the <em>host</em> of the table" (it is written as
-     * {@code isPartida_local() ? 1 : 0} and used by the recover-last-game feature),
-     * <em>not</em> "offline/solo game". Filtering it out would mute every game this
-     * peer hosted — exactly the games it is the authoritative source for — so it is
-     * left untouched and convergence is by {@code ugi} alone.
+     * {@code isPartida_local() ? 1 : 0} and used by the recover-last-game
+     * feature),
+     * <em>not</em> "offline/solo game". Filtering it out would mute every game
+     * this peer hosted — exactly the games it is the authoritative source for —
+     * so it is left untouched and convergence is by {@code ugi} alone.
      */
     public static List<String> listShareableUgis() {
         synchronized (GameFrame.SQL_LOCK) {
@@ -188,9 +194,10 @@ public final class StatsSync {
     }
 
     /**
-     * As {@link #importGames(byte[])}, additionally recording {@code fromNick} — the peer that sent
-     * us this batch — on each newly-inserted game ({@code game.imported_from}, display-only, not part
-     * of the wire payload). {@code null}/blank leaves it unset.
+     * As {@link #importGames(byte[])}, additionally recording {@code fromNick}
+     * — the peer that sent us this batch — on each newly-inserted game
+     * ({@code game.imported_from}, display-only, not part of the wire payload).
+     * {@code null}/blank leaves it unset.
      */
     public static int importGames(byte[] blob, String fromNick) {
         try {
@@ -211,10 +218,10 @@ public final class StatsSync {
     }
 
     /**
-     * Manifest diff — the set difference {@code a \ b}: ugis present in {@code a}
-     * but not in {@code b}, preserving the order of {@code a}. Given my ugis and
-     * the peer's ugis, {@code difference(mine, theirs)} is what the peer lacks
-     * (and would receive if I share my games), and {@code difference(theirs,
+     * Manifest diff — the set difference {@code a \ b}: ugis present in
+     * {@code a} but not in {@code b}, preserving the order of {@code a}. Given
+     * my ugis and the peer's ugis, {@code difference(mine, theirs)} is what the
+     * peer lacks (and would receive if I share my games), and {@code difference(theirs,
      * mine)} is what I lack (and would receive if I sync). O(|a| + |b|).
      */
     public static List<String> difference(Collection<String> a, Collection<String> b) {
@@ -231,10 +238,10 @@ public final class StatsSync {
     // =========================================================================
     // Core — Connection injected (testable, may throw)
     // =========================================================================
-
     /**
-     * Historical default (used by the round-trip / dedup tests): exclude private
-     * games, no nick filter. Kept as a thin overload so those tests read cleanly.
+     * Historical default (used by the round-trip / dedup tests): exclude
+     * private games, no nick filter. Kept as a thin overload so those tests
+     * read cleanly.
      */
     public static List<String> listShareableUgis(Connection conn) throws Exception {
         return listShareableUgis(conn, true, java.util.Collections.emptySet());
@@ -243,20 +250,21 @@ public final class StatsSync {
     /**
      * Shareable ugis honoring the caller-supplied share-exclusions. A game is
      * shareable when it is finished ({@code end} set) and carries a merge key
-     * ({@code ugi}); it is then dropped if it is private and {@code excludePrivate},
-     * or if any of {@code excludeNicks} took part in it.
+     * ({@code ugi}); it is then dropped if it is private and
+     * {@code excludePrivate}, or if any of {@code excludeNicks} took part in
+     * it.
      *
-     * <p>{@code game.local} is intentionally absent from the filter — it flags "I was
-     * the host" (see the no-arg wrapper's javadoc), not "offline", so it must not gate
-     * sharing. The {@code private} NULL guard covers pre-migration rows (before the
-     * column existed).
+     * <p>
+     * {@code game.local} is intentionally absent from the filter — it flags "I
+     * was the host" (see the no-arg wrapper's javadoc), not "offline", so it
+     * must not gate sharing. The {@code private} NULL guard covers
+     * pre-migration rows (before the column existed).
      *
-     * @param conn          the stats database
+     * @param conn the stats database
      * @param excludePrivate drop games flagged {@code private = 1}
-     * @param excludeNicks  already-normalized (trimmed, upper-cased) nicks; drop any
-     *                      game in which at least one of them took part. Empty/null
-     *                      means no nick filter (and the {@code players} column is not
-     *                      even read).
+     * @param excludeNicks already-normalized (trimmed, upper-cased) nicks; drop
+     * any game in which at least one of them took part. Empty/null means no
+     * nick filter (and the {@code players} column is not even read).
      */
     public static List<String> listShareableUgis(Connection conn, boolean excludePrivate, java.util.Set<String> excludeNicks) throws Exception {
         boolean nickFilter = excludeNicks != null && !excludeNicks.isEmpty();
@@ -281,10 +289,10 @@ public final class StatsSync {
     }
 
     /**
-     * Splits a comma-separated nick list into a normalized set (trimmed, upper-cased,
-     * blanks dropped). Mirrors the normalization the games-by-player filter in
-     * {@link StatsDialog} applies, so an exclusion matches exactly what that filter
-     * would match.
+     * Splits a comma-separated nick list into a normalized set (trimmed,
+     * upper-cased, blanks dropped). Mirrors the normalization the
+     * games-by-player filter in {@link StatsDialog} applies, so an exclusion
+     * matches exactly what that filter would match.
      */
     static java.util.Set<String> parseExcludedNicks(String csv) {
         java.util.Set<String> set = new java.util.HashSet<>();
@@ -300,10 +308,11 @@ public final class StatsSync {
     }
 
     /**
-     * True if the game's participant list — the {@code '#'}-separated Base64 nicks in
-     * {@code game.players} — contains at least one of {@code excludeNicks}. A token
-     * that fails to decode is skipped (it simply cannot match); a null/blank list
-     * never matches. Nicks are compared trimmed + upper-cased, as the player filter does.
+     * True if the game's participant list — the {@code '#'}-separated Base64
+     * nicks in {@code game.players} — contains at least one of
+     * {@code excludeNicks}. A token that fails to decode is skipped (it simply
+     * cannot match); a null/blank list never matches. Nicks are compared
+     * trimmed + upper-cased, as the player filter does.
      */
     private static boolean gameInvolvesAny(String players, java.util.Set<String> excludeNicks) {
         if (players == null || players.isEmpty()) {
@@ -357,9 +366,10 @@ public final class StatsSync {
     }
 
     /**
-     * Decode phase (no DB, no lock): inflate the blob and parse every game subtree
-     * into memory, fully bound-checked. Robust to a bad gzip / bad header (returns
-     * empty) and to a truncated stream (returns the games decoded so far).
+     * Decode phase (no DB, no lock): inflate the blob and parse every game
+     * subtree into memory, fully bound-checked. Robust to a bad gzip / bad
+     * header (returns empty) and to a truncated stream (returns the games
+     * decoded so far).
      */
     private static List<GameData> decodeGames(byte[] blob) {
         List<GameData> games = new ArrayList<>();
@@ -403,8 +413,9 @@ public final class StatsSync {
     }
 
     /**
-     * Insert phase (caller holds SQL_LOCK in production): merge each decoded game
-     * atomically and idempotently. A game that fails is rolled back and skipped.
+     * Insert phase (caller holds SQL_LOCK in production): merge each decoded
+     * game atomically and idempotently. A game that fails is rolled back and
+     * skipped.
      */
     private static int insertGames(Connection conn, List<GameData> games, String fromNick) {
         int imported = 0;
@@ -432,7 +443,6 @@ public final class StatsSync {
     // =========================================================================
     // Export helpers
     // =========================================================================
-
     private static void serializeHands(Connection conn, DataOutputStream out, long gameId) throws Exception {
         // Collect hand ids first so no parent ResultSet stays open while child
         // queries run on the same single SQLite connection.
@@ -512,7 +522,6 @@ public final class StatsSync {
     // =========================================================================
     // Import helpers
     // =========================================================================
-
     // Cotas de cordura al importar lo que manda otro peer, en la linea de las que ya
     // tiene el manifiesto (MAX_MANIFEST_UGIS): estos dos bucles leen "hay otra mas"
     // hasta que el flujo diga que no, asi que uno preparado para decir siempre que si
@@ -573,10 +582,10 @@ public final class StatsSync {
     }
 
     /**
-     * Inserts one game subtree atomically if its ugi is new. Returns {@code true}
-     * if it was inserted, {@code false} if skipped (no merge key or already
-     * present). On any SQL error the transaction is rolled back and the
-     * exception is rethrown for the caller to log.
+     * Inserts one game subtree atomically if its ugi is new. Returns
+     * {@code true} if it was inserted, {@code false} if skipped (no merge key
+     * or already present). On any SQL error the transaction is rolled back and
+     * the exception is rethrown for the caller to log.
      */
     private static boolean insertGameIfNew(Connection conn, GameData g, String fromNick) throws Exception {
         String ugi = (String) g.game[GAME.indexOf("ugi")];
@@ -659,8 +668,8 @@ public final class StatsSync {
 
     /**
      * Inserts one row. {@code fkCol}/{@code fkVal} prepend the parent FK (null
-     * for the root game). When {@code returnId} is set the generated primary key
-     * is returned, otherwise {@code -1}.
+     * for the root game). When {@code returnId} is set the generated primary
+     * key is returned, otherwise {@code -1}.
      */
     private static long insert(Connection conn, String table, Cols cols, String fkCol, long fkVal, Object[] vals, boolean returnId) throws Exception {
         String sql = cols.insertSql(table, fkCol);
@@ -715,7 +724,6 @@ public final class StatsSync {
     // =========================================================================
     // Low-level codec / SQL helpers
     // =========================================================================
-
     private static void writePresence(DataOutputStream out, boolean present) throws IOException {
         out.writeBoolean(present);
     }
@@ -778,7 +786,6 @@ public final class StatsSync {
     // =========================================================================
     // Small value holders
     // =========================================================================
-
     private static final class Cols {
 
         final String[] names;

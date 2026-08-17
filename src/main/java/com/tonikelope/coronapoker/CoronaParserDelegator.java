@@ -42,10 +42,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * {@link ParserDelegator} replacement that builds its own {@link DTD} instead of relying on the
- * shared/cached one, avoiding the cross-document corruption bug described at
- * https://stackoverflow.com/a/35012241. Also registers a custom "tonimg" element used to embed
- * images inline in chat/log HTML.
+ * {@link ParserDelegator} replacement that builds its own {@link DTD} instead
+ * of relying on the shared/cached one, avoiding the cross-document corruption
+ * bug described at https://stackoverflow.com/a/35012241. Also registers a
+ * custom "tonimg" element used to embed images inline in chat/log HTML.
  */
 class CoronaParserDelegator extends Parser {
 
@@ -67,8 +67,8 @@ class CoronaParserDelegator extends Parser {
     }
 
     /**
-     * Reads the packaged {@code .bdtd} resource into {@code dtd} and registers it under
-     * {@code name} so later {@code DTD.getDTD(name)} calls reuse it.
+     * Reads the packaged {@code .bdtd} resource into {@code dtd} and registers
+     * it under {@code name} so later {@code DTD.getDTD(name)} calls reuse it.
      */
     protected static DTD createDTD(DTD dtd, String name) {
         String path = name + ".bdtd";

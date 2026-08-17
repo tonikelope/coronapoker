@@ -31,14 +31,17 @@ import javax.swing.JComponent;
 import javax.swing.plaf.basic.BasicButtonUI;
 
 /**
- * Glassmorphism ButtonUI for the start-screen button bar: paints a rounded, translucent black
- * background (the felt shows through), a subtle top gloss highlight and, optionally, an accent
- * tint/halo. Hover/pressed state is read straight from the ButtonModel (rollover), so no external
- * MouseListener is needed.
+ * Glassmorphism ButtonUI for the start-screen button bar: paints a rounded,
+ * translucent black background (the felt shows through), a subtle top gloss
+ * highlight and, optionally, an accent tint/halo. Hover/pressed state is read
+ * straight from the ButtonModel (rollover), so no external MouseListener is
+ * needed.
  *
- * <p>Non-invasive: applied via {@code button.setUI(new GlassButtonUI(...))} on existing JButtons
- * (no changes to generated code or the .form); {@code installUI} makes the button non-opaque with
- * no border/fill of its own so only this UI's painting shows.
+ * <p>
+ * Non-invasive: applied via {@code button.setUI(new GlassButtonUI(...))} on
+ * existing JButtons (no changes to generated code or the .form);
+ * {@code installUI} makes the button non-opaque with no border/fill of its own
+ * so only this UI's painting shows.
  *
  * @author tonikelope
  */
@@ -53,10 +56,12 @@ public class GlassButtonUI extends BasicButtonUI {
     private final int radius;
 
     /**
-     * @param accent accent color for the fill tint and hover halo; {@code null} for a neutral,
-     * untinted button
-     * @param filled_accent paint the accent-tinted fill even at rest, not just on hover
-     * @param hover_only_accent currently unused, kept for constructor-signature compatibility
+     * @param accent accent color for the fill tint and hover halo; {@code null}
+     * for a neutral, untinted button
+     * @param filled_accent paint the accent-tinted fill even at rest, not just
+     * on hover
+     * @param hover_only_accent currently unused, kept for constructor-signature
+     * compatibility
      * @param base_alpha base glass opacity at rest
      * @param radius corner radius in pixels
      */

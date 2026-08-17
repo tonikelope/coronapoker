@@ -25,20 +25,20 @@ class AlbertaEvaluatorAdapterTest {
     private final AlbertaEvaluatorAdapter eval = new AlbertaEvaluatorAdapter();
 
     // --- Card helpers -------------------------------------------------------
-
     private static final int CLUBS = 0, DIAMONDS = 1, HEARTS = 2, SPADES = 3;
 
     private static int card(int rank, int suit) {
         return rank + suit * 13;
     }
 
-    /** rank in 2..14 (2..A). */
+    /**
+     * rank in 2..14 (2..A).
+     */
     private static int c(int rank2to14, int suit) {
         return (rank2to14 - 2) + suit * 13;
     }
 
     // --- Hand strength ------------------------------------------------------
-
     @Test
     @DisplayName("Pocket aces on a dry rag flop is near-certain to win heads-up")
     void aaCrushesRagFlop() {
@@ -74,7 +74,6 @@ class AlbertaEvaluatorAdapterTest {
     }
 
     // --- Hand potential -----------------------------------------------------
-
     @Test
     @DisplayName("Flush draw on flop shows positive ppot")
     void flushDrawHasPositivePpot() {
@@ -100,17 +99,16 @@ class AlbertaEvaluatorAdapterTest {
     }
 
     // --- Hand ranking -------------------------------------------------------
-
     @Test
     @DisplayName("Aces full beats trip kings at showdown")
     void compareHandsPicksBest() {
         // Board: AcKhKs9c8h
         // Hand A: hole AsAd → AsAdAc trips + KhKs pair = aces full of kings
         int[] handA = {c(14, SPADES), c(14, DIAMONDS),
-                       c(14, CLUBS), c(13, HEARTS), c(13, SPADES), c(9, CLUBS), c(8, HEARTS)};
+            c(14, CLUBS), c(13, HEARTS), c(13, SPADES), c(9, CLUBS), c(8, HEARTS)};
         // Hand B: hole KcQd → KcKhKs trips with A and Q kickers (no full house)
         int[] handB = {c(13, CLUBS), c(12, DIAMONDS),
-                       c(14, CLUBS), c(13, HEARTS), c(13, SPADES), c(9, CLUBS), c(8, HEARTS)};
+            c(14, CLUBS), c(13, HEARTS), c(13, SPADES), c(9, CLUBS), c(8, HEARTS)};
 
         assertEquals(1, eval.compareHands(handA, handB),
                 "Aces full should beat trip kings");
@@ -120,12 +118,11 @@ class AlbertaEvaluatorAdapterTest {
     @DisplayName("Identical hands tie")
     void identicalHandsTie() {
         int[] hand = {c(14, CLUBS), c(14, DIAMONDS), c(13, HEARTS), c(13, SPADES), c(9, CLUBS),
-                      c(3, DIAMONDS), c(8, HEARTS)};
+            c(3, DIAMONDS), c(8, HEARTS)};
         assertEquals(0, eval.compareHands(hand, hand));
     }
 
     // --- Range equity -------------------------------------------------------
-
     @Test
     @DisplayName("handStrengthVsRange against a uniform range matches handStrength")
     void uniformRangeMatchesUniformOpponent() {

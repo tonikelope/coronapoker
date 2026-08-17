@@ -205,9 +205,15 @@ public class CanonicalActionRecordTest {
         byte[] prevH = new byte[32];
         byte[] hid = new byte[16];
         byte[] pid = new byte[32];
-        for (int i = 0; i < 32; i++) prevH[i] = (byte) (i + 1);
-        for (int i = 0; i < 16; i++) hid[i] = (byte) (0x40 + i);
-        for (int i = 0; i < 32; i++) pid[i] = (byte) (0x80 + i);
+        for (int i = 0; i < 32; i++) {
+            prevH[i] = (byte) (i + 1);
+        }
+        for (int i = 0; i < 16; i++) {
+            hid[i] = (byte) (0x40 + i);
+        }
+        for (int i = 0; i < 32; i++) {
+            pid[i] = (byte) (0x80 + i);
+        }
 
         byte[] r = CanonicalActionRecord.encode(prevH, hid, pid,
                 CanonicalActionRecord.STREET_FLOP,

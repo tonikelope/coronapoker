@@ -26,13 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * situations, and confusing them is how the table hangs:
  *
  * <ul>
- *   <li><b>the peer left</b> — its EXIT already travelled, so every receiver
- *       reaches that seat and synthesises the very same fold on its own. The
- *       host must NOT put it on the wire.</li>
- *   <li><b>the wire did not verify</b> (bad signature, record that does not bind
- *       to the played action, record absent or malformed) — only the direct
- *       receiver saw that wire. If the host keeps quiet, the rest of the table
- *       stays waiting on that seat forever, so this one MUST reach the wire.</li>
+ * <li><b>the peer left</b> — its EXIT already travelled, so every receiver
+ * reaches that seat and synthesises the very same fold on its own. The host
+ * must NOT put it on the wire.</li>
+ * <li><b>the wire did not verify</b> (bad signature, record that does not bind
+ * to the played action, record absent or malformed) — only the direct receiver
+ * saw that wire. If the host keeps quiet, the rest of the table stays waiting
+ * on that seat forever, so this one MUST reach the wire.</li>
  * </ul>
  *
  * What the host emits for the second case is a bare fold with no record and no
@@ -44,12 +44,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * The tests pin, end to end and with no game engine: the contract of both
  * synths, the fact that only the canonical 92-byte record is verifiable at all,
- * and the round trip proving the emitted fold is exactly what the receiving side
- * treats as unsigned.
+ * and the round trip proving the emitted fold is exactly what the receiving
+ * side treats as unsigned.
  */
 class UnverifiedActionSynthTest {
 
-    /** A 7-slot action[] carrying a genuine BET, as read from a healthy wire. */
+    /**
+     * A 7-slot action[] carrying a genuine BET, as read from a healthy wire.
+     */
     private static Object[] genuineBetAction() {
         Object[] action = new Object[7];
         action[0] = Player.BET;
@@ -63,7 +65,6 @@ class UnverifiedActionSynthTest {
     }
 
     // ---- which synth is which ---------------------------------------------
-
     @Test
     @DisplayName("The departed-peer fold stays off the wire")
     void exitSynthIsSilent() {
@@ -160,7 +161,6 @@ class UnverifiedActionSynthTest {
     }
 
     // ---- only a canonical record is verifiable at all ---------------------
-
     @Test
     @DisplayName("Only the canonical 92-byte record is verifiable")
     void onlyTheCanonicalRecordLengthIsVerifiable() {
@@ -180,8 +180,9 @@ class UnverifiedActionSynthTest {
     }
 
     // ---- the is_voluntary bit an action may claim -------------------------
-
-    /** A canonical record carrying a chosen is_voluntary bit. */
+    /**
+     * A canonical record carrying a chosen is_voluntary bit.
+     */
     private static byte[] recordWithVoluntary(boolean voluntary) {
         byte[] prevH = new byte[32];
         byte[] handId = new byte[16];
@@ -218,8 +219,9 @@ class UnverifiedActionSynthTest {
     }
 
     // ---- round trip: what the host emits is what the receiver rejects -----
-
-    /** Splits the wire the way the receiving loop does, envelope included. */
+    /**
+     * Splits the wire the way the receiving loop does, envelope included.
+     */
     private static String[] asReceived(String comando) {
         return ("GAME#123456#" + comando).split("#");
     }

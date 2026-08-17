@@ -214,13 +214,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Updates the latency dot with the latest snapshot from the host's TELEMETRY broadcast.
-     * Uses the min of lat1/lat2 if both are valid, whichever is valid if only one is, or -1
-     * (red dot) if both are -1. No-op if latency_dot hasn't been wired via setLatencyDot yet.
+     * Updates the latency dot with the latest snapshot from the host's
+     * TELEMETRY broadcast. Uses the min of lat1/lat2 if both are valid,
+     * whichever is valid if only one is, or -1 (red dot) if both are -1. No-op
+     * if latency_dot hasn't been wired via setLatencyDot yet.
      *
      * @param lat1 latency sample 1 in ms, or -1 if unavailable
      * @param lat2 latency sample 2 in ms, or -1 if unavailable
-     * @param reconnectionCount reconnection count to display alongside the latency
+     * @param reconnectionCount reconnection count to display alongside the
+     * latency
      */
     public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
         LatencyDot dot = this.latency_dot;
@@ -801,7 +803,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 // fold() set visible_card=false and they remain hidden. A
                 // resetearCarta() call here would flatten both cases to an empty
                 // slot. The next-hand board reset purges everything anyway.
-
                 setActionBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
                 setActionTextFitted(Translator.translate("ui.se_pira"));
@@ -1072,7 +1073,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 // setValue(response_counter) would be redundant: smoothCountdown
                                 // already repaints the bar on a ms scale via its own internal
                                 // Timer. Calling setValue here on a seconds scale caused flicker.
-
                                 if (GameFrame.THINK_TIME_ENABLED && response_counter == GameFrame.getHurryupThreshold() && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                     if (GameFrame.avisoTiempoSonidoOn()) {
                                         Audio.playWavResource("misc/hurryup.wav");
@@ -3565,10 +3565,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Shows the shuffle GIF (MUTE, looping) + white highlight border on this player. Invoked by
-     * GameFrame's controller from its serializer thread (NOT the EDT), which guarantees one
-     * overlay at a time and its minimum duration. Loads the GIF SYNCHRONOUSLY (hence must NOT be
-     * called from the EDT) and then paints on the EDT.
+     * Shows the shuffle GIF (MUTE, looping) + white highlight border on this
+     * player. Invoked by GameFrame's controller from its serializer thread (NOT
+     * the EDT), which guarantees one overlay at a time and its minimum
+     * duration. Loads the GIF SYNCHRONOUSLY (hence must NOT be called from the
+     * EDT) and then paints on the EDT.
      */
     @Override
     public void showShuffleCascadeOverlay() {
@@ -3617,8 +3618,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Hides the shuffle overlay and restores the previous border. Idempotent: safe even if no
-     * overlay is visible. setIcon(null) resets the GifLabel's repeat count to 1 (stops the loop).
+     * Hides the shuffle overlay and restores the previous border. Idempotent:
+     * safe even if no overlay is visible. setIcon(null) resets the GifLabel's
+     * repeat count to 1 (stops the loop).
      */
     @Override
     public void hideShuffleCascadeOverlay() {
@@ -3638,12 +3640,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Decodes (once per instance, cache-busted) the CURRENT deck's shuffle.gif ImageIcon and
-     * counts its frames; null if there's no shuffle GIF or it never got dimensioned. Reloaded if
-     * the deck changes. Blocks the (background) thread until the Image reports a size, with a
-     * hard 3s cap. Cache-busted with a unique fragment: the Toolkit caches Image by URL for the
-     * JVM's whole lifetime, and sharing the shuffle central_label's would step on its frame
-     * counters.
+     * Decodes (once per instance, cache-busted) the CURRENT deck's shuffle.gif
+     * ImageIcon and counts its frames; null if there's no shuffle GIF or it
+     * never got dimensioned. Reloaded if the deck changes. Blocks the
+     * (background) thread until the Image reports a size, with a hard 3s cap.
+     * Cache-busted with a unique fragment: the Toolkit caches Image by URL for
+     * the JVM's whole lifetime, and sharing the shuffle central_label's would
+     * step on its frame counters.
      */
     private ImageIcon ensureShuffleCascadeIcon() throws Exception {
         URL url = Crupier.shuffleGifUrl();

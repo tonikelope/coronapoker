@@ -198,9 +198,10 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     }
 
     /**
-     * Starts (or leaves running) the 1s delay before the bar begins fading out. No-op if already
-     * collapsed or already fading. Public because the table panel calls it when the mouse enters
-     * it (a reliable "left the bar" signal) instead of collapsing instantly.
+     * Starts (or leaves running) the 1s delay before the bar begins fading out.
+     * No-op if already collapsed or already fading. Public because the table
+     * panel calls it when the mouse enters it (a reliable "left the bar"
+     * signal) instead of collapsing instantly.
      */
     public void scheduleHide() {
         if (!chat.isVisible() || (fade_timer != null && fade_timer.isRunning())) {

@@ -43,15 +43,15 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <!-- Override with -Dcoronapoker.version=X.Y if you have a different
-             local install. Bump this property in sync with the root pom version
-             so `mvn -o test` resolves against the just-installed jar. -->
+        local install. Bump this property in sync with the root pom version
+        so `mvn -o test` resolves against the just-installed jar. -->
         <coronapoker.version>23.52</coronapoker.version>
 
         <!-- Test lane selection (JUnit 5 tags). Defaults give the FAST lane:
-             run everything EXCEPT tests tagged @Tag("slow"). The `qa-heavy`
-             and `qa-release` profiles select the non-bot slow lanes; the
-             statistical bot lane is only selected by the explicit `qa-bots`
-             profile. See the Testing section in README.md. -->
+        run everything EXCEPT tests tagged @Tag("slow"). The `qa-heavy`
+        and `qa-release` profiles select the non-bot slow lanes; the
+        statistical bot lane is only selected by the explicit `qa-bots`
+        profile. See the Testing section in README.md. -->
         <qa.groups></qa.groups>
         <qa.excludedGroups>slow</qa.excludedGroups>
     </properties>
@@ -71,24 +71,24 @@
                 <version>3.2.5</version>
                 <configuration>
                     <!-- Each test class runs in its own JVM fork so the
-                         Bot.TRACKER_MEMORY static map cannot race
-                         between concurrent matchups. 0.6C uses roughly
-                         five concurrent forks on an 8-core machine. -->
+                    Bot.TRACKER_MEMORY static map cannot race
+                    between concurrent matchups. 0.6C uses roughly
+                    five concurrent forks on an 8-core machine. -->
                     <forkCount>0.6C</forkCount>
                     <reuseForks>false</reuseForks>
                     <runOrder>balanced</runOrder>
                     <!-- JUnit 5 tag lanes. Empty qa.groups = no positive
-                         filter; qa.excludedGroups=slow (the default) skips the
-                         heavy tests. Overridable by the qa-heavy/qa-release
-                         profiles or directly, e.g. -Dqa.excludedGroups= to run everything. -->
+                    filter; qa.excludedGroups=slow (the default) skips the
+                    heavy tests. Overridable by the qa-heavy/qa-release
+                    profiles or directly, e.g. -Dqa.excludedGroups= to run everything. -->
                     <groups>${qa.groups}</groups>
                     <excludedGroups>${qa.excludedGroups}</excludedGroups>
                     <!-- Los ficheros *Smoke NO los recoge el patron por defecto, que solo
-                         mira *Test/*Tests/*TestCase, asi que un `mvn test` a secas se
-                         saltaba los diecisiete que hay: no corrian NUNCA salvo que se
-                         invocaran a mano con -Dtest. Se anaden aqui junto a los patrones
-                         de siempre, que hay que repetir porque declarar includes los
-                         sustituye en vez de sumarse. -->
+                    mira *Test/*Tests/*TestCase, asi que un `mvn test` a secas se
+                    saltaba los diecisiete que hay: no corrian NUNCA salvo que se
+                    invocaran a mano con -Dtest. Se anaden aqui junto a los patrones
+                    de siempre, que hay que repetir porque declarar includes los
+                    sustituye en vez de sumarse. -->
                     <includes>
                         <include>**/Test*.java</include>
                         <include>**/*Test.java</include>
@@ -97,11 +97,11 @@
                         <include>**/*Smoke.java</include>
                     </includes>
                     <!-- Forward the iteration-volume knobs into each fork. When
-                         not supplied on the command line these arrive as the
-                         literal "${qa.sessions}", which QaConfig parses as
-                         "absent" and falls back to the per-test default. Lower
-                         the volume for fast local iteration, e.g.
-                         mvn -o test -Dqa.sessions=40 -Dqa.hands=25 -->
+                    not supplied on the command line these arrive as the
+                    literal "${qa.sessions}", which QaConfig parses as
+                    "absent" and falls back to the per-test default. Lower
+                    the volume for fast local iteration, e.g.
+                    mvn -o test -Dqa.sessions=40 -Dqa.hands=25 -->
                     <systemPropertyVariables>
                         <qa.sessions>${qa.sessions}</qa.sessions>
                         <qa.hands>${qa.hands}</qa.hands>
@@ -113,16 +113,16 @@
 
     <dependencies>
         <!-- Main CoronaPoker game artifact. Run `mvn install -DskipTests`
-             from the repo root once so this resolves from ~/.m2. -->
+        from the repo root once so this resolves from ~/.m2. -->
         <dependency>
             <groupId>com.tonikelope</groupId>
             <artifactId>CoronaPoker</artifactId>
             <version>${coronapoker.version}</version>
         </dependency>
         <!-- All the runtime libraries the main game depends on, mirrored
-             here so the test JVM can run Bot.java and its collaborators
-             end-to-end (the system-scope dependency above does not
-             transitively pull these). -->
+        here so the test JVM can run Bot.java and its collaborators
+        end-to-end (the system-scope dependency above does not
+        transitively pull these). -->
         <dependency>
             <groupId>com.googlecode.soundlibs</groupId>
             <artifactId>tritonus-share</artifactId>
@@ -154,18 +154,18 @@
 
     <profiles>
         <!-- Test lanes, selected by JUnit 5 @Tag. The DEFAULT build is the
-             fast lane (see the qa.* properties above): everything except
-             tests tagged "slow". These profiles flip that selection.
+        fast lane (see the qa.* properties above): everything except
+        tests tagged "slow". These profiles flip that selection.
 
-             Slow tests are the heavy regression guards over already-stable,
-             out-of-scope subsystems: the bot-AI statistical matchups
-             (bot/harness + smoke/GameFlowSmoke + bot/eval Monte-Carlo) and
-             the crypto perf/differential/cascade suite. Measured full suite
-             ~4.6 min; fast lane well under a minute. See the Testing section in README.md. -->
+        Slow tests are the heavy regression guards over already-stable,
+        out-of-scope subsystems: the bot-AI statistical matchups
+        (bot/harness + smoke/GameFlowSmoke + bot/eval Monte-Carlo) and
+        the crypto perf/differential/cascade suite. Measured full suite
+        ~4.6 min; fast lane well under a minute. See the Testing section in README.md. -->
 
         <!-- Explicit name for the normal deterministic lane. The same
-             selection is already the default when no profile is supplied;
-             this profile makes CI/NetBeans invocations self-documenting. -->
+        selection is already the default when no profile is supplied;
+        this profile makes CI/NetBeans invocations self-documenting. -->
         <profile>
             <id>qa-fast</id>
             <properties>
@@ -175,7 +175,7 @@
         </profile>
 
         <!-- Non-bot slow tests only. Statistical bot quality remains a separate
-             explicit lane so this aggregate cannot saturate a developer host. -->
+        explicit lane so this aggregate cannot saturate a developer host. -->
         <profile>
             <id>qa-heavy</id>
             <properties>
@@ -200,8 +200,8 @@
         </profile>
 
         <!-- Bot-quality lane only. It deliberately selects the statistical
-             matchups, Monte-Carlo hand-potential test and the headless game-flow
-             smoke; it does not provide feedback for ordinary game-code changes. -->
+        matchups, Monte-Carlo hand-potential test and the headless game-flow
+        smoke; it does not provide feedback for ordinary game-code changes. -->
         <profile>
             <id>qa-bots</id>
             <properties>
@@ -217,9 +217,9 @@
                             <groups>slow</groups>
                             <excludedGroups></excludedGroups>
                             <!-- Keep bot quality narrowly scoped. The old
-                                 **/bot/**/*.java pattern also scanned fast
-                                 evaluator tests and helper classes, making the
-                                 lane look larger than its statistical scope. -->
+                            **/bot/**/*.java pattern also scanned fast
+                            evaluator tests and helper classes, making the
+                            lane look larger than its statistical scope. -->
                             <includes combine.self="override">
                                 <include>**/bot/harness/*Test.java</include>
                                 <include>**/bot/eval/MemoizedHandPotentialTest.java</include>
@@ -256,7 +256,7 @@
         </profile>
 
         <!-- Slow real-socket integration lane, kept apart from bot quality and
-             from deterministic game-code tests. -->
+        from deterministic game-code tests. -->
         <profile>
             <id>qa-network</id>
             <properties>
@@ -281,7 +281,7 @@
         </profile>
 
         <!-- Whole deterministic suite plus non-bot slow lanes. Statistical bot
-             quality is deliberately excluded and requires -P qa-bots. -->
+        quality is deliberately excluded and requires -P qa-bots. -->
         <profile>
             <id>qa-release</id>
             <properties>

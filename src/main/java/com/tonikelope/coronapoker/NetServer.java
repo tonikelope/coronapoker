@@ -45,11 +45,12 @@ import java.util.logging.Logger;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Host side of the waiting room's networking. Owns the {@code ServerSocket}, the accept
- * loop for incoming connections, Participant add/remove, and pre-game broadcasts to
- * connected clients.
+ * Host side of the waiting room's networking. Owns the {@code ServerSocket},
+ * the accept loop for incoming connections, Participant add/remove, and
+ * pre-game broadcasts to connected clients.
  *
- * <p>Instantiated by {@code WaitingRoomFrame} when {@code server == true}.
+ * <p>
+ * Instantiated by {@code WaitingRoomFrame} when {@code server == true}.
  */
 public class NetServer {
 
@@ -131,7 +132,8 @@ public class NetServer {
      * @param socket the client's socket to read from
      * @param key session AES key
      * @param hmac_key session HMAC key
-     * @return the decrypted command, or {@code null} on end of stream / I/O failure
+     * @return the decrypted command, or {@code null} on end of stream / I/O
+     * failure
      */
     public String readCommand(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) {
         try {
@@ -149,13 +151,14 @@ public class NetServer {
 
     // --- Pre-game broadcasts to connected Participants ---
     /**
-     * Sends a GAME command to every connected Participant except {@code except}.
+     * Sends a GAME command to every connected Participant except
+     * {@code except}.
      *
      * @param command the game command to send (without the GAME# envelope)
      * @param except a Participant to skip (e.g. the sender), or {@code null}
-     * @param confirmation if {@code true}, queues the command on each Participant's
-     * pre-game writer queue for ACK'd processing; if {@code false}, writes directly to
-     * the socket (fire-and-forget)
+     * @param confirmation if {@code true}, queues the command on each
+     * Participant's pre-game writer queue for ACK'd processing; if
+     * {@code false}, writes directly to the socket (fire-and-forget)
      */
     public void broadcastASYNCGAMECommand(String command, Participant except, boolean confirmation) {
         ArrayList<Participant> targets = new ArrayList<>();
@@ -194,13 +197,13 @@ public class NetServer {
     }
 
     /**
-     * Sends a GAME command to a single Participant. Same confirmation semantics as
-     * {@link #broadcastASYNCGAMECommand(String, Participant, boolean)}.
+     * Sends a GAME command to a single Participant. Same confirmation semantics
+     * as {@link #broadcastASYNCGAMECommand(String, Participant, boolean)}.
      *
      * @param command the game command to send
      * @param p the recipient Participant
-     * @param confirmation queue for ACK'd processing ({@code true}) or write directly,
-     * fire-and-forget ({@code false})
+     * @param confirmation queue for ACK'd processing ({@code true}) or write
+     * directly, fire-and-forget ({@code false})
      */
     public void sendASYNCGAMECommand(String command, Participant p, boolean confirmation) {
         if (!confirmation) {
@@ -220,13 +223,15 @@ public class NetServer {
     }
 
     // --- Participant lifecycle ---
-
     /**
-     * Sends a newly connected Participant the USERSLIST of every other Participant
-     * already present (excluding the recipient itself). The host is NOT included here:
-     * its identity already travels in the handshake's synchronous intro.
+     * Sends a newly connected Participant the USERSLIST of every other
+     * Participant already present (excluding the recipient itself). The host is
+     * NOT included here: its identity already travels in the handshake's
+     * synchronous intro.
      *
-     * <p>Wire format per entry: {@code nickB64|unsecureFlag|avatarB64_or_*|pubkeyB64_or_*|selfSigB64_or_*}
+     * <p>
+     * Wire format per entry:
+     * {@code nickB64|unsecureFlag|avatarB64_or_*|pubkeyB64_or_*|selfSigB64_or_*}
      * Entries are joined with {@code @}. Bots have no identity ({@code *|*}).
      *
      * @param par the newly connected Participant to send the list to
@@ -283,18 +288,23 @@ public class NetServer {
     }
 
     /**
-     * Adds a new Participant: puts it in the map, starts its socket thread (unless it's
-     * a CPU/bot), and delegates the UI-update side to WaitingRoomFrame.
+     * Adds a new Participant: puts it in the map, starts its socket thread
+     * (unless it's a CPU/bot), and delegates the UI-update side to
+     * WaitingRoomFrame.
      *
-     * <p>Currently dead code: nothing calls this. {@code WaitingRoomFrame.nuevoParticipante()}
-     * is the add path actually in use, for both host and client.
+     * <p>
+     * Currently dead code: nothing calls this.
+     * {@code WaitingRoomFrame.nuevoParticipante()} is the add path actually in
+     * use, for both host and client.
      *
      * @param nick nickname/key under which the Participant is registered
      * @param avatar avatar image file, or {@code null}
-     * @param socket the client socket, or {@code null} for a CPU/bot participant
+     * @param socket the client socket, or {@code null} for a CPU/bot
+     * participant
      * @param aes_k session AES key
      * @param hmac_k session HMAC key
-     * @param cpu whether this Participant is a bot (no socket thread is started)
+     * @param cpu whether this Participant is a bot (no socket thread is
+     * started)
      * @param unsecure whether the peer connected without identity verification
      */
     public synchronized void addParticipant(String nick, java.io.File avatar, Socket socket,
@@ -314,11 +324,13 @@ public class NetServer {
     }
 
     /**
-     * Removes a Participant: takes it out of the map, broadcasts DELUSER to the rest,
-     * and delegates the UI-update side to WaitingRoomFrame.
+     * Removes a Participant: takes it out of the map, broadcasts DELUSER to the
+     * rest, and delegates the UI-update side to WaitingRoomFrame.
      *
-     * <p>Currently dead code: nothing calls this. The removal path actually in use is
-     * {@code WaitingRoomFrame.borrarParticipante()}, for both host and client.
+     * <p>
+     * Currently dead code: nothing calls this. The removal path actually in use
+     * is {@code WaitingRoomFrame.borrarParticipante()}, for both host and
+     * client.
      *
      * @param nick nickname/key of the Participant to remove
      */

@@ -35,7 +35,9 @@ public class MultiScalarMulTest {
         return EdwardsPoint.BASE.scalarMul(scalar());
     }
 
-    /** Reference: naive sum of independent scalar multiplications. */
+    /**
+     * Reference: naive sum of independent scalar multiplications.
+     */
     private static EdwardsPoint naive(BigInteger[] s, EdwardsPoint[] p) {
         EdwardsPoint acc = EdwardsPoint.IDENTITY;
         for (int i = 0; i < p.length; i++) {

@@ -10,7 +10,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.jupiter.api.Test;
 
-/** Regression guard for every untrusted avatar field on the room protocol. */
+/**
+ * Regression guard for every untrusted avatar field on the room protocol.
+ */
 class AvatarIngressWiringTest {
 
     @Test

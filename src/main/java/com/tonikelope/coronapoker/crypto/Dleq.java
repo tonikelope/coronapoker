@@ -21,15 +21,16 @@ import java.math.BigInteger;
 import java.security.MessageDigest;
 
 /**
- * Non-interactive proof of equality of discrete logarithms (Chaum-Pedersen) over
- * the Ristretto255 group, with the Fiat-Shamir transform.
+ * Non-interactive proof of equality of discrete logarithms (Chaum-Pedersen)
+ * over the Ristretto255 group, with the Fiat-Shamir transform.
  *
  * Proves knowledge of a scalar k such that h1 = k*g1 AND h2 = k*g2, without
  * revealing k. In the cascade this binds each de-locking step to the committed
  * deck: a peer commits K = k*B, and when it strips its lock from a point X
- * (producing X' = k^-1 * X) it proves log_B(K) = log_{X'}(X) = k, i.e. X = k*X'.
- * Chaining these from the committed MEGAPACKET kills the blinded-oracle attack —
- * a blinded input r*X has no valid proof because no peer committed the factor r.
+ * (producing X' = k^-1 * X) it proves log_B(K) = log_{X'}(X) = k, i.e. X =
+ * k*X'. Chaining these from the committed MEGAPACKET kills the blinded-oracle
+ * attack — a blinded input r*X has no valid proof because no peer committed the
+ * factor r.
  *
  * Proof wire format: c (32 bytes LE) || s (32 bytes LE) = 64 bytes.
  */
@@ -40,9 +41,10 @@ public final class Dleq {
     public static final int PROOF_BYTES = 64;
 
     /**
-     * Per-thread SHA-512 instance for {@link #challenge}: the provider lookup and SPI construction of
-     * {@code MessageDigest.getInstance} outweigh the hash itself, and challenge runs once per point per
-     * de-locking step across the background verifiers. Reused via {@code reset()} — identical output.
+     * Per-thread SHA-512 instance for {@link #challenge}: the provider lookup
+     * and SPI construction of {@code MessageDigest.getInstance} outweigh the
+     * hash itself, and challenge runs once per point per de-locking step across
+     * the background verifiers. Reused via {@code reset()} — identical output.
      */
     private static final ThreadLocal<MessageDigest> SHA512 = ThreadLocal.withInitial(() -> {
         try {
@@ -61,7 +63,7 @@ public final class Dleq {
      * @return a 64-byte proof (c || s)
      */
     public static byte[] prove(BigInteger k, EdwardsPoint g1, EdwardsPoint h1,
-                               EdwardsPoint g2, EdwardsPoint h2) {
+            EdwardsPoint g2, EdwardsPoint h2) {
         BigInteger r = randomScalar();
         EdwardsPoint t1 = g1.scalarMul(r);
         EdwardsPoint t2 = g2.scalarMul(r);
@@ -80,7 +82,7 @@ public final class Dleq {
      * @return true iff the proof is valid for exactly this statement
      */
     public static boolean verify(EdwardsPoint g1, EdwardsPoint h1, EdwardsPoint g2,
-                                 EdwardsPoint h2, byte[] proof) {
+            EdwardsPoint h2, byte[] proof) {
         if (proof == null || proof.length != PROOF_BYTES) {
             return false;
         }
@@ -105,7 +107,7 @@ public final class Dleq {
     }
 
     private static BigInteger challenge(EdwardsPoint g1, EdwardsPoint h1, EdwardsPoint g2,
-                                        EdwardsPoint h2, EdwardsPoint t1, EdwardsPoint t2) {
+            EdwardsPoint h2, EdwardsPoint t1, EdwardsPoint t2) {
         MessageDigest sha512 = SHA512.get();
         sha512.reset();
         sha512.update(DOMAIN);

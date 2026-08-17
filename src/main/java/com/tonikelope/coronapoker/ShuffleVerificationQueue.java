@@ -23,56 +23,89 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Serial, snapshot-based queue for the peer-side verification of dual-lock shuffle bundles
- * ({@code DUALLOCK_BUNDLE}, see {@code SECURITY.md §2.6}).
+ * Serial, snapshot-based queue for the peer-side verification of dual-lock
+ * shuffle bundles ({@code DUALLOCK_BUNDLE}, see {@code SECURITY.md §2.6}).
  *
- * <p><b>Why a queue and not one background thread per hand.</b> The honest-shuffle proof is verified
- * off the live state during betting. The previous {@code Helpers.threadRun}-per-hand approach read the
- * live {@code local_mega_packet} at completion time, so on slow hardware a verification could be
- * <b>clobbered</b>: if hand N+1 dealt before hand N's verify finished, the thread ended up checking
- * hand N's bundle against hand N+1's deck — the bytes no longer matched, so a real smuggle in hand N was
- * never actually proven dishonest (it degraded to {@code flags.bit1} "unverified", the weakest signal).
- * Worse, multiple per-hand threads piled up competing for CPU exactly on the machines that could least
- * afford it.
+ * <p>
+ * <b>Why a queue and not one background thread per hand.</b> The honest-shuffle
+ * proof is verified off the live state during betting. The previous
+ * {@code Helpers.threadRun}-per-hand approach read the live
+ * {@code local_mega_packet} at completion time, so on slow hardware a
+ * verification could be
+ * <b>clobbered</b>: if hand N+1 dealt before hand N's verify finished, the
+ * thread ended up checking hand N's bundle against hand N+1's deck — the bytes
+ * no longer matched, so a real smuggle in hand N was never actually proven
+ * dishonest (it degraded to {@code flags.bit1} "unverified", the weakest
+ * signal). Worse, multiple per-hand threads piled up competing for CPU exactly
+ * on the machines that could least afford it.
  *
- * <p>This queue fixes both: every {@link Job} carries an <b>immutable snapshot</b> of its own hand's deck
- * and bundle, and a <b>single</b> daemon worker drains them in FIFO order. A pathologically slow player
- * still finishes verifying past hands — and a smuggle in a past hand is still caught — even after the live
- * hand has moved on. Bounded capacity: a full queue drops the new job with a log rather than blocking
- * the caller or growing without limit (no silent cap).
+ * <p>
+ * This queue fixes both: every {@link Job} carries an <b>immutable snapshot</b>
+ * of its own hand's deck and bundle, and a <b>single</b> daemon worker drains
+ * them in FIFO order. A pathologically slow player still finishes verifying
+ * past hands — and a smuggle in a past hand is still caught — even after the
+ * live hand has moved on. Bounded capacity: a full queue drops the new job with
+ * a log rather than blocking the caller or growing without limit (no silent
+ * cap).
  *
- * <p>Scope: this verifies and dispatches a verdict to a {@link Sink}; it does not touch UI or game state
- * itself. The {@code Sink} (wired by {@code Crupier}) decides what a verdict means — update the live
- * "deck verified" gate only if the snapshot is still the current deck, or soft-warn on a proven-dishonest
- * deck. The real-time anti-peek of a <i>live</i> player's pocket is unchanged and independent of this
- * (the synchronous DLEQ de-lock chain); this only makes the deck-honesty audit reliable on slow hardware.
+ * <p>
+ * Scope: this verifies and dispatches a verdict to a {@link Sink}; it does not
+ * touch UI or game state itself. The {@code Sink} (wired by {@code Crupier})
+ * decides what a verdict means — update the live "deck verified" gate only if
+ * the snapshot is still the current deck, or soft-warn on a proven-dishonest
+ * deck. The real-time anti-peek of a <i>live</i> player's pocket is unchanged
+ * and independent of this (the synchronous DLEQ de-lock chain); this only makes
+ * the deck-honesty audit reliable on slow hardware.
  */
 public final class ShuffleVerificationQueue {
 
     private static final Logger LOGGER = Logger.getLogger(ShuffleVerificationQueue.class.getName());
 
-    /** Default bounded capacity. On real hardware the queue holds 0-1 jobs; the cap is a runaway guard. */
+    /**
+     * Default bounded capacity. On real hardware the queue holds 0-1 jobs; the
+     * cap is a runaway guard.
+     */
     public static final int DEFAULT_CAPACITY = 64;
 
-    /** Verifies one job. Default delegates to {@link DualLockWire}; tests inject a fake to probe mechanics. */
+    /**
+     * Verifies one job. Default delegates to {@link DualLockWire}; tests inject
+     * a fake to probe mechanics.
+     */
     public interface Verifier {
+
         boolean verify(Job job);
     }
 
-    /** Receives each job's verdict, on the worker thread. Implementations must be thread-safe. */
+    /**
+     * Receives each job's verdict, on the worker thread. Implementations must
+     * be thread-safe.
+     */
     public interface Sink {
-        /** The deck is a proven-honest shuffle. */
+
+        /**
+         * The deck is a proven-honest shuffle.
+         */
         void onVerified(byte[] megapacket, int handId);
 
-        /** The deck FAILED the honest-shuffle proof — a proven-dishonest deck (host cheated or a bug). */
+        /**
+         * The deck FAILED the honest-shuffle proof — a proven-dishonest deck
+         * (host cheated or a bug).
+         */
         void onDishonest(byte[] megapacket, int handId);
 
-        /** The bundle could not be evaluated (malformed / threw); ambiguous, treat as "not verified". */
+        /**
+         * The bundle could not be evaluated (malformed / threw); ambiguous,
+         * treat as "not verified".
+         */
         void onMalformed(byte[] megapacket, int handId, Exception error);
     }
 
-    /** Immutable snapshot of one hand's dual-lock bundle, captured at enqueue time off the live state. */
+    /**
+     * Immutable snapshot of one hand's dual-lock bundle, captured at enqueue
+     * time off the live state.
+     */
     public static final class Job {
+
         public final byte[] genesis;
         public final List<byte[]> cascadeDecks;
         public final List<byte[]> cascadeProofs;
@@ -83,7 +116,7 @@ public final class ShuffleVerificationQueue {
         public final int handId;
 
         public Job(byte[] genesis, List<byte[]> cascadeDecks, List<byte[]> cascadeProofs, int pocketCount,
-                   byte[] megapacket, List<byte[]> rotationStates, List<byte[]> rotationProofs, int handId) {
+                byte[] megapacket, List<byte[]> rotationStates, List<byte[]> rotationProofs, int handId) {
             this.genesis = genesis;
             this.cascadeDecks = cascadeDecks;
             this.cascadeProofs = cascadeProofs;
@@ -95,7 +128,10 @@ public final class ShuffleVerificationQueue {
         }
     }
 
-    /** Production verifier: the peer-side full dual-lock chain check (genesis recomputed by the caller). */
+    /**
+     * Production verifier: the peer-side full dual-lock chain check (genesis
+     * recomputed by the caller).
+     */
     public static final Verifier DUALLOCK_VERIFIER = job -> DualLockWire.verifyFullChainWire(
             job.genesis, job.cascadeDecks, job.cascadeProofs, job.pocketCount,
             job.megapacket, job.rotationStates, job.rotationProofs);
@@ -119,7 +155,9 @@ public final class ShuffleVerificationQueue {
         this.queue = new ArrayBlockingQueue<>(capacity);
     }
 
-    /** Start the single daemon worker (idempotent). */
+    /**
+     * Start the single daemon worker (idempotent).
+     */
     public synchronized void start() {
         if (running) {
             return;
@@ -134,9 +172,10 @@ public final class ShuffleVerificationQueue {
     }
 
     /**
-     * Enqueue a verification job. Never blocks the caller: if the bounded queue is full the job is
-     * dropped with a log (the deck stays unverified ⇒ receipt {@code bit1}), so a runaway slow client
-     * cannot grow memory without bound.
+     * Enqueue a verification job. Never blocks the caller: if the bounded queue
+     * is full the job is dropped with a log (the deck stays unverified ⇒
+     * receipt {@code bit1}), so a runaway slow client cannot grow memory
+     * without bound.
      *
      * @return true if accepted, false if dropped (queue full)
      */
@@ -153,7 +192,9 @@ public final class ShuffleVerificationQueue {
         return accepted;
     }
 
-    /** Stop the worker and let it exit after the current job (idempotent). */
+    /**
+     * Stop the worker and let it exit after the current job (idempotent).
+     */
     public synchronized void shutdown() {
         running = false;
         if (worker != null) {
@@ -161,7 +202,9 @@ public final class ShuffleVerificationQueue {
         }
     }
 
-    /** Number of jobs waiting (not counting one in flight). Test/diagnostic aid. */
+    /**
+     * Number of jobs waiting (not counting one in flight). Test/diagnostic aid.
+     */
     public int pending() {
         return queue.size();
     }

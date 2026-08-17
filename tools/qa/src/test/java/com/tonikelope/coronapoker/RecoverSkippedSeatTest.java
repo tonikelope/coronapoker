@@ -17,19 +17,23 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * ZERO-TRUST RECOVER: detecting a seat that was skipped by MUTUAL OMISSION during the live hand.
+ * ZERO-TRUST RECOVER: detecting a seat that was skipped by MUTUAL OMISSION
+ * during the live hand.
  *
- * When a player disconnects mid-hand and its turn comes up, live skips that seat (auto-fold /
- * exit): it contributes NO action to the stored sequence, and H_t goes straight from the previous
- * absorbed action to the next. On recover the player may have reconnected, so its seat is active
- * again; if it plays a fresh action for the slot it missed, the chain gains a record the live hand
- * never had and the next ORIGINAL record fails its PREV_H. {@link Crupier#isSkippedSeatDuringRecover}
- * detects the missed slot purely from the stored action order: the seat whose turn it is must equal
- * the player of the next stored action (order.get(contaAccion)); if it does not, live skipped it and
- * recover must skip it too.
+ * When a player disconnects mid-hand and its turn comes up, live skips that
+ * seat (auto-fold / exit): it contributes NO action to the stored sequence, and
+ * H_t goes straight from the previous absorbed action to the next. On recover
+ * the player may have reconnected, so its seat is active again; if it plays a
+ * fresh action for the slot it missed, the chain gains a record the live hand
+ * never had and the next ORIGINAL record fails its PREV_H.
+ * {@link Crupier#isSkippedSeatDuringRecover} detects the missed slot purely
+ * from the stored action order: the seat whose turn it is must equal the player
+ * of the next stored action (order.get(contaAccion)); if it does not, live
+ * skipped it and recover must skip it too.
  *
- * The scenario mirrors the real smoke: "cliente" disconnected before acting on the flop, so the flop
- * chain went CoronaBot$3 -> CoronaBot$1 directly (cliente omitted).
+ * The scenario mirrors the real smoke: "cliente" disconnected before acting on
+ * the flop, so the flop chain went CoronaBot$3 -> CoronaBot$1 directly (cliente
+ * omitted).
  */
 class RecoverSkippedSeatTest {
 
@@ -74,7 +78,6 @@ class RecoverSkippedSeatTest {
     }
 
     // ---- security: a hostile host cannot silently drop MY OWN action via the skip ----
-
     @Test
     @DisplayName("Skipping MY seat while I still have un-replayed local actions = host omitting -> alert")
     void hostOmittingMyOwnActionIsDetected() {

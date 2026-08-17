@@ -19,28 +19,32 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 
 /**
- * Equivalence gate for {@link MemoizedHandPotential} / {@link MemoizedAlbertaEvaluator}.
+ * Equivalence gate for
+ * {@link MemoizedHandPotential} / {@link MemoizedAlbertaEvaluator}.
  *
- * The memoized evaluator must produce ppot/npot <em>numerically identical</em> to
- * the Alberta {@code ppot_raw} path the production bot actually uses, otherwise it
- * would silently change bot behaviour. The sums are over integer tallies (exactly
- * representable in double), so order-independent — equality is asserted to 1e-9.
+ * The memoized evaluator must produce ppot/npot <em>numerically identical</em>
+ * to the Alberta {@code ppot_raw} path the production bot actually uses,
+ * otherwise it would silently change bot behaviour. The sums are over integer
+ * tallies (exactly representable in double), so order-independent — equality is
+ * asserted to 1e-9.
  *
- * Card encoding matches {@link AlbertaEvaluatorAdapterTest}: index = rank + suit*13,
- * rank 0..12 = 2..A, suit 0..3 = c,d,h,s.
+ * Card encoding matches {@link AlbertaEvaluatorAdapterTest}: index = rank +
+ * suit*13, rank 0..12 = 2..A, suit 0..3 = c,d,h,s.
  */
 @Tag("slow")
 class MemoizedHandPotentialTest {
 
     private static final int CLUBS = 0, DIAMONDS = 1, HEARTS = 2, SPADES = 3;
 
-    /** rank in 2..14. */
+    /**
+     * rank in 2..14.
+     */
     private static int c(int rank2to14, int suit) {
         return (rank2to14 - 2) + suit * 13;
     }
 
-    private final AlbertaEvaluatorAdapter alberta =
-            new AlbertaEvaluatorAdapter(new HandEvaluator(), new HandPotential());
+    private final AlbertaEvaluatorAdapter alberta
+            = new AlbertaEvaluatorAdapter(new HandEvaluator(), new HandPotential());
     private final MemoizedAlbertaEvaluator fast = new MemoizedAlbertaEvaluator();
 
     private void assertSamePotential(int h1, int h2, int[] board, boolean full, String label) {

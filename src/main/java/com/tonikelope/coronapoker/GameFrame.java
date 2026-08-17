@@ -744,10 +744,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile String shuffle_overlay_current_nick = null;
 
     /**
-     * Cascade turn for {@code nick}: queues its overlay. Invoked by the host (locally when
-     * emitting) and by each client (on receiving SHUFFLE_TURN). Gated by this peer's LOCAL
-     * preference, so each user decides whether to see the animation even though the host
-     * always broadcasts it.
+     * Cascade turn for {@code nick}: queues its overlay. Invoked by the host
+     * (locally when emitting) and by each client (on receiving SHUFFLE_TURN).
+     * Gated by this peer's LOCAL preference, so each user decides whether to
+     * see the animation even though the host always broadcasts it.
      */
     public void onShuffleTurn(String nick) {
         if (nick == null || nick.isEmpty() || !cascadaOverlayAnimOn()) {
@@ -759,7 +759,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * End of the shuffle: the player thread drains the pending queue and hides the overlay.
+     * End of the shuffle: the player thread drains the pending queue and hides
+     * the overlay.
      */
     public void onShuffleTurnEnd() {
         shuffle_turn_ended = true;
@@ -969,9 +970,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private static volatile Thread SHUTDOWN_HOOK_THREAD = null;
 
     /**
-     * Registers the shutdown hook if not already registered. The hook is idempotent,
-     * self-checking (does nothing if the game already ended), and internally distinguishes
-     * host from client.
+     * Registers the shutdown hook if not already registered. The hook is
+     * idempotent, self-checking (does nothing if the game already ended), and
+     * internally distinguishes host from client.
      */
     private static void registerShutdownHook() {
         if (SHUTDOWN_HOOK_THREAD != null) {
@@ -1055,9 +1056,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Unregisters the shutdown hook once the game ends cleanly (finTransmision), so no hook
-     * is left dangling trying to send EXIT over a socket already closed after returning to
-     * the lobby.
+     * Unregisters the shutdown hook once the game ends cleanly
+     * (finTransmision), so no hook is left dangling trying to send EXIT over a
+     * socket already closed after returning to the lobby.
      */
     public static void unregisterShutdownHook() {
         Thread h = SHUTDOWN_HOOK_THREAD;
@@ -1545,7 +1546,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // Global rules (TTS / voice notes) are NOT reset. If the server overwrote them
         // during the game they stay that way; the value is persisted as a property and is
         // the preselection for the next game.
-
         // Defensive: without resetting these statics, a game that ends with
         // force_recover=true would contaminate the next fresh game (the host's INIT
         // replicates RECOVER=true to the client, starting a recovery with nothing to
@@ -1742,13 +1742,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Gives the GameFrame sane normal-state bounds on the monitor where the WaitingRoomFrame
-     * currently sits, so (auto)fullscreen / MAXIMIZED_BOTH lands on that screen instead of
-     * the default monitor and restoring the window does not expose initComponents' tiny
-     * {@code pack()} size.
-     * Needed on Windows because setExtendedState(MAXIMIZED_BOTH) honors the monitor the window
-     * is currently on; also useful on Mac before the native setVisible. toggleFullScreen's X11
-     * branch already uses the waiting room's device explicitly.
+     * Gives the GameFrame sane normal-state bounds on the monitor where the
+     * WaitingRoomFrame currently sits, so (auto)fullscreen / MAXIMIZED_BOTH
+     * lands on that screen instead of the default monitor and restoring the
+     * window does not expose initComponents' tiny {@code pack()} size. Needed
+     * on Windows because setExtendedState(MAXIMIZED_BOTH) honors the monitor
+     * the window is currently on; also useful on Mac before the native
+     * setVisible. toggleFullScreen's X11 branch already uses the waiting room's
+     * device explicitly.
      */
     private void placeOnWaitingRoomMonitor() {
         if (sala_espera == null) {
@@ -1843,14 +1844,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Reliably grabs the foreground. toFront()/requestFocus() are subject to Windows'
-     * foreground lock (SPI_GETFOREGROUNDLOCKTIMEOUT) and activate the window
-     * non-deterministically — sometimes the OS just flashes the taskbar button without
-     * granting focus. A pulse of alwaysOnTop emits a SetWindowPos(HWND_TOPMOST), which is NOT
-     * subject to that restriction: it forces activation and drags focus along. The previous
-     * state (usually false) is restored immediately so the window isn't left pinned above
-     * everything else — which is why it doesn't affect later dialogs (chat GIFs, etc.): the
-     * pulse is instantaneous and the window does NOT stay topmost. Must be called on the EDT.
+     * Reliably grabs the foreground. toFront()/requestFocus() are subject to
+     * Windows' foreground lock (SPI_GETFOREGROUNDLOCKTIMEOUT) and activate the
+     * window non-deterministically — sometimes the OS just flashes the taskbar
+     * button without granting focus. A pulse of alwaysOnTop emits a
+     * SetWindowPos(HWND_TOPMOST), which is NOT subject to that restriction: it
+     * forces activation and drags focus along. The previous state (usually
+     * false) is restored immediately so the window isn't left pinned above
+     * everything else — which is why it doesn't affect later dialogs (chat
+     * GIFs, etc.): the pulse is instantaneous and the window does NOT stay
+     * topmost. Must be called on the EDT.
      */
     private void forceForeground() {
         boolean was_on_top = isAlwaysOnTop();
@@ -1861,10 +1864,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Schedules {@link #forceForeground()} on a later EDT cycle, so it runs after the
-     * asynchronous activation events from showing/recreating the window have been dispatched
-     * (the switch to borderless recreates the native peer and OS activation arrives deferred).
-     * Safe to call from any thread.
+     * Schedules {@link #forceForeground()} on a later EDT cycle, so it runs
+     * after the asynchronous activation events from showing/recreating the
+     * window have been dispatched (the switch to borderless recreates the
+     * native peer and OS activation arrives deferred). Safe to call from any
+     * thread.
      */
     private void forceForegroundDeferred() {
         SwingUtilities.invokeLater(() -> {
@@ -1999,10 +2003,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     /**
      * Applies one zoom level synchronously for the auto-fit worker.
      *
-     * The menu listeners intentionally dispatch their heavy work to another worker. That is
-     * correct for a user click, but it means that invoking a menu item with doClick() cannot be
-     * used as a completion barrier: the listener returns before its worker has changed the
-     * table. Auto-fit calls this method directly so its next bounds measurement observes the
+     * The menu listeners intentionally dispatch their heavy work to another
+     * worker. That is correct for a user click, but it means that invoking a
+     * menu item with doClick() cannot be used as a completion barrier: the
+     * listener returns before its worker has changed the table. Auto-fit calls
+     * this method directly so its next bounds measurement observes the
      * completed zoom operation. The caller must not be the EDT.
      *
      * @return true when a valid, different level was applied
@@ -4208,7 +4213,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // they don't get duplicated) but is NO LONGER shown: all appearance settings now live
         // in the "Appearance" tab of the "Settings" dialog. Its items stay alive so the tab and
         // the table's popup can delegate to them via doClick().
-
         menu_tapete_verde.setSelected(false);
         menu_tapete_azul.setSelected(false);
         menu_tapete_rojo.setSelected(false);
@@ -4414,8 +4418,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         StringBuilder fin_table = new StringBuilder("(##) ").append(Crupier.gridBorderLine('┌', '┬', '┐', fin_cols))
                 .append("\n(##) ").append(Crupier.gridRowLine(
-                        String.format("%-" + fin_nick_w + "s", "NICK"),
-                        String.format("%-" + fin_res_w + "s", Translator.translate("ui.resultado"))))
+                String.format("%-" + fin_nick_w + "s", "NICK"),
+                String.format("%-" + fin_res_w + "s", Translator.translate("ui.resultado"))))
                 .append("\n(##) ").append(Crupier.gridBorderLine('├', '┼', '┤', fin_cols));
 
         for (String[] r : fin_rows) {
@@ -5003,18 +5007,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Telemetry: server-side thread that fires Crupier.broadcastTelemetryFrame() every
-     * PING_INTERVAL_MS so clients keep their latest_telemetry fresh.
+     * Telemetry: server-side thread that fires
+     * Crupier.broadcastTelemetryFrame() every PING_INTERVAL_MS so clients keep
+     * their latest_telemetry fresh.
      *
-     * Cycle:
-     *   1. pause PING_INTERVAL_MS at the start (latency data needs at least ONE ping/pong
-     *      round before there's anything to report).
-     *   2. broadcast.
-     *   3. loop until crupier.isFin_de_la_transmision().
+     * Cycle: 1. pause PING_INTERVAL_MS at the start (latency data needs at
+     * least ONE ping/pong round before there's anything to report). 2.
+     * broadcast. 3. loop until crupier.isFin_de_la_transmision().
      *
-     * The thread lives in Helpers.THREAD_POOL — when the game closes, SHUTDOWN_THREAD_POOL
-     * cuts it along with TTSWatchdog and the rest. If broadcast throws, log + continue
-     * (telemetry is best-effort, must not abort the chain).
+     * The thread lives in Helpers.THREAD_POOL — when the game closes,
+     * SHUTDOWN_THREAD_POOL cuts it along with TTSWatchdog and the rest. If
+     * broadcast throws, log + continue (telemetry is best-effort, must not
+     * abort the chain).
      */
     private void telemetryBroadcasterWatchdog() {
         Helpers.threadRun(() -> {
@@ -5408,7 +5412,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         opciones_menu.setText("Preferencias");
         opciones_menu.putClientProperty("i18n.key", "menu.preferencias");
         opciones_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-
 
         opciones_menu.add(jSeparator1);
 
@@ -5900,10 +5903,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     /**
      * Unified entry point to toggle fullscreen, from the menu listener or from
-     * initialization paths (autoZoomFullScreen). autoZoomFullScreen used to call
-     * full_screen_menu.doClick() to trigger this flow through the JMenuItem's listener; that
-     * doClick was a Swing antipattern because it coupled initialization to the UI and
-     * simulated synthetic events. Both paths now call directly here.
+     * initialization paths (autoZoomFullScreen). autoZoomFullScreen used to
+     * call full_screen_menu.doClick() to trigger this flow through the
+     * JMenuItem's listener; that doClick was a Swing antipattern because it
+     * coupled initialization to the UI and simulated synthetic events. Both
+     * paths now call directly here.
      */
     public void triggerFullScreenToggle() {
         if (full_screen_menu.isEnabled() && !isGame_over_dialog()) {

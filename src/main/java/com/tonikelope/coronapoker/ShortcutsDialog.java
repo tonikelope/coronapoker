@@ -53,10 +53,11 @@ import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 
 /**
- * Keyboard shortcuts help dialog, hand-coded (no .form): dark theme, shortcuts grouped into
- * sections, each key drawn as a physical keycap (KeyCapLabel, rounded box). Content is generated
- * from the SECTIONS table, with i18n texts (shortcuts.*), so adding/removing a shortcut is a
- * one-row edit. Implements ZoomableInterface to scale with the game's zoom.
+ * Keyboard shortcuts help dialog, hand-coded (no .form): dark theme, shortcuts
+ * grouped into sections, each key drawn as a physical keycap (KeyCapLabel,
+ * rounded box). Content is generated from the SECTIONS table, with i18n texts
+ * (shortcuts.*), so adding/removing a shortcut is a one-row edit. Implements
+ * ZoomableInterface to scale with the game's zoom.
  *
  * @author tonikelope
  */

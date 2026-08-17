@@ -50,8 +50,9 @@ public class CryptoConcurrencyTest {
     }
 
     /**
-     * N hilos multiplican a la vez el MISMO punto recien creado (su tabla aun sin construir): fuerza la
-     * carrera de construccion perezosa de windowTable. Todos deben devolver el mismo s*P que un gemelo.
+     * N hilos multiplican a la vez el MISMO punto recien creado (su tabla aun
+     * sin construir): fuerza la carrera de construccion perezosa de
+     * windowTable. Todos deben devolver el mismo s*P que un gemelo.
      */
     @Test
     public void scalarMulSharedPointConcurrent() throws Exception {
@@ -82,9 +83,10 @@ public class CryptoConcurrencyTest {
     }
 
     /**
-     * N hilos hacen prove+verify de DLEQ a la vez, martilleando la SHA-512 ThreadLocal de Dleq.challenge.
-     * Cada prueba valida debe verificar true y una manipulada false; una instancia compartida o corrupta
-     * entre hilos daria un challenge erroneo -> verify false -> falla la asercion.
+     * N hilos hacen prove+verify de DLEQ a la vez, martilleando la SHA-512
+     * ThreadLocal de Dleq.challenge. Cada prueba valida debe verificar true y
+     * una manipulada false; una instancia compartida o corrupta entre hilos
+     * daria un challenge erroneo -> verify false -> falla la asercion.
      */
     @Test
     public void dleqChallengeConcurrent() throws Exception {

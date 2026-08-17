@@ -60,7 +60,7 @@ public class TablePanelFactory {
      *
      * @param panel the current panel
      * @return a smaller panel, or {@code null} if no one has exited or the
-     *         resulting seat count is unsupported
+     * resulting seat count is unsupported
      */
     public static TablePanel downgradePanel(TablePanel panel) {
 

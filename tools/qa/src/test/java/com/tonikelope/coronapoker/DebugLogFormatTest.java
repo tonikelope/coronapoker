@@ -18,9 +18,10 @@ import java.util.logging.LogRecord;
 import org.junit.jupiter.api.Test;
 
 /**
- * Locks the locale-independent contract of {@link DebugLog}'s console formatter: English level names
- * and a fixed ISO timestamp, whatever the system locale. The Debug console's per-line colouring keys
- * off exactly this shape, and the JDK's default SimpleFormatter localizes the level name (e.g.
+ * Locks the locale-independent contract of {@link DebugLog}'s console
+ * formatter: English level names and a fixed ISO timestamp, whatever the system
+ * locale. The Debug console's per-line colouring keys off exactly this shape,
+ * and the JDK's default SimpleFormatter localizes the level name (e.g.
  * "INFORMACIÓN" under a Spanish locale), which would break level detection.
  */
 public class DebugLogFormatTest {

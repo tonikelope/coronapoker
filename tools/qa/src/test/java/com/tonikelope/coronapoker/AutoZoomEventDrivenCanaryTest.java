@@ -18,7 +18,10 @@ import java.nio.file.Paths;
 
 import org.junit.jupiter.api.Test;
 
-/** Regression guard for auto-fit zoom: it must not simulate asynchronous menu clicks or poll. */
+/**
+ * Regression guard for auto-fit zoom: it must not simulate asynchronous menu
+ * clicks or poll.
+ */
 public class AutoZoomEventDrivenCanaryTest {
 
     @Test

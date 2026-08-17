@@ -36,8 +36,11 @@ public class DualLockCascadeTest {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
-    /** Holds an honest dual-lock chain ready to verify or tamper. */
+    /**
+     * Holds an honest dual-lock chain ready to verify or tamper.
+     */
     private static final class Chain {
+
         EdwardsPoint[] genesis;
         EdwardsPoint[][] cascadeDecks;
         ShuffleArgument.Proof[] cascadeProofs;

@@ -42,7 +42,6 @@ public class IwtsthRabbitPauseGateTest {
     }
 
     // ---- decidePauseTick ----
-
     @Test
     public void decrementsWhenNothingIsInFlight() {
         assertEquals(PauseTick.DECREMENT, tick(false, false, false, false, false, 0));
@@ -110,7 +109,6 @@ public class IwtsthRabbitPauseGateTest {
     }
 
     // ---- handIdMatches (gate del fee/revelado de RABBIT) ----
-
     @Test
     public void handIdMatchesOnlyWhenBothPresentAndEqual() {
         byte[] a = {1, 2, 3, 4};
@@ -156,7 +154,6 @@ public class IwtsthRabbitPauseGateTest {
     // que la tarifa del rabbit no se cobraba en los demas clientes -> divergencia de stack ->
     // falso DIVERGENT en la mano siguiente. El fix relaya el fee_window, que el receptor SI
     // acepta por su propio latch.
-
     @Test
     public void relaysCurrentHandIdWhenPresent() {
         byte[] h = {9, 8, 7};

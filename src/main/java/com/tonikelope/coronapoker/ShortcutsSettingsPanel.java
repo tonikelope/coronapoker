@@ -43,19 +43,23 @@ import javax.swing.KeyStroke;
 
 /**
  * "Shortcuts" tab of the Settings dialog: lists the reassignable actions (from
- * {@link KeyboardShortcuts}) grouped by section, each section in its own rounded {@link SettingsUI}
- * card, split across TWO columns (balanced by row count) so it isn't one long vertical block. Each action
- * has a button showing its current combination; clicking it enters capture mode ("Press the
- * combination...") and the next key combination becomes the new shortcut, unless another action
- * already uses it (then it's ignored). To CANCEL a capture, just click outside; no key is used for
- * cancel, so any key — including ESC — can be assigned.
+ * {@link KeyboardShortcuts}) grouped by section, each section in its own
+ * rounded {@link SettingsUI} card, split across TWO columns (balanced by row
+ * count) so it isn't one long vertical block. Each action has a button showing
+ * its current combination; clicking it enters capture mode ("Press the
+ * combination...") and the next key combination becomes the new shortcut,
+ * unless another action already uses it (then it's ignored). To CANCEL a
+ * capture, just click outside; no key is used for cancel, so any key —
+ * including ESC — can be assigned.
  *
- * Changes apply LIVE to the registry (transaction opened by the dialog) and only persist on SAVE;
- * Cancel reverts them. Capture sets {@link KeyboardShortcuts#setCapturing} so the global dispatchers
- * step aside and the key doesn't trigger whatever shortcut it used to.
+ * Changes apply LIVE to the registry (transaction opened by the dialog) and
+ * only persist on SAVE; Cancel reverts them. Capture sets
+ * {@link KeyboardShortcuts#setCapturing} so the global dispatchers step aside
+ * and the key doesn't trigger whatever shortcut it used to.
  *
- * Buttons render the combination with the "Dialog" font (see {@link #applyKeyFont()}): the UI font
- * (McLaren) lacks the arrow glyphs (↑ ↓ ← →), which would otherwise render blank.
+ * Buttons render the combination with the "Dialog" font (see
+ * {@link #applyKeyFont()}): the UI font (McLaren) lacks the arrow glyphs (↑ ↓ ←
+ * →), which would otherwise render blank.
  *
  * @author tonikelope
  */
@@ -283,9 +287,10 @@ public class ShortcutsSettingsPanel extends JPanel {
     }
 
     /**
-     * Restores this tab's fonts AFTER the dialog's font unification: combination buttons in
-     * "Dialog" (the UI font lacks the arrow glyphs ↑↓←→), bold if customized. The section titles
-     * are painted by {@link SettingsUI#card} itself, so they're immune to the unification.
+     * Restores this tab's fonts AFTER the dialog's font unification:
+     * combination buttons in "Dialog" (the UI font lacks the arrow glyphs
+     * ↑↓←→), bold if customized. The section titles are painted by
+     * {@link SettingsUI#card} itself, so they're immune to the unification.
      */
     public void applyKeyFont() {
 
@@ -397,8 +402,8 @@ public class ShortcutsSettingsPanel extends JPanel {
     }
 
     /**
-     * Cancels an in-progress capture (if any), restoring the button's current combination. Called
-     * by the dialog when switching tabs.
+     * Cancels an in-progress capture (if any), restoring the button's current
+     * combination. Called by the dialog when switching tabs.
      */
     public void cancelCapture() {
         if (capture_dispatcher != null) {
@@ -407,8 +412,9 @@ public class ShortcutsSettingsPanel extends JPanel {
     }
 
     /**
-     * Restores ALL shortcuts to their factory values (live; persists on SAVE) and refreshes the
-     * buttons. Invoked by the tab's "Restore defaults" footer.
+     * Restores ALL shortcuts to their factory values (live; persists on SAVE)
+     * and refreshes the buttons. Invoked by the tab's "Restore defaults"
+     * footer.
      */
     public void restoreDefaults() {
         stopCapture();
@@ -419,8 +425,9 @@ public class ShortcutsSettingsPanel extends JPanel {
     }
 
     /**
-     * Closes any pending capture (when the dialog closes). Does not revert changes: that's handled
-     * by the registry transaction (commit on SAVE, revert on Cancel).
+     * Closes any pending capture (when the dialog closes). Does not revert
+     * changes: that's handled by the registry transaction (commit on SAVE,
+     * revert on Cancel).
      */
     public void cleanup() {
         stopCapture();

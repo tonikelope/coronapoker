@@ -25,10 +25,11 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
- * Shared visual building blocks for the tabs of the settings dialog: rounded section cards,
- * right-aligned rows ("label ......... control"), a sliding on/off {@link ToggleSwitch} and a
- * guide-line sub-group for options that hang off a parent toggle. Centralizes the modern look so
- * every tab (Appearance, Audio, ...) renders consistently. Presentation only, holds no state.
+ * Shared visual building blocks for the tabs of the settings dialog: rounded
+ * section cards, right-aligned rows ("label ......... control"), a sliding
+ * on/off {@link ToggleSwitch} and a guide-line sub-group for options that hang
+ * off a parent toggle. Centralizes the modern look so every tab (Appearance,
+ * Audio, ...) renders consistently. Presentation only, holds no state.
  *
  * @author tonikelope
  */

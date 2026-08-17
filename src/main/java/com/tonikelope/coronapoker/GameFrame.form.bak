@@ -1,590 +1,590 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <Form version="1.3" maxVersion="1.9" type="org.netbeans.modules.form.forminfo.JFrameFormInfo">
-  <NonVisualComponents>
-    <Menu class="javax.swing.JMenuBar" name="menu_bar">
-      <Properties>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-          <Font name="Dialog" size="14" style="1"/>
+    <NonVisualComponents>
+        <Menu class="javax.swing.JMenuBar" name="menu_bar">
+            <Properties>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                    <Font name="Dialog" size="14" style="1"/>
+                </Property>
+            </Properties>
+            <SubComponents>
+                <Menu class="javax.swing.JMenu" name="file_menu">
+                    <Properties>
+                        <Property name="mnemonic" type="int" value="105"/>
+                        <Property name="text" type="java.lang.String" value="Archivo"/>
+                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                            <Color id="Cursor Por defecto"/>
+                        </Property>
+                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                            <Font name="Dialog" size="14" style="0"/>
+                        </Property>
+                    </Properties>
+                    <SubComponents>
+                        <MenuItem class="javax.swing.JMenuItem" name="chat_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/chat.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Ver chat (ALT+C)"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="chat_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="registro_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/log.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Ver registro (ALT+R)"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="registro_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="jugadas_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/games.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Generador de jugadas"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="jugadas_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="server_separator_menu">
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="last_hand_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="&#xda;ltima mano"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/last_hand.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="last_hand_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="max_hands_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/meter.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="L&#xed;mite de manos"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="max_hands_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator3">
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="force_reconnect_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/timeout.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="FORZAR RECONEXI&#xd3;N JUGADORES"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="force_reconnect_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator9">
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="halt_game_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/stop.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="DETENER LA TIMBA (ALT+H)"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="halt_game_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator11">
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="exit_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/close.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="SALIR (ALT+F4)"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="exit_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                    </SubComponents>
+                </Menu>
+                <Menu class="javax.swing.JMenu" name="zoom_menu">
+                    <Properties>
+                        <Property name="text" type="java.lang.String" value="Zoom"/>
+                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                            <Font name="Dialog" size="14" style="0"/>
+                        </Property>
+                    </Properties>
+                    <SubComponents>
+                        <MenuItem class="javax.swing.JMenuItem" name="zoom_menu_in">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/zoom_in.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Aumentar (CTRL++)"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="zoom_menu_inActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="zoom_menu_out">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/zoom_out.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Reducir (CTRL+-)"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="zoom_menu_outActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="zoom_menu_reset">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/zoom_reset.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Reset (CTRL+0)"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="zoom_menu_resetActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="auto_fit_zoom_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="Auto ajustar"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/zoom_auto.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_fit_zoom_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator6">
+                            <Properties>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="compact_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="VISTA COMPACTA (ALT+X)"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/tiny.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="compact_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator5">
+                            <Properties>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="auto_fullscreen_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="Activar pantalla completa al empezar"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/full_screen_auto.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_fullscreen_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="full_screen_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/full_screen.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="PANTALLA COMPLETA (ALT+F)"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="full_screen_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                    </SubComponents>
+                </Menu>
+                <Menu class="javax.swing.JMenu" name="opciones_menu">
+                    <Properties>
+                        <Property name="text" type="java.lang.String" value="Preferencias"/>
+                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                            <Font name="Dialog" size="14" style="0"/>
+                        </Property>
+                    </Properties>
+                    <SubComponents>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator1">
+                            <Properties>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="confirmar_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="Confirmar todas las acciones"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/confirmation.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="confirmar_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="auto_action_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="Modo AUTO"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/auto.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_action_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator7">
+                            <Properties>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="menu_cinematicas">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="Cinem&#xe1;ticas"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/video.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_cinematicasActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="chat_image_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="Im&#xe1;genes del chat en el juego"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/chat_image.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="chat_image_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator8">
+                            <Properties>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="time_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="Mostrar reloj (ALT+W)"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/clock.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="time_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="decks_separator">
+                            <Properties>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                        </MenuItem>
+                        <Menu class="javax.swing.JMenu" name="menu_barajas">
+                            <Properties>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/baraja.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Barajas"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                            </Properties>
+                        </Menu>
+                        <Menu class="javax.swing.JMenu" name="menu_tapetes">
+                            <Properties>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/tapetes.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Tapetes"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                            </Properties>
+                            <SubComponents>
+                                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_verde">
+                                    <Properties>
+                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                            <Font name="Dialog" size="14" style="0"/>
+                                        </Property>
+                                        <Property name="selected" type="boolean" value="true"/>
+                                        <Property name="text" type="java.lang.String" value="Verde"/>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_verdeActionPerformed"/>
+                                    </Events>
+                                </MenuItem>
+                                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_azul">
+                                    <Properties>
+                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                            <Font name="Dialog" size="14" style="0"/>
+                                        </Property>
+                                        <Property name="selected" type="boolean" value="true"/>
+                                        <Property name="text" type="java.lang.String" value="Azul"/>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_azulActionPerformed"/>
+                                    </Events>
+                                </MenuItem>
+                                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_rojo">
+                                    <Properties>
+                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                            <Font name="Dialog" size="14" style="0"/>
+                                        </Property>
+                                        <Property name="selected" type="boolean" value="true"/>
+                                        <Property name="text" type="java.lang.String" value="Rojo"/>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_rojoActionPerformed"/>
+                                    </Events>
+                                </MenuItem>
+                                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_negro">
+                                    <Properties>
+                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                            <Font name="Dialog" size="14" style="0"/>
+                                        </Property>
+                                        <Property name="selected" type="boolean" value="true"/>
+                                        <Property name="text" type="java.lang.String" value="Negro"/>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_negroActionPerformed"/>
+                                    </Events>
+                                </MenuItem>
+                                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_madera">
+                                    <Properties>
+                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                            <Font name="Dialog" size="14" style="0"/>
+                                        </Property>
+                                        <Property name="selected" type="boolean" value="true"/>
+                                        <Property name="text" type="java.lang.String" value="Sin tapete"/>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_maderaActionPerformed"/>
+                                    </Events>
+                                </MenuItem>
+                            </SubComponents>
+                        </Menu>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator4">
+                            <Properties>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JCheckBoxMenuItem" name="rebuy_now_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="selected" type="boolean" value="true"/>
+                                <Property name="text" type="java.lang.String" value="RECOMPRAR (siguiente mano)"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/rebuy.png"/>
+                                </Property>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rebuy_now_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator2">
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator10">
+                        </MenuItem>
+                    </SubComponents>
+                </Menu>
+                <Menu class="javax.swing.JMenu" name="help_menu">
+                    <Properties>
+                        <Property name="text" type="java.lang.String" value="Ayuda"/>
+                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                            <Font name="Dialog" size="14" style="0"/>
+                        </Property>
+                    </Properties>
+                    <SubComponents>
+                        <MenuItem class="javax.swing.JMenuItem" name="shortcuts_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/keyboard.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Ver atajos"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="shortcuts_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="robert_rules_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/book.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Reglas de Robert"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="robert_rules_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                        <MenuItem class="javax.swing.JMenuItem" name="acerca_menu">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="0"/>
+                                </Property>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/menu/corona.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Acerca de"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="acerca_menuActionPerformed"/>
+                            </Events>
+                        </MenuItem>
+                    </SubComponents>
+                </Menu>
+            </SubComponents>
+        </Menu>
+    </NonVisualComponents>
+    <Properties>
+        <Property name="defaultCloseOperation" type="int" value="0"/>
+        <Property name="title" type="java.lang.String" value="CoronaPoker"/>
+        <Property name="iconImage" type="java.awt.Image" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+            <Connection code="new javax.swing.ImageIcon(getClass().getResource(&quot;/images/avatar_default.png&quot;)).getImage()" type="code"/>
         </Property>
-      </Properties>
-      <SubComponents>
-        <Menu class="javax.swing.JMenu" name="file_menu">
-          <Properties>
-            <Property name="mnemonic" type="int" value="105"/>
-            <Property name="text" type="java.lang.String" value="Archivo"/>
-            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-              <Color id="Cursor Por defecto"/>
-            </Property>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="14" style="0"/>
-            </Property>
-          </Properties>
-          <SubComponents>
-            <MenuItem class="javax.swing.JMenuItem" name="chat_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/chat.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Ver chat (ALT+C)"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="chat_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="registro_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/log.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Ver registro (ALT+R)"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="registro_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="jugadas_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/games.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Generador de jugadas"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="jugadas_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="server_separator_menu">
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="last_hand_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="&#xda;ltima mano"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/last_hand.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="last_hand_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="max_hands_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/meter.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="L&#xed;mite de manos"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="max_hands_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator3">
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="force_reconnect_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/timeout.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="FORZAR RECONEXI&#xd3;N JUGADORES"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="force_reconnect_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator9">
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="halt_game_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/stop.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="DETENER LA TIMBA (ALT+H)"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="halt_game_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator11">
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="exit_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/close.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="SALIR (ALT+F4)"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="exit_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-          </SubComponents>
-        </Menu>
-        <Menu class="javax.swing.JMenu" name="zoom_menu">
-          <Properties>
-            <Property name="text" type="java.lang.String" value="Zoom"/>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="14" style="0"/>
-            </Property>
-          </Properties>
-          <SubComponents>
-            <MenuItem class="javax.swing.JMenuItem" name="zoom_menu_in">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/zoom_in.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Aumentar (CTRL++)"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="zoom_menu_inActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="zoom_menu_out">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/zoom_out.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Reducir (CTRL+-)"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="zoom_menu_outActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="zoom_menu_reset">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/zoom_reset.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Reset (CTRL+0)"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="zoom_menu_resetActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="auto_fit_zoom_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="Auto ajustar"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/zoom_auto.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_fit_zoom_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator6">
-              <Properties>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="compact_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="VISTA COMPACTA (ALT+X)"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/tiny.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="compact_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator5">
-              <Properties>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="auto_fullscreen_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="Activar pantalla completa al empezar"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/full_screen_auto.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_fullscreen_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="full_screen_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/full_screen.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="PANTALLA COMPLETA (ALT+F)"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="full_screen_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-          </SubComponents>
-        </Menu>
-        <Menu class="javax.swing.JMenu" name="opciones_menu">
-          <Properties>
-            <Property name="text" type="java.lang.String" value="Preferencias"/>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="14" style="0"/>
-            </Property>
-          </Properties>
-          <SubComponents>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator1">
-              <Properties>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="confirmar_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="Confirmar todas las acciones"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/confirmation.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="confirmar_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="auto_action_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="Modo AUTO"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/auto.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="auto_action_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator7">
-              <Properties>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="menu_cinematicas">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="Cinem&#xe1;ticas"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/video.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_cinematicasActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="chat_image_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="Im&#xe1;genes del chat en el juego"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/chat_image.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="chat_image_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator8">
-              <Properties>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="time_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="Mostrar reloj (ALT+W)"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/clock.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="time_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="decks_separator">
-              <Properties>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </MenuItem>
-            <Menu class="javax.swing.JMenu" name="menu_barajas">
-              <Properties>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/baraja.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Barajas"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-              </Properties>
-            </Menu>
-            <Menu class="javax.swing.JMenu" name="menu_tapetes">
-              <Properties>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/tapetes.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Tapetes"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-              </Properties>
-              <SubComponents>
-                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_verde">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="14" style="0"/>
-                    </Property>
-                    <Property name="selected" type="boolean" value="true"/>
-                    <Property name="text" type="java.lang.String" value="Verde"/>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_verdeActionPerformed"/>
-                  </Events>
-                </MenuItem>
-                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_azul">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="14" style="0"/>
-                    </Property>
-                    <Property name="selected" type="boolean" value="true"/>
-                    <Property name="text" type="java.lang.String" value="Azul"/>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_azulActionPerformed"/>
-                  </Events>
-                </MenuItem>
-                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_rojo">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="14" style="0"/>
-                    </Property>
-                    <Property name="selected" type="boolean" value="true"/>
-                    <Property name="text" type="java.lang.String" value="Rojo"/>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_rojoActionPerformed"/>
-                  </Events>
-                </MenuItem>
-                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_negro">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="14" style="0"/>
-                    </Property>
-                    <Property name="selected" type="boolean" value="true"/>
-                    <Property name="text" type="java.lang.String" value="Negro"/>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_negroActionPerformed"/>
-                  </Events>
-                </MenuItem>
-                <MenuItem class="javax.swing.JRadioButtonMenuItem" name="menu_tapete_madera">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="14" style="0"/>
-                    </Property>
-                    <Property name="selected" type="boolean" value="true"/>
-                    <Property name="text" type="java.lang.String" value="Sin tapete"/>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="menu_tapete_maderaActionPerformed"/>
-                  </Events>
-                </MenuItem>
-              </SubComponents>
-            </Menu>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator4">
-              <Properties>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </MenuItem>
-            <MenuItem class="javax.swing.JCheckBoxMenuItem" name="rebuy_now_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="selected" type="boolean" value="true"/>
-                <Property name="text" type="java.lang.String" value="RECOMPRAR (siguiente mano)"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/rebuy.png"/>
-                </Property>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rebuy_now_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator2">
-            </MenuItem>
-            <MenuItem class="javax.swing.JPopupMenu$Separator" name="jSeparator10">
-            </MenuItem>
-          </SubComponents>
-        </Menu>
-        <Menu class="javax.swing.JMenu" name="help_menu">
-          <Properties>
-            <Property name="text" type="java.lang.String" value="Ayuda"/>
-            <Property name="doubleBuffered" type="boolean" value="true"/>
-            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-              <Font name="Dialog" size="14" style="0"/>
-            </Property>
-          </Properties>
-          <SubComponents>
-            <MenuItem class="javax.swing.JMenuItem" name="shortcuts_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/keyboard.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Ver atajos"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="shortcuts_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="robert_rules_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/book.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Reglas de Robert"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="robert_rules_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-            <MenuItem class="javax.swing.JMenuItem" name="acerca_menu">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
-                </Property>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/menu/corona.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Acerca de"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="acerca_menuActionPerformed"/>
-              </Events>
-            </MenuItem>
-          </SubComponents>
-        </Menu>
-      </SubComponents>
-    </Menu>
-  </NonVisualComponents>
-  <Properties>
-    <Property name="defaultCloseOperation" type="int" value="0"/>
-    <Property name="title" type="java.lang.String" value="CoronaPoker"/>
-    <Property name="iconImage" type="java.awt.Image" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-      <Connection code="new javax.swing.ImageIcon(getClass().getResource(&quot;/images/avatar_default.png&quot;)).getImage()" type="code"/>
-    </Property>
-  </Properties>
-  <SyntheticProperties>
-    <SyntheticProperty name="menuBar" type="java.lang.String" value="menu_bar"/>
-    <SyntheticProperty name="formSizePolicy" type="int" value="1"/>
-    <SyntheticProperty name="generateCenter" type="boolean" value="false"/>
-  </SyntheticProperties>
-  <Events>
-    <EventHandler event="windowClosing" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowClosing"/>
-  </Events>
-  <AuxValues>
-    <AuxValue name="FormSettings_autoResourcing" type="java.lang.Integer" value="0"/>
-    <AuxValue name="FormSettings_autoSetComponentName" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_generateFQN" type="java.lang.Boolean" value="true"/>
-    <AuxValue name="FormSettings_generateMnemonicsCode" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_i18nAutoMode" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_layoutCodeTarget" type="java.lang.Integer" value="1"/>
-    <AuxValue name="FormSettings_listenerGenerationStyle" type="java.lang.Integer" value="0"/>
-    <AuxValue name="FormSettings_variablesLocal" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_variablesModifier" type="java.lang.Integer" value="2"/>
-    <AuxValue name="designerSize" type="java.awt.Dimension" value="-84,-19,0,5,115,114,0,18,106,97,118,97,46,97,119,116,46,68,105,109,101,110,115,105,111,110,65,-114,-39,-41,-84,95,68,20,2,0,2,73,0,6,104,101,105,103,104,116,73,0,5,119,105,100,116,104,120,112,0,0,1,-86,0,0,3,-77"/>
-  </AuxValues>
+    </Properties>
+    <SyntheticProperties>
+        <SyntheticProperty name="menuBar" type="java.lang.String" value="menu_bar"/>
+        <SyntheticProperty name="formSizePolicy" type="int" value="1"/>
+        <SyntheticProperty name="generateCenter" type="boolean" value="false"/>
+    </SyntheticProperties>
+    <Events>
+        <EventHandler event="windowClosing" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowClosing"/>
+    </Events>
+    <AuxValues>
+        <AuxValue name="FormSettings_autoResourcing" type="java.lang.Integer" value="0"/>
+        <AuxValue name="FormSettings_autoSetComponentName" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_generateFQN" type="java.lang.Boolean" value="true"/>
+        <AuxValue name="FormSettings_generateMnemonicsCode" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_i18nAutoMode" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_layoutCodeTarget" type="java.lang.Integer" value="1"/>
+        <AuxValue name="FormSettings_listenerGenerationStyle" type="java.lang.Integer" value="0"/>
+        <AuxValue name="FormSettings_variablesLocal" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_variablesModifier" type="java.lang.Integer" value="2"/>
+        <AuxValue name="designerSize" type="java.awt.Dimension" value="-84,-19,0,5,115,114,0,18,106,97,118,97,46,97,119,116,46,68,105,109,101,110,115,105,111,110,65,-114,-39,-41,-84,95,68,20,2,0,2,73,0,6,104,101,105,103,104,116,73,0,5,119,105,100,116,104,120,112,0,0,1,-86,0,0,3,-77"/>
+    </AuxValues>
 
-  <Layout class="org.netbeans.modules.form.compat2.layouts.DesignBorderLayout"/>
+    <Layout class="org.netbeans.modules.form.compat2.layouts.DesignBorderLayout"/>
 </Form>

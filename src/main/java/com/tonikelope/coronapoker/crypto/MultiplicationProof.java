@@ -19,27 +19,33 @@ package com.tonikelope.coronapoker.crypto;
 import java.math.BigInteger;
 
 /**
- * Multiplication proof (Σ-protocol): given Pedersen commitments {@code C_a}, {@code C_b}, {@code C_c}
- * (single-value, {@code Comm([v], r) = r·H + v·G_0}), proves in zero knowledge that {@code c = a·b}
- * mod L — without revealing {@code a}, {@code b}, {@code c} or their blindings. This is the atom of
- * the product argument (a grand-product chains one of these per multiplication step), which in turn
- * powers the permutation/shuffle argument (see {@code docs/SECURITY.md}).
+ * Multiplication proof (Σ-protocol): given Pedersen commitments {@code C_a},
+ * {@code C_b}, {@code C_c} (single-value, {@code Comm([v], r) = r·H + v·G_0}),
+ * proves in zero knowledge that {@code c = a·b} mod L — without revealing
+ * {@code a}, {@code b}, {@code c} or their blindings. This is the atom of the
+ * product argument (a grand-product chains one of these per multiplication
+ * step), which in turn powers the permutation/shuffle argument (see
+ * {@code docs/SECURITY.md}).
  *
- * <p>Protocol. Prover masks {@code x1..x5}; sends {@code M1 = x1·G_0 + x2·H}, {@code M2 = x3·G_0 + x4·H},
- * {@code M3 = x1·C_b + x5·H}. Challenge {@code e = H(C_a, C_b, C_c, M1, M2, M3)}. Responses
- * {@code z1 = x1 + e·a}, {@code z2 = x2 + e·r_a}, {@code z3 = x3 + e·b}, {@code z4 = x4 + e·r_b},
+ * <p>
+ * Protocol. Prover masks {@code x1..x5}; sends {@code M1 = x1·G_0 + x2·H},
+ * {@code M2 = x3·G_0 + x4·H}, {@code M3 = x1·C_b + x5·H}. Challenge
+ * {@code e = H(C_a, C_b, C_c, M1, M2, M3)}. Responses {@code z1 = x1 + e·a},
+ * {@code z2 = x2 + e·r_a}, {@code z3 = x3 + e·b}, {@code z4 = x4 + e·r_b},
  * {@code z5 = x5 + e·(r_c − a·r_b)}. Verifier accepts iff
  * <pre>
  *   (1) z1·G_0 + z2·H == M1 ⊕ e·C_a          (knowledge of a, r_a)
  *   (2) z3·G_0 + z4·H == M2 ⊕ e·C_b          (knowledge of b, r_b)
  *   (3) z1·C_b + z5·H == M3 ⊕ e·C_c          (the product gate)
- * </pre>
- * Check (3) expands to {@code M3 + e·(a·b·G_0 + r_c·H)}, which equals {@code M3 ⊕ e·C_c} iff
- * {@code a·b == c}. Complete, special-sound, honest-verifier ZK.
+ * </pre> Check (3) expands to {@code M3 + e·(a·b·G_0 + r_c·H)}, which equals
+ * {@code M3 ⊕ e·C_c} iff {@code a·b == c}. Complete, special-sound,
+ * honest-verifier ZK.
  *
- * <p>Commitments are {@link PedersenVectorCommit} on length-1 vectors ({@code v·G_0 + r·H =
- * commit([v], r)}); the verifier folds each check into a single shared-ladder multi-scalar
- * against the negated commitment and compares with the native Ristretto equality.
+ * <p>
+ * Commitments are {@link PedersenVectorCommit} on length-1 vectors ({@code v·G_0 + r·H =
+ * commit([v], r)}); the verifier folds each check into a single shared-ladder
+ * multi-scalar against the negated commitment and compares with the native
+ * Ristretto equality.
  */
 public final class MultiplicationProof {
 
@@ -49,8 +55,12 @@ public final class MultiplicationProof {
     private MultiplicationProof() {
     }
 
-    /** Prover's transcript: the three commitment openings and five scalar responses. */
+    /**
+     * Prover's transcript: the three commitment openings and five scalar
+     * responses.
+     */
     public static final class Proof {
+
         final byte[] m1;
         final byte[] m2;
         final byte[] m3;
@@ -73,7 +83,9 @@ public final class MultiplicationProof {
         }
     }
 
-    /** Single-value commitment {@code Comm([v], r) = r·H + v·G_0}. */
+    /**
+     * Single-value commitment {@code Comm([v], r) = r·H + v·G_0}.
+     */
     public static byte[] commitScalar(BigInteger v, BigInteger r) {
         return PedersenVectorCommit.commit(new BigInteger[]{v}, r);
     }
@@ -95,20 +107,25 @@ public final class MultiplicationProof {
 
     /**
      * Prove {@code c = a·b} for {@code C_a = Comm([a], ra)}, {@code C_b = Comm([b], rb)},
-     * {@code C_c = Comm([c], rc)}. The caller supplies the openings and the (already published) {@code C_b}.
-     * An honest prover passes {@code c == a·b mod L}; the resulting proof verifies only in that case
-     * (a cheating prover that passes {@code c != a·b} produces a proof the verifier rejects — check (3)).
+     * {@code C_c = Comm([c], rc)}. The caller supplies the openings and the
+     * (already published) {@code C_b}. An honest prover passes
+     * {@code c == a·b mod L}; the resulting proof verifies only in that case (a
+     * cheating prover that passes {@code c != a·b} produces a proof the
+     * verifier rejects — check (3)).
      */
     public static Proof prove(BigInteger a, BigInteger ra, BigInteger b, BigInteger rb, BigInteger c, BigInteger rc, byte[] cb) {
         return prove(a, ra, b, rb, rc, cb, scalarG0PlusRH(a, ra), scalarG0PlusRH(c.mod(L), rc));
     }
 
     /**
-     * As {@link #prove(BigInteger, BigInteger, BigInteger, BigInteger, BigInteger, BigInteger, byte[])}
-     * but with the commitments {@code ca == Comm([a], ra)} and {@code cc == Comm([c], rc)} supplied by
-     * the caller. The grand-product argument already holds both (as {@code C_p[i-1]} and {@code C_p[i]}),
-     * so recomputing them here would repeat two Pedersen combs and two encodes per gate. The product
-     * {@code c = a·b} is implicit in {@code cc} and is not needed numerically. Byte-identical proof.
+     * As
+     * {@link #prove(BigInteger, BigInteger, BigInteger, BigInteger, BigInteger, BigInteger, byte[])}
+     * but with the commitments {@code ca == Comm([a], ra)} and
+     * {@code cc == Comm([c], rc)} supplied by the caller. The grand-product
+     * argument already holds both (as {@code C_p[i-1]} and {@code C_p[i]}), so
+     * recomputing them here would repeat two Pedersen combs and two encodes per
+     * gate. The product {@code c = a·b} is implicit in {@code cc} and is not
+     * needed numerically. Byte-identical proof.
      */
     public static Proof prove(BigInteger a, BigInteger ra, BigInteger b, BigInteger rb, BigInteger rc,
             byte[] cb, byte[] ca, byte[] cc) {
@@ -137,7 +154,10 @@ public final class MultiplicationProof {
         return new Proof(m1, m2, m3, z1, z2, z3, z4, z5);
     }
 
-    /** Verify that {@code C_c} commits to the product of the values in {@code C_a} and {@code C_b}. */
+    /**
+     * Verify that {@code C_c} commits to the product of the values in
+     * {@code C_a} and {@code C_b}.
+     */
     public static boolean verify(byte[] ca, byte[] cb, byte[] cc, Proof p) {
         if (p == null || ca == null || cb == null || cc == null
                 || p.m1 == null || p.m2 == null || p.m3 == null
@@ -177,7 +197,9 @@ public final class MultiplicationProof {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
-    /** Canonical scalar response: present and reduced into {@code [0, L)}. */
+    /**
+     * Canonical scalar response: present and reduced into {@code [0, L)}.
+     */
     private static boolean inRange(BigInteger s) {
         return s != null && s.signum() >= 0 && s.compareTo(L) < 0;
     }

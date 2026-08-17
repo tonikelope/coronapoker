@@ -25,13 +25,15 @@ import java.util.List;
 /**
  * Hand-state hash chain (the {@code H_t} ratchet).
  *
- * <p>Each peer keeps an instance of this class for the current hand. The chain
- * is seeded by {@link #start} after the SRA cascade is complete (so the deck
+ * <p>
+ * Each peer keeps an instance of this class for the current hand. The chain is
+ * seeded by {@link #start} after the SRA cascade is complete (so the deck
  * commitment is final) and absorbs every canonical action record produced by
- * {@link CanonicalActionRecord#encode}. At the end of the hand all peers compare
- * their {@code H_final} as the consensus check.
+ * {@link CanonicalActionRecord#encode}. At the end of the hand all peers
+ * compare their {@code H_final} as the consensus check.
  *
- * <p>The math (see {@code docs/ec-identity-spec.md}):
+ * <p>
+ * The math (see {@code docs/ec-identity-spec.md}):
  *
  * <pre>
  *   H_0 = SHA-256(
@@ -46,25 +48,29 @@ import java.util.List;
  *   H_t = SHA-256(record_t || sig_t)
  * </pre>
  *
- * <p>Binding every peer's per-hand public key commitments ({@code K_pocket = k_pocket·B},
- * {@code K_community = k_community·B}) into {@code H_0} ties the verifiable-dealing keys to
- * the consensus chain, so no party can forge them after the fact. The signature in the
- * ratchet provides signature-level non-repudiation on top of the cross-peer divergence
+ * <p>
+ * Binding every peer's per-hand public key commitments
+ * ({@code K_pocket = k_pocket·B}, {@code K_community = k_community·B}) into
+ * {@code H_0} ties the verifiable-dealing keys to the consensus chain, so no
+ * party can forge them after the fact. The signature in the ratchet provides
+ * signature-level non-repudiation on top of the cross-peer divergence
  * detection, and the ratchet also covers host-signed community-card announces
- * (ACTION_COMMUNITY records), closing the cross-recipient fork attack where the host could
- * announce different boards to different peers without leaving evidence in {@code H_t}.
+ * (ACTION_COMMUNITY records), closing the cross-recipient fork attack where the
+ * host could announce different boards to different peers without leaving
+ * evidence in {@code H_t}.
  *
- * <p>Instances are NOT thread-safe. Callers serialize access through the
- * dealer's per-hand control flow.
+ * <p>
+ * Instances are NOT thread-safe. Callers serialize access through the dealer's
+ * per-hand control flow.
  */
 public final class HandStateChain {
 
     /**
      * Master debug switch. When {@code true}, every peer broadcasts
      * {@code H_CHECK # nick # h_t_b64} after absorbing each action so divergent
-     * chains can be spotted live in the log instead of only at hand close.
-     * Adds wire chatter, leaks intermediate state correlated with public
-     * actions, and is therefore <strong>never enabled in release builds</strong>.
+     * chains can be spotted live in the log instead of only at hand close. Adds
+     * wire chatter, leaks intermediate state correlated with public actions,
+     * and is therefore <strong>never enabled in release builds</strong>.
      */
     public static final boolean DEBUG_HANDCHAIN = false;
 
@@ -83,7 +89,9 @@ public final class HandStateChain {
      */
     public static final byte[] DOMAIN_SETTLE = "SETTLE\0".getBytes(StandardCharsets.UTF_8);
 
-    /** Length in bytes of {@code H_t}. */
+    /**
+     * Length in bytes of {@code H_t}.
+     */
     public static final int HASH_BYTES = 32;
 
     private final byte[] handId;
@@ -99,13 +107,15 @@ public final class HandStateChain {
     }
 
     /**
-     * Creates the chain in its initial state for a new hand. Every peer must produce a
-     * byte-identical {@code H_0} from the same inputs. Besides the deck commitment, this
-     * binds every peer's per-hand public commitments {@code K_pocket = k_pocket·B} and
-     * {@code K_community = k_community·B} (Ristretto255 encodings, 32 bytes each) into
-     * {@code H_0}, so the verifiable-dealing keys are tied to the consensus chain and no
-     * party can forge them after the fact. The three lists are parallel (index i belongs to
-     * playerIds[i]); peers are sorted by player id so join order does not affect {@code H_0}.
+     * Creates the chain in its initial state for a new hand. Every peer must
+     * produce a byte-identical {@code H_0} from the same inputs. Besides the
+     * deck commitment, this binds every peer's per-hand public commitments
+     * {@code K_pocket = k_pocket·B} and {@code K_community = k_community·B}
+     * (Ristretto255 encodings, 32 bytes each) into {@code H_0}, so the
+     * verifiable-dealing keys are tied to the consensus chain and no party can
+     * forge them after the fact. The three lists are parallel (index i belongs
+     * to playerIds[i]); peers are sorted by player id so join order does not
+     * affect {@code H_0}.
      *
      * <pre>
      *   H_0 = SHA-256( "HAND\0" || HAND_ID || uint8(N)
@@ -113,12 +123,15 @@ public final class HandStateChain {
      *                  || SHA-256(cascaded_deck) )
      * </pre>
      *
-     * @param handId            16 random bytes generated by the host at hand start
-     * @param playerIds         canonical player ids of every peer in the crypto-ring (32 bytes
-     *                          each, see {@link CanonicalActionRecord#playerIdFromNick})
-     * @param kPocketCommits    per-peer pocket-key commitment {@code K_pocket} (parallel to playerIds)
-     * @param kCommunityCommits per-peer community-key commitment {@code K_community} (parallel)
-     * @param cascadedDeck      the SRA-cascaded deck bytes the host broadcasts as the MEGAPACKET
+     * @param handId 16 random bytes generated by the host at hand start
+     * @param playerIds canonical player ids of every peer in the crypto-ring
+     * (32 bytes each, see {@link CanonicalActionRecord#playerIdFromNick})
+     * @param kPocketCommits per-peer pocket-key commitment {@code K_pocket}
+     * (parallel to playerIds)
+     * @param kCommunityCommits per-peer community-key commitment
+     * {@code K_community} (parallel)
+     * @param cascadedDeck the SRA-cascaded deck bytes the host broadcasts as
+     * the MEGAPACKET
      * @return a fresh chain initialised at {@code H_0}
      */
     public static HandStateChain start(byte[] handId, List<byte[]> playerIds,
@@ -201,20 +214,25 @@ public final class HandStateChain {
         return currentHash.clone();
     }
 
-    /** Number of action records absorbed since {@link #start}. */
+    /**
+     * Number of action records absorbed since {@link #start}.
+     */
     public int getAbsorbedActions() {
         return absorbedActions;
     }
 
-    /** Length in bytes of an Ed25519 signature (§4.4). */
+    /**
+     * Length in bytes of an Ed25519 signature (§4.4).
+     */
     public static final int SIG_BYTES = 64;
 
     /**
-     * Absorbs a record-only action (no signature) into the chain — the bare ratchet,
-     * used by unit tests. The first 32 bytes of the record must equal the chain's
-     * current {@code H_t}; this is the point of the chain.
+     * Absorbs a record-only action (no signature) into the chain — the bare
+     * ratchet, used by unit tests. The first 32 bytes of the record must equal
+     * the chain's current {@code H_t}; this is the point of the chain.
      *
-     * <p>Ratchet: {@code H_{t+1} = SHA-256(record)}.
+     * <p>
+     * Ratchet: {@code H_{t+1} = SHA-256(record)}.
      *
      * @return the new {@code H_{t+1}} (defensive copy)
      */
@@ -226,13 +244,15 @@ public final class HandStateChain {
     }
 
     /**
-     * Absorbs a signed action into the chain. The signature bytes are concatenated
-     * to the record before hashing, so verifying {@code H_final} implicitly verifies
-     * that every constituent action was accompanied by some signature. Whether that
-     * signature was VALID is checked separately by the caller (the receiver rule) —
-     * invalid sigs are absorbed anyway so that divergence is detectable at hand close.
+     * Absorbs a signed action into the chain. The signature bytes are
+     * concatenated to the record before hashing, so verifying {@code H_final}
+     * implicitly verifies that every constituent action was accompanied by some
+     * signature. Whether that signature was VALID is checked separately by the
+     * caller (the receiver rule) — invalid sigs are absorbed anyway so that
+     * divergence is detectable at hand close.
      *
-     * <p>Ratchet: {@code H_{t+1} = SHA-256(record || sig)}.
+     * <p>
+     * Ratchet: {@code H_{t+1} = SHA-256(record || sig)}.
      *
      * @return the new {@code H_{t+1}} (defensive copy)
      */
@@ -249,30 +269,37 @@ public final class HandStateChain {
         return getCurrentHash();
     }
 
-    /** Whether the terminal settlement record has already been absorbed. */
+    /**
+     * Whether the terminal settlement record has already been absorbed.
+     */
     public boolean isSettlementAbsorbed() {
         return settlementAbsorbed;
     }
 
     /**
      * Absorbs the terminal settlement table (who contributed and who was paid)
-     * into the chain, fixing {@code H_final} to also commit the money movement —
-     * not just the actions and board. Unlike {@link #absorb(byte[], byte[])} this
-     * is not an action record and carries no per-actor signature: every peer
-     * computes the same {@link SettlementRecord} table independently from already
-     * verified inputs, absorbs it here, and the closing receipt (signed over
-     * {@code H_final}) is what attests it. Two peers that disagree on the payout
-     * therefore diverge on {@code H_final} and the consensus check catches it.
+     * into the chain, fixing {@code H_final} to also commit the money movement
+     * — not just the actions and board. Unlike {@link #absorb(byte[], byte[])}
+     * this is not an action record and carries no per-actor signature: every
+     * peer computes the same {@link SettlementRecord} table independently from
+     * already verified inputs, absorbs it here, and the closing receipt (signed
+     * over {@code H_final}) is what attests it. Two peers that disagree on the
+     * payout therefore diverge on {@code H_final} and the consensus check
+     * catches it.
      *
-     * <p>Ratchet: {@code H_final = SHA-256(DOMAIN_SETTLE || H_t || settlementTable)}.
+     * <p>
+     * Ratchet:
+     * {@code H_final = SHA-256(DOMAIN_SETTLE || H_t || settlementTable)}.
      * Binding the current {@code H_t} chains the settlement to the exact action
      * history; the distinct domain prevents any cross-interpretation with an
      * action absorb.
      *
-     * <p>Terminal and idempotent-guarded: calling it twice on the same chain is a
+     * <p>
+     * Terminal and idempotent-guarded: calling it twice on the same chain is a
      * programming error (a hand settles once) and throws.
      *
-     * @param settlementTable canonical bytes from {@link SettlementRecord#encode}
+     * @param settlementTable canonical bytes from
+     * {@link SettlementRecord#encode}
      * @return the new {@code H_final} (defensive copy)
      */
     public byte[] absorbSettlement(byte[] settlementTable) {

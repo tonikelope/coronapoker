@@ -46,7 +46,6 @@ public class BlindStructureTest {
     }
 
     // ----- Default ladder -----------------------------------------------------
-
     @Test
     void defaultLadderHasThirtyLevelsAllDoubleBlind() {
         // Arrange / Act
@@ -83,7 +82,6 @@ public class BlindStructureTest {
     }
 
     // ----- Serialization round-trip -------------------------------------------
-
     @Test
     void levelsStringRoundTripsWholeAndFractionalValues() {
         // Arrange: mix of fractional and whole blinds, non-2x big blind.
@@ -178,7 +176,6 @@ public class BlindStructureTest {
     }
 
     // ----- Name validation ----------------------------------------------------
-
     @Test
     void nameValidation() {
         assertNull(BlindStructure.validateName("Casa"));
@@ -195,7 +192,6 @@ public class BlindStructureTest {
     }
 
     // ----- Level validation ---------------------------------------------------
-
     @Test
     void levelsValidationAcceptsSaneLadders() {
         assertNull(BlindStructure.validateLevels(levels(25, 50, 50, 100, 100, 200)));
@@ -271,7 +267,6 @@ public class BlindStructureTest {
     }
 
     // ----- Registry persistence (pure, over a Properties object) --------------
-
     @Test
     void registryRoundTripPreservesOrderAndValues() {
         // Arrange
@@ -376,7 +371,6 @@ public class BlindStructureTest {
     }
 
     // ----- Escalation walk (pure helpers used by Crupier custom path) ---------
-
     @Test
     void indexOfLevelFindsByCentResolution() {
         // Cent resolution distinguishes 0.25 from 0.20/0.30 (needed for 0.05 blinds).

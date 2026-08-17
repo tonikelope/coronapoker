@@ -35,14 +35,14 @@ import javax.swing.SwingConstants;
 
 /**
  * Host-only dialog that renders, in a grid, the session AES identicons of every
- * participant's channel with the host. Each tile shows the participant's nick, the
- * 7x7 visual identicon (SHA-256 of the AES key bytes) and the full 128-bit
+ * participant's channel with the host. Each tile shows the participant's nick,
+ * the 7x7 visual identicon (SHA-256 of the AES key bytes) and the full 128-bit
  * fingerprint formatted as 8 groups of 4 hex chars.
  *
  * The host uses this for OOB cross-checking: send a screenshot of the mosaic to
  * the group (or compare individually with each peer) to detect ISP/Wi-Fi/router
- * MITM on any of the host-to-client channels. A mismatch on a single tile is the
- * smoking-gun signal of a MITM on that specific peer's connection.
+ * MITM on any of the host-to-client channels. A mismatch on a single tile is
+ * the smoking-gun signal of a MITM on that specific peer's connection.
  *
  * Clients do not get a mosaic — they have a single channel with the host and so
  * they open the regular {@link IdenticonDialog} in SESSION mode.
@@ -145,10 +145,10 @@ public class SessionIdenticonMosaicDialog extends JDialog {
     }
 
     /**
-     * Returns the dialog for the current waiting-room state. If the caller is the
-     * host, the dialog renders one tile per connected participant. If the caller is
-     * a client, the result is null and the caller should open a regular
-     * IdenticonDialog with the client's own session key instead.
+     * Returns the dialog for the current waiting-room state. If the caller is
+     * the host, the dialog renders one tile per connected participant. If the
+     * caller is a client, the result is null and the caller should open a
+     * regular IdenticonDialog with the client's own session key instead.
      */
     public static SessionIdenticonMosaicDialog buildForHost(java.awt.Frame parent,
             WaitingRoomFrame waitingRoom) {

@@ -27,19 +27,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * AAA test del whitelist ObjectInputFilter aplicado a RECOVERDATA.
  *
- * Cobertura:
- *   - HashMap legítimo con String/Integer/Long/Float/Double/Boolean values
- *     deserializa correctamente con el filtro instalado.
- *   - Instancia de java.io.File (Serializable pero NO en whitelist) se RECHAZA
- *     con InvalidClassException — demuestra que el filtro bloquea clases ajenas.
- *   - HashMap con value de tipo java.util.ArrayList (NO en whitelist) se RECHAZA.
- *   - Payload que excede maxbytes se RECHAZA.
+ * Cobertura: - HashMap legítimo con String/Integer/Long/Float/Double/Boolean
+ * values deserializa correctamente con el filtro instalado. - Instancia de
+ * java.io.File (Serializable pero NO en whitelist) se RECHAZA con
+ * InvalidClassException — demuestra que el filtro bloquea clases ajenas. -
+ * HashMap con value de tipo java.util.ArrayList (NO en whitelist) se RECHAZA. -
+ * Payload que excede maxbytes se RECHAZA.
  */
 class RecoveryObjectFilterSmoke {
 
     private byte[] serialize(Object o) throws Exception {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); ObjectOutputStream oos = new ObjectOutputStream(baos)) {
             oos.writeObject(o);
             return baos.toByteArray();
         }
@@ -93,10 +91,10 @@ class RecoveryObjectFilterSmoke {
         // según JVM); cualquier excepción que NO sea NPE/ClassNotFound es OK
         // porque el filter bloqueo la clase antes del readObject de verdad.
         assertTrue(ex instanceof InvalidClassException
-                        || ex.getClass().getName().contains("Filter")
-                        || ex.getMessage() == null
-                        || ex.getMessage().toLowerCase().contains("rejected")
-                        || ex.getMessage().toLowerCase().contains("filter"),
+                || ex.getClass().getName().contains("Filter")
+                || ex.getMessage() == null
+                || ex.getMessage().toLowerCase().contains("rejected")
+                || ex.getMessage().toLowerCase().contains("filter"),
                 "Excepción debe indicar que el filter bloqueó: " + ex);
     }
 

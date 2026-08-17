@@ -43,9 +43,10 @@ import javax.swing.JDialog;
 import javax.swing.Timer;
 
 /**
- * Borderless, translucent toast used for short-lived in-game notifications (zoom level,
- * screenshots, chat alerts, etc.), optionally with a countdown bar synced to the timeout.
- * Showing a new instance replaces whichever one is currently visible.
+ * Borderless, translucent toast used for short-lived in-game notifications
+ * (zoom level, screenshots, chat alerts, etc.), optionally with a countdown bar
+ * synced to the timeout. Showing a new instance replaces whichever one is
+ * currently visible.
  *
  * @author tonikelope
  */
@@ -87,9 +88,10 @@ public class InGameNotifyDialog extends JDialog {
      * @param bg background color
      * @param fg text color
      * @param icon_path optional icon resource, or {@code null} for none
-     * @param timeout auto-dismiss delay in milliseconds, or {@code null} to stay open
-     * indefinitely
-     * @param withCountdownBar whether to paint a shrinking bar synced to {@code timeout}
+     * @param timeout auto-dismiss delay in milliseconds, or {@code null} to
+     * stay open indefinitely
+     * @param withCountdownBar whether to paint a shrinking bar synced to
+     * {@code timeout}
      */
     public InGameNotifyDialog(java.awt.Frame parent, boolean modal, String message, Color bg, Color fg, URL icon_path, Integer timeout, boolean withCountdownBar) {
         super(parent, modal);
@@ -151,9 +153,9 @@ public class InGameNotifyDialog extends JDialog {
     }
 
     /**
-     * Announces the current table zoom level through the same notification channel as other
-     * in-game toasts, replacing whichever one is currently showing. Thread-safe; a no-op
-     * outside a game.
+     * Announces the current table zoom level through the same notification
+     * channel as other in-game toasts, replacing whichever one is currently
+     * showing. Thread-safe; a no-op outside a game.
      */
     public static void notifyZoom() {
 
@@ -308,10 +310,11 @@ public class InGameNotifyDialog extends JDialog {
     }//GEN-LAST:event_formComponentShown
 
     /**
-     * Clears the static {@link #LATEST_NOTIFICATION} slot if it points to this dialog before
-     * disposing. Without this the global slot keeps the whole object graph alive (panel,
-     * icons, parent GameFrame) past dispose, and the next game inherits references from the
-     * previous one — a leak reported in long TTS sessions (v2 report, 🟠-22).
+     * Clears the static {@link #LATEST_NOTIFICATION} slot if it points to this
+     * dialog before disposing. Without this the global slot keeps the whole
+     * object graph alive (panel, icons, parent GameFrame) past dispose, and the
+     * next game inherits references from the previous one — a leak reported in
+     * long TTS sessions (v2 report, 🟠-22).
      */
     @Override
     public void dispose() {

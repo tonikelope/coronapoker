@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class PreRenderedGifTest {
 
     // ---- frameAt: clock-indexed frame selection with catch-up ----
-
     @Test
     public void playbackStartsAtFrameZero() {
         long[] timeline = {20, 40, 60};
@@ -85,7 +84,6 @@ public class PreRenderedGifTest {
     }
 
     // ---- decode: round-trip against a generated animated GIF ----
-
     @Test
     public void decodeRoundTripPreservesFramesDelaysAndPixels() throws Exception {
 
@@ -177,7 +175,6 @@ public class PreRenderedGifTest {
     }
 
     // ---- estimateStorageBytes: RAM prediction from metadata only ----
-
     @Test
     public void storageEstimateForSelfContainedLayoutIsIndexedSize() {
         // Full-screen frames + restoreToBackgroundColor (the shuffle/card-flip

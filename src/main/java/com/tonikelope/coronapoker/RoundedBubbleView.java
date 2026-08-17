@@ -47,10 +47,10 @@ import javax.swing.text.html.HTML;
  * Swing text-View level so nested HTML content (text, tonimg, emojis) keeps
  * being rendered by the standard HTMLEditorKit machinery.
  *
- * The view is selected in {@link CoronaHTMLEditorKit} for any &lt;div&gt;
- * whose class attribute contains "bubble-mine" or "bubble-other". The fill
- * color is derived from that class; "border-radius" CSS is ignored by Swing,
- * so we paint the rounded rect ourselves before delegating to BlockView.
+ * The view is selected in {@link CoronaHTMLEditorKit} for any &lt;div&gt; whose
+ * class attribute contains "bubble-mine" or "bubble-other". The fill color is
+ * derived from that class; "border-radius" CSS is ignored by Swing, so we paint
+ * the rounded rect ourselves before delegating to BlockView.
  */
 public class RoundedBubbleView extends BlockView {
 

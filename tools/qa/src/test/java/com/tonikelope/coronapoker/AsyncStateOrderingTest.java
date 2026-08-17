@@ -5,9 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- * Pure TDD coverage for state changes dispatched from a socket reader to the cached pool.
- * REBUYNOW/REBUYDENIED and PAUSE share this gate; the production handlers still remain
- * asynchronous because the reader must be able to consume confirmation frames.
+ * Pure TDD coverage for state changes dispatched from a socket reader to the
+ * cached pool. REBUYNOW/REBUYDENIED and PAUSE share this gate; the production
+ * handlers still remain asynchronous because the reader must be able to consume
+ * confirmation frames.
  */
 class AsyncStateOrderingTest {
 

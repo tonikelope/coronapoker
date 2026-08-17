@@ -46,7 +46,10 @@ public class DecodeOnceLockTest {
         }
     }
 
-    /** encodeDeck(lockPoints(decodeDeck(deck), s)) debe ser byte-identico a applyCommutativeLock(deck, s). */
+    /**
+     * encodeDeck(lockPoints(decodeDeck(deck), s)) debe ser byte-identico a
+     * applyCommutativeLock(deck, s).
+     */
     @Test
     public void lockPointsMatchesApplyCommutativeLock() {
         Random r = new Random(0xDEC0DE01L);
@@ -62,7 +65,10 @@ public class DecodeOnceLockTest {
         }
     }
 
-    /** encodeDeck . decodeDeck es la identidad byte a byte sobre decks canonicos. */
+    /**
+     * encodeDeck . decodeDeck es la identidad byte a byte sobre decks
+     * canonicos.
+     */
     @Test
     public void encodeDecodeRoundTrip() {
         byte[] deck = RistrettoSRA.getGenesisDeck();
@@ -70,9 +76,10 @@ public class DecodeOnceLockTest {
     }
 
     /**
-     * LA prueba de seguridad del cambio: decodeDeck(d)==null debe ser EXACTAMENTE arePointsValid(d)==false,
-     * sobre entradas validas y adversarias. Si divergieran, sustituir arePointsValid por decodeDeck en los
-     * handlers dejaria entrar (o rechazaria de mas) puntos que el otro no.
+     * LA prueba de seguridad del cambio: decodeDeck(d)==null debe ser
+     * EXACTAMENTE arePointsValid(d)==false, sobre entradas validas y
+     * adversarias. Si divergieran, sustituir arePointsValid por decodeDeck en
+     * los handlers dejaria entrar (o rechazaria de mas) puntos que el otro no.
      */
     @Test
     public void decodeGateEqualsArePointsValid() {
@@ -101,7 +108,10 @@ public class DecodeOnceLockTest {
         assertNull(ShuffleCascade.decodeDeck(corruptMid));
     }
 
-    /** lockPoints/encodeDeck propagan el rechazo: null-in y elemento null-in devuelven null. */
+    /**
+     * lockPoints/encodeDeck propagan el rechazo: null-in y elemento null-in
+     * devuelven null.
+     */
     @Test
     public void lockPointsAndEncodeRejectNulls() {
         assertNull(RistrettoSRA.lockPoints(null, randomScalar(new Random(1))));
@@ -114,8 +124,9 @@ public class DecodeOnceLockTest {
     }
 
     /**
-     * La rotacion en vivo consume inR (=decodeDeck(incoming)) y outR (=lockPoints(inR, s)) directamente,
-     * en vez de re-decodificar 'rotated'. Debe verificar igual que con outR' = decodeDeck(encodeDeck(outR)).
+     * La rotacion en vivo consume inR (=decodeDeck(incoming)) y outR
+     * (=lockPoints(inR, s)) directamente, en vez de re-decodificar 'rotated'.
+     * Debe verificar igual que con outR' = decodeDeck(encodeDeck(outR)).
      */
     @Test
     public void rotationProofOverReusedPointsVerifies() {

@@ -18,9 +18,9 @@ import com.tonikelope.coronapoker.Card;
 
 /**
  * Read-only slice of a Player that the bot subsystem inspects to make its
- * decisions. Splitting it out of {@link com.tonikelope.coronapoker.Player}
- * lets test harnesses and replay tools fabricate participants without dragging
- * in Swing-bound concrete implementations.
+ * decisions. Splitting it out of {@link com.tonikelope.coronapoker.Player} lets
+ * test harnesses and replay tools fabricate participants without dragging in
+ * Swing-bound concrete implementations.
  *
  * The full {@code Player} interface extends this contract, so any concrete
  * Player automatically satisfies it.
@@ -48,7 +48,9 @@ public interface BotPlayerView {
         return Bot.coronaCard2LokiCard(getHoleCard1()).getIndex();
     }
 
-    /** Second hole card as an Alberta-encoded index. */
+    /**
+     * Second hole card as an Alberta-encoded index.
+     */
     default int getHoleCard2Index() {
         return Bot.coronaCard2LokiCard(getHoleCard2()).getIndex();
     }

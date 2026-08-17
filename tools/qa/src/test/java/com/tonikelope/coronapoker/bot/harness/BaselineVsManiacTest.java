@@ -12,7 +12,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 
-/** HARD must trap a maniac opponent and extract value from over-aggression. */
+/**
+ * HARD must trap a maniac opponent and extract value from over-aggression.
+ */
 @Tag("slow")
 class BaselineVsManiacTest extends BaselineQualityBase {
 

@@ -36,11 +36,11 @@ import static org.junit.jupiter.api.Assertions.fail;
  * repository unnoticed because nothing looked at the shape of these files:
  *
  * <ul>
- *   <li>a key used from the code that exists in no bundle: the lookup returns
- *       the key itself, so the dialog showed the user a raw key;</li>
- *   <li>a multi-line message written with real line breaks instead of escaped
- *       ones: a value ends at the end of the line, so the message was truncated
- *       AND the leftover prose became a key of its own.</li>
+ * <li>a key used from the code that exists in no bundle: the lookup returns the
+ * key itself, so the dialog showed the user a raw key;</li>
+ * <li>a multi-line message written with real line breaks instead of escaped
+ * ones: a value ends at the end of the line, so the message was truncated AND
+ * the leftover prose became a key of its own.</li>
  * </ul>
  *
  * These read the bundles STRAIGHT FROM THE SOURCE TREE, not from the classpath.
@@ -50,17 +50,23 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 class I18nBundleIntegritySmoke {
 
-    /** Every key in the bundle: lowercase, dotted, no prose. */
+    /**
+     * Every key in the bundle: lowercase, dotted, no prose.
+     */
     private static final Pattern KEY_SHAPE = Pattern.compile("^[a-z][a-z0-9_.]*$");
 
     private static final Pattern ARGUMENT = Pattern.compile("\\{(\\d+)\\}");
 
-    /** A literal key handed to the translator, e.g. translate("ui.enviar"). */
+    /**
+     * A literal key handed to the translator, e.g. translate("ui.enviar").
+     */
     private static final Pattern TRANSLATE_CALL = Pattern.compile("translate\\(\\s*\"([^\"]+)\"");
 
     private static final String[] LANGUAGES = {"es", "en"};
 
-    /** Walks up from the working directory until the project root shows up. */
+    /**
+     * Walks up from the working directory until the project root shows up.
+     */
     private static Path projectRoot() {
         Path dir = Paths.get("").toAbsolutePath();
 

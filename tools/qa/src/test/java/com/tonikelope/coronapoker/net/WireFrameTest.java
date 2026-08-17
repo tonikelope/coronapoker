@@ -44,7 +44,6 @@ class WireFrameTest {
     private static final int CAP = Helpers.MAX_COMMAND_LINE_CHARS;
 
     // ---- binary roundtrip ----
-
     private static byte[] roundTripBinary(byte[] body) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         WireFrame.writeBinary(out, body);
@@ -81,7 +80,6 @@ class WireFrameTest {
     }
 
     // ---- DoS / truncation guards ----
-
     @Test
     @DisplayName("declared length over cap is rejected before allocation")
     void lengthOverCapRejected() {
@@ -119,7 +117,6 @@ class WireFrameTest {
     }
 
     // ---- back-to-back and mixed framing ----
-
     @Test
     @DisplayName("two binary frames back to back read independently")
     void twoBinaryFrames() throws IOException {
@@ -155,8 +152,10 @@ class WireFrameTest {
     }
 
     // ---- fragmentation ----
-
-    /** Returns exactly one byte per read() / read(b,off,len) call to force reassembly loops. */
+    /**
+     * Returns exactly one byte per read() / read(b,off,len) call to force
+     * reassembly loops.
+     */
     private static final class DripInputStream extends InputStream {
 
         private final byte[] data;
@@ -193,7 +192,6 @@ class WireFrameTest {
     }
 
     // ---- concurrent writers (atomicity) ----
-
     @Test
     @DisplayName("concurrent writers to a synchronized stream produce no interleaved frames")
     void concurrentWritersAtomic() throws Exception {
@@ -246,7 +244,6 @@ class WireFrameTest {
     }
 
     // ---- text branch equivalence with readBoundedLine ----
-
     private static String legacyLine(String wire, int cap) throws IOException {
         BufferedReader r = new BufferedReader(
                 new InputStreamReader(new ByteArrayInputStream(wire.getBytes(StandardCharsets.ISO_8859_1)),

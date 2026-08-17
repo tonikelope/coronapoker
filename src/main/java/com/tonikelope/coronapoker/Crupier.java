@@ -87,16 +87,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
 
     /**
-     * Whitelist for deserializing the RECOVERDATA payload sent by the host. Without it,
-     * ObjectInputStream.readObject accepts any Serializable on the classpath, letting a
-     * hostile host send a gadget chain (jna, jaxb, sqlite-jdbc, soundlibs...) for RCE on
-     * any client that requests recovery.
+     * Whitelist for deserializing the RECOVERDATA payload sent by the host.
+     * Without it, ObjectInputStream.readObject accepts any Serializable on the
+     * classpath, letting a hostile host send a gadget chain (jna, jaxb,
+     * sqlite-jdbc, soundlibs...) for RCE on any client that requests recovery.
      *
-     * Only the map's legitimate shape is allowed: HashMap root, String keys, values of type
-     * String/Integer/Long/Float/Double/Boolean (see sqlRecoverGameInfo / sqlRecoverHand).
-     * Limits: 10 MB total, depth 20, 10k refs/array (the largest real payload seen is tens
-     * of KB). Anything else — java.io.File, java.lang.Runtime, Commons/jaxb gadgets, etc. —
-     * is rejected.
+     * Only the map's legitimate shape is allowed: HashMap root, String keys,
+     * values of type String/Integer/Long/Float/Double/Boolean (see
+     * sqlRecoverGameInfo / sqlRecoverHand). Limits: 10 MB total, depth 20, 10k
+     * refs/array (the largest real payload seen is tens of KB). Anything else —
+     * java.io.File, java.lang.Runtime, Commons/jaxb gadgets, etc. — is
+     * rejected.
      */
     static final ObjectInputFilter RECOVERY_OBJECT_FILTER = ObjectInputFilter.Config.createFilter(
             "maxbytes=" + (10 * 1024 * 1024) + ";"
@@ -124,27 +125,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Exposed for the AAA test that verifies the filter accepts legitimate
-     * RECOVERY payloads and rejects everything else (RecoveryObjectFilterSmoke).
+     * RECOVERY payloads and rejects everything else
+     * (RecoveryObjectFilterSmoke).
      */
     public static ObjectInputFilter getRecoveryObjectFilter() {
         return RECOVERY_OBJECT_FILTER;
     }
 
     /**
-     * Mutates action[] in place into a synthetic FOLD. Shared contract for the two call
-     * sites below:
+     * Mutates action[] in place into a synthetic FOLD. Shared contract for the
+     * two call sites below:
      *
-     *   action[0] = Player.FOLD     // synthetic decision
-     *   action[1] = 0d              // bet=0
-     *   action[2] = null            // no cinematic
-     *   action[3] = null            // no record to absorb into the chain
-     *   action[4] = null            // no signature
-     *   action[5] = Boolean.FALSE   // not voluntary: rondaApuestas skips building a local
-     *                                 record or absorbing anything into H_t. The chain
-     *                                 converges by mutual omission: no peer contributes a
-     *                                 record for this seat, so H_t advances the same for all.
+     * action[0] = Player.FOLD // synthetic decision action[1] = 0d // bet=0
+     * action[2] = null // no cinematic action[3] = null // no record to absorb
+     * into the chain action[4] = null // no signature action[5] = Boolean.FALSE
+     * // not voluntary: rondaApuestas skips building a local record or
+     * absorbing anything into H_t. The chain converges by mutual omission: no
+     * peer contributes a record for this seat, so H_t advances the same for
+     * all.
      *
-     * Requires length >= 6 (the action[] contract documented in readActionFromRemotePlayer).
+     * Requires length >= 6 (the action[] contract documented in
+     * readActionFromRemotePlayer).
      */
     private static void synthesizeFoldActionSlots(Object[] action) {
         if (action == null || action.length < 6) {
@@ -168,36 +169,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Synthetic FOLD for a peer that LEFT (isExit): their decision never arrived but the
-     * betting round must still advance.
+     * Synthetic FOLD for a peer that LEFT (isExit): their decision never
+     * arrived but the betting round must still advance.
      *
-     * Not rebroadcast: the EXIT already went out on the wire when they left, so every
-     * receiver independently synthesizes the same fold for that seat -- rebroadcasting it
-     * would be noise. Slot [6] is therefore left unmarked.
+     * Not rebroadcast: the EXIT already went out on the wire when they left, so
+     * every receiver independently synthesizes the same fold for that seat --
+     * rebroadcasting it would be noise. Slot [6] is therefore left unmarked.
      */
     static void synthesizeExitFoldAction(Object[] action) {
         synthesizeFoldActionSlots(action);
     }
 
     /**
-     * Synthetic FOLD because the wire ACTION failed verification: invalid Ed25519 signature,
-     * a record that doesn't bind to the played action, a missing record ("*" sentinel), or a
-     * malformed one (length != RECORD_BYTES). A peer (or a hostile host with a stolen key)
-     * tried to forge the decision; neither the forged decision nor the amount is applied --
-     * worst case, that peer just loses its turn.
+     * Synthetic FOLD because the wire ACTION failed verification: invalid
+     * Ed25519 signature, a record that doesn't bind to the played action, a
+     * missing record ("*" sentinel), or a malformed one (length !=
+     * RECORD_BYTES). A peer (or a hostile host with a stolen key) tried to
+     * forge the decision; neither the forged decision nor the amount is applied
+     * -- worst case, that peer just loses its turn.
      *
-     * Unlike the exit-synth, the rest of the table has NOT seen this wire -- only the direct
-     * receiver did (the host, or a client when the host itself is hostile). If the host
-     * stayed silent, the other peers would hang waiting for that seat forever, so slot [6]
-     * marks "this MUST be rebroadcast".
+     * Unlike the exit-synth, the rest of the table has NOT seen this wire --
+     * only the direct receiver did (the host, or a client when the host itself
+     * is hostile). If the host stayed silent, the other peers would hang
+     * waiting for that seat forever, so slot [6] marks "this MUST be
+     * rebroadcast".
      *
-     * The host rebroadcasts a bare fold (ACTION#nick#FOLD#0#*#*#*): no record, no signature,
-     * since nobody can sign on the actor's behalf (§4.5: the protocol's only is_voluntary=0
-     * record is the community reveal, never an action). Every client takes the "no record
-     * with an active chain" branch and synthesizes the same fold with the same
-     * saw_invalid_action_sig, absorbing nothing -- the chain converges by mutual omission and
-     * end-of-hand consensus records the incident on every peer, not just the one that
-     * detected it.
+     * The host rebroadcasts a bare fold (ACTION#nick#FOLD#0#*#*#*): no record,
+     * no signature, since nobody can sign on the actor's behalf (§4.5: the
+     * protocol's only is_voluntary=0 record is the community reveal, never an
+     * action). Every client takes the "no record with an active chain" branch
+     * and synthesizes the same fold with the same saw_invalid_action_sig,
+     * absorbing nothing -- the chain converges by mutual omission and
+     * end-of-hand consensus records the incident on every peer, not just the
+     * one that detected it.
      *
      * Requires length >= 7 (readActionFromRemotePlayer builds a 7-slot array).
      */
@@ -211,52 +215,53 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Is this action[] the FOLD synthesized for a wire that failed verification? The
-     * only thing distinguishing the two synths, otherwise identical. An array without
-     * slot [6] (the bot's 3-slot array) is never this case: the safe default is "not
-     * flagged".
+     * Is this action[] the FOLD synthesized for a wire that failed
+     * verification? The only thing distinguishing the two synths, otherwise
+     * identical. An array without slot [6] (the bot's 3-slot array) is never
+     * this case: the safe default is "not flagged".
      */
     static boolean isUnverifiedSynthFold(Object[] action) {
         return action != null && action.length >= 7 && Boolean.TRUE.equals(action[6]);
     }
 
     /**
-     * Recover / anti-forgery (pure, testable): when replaying one of MY OWN actions that
-     * the host serves without a verifiable record (stripped), is this a benign absence
-     * instead of a forgery?
+     * Recover / anti-forgery (pure, testable): when replaying one of MY OWN
+     * actions that the host serves without a verifiable record (stripped), is
+     * this a benign absence instead of a forgery?
      *
-     * Benign iff BOTH hold:
-     *   - the replayed decision is FOLD — a player who left the hand can only end up
-     *     folded; the host attributing to me a bet that would move my money while I was
-     *     gone is never benign; and
-     *   - this action's 1-based index in the replay ({@code replayedIndex}) is PAST the
-     *     count of my own actions persisted locally before reconnecting
-     *     ({@code locallyPersistedCount}): it happened while I was away from the hand, so
-     *     I have nothing to check it against.
+     * Benign iff BOTH hold: - the replayed decision is FOLD — a player who left
+     * the hand can only end up folded; the host attributing to me a bet that
+     * would move my money while I was gone is never benign; and - this action's
+     * 1-based index in the replay ({@code replayedIndex}) is PAST the count of
+     * my own actions persisted locally before reconnecting
+     * ({@code locallyPersistedCount}): it happened while I was away from the
+     * hand, so I have nothing to check it against.
      *
-     * If the index is <= what's persisted, the host stripped an action I actually
-     * witnessed (my signature was erased): that's a forgery and the hard warning stays.
-     * The synthetic FOLD protects the money either way; this only decides whether the
-     * warning is a soft precaution or a hard alert.
+     * If the index is <= what's persisted, the host stripped an action I
+     * actually witnessed (my signature was erased): that's a forgery and the
+     * hard warning stays. The synthetic FOLD protects the money either way;
+     * this only decides whether the warning is a soft precaution or a hard
+     * alert.
      */
     static boolean isBenignPostAbsenceRecover(int decision, int replayedIndex, int locallyPersistedCount) {
         return decision == Player.FOLD && replayedIndex > locallyPersistedCount;
     }
 
     /**
-     * Recover / chain convergence (pure, testable): was the seat whose turn comes up
-     * during replay SKIPPED live by mutual omission (it disconnected before acting on
-     * this street)?
+     * Recover / chain convergence (pure, testable): was the seat whose turn
+     * comes up during replay SKIPPED live by mutual omission (it disconnected
+     * before acting on this street)?
      *
-     * {@code order} is the counter-ordered sequence of nicks for every action actually
-     * PROCESSED live — ground truth. {@code contaAccion} is how many have been replayed
-     * so far, so {@code order.get(contaAccion)} names whoever the next stored action
-     * belongs to. If the seat about to be processed isn't that one, its turn was skipped
-     * live (skipped seats leave no entry in the list), so replay must skip it too;
-     * replaying it would insert into H_t a record that never existed live, breaking the
-     * next original record's PREV_H. Only applies while actions remain to replay
-     * ({@code contaAccion < order.size()}); once caught up, the rest of the hand plays
-     * live as normal.
+     * {@code order} is the counter-ordered sequence of nicks for every action
+     * actually PROCESSED live — ground truth. {@code contaAccion} is how many
+     * have been replayed so far, so {@code order.get(contaAccion)} names
+     * whoever the next stored action belongs to. If the seat about to be
+     * processed isn't that one, its turn was skipped live (skipped seats leave
+     * no entry in the list), so replay must skip it too; replaying it would
+     * insert into H_t a record that never existed live, breaking the next
+     * original record's PREV_H. Only applies while actions remain to replay
+     * ({@code contaAccion < order.size()}); once caught up, the rest of the
+     * hand plays live as normal.
      */
     static boolean isSkippedSeatDuringRecover(String seatNick, int contaAccion, java.util.List<String> order) {
         return order != null && contaAccion >= 0 && contaAccion < order.size()
@@ -264,15 +269,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Recover / anti-hostile-host safety (pure, testable): when about to skip MY OWN seat
-     * during replay (because the host's list says it's not my turn), is the host OMITTING
-     * an action I actually played? Yes iff the seat is mine ({@code ownSeat}) and I still
-     * have unreplayed actions of my own: replayed ({@code ownReplayed}) &lt; what's in my
-     * local SQLite ({@code ownPersisted}), a base the host doesn't control. A legitimate
-     * gap (I disconnected before acting on that street) has
-     * {@code ownReplayed == ownPersisted}, so it doesn't trip. Only applies to my own
-     * seat: for others, the chain (PREV_H) already exposes any inconsistent omission, and
-     * the host controls the bots anyway.
+     * Recover / anti-hostile-host safety (pure, testable): when about to skip
+     * MY OWN seat during replay (because the host's list says it's not my
+     * turn), is the host OMITTING an action I actually played? Yes iff the seat
+     * is mine ({@code ownSeat}) and I still have unreplayed actions of my own:
+     * replayed ({@code ownReplayed}) &lt; what's in my local SQLite
+     * ({@code ownPersisted}), a base the host doesn't control. A legitimate gap
+     * (I disconnected before acting on that street) has
+     * {@code ownReplayed == ownPersisted}, so it doesn't trip. Only applies to
+     * my own seat: for others, the chain (PREV_H) already exposes any
+     * inconsistent omission, and the host controls the bots anyway.
      */
     static boolean isHostOmittingOwnActionOnSkip(boolean ownSeat, int ownReplayed, int ownPersisted) {
         // ownPersisted == Integer.MAX_VALUE is the sentinel for a FAILURE reading my local
@@ -284,12 +290,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity / anti-forgery (pure, testable): is the record carried on the wire
-     * structurally fit to verify? Only at the exact canonical length: the signer always
-     * emits RECORD_BYTES (CanonicalActionRecord.encode), and the encrypted + HMAC channel
-     * discards any frame altered in transit, so any other length can only come from a
-     * modified client. Accepting it would skip the entire verification (signature,
-     * binding, synth) while the plaintext decision and amount still moved money.
+     * Identity / anti-forgery (pure, testable): is the record carried on the
+     * wire structurally fit to verify? Only at the exact canonical length: the
+     * signer always emits RECORD_BYTES (CanonicalActionRecord.encode), and the
+     * encrypted + HMAC channel discards any frame altered in transit, so any
+     * other length can only come from a modified client. Accepting it would
+     * skip the entire verification (signature, binding, synth) while the
+     * plaintext decision and amount still moved money.
      */
     static boolean isVerifiableWireRecord(byte[] wireRecord) {
         return wireRecord != null && wireRecord.length == CanonicalActionRecord.RECORD_BYTES;
@@ -304,9 +311,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * later {@link HandStateChain#absorb(byte[], byte[])} guard is deliberately
      * defensive but is too late to protect money already moved by the UI/model.
      *
-     * <p>A {@code null} expected hash means the legacy/no-chain path has no
-     * replay anchor to enforce and is retained for backwards compatibility.
-     * Malformed records are never accepted when a chain hash is available.</p>
+     * <p>
+     * A {@code null} expected hash means the legacy/no-chain path has no replay
+     * anchor to enforce and is retained for backwards compatibility. Malformed
+     * records are never accepted when a chain hash is available.</p>
      */
     static boolean recordStartsAtHash(byte[] record, byte[] expectedHash) {
         if (expectedHash == null) {
@@ -325,9 +333,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * Identity / replay protection (pure, testable): validates the complete
      * context of a host-signed community reveal before its cards are painted.
      * Signature validity alone is not enough: the host can legitimately sign a
-     * record from another hand or an earlier chain position and replay it with a
-     * fresh transport command.  The caller only uses this gate when a live hand
-     * chain exists, so a missing expected context is a hard failure here.
+     * record from another hand or an earlier chain position and replay it with
+     * a fresh transport command. The caller only uses this gate when a live
+     * hand chain exists, so a missing expected context is a hard failure here.
      */
     static boolean communityRevealRecordIsSafe(byte[] record, int expectedWireStreet,
             int expectedNumCards, byte[] expectedHash, byte[] expectedHandId,
@@ -369,9 +377,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity §4.5 (pure, testable): reads the FLAGS.is_voluntary bit of a canonical
-     * record. Decides which key the signature is verified against (§4.6), so the live
-     * path and the recover replay must read it exactly the same way.
+     * Identity §4.5 (pure, testable): reads the FLAGS.is_voluntary bit of a
+     * canonical record. Decides which key the signature is verified against
+     * (§4.6), so the live path and the recover replay must read it exactly the
+     * same way.
      *
      * Requires a canonically-sized record (isVerifiableWireRecord).
      */
@@ -382,10 +391,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity §4.9 (pure, testable): does this ACTION carry a record + signature? The
-     * wire's last two fields are fixed and hold "*" when there's nothing to verify (a
-     * peer with no chain, or the stripped fold the host emits after a synth). A shorter
-     * wire is from a pre-identity version.
+     * Identity §4.9 (pure, testable): does this ACTION carry a record +
+     * signature? The wire's last two fields are fixed and hold "*" when there's
+     * nothing to verify (a peer with no chain, or the stripped fold the host
+     * emits after a synth). A shorter wire is from a pre-identity version.
      */
     static boolean wireCarriesRecordAndSig(String[] partes) {
         return partes != null && partes.length >= 9
@@ -393,14 +402,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity §4.9 (pure, testable): builds the ACTION subcommand sent on the wire.
+     * Identity §4.9 (pure, testable): builds the ACTION subcommand sent on the
+     * wire.
      *
-     *   ACTION#nick_b64#decision#bet#cinematic_or_*#record_or_*#sig_or_*
+     * ACTION#nick_b64#decision#bet#cinematic_or_*#record_or_*#sig_or_*
      *
-     * The plaintext amount only travels for a BET (other types derive it from the rules
-     * and state, and on an all-in that slot holds the cinematic instead, which has its
-     * own field). record and sig travel base64-encoded, or "*" when absent — that's what
-     * a synthetic fold's receiver sees, and what makes it synthesize its own.
+     * The plaintext amount only travels for a BET (other types derive it from
+     * the rules and state, and on an all-in that slot holds the cinematic
+     * instead, which has its own field). record and sig travel base64-encoded,
+     * or "*" when absent — that's what a synthetic fold's receiver sees, and
+     * what makes it synthesize its own.
      */
     static String buildActionWireCommand(String nick, int decision, Object bet,
             String cinematicField, byte[] record, byte[] sig) {
@@ -816,13 +827,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Soft warning about anomalous host behavior the game CAN recover from, that does NOT
-     * prove manipulation (always assume good faith: could be a software bug). Unlike
-     * {@link #triggerSecurityLockdown}, this does NOT freeze the balance, close the
-     * socket, or end the game: it just informs the user once per session and STRONGLY
-     * recommends leaving the table, letting the game continue if it can. Used once the
-     * anomaly has already been neutralized by rejecting the operation (e.g. a second
-     * rotation), where freezing would be disproportionate if it turns out to be a bug.
+     * Soft warning about anomalous host behavior the game CAN recover from,
+     * that does NOT prove manipulation (always assume good faith: could be a
+     * software bug). Unlike {@link #triggerSecurityLockdown}, this does NOT
+     * freeze the balance, close the socket, or end the game: it just informs
+     * the user once per session and STRONGLY recommends leaving the table,
+     * letting the game continue if it can. Used once the anomaly has already
+     * been neutralized by rejecting the operation (e.g. a second rotation),
+     * where freezing would be disproportionate if it turns out to be a bug.
      */
     public void warnSuspiciousHost(String reason) {
         if (!suspicious_host_warned_reasons.add(reason)) {
@@ -868,13 +880,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Recover: SOFT (non-accusatory) warning that the host replayed actions PAST the last
-     * one this client recorded locally. They happened while this client was out of the
-     * hand (it left and the hand continued without it), so they can't be verified and are
-     * accepted as served. Unlike warnSuspiciousHost, this opens no modal popup and doesn't
-     * push toward leaving: just a soft line in the game log (yellow, via GameLogDialog's
-     * categoryRule) plus debug detail (logged by the caller). Deduped per recovery
-     * (recover_absence_warned).
+     * Recover: SOFT (non-accusatory) warning that the host replayed actions
+     * PAST the last one this client recorded locally. They happened while this
+     * client was out of the hand (it left and the hand continued without it),
+     * so they can't be verified and are accepted as served. Unlike
+     * warnSuspiciousHost, this opens no modal popup and doesn't push toward
+     * leaving: just a soft line in the game log (yellow, via GameLogDialog's
+     * categoryRule) plus debug detail (logged by the caller). Deduped per
+     * recovery (recover_absence_warned).
      */
     private void warnRecoverActionDuringAbsence() {
         if (this.recover_absence_warned) {
@@ -1000,10 +1013,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         ALLOW, WAIT, REJECT
     }
 
-    /** Pure, fail-closed policy used by the community-unlock gate. */
+    /**
+     * Pure, fail-closed policy used by the community-unlock gate.
+     */
     public static ShuffleProofGateDecision shuffleProofGateDecision(int phase, byte[] megapacket,
-                                                                     byte[] expect, byte[] verified,
-                                                                     byte[] failed) {
+            byte[] expect, byte[] verified,
+            byte[] failed) {
         if (phase == UNLOCK_PHASE_POCKET) {
             return ShuffleProofGateDecision.ALLOW;
         }
@@ -1020,7 +1035,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return ShuffleProofGateDecision.WAIT;
     }
 
-    /** Waits without holding a socket/game lock until verification reaches a terminal state. */
+    /**
+     * Waits without holding a socket/game lock until verification reaches a
+     * terminal state.
+     */
     public ShuffleProofGateDecision awaitShuffleProofGate(int phase, long timeoutMs) {
         long deadline = System.currentTimeMillis() + Math.max(0L, timeoutMs);
         synchronized (shuffle_proof_gate_lock) {
@@ -1052,17 +1070,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * The peer-side shuffle-verification queue (one serial daemon worker per Crupier), created on first
-     * use. The {@link ShuffleVerificationQueue.Sink} maps each verdict onto the existing policy:
+     * The peer-side shuffle-verification queue (one serial daemon worker per
+     * Crupier), created on first use. The {@link ShuffleVerificationQueue.Sink}
+     * maps each verdict onto the existing policy:
      * <ul>
-     *   <li><b>verified</b> — mark the deck as verified for the live unlock gate, but only if this
-     *       snapshot is STILL the current deck (a late verdict for a past hand must not touch the live
-     *       hand's gate); otherwise the verdict is purely historical.</li>
-     *   <li><b>dishonest</b> — the bundle parsed but the honest-shuffle proof FAILED: a proven-dishonest
-     *       deck (host cheating or a bug). SOFT-WARN per §8.2 (warn + recommend leaving, keep playing).
-     *       This now fires reliably even for a past hand on slow hardware, instead of being lost.</li>
-     *   <li><b>malformed</b> — the bundle could not be evaluated (ambiguous, e.g. version mismatch):
-     *       SOFT-WARN, never treated as proof of cheating.</li>
+     * <li><b>verified</b> — mark the deck as verified for the live unlock gate,
+     * but only if this snapshot is STILL the current deck (a late verdict for a
+     * past hand must not touch the live hand's gate); otherwise the verdict is
+     * purely historical.</li>
+     * <li><b>dishonest</b> — the bundle parsed but the honest-shuffle proof
+     * FAILED: a proven-dishonest deck (host cheating or a bug). SOFT-WARN per
+     * §8.2 (warn + recommend leaving, keep playing). This now fires reliably
+     * even for a past hand on slow hardware, instead of being lost.</li>
+     * <li><b>malformed</b> — the bundle could not be evaluated (ambiguous, e.g.
+     * version mismatch): SOFT-WARN, never treated as proof of cheating.</li>
      * </ul>
      */
     public ShuffleVerificationQueue getShuffleVerifyQueue() {
@@ -1119,9 +1140,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return q;
     }
 
-    /** Stops this Crupier's shuffle-verification queue (if it was ever created), so its
-     *  daemon worker and the Crupier graph (retained via the Sink) don't leak when a new
-     *  game starts. Idempotent and fail-safe. */
+    /**
+     * Stops this Crupier's shuffle-verification queue (if it was ever created),
+     * so its daemon worker and the Crupier graph (retained via the Sink) don't
+     * leak when a new game starts. Idempotent and fail-safe.
+     */
     public void shutdownShuffleVerifyQueue() {
         ShuffleVerificationQueue q = this.shuffle_verify_queue;
         if (q != null) {
@@ -1232,8 +1255,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Serializes the ring's commitments for the MEGAPACKET, in ring order:
-     * "nickB64:KpocketB64:KcommunityB64;...". Base64 doesn't use ':', ';' or '#', so
-     * these are safe separators against the wire's split('#').
+     * "nickB64:KpocketB64:KcommunityB64;...". Base64 doesn't use ':', ';' or
+     * '#', so these are safe separators against the wire's split('#').
      */
     private String serializeCommitments() {
         StringBuilder sb = new StringBuilder();
@@ -1260,7 +1283,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return sb.toString();
     }
 
-    /** Parses the MEGAPACKET's commitments field and populates the local maps. */
+    /**
+     * Parses the MEGAPACKET's commitments field and populates the local maps.
+     */
     public void parseCommitments(String field) {
         if (field == null || field.isEmpty()) {
             return;
@@ -1879,7 +1904,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // community-pieces block. After rotation, the peer drops its pocket lock on the community pieces
     // and adds its community lock — the half that IS handed over via testament on EXIT. The rotation
     // phase is sequential peer-by-peer just like the main cascade; this method handles a single peer.
-    /** Joins a list of byte[] as a base64 CSV (the base64 alphabet uses neither ',' nor '#', no ambiguity). */
+    /**
+     * Joins a list of byte[] as a base64 CSV (the base64 alphabet uses neither
+     * ',' nor '#', no ambiguity).
+     */
     private static String joinB64(java.util.List<byte[]> items) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < items.size(); i++) {
@@ -1978,9 +2006,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Verifiable variant of the unlock batch. Sends per-item DealChain proofs per point (not the bare
-     * residue); the peer verifies them against its committed MEGAPACKET and returns the extended
-     * chains with its own proof. The host never sends the point to decrypt — only the offset and prior
+     * Verifiable variant of the unlock batch. Sends per-item DealChain proofs
+     * per point (not the bare residue); the peer verifies them against its
+     * committed MEGAPACKET and returns the extended chains with its own proof.
+     * The host never sends the point to decrypt — only the offset and prior
      * proofs — so blinding it is impossible.
      *
      * @return the RespItem list per nick, or null on failure/timeout.
@@ -2070,9 +2099,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Locally extends (on behalf of signerNick, with its lock) the DealChain of every pocket slot
-     * except the signer's own (skipSlot). Used by the host for its own step, the bots' steps, and the
-     * testament of a departed peer (the host derives the lock from the delivered unlock).
+     * Locally extends (on behalf of signerNick, with its lock) the DealChain of
+     * every pocket slot except the signer's own (skipSlot). Used by the host
+     * for its own step, the bots' steps, and the testament of a departed peer
+     * (the host derives the lock from the delivered unlock).
      *
      * @return false if any extend fails (shouldn't happen with honest data).
      */
@@ -2104,11 +2134,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Community counterpart of {@link #extendPocketChainsForSigner}. Extends, on behalf of signerNick
-     * with its community lock, the chain of every recipient (map key) except skipRecipient. Unlike
-     * pocket, ALL copies anchor to the SAME base point of the MEGAPACKET (offset+j, the post-rotation
-     * community pieces), not per-player slots. Uses peer_k_community. skipRecipient==null when the
-     * signer isn't a recipient (bots: have a community lock to peel but receive no piece of their own).
+     * Community counterpart of {@link #extendPocketChainsForSigner}. Extends,
+     * on behalf of signerNick with its community lock, the chain of every
+     * recipient (map key) except skipRecipient. Unlike pocket, ALL copies
+     * anchor to the SAME base point of the MEGAPACKET (offset+j, the
+     * post-rotation community pieces), not per-player slots. Uses
+     * peer_k_community. skipRecipient==null when the signer isn't a recipient
+     * (bots: have a community lock to peel but receive no piece of their own).
      */
     private boolean extendCommunityChainsForSigner(java.util.Map<String, String[]> chains,
             int offset, int numCards, String skipRecipient, String signerNick, byte[] signerLock) {
@@ -2138,8 +2170,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         this.bot_community_locks.clear();
-            this.peer_k_pocket.clear();
-            this.peer_k_community.clear();
+        this.peer_k_pocket.clear();
+        this.peer_k_community.clear();
 
         // Identity: fresh per-hand 16-byte HAND_ID that the host broadcasts to
         // every peer inside the MEGAPACKET. Every peer seeds its HandStateChain with
@@ -2559,8 +2591,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 java.util.Arrays.asList(pocketChains[i][0], pocketChains[i][1])));
                     }
                 }
-                java.util.List<UnlockChainWire.RespItem> resp =
-                        requestRemoteUnlockChain(hNick, ph, UNLOCK_PHASE_POCKET, reqItems);
+                java.util.List<UnlockChainWire.RespItem> resp
+                        = requestRemoteUnlockChain(hNick, ph, UNLOCK_PHASE_POCKET, reqItems);
                 if (resp != null) {
                     java.util.Set<Integer> covered = new java.util.HashSet<>();
                     for (UnlockChainWire.RespItem ri : resp) {
@@ -3044,7 +3076,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return new ArrayList<>(java.util.Arrays.asList(cartas));
     }
 
-
     public String getTestamentoCriptografico() {
         return getTestamentoCriptografico(GameFrame.getInstance().getNick_local());
     }
@@ -3095,14 +3126,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Dual-lock (option G): the key carried in SHOWCARDS when voluntarily revealing a
-     * player's private cards at showdown. This is the POCKET half — the receiver uses
-     * it with applyCommutativeLock on the encrypted pocket piece. Never confuse this
-     * with getTestamentoCriptografico (the community half for EXIT): mixing them up
-     * breaks showdown or leaks the leaving peer's private cards.
+     * Dual-lock (option G): the key carried in SHOWCARDS when voluntarily
+     * revealing a player's private cards at showdown. This is the POCKET half —
+     * the receiver uses it with applyCommutativeLock on the encrypted pocket
+     * piece. Never confuse this with getTestamentoCriptografico (the community
+     * half for EXIT): mixing them up breaks showdown or leaks the leaving
+     * peer's private cards.
      *
      * Self vs others: the host has p.getReceived_token() for its bots; a remote
-     * human's pocket key is only known if it already sent its own SHOWCARDS this hand.
+     * human's pocket key is only known if it already sent its own SHOWCARDS
+     * this hand.
      */
     public String getShowdownPocketKey(String nick) {
         if (Crupier.SECURITY_LOCKDOWN && nick.equals(GameFrame.getInstance().getNick_local())) {
@@ -3143,17 +3176,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Signs (HAND_ID || nick || pocketKey) with the LOCAL privkey under the SHOWDOWN
-     * domain, to accompany the pocketKey on the wire (SHOWCARDS / RESP_SHOWDOWN_KEY),
-     * proving the key was authorized by whoever holds it:
+     * Signs (HAND_ID || nick || pocketKey) with the LOCAL privkey under the
+     * SHOWDOWN domain, to accompany the pocketKey on the wire (SHOWCARDS /
+     * RESP_SHOWDOWN_KEY), proving the key was authorized by whoever holds it:
      *
-     *   - If the local nick is the revealer (local human): signs with its own Ed25519.
-     *   - If revealNick is a host-orchestrated bot: the host signs with its own
-     *     Ed25519 (bots have no identity; receivers verify against the host's
-     *     pubkey — see resolveShowdownSignerPubkey).
+     * - If the local nick is the revealer (local human): signs with its own
+     * Ed25519. - If revealNick is a host-orchestrated bot: the host signs with
+     * its own Ed25519 (bots have no identity; receivers verify against the
+     * host's pubkey — see resolveShowdownSignerPubkey).
      *
-     * Returns "*" if pocketKey is "*" (lockdown) or identity isn't ready (TOFU race /
-     * no signer); receivers reject that case.
+     * Returns "*" if pocketKey is "*" (lockdown) or identity isn't ready (TOFU
+     * race / no signer); receivers reject that case.
      */
     public String signShowdownRevealForBroadcast(String revealNick, String pocketKeyB64) {
         if (pocketKeyB64 == null || pocketKeyB64.equals("*")) {
@@ -3536,6 +3569,229 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
 
+    /**
+     * Animates the final showdown payout as the exact visual reverse of a
+     * bet/call:
+     *
+     * pot -> winner(s)
+     *
+     * Accounting is NOT modified here. Player.getPagar() already contains the
+     * settled payout and nuevaMano() will still apply stack + pagar normally.
+     *
+     * This method only animates the displayed values. Because setStackDisplay()
+     * keeps each player's real stack roller synchronized with the displayed
+     * value, nuevaMano() later reaches the same final stack without producing a
+     * second visible roll.
+     */
+    private void animateShowdownPayout() {
+
+        if (GameFrame.TEST_MODE
+                || !GameFrame.apuestasAnimOn()
+                || GameFrame.RECOVER
+                || this.game_recovered != 0
+                || isFin_de_la_transmision()
+                || GameFrame.getInstance().getLocalPlayer().isExit()) {
+
+            return;
+        }
+
+        final LinkedHashMap<Player, Double> payouts = new LinkedHashMap<>();
+
+        double totalPaid = 0f;
+
+        for (Player p : GameFrame.getInstance().getJugadores()) {
+
+            if (p == null) {
+                continue;
+            }
+
+            double pay = Helpers.doubleClean(p.getPagar());
+
+            if (Helpers.doubleSecureCompare(0f, pay) < 0) {
+
+                payouts.put(p, pay);
+
+                totalPaid = Helpers.doubleClean(totalPaid + pay);
+            }
+        }
+
+        if (payouts.isEmpty()
+                || Helpers.doubleSecureCompare(0f, totalPaid) >= 0) {
+
+            return;
+        }
+
+        final TablePanel table = GameFrame.getInstance().getTapete();
+
+        final CommunityCardsPanel community = table.getCommunityCards();
+
+        final String potPrefix = Translator.translate("game.bote_2");
+
+        final double initialPot = totalPaid;
+
+        /*
+     * Temporary visual stack rollers.
+     *
+     * They use EXACTLY the same speed and duration bounds as the real live
+     * stack/pot counters. Their renderer delegates to setStackDisplay(), so
+     * the actual stack model remains untouched.
+         */
+        final LinkedHashMap<Player, RollingCounter> stackRollers
+                = new LinkedHashMap<>();
+
+        Helpers.GUIRunAndWait(() -> {
+
+            /*
+         * Show the total amount that is actually going to be distributed.
+         *
+         * This also converts side-pot/RIT textual breakdowns back into one
+         * numeric value without animating before the payout chip starts.
+             */
+            community.rollPotValue(
+                    potPrefix,
+                    initialPot,
+                    "",
+                    false
+            );
+
+            for (Map.Entry<Player, Double> entry : payouts.entrySet()) {
+
+                final Player player = entry.getKey();
+
+                RollingCounter roller = new RollingCounter(
+                        (value) -> player.setStackDisplay(value),
+                        GameFrame.COUNTER_ROLL_SPEED,
+                        GameFrame.COUNTER_ROLL_MIN_MS,
+                        GameFrame.COUNTER_ROLL_MAX_MS
+                );
+
+                /*
+             * Seed the temporary roller with the player's current pre-payout
+             * stack. No visible change occurs here.
+                 */
+                roller.set(player.getStack());
+
+                stackRollers.put(player, roller);
+            }
+        });
+
+        /*
+     * Same subtle chip sound used by CALL, played when the payout chips leave
+     * the pot.
+         */
+        if (GameFrame.igualarSonidoOn()) {
+            Audio.playWavResource("misc/call.wav");
+        }
+
+        final java.util.concurrent.CountDownLatch landed
+                = new java.util.concurrent.CountDownLatch(payouts.size());
+
+        /*
+     * All landing callbacks are ultimately serialized on the EDT, so this
+     * value can safely represent the pot amount still waiting to be awarded.
+         */
+        final double[] remainingPot = {initialPot};
+
+        for (Map.Entry<Player, Double> entry : payouts.entrySet()) {
+
+            final Player player = entry.getKey();
+
+            final double pay = entry.getValue();
+
+            table.flyChipFromPot(
+                    player,
+                    Helpers.IMAGEN_POT_CHIP,
+                    POT_CHIP_SHRINK_MS,
+                    () -> {
+
+                        Helpers.GUIRun(() -> {
+
+                            /*
+                         * EXACT landing moment:
+                         *
+                         * - this winner's stack starts rolling UP
+                         * - the pot starts rolling DOWN
+                         *
+                         * This mirrors launchChipToPot(), where the stack/bet
+                         * and pot rolls start when the betting chip lands.
+                             */
+                            remainingPot[0] = Helpers.doubleClean(
+                                    Math.max(0f, remainingPot[0] - pay)
+                            );
+
+                            community.rollPotValue(
+                                    potPrefix,
+                                    remainingPot[0],
+                                    "",
+                                    GameFrame.isCounterRollEnabled()
+                            );
+
+                            RollingCounter stackRoller
+                                    = stackRollers.get(player);
+
+                            if (stackRoller != null) {
+
+                                stackRoller.roll(
+                                        Helpers.doubleClean(
+                                                player.getStack() + pay
+                                        ),
+                                        GameFrame.isCounterRollEnabled()
+                                );
+                            }
+
+                            landed.countDown();
+                        });
+                    }
+            );
+        }
+
+        boolean allLanded = false;
+
+        try {
+
+            allLanded = landed.await(
+                    3,
+                    java.util.concurrent.TimeUnit.SECONDS
+            );
+
+        } catch (InterruptedException ex) {
+
+            Thread.currentThread().interrupt();
+        }
+
+        if (!allLanded || isFin_de_la_transmision()) {
+            return;
+        }
+
+        Helpers.parkThreadMillis(POT_CHIP_SHRINK_MS + 250L);
+
+        /*
+        * Defensive exact landing values. Normally these are already identical
+        * to what is displayed; this only eliminates any possible final-frame
+        * scheduling lag before nuevaMano().
+         */
+        Helpers.GUIRunAndWait(() -> {
+
+            community.rollPotValue(
+                    potPrefix,
+                    0f,
+                    "",
+                    false
+            );
+
+            for (Map.Entry<Player, Double> entry : payouts.entrySet()) {
+
+                Player player = entry.getKey();
+
+                player.setStackDisplay(
+                        Helpers.doubleClean(
+                                player.getStack() + entry.getValue()
+                        )
+                );
+            }
+        });
+    }
+
     public int getGame_recovered() {
         return game_recovered;
     }
@@ -3816,8 +4072,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Waits for the opening stack curtain before the first hand is prepared.
-     * This runs on the Crupier worker, never on the EDT, so the 16 ms fill Timer
-     * can continue updating the labels without competing with the first
+     * This runs on the Crupier worker, never on the EDT, so the 16 ms fill
+     * Timer can continue updating the labels without competing with the first
      * position-chip flight.
      */
     private void awaitInitialStackFill() {
@@ -3995,10 +4251,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Applies a REBUYNOW received from one authenticated peer. The socket reader assigns the
-     * sequence before dispatching to the cached pool. If two tasks are scheduled in reverse,
-     * the older one is discarded instead of undoing the newer toggle. The source id prevents a
-     * reconnect/new Participant from inheriting the previous connection's counter.
+     * Applies a REBUYNOW received from one authenticated peer. The socket
+     * reader assigns the sequence before dispatching to the cached pool. If two
+     * tasks are scheduled in reverse, the older one is discarded instead of
+     * undoing the newer toggle. The source id prevents a reconnect/new
+     * Participant from inheriting the previous connection's counter.
      */
     public void rebuyNowFromClient(String nick, int buyin, long sourceId, long arrivalSequence) {
         synchronized (lock_rebuynow) {
@@ -4013,7 +4270,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    /** Caller holds {@link #lock_rebuynow}. */
+    /**
+     * Caller holds {@link #lock_rebuynow}.
+     */
     private void rebuyNowInternalLocked(String nick, int buyin, boolean host) {
         boolean denied_by_limit = false;
         boolean broadcast_now = true;
@@ -4082,18 +4341,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Applies the host's canonical immediate-rebuy relay on a client. This is
-     * deliberately separate from {@link #rebuyNow(String, int)}, whose local
-     * UI meaning is a toggle and therefore cannot safely consume an echoed
-     * command from the host.
+     * deliberately separate from {@link #rebuyNow(String, int)}, whose local UI
+     * meaning is a toggle and therefore cannot safely consume an echoed command
+     * from the host.
      */
     public void applyRemoteRebuyNow(String nick, int canonicalAmount) {
         applyRemoteRebuyNow(nick, canonicalAmount, 0L);
     }
 
     /**
-     * Applies a host relay after the socket reader has assigned its arrival sequence. This
-     * method remains asynchronous to avoid the CONF self-deadlock; the sequence gate makes the
-     * asynchronous execution deterministic instead of relying on cached-pool scheduling order.
+     * Applies a host relay after the socket reader has assigned its arrival
+     * sequence. This method remains asynchronous to avoid the CONF
+     * self-deadlock; the sequence gate makes the asynchronous execution
+     * deterministic instead of relying on cached-pool scheduling order.
      */
     public void applyRemoteRebuyNow(String nick, int canonicalAmount, long arrivalSequence) {
         synchronized (lock_rebuynow) {
@@ -4992,9 +5252,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             StringBuilder status = new StringBuilder("(##) ").append(gridBorderLine('┌', '┬', '┐', bal_cols))
                     .append("\n(##) ").append(gridRowLine(
-                            String.format("%-" + nick_w + "s", "NICK"),
-                            String.format("%" + stack_w + "s", "STACK"),
-                            String.format("%" + buyin_w + "s", "BUYIN")))
+                    String.format("%-" + nick_w + "s", "NICK"),
+                    String.format("%" + stack_w + "s", "STACK"),
+                    String.format("%" + buyin_w + "s", "BUYIN")))
                     .append("\n(##) ").append(gridBorderLine('├', '┼', '┤', bal_cols));
 
             for (String[] r : balance_rows) {
@@ -5234,9 +5494,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Canonical amount for the legacy {@code REBUY#nick} form, whose omitted
-     * amount means "use all available headroom".  The host must materialize
-     * that meaning before relaying it; otherwise a zero-headroom host can send
-     * an ambiguous command that a stale peer interprets as a positive rebuy.
+     * amount means "use all available headroom". The host must materialize that
+     * meaning before relaying it; otherwise a zero-headroom host can send an
+     * ambiguous command that a stale peer interprets as a positive rebuy.
      */
     static String canonicalLegacyRemoteRebuyAmount(int headroom, boolean deniedByLimit) {
         return String.valueOf(deniedByLimit ? 0 : Math.max(0, headroom));
@@ -5244,7 +5504,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * The rebuy-limit counter is authoritative only while processing a client
-     * request on the host.  A client receiving the host's canonical relay must
+     * request on the host. A client receiving the host's canonical relay must
      * not re-apply a stale local counter and turn an accepted amount into a
      * denial.
      */
@@ -5264,16 +5524,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     /**
      * Returns whether an asynchronous rebuy task is still current.
      *
-     * <p>Zero (and negative values, for defensive compatibility) means that the caller is an
-     * old/unsequenced code path. Such calls retain the old last-write-wins behaviour. Positive
-     * arrivals are strictly increasing: duplicates and tasks that were overtaken by a newer
-     * arrival are discarded, so a cached thread pool cannot roll a toggle back.</p>
+     * <p>
+     * Zero (and negative values, for defensive compatibility) means that the
+     * caller is an old/unsequenced code path. Such calls retain the old
+     * last-write-wins behaviour. Positive arrivals are strictly increasing:
+     * duplicates and tasks that were overtaken by a newer arrival are
+     * discarded, so a cached thread pool cannot roll a toggle back.</p>
      */
     static boolean shouldApplyAsyncSequence(long incoming, long applied) {
         return incoming <= 0L || incoming > applied;
     }
 
-    /** Backwards-compatible name for callers/tests that focus on the rebuy flow. */
+    /**
+     * Backwards-compatible name for callers/tests that focus on the rebuy flow.
+     */
     static boolean shouldApplyRebuySequence(long incoming, long applied) {
         return shouldApplyAsyncSequence(incoming, applied);
     }
@@ -6220,10 +6484,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Chooses the ordinal to expose after recovery.  The {@code hand.counter} column is the
-     * durable ordinal; a SQL row count is not (and can be affected by historical/void rows).
-     * An open hand is replayed at that same ordinal.  A hand already shown/closed is skipped, so
-     * the next fresh hand uses the following ordinal.
+     * Chooses the ordinal to expose after recovery. The {@code hand.counter}
+     * column is the durable ordinal; a SQL row count is not (and can be
+     * affected by historical/void rows). An open hand is replayed at that same
+     * ordinal. A hand already shown/closed is skipped, so the next fresh hand
+     * uses the following ordinal.
      */
     static int handCounterForRecovery(int persistedHandCounter, boolean replayOpenHand) {
         int persisted = Math.max(0, persistedHandCounter);
@@ -6242,19 +6507,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Blocks until the local Crupier has progressed enough to safely serve a
-     * REQ_SRA_UNLOCK_CHAIN for the requested phase, or until the timeout expires.
+     * REQ_SRA_UNLOCK_CHAIN for the requested phase, or until the timeout
+     * expires.
      *
-     * Zero-trust gate against the "early-cascade attack": a malicious host (modified code —
-     * CoronaPoker is fully open source, so anyone can build a hostile build) could push the
-     * FLOP/TURN/RIVER cascade ahead of playing the previous street, read the community cards,
-     * and play pre-flop with board knowledge. The state machine alone can't detect this (the
-     * cascade is well-formed, just premature). This wait forces the client to serve the key
-     * only once its own local round has closed the previous street — the client is the source
-     * of truth for "we've played pre-flop".
+     * Zero-trust gate against the "early-cascade attack": a malicious host
+     * (modified code — CoronaPoker is fully open source, so anyone can build a
+     * hostile build) could push the FLOP/TURN/RIVER cascade ahead of playing
+     * the previous street, read the community cards, and play pre-flop with
+     * board knowledge. The state machine alone can't detect this (the cascade
+     * is well-formed, just premature). This wait forces the client to serve the
+     * key only once its own local round has closed the previous street — the
+     * client is the source of truth for "we've played pre-flop".
      *
-     * Returns a discrete code so the caller can tell apart the three outcomes (READY,
-     * STALE_HAND, TIMEOUT) and apply different security policy — a leftover command from an
-     * already-closed hand is not cheating (silent drop), but a genuine timeout is.
+     * Returns a discrete code so the caller can tell apart the three outcomes
+     * (READY, STALE_HAND, TIMEOUT) and apply different security policy — a
+     * leftover command from an already-closed hand is not cheating (silent
+     * drop), but a genuine timeout is.
      */
     public UnlockWaitResult awaitStreetForUnlockPhase(int phase, int hand_id, long timeoutMs) {
         synchronized (protocol_state_lock) {
@@ -6290,9 +6558,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public enum UnlockWaitResult {
-        READY,        // safe to serve; later gates decide
-        STALE_HAND,   // hand_id doesn't match the current hand, or it was cancelled: silent drop
-        TIMEOUT,      // deadline expired waiting for the street: treated as an attack
+        READY, // safe to serve; later gates decide
+        STALE_HAND, // hand_id doesn't match the current hand, or it was cancelled: silent drop
+        TIMEOUT, // deadline expired waiting for the street: treated as an attack
         LOCKDOWN      // lockdown already active, serve nothing else
     }
 
@@ -6379,22 +6647,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Pure gating predicate (no Crupier state → unit-testable): may a given unlock phase be
-     * served when the local street machine is at {@code street} and show_time is {@code showTime}?
-     * POCKET is always safe (hand start); FLOP/TURN/RIVER require the LOCAL rondaApuestas to have
-     * reached that street — this is the anti early-cascade gate: a hostile host cannot make us
-     * reveal a future street because our street only advances in lockstep with betting, not by
-     * the host's broadcast. RABBIT_* require show_time. Anything else is refused.
+     * Pure gating predicate (no Crupier state → unit-testable): may a given
+     * unlock phase be served when the local street machine is at {@code street}
+     * and show_time is {@code showTime}? POCKET is always safe (hand start);
+     * FLOP/TURN/RIVER require the LOCAL rondaApuestas to have reached that
+     * street — this is the anti early-cascade gate: a hostile host cannot make
+     * us reveal a future street because our street only advances in lockstep
+     * with betting, not by the host's broadcast. RABBIT_* require show_time.
+     * Anything else is refused.
      */
     static boolean isUnlockPhaseAllowedForStreet(int phase, int street, boolean showTime) {
         return isUnlockPhaseAllowedForStreet(phase, street, showTime, false);
     }
 
     /**
-     * Overload with the run-it-twice side-B dealing flag. RIT2_* phases are only served WHILE
-     * side B is being dealt ({@code ritSideB}), with the same anti-early-cascade gate as the
-     * live board (the local street re-advances during side B). Outside side B they're always
-     * refused: unlocking those fresh offsets on a normal hand would leak cards still live in the deck.
+     * Overload with the run-it-twice side-B dealing flag. RIT2_* phases are
+     * only served WHILE side B is being dealt ({@code ritSideB}), with the same
+     * anti-early-cascade gate as the live board (the local street re-advances
+     * during side B). Outside side B they're always refused: unlocking those
+     * fresh offsets on a normal hand would leak cards still live in the deck.
      */
     static boolean isUnlockPhaseAllowedForStreet(int phase, int street, boolean showTime, boolean ritSideB) {
         switch (phase) {
@@ -6916,7 +7187,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // repartir() reveals them when the deal animation lands, identical to a
                             // normal hand — revealing them here would show them face-up before the
                             // animation. local_original_cards already carries the value for the flight's onLand.
-
                             // Recovery: restore HAND_ID from SQL
                             // and re-init HandStateChain. Without this the chain
                             // stays null through the recovered hand, action absorbs
@@ -7164,7 +7434,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // repartir() reveals them when the deal animation lands, identical to a
                         // normal hand — revealing them here would show them face-up before the
                         // animation. local_original_cards already carries the value for the flight's onLand.
-
                         // Zero-trust recover: HAND_ID anchors the H_t chain and is an integrity
                         // value. The client persisted it in its OWN SQLite during the live hand
                         // (sqlUpdateHandHandId; the value came from the host's MEGAPACKET, not
@@ -7638,12 +7907,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Closes (does NOT delete) the hand that NUEVA_MANO had already opened but whose
-     * deal/cascade then failed: it is marked finished (end != 0, pot=0) with the
-     * post-refund balances written. conta_mano and sqlite_id_hand are PRESERVED (the
-     * hand counts as completed), so the recover path finds a cleanly-closed last hand
-     * -- just like after an exit that waited for hand end -- and the next NUEVA_MANO
-     * starts fresh. See the inline comment for the transactional detail.
+     * Closes (does NOT delete) the hand that NUEVA_MANO had already opened but
+     * whose deal/cascade then failed: it is marked finished (end != 0, pot=0)
+     * with the post-refund balances written. conta_mano and sqlite_id_hand are
+     * PRESERVED (the hand counts as completed), so the recover path finds a
+     * cleanly-closed last hand -- just like after an exit that waited for hand
+     * end -- and the next NUEVA_MANO starts fresh. See the inline comment for
+     * the transactional detail.
      */
     private boolean rollbackAbortedHand() {
         boolean persisted = true;
@@ -8147,7 +8417,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // than everyone else, and money/close-consensus diverge every hand from
                     // there. The wire number is identical for everyone regardless, which is
                     // what actually matters here.
-
                     Player jugador = nick2player.get(nick);
 
                     if (jugador != null) {
@@ -8423,100 +8692,100 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             synchronized (lock_iwtsth) {
                 {
 
-                        // 1. If we are the Server Host, broadcast the verdict to all clients
-                        if (GameFrame.getInstance().isPartida_local()) {
-                            try {
-                                broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.getEncoder().encodeToString(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), null, true);
-                            } catch (Exception ex) {
-                            }
+                    // 1. If we are the Server Host, broadcast the verdict to all clients
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        try {
+                            broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.getEncoder().encodeToString(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), null, true);
+                        } catch (Exception ex) {
+                        }
+                    }
+
+                    if (authorized) {
+                        // The server can't decrypt remote clients' cards (it doesn't hold their
+                        // SRA keys), so it only authorizes the request and each client confesses
+                        // its own cards.
+
+                        // A) Local player: if I'm a candidate (a loser who hasn't shown at
+                        // showdown), confess.
+                        // Notes:
+                        //   - NOT gated on isBoton_mostrar/isBotonMostrarActivado: those flags
+                        //     track the voluntary "Show" button state and depend on
+                        //     IWTSTH_HANDLER having disabled the button (timing race).
+                        //   - NOT gated on getHoleCard1().isTapada(): the LocalPlayer always sees
+                        //     its own cards (destapar() runs at deal time and Card.tapar() is
+                        //     never invoked), so isTapada() is false for one's own player from
+                        //     the deal onward. That flag reflects the external viewpoint (others
+                        //     looking at the candidate), not the player's own — gating on it here
+                        //     would mean SHOWCARDS never gets sent.
+                        //   - isMuestra() distinguishes "auto-show at showdown" (true, nothing to
+                        //     confess) from "auto-muck / IWTSTH candidate" (false, must confess).
+                        LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
+                        if (local.isLoser() && !local.isMuestra()) {
+                            showAndBroadcastPlayerCards(local.getNickname());
+                            // Mark the player as "already shown" after the forced IWTSTH
+                            // confession. Without this, the cleanup below would see
+                            // isBoton_mostrar()=true && !isBotonMostrarActivado() && !isMuestra()
+                            // and re-enable the voluntary "Show" button, which makes no sense —
+                            // the cards were already forcibly shown.
+                            local.setMuestra(true);
+                            local.desactivar_boton_mostrar();
                         }
 
-                        if (authorized) {
-                            // The server can't decrypt remote clients' cards (it doesn't hold their
-                            // SRA keys), so it only authorizes the request and each client confesses
-                            // its own cards.
-
-                            // A) Local player: if I'm a candidate (a loser who hasn't shown at
-                            // showdown), confess.
-                            // Notes:
-                            //   - NOT gated on isBoton_mostrar/isBotonMostrarActivado: those flags
-                            //     track the voluntary "Show" button state and depend on
-                            //     IWTSTH_HANDLER having disabled the button (timing race).
-                            //   - NOT gated on getHoleCard1().isTapada(): the LocalPlayer always sees
-                            //     its own cards (destapar() runs at deal time and Card.tapar() is
-                            //     never invoked), so isTapada() is false for one's own player from
-                            //     the deal onward. That flag reflects the external viewpoint (others
-                            //     looking at the candidate), not the player's own — gating on it here
-                            //     would mean SHOWCARDS never gets sent.
-                            //   - isMuestra() distinguishes "auto-show at showdown" (true, nothing to
-                            //     confess) from "auto-muck / IWTSTH candidate" (false, must confess).
-                            LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
-                            if (local.isLoser() && !local.isMuestra()) {
-                                showAndBroadcastPlayerCards(local.getNickname());
-                                // Mark the player as "already shown" after the forced IWTSTH
-                                // confession. Without this, the cleanup below would see
-                                // isBoton_mostrar()=true && !isBotonMostrarActivado() && !isMuestra()
-                                // and re-enable the voluntary "Show" button, which makes no sense —
-                                // the cards were already forcibly shown.
-                                local.setMuestra(true);
-                                local.desactivar_boton_mostrar();
-                            }
-
-                            // B) Bots: Since they live in the Host's memory, the Server Host forces them to show
-                            if (GameFrame.getInstance().isPartida_local()) {
-                                for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
-                                    Participant p = GameFrame.getInstance().getParticipantes().get(rp.getNickname());
-                                    if (p != null && p.isCpu() && rp.isIwtsthCandidate() && rp.getHoleCard1().isTapada()) {
-                                        showAndBroadcastPlayerCards(rp.getNickname());
-                                    }
+                        // B) Bots: Since they live in the Host's memory, the Server Host forces them to show
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
+                                Participant p = GameFrame.getInstance().getParticipantes().get(rp.getNickname());
+                                if (p != null && p.isCpu() && rp.isIwtsthCandidate() && rp.getHoleCard1().isTapada()) {
+                                    showAndBroadcastPlayerCards(rp.getNickname());
                                 }
                             }
-                        } else {
-                            // If denied, inform the UI and register rejection timestamp for anti-flood
-                            GameFrame.getInstance().getRegistro().print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + " " + iwtsther);
-                            if (GameFrame.cinematicasOn()) {
-                                Helpers.GUIRun(() -> {
-                                    try {
-                                        GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
-                                        gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
-                                        gif_dialog.setVisible(true);
-                                    } catch (URISyntaxException | IOException | ImageProcessingException ex) {
-                                    }
-                                });
-                            }
-                            if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)) {
-                                this.last_iwtsth_rejected = System.currentTimeMillis();
-                            }
+                        }
+                    } else {
+                        // If denied, inform the UI and register rejection timestamp for anti-flood
+                        GameFrame.getInstance().getRegistro().print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + " " + iwtsther);
+                        if (GameFrame.cinematicasOn()) {
+                            Helpers.GUIRun(() -> {
+                                try {
+                                    GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
+                                    gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
+                                    gif_dialog.setVisible(true);
+                                } catch (URISyntaxException | IOException | ImageProcessingException ex) {
+                                }
+                            });
+                        }
+                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)) {
+                            this.last_iwtsth_rejected = System.currentTimeMillis();
                         }
                     }
                 }
+            }
 
-                // Cleanup UI:
-                // - Restore the show button if applicable.
-                // - Restore the progress bar to pausaConBarra's correct state (not just
-                //   setIndeterminate(false), which would leave it visually "maxed out, not moving").
-                Helpers.GUIRunAndWait(() -> {
-                    if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
-                        GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
-                    }
-                });
-                // Restore the bar to pausaConBarra's remaining value so the loop can keep
-                // decrementing correctly instead of appearing "stuck at max".
-                setTiempo_pausa(getTiempoPausa());
-
-                // Release the lock to let the game proceed
-                synchronized (lock_iwtsth) {
-                    iwtsth = true;
-                    iwtsthing = false;
-                    iwtsthing_request = false;
-                    lock_iwtsth.notifyAll();
-                }
-                // Also wake the pausaConBarra loop, sleeping in lock_pausa_barra.wait(1000), so it
-                // resumes decrementing without waiting out its timeout.
-                synchronized (lock_pausa_barra) {
-                    lock_pausa_barra.notifyAll();
+            // Cleanup UI:
+            // - Restore the show button if applicable.
+            // - Restore the progress bar to pausaConBarra's correct state (not just
+            //   setIndeterminate(false), which would leave it visually "maxed out, not moving").
+            Helpers.GUIRunAndWait(() -> {
+                if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
+                    GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
                 }
             });
+            // Restore the bar to pausaConBarra's remaining value so the loop can keep
+            // decrementing correctly instead of appearing "stuck at max".
+            setTiempo_pausa(getTiempoPausa());
+
+            // Release the lock to let the game proceed
+            synchronized (lock_iwtsth) {
+                iwtsth = true;
+                iwtsthing = false;
+                iwtsthing_request = false;
+                lock_iwtsth.notifyAll();
+            }
+            // Also wake the pausaConBarra loop, sleeping in lock_pausa_barra.wait(1000), so it
+            // resumes decrementing without waiting out its timeout.
+            synchronized (lock_pausa_barra) {
+                lock_pausa_barra.notifyAll();
+            }
+        });
     }
 
     public boolean isIwtsthing_request() {
@@ -8975,7 +9244,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // resolveVoluntaryStraddle: the host replays the original decision from the fossil and
         // rebroadcasts it, keeping the path uniform. With STRADDLE off, <=2 active players, or
         // heads-up, resolveVoluntaryStraddle is a no-op and the default path is unchanged.
-
         for (Player p : GameFrame.getInstance().getJugadores()) {
             if (p.isActivo()) {
                 Bot.TRACKER_MEMORY.computeIfAbsent(p.getNickname(), k -> new Bot.OpponentTracker()).recordHandPlayed();
@@ -9427,12 +9695,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Recover: number of {@code nick}'s actions this peer persisted to its local SQLite for the
-     * current hand (every witnessed action is saved via {@link #sqlNewAction}, and recover never
-     * deletes those rows). This is the reference {@link #isBenignPostAbsenceRecover} uses to
-     * decide whether a replayed action came after the player's absence. Returns
-     * {@code Integer.MAX_VALUE} on SQL failure (conservative: no index exceeds it, so a warning
-     * is never silently downgraded).
+     * Recover: number of {@code nick}'s actions this peer persisted to its
+     * local SQLite for the current hand (every witnessed action is saved via
+     * {@link #sqlNewAction}, and recover never deletes those rows). This is the
+     * reference {@link #isBenignPostAbsenceRecover} uses to decide whether a
+     * replayed action came after the player's absence. Returns
+     * {@code Integer.MAX_VALUE} on SQL failure (conservative: no index exceeds
+     * it, so a warning is never silently downgraded).
      */
     private int sqlCountLocalHandActions(String nick) {
         synchronized (GameFrame.SQL_LOCK) {
@@ -10235,17 +10504,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Warns ONCE per wait that the table has been waiting too long for the host.
+     * Warns ONCE per wait that the table has been waiting too long for the
+     * host.
      *
-     * <p>Doesn't cut the wait short or change the hand's course — it just stops being a
-     * silent hang. See {@link #MESA_PARADA_AVISO_MS} for why it doesn't cut and why that
-     * threshold.
+     * <p>
+     * Doesn't cut the wait short or change the hand's course — it just stops
+     * being a silent hang. See {@link #MESA_PARADA_AVISO_MS} for why it doesn't
+     * cut and why that threshold.
      *
-     * <p>Once PER WAIT, not per game: each hand starts fresh.
+     * <p>
+     * Once PER WAIT, not per game: each hand starts fresh.
      *
-     * @param espera_inicio when this wait started, with pauses already discounted
+     * @param espera_inicio when this wait started, with pauses already
+     * discounted
      * @param ya_avisado whether this same wait has already been warned about
-     * @return the new "already warned" state, to be passed back in on the next loop
+     * @return the new "already warned" state, to be passed back in on the next
+     * loop
      */
     private boolean avisarMesaParada(long espera_inicio, boolean ya_avisado) {
         if (ya_avisado || System.currentTimeMillis() - espera_inicio < MESA_PARADA_AVISO_MS) {
@@ -10275,15 +10549,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Consensus: on the client, waits for the host's bare
-     * {@code HANDVERIFY} trigger (no payload). There is NO deadline here on
-     * purpose: see the comment inside the loop. Returns true when the trigger
-     * arrived; returns false only if a MISDEAL command was polled instead
-     * — in that case the hand was
-     * already cancelled here and the caller must NOT continue with the
+     * Consensus: on the client, waits for the host's bare {@code HANDVERIFY}
+     * trigger (no payload). There is NO deadline here on purpose: see the
+     * comment inside the loop. Returns true when the trigger arrived; returns
+     * false only if a MISDEAL command was polled instead — in that case the
+     * hand was already cancelled here and the caller must NOT continue with the
      * consensus phase. Other {@code HANDVERIFY} commands (with payload) and
-     * unrelated commands are left in {@code received_commands} so the
-     * consensus phase loop can re-poll them after the trigger settles.
+     * unrelated commands are left in {@code received_commands} so the consensus
+     * phase loop can re-poll them after the trigger settles.
      */
     private boolean waitForHandverifyTrigger() {
         boolean trigger_seen = false;
@@ -10348,13 +10621,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * flags(1) || sig(64)} = 113 bytes. The flags byte sits BETWEEN H_final and
      * sig so the sig (over RECEIPT || HAND_ID || H_final || flags) covers it.
      *
-     * <p>Flag bits:
+     * <p>
+     * Flag bits:
      * <ul>
-     *   <li>bit0 = the issuer observed an invalid Ed25519 signature on at least
-     *       one ACTION wire during the hand. {@code runConsensusCheck} refuses
-     *       to report OK if any received receipt has this bit set, even when
-     *       H_finals match — closes the "all peers see the same invalid sig"
-     *       hole where consensus would otherwise pass silently.</li>
+     * <li>bit0 = the issuer observed an invalid Ed25519 signature on at least
+     * one ACTION wire during the hand. {@code runConsensusCheck} refuses to
+     * report OK if any received receipt has this bit set, even when H_finals
+     * match — closes the "all peers see the same invalid sig" hole where
+     * consensus would otherwise pass silently.</li>
      * </ul>
      */
     private static final int RECEIPT_HANDID_LEN = CanonicalActionRecord.HAND_ID_BYTES;
@@ -10374,16 +10648,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final int RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF = 2;
 
     /**
-     * Consensus barrier — runs BEFORE the payout, once per hand in each showdown
-     * branch. The host fires the bare {@code HANDVERIFY} trigger and every client
-     * waits for it. This is also the sole point where a late MISDEAL aborts the
-     * hand cleanly, before any chip moves: {@code waitForHandverifyTrigger} runs
-     * {@code cancelarManoYDevolverApuestas} (which sets {@code mano_anulada} and
-     * {@code fin_de_la_transmision}), so the downstream settlement short-circuits
-     * and {@link #runSettlementConsensus} is skipped under its {@code !mano_anulada}
-     * gate — exactly the swallow-the-bail behaviour of the old single function.
+     * Consensus barrier — runs BEFORE the payout, once per hand in each
+     * showdown branch. The host fires the bare {@code HANDVERIFY} trigger and
+     * every client waits for it. This is also the sole point where a late
+     * MISDEAL aborts the hand cleanly, before any chip moves:
+     * {@code waitForHandverifyTrigger} runs
+     * {@code cancelarManoYDevolverApuestas} (which sets {@code mano_anulada}
+     * and {@code fin_de_la_transmision}), so the downstream settlement
+     * short-circuits and {@link #runSettlementConsensus} is skipped under its
+     * {@code !mano_anulada} gate — exactly the swallow-the-bail behaviour of
+     * the old single function.
      *
-     * <p>The receipt exchange used to live here too; it now runs AFTER settlement
+     * <p>
+     * The receipt exchange used to live here too; it now runs AFTER settlement
      * (see {@link #runSettlementConsensus}) so the receipt's {@code H_final}
      * commits the payout as well — the single-consensus design documented in
      * {@code docs/audit/settlement-digest-design.md}.
@@ -10406,20 +10683,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Consensus — runs AFTER the payout, once per hand at hand close. Absorbs this
-     * peer's independently-computed {@link SettlementRecord} table (who put in how
-     * much, who was paid how much, plus the odd-chip remainder) into the chain as
-     * the terminal record, so {@code H_final} commits the money movement — not just
-     * the actions and board — then builds, exchanges and cross-checks the closing
-     * receipt over that {@code H_final}. Two peers that computed a different payout
-     * from the same verified inputs diverge on {@code H_final} and
-     * {@link #runConsensusCheck} reports it.
+     * Consensus — runs AFTER the payout, once per hand at hand close. Absorbs
+     * this peer's independently-computed {@link SettlementRecord} table (who
+     * put in how much, who was paid how much, plus the odd-chip remainder) into
+     * the chain as the terminal record, so {@code H_final} commits the money
+     * movement — not just the actions and board — then builds, exchanges and
+     * cross-checks the closing receipt over that {@code H_final}. Two peers
+     * that computed a different payout from the same verified inputs diverge on
+     * {@code H_final} and {@link #runConsensusCheck} reports it.
      *
-     * <p>Called under {@code !mano_anulada} and BEFORE {@code resetBote()} purges
-     * the per-hand contributions, so {@code getBote()/getPagar()} are final. Hands
-     * without a chain (legacy interop / chain init failure) skip receipts after
-     * the local conservation gate. Any money mismatch or receipt-consensus
-     * failure aborts the hand close and preserves its state for recovery.
+     * <p>
+     * Called under {@code !mano_anulada} and BEFORE {@code resetBote()} purges
+     * the per-hand contributions, so {@code getBote()/getPagar()} are final.
+     * Hands without a chain (legacy interop / chain init failure) skip receipts
+     * after the local conservation gate. Any money mismatch or
+     * receipt-consensus failure aborts the hand close and preserves its state
+     * for recovery.
      */
     private boolean runSettlementConsensus() {
         final java.util.List<SettlementRecord.Entry> entries;
@@ -10608,10 +10887,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * neither contributed nor were paid are skipped. Bots are included under
      * their own nick; the host signs the receipt that commits the whole table.
      *
-     * <p>{@code getBote()} (total invested across all streets) and
-     * {@code getPagar()} (chips awarded) are both non-negative; the conversion to
-     * cents goes through {@link CanonicalActionRecord#amountToCents(double)} so
-     * every peer derives byte-identical amounts from the same double arithmetic.
+     * <p>
+     * {@code getBote()} (total invested across all streets) and
+     * {@code getPagar()} (chips awarded) are both non-negative; the conversion
+     * to cents goes through {@link CanonicalActionRecord#amountToCents(double)}
+     * so every peer derives byte-identical amounts from the same double
+     * arithmetic.
      */
     private java.util.List<SettlementRecord.Entry> collectSettlementEntries() {
         java.util.List<SettlementRecord.Entry> entries = new java.util.ArrayList<>();
@@ -10631,12 +10912,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Consensus: builds the encoded
-     * receipt {@code HAND_ID || H_final || flags || sig} for this peer's local
-     * view of the just-finished hand. Returns null if the local identity is
-     * not usable. The flags byte encodes the {@code saw_invalid_action_sig}
-     * bit so other peers' consensus check knows we observed at least one
-     * malformed signature this hand.
+     * Consensus: builds the encoded receipt
+     * {@code HAND_ID || H_final || flags || sig} for this peer's local view of
+     * the just-finished hand. Returns null if the local identity is not usable.
+     * The flags byte encodes the {@code saw_invalid_action_sig} bit so other
+     * peers' consensus check knows we observed at least one malformed signature
+     * this hand.
      */
     private byte[] buildLocalReceipt(byte[] handId, byte[] hFinal) {
         IdentityManager im = IdentityManager.getInstance();
@@ -10689,8 +10970,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Emits this peer's own receipt to everyone else. Hosts broadcast to all
-     * connected clients; clients send to the host, which relays the receipt
-     * to each of the other clients inside the consensus loop.
+     * connected clients; clients send to the host, which relays the receipt to
+     * each of the other clients inside the consensus loop.
      */
     private void emitOwnReceipt(byte[] localReceipt) {
         try {
@@ -10710,23 +10991,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Returns the set of nicks this peer expects to receive a receipt from
-     * (spec §6.3): humans who actually played this hand and are still active
-     * at the moment the HANDVERIFY trigger fires. Excluded:
+     * (spec §6.3): humans who actually played this hand and are still active at
+     * the moment the HANDVERIFY trigger fires. Excluded:
      *
      * <ul>
-     *   <li>Bots — their actions are signed by the host inside H_t (§10),
-     *       no separate receipt.</li>
-     *   <li>Players who left mid-hand (Participant.isExit()).</li>
-     *   <li>Warming-up players (Player.isCalentando()) — joined a game
-     *       already in progress, no hole cards, no chain state.</li>
-     *   <li>Spectators (Player.isSpectator()) — bust or no buy-in for this
-     *       hand, did not participate in the SRA cascade.</li>
+     * <li>Bots — their actions are signed by the host inside H_t (§10), no
+     * separate receipt.</li>
+     * <li>Players who left mid-hand (Participant.isExit()).</li>
+     * <li>Warming-up players (Player.isCalentando()) — joined a game already in
+     * progress, no hole cards, no chain state.</li>
+     * <li>Spectators (Player.isSpectator()) — bust or no buy-in for this hand,
+     * did not participate in the SRA cascade.</li>
      * </ul>
      *
-     * <p>The local nick is added unconditionally only when this peer DOES
-     * have a chain (the caller has already snapshotted hand_state_chain and
-     * skips the consensus phase entirely when it's null), so reaching this
-     * method already implies localNick was a real participant.
+     * <p>
+     * The local nick is added unconditionally only when this peer DOES have a
+     * chain (the caller has already snapshotted hand_state_chain and skips the
+     * consensus phase entirely when it's null), so reaching this method already
+     * implies localNick was a real participant.
      */
     private Set<String> computeExpectedConsensusSigners() {
         Set<String> out = new LinkedHashSet<>();
@@ -10768,26 +11050,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Consensus: compares collected
-     * receipts against this peer's own (HAND_ID, H_final) and writes the
-     * outcome to the Crupier log (i18n), the JUL log, the in-game popup, and
-     * the disputed_hands SQLite table. Four outcomes (priority top-down):
+     * Consensus: compares collected receipts against this peer's own (HAND_ID,
+     * H_final) and writes the outcome to the Crupier log (i18n), the JUL log,
+     * the in-game popup, and the disputed_hands SQLite table. Four outcomes
+     * (priority top-down):
      *
      * <ul>
-     *   <li>DIVERGENT: some receipt arrived with a different H_final, or a sig
-     *       that fails verification (we cannot trust the receipt). Hard
-     *       cryptographic evidence: SEVERE.</li>
-     *   <li>MISSING: at least one expected peer did not respond inside the
-     *       timeout (network outage, client crash, etc.). Ambiguous: WARNING.</li>
-     *   <li>INVALID_SIG_SEEN (new): every H_final matches and every receipt is
-     *       present, but at least one peer set the bit0 flag in its receipt
-     *       indicating it observed an invalid Ed25519 signature on an ACTION
-     *       wire during the hand. Bytes were consistent across peers (host
-     *       relayed faithfully) but the original signature was broken —
-     *       suggests a peer running modified software or a software bug.
-     *       Reported as a notice, not an alert.</li>
-     *   <li>OK: every expected peer's receipt present, sig valid, H_final
-     *       matches, no flags set.</li>
+     * <li>DIVERGENT: some receipt arrived with a different H_final, or a sig
+     * that fails verification (we cannot trust the receipt). Hard cryptographic
+     * evidence: SEVERE.</li>
+     * <li>MISSING: at least one expected peer did not respond inside the
+     * timeout (network outage, client crash, etc.). Ambiguous: WARNING.</li>
+     * <li>INVALID_SIG_SEEN (new): every H_final matches and every receipt is
+     * present, but at least one peer set the bit0 flag in its receipt
+     * indicating it observed an invalid Ed25519 signature on an ACTION wire
+     * during the hand. Bytes were consistent across peers (host relayed
+     * faithfully) but the original signature was broken — suggests a peer
+     * running modified software or a software bug. Reported as a notice, not an
+     * alert.</li>
+     * <li>OK: every expected peer's receipt present, sig valid, H_final
+     * matches, no flags set.</li>
      * </ul>
      */
     private boolean runConsensusCheck(java.util.Map<String, byte[]> receipts, Set<String> expected,
@@ -11938,7 +12220,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // via RIT_VOTE_REQ; collects replies by draining received_commands (same
     // pattern as requestRemoteCascade), rebroadcasts RIT_VOTE_TALLY live, and
     // sends RIT_VOTE_CLOSE on close.
-
     private void sendRitVoteReq(Participant p, int timeout, int totalVoters) {
         try {
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
@@ -12124,7 +12405,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // ---- Run-it-twice: CLIENT side (reacts to the host's RIT_VOTE_*) ---------
-
     public void showRitClientVoteDialog(int timeout, int totalVoters, double pot) {
         Helpers.GUIRun(() -> {
             RunItTwiceDialog d = new RunItTwiceDialog(GameFrame.getInstance(), timeout, totalVoters, Helpers.money2String(pot));
@@ -12300,7 +12580,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // same as the old mandatory straddle. A RECOVERED hand doesn't ask: the host restores
     // the original decision from the fossil (straddle_recovered_posted) and rebroadcasts
     // it. With STRADDLE off, heads-up, or <=2 active players, this is a total no-op.
-
     private void resolveVoluntaryStraddle() {
         boolean released_ok = true; // true if there were no deferred cards to release, or they released OK
         try {
@@ -12492,7 +12771,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // local straddler (pending cards).
             boolean straddlerStuck = !isFin_de_la_transmision()
                     && ((GameFrame.getInstance().isPartida_local() && this.deferred_straddle_slot >= 0)
-                        || this.straddle_cards_pending);
+                    || this.straddle_cards_pending);
             if (straddlerStuck) {
                 LOGGER.log(Level.SEVERE, "Straddle ciego: no se pudieron liberar las cartas del straddler — MISDEAL");
                 this.deferred_straddle_slot = -1;
@@ -12904,8 +13183,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 java.util.List<UnlockChainWire.ReqItem> reqItems = new java.util.ArrayList<>();
                 reqItems.add(new UnlockChainWire.ReqItem(straddlerSlot, straddlerSlot * 2,
                         java.util.Arrays.asList(chainS[0], chainS[1])));
-                java.util.List<UnlockChainWire.RespItem> resp =
-                        requestRemoteUnlockChain(hNick, ph, UNLOCK_PHASE_POCKET_STRADDLE, reqItems);
+                java.util.List<UnlockChainWire.RespItem> resp
+                        = requestRemoteUnlockChain(hNick, ph, UNLOCK_PHASE_POCKET_STRADDLE, reqItems);
                 if (resp != null) {
                     for (UnlockChainWire.RespItem ri : resp) {
                         if (ri.peerIdx == straddlerSlot && ri.chains.size() == 2) {
@@ -13249,12 +13528,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Run-it-twice: splits a (side)pot into SIDE-A and SIDE-B halves. Works in integer
-     * cents (the game's minimum chip is 0.01; the whole economy rounds to the cent via
-     * floatClean/setStack). House rule: if the cent total is odd, BOTH sides get the
-     * floor and the indivisible cent is NOT distributed — it stays unpaid and the
-     * bote_sobrante recalculation after both boards carries it into the next hand.
-     * Invariant: sideA + sideB + remainder == exact pot (money is neither created nor lost).
+     * Run-it-twice: splits a (side)pot into SIDE-A and SIDE-B halves. Works in
+     * integer cents (the game's minimum chip is 0.01; the whole economy rounds
+     * to the cent via floatClean/setStack). House rule: if the cent total is
+     * odd, BOTH sides get the floor and the indivisible cent is NOT distributed
+     * — it stays unpaid and the bote_sobrante recalculation after both boards
+     * carries it into the next hand. Invariant: sideA + sideB + remainder ==
+     * exact pot (money is neither created nor lost).
      *
      * @return {@code [sideA_chips, sideB_chips]}
      */
@@ -13997,8 +14277,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 java.util.Arrays.asList(e.getValue())));
                     }
                 }
-                java.util.List<UnlockChainWire.RespItem> resp =
-                        requestRemoteUnlockChain(h, ph, unlockPhase, reqItems);
+                java.util.List<UnlockChainWire.RespItem> resp
+                        = requestRemoteUnlockChain(h, ph, unlockPhase, reqItems);
                 if (resp != null) {
                     java.util.Set<String> covered = new java.util.HashSet<>();
                     for (UnlockChainWire.RespItem ri : resp) {
@@ -15444,7 +15724,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         //     against plaintext (peer FORFEITs on mismatch — a cheat attempt). The
         //     host is caught the same way if it tampers with the plaintext but
         //     leaves sigs intact: the decryption won't match.
-
         String hostNick = GameFrame.getInstance().getNick_local();
 
         // Collect (sraKey, sig) per nick. Self+bots are signed by the host;
@@ -15453,7 +15732,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         HashMap<String, String> nick2sig = new HashMap<>();
 
         for (Player p : resisten) {
-            if (p.isExit()) continue;
+            if (p.isExit()) {
+                continue;
+            }
             String nick = p.getNickname();
             boolean isHost = nick.equals(hostNick);
             Participant part = GameFrame.getInstance().getParticipantes().get(nick);
@@ -15821,12 +16102,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 mv_tabla.append("\n(MV) ").append(gridBorderLine('┌', '┬', '┐', mv_cols))
                         .append("\n(MV) ").append(gridRowLine(
-                                String.format("%-" + mv_jugada_w + "s", jugada_lbl),
-                                String.format("%-" + mv_nick_w + "s", "NICK"),
-                                String.format("%" + mv_pct_w + "s", gana_lbl),
-                                String.format("%" + mv_pct_w + "s", pierde_lbl),
-                                String.format("%" + mv_pct_w + "s", empata_lbl),
-                                String.format("%" + mv_pct_w + "s", loki_lbl)))
+                        String.format("%-" + mv_jugada_w + "s", jugada_lbl),
+                        String.format("%-" + mv_nick_w + "s", "NICK"),
+                        String.format("%" + mv_pct_w + "s", gana_lbl),
+                        String.format("%" + mv_pct_w + "s", pierde_lbl),
+                        String.format("%" + mv_pct_w + "s", empata_lbl),
+                        String.format("%" + mv_pct_w + "s", loki_lbl)))
                         .append("\n(MV) ").append(gridBorderLine('├', '┼', '┤', mv_cols));
 
                 String mv_inner_sep = "\n(MV) " + gridBorderLine('├', '┼', '┤', mv_cols);
@@ -15907,9 +16188,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Identity: seed the per-hand H_t chain from the three pieces every peer
-     * already has after MEGAPACKET — the HAND_ID from the host, the active_crypto_ring
-     * nicks and the cascaded deck. Idempotent: if any of them is missing the chain is
-     * set to null so downstream absorb calls become no-ops (no consensus this hand).
+     * already has after MEGAPACKET — the HAND_ID from the host, the
+     * active_crypto_ring nicks and the cascaded deck. Idempotent: if any of
+     * them is missing the chain is set to null so downstream absorb calls
+     * become no-ops (no consensus this hand).
      */
     private void initHandStateChain() {
         if (this.current_hand_id == null
@@ -15963,9 +16245,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Recovery: writes the 16-byte HAND_ID (base64) onto the
-     * current hand's SQL row. Best-effort; failures are logged but never fatal.
-     * No-op when sqlite_id_hand isn't set yet (NUEVA_MANO ordering edge case).
+     * Recovery: writes the 16-byte HAND_ID (base64) onto the current hand's SQL
+     * row. Best-effort; failures are logged but never fatal. No-op when
+     * sqlite_id_hand isn't set yet (NUEVA_MANO ordering edge case).
      */
     private void sqlUpdateHandHandId(byte[] handId) {
         if (handId == null || this.sqlite_id_hand <= 0) {
@@ -15985,14 +16267,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * ZERO-TRUST RECOVER: reads the base64 HAND_ID of this game's most recent hand
-     * from the LOCAL SQLite. The client persisted this value during the live hand
-     * (sqlUpdateHandHandId; it originally came from the host's MEGAPACKET), so it is
-     * a self-owned integrity value used to re-anchor the H_t chain on recovery
-     * WITHOUT trusting the map the host serves. A hostile host could otherwise omit
-     * hand_id_b64 to leave the chain null and skip verification of the client's own
-     * replayed action. Returns null when the hand carries no HAND_ID (legacy, no
-     * identity) or on error, in which case the chain stays null (degraded legacy mode).
+     * ZERO-TRUST RECOVER: reads the base64 HAND_ID of this game's most recent
+     * hand from the LOCAL SQLite. The client persisted this value during the
+     * live hand (sqlUpdateHandHandId; it originally came from the host's
+     * MEGAPACKET), so it is a self-owned integrity value used to re-anchor the
+     * H_t chain on recovery WITHOUT trusting the map the host serves. A hostile
+     * host could otherwise omit hand_id_b64 to leave the chain null and skip
+     * verification of the client's own replayed action. Returns null when the
+     * hand carries no HAND_ID (legacy, no identity) or on error, in which case
+     * the chain stays null (degraded legacy mode).
      */
     private String sqlRecoverLocalHandIdB64() {
         synchronized (GameFrame.SQL_LOCK) {
@@ -16013,33 +16296,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Translate the in-memory Java action enum into the wire enum the spec defines
-     * (§4.3). Java collapses CALL into CHECK and RAISE into BET (the bet amount
-     * differentiates them); we keep that collapse on the wire side too. What matters
-     * is that every peer maps the same Java decision to the same wire value, so H_t
-     * converges across the table.
+     * Translate the in-memory Java action enum into the wire enum the spec
+     * defines (§4.3). Java collapses CALL into CHECK and RAISE into BET (the
+     * bet amount differentiates them); we keep that collapse on the wire side
+     * too. What matters is that every peer maps the same Java decision to the
+     * same wire value, so H_t converges across the table.
      */
     private static int mapJavaActionToWire(int javaDecision) {
         switch (javaDecision) {
-            case Player.FOLD:  return CanonicalActionRecord.ACTION_FOLD;
-            case Player.CHECK: return CanonicalActionRecord.ACTION_CHECK;
-            case Player.BET:   return CanonicalActionRecord.ACTION_BET;
-            case Player.ALLIN: return CanonicalActionRecord.ACTION_ALLIN;
+            case Player.FOLD:
+                return CanonicalActionRecord.ACTION_FOLD;
+            case Player.CHECK:
+                return CanonicalActionRecord.ACTION_CHECK;
+            case Player.BET:
+                return CanonicalActionRecord.ACTION_BET;
+            case Player.ALLIN:
+                return CanonicalActionRecord.ACTION_ALLIN;
             default:
                 throw new IllegalArgumentException("Unmappable Java decision: " + javaDecision);
         }
     }
 
-    /** Java streets are 1-based (PREFLOP=1..SHOWDOWN=5), wire is 0-based. */
+    /**
+     * Java streets are 1-based (PREFLOP=1..SHOWDOWN=5), wire is 0-based.
+     */
     private static int mapJavaStreetToWire(int javaStreet) {
         return javaStreet - 1;
     }
 
     /**
-     * Returns {@code true} iff {@code nick} sits in the current hand's crypto-ring.
-     * Players who joined or warmed up after the deal (and therefore are not in
-     * {@code active_crypto_ring}) are excluded so their stray actions don't pollute
-     * the chain.
+     * Returns {@code true} iff {@code nick} sits in the current hand's
+     * crypto-ring. Players who joined or warmed up after the deal (and
+     * therefore are not in {@code active_crypto_ring}) are excluded so their
+     * stray actions don't pollute the chain.
      */
     private boolean isInActiveCryptoRing(String nick) {
         String[] ring = this.active_crypto_ring;
@@ -16055,11 +16344,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity: absorbs the wire (record, sig) bytes directly into the
-     * peer's H_t chain. Used by the action loop once the canonical record +
-     * signature are in hand. Invalid signatures are absorbed too (the receipt
-     * protocol catches divergence at hand close, §4.5). No-op when the chain
-     * is uninitialised (older host without HAND_ID, recovery paths, etc).
+     * Identity: absorbs the wire (record, sig) bytes directly into the peer's
+     * H_t chain. Used by the action loop once the canonical record + signature
+     * are in hand. Invalid signatures are absorbed too (the receipt protocol
+     * catches divergence at hand close, §4.5). No-op when the chain is
+     * uninitialised (older host without HAND_ID, recovery paths, etc).
      */
     private void absorbActionIntoChain(String playerNick, byte[] record, byte[] sig) {
         HandStateChain chain = this.hand_state_chain;
@@ -16106,15 +16395,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity: predicts the post-action total bet (in cents) for the
-     * player about to act, WITHOUT waiting for async setDecision side-effects.
+     * Identity: predicts the post-action total bet (in cents) for the player
+     * about to act, WITHOUT waiting for async setDecision side-effects.
      *
      * <ul>
-     *   <li>FOLD → 0 (no money moves)</li>
-     *   <li>CHECK → {@code apuesta_actual} (covers true check and call)</li>
-     *   <li>BET → absolute target supplied by the local UI / bot logic</li>
-     *   <li>ALLIN → {@code player.bet + player.stack} (allin moves stack into bet,
-     *       so the sum is invariant pre/post-action)</li>
+     * <li>FOLD → 0 (no money moves)</li>
+     * <li>CHECK → {@code apuesta_actual} (covers true check and call)</li>
+     * <li>BET → absolute target supplied by the local UI / bot logic</li>
+     * <li>ALLIN → {@code player.bet + player.stack} (allin moves stack into
+     * bet, so the sum is invariant pre/post-action)</li>
      * </ul>
      */
     private long predictPostActionBetCents(int javaDecision, Object originalActionBet, Player player) {
@@ -16127,18 +16416,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity / anti-forgery (PURE and testable): the amount in cents that an action
-     * record's AMOUNT_CENTS MUST carry, derived ONLY from the decision and the
-     * player's PRE-action state. This is exactly the formula the SIGNER uses
-     * (buildLocalActionRecordAndSig via predictPostActionBetCents), so any peer
-     * replaying the same action sequence has identical pre-action state and gets an
-     * identical result. The receiver recomputes it to BIND the signed amount to the
-     * action actually played (partes[4]/partes[5]): a modified client signing an
-     * amount different from what it plays doesn't slip through.
+     * Identity / anti-forgery (PURE and testable): the amount in cents that an
+     * action record's AMOUNT_CENTS MUST carry, derived ONLY from the decision
+     * and the player's PRE-action state. This is exactly the formula the SIGNER
+     * uses (buildLocalActionRecordAndSig via predictPostActionBetCents), so any
+     * peer replaying the same action sequence has identical pre-action state
+     * and gets an identical result. The receiver recomputes it to BIND the
+     * signed amount to the action actually played (partes[4]/partes[5]): a
+     * modified client signing an amount different from what it plays doesn't
+     * slip through.
      *
      * FOLD -> 0; CHECK/CALL -> apuesta_actual; BET -> absolute target (== wire
-     * partes[5]); ALLIN -> bet + stack (pre/post invariant: all-in moves the ENTIRE
-     * stack into the bet).
+     * partes[5]); ALLIN -> bet + stack (pre/post invariant: all-in moves the
+     * ENTIRE stack into the bet).
      */
     static long expectedActionAmountCents(int javaDecision, double betAbsoluteTarget,
             double playerBet, double playerStack, double apuestaActual) {
@@ -16165,8 +16455,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * {@link LocalPlayer}: calls must fit the remaining stack, raises must be
      * full raises, and a partial all-in is represented by {@link Player#ALLIN}.
      *
-     * <p>The caller converts a {@code false} result into the existing
-     * unverified synthetic FOLD path, so no untrusted amount reaches
+     * <p>
+     * The caller converts a {@code false} result into the existing unverified
+     * synthetic FOLD path, so no untrusted amount reaches
      * {@code RemotePlayer.setBet}. All values are compared at the canonical
      * cent resolution used by the action chain.</p>
      */
@@ -16241,14 +16532,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * Identity / anti-forgery (PURE and testable): true IFF the signed record
      * FAITHFULLY represents the action actually played, binding both its TYPE
      * (ACTION_TYPE) and its AMOUNT (AMOUNT_CENTS). Type is bound via
-     * {@link #mapJavaActionToWire} (pure wire value, zero state dependency), so two
-     * decisions with the same amount (e.g. FOLD and a CHECK with apuesta_actual=0)
-     * aren't confused; amount via {@link #expectedActionAmountCents}. Can throw a
-     * RuntimeException on an unmappable decision or an unrepresentable (NaN/Inf) bet
-     * amount: a legitimate action never produces one, and the caller treats it as
-     * forgery (synth-fold). {@code record} must already have RECORD_BYTES length
-     * (guaranteed by the caller). {@code betObj} is the plaintext wire bet (a Double
-     * for BET, ignored otherwise).
+     * {@link #mapJavaActionToWire} (pure wire value, zero state dependency), so
+     * two decisions with the same amount (e.g. FOLD and a CHECK with
+     * apuesta_actual=0) aren't confused; amount via
+     * {@link #expectedActionAmountCents}. Can throw a RuntimeException on an
+     * unmappable decision or an unrepresentable (NaN/Inf) bet amount: a
+     * legitimate action never produces one, and the caller treats it as forgery
+     * (synth-fold). {@code record} must already have RECORD_BYTES length
+     * (guaranteed by the caller). {@code betObj} is the plaintext wire bet (a
+     * Double for BET, ignored otherwise).
      */
     static boolean signedRecordBindsToAction(byte[] record, int javaDecision, Object betObj,
             double playerBet, double playerStack, double apuestaActual,
@@ -16281,21 +16573,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity: resolves the Ed25519 raw pubkey to verify an action's
-     * signature against, applying the §10 consolidated receiver rule:
+     * Identity: resolves the Ed25519 raw pubkey to verify an action's signature
+     * against, applying the §10 consolidated receiver rule:
      *
      * <ul>
-     *   <li>voluntary=0 (host auto-fold per §4.5) → host's pubkey</li>
-     *   <li>actor is a bot (Participant.isCpu()) → host's pubkey (§10)</li>
-     *   <li>otherwise (voluntary human action) → actor's pubkey</li>
+     * <li>voluntary=0 (host auto-fold per §4.5) → host's pubkey</li>
+     * <li>actor is a bot (Participant.isCpu()) → host's pubkey (§10)</li>
+     * <li>otherwise (voluntary human action) → actor's pubkey</li>
      * </ul>
      *
-     * Host's pubkey resolution depends on which side we are on:
-     *   - partida_local=true (this process IS the host): IdentityManager.getInstance().getPublicKey().
-     *   - partida_local=false (this process is a client): participantes.get(server_nick).getIdentity_pubkey().
+     * Host's pubkey resolution depends on which side we are on: -
+     * partida_local=true (this process IS the host):
+     * IdentityManager.getInstance().getPublicKey(). - partida_local=false (this
+     * process is a client):
+     * participantes.get(server_nick).getIdentity_pubkey().
      *
-     * Returns null when the requested pubkey is not yet available (TOFU race during
-     * a fresh JOIN). Caller treats null as "verification skipped" and logs.
+     * Returns null when the requested pubkey is not yet available (TOFU race
+     * during a fresh JOIN). Caller treats null as "verification skipped" and
+     * logs.
      */
     private byte[] resolveActionSignerPubkey(String actorNick, boolean isVoluntary) {
         boolean useHostKey = !isVoluntary;
@@ -16323,13 +16618,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * PHASE A.1 (showdown sig): resolves the expected signer's pubkey for a
-     * SHOWCARDS / RESP_SHOWDOWN_KEY for nick. Signer identity depends on whether
-     * nick is a human or a bot:
+     * SHOWCARDS / RESP_SHOWDOWN_KEY for nick. Signer identity depends on
+     * whether nick is a human or a bot:
      *
-     *   - Human (local or remote): signs with their own Ed25519 privkey, stored in
-     *     Participant.identity_pubkey (populated via TOFU/JOIN).
-     *   - Bot: the host signs on its behalf (bots live in the host process with no
-     *     identity of their own), so the verifier pubkey is the host's.
+     * - Human (local or remote): signs with their own Ed25519 privkey, stored
+     * in Participant.identity_pubkey (populated via TOFU/JOIN). - Bot: the host
+     * signs on its behalf (bots live in the host process with no identity of
+     * their own), so the verifier pubkey is the host's.
      *
      * Returns null if the pubkey isn't available (TOFU race / hand without
      * identity). The caller treats null as "cannot verify" — rejects.
@@ -16356,10 +16651,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Consensus: writes the in-game registro line for a
-     * per-action signature failure so the user notices in real time. JUL has the
-     * full SEVERE detail already; this line is the human-visible warning. Runs
-     * on the GUI thread to keep the registro's append model consistent with master.
+     * Consensus: writes the in-game registro line for a per-action signature
+     * failure so the user notices in real time. JUL has the full SEVERE detail
+     * already; this line is the human-visible warning. Runs on the GUI thread
+     * to keep the registro's append model consistent with master.
      */
     private void printInvalidActionSigToRegistro(String actorNick) {
         final String nick = actorNick;
@@ -16376,16 +16671,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity: builds and signs a canonical action record for an
-     * action originating LOCALLY in this process — host's own UI, a bot (host drives
-     * it), an auto-fold (host fabricates on behalf of a timed-out / EXITed peer), or
-     * a client's own UI when partida_local is false. Returns null when the chain is
-     * uninitialised or IdentityManager isn't ready (the wire then carries "*"
-     * placeholders so the receiver skips verification gracefully).
+     * Identity: builds and signs a canonical action record for an action
+     * originating LOCALLY in this process — host's own UI, a bot (host drives
+     * it), an auto-fold (host fabricates on behalf of a timed-out / EXITed
+     * peer), or a client's own UI when partida_local is false. Returns null
+     * when the chain is uninitialised or IdentityManager isn't ready (the wire
+     * then carries "*" placeholders so the receiver skips verification
+     * gracefully).
      *
-     * <p>{@code isVoluntary} is true for genuine decisions, false for host-fabricated
-     * auto-folds (§4.5). Bot actions are voluntary=true but signed by the host's
-     * privkey — receivers identify them by Participant.isCpu() (§10).
+     * <p>
+     * {@code isVoluntary} is true for genuine decisions, false for
+     * host-fabricated auto-folds (§4.5). Bot actions are voluntary=true but
+     * signed by the host's privkey — receivers identify them by
+     * Participant.isCpu() (§10).
      */
     private Object[] buildLocalActionRecordAndSig(String playerNick, int javaDecision,
             Object originalActionBet, Player player, boolean isVoluntary) {
@@ -16422,13 +16720,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Identity: builds the canonical 92-byte community-reveal
-     * record and signs it with the host's privkey. Called only on the host
-     * (partida_local) right after the per-recipient PIECE cascade completes,
-     * before broadcasting the announce wire. Returns null when the chain isn't
-     * ready (legacy interop, recovery without chain restore, etc.) — the caller
-     * skips broadcasting the announce in that case and the chain stays in
-     * degraded mode for this hand.
+     * Identity: builds the canonical 92-byte community-reveal record and signs
+     * it with the host's privkey. Called only on the host (partida_local) right
+     * after the per-recipient PIECE cascade completes, before broadcasting the
+     * announce wire. Returns null when the chain isn't ready (legacy interop,
+     * recovery without chain restore, etc.) — the caller skips broadcasting the
+     * announce in that case and the chain stays in degraded mode for this hand.
      */
     private Object[] buildCommunityRevealRecordAndSig(int wireStreet, int[] cards) {
         HandStateChain chain = this.hand_state_chain;
@@ -16666,13 +16963,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Telemetry: builds a TelemetryFrame with current metrics for ALL Participants
-     * (server ping/pong latencies + cumulative reconnection_count) and broadcasts it
-     * to every client via "GAME#id#TELEMETRY#payload".
+     * Telemetry: builds a TelemetryFrame with current metrics for ALL
+     * Participants (server ping/pong latencies + cumulative reconnection_count)
+     * and broadcasts it to every client via "GAME#id#TELEMETRY#payload".
      *
      * Only callable once the game has started; a silent no-op if Crupier or
-     * GameFrame aren't ready. Starts no thread of its own — the caller decides the
-     * frequency (typically every PING_INTERVAL_MS from a Timer or external thread).
+     * GameFrame aren't ready. Starts no thread of its own — the caller decides
+     * the frequency (typically every PING_INTERVAL_MS from a Timer or external
+     * thread).
      *
      * Idempotent: the outgoing payload is a fresh snapshot of current state; it
      * mutates nothing.
@@ -16682,8 +16980,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (GameFrame.getInstance() == null) {
                 return;
             }
-            java.util.Map<String, com.tonikelope.coronapoker.Participant> parts =
-                    GameFrame.getInstance().getParticipantes();
+            java.util.Map<String, com.tonikelope.coronapoker.Participant> parts
+                    = GameFrame.getInstance().getParticipantes();
             if (parts == null || parts.isEmpty()) {
                 return;
             }
@@ -16731,10 +17029,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Telemetry: applies a TelemetryFrame to the local Players. Used by:
-     *   - the host's broadcastTelemetryFrame() (self-apply, since the host doesn't
-     *     receive its own broadcast).
-     *   - the client's "TELEMETRY" case (on receiving the host's broadcast).
+     * Telemetry: applies a TelemetryFrame to the local Players. Used by: - the
+     * host's broadcastTelemetryFrame() (self-apply, since the host doesn't
+     * receive its own broadcast). - the client's "TELEMETRY" case (on receiving
+     * the host's broadcast).
      */
     public void applyTelemetryFrameLocally(Helpers.TelemetryFrame frame) {
         if (frame == null || frame.perPeer == null) {
@@ -17123,9 +17421,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Returns the first candidate after/before {@code pivot} in a persisted Base64 seat ring.
-     * The search is bounded to one full turn and fails closed on malformed or incomplete data.
-     * Package-private for deterministic regression tests.
+     * Returns the first candidate after/before {@code pivot} in a persisted
+     * Base64 seat ring. The search is bounded to one full turn and fails closed
+     * on malformed or incomplete data. Package-private for deterministic
+     * regression tests.
      */
     static String storedRingNeighbor(String storedSeats, String pivot,
             java.util.Set<String> candidates, boolean forward) {
@@ -17390,17 +17689,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * ZERO-TRUST RECOVER (PURE and testable): during recovery replay, the client
-     * reproduces its OWN actions from the copy the HOST serves and, if they carry no
-     * record, RE-SIGNS them with its own key. A hostile host could therefore forge
-     * the victim's decision/amount, later signed clean into H_t by the victim
-     * itself. This function binds the replayed plaintext (decision + amount) to its
-     * accompanying SIGNED record, independent of reconstructed state: TYPE (always),
-     * BET amount (partes[2]; CHECK/ALLIN amounts are fixed by game rules rather than
-     * the record, so they aren't forgeable here), PLAYER_ID and HAND_ID. Returns
-     * false (= forgery) on any mismatch or an unrepresentable record/decision. On
-     * false, the caller synthesizes a FOLD instead of replaying/re-signing the
-     * forged action.
+     * ZERO-TRUST RECOVER (PURE and testable): during recovery replay, the
+     * client reproduces its OWN actions from the copy the HOST serves and, if
+     * they carry no record, RE-SIGNS them with its own key. A hostile host
+     * could therefore forge the victim's decision/amount, later signed clean
+     * into H_t by the victim itself. This function binds the replayed plaintext
+     * (decision + amount) to its accompanying SIGNED record, independent of
+     * reconstructed state: TYPE (always), BET amount (partes[2]; CHECK/ALLIN
+     * amounts are fixed by game rules rather than the record, so they aren't
+     * forgeable here), PLAYER_ID and HAND_ID. Returns false (= forgery) on any
+     * mismatch or an unrepresentable record/decision. On false, the caller
+     * synthesizes a FOLD instead of replaying/re-signing the forged action.
      */
     static boolean recoveredActionBindsToRecord(byte[] record, int decision, Object betObj, String nick,
             byte[] expectedHandId) {
@@ -17432,9 +17731,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     /**
      * Strict recovery binding for a reconstructed pre-action state. The legacy
      * overload above remains state-free for old forensic callers, but the live
-     * recovery boundary must bind AMOUNT_CENTS for every decision, not only BET:
-     * CHECK/CALL records carry {@code apuesta_actual} and ALLIN records carry the
-     * actor's complete pre-action bet plus stack.
+     * recovery boundary must bind AMOUNT_CENTS for every decision, not only
+     * BET: CHECK/CALL records carry {@code apuesta_actual} and ALLIN records
+     * carry the actor's complete pre-action bet plus stack.
      */
     static boolean recoveredActionBindsToRecordWithState(byte[] record, int decision,
             Object betObj, String nick, byte[] expectedHandId,
@@ -17720,11 +18019,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Defensive cleanup: dispose the recovery dragon dialog (if open) and clear the
-     * sincronizando_mano flag. Idempotent — calling it when nothing is pending is a
-     * no-op. Used by early-exit paths (cancelarManoYDevolverApuestas, GAME OVER) so a
-     * dragon left behind by an aborted recovery does not stay on screen forever and
-     * does not keep suppressing cinematics/sounds via the sincronizando_mano gate.
+     * Defensive cleanup: dispose the recovery dragon dialog (if open) and clear
+     * the sincronizando_mano flag. Idempotent — calling it when nothing is
+     * pending is a no-op. Used by early-exit paths
+     * (cancelarManoYDevolverApuestas, GAME OVER) so a dragon left behind by an
+     * aborted recovery does not stay on screen forever and does not keep
+     * suppressing cinematics/sounds via the sincronizando_mano gate.
      */
     private void cerrarRecoverDialogYSync() {
         boolean wasSyncing = this.isSincronizando_mano();
@@ -17799,17 +18099,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final int SEAT_COLLECT_ROSTER_CHANGED = 2; // a contributor left/was expelled — restart the draw
 
     /**
-     * HOST side of the verifiable seat draw (commit-reveal randomness beacon). Every human peer
-     * (remote clients + the host itself) contributes a secret reveal; all commitments are fixed
-     * before any reveal is exchanged, and the seating is a deterministic function of the combined
-     * reveals ({@link SeatDraw}). The host cannot hand-pick the seats: its own reveal is locked in
-     * the commit phase and every client re-derives the identical order from the same reveals. Bots
-     * hold no identity key, so they contribute no entropy — they are simply placed by the resulting
-     * permutation, which also fixes the first dealer/blinds (derived from its head).
+     * HOST side of the verifiable seat draw (commit-reveal randomness beacon).
+     * Every human peer (remote clients + the host itself) contributes a secret
+     * reveal; all commitments are fixed before any reveal is exchanged, and the
+     * seating is a deterministic function of the combined reveals
+     * ({@link SeatDraw}). The host cannot hand-pick the seats: its own reveal
+     * is locked in the commit phase and every client re-derives the identical
+     * order from the same reveals. Bots hold no identity key, so they
+     * contribute no entropy — they are simply placed by the resulting
+     * permutation, which also fixes the first dealer/blinds (derived from its
+     * head).
      *
-     * <p>If a contributor drops or withholds mid-draw it is pruned/expelled and the round restarts
-     * with a fresh nonce over the reduced roster (bounded). On unrecoverable failure returns null,
-     * which the caller treats as a fatal start error, exactly like a never-arriving legacy SEATS.
+     * <p>
+     * If a contributor drops or withholds mid-draw it is pruned/expelled and
+     * the round restarts with a fresh nonce over the reduced roster (bounded).
+     * On unrecoverable failure returns null, which the caller treats as a fatal
+     * start error, exactly like a never-arriving legacy SEATS.
      */
     private String[] hostSeatDrawCommitReveal() {
 
@@ -17962,17 +18267,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * HOST helper: drains {@code received_commands} collecting {@code cmdName} responses for the
-     * current draw, one per still-pending nick, until every pending nick has answered. {@code accept}
-     * parses/verifies one matching command and returns the nick it consumed (removed from
-     * {@code pending}), or "" to drop it (malformed, stale nonce, unexpected nick, failed
-     * verification — never re-queued, so a bad message can't livelock the loop). Commands of other
-     * types are re-queued untouched.
+     * HOST helper: drains {@code received_commands} collecting {@code cmdName}
+     * responses for the current draw, one per still-pending nick, until every
+     * pending nick has answered. {@code accept} parses/verifies one matching
+     * command and returns the nick it consumed (removed from {@code pending}),
+     * or "" to drop it (malformed, stale nonce, unexpected nick, failed
+     * verification — never re-queued, so a bad message can't livelock the
+     * loop). Commands of other types are re-queued untouched.
      *
-     * <p>Pause-aware progress deadline: while the table is paused the clock freezes. A pending peer
-     * that genuinely left (isExit) prunes the roster; one that stays alive but withholds past the
-     * deadline is expelled. Either way the method returns ROSTER_CHANGED so the caller restarts the
-     * draw over the reduced roster. Returns ABORT if the transmission dies, DONE when pending empties.
+     * <p>
+     * Pause-aware progress deadline: while the table is paused the clock
+     * freezes. A pending peer that genuinely left (isExit) prunes the roster;
+     * one that stays alive but withholds past the deadline is expelled. Either
+     * way the method returns ROSTER_CHANGED so the caller restarts the draw
+     * over the reduced roster. Returns ABORT if the transmission dies, DONE
+     * when pending empties.
      */
     private int collectSeatResponses(String cmdName, HashSet<String> pending,
             java.util.function.Function<String[], String> accept) {
@@ -18071,13 +18380,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * CLIENT side of the seat draw. Waits for either the verifiable commit-reveal round
-     * (SEAT_DRAW_BEGIN -> SEAT_COMMITS -> SEAT_REVEALS) or, on the host's RECOVER path, a legacy
-     * SEATS broadcast. In the commit-reveal round this client contributes its own secret, checks its
-     * commit and reveal survive untouched in the host's relayed bundles, verifies every contributor's
-     * reveal against its commitment, and derives the seating locally — never trusting the host's word
-     * for the order. Returns null (fatal start error) if the transmission dies or the host is caught
-     * tampering.
+     * CLIENT side of the seat draw. Waits for either the verifiable
+     * commit-reveal round (SEAT_DRAW_BEGIN -> SEAT_COMMITS -> SEAT_REVEALS) or,
+     * on the host's RECOVER path, a legacy SEATS broadcast. In the
+     * commit-reveal round this client contributes its own secret, checks its
+     * commit and reveal survive untouched in the host's relayed bundles,
+     * verifies every contributor's reveal against its commitment, and derives
+     * the seating locally — never trusting the host's word for the order.
+     * Returns null (fatal start error) if the transmission dies or the host is
+     * caught tampering.
      */
     private String[] clientSeatDraw() {
 
@@ -19145,175 +19456,174 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 });
                                 break;
 
-                            case "POTCARDS":
-                                // Atomic showdown. Per-entry format (5 fields):
-                                //   #nickB64#c1#c2#sraKeyB64#sigB64
-                                //
-                                // Spectators/warming up: apply plaintext (c1/c2) unverified —
-                                // they have no single_locked_pocket_cards. If a crypto-ring
-                                // member detects cheating, lockdown fires and everyone stops.
-                                //
-                                // Crypto-ring: verifies the Ed25519 sig (lockdown on fail ->
-                                // hostile host), then decrypts single_locked_pocket_cards with
-                                // the sraKey and compares against plaintext. Match: applied.
-                                // Mismatch: that peer FORFEITs (its cards aren't applied ->
-                                // showdown leaves them face-down).
-                                {
-                                    int total = (partes.length - 3) / 5;
-                                    boolean lockdownTriggered = false;
-                                    for (int i = 0; i < total && !lockdownTriggered; i++) {
-                                        try {
-                                            int base = 3 + 5 * i;
-                                            String nick = new String(Base64.getDecoder().decode(partes[base]), "UTF-8");
-                                            Player jugador = nick2player.get(nick);
-                                            if (jugador == null
-                                                    || jugador.getNickname().equals(localNick)
-                                                    || jugador.isExit()) {
-                                                continue;
-                                            }
-                                            String c1_str = partes[base + 1];
-                                            String c2_str = partes[base + 2];
-                                            String sraKeyB64 = partes[base + 3];
-                                            String sigB64 = partes[base + 4];
-                                            if (c1_str == null || c1_str.length() < 3 || !c1_str.contains("_")
-                                                    || c2_str == null || c2_str.length() < 3 || !c2_str.contains("_")) {
-                                                continue;
-                                            }
-
-                                            if (iAmCalentando) {
-                                                // Spectator: apply plaintext directly.
-                                                String[] carta1 = c1_str.split("_");
-                                                String[] carta2 = c2_str.split("_");
-                                                jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
-                                                jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
-                                                continue;
-                                            }
-
-                                            // Zero-trust violation mapping:
-                                            //   sig/key missing, bad lengths, sig verify FAILED,
-                                            //   Set mismatch (different cards) -> LOCKDOWN (we stop).
-                                            //   sig OK but SRA doesn't resolve -> peer FORFEIT + popup.
-                                            //   Order swap (same cards) -> silent (benign bug).
-                                            boolean keyProvided = (sraKeyB64 != null && !sraKeyB64.equals("*"));
-                                            boolean sigProvided = (sigB64 != null && !sigB64.equals("*"));
-                                            if (!keyProvided || !sigProvided) {
-                                                LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS for {0} arrived WITHOUT sig/key — host stripped. Lockdown.",
-                                                        nick);
-                                                triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
-                                                lockdownTriggered = true;
-                                                break;
-                                            }
-
-                                            byte[] sraKey = Base64.getDecoder().decode(sraKeyB64);
-                                            byte[] sig = Base64.getDecoder().decode(sigB64);
-                                            if (sraKey.length != 32 || sig.length != 64) {
-                                                LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS for {0} has bad lengths — malformed host wire. Lockdown.",
-                                                        nick);
-                                                triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
-                                                lockdownTriggered = true;
-                                                break;
-                                            }
-                                            byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
-                                            if (signerPubkey == null || this.current_hand_id == null) {
-                                                LOGGER.log(Level.WARNING,
-                                                        "POTCARDS for {0}: signer pubkey or hand_id not resolved yet — entry skipped (no lockdown, possible TOFU race)",
-                                                        nick);
-                                                continue;
-                                            }
-                                            if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, sraKey, sig)) {
-                                                LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS sig verify FAILED for {0} — host substituting key. Lockdown.",
-                                                        nick);
-                                                triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
-                                                lockdownTriggered = true;
-                                                break;
-                                            }
-
-                                            // Sig OK. Decrypt and populate holeCards from the SRA. SRA
-                                            // decryption is the ONLY source of truth for peers with a
-                                            // local cipher (active ones). Plaintext is compared as a
-                                            // Set (not a tuple) to tolerate the host's UI reordering.
-                                            // Only a USABLE scalar is stored (see the SHOWCARDS twin):
-                                            // an unusable one blows up on inversion.
-                                            Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
-                                            if (pp != null && RistrettoSRA.isValidScalar(sraKey)) {
-                                                pp.setSra_unlock(sraKey);
-                                            }
-                                            byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
-                                            if (pocketCards == null || pocketCards.length != 64) {
-                                                // Spectator (warming up, no local cipher) -> trust the
-                                                // host's signed plaintext.
-                                                String[] carta1 = c1_str.split("_");
-                                                String[] carta2 = c2_str.split("_");
-                                                jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
-                                                jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
-                                                continue;
-                                            }
-                                            byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, sraKey);
-                                            byte[] cb1 = Arrays.copyOfRange(unlocked, 0, 32);
-                                            byte[] cb2 = Arrays.copyOfRange(unlocked, 32, 64);
-                                            int id1 = RistrettoSRA.resolveCardIndex(cb1);
-                                            int id2 = RistrettoSRA.resolveCardIndex(cb2);
-                                            if (id1 < 0 || id2 < 0) {
-                                                // §8 policy + the intent documented above ("peer FORFEIT"): sig OK
-                                                // but SRA doesn't resolve = an anomaly isolated to ONE peer (it
-                                                // signed a bad key: bug/corrupt client, indistinguishable from
-                                                // malice). Its cards are NOT applied (continue -> showdown leaves
-                                                // them face-down = forfeit) and we warn, instead of ending the game
-                                                // for EVERYONE. (The set-mismatch below, host LYING about the
-                                                // cards, is a lockdown.)
-                                                LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK but SRA does not resolve (ids={1},{2}). Malicious peer or bug -> FORFEIT (cards not applied) + warning.",
-                                                        new Object[]{nick, id1, id2});
-                                                try {
-                                                    GameFrame.getInstance().getRegistro().print(
-                                                            nick + " " + Translator.translate("zero_trust.peer_sra_corrupt_registro"));
-                                                } catch (Exception ignored) {
-                                                }
-                                                // §8 visibility with the right SUSPECT named: on the HOST it
-                                                // names the PEER (red + popup); on a client the host relayed
-                                                // the bad key.
-                                                if (GameFrame.getInstance().isPartida_local()) {
-                                                    warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
-                                                } else {
-                                                    warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
-                                                }
-                                                continue;
-                                            }
-
-                                            // Validate plaintext vs SRA-decrypt as a SET (not a tuple):
-                                            // pockets are interchangeable in Hold'em, so the host can
-                                            // legitimately reorder them for display. But if the CARDS
-                                            // are DIFFERENT -> real cheating -> LOCKDOWN.
-                                            String expected1 = Card.shortStringFromIndex(id1);
-                                            String expected2 = Card.shortStringFromIndex(id2);
-                                            java.util.Set<String> received = new java.util.HashSet<>(
-                                                    java.util.Arrays.asList(c1_str, c2_str));
-                                            java.util.Set<String> expected = new java.util.HashSet<>(
-                                                    java.util.Arrays.asList(expected1, expected2));
-                                            if (!received.equals(expected)) {
-                                                LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS plaintext for {0} ({1},{2}) disagrees with SRA-decrypt ({3},{4}). Host is lying. Lockdown.",
-                                                        new Object[]{nick, c1_str, c2_str, expected1, expected2});
-                                                triggerSecurityLockdown(Translator.translate("zero_trust.host_potcards_mismatch"));
-                                                lockdownTriggered = true;
-                                                break;
-                                            }
-
-                                            jugador.getHoleCard1().iniciarConValorNumerico(id1 + 1);
-                                            jugador.getHoleCard2().iniciarConValorNumerico(id2 + 1);
-                                            // Same reordering as the host (higher card on the left) for
-                                            // display consistency across peers.
-                                            jugador.ordenarCartas();
-                                        } catch (Exception ex) {
-                                            LOGGER.log(Level.WARNING, "Error processing POTCARDS entry " + i, ex);
+                            case "POTCARDS": // Atomic showdown. Per-entry format (5 fields):
+                            //   #nickB64#c1#c2#sraKeyB64#sigB64
+                            //
+                            // Spectators/warming up: apply plaintext (c1/c2) unverified —
+                            // they have no single_locked_pocket_cards. If a crypto-ring
+                            // member detects cheating, lockdown fires and everyone stops.
+                            //
+                            // Crypto-ring: verifies the Ed25519 sig (lockdown on fail ->
+                            // hostile host), then decrypts single_locked_pocket_cards with
+                            // the sraKey and compares against plaintext. Match: applied.
+                            // Mismatch: that peer FORFEITs (its cards aren't applied ->
+                            // showdown leaves them face-down).
+                            {
+                                int total = (partes.length - 3) / 5;
+                                boolean lockdownTriggered = false;
+                                for (int i = 0; i < total && !lockdownTriggered; i++) {
+                                    try {
+                                        int base = 3 + 5 * i;
+                                        String nick = new String(Base64.getDecoder().decode(partes[base]), "UTF-8");
+                                        Player jugador = nick2player.get(nick);
+                                        if (jugador == null
+                                                || jugador.getNickname().equals(localNick)
+                                                || jugador.isExit()) {
+                                            continue;
                                         }
+                                        String c1_str = partes[base + 1];
+                                        String c2_str = partes[base + 2];
+                                        String sraKeyB64 = partes[base + 3];
+                                        String sigB64 = partes[base + 4];
+                                        if (c1_str == null || c1_str.length() < 3 || !c1_str.contains("_")
+                                                || c2_str == null || c2_str.length() < 3 || !c2_str.contains("_")) {
+                                            continue;
+                                        }
+
+                                        if (iAmCalentando) {
+                                            // Spectator: apply plaintext directly.
+                                            String[] carta1 = c1_str.split("_");
+                                            String[] carta2 = c2_str.split("_");
+                                            jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
+                                            jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
+                                            continue;
+                                        }
+
+                                        // Zero-trust violation mapping:
+                                        //   sig/key missing, bad lengths, sig verify FAILED,
+                                        //   Set mismatch (different cards) -> LOCKDOWN (we stop).
+                                        //   sig OK but SRA doesn't resolve -> peer FORFEIT + popup.
+                                        //   Order swap (same cards) -> silent (benign bug).
+                                        boolean keyProvided = (sraKeyB64 != null && !sraKeyB64.equals("*"));
+                                        boolean sigProvided = (sigB64 != null && !sigB64.equals("*"));
+                                        if (!keyProvided || !sigProvided) {
+                                            LOGGER.log(Level.SEVERE,
+                                                    "ZERO-TRUST: POTCARDS for {0} arrived WITHOUT sig/key — host stripped. Lockdown.",
+                                                    nick);
+                                            triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                                            lockdownTriggered = true;
+                                            break;
+                                        }
+
+                                        byte[] sraKey = Base64.getDecoder().decode(sraKeyB64);
+                                        byte[] sig = Base64.getDecoder().decode(sigB64);
+                                        if (sraKey.length != 32 || sig.length != 64) {
+                                            LOGGER.log(Level.SEVERE,
+                                                    "ZERO-TRUST: POTCARDS for {0} has bad lengths — malformed host wire. Lockdown.",
+                                                    nick);
+                                            triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                                            lockdownTriggered = true;
+                                            break;
+                                        }
+                                        byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
+                                        if (signerPubkey == null || this.current_hand_id == null) {
+                                            LOGGER.log(Level.WARNING,
+                                                    "POTCARDS for {0}: signer pubkey or hand_id not resolved yet — entry skipped (no lockdown, possible TOFU race)",
+                                                    nick);
+                                            continue;
+                                        }
+                                        if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, sraKey, sig)) {
+                                            LOGGER.log(Level.SEVERE,
+                                                    "ZERO-TRUST: POTCARDS sig verify FAILED for {0} — host substituting key. Lockdown.",
+                                                    nick);
+                                            triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
+                                            lockdownTriggered = true;
+                                            break;
+                                        }
+
+                                        // Sig OK. Decrypt and populate holeCards from the SRA. SRA
+                                        // decryption is the ONLY source of truth for peers with a
+                                        // local cipher (active ones). Plaintext is compared as a
+                                        // Set (not a tuple) to tolerate the host's UI reordering.
+                                        // Only a USABLE scalar is stored (see the SHOWCARDS twin):
+                                        // an unusable one blows up on inversion.
+                                        Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
+                                        if (pp != null && RistrettoSRA.isValidScalar(sraKey)) {
+                                            pp.setSra_unlock(sraKey);
+                                        }
+                                        byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
+                                        if (pocketCards == null || pocketCards.length != 64) {
+                                            // Spectator (warming up, no local cipher) -> trust the
+                                            // host's signed plaintext.
+                                            String[] carta1 = c1_str.split("_");
+                                            String[] carta2 = c2_str.split("_");
+                                            jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
+                                            jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
+                                            continue;
+                                        }
+                                        byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, sraKey);
+                                        byte[] cb1 = Arrays.copyOfRange(unlocked, 0, 32);
+                                        byte[] cb2 = Arrays.copyOfRange(unlocked, 32, 64);
+                                        int id1 = RistrettoSRA.resolveCardIndex(cb1);
+                                        int id2 = RistrettoSRA.resolveCardIndex(cb2);
+                                        if (id1 < 0 || id2 < 0) {
+                                            // §8 policy + the intent documented above ("peer FORFEIT"): sig OK
+                                            // but SRA doesn't resolve = an anomaly isolated to ONE peer (it
+                                            // signed a bad key: bug/corrupt client, indistinguishable from
+                                            // malice). Its cards are NOT applied (continue -> showdown leaves
+                                            // them face-down = forfeit) and we warn, instead of ending the game
+                                            // for EVERYONE. (The set-mismatch below, host LYING about the
+                                            // cards, is a lockdown.)
+                                            LOGGER.log(Level.SEVERE,
+                                                    "ZERO-TRUST: POTCARDS for {0} — sig OK but SRA does not resolve (ids={1},{2}). Malicious peer or bug -> FORFEIT (cards not applied) + warning.",
+                                                    new Object[]{nick, id1, id2});
+                                            try {
+                                                GameFrame.getInstance().getRegistro().print(
+                                                        nick + " " + Translator.translate("zero_trust.peer_sra_corrupt_registro"));
+                                            } catch (Exception ignored) {
+                                            }
+                                            // §8 visibility with the right SUSPECT named: on the HOST it
+                                            // names the PEER (red + popup); on a client the host relayed
+                                            // the bad key.
+                                            if (GameFrame.getInstance().isPartida_local()) {
+                                                warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
+                                            } else {
+                                                warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                            }
+                                            continue;
+                                        }
+
+                                        // Validate plaintext vs SRA-decrypt as a SET (not a tuple):
+                                        // pockets are interchangeable in Hold'em, so the host can
+                                        // legitimately reorder them for display. But if the CARDS
+                                        // are DIFFERENT -> real cheating -> LOCKDOWN.
+                                        String expected1 = Card.shortStringFromIndex(id1);
+                                        String expected2 = Card.shortStringFromIndex(id2);
+                                        java.util.Set<String> received = new java.util.HashSet<>(
+                                                java.util.Arrays.asList(c1_str, c2_str));
+                                        java.util.Set<String> expected = new java.util.HashSet<>(
+                                                java.util.Arrays.asList(expected1, expected2));
+                                        if (!received.equals(expected)) {
+                                            LOGGER.log(Level.SEVERE,
+                                                    "ZERO-TRUST: POTCARDS plaintext for {0} ({1},{2}) disagrees with SRA-decrypt ({3},{4}). Host is lying. Lockdown.",
+                                                    new Object[]{nick, c1_str, c2_str, expected1, expected2});
+                                            triggerSecurityLockdown(Translator.translate("zero_trust.host_potcards_mismatch"));
+                                            lockdownTriggered = true;
+                                            break;
+                                        }
+
+                                        jugador.getHoleCard1().iniciarConValorNumerico(id1 + 1);
+                                        jugador.getHoleCard2().iniciarConValorNumerico(id2 + 1);
+                                        // Same reordering as the host (higher card on the left) for
+                                        // display consistency across peers.
+                                        jugador.ordenarCartas();
+                                    } catch (Exception ex) {
+                                        LOGGER.log(Level.WARNING, "Error processing POTCARDS entry " + i, ex);
                                     }
                                 }
-                                potcardsApplied = true;
-                                break;
+                            }
+                            potcardsApplied = true;
+                            break;
 
                             case "MISDEAL":
                                 String motivo = "";
@@ -19428,7 +19738,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // verification via resolveCardIndex on the receiver. A peer lying
                 // about its pocket key triggers lockdown — there's no plaintext to
                 // blindly accept.
-
                 if (destapar) {
                     // No batch uncover.wav here: each player's flip already plays its
                     // own uncover sound (both the animated and plain paths ALWAYS play
@@ -19594,18 +19903,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Decides, for one showdown-countdown tick, what to do with the bar. PURE and
-     * stateless (touches no fields, GUI, or network) so it can be tested in
+     * Decides, for one showdown-countdown tick, what to do with the bar. PURE
+     * and stateless (touches no fields, GUI, or network) so it can be tested in
      * isolation.
      *
-     * - IDLE:          game paused or transmission ended -> neither counted nor decremented.
-     * - DECREMENT:     nobody's reviewing a hand -> countdown decrements.
-     * - HOLD:          IWTSTH (request or handling) or a rabbit in progress -> frozen.
-     * - CLEAR_REQUEST: an IWTSTH request has gone too long without activating (lost
-     *                  round-trip) -> the caller releases iwtsthing_request and continues.
-     * - GIVE_UP:       frozen past the absolute cap -> force resume.
+     * - IDLE: game paused or transmission ended -> neither counted nor
+     * decremented. - DECREMENT: nobody's reviewing a hand -> countdown
+     * decrements. - HOLD: IWTSTH (request or handling) or a rabbit in progress
+     * -> frozen. - CLEAR_REQUEST: an IWTSTH request has gone too long without
+     * activating (lost round-trip) -> the caller releases iwtsthing_request and
+     * continues. - GIVE_UP: frozen past the absolute cap -> force resume.
      *
-     * vueltasBefore is the counter BEFORE this tick; the current tick counts +1.
+     * vueltasBefore is the counter BEFORE this tick; the current tick counts
+     * +1.
      */
     public static PauseTick decidePauseTick(boolean timbaPausada, boolean finTransmision,
             boolean iwtsthing, boolean iwtsthingRequest, boolean rabbitProcessing,
@@ -19690,10 +20000,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Early gate for SIDE-B.  {@code terminationPending} is deliberately included:
-     * finTransmision cannot raise its later flag while the RIT showdown owns the
-     * accounting lock, so waiting only for {@code finTransmision} loses the recovery
-     * race on local/bot-only tables.
+     * Early gate for SIDE-B. {@code terminationPending} is deliberately
+     * included: finTransmision cannot raise its later flag while the RIT
+     * showdown owns the accounting lock, so waiting only for
+     * {@code finTransmision} loses the recovery race on local/bot-only tables.
      */
     public static boolean shouldAbortRunItTwiceSideBDeal(boolean terminationPending, boolean finTransmision) {
         return terminationPending || finTransmision;
@@ -19895,10 +20205,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // - It's an All-in (destapar_resistencia = true)
                 // - The player is one of the pot's winners
                 // - It's the first player to act at showdown (pivote)
-                boolean mustShow = !GameFrame.IWTSTH_RULE ||
-                                   this.destapar_resistencia ||
-                                   isWinner ||
-                                   first_to_show;
+                boolean mustShow = !GameFrame.IWTSTH_RULE
+                        || this.destapar_resistencia
+                        || isWinner
+                        || first_to_show;
 
                 must_show.put(jugador_actual, mustShow);
 
@@ -20401,295 +20711,295 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     && this.rit_allin_street < Crupier.RIVER && resisten.size() >= 2) {
                                 resolverRunItTwiceShowdown(resisten);
                             } else {
-                            // Defensive: if the RIT vote was agreed but exits left <2
-                            // players involved, resolve the normal showdown and the
-                            // pot_label shouldn't tag any board.
-                            this.rit_pot_board_tag = null;
-                            switch (resisten.size()) {
-                                case 0:
-                                    // Math yes, GUI no.
-                                    awaitHandverifyBarrier();
-                                    procesarCartasResistencia(new ArrayList<Player>(), false);
+                                // Defensive: if the RIT vote was agreed but exits left <2
+                                // players involved, resolve the normal showdown and the
+                                // pot_label shouldn't tag any board.
+                                this.rit_pot_board_tag = null;
+                                switch (resisten.size()) {
+                                    case 0:
+                                        // Math yes, GUI no.
+                                        awaitHandverifyBarrier();
+                                        procesarCartasResistencia(new ArrayList<Player>(), false);
 
-                                    GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
-                                    Helpers.GUIRun(() -> {
-                                        setPotBackground(Color.RED);
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
-                                    });
-                                    GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0d);
-                                    // Nobody resists: the whole pot goes unclaimed and rolls into the
-                                    // next hand. It's ASSIGNED, like the two twin branches of this same
-                                    // switch (case 1 and default) and the run-it-twice path, because
-                                    // bote_total ALREADY carries the inherited carryover: the hand
-                                    // starts with bote_total = max(0, bote_sobrante) and bets add up
-                                    // from there. Accumulating would double-count it and CREATE chips,
-                                    // breaking the conservation invariant (sum of stacks + carryover ==
-                                    // sum of buy-ins) checked at the start of every hand.
-                                    //
-                                    // Left untouched when bets were ALREADY REFUNDED: that's the only
-                                    // path that zeroes the pot while deliberately keeping the carryover,
-                                    // so assigning here would wipe out the carryover inherited from the
-                                    // previous hand. This is checked instead of whether the hand was voided,
-                                    // because the voided flag is raised OUTSIDE this lock: this entire
-                                    // settlement can run between the flag being set and the refund, and
-                                    // skipping it there would leave the pot both unclaimed AND unassigned,
-                                    // with the refund later landing on an already-emptied pot. It's read
-                                    // HERE, not on entering settlement — the verification barrier above is
-                                    // called inside this same lock and can end up voiding the hand on the
-                                    // client (deliberately the only point where a late void cuts in before
-                                    // any chip moves), so the flag can change AFTER entry. Freezing it on
-                                    // entry would make this branch believe the money was still in the pot
-                                    // when it had already returned to the stacks, recording an empty pot as
-                                    // carryover and erasing the carryover inherited from the previous hand.
-                                    if (!this.apuestas_devueltas) {
-                                        this.bote_sobrante = this.bote_total;
-                                    }
-                                    ganadores = new HashMap<>();
-                                    for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-                                        carta.desenfocar();
-                                    }
-                                    break;
-                                case 1:
-                                    awaitHandverifyBarrier();
-                                    procesarCartasResistencia(new ArrayList<Player>(), false);
-
-                                    resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("ui.ganas_3") : Translator.translate("ui.gana_3"));
-                                    if (resisten.get(0) != GameFrame.getInstance().getLocalPlayer()) {
-                                        resisten.get(0).getHoleCard1().desenfocar();
-                                        resisten.get(0).getHoleCard2().desenfocar();
-                                    }
-                                    resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
-                                    this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
-                                    GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + " " + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
-                                    Helpers.GUIRun(() -> {
-                                        setPotBackground(Color.GREEN);
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
-                                    });
-                                    GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
-                                    this.bote_total = 0f;
-                                    this.bote_sobrante = 0f;
-                                    for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-                                        carta.desenfocar();
-                                    }
-                                    if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
-                                        GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(false);
-                                    }
-                                    if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
-                                        this.soundWinner(0, false);
-                                    }
-                                    ganadores = new HashMap<>();
-                                    ganadores.put(resisten.get(0), null);
-                                    this.sqlNewShowdown(resisten.get(0), null, true, true);
-                                    break;
-                                default:
-                                    // Everyone shows their cards and GUI updates
-                                    awaitHandverifyBarrier();
-                                    procesarCartasResistencia(resisten, false);
-                                    if (!this.destapar_resistencia) {
-                                        Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
-                                    }
-
-                                    if (this.bote.getSidePot() == null) {
-                                        jugadas = this.calcularJugadas(resisten);
-                                        ganadores = this.calcularGanadores(new HashMap<>(jugadas));
-                                        double[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
-                                        this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
-                                        ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
-                                        // Cards to dim: NOT dimmed here (settle) — deferred until
-                                        // after showdown's pass 2, to avoid leaking the dimmed back
-                                        // of still-face-down cards (see showdown()).
-                                        ArrayList<Card> diferir_dim = new ArrayList<>();
-                                        Player unganador = null;
-
-                                        for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
-                                            Player ganador = entry.getKey();
-                                            Hand jugada = entry.getValue();
-                                            ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
-                                            for (Card carta : cartas) {
-                                                if (!cartas_usadas_jugadas.contains(carta)) {
-                                                    cartas_usadas_jugadas.add(carta);
-                                                }
-                                            }
-                                            if (!cartas.contains(ganador.getHoleCard1())) {
-                                                diferir_dim.add(ganador.getHoleCard1());
-                                            }
-                                            if (!cartas.contains(ganador.getHoleCard2())) {
-                                                diferir_dim.add(ganador.getHoleCard2());
-                                            }
-                                            jugadas.remove(ganador);
-                                            ganador.pagar(cantidad_pagar_ganador[0], null);
-                                            this.bote_total -= cantidad_pagar_ganador[0];
-                                            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
-                                            unganador = ganador;
-                                            jugada_ganadora = jugada.getValue();
+                                        GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
+                                        Helpers.GUIRun(() -> {
+                                            setPotBackground(Color.RED);
+                                            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
+                                        });
+                                        GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, 0d);
+                                        // Nobody resists: the whole pot goes unclaimed and rolls into the
+                                        // next hand. It's ASSIGNED, like the two twin branches of this same
+                                        // switch (case 1 and default) and the run-it-twice path, because
+                                        // bote_total ALREADY carries the inherited carryover: the hand
+                                        // starts with bote_total = max(0, bote_sobrante) and bets add up
+                                        // from there. Accumulating would double-count it and CREATE chips,
+                                        // breaking the conservation invariant (sum of stacks + carryover ==
+                                        // sum of buy-ins) checked at the start of every hand.
+                                        //
+                                        // Left untouched when bets were ALREADY REFUNDED: that's the only
+                                        // path that zeroes the pot while deliberately keeping the carryover,
+                                        // so assigning here would wipe out the carryover inherited from the
+                                        // previous hand. This is checked instead of whether the hand was voided,
+                                        // because the voided flag is raised OUTSIDE this lock: this entire
+                                        // settlement can run between the flag being set and the refund, and
+                                        // skipping it there would leave the pot both unclaimed AND unassigned,
+                                        // with the refund later landing on an already-emptied pot. It's read
+                                        // HERE, not on entering settlement — the verification barrier above is
+                                        // called inside this same lock and can end up voiding the hand on the
+                                        // client (deliberately the only point where a late void cuts in before
+                                        // any chip moves), so the flag can change AFTER entry. Freezing it on
+                                        // entry would make this branch believe the money was still in the pot
+                                        // when it had already returned to the stacks, recording an empty pot as
+                                        // carryover and erasing the carryover inherited from the previous hand.
+                                        if (!this.apuestas_devueltas) {
+                                            this.bote_sobrante = this.bote_total;
                                         }
-
+                                        ganadores = new HashMap<>();
                                         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-                                            if (!cartas_usadas_jugadas.contains(carta)) {
-                                                diferir_dim.add(carta);
-                                            }
+                                            carta.desenfocar();
                                         }
+                                        break;
+                                    case 1:
+                                        awaitHandverifyBarrier();
+                                        procesarCartasResistencia(new ArrayList<Player>(), false);
 
-                                        for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
-                                            Player perdedor = entry.getKey();
-                                            badbeat |= badbeat(perdedor, unganador);
-                                            perdedores.put(perdedor, entry.getValue());
-                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                        resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("ui.ganas_3") : Translator.translate("ui.gana_3"));
+                                        if (resisten.get(0) != GameFrame.getInstance().getLocalPlayer()) {
+                                            resisten.get(0).getHoleCard1().desenfocar();
+                                            resisten.get(0).getHoleCard2().desenfocar();
                                         }
-
-                                        this.showdown(jugadas, ganadores, diferir_dim);
+                                        resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
+                                        this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
+                                        GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + " " + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
                                         Helpers.GUIRun(() -> {
                                             setPotBackground(Color.GREEN);
                                             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
                                         });
-                                        GameFrame.getInstance().setTapeteBote(cantidad_pagar_ganador[0], this.beneficio_bote_principal);
-
-                                    } else {
-                                        jugadas = this.calcularJugadas(resisten);
-                                        ganadores = this.calcularGanadores(new HashMap<>(jugadas));
-                                        double[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
-                                        this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
-                                        String bote_tapete = "#1{" + Helpers.money2String(this.bote.getTotal()) + "}";
-                                        ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
-                                        // Cards to dim: NOT dimmed here (settle) — deferred until
-                                        // after showdown's pass 2, to avoid leaking the dimmed back
-                                        // of still-face-down cards (see showdown()).
-                                        ArrayList<Card> diferir_dim = new ArrayList<>();
-                                        Player unganador = null;
-
-                                        for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
-                                            Player ganador = entry.getKey();
-                                            Hand jugada = entry.getValue();
-                                            ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
-                                            for (Card carta : cartas) {
-                                                if (!cartas_usadas_jugadas.contains(carta)) {
-                                                    cartas_usadas_jugadas.add(carta);
-                                                }
-                                            }
-                                            if (!cartas.contains(ganador.getHoleCard1())) {
-                                                diferir_dim.add(ganador.getHoleCard1());
-                                            }
-                                            if (!cartas.contains(ganador.getHoleCard2())) {
-                                                diferir_dim.add(ganador.getHoleCard2());
-                                            }
-                                            jugadas.remove(entry.getKey());
-                                            // sec_pot=null: pays out without painting the "#1" tag
-                                            // yet. The tag is deferred until AFTER this.showdown()
-                                            // (below), so the main pot's result doesn't get ahead of
-                                            // the WIN/LOSE verdicts (showdown's pass 2). Side-pot tags
-                                            // are already painted after showdown, in their own loop.
-                                            ganador.pagar(cantidad_pagar_ganador[0], null);
-                                            this.bote_total -= cantidad_pagar_ganador[0];
-                                            jugada = entry.getValue();
-                                            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
-                                            unganador = ganador;
-                                            jugada_ganadora = jugada.getValue();
-                                        }
-
+                                        GameFrame.getInstance().setTapeteBote(this.bote.getTotal() + this.bote_sobrante, this.beneficio_bote_principal);
+                                        this.bote_total = 0f;
+                                        this.bote_sobrante = 0f;
                                         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
-                                            if (!cartas_usadas_jugadas.contains(carta)) {
-                                                diferir_dim.add(carta);
-                                            }
+                                            carta.desenfocar();
+                                        }
+                                        if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
+                                            GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(false);
+                                        }
+                                        if (resisten.get(0) == GameFrame.getInstance().getLocalPlayer()) {
+                                            this.soundWinner(0, false);
+                                        }
+                                        ganadores = new HashMap<>();
+                                        ganadores.put(resisten.get(0), null);
+                                        this.sqlNewShowdown(resisten.get(0), null, true, true);
+                                        break;
+                                    default:
+                                        // Everyone shows their cards and GUI updates
+                                        awaitHandverifyBarrier();
+                                        procesarCartasResistencia(resisten, false);
+                                        if (!this.destapar_resistencia) {
+                                            Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
                                         }
 
-                                        for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
-                                            Player perdedor = entry.getKey();
-                                            badbeat |= badbeat(perdedor, unganador);
-                                            perdedores.put(perdedor, entry.getValue());
-                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
-                                        }
+                                        if (this.bote.getSidePot() == null) {
+                                            jugadas = this.calcularJugadas(resisten);
+                                            ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+                                            double[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
+                                            this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
+                                            ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
+                                            // Cards to dim: NOT dimmed here (settle) — deferred until
+                                            // after showdown's pass 2, to avoid leaking the dimmed back
+                                            // of still-face-down cards (see showdown()).
+                                            ArrayList<Card> diferir_dim = new ArrayList<>();
+                                            Player unganador = null;
 
-                                        // DERIVED pots' winners are computed BEFORE painting the
-                                        // verdict. Showdown decides who shows and who doesn't from
-                                        // the winners list, and only the main pot's winners used to
-                                        // reach it here: a player who only won a side pot was painted
-                                        // as a loser and, with hide-cards enabled, had the hand it
-                                        // just won mucked. The computation doesn't touch game state
-                                        // (calcularGanadores only drains the copy passed to it), so
-                                        // doing it early is harmless and the payout loop below reuses it.
-                                        HashMap<Player, Hand> ganadores_todos = new HashMap<>(ganadores);
-                                        java.util.ArrayList<HashMap<Player, Hand>> jugadas_por_lateral = new java.util.ArrayList<>();
-                                        java.util.ArrayList<HashMap<Player, Hand>> ganadores_por_lateral = new java.util.ArrayList<>();
-
-                                        for (HandPot lateral = this.bote.getSidePot(); lateral != null; lateral = lateral.getSidePot()) {
-                                            HashMap<Player, Hand> jugadas_lateral = this.calcularJugadas(lateral.getPlayers());
-                                            HashMap<Player, Hand> ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
-                                            jugadas_por_lateral.add(jugadas_lateral);
-                                            ganadores_por_lateral.add(ganadores_lateral);
-
-                                            // A derived pot with a SINGLE player isn't won: it's
-                                            // RECOVERED — the part of their bet nobody matched (the
-                                            // payout loop says exactly that). Counting it as a win
-                                            // painted the winner border, added a won hand, and stored
-                                            // it as such, even if they'd lost everything else. The
-                                            // run-it-twice path already treats it this way.
-                                            if (lateral.getPlayers().size() > 1) {
-                                                ganadores_todos.putAll(ganadores_lateral);
-                                            }
-                                        }
-
-                                        this.showdown(jugadas, ganadores_todos, diferir_dim);
-
-                                        // Main pot's "#1" tag: painted NOW, after showdown (pass 2's
-                                        // verdicts), not in the payout above. We're in the side-pots
-                                        // branch, so the tag applies; side pots' tags are added in
-                                        // the loop below.
-                                        for (Player ganador_principal : ganadores.keySet()) {
-                                            ganador_principal.marcarBotePot(1);
-                                        }
-
-                                        HandPot current_pot = this.bote.getSidePot();
-                                        int conta_bote_secundario = 2;
-                                        int indice_lateral = 0;
-
-                                        while (current_pot != null) {
-                                            if (current_pot.getPlayers().size() == 1) {
-                                                bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
-                                                current_pot.getPlayers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
-                                                this.bote_total -= current_pot.getTotal();
-                                                GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
-                                                this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
-                                            } else {
-                                                // Reuse what was already computed above: recomputing here
-                                                // would walk the hands again for nothing.
-                                                jugadas = jugadas_por_lateral.get(indice_lateral);
-                                                ganadores = ganadores_por_lateral.get(indice_lateral);
-                                                cantidad_pagar_ganador = this.calcularBoteParaGanador(current_pot.getTotal(), ganadores.size());
-                                                bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
-                                                for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
-                                                    Player ganador = entry.getKey();
-                                                    jugadas.remove(entry.getKey());
-                                                    ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
-                                                    this.bote_total -= cantidad_pagar_ganador[0];
-                                                    Hand jugada = entry.getValue();
-                                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
-                                                    this.sqlUpdateShowdownPay(ganador);
+                                            for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
+                                                Player ganador = entry.getKey();
+                                                Hand jugada = entry.getValue();
+                                                ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
+                                                for (Card carta : cartas) {
+                                                    if (!cartas_usadas_jugadas.contains(carta)) {
+                                                        cartas_usadas_jugadas.add(carta);
+                                                    }
                                                 }
-                                                for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
-                                                    Player perdedor = entry.getKey();
-                                                    perdedores.put(perdedor, entry.getValue());
-                                                    GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                                if (!cartas.contains(ganador.getHoleCard1())) {
+                                                    diferir_dim.add(ganador.getHoleCard1());
+                                                }
+                                                if (!cartas.contains(ganador.getHoleCard2())) {
+                                                    diferir_dim.add(ganador.getHoleCard2());
+                                                }
+                                                jugadas.remove(ganador);
+                                                ganador.pagar(cantidad_pagar_ganador[0], null);
+                                                this.bote_total -= cantidad_pagar_ganador[0];
+                                                GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                unganador = ganador;
+                                                jugada_ganadora = jugada.getValue();
+                                            }
+
+                                            for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                                if (!cartas_usadas_jugadas.contains(carta)) {
+                                                    diferir_dim.add(carta);
                                                 }
                                             }
-                                            current_pot = current_pot.getSidePot();
-                                            conta_bote_secundario++;
-                                            indice_lateral++;
+
+                                            for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
+                                                Player perdedor = entry.getKey();
+                                                badbeat |= badbeat(perdedor, unganador);
+                                                perdedores.put(perdedor, entry.getValue());
+                                                GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                            }
+
+                                            this.showdown(jugadas, ganadores, diferir_dim);
+                                            Helpers.GUIRun(() -> {
+                                                setPotBackground(Color.GREEN);
+                                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
+                                            });
+                                            GameFrame.getInstance().setTapeteBote(cantidad_pagar_ganador[0], this.beneficio_bote_principal);
+
+                                        } else {
+                                            jugadas = this.calcularJugadas(resisten);
+                                            ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+                                            double[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
+                                            this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
+                                            String bote_tapete = "#1{" + Helpers.money2String(this.bote.getTotal()) + "}";
+                                            ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
+                                            // Cards to dim: NOT dimmed here (settle) — deferred until
+                                            // after showdown's pass 2, to avoid leaking the dimmed back
+                                            // of still-face-down cards (see showdown()).
+                                            ArrayList<Card> diferir_dim = new ArrayList<>();
+                                            Player unganador = null;
+
+                                            for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
+                                                Player ganador = entry.getKey();
+                                                Hand jugada = entry.getValue();
+                                                ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
+                                                for (Card carta : cartas) {
+                                                    if (!cartas_usadas_jugadas.contains(carta)) {
+                                                        cartas_usadas_jugadas.add(carta);
+                                                    }
+                                                }
+                                                if (!cartas.contains(ganador.getHoleCard1())) {
+                                                    diferir_dim.add(ganador.getHoleCard1());
+                                                }
+                                                if (!cartas.contains(ganador.getHoleCard2())) {
+                                                    diferir_dim.add(ganador.getHoleCard2());
+                                                }
+                                                jugadas.remove(entry.getKey());
+                                                // sec_pot=null: pays out without painting the "#1" tag
+                                                // yet. The tag is deferred until AFTER this.showdown()
+                                                // (below), so the main pot's result doesn't get ahead of
+                                                // the WIN/LOSE verdicts (showdown's pass 2). Side-pot tags
+                                                // are already painted after showdown, in their own loop.
+                                                ganador.pagar(cantidad_pagar_ganador[0], null);
+                                                this.bote_total -= cantidad_pagar_ganador[0];
+                                                jugada = entry.getValue();
+                                                GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                unganador = ganador;
+                                                jugada_ganadora = jugada.getValue();
+                                            }
+
+                                            for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+                                                if (!cartas_usadas_jugadas.contains(carta)) {
+                                                    diferir_dim.add(carta);
+                                                }
+                                            }
+
+                                            for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
+                                                Player perdedor = entry.getKey();
+                                                badbeat |= badbeat(perdedor, unganador);
+                                                perdedores.put(perdedor, entry.getValue());
+                                                GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                            }
+
+                                            // DERIVED pots' winners are computed BEFORE painting the
+                                            // verdict. Showdown decides who shows and who doesn't from
+                                            // the winners list, and only the main pot's winners used to
+                                            // reach it here: a player who only won a side pot was painted
+                                            // as a loser and, with hide-cards enabled, had the hand it
+                                            // just won mucked. The computation doesn't touch game state
+                                            // (calcularGanadores only drains the copy passed to it), so
+                                            // doing it early is harmless and the payout loop below reuses it.
+                                            HashMap<Player, Hand> ganadores_todos = new HashMap<>(ganadores);
+                                            java.util.ArrayList<HashMap<Player, Hand>> jugadas_por_lateral = new java.util.ArrayList<>();
+                                            java.util.ArrayList<HashMap<Player, Hand>> ganadores_por_lateral = new java.util.ArrayList<>();
+
+                                            for (HandPot lateral = this.bote.getSidePot(); lateral != null; lateral = lateral.getSidePot()) {
+                                                HashMap<Player, Hand> jugadas_lateral = this.calcularJugadas(lateral.getPlayers());
+                                                HashMap<Player, Hand> ganadores_lateral = this.calcularGanadores(new HashMap<>(jugadas_lateral));
+                                                jugadas_por_lateral.add(jugadas_lateral);
+                                                ganadores_por_lateral.add(ganadores_lateral);
+
+                                                // A derived pot with a SINGLE player isn't won: it's
+                                                // RECOVERED — the part of their bet nobody matched (the
+                                                // payout loop says exactly that). Counting it as a win
+                                                // painted the winner border, added a won hand, and stored
+                                                // it as such, even if they'd lost everything else. The
+                                                // run-it-twice path already treats it this way.
+                                                if (lateral.getPlayers().size() > 1) {
+                                                    ganadores_todos.putAll(ganadores_lateral);
+                                                }
+                                            }
+
+                                            this.showdown(jugadas, ganadores_todos, diferir_dim);
+
+                                            // Main pot's "#1" tag: painted NOW, after showdown (pass 2's
+                                            // verdicts), not in the payout above. We're in the side-pots
+                                            // branch, so the tag applies; side pots' tags are added in
+                                            // the loop below.
+                                            for (Player ganador_principal : ganadores.keySet()) {
+                                                ganador_principal.marcarBotePot(1);
+                                            }
+
+                                            HandPot current_pot = this.bote.getSidePot();
+                                            int conta_bote_secundario = 2;
+                                            int indice_lateral = 0;
+
+                                            while (current_pot != null) {
+                                                if (current_pot.getPlayers().size() == 1) {
+                                                    bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
+                                                    current_pot.getPlayers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
+                                                    this.bote_total -= current_pot.getTotal();
+                                                    GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(current_pot.getTotal()) + ")");
+                                                    this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
+                                                } else {
+                                                    // Reuse what was already computed above: recomputing here
+                                                    // would walk the hands again for nothing.
+                                                    jugadas = jugadas_por_lateral.get(indice_lateral);
+                                                    ganadores = ganadores_por_lateral.get(indice_lateral);
+                                                    cantidad_pagar_ganador = this.calcularBoteParaGanador(current_pot.getTotal(), ganadores.size());
+                                                    bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.money2String(current_pot.getTotal()) + "}";
+                                                    for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
+                                                        Player ganador = entry.getKey();
+                                                        jugadas.remove(entry.getKey());
+                                                        ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
+                                                        this.bote_total -= cantidad_pagar_ganador[0];
+                                                        Hand jugada = entry.getValue();
+                                                        GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                        this.sqlUpdateShowdownPay(ganador);
+                                                    }
+                                                    for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
+                                                        Player perdedor = entry.getKey();
+                                                        perdedores.put(perdedor, entry.getValue());
+                                                        GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ")");
+                                                    }
+                                                }
+                                                current_pot = current_pot.getSidePot();
+                                                conta_bote_secundario++;
+                                                indice_lateral++;
+                                            }
+                                            Helpers.GUIRun(() -> {
+                                                setPotBackground(Color.BLACK);
+                                                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
+                                            });
+                                            GameFrame.getInstance().setTapeteBote(bote_tapete);
                                         }
-                                        Helpers.GUIRun(() -> {
-                                            setPotBackground(Color.BLACK);
-                                            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
-                                        });
-                                        GameFrame.getInstance().setTapeteBote(bote_tapete);
-                                    }
-                                    // Never below zero. If the hand was voided by the barrier above,
-                                    // the pot ends up empty but the inherited carryover is still
-                                    // there and gets paid out regardless, so this subtraction would
-                                    // leave the counter NEGATIVE. The accounting auditor sums it raw
-                                    // (no clamping), so a negative carryover would flag a mismatch
-                                    // and report that money as destroyed.
-                                    this.bote_sobrante = Math.max(0f, this.bote_total);
-                                    break;
-                            }
+                                        // Never below zero. If the hand was voided by the barrier above,
+                                        // the pot ends up empty but the inherited carryover is still
+                                        // there and gets paid out regardless, so this subtraction would
+                                        // leave the counter NEGATIVE. The accounting auditor sums it raw
+                                        // (no clamping), so a negative carryover would flag a mismatch
+                                        // and report that money as destroyed.
+                                        this.bote_sobrante = Math.max(0f, this.bote_total);
+                                        break;
+                                }
                             }
 
                             Helpers.GUIRun(() -> {
@@ -20804,6 +21114,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         }
                                     }
                                 }
+
+                                /*
+                                    * The showdown result has already been visible for its full configured
+                                    * duration. Transfer the pot visually to the winner(s) before closing
+                                    * show_time and preparing the next hand.
+                                 */
+                                this.animateShowdownPayout();
 
                                 synchronized (lock_mostrar) {
                                     setShowTime(false);
@@ -21177,8 +21494,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Was this hole card actually revealed? One left without a value belongs to a
-     * player who disconnected before showdown, and their hand can't compete.
+     * Was this hole card actually revealed? One left without a value belongs to
+     * a player who disconnected before showdown, and their hand can't compete.
      */
     private static boolean holeCardRevelada(Card carta) {
         return carta != null && carta.getValor() != null && !carta.getValor().isEmpty()
@@ -21681,12 +21998,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * DEBUG log of the crypto ring to COMPARE consensus across peers: prints the
-     * nick order and a short (SHA-256) hash of it. Every peer must show the SAME
-     * hash for the same hand; a different hash would expose an order divergence
-     * that would break cascade verification. A diagnostic tool (especially when
-     * touching the ring's ordering rule in Phase 2): it alters nothing, only reads
-     * and prints.
+     * DEBUG log of the crypto ring to COMPARE consensus across peers: prints
+     * the nick order and a short (SHA-256) hash of it. Every peer must show the
+     * SAME hash for the same hand; a different hash would expose an order
+     * divergence that would break cascade verification. A diagnostic tool
+     * (especially when touching the ring's ordering rule in Phase 2): it alters
+     * nothing, only reads and prints.
      */
     public static void logCryptoRingDebug(String context, String[] ring) {
         if (ring == null) {
@@ -21728,12 +22045,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Announces (VISUAL only, not crypto) that {@code nick} is now processing its
-     * cascade step: applies it locally (host) and BROADCASTS it to clients
-     * fire-and-forget (confirmation=false, no ACKs, so it doesn't block the dealing
-     * thread). Each peer decides whether to paint it per its own preference
-     * (onShuffleTurn respects the local gate). Purely display: touches neither the
-     * cascade nor consensus.
+     * Announces (VISUAL only, not crypto) that {@code nick} is now processing
+     * its cascade step: applies it locally (host) and BROADCASTS it to clients
+     * fire-and-forget (confirmation=false, no ACKs, so it doesn't block the
+     * dealing thread). Each peer decides whether to paint it per its own
+     * preference (onShuffleTurn respects the local gate). Purely display:
+     * touches neither the cascade nor consensus.
      */
     private void emitShuffleTurn(String nick) {
         try {
@@ -21747,8 +22064,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * End of shuffling: hides the overlay on every peer (local + fire-and-forget
-     * broadcast).
+     * End of shuffling: hides the overlay on every peer (local +
+     * fire-and-forget broadcast).
      */
     private void emitShuffleTurnEnd() {
         try {
@@ -21825,7 +22142,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // --- DealerView contract additions (read-only views over GameFrame and BOT_COMMUNITY_CARDS) ---
-
     @Override
     public java.util.List<? extends Player> getPlayersInSeatingOrder() {
         return GameFrame.getInstance().getJugadores();

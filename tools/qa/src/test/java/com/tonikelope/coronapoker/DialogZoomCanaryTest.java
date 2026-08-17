@@ -27,15 +27,18 @@ import org.junit.jupiter.api.Test;
 /**
  * CANARIO del zoom de diálogos (feat-global-dialog-zoom).
  *
- * Los tamaños de los diálogos {@code .form} viven en el bloque generado por NetBeans
- * ({@code //GEN-BEGIN:initComponents}). Si se reabre un form en el diseñador y se toca el layout,
- * NetBeans REGENERA ese bloque desde el {@code .form} (que solo guarda enteros planos) y BORRA los
- * {@code Math.round(N * Helpers.DIALOG_ZOOM)} que hacen que el diálogo escale. No hay forma de impedirlo,
- * pero este test lee el FUENTE de cada diálogo cableado y falla si su número de escalados baja del
- * mínimo esperado: así una regeneración que se lleve el escalado se detecta al momento en el build en
+ * Los tamaños de los diálogos {@code .form} viven en el bloque generado por
+ * NetBeans ({@code //GEN-BEGIN:initComponents}). Si se reabre un form en el
+ * diseñador y se toca el layout, NetBeans REGENERA ese bloque desde el
+ * {@code .form} (que solo guarda enteros planos) y BORRA los
+ * {@code Math.round(N * Helpers.DIALOG_ZOOM)} que hacen que el diálogo escale.
+ * No hay forma de impedirlo, pero este test lee el FUENTE de cada diálogo
+ * cableado y falla si su número de escalados baja del mínimo esperado: así una
+ * regeneración que se lleve el escalado se detecta al momento en el build en
  * vez de romperse en silencio.
  *
- * Si cambias a PROPÓSITO el escalado de un diálogo (añades/quitas tamaños), actualiza aquí su número.
+ * Si cambias a PROPÓSITO el escalado de un diálogo (añades/quitas tamaños),
+ * actualiza aquí su número.
  */
 public class DialogZoomCanaryTest {
 

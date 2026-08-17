@@ -26,25 +26,29 @@ import java.util.logging.Logger;
 /**
  * A named "new game" preset: a saved snapshot of every NewGameDialog setting so
  * a host can keep favourite table configurations and reapply them in one click,
- * exactly like custom blind structures ({@link BlindStructure}). A preset stores
- * the full new-game config — initial blinds, the CHOSEN blind structure (custom
- * levels, or none for the default ladder), buy-in (fixed/variable + range),
- * rebuy (+ limit/bots/cap), blind increase, blind cap, hand limit, ante, straddle,
- * the game rules (IWTSTH, run-it-twice, rabbit hunting) and bot difficulty. The
- * host's global voice/TTS toggles are NOT part of a preset (they are audio session
- * preferences, switched in-game, not table-creation config).
+ * exactly like custom blind structures ({@link BlindStructure}). A preset
+ * stores the full new-game config — initial blinds, the CHOSEN blind structure
+ * (custom levels, or none for the default ladder), buy-in (fixed/variable +
+ * range), rebuy (+ limit/bots/cap), blind increase, blind cap, hand limit,
+ * ante, straddle, the game rules (IWTSTH, run-it-twice, rabbit hunting) and bot
+ * difficulty. The host's global voice/TTS toggles are NOT part of a preset
+ * (they are audio session preferences, switched in-game, not table-creation
+ * config).
  *
- * <p>The dialog maps its controls to/from the {@link Settings} carrier; a preset
- * just persists that carrier's {@link Settings#serialize() serialized form}. As a
- * staging carrier it does not commit to GameFrame on its own — the dialog stages
- * everything in its controls and only writes to GameFrame when the host accepts
- * (presets follow the same rule, so loading one and cancelling is a no-op). The two
- * explicit bridges {@link Settings#fromGameFrame()} and
- * {@link Settings#applyToGameFrame(boolean)} are the controlled exceptions, used by
- * the waiting-room "Partida" tab (and its peer-to-peer mirror) to read/commit the
- * static GameFrame config when there is no running game/Crupier.
+ * <p>
+ * The dialog maps its controls to/from the {@link Settings} carrier; a preset
+ * just persists that carrier's {@link Settings#serialize() serialized form}. As
+ * a staging carrier it does not commit to GameFrame on its own — the dialog
+ * stages everything in its controls and only writes to GameFrame when the host
+ * accepts (presets follow the same rule, so loading one and cancelling is a
+ * no-op). The two explicit bridges {@link Settings#fromGameFrame()} and
+ * {@link Settings#applyToGameFrame(boolean)} are the controlled exceptions,
+ * used by the waiting-room "Partida" tab (and its peer-to-peer mirror) to
+ * read/commit the static GameFrame config when there is no running
+ * game/Crupier.
  *
- * <p>The registry lives in the shared {@code coronapoker.properties}, keyed by
+ * <p>
+ * The registry lives in the shared {@code coronapoker.properties}, keyed by
  * {@link #PROP_COUNT} + {@link #PROP_PREFIX} (mirrors BlindStructure).
  */
 public final class GamePreset {
@@ -75,11 +79,11 @@ public final class GamePreset {
     }
 
     /**
-     * The full new-game configuration a preset captures. A plain data carrier with
-     * named fields (so the dialog maps its composite controls to/from it without
-     * positional-argument mistakes) plus a stable {@code KEY=VALUE#...} storage
-     * form. Field defaults mirror the {@link GameFrame} new-game defaults so a
-     * partially-populated blob still yields a sane configuration.
+     * The full new-game configuration a preset captures. A plain data carrier
+     * with named fields (so the dialog maps its composite controls to/from it
+     * without positional-argument mistakes) plus a stable {@code KEY=VALUE#...}
+     * storage form. Field defaults mirror the {@link GameFrame} new-game
+     * defaults so a partially-populated blob still yields a sane configuration.
      */
     public static final class Settings {
 
@@ -112,7 +116,8 @@ public final class GamePreset {
         public Bot.Difficulty difficulty = Bot.Difficulty.MEDIUM;
 
         /**
-         * Serializes to the {@code KEY=VALUE#...} storage form (locale-independent).
+         * Serializes to the {@code KEY=VALUE#...} storage form
+         * (locale-independent).
          */
         public String serialize() {
             return "SB=" + smallBlind
@@ -143,9 +148,10 @@ public final class GamePreset {
         }
 
         /**
-         * Parses a stored blob back into a Settings. Defensive: an unknown or corrupt
-         * entry is skipped (that field keeps its default), never fatal, so a
-         * hand-edited or older/newer properties file can never block a preset.
+         * Parses a stored blob back into a Settings. Defensive: an unknown or
+         * corrupt entry is skipped (that field keeps its default), never fatal,
+         * so a hand-edited or older/newer properties file can never block a
+         * preset.
          */
         public static Settings parse(String blob) {
             Settings s = new Settings();
@@ -249,9 +255,10 @@ public final class GamePreset {
         }
 
         /**
-         * Reads the current static {@link GameFrame} game config into a Settings. Used
-         * by the waiting-room "Partida" tab (server side) and by the peer-to-peer mirror
-         * to ship the full config to clients. Only READS GameFrame; never mutates it.
+         * Reads the current static {@link GameFrame} game config into a
+         * Settings. Used by the waiting-room "Partida" tab (server side) and by
+         * the peer-to-peer mirror to ship the full config to clients. Only
+         * READS GameFrame; never mutates it.
          */
         public static Settings fromGameFrame() {
             Settings s = new Settings();
@@ -284,11 +291,12 @@ public final class GamePreset {
         }
 
         /**
-         * Commits this Settings into the static {@link GameFrame} game config. Mirror of
-         * the old {@code NewGameDialog} UPDATE branch: direct static assignments (NOT the
-         * in-game setters {@code setIwtsthRule/...}, which assume a live Crupier/broadcast).
-         * Bot difficulty is server-local, so it is only applied when {@code partida_local}.
-         * Called ONLY on the host's GUARDAR in the waiting room (never from a client).
+         * Commits this Settings into the static {@link GameFrame} game config.
+         * Mirror of the old {@code NewGameDialog} UPDATE branch: direct static
+         * assignments (NOT the in-game setters {@code setIwtsthRule/...}, which
+         * assume a live Crupier/broadcast). Bot difficulty is server-local, so
+         * it is only applied when {@code partida_local}. Called ONLY on the
+         * host's GUARDAR in the waiting room (never from a client).
          */
         public void applyToGameFrame(boolean partida_local) {
             GameFrame.MANOS = handLimit;
@@ -326,7 +334,6 @@ public final class GamePreset {
     }
 
     // ----- registry persistence (mirrors BlindStructure) ----------------------
-
     /**
      * Reads all presets from the given properties, preserving order. Malformed
      * entries and duplicate names are skipped, never fatal.
@@ -360,8 +367,8 @@ public final class GamePreset {
     }
 
     /**
-     * Writes the given presets to the properties, replacing any previously stored
-     * set (so renames and deletions persist). Does NOT flush to disk.
+     * Writes the given presets to the properties, replacing any previously
+     * stored set (so renames and deletions persist). Does NOT flush to disk.
      */
     public static void writeTo(Properties props, Collection<GamePreset> presets) {
         if (props == null) {
@@ -397,7 +404,8 @@ public final class GamePreset {
     }
 
     /**
-     * Persists presets to the shared {@code coronapoker.properties} and flushes.
+     * Persists presets to the shared {@code coronapoker.properties} and
+     * flushes.
      */
     public static synchronized void saveAll(Collection<GamePreset> presets) {
         writeTo(Helpers.PROPERTIES, presets);

@@ -73,10 +73,11 @@ public final class PotMath {
     }
 
     /**
-     * {@code double} money overload of {@link #splitAmongWinners(float, int)}. The
-     * split is still computed in integer cents (exact, no binary-float drift), so
-     * below the float exactness ceiling it returns cent-for-cent the same shares as
-     * the float overload; above it the double inputs/outputs no longer lose cents.
+     * {@code double} money overload of {@link #splitAmongWinners(float, int)}.
+     * The split is still computed in integer cents (exact, no binary-float
+     * drift), so below the float exactness ceiling it returns cent-for-cent the
+     * same shares as the float overload; above it the double inputs/outputs no
+     * longer lose cents.
      */
     public static double[] splitAmongWinners(double amount, int winners) {
         if (winners <= 1) {
@@ -89,10 +90,10 @@ public final class PotMath {
     }
 
     /**
-     * Splits a pot into the two equal halves of a run-it-twice board (SIDE-A and
-     * SIDE-B). Each board gets {@code floor(pot/2)} at cent resolution; if the
-     * pot is an odd number of cents the leftover cent is NOT dealt (the caller
-     * recomputes and carries it in {@code bote_sobrante}). Invariant:
+     * Splits a pot into the two equal halves of a run-it-twice board (SIDE-A
+     * and SIDE-B). Each board gets {@code floor(pot/2)} at cent resolution; if
+     * the pot is an odd number of cents the leftover cent is NOT dealt (the
+     * caller recomputes and carries it in {@code bote_sobrante}). Invariant:
      * {@code sideA + sideB + oddCent == pot}.
      *
      * @return {@code [sideA, sideB]} (both equal)
@@ -104,10 +105,11 @@ public final class PotMath {
     }
 
     /**
-     * {@code double} money overload of {@link #splitForRunItTwice(float)}. Halves
-     * are taken in integer cents (the odd cent, if any, is not dealt and the caller
-     * carries it), so below the float ceiling it returns the same halves as the
-     * float overload and above it the double type keeps every cent.
+     * {@code double} money overload of {@link #splitForRunItTwice(float)}.
+     * Halves are taken in integer cents (the odd cent, if any, is not dealt and
+     * the caller carries it), so below the float ceiling it returns the same
+     * halves as the float overload and above it the double type keeps every
+     * cent.
      */
     public static double[] splitForRunItTwice(double pot) {
         long half = toCents(pot) / 2;        // floor; odd cent carried by the caller

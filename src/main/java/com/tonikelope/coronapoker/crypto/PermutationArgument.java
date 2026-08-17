@@ -19,19 +19,23 @@ package com.tonikelope.coronapoker.crypto;
 import java.math.BigInteger;
 
 /**
- * Permutation argument: given single-value Pedersen commitments {@code C_d'[i] = Comm([d'_i], s_i)},
- * proves the committed vector {@code d'} is a permutation of a PUBLIC vector {@code d} — in zero
- * knowledge (the permutation stays hidden). The combinatorial heart of the Bayer–Groth shuffle
+ * Permutation argument: given single-value Pedersen commitments
+ * {@code C_d'[i] = Comm([d'_i], s_i)}, proves the committed vector {@code d'}
+ * is a permutation of a PUBLIC vector {@code d} — in zero knowledge (the
+ * permutation stays hidden). The combinatorial heart of the Bayer–Groth shuffle
  * (see {@code docs/SECURITY.md}).
  *
- * <p>Construction (Neff/Bayer–Groth characterisation). A multiset equals another iff the polynomials
- * {@code Π(X − d'_i)} and {@code Π(X − d_i)} are identical. The prover commits {@code d'} first, then a
- * challenge {@code x} is drawn by Fiat–Shamir (so it cannot be anticipated); the prover shows
- * {@code Π(x − d'_i) == Π(x − d_i)} via a {@link ProductArgument} over the homomorphically-derived
- * factors {@code C_a[i] = x·G_0 ⊖ C_d'[i]} (committing {@code a_i = x − d'_i}) against the public target
- * {@code b = Π(x − d_i)}. By Schwartz–Zippel, if the multisets differ the degree-{@code n} polynomials
- * disagree at a random {@code x} except with probability {@code ≤ n/L} (negligible), so the argument is
- * sound.
+ * <p>
+ * Construction (Neff/Bayer–Groth characterisation). A multiset equals another
+ * iff the polynomials {@code Π(X − d'_i)} and {@code Π(X − d_i)} are identical.
+ * The prover commits {@code d'} first, then a challenge {@code x} is drawn by
+ * Fiat–Shamir (so it cannot be anticipated); the prover shows
+ * {@code Π(x − d'_i) == Π(x − d_i)} via a {@link ProductArgument} over the
+ * homomorphically-derived factors {@code C_a[i] = x·G_0 ⊖ C_d'[i]} (committing
+ * {@code a_i = x − d'_i}) against the public target {@code b = Π(x − d_i)}. By
+ * Schwartz–Zippel, if the multisets differ the degree-{@code n} polynomials
+ * disagree at a random {@code x} except with probability {@code ≤ n/L}
+ * (negligible), so the argument is sound.
  */
 public final class PermutationArgument {
 
@@ -42,6 +46,7 @@ public final class PermutationArgument {
     }
 
     public static final class Proof {
+
         final ProductArgument.Proof product;
 
         Proof(ProductArgument.Proof product) {
@@ -49,7 +54,10 @@ public final class PermutationArgument {
         }
     }
 
-    /** Fiat–Shamir challenge {@code x} bound to the public vector {@code d} and the commitments {@code C_d'}. */
+    /**
+     * Fiat–Shamir challenge {@code x} bound to the public vector {@code d} and
+     * the commitments {@code C_d'}.
+     */
     private static BigInteger challenge(BigInteger[] d, byte[][] cdprime) {
         Transcript tr = new Transcript(FS_DOMAIN);
         tr.absorb("n", new byte[]{(byte) (d.length >>> 8), (byte) d.length});
@@ -63,9 +71,11 @@ public final class PermutationArgument {
     }
 
     /**
-     * Derived factor commitments {@code C_a[i] = x·G_0 ⊖ C_d'[i]} (committing {@code a_i = x − d'_i}).
-     * The subtraction is a free point negation ({@code ⊖C = −C}, same element {@code (L−1)·C} names),
-     * not a scalar multiplication; {@code null} for any {@code C_d'[i]} that fails to decode.
+     * Derived factor commitments {@code C_a[i] = x·G_0 ⊖ C_d'[i]} (committing
+     * {@code a_i = x − d'_i}). The subtraction is a free point negation
+     * ({@code ⊖C = −C}, same element {@code (L−1)·C} names), not a scalar
+     * multiplication; {@code null} for any {@code C_d'[i]} that fails to
+     * decode.
      */
     private static byte[][] factorCommitments(BigInteger x, byte[][] cdprime) {
         EdwardsPoint xG0 = PedersenVectorCommit.generator(0).scalarMul(x.mod(L));
@@ -77,7 +87,9 @@ public final class PermutationArgument {
         return ca;
     }
 
-    /** Public target {@code b = Π(x − d_i) mod L}. */
+    /**
+     * Public target {@code b = Π(x − d_i) mod L}.
+     */
     private static BigInteger publicTarget(BigInteger x, BigInteger[] d) {
         BigInteger b = BigInteger.ONE;
         for (BigInteger di : d) {
@@ -87,8 +99,10 @@ public final class PermutationArgument {
     }
 
     /**
-     * Prove that {@code d'} (committed in {@code cdprime[i] = Comm([d'_i], s_i)}) is a permutation of the
-     * public vector {@code d}. Requires {@code d'.length == d.length} and the openings {@code (d', s)}.
+     * Prove that {@code d'} (committed in
+     * {@code cdprime[i] = Comm([d'_i], s_i)}) is a permutation of the public
+     * vector {@code d}. Requires {@code d'.length == d.length} and the openings
+     * {@code (d', s)}.
      */
     public static Proof prove(BigInteger[] dprime, BigInteger[] s, byte[][] cdprime, BigInteger[] d) {
         BigInteger x = challenge(d, cdprime);
@@ -103,7 +117,10 @@ public final class PermutationArgument {
         return new Proof(ProductArgument.prove(a, ra, ca, b));
     }
 
-    /** Verify that the committed vector {@code cdprime} is a permutation of the public vector {@code d}. */
+    /**
+     * Verify that the committed vector {@code cdprime} is a permutation of the
+     * public vector {@code d}.
+     */
     public static boolean verify(byte[][] cdprime, BigInteger[] d, Proof proof) {
         if (proof == null || cdprime == null || d == null || cdprime.length != d.length || d.length == 0) {
             return false;

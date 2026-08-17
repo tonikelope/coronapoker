@@ -25,21 +25,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * AAA test del fix de IdentityManager.writeKeypair: tras crear la identidad,
- * el fichero privkey debe quedar con ACL restrictiva (owner-only). El fix
- * cambió el orden a "createFile -> applyACL -> writeBytes" para eliminar la
- * ventana de exposición donde los bytes existían con ACL heredada del padre.
+ * AAA test del fix de IdentityManager.writeKeypair: tras crear la identidad, el
+ * fichero privkey debe quedar con ACL restrictiva (owner-only). El fix cambió
+ * el orden a "createFile -> applyACL -> writeBytes" para eliminar la ventana de
+ * exposición donde los bytes existían con ACL heredada del padre.
  *
- * Cobertura:
- *   - initializeForNick deja un privkey con bytes (round-trip básico)
- *   - En POSIX, los permisos son exactamente OWNER_READ + OWNER_WRITE (0600)
- *   - En Windows, la ACL tiene exactamente UNA ACE (la del owner actual)
- *   - El pubkey existe pero no requiere ACL restrictiva
+ * Cobertura: - initializeForNick deja un privkey con bytes (round-trip básico)
+ * - En POSIX, los permisos son exactamente OWNER_READ + OWNER_WRITE (0600) - En
+ * Windows, la ACL tiene exactamente UNA ACE (la del owner actual) - El pubkey
+ * existe pero no requiere ACL restrictiva
  *
- * NO testea (no se puede sin instrumentar IdentityManager):
- *   - Que durante la ejecución de writeKeypair el fichero nunca pase por
- *     un estado intermedio con bytes-sensibles + ACL heredada. Eso se valida
- *     leyendo el código del fix.
+ * NO testea (no se puede sin instrumentar IdentityManager): - Que durante la
+ * ejecución de writeKeypair el fichero nunca pase por un estado intermedio con
+ * bytes-sensibles + ACL heredada. Eso se valida leyendo el código del fix.
  */
 class IdentityKeypairAclSmoke {
 
@@ -100,7 +98,7 @@ class IdentityKeypairAclSmoke {
         // real es "no aparece BUILTIN\\Users ni Authenticated Users".
         assertTrue(entries.size() <= 3,
                 "ACL del privkey tras icacls debe tener pocas entries; tiene " + entries.size()
-                        + " -> " + entries);
+                + " -> " + entries);
     }
 
     @Test

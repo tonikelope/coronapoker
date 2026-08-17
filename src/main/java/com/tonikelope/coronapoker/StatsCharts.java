@@ -45,9 +45,10 @@ import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.data.xy.XYDataset;
 
 /**
- * Builds the themed JFreeChart panels shown beneath the statistics tables. Every chart
- * shares a light, flat look with the CoronaPoker orange accent and green/red money
- * semantics, and reuses {@link Helpers#GUI_FONT} so the charts blend with the dialog.
+ * Builds the themed JFreeChart panels shown beneath the statistics tables.
+ * Every chart shares a light, flat look with the CoronaPoker orange accent and
+ * green/red money semantics, and reuses {@link Helpers#GUI_FONT} so the charts
+ * blend with the dialog.
  *
  * @author tonikelope
  */
@@ -99,8 +100,9 @@ public final class StatsCharts {
     }
 
     /**
-     * Wraps a chart in a ChartPanel with dialog-friendly defaults (white background, wheel
-     * zoom, and a draw range wide enough not to rescale fonts on large monitors).
+     * Wraps a chart in a ChartPanel with dialog-friendly defaults (white
+     * background, wheel zoom, and a draw range wide enough not to rescale fonts
+     * on large monitors).
      */
     private static ChartPanel wrap(JFreeChart chart) {
         ChartPanel panel = new ChartPanel(chart);
@@ -129,9 +131,10 @@ public final class StatsCharts {
     }
 
     /**
-     * Horizontal bar chart of a single value per player, each bar green when positive and
-     * red when negative — the "scoreboard" view (profit/loss). JFreeChart draws the first
-     * category on top, so pass the data highest-first to keep the leader on top.
+     * Horizontal bar chart of a single value per player, each bar green when
+     * positive and red when negative — the "scoreboard" view (profit/loss).
+     * JFreeChart draws the first category on top, so pass the data
+     * highest-first to keep the leader on top.
      */
     public static ChartPanel benefitBars(Map<String, Double> data, String title, String valueAxisLabel) {
         final DefaultCategoryDataset dataset = new DefaultCategoryDataset();
@@ -194,8 +197,9 @@ public final class StatsCharts {
     public static final Color PURPLE = new Color(120, 90, 200);
 
     /**
-     * Vertical bar chart of integer counts per category, in the iteration order given. Used
-     * for frequency distributions (e.g. how often each hand type wins).
+     * Vertical bar chart of integer counts per category, in the iteration order
+     * given. Used for frequency distributions (e.g. how often each hand type
+     * wins).
      */
     public static ChartPanel countBars(Map<String, Integer> counts, String title, String valueAxisLabel, Color barColor) {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
@@ -242,8 +246,9 @@ public final class StatsCharts {
     }
 
     /**
-     * Multi-series XY line chart (one coloured line per player) — the session graph of
-     * stack evolution across hands. The domain axis is treated as integer hand numbers.
+     * Multi-series XY line chart (one coloured line per player) — the session
+     * graph of stack evolution across hands. The domain axis is treated as
+     * integer hand numbers.
      */
     public static ChartPanel lineChart(XYDataset dataset, String title, String xAxisLabel, String yAxisLabel) {
         JFreeChart chart = ChartFactory.createXYLineChart(title, xAxisLabel, yAxisLabel, dataset, PlotOrientation.VERTICAL, true, true, false);
@@ -288,9 +293,10 @@ public final class StatsCharts {
     };
 
     /**
-     * Radar/spider chart with one axis per metric and one translucent web per player. The
-     * scale is fixed 0..100, so it is meant for percentage metrics. {@code seriesByPlayer}
-     * maps each player to a value per axis (in {@code axisLabels} order).
+     * Radar/spider chart with one axis per metric and one translucent web per
+     * player. The scale is fixed 0..100, so it is meant for percentage metrics.
+     * {@code seriesByPlayer} maps each player to a value per axis (in
+     * {@code axisLabels} order).
      */
     public static ChartPanel radar(String title, String[] axisLabels, Map<String, double[]> seriesByPlayer) {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
@@ -328,10 +334,10 @@ public final class StatsCharts {
     }
 
     /**
-     * Horizontal bar chart of one value per player in a single flat colour, with the bar
-     * value printed using {@code labelFormat} (e.g. {@code "{2}%"} or {@code "{2}s"}).
-     * JFreeChart draws the first category on top, so pass the data highest-first to keep
-     * the leader on top.
+     * Horizontal bar chart of one value per player in a single flat colour,
+     * with the bar value printed using {@code labelFormat} (e.g. {@code "{2}%"}
+     * or {@code "{2}s"}). JFreeChart draws the first category on top, so pass
+     * the data highest-first to keep the leader on top.
      */
     public static ChartPanel valueBars(Map<String, Double> data, String title, String valueAxisLabel, String labelFormat, Color barColor) {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();

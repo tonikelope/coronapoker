@@ -21,12 +21,14 @@ import org.junit.jupiter.api.Tag;
 /**
  * Long-running benchmark that drives N hands per difficulty and dumps the
  * resulting bot stats (VPIP / PFR / AF / WTSD / W$SD / c-bet% / win rate /
- * bb/100). Used to spot calibration leaks against the expected ranges noted
- * in the side comments.
+ * bb/100). Used to spot calibration leaks against the expected ranges noted in
+ * the side comments.
  *
- * <p>Run with: {@code mvn test -Dtest=BotBenchmarkTest}</p>
+ * <p>
+ * Run with: {@code mvn test -Dtest=BotBenchmarkTest}</p>
  *
- * <p>Industry HU-NLHE reference ranges (mid-stakes-ish):</p>
+ * <p>
+ * Industry HU-NLHE reference ranges (mid-stakes-ish):</p>
  * <pre>
  *   PROFILE           VPIP    PFR    AF
  *   Calling station   60-80%   <15%  <1.0

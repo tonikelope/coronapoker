@@ -23,25 +23,36 @@ import java.util.Arrays;
  * Verifiable de-locking for the SRA dealing cascade — the logic that closes the
  * blinded-oracle attack (see docs/SECURITY.md).
  *
- * A peer that strips its lock from a point publishes, alongside the result, a DLEQ
- * proof that it used its COMMITTED key. Verifying the chain from the committed deck
- * point (MEGAPACKET[slot]) up to any residual proves the residual descends from the
- * committed deck — so the host cannot feed a blinded r*P (the chain would not start
- * at the committed bytes, and no peer committed the factor r).
+ * A peer that strips its lock from a point publishes, alongside the result, a
+ * DLEQ proof that it used its COMMITTED key. Verifying the chain from the
+ * committed deck point (MEGAPACKET[slot]) up to any residual proves the
+ * residual descends from the committed deck — so the host cannot feed a blinded
+ * r*P (the chain would not start at the committed bytes, and no peer committed
+ * the factor r).
  *
- * This is engine-level, protocol-agnostic glue (no Crupier coupling): the cascade
- * orchestration in Crupier will call these and put the chain on the wire.
+ * This is engine-level, protocol-agnostic glue (no Crupier coupling): the
+ * cascade orchestration in Crupier will call these and put the chain on the
+ * wire.
  */
 public final class VerifiableUnlock {
 
     private VerifiableUnlock() {
     }
 
-    /** One de-locking step: the residual after this peer's unlock, plus its DLEQ proof. */
+    /**
+     * One de-locking step: the residual after this peer's unlock, plus its DLEQ
+     * proof.
+     */
     public static final class Step {
-        /** Residual after this peer stripped its lock (32-byte encoding). */
+
+        /**
+         * Residual after this peer stripped its lock (32-byte encoding).
+         */
         public final byte[] residual;
-        /** DLEQ proof that residualBefore = k * residual for the committed K = k*B. */
+        /**
+         * DLEQ proof that residualBefore = k * residual for the committed K =
+         * k*B.
+         */
         public final byte[] proof;
 
         public Step(byte[] residual, byte[] proof) {
@@ -51,11 +62,12 @@ public final class VerifiableUnlock {
     }
 
     /**
-     * Peer side: strip our lock from {@code residualBefore} and prove we used our
-     * committed key. Returns null if the input point is off-group (zero-trust reject).
+     * Peer side: strip our lock from {@code residualBefore} and prove we used
+     * our committed key. Returns null if the input point is off-group
+     * (zero-trust reject).
      *
      * @param residualBefore current 32-byte residual handed to us by the host
-     * @param lockScalar     our per-hand lock scalar k (we derive k^-1 and K = k*B)
+     * @param lockScalar our per-hand lock scalar k (we derive k^-1 and K = k*B)
      */
     public static Step unlockWithProof(byte[] residualBefore, byte[] lockScalar) {
         EdwardsPoint x = Ristretto255.decode(residualBefore);
@@ -72,12 +84,13 @@ public final class VerifiableUnlock {
     }
 
     /**
-     * Verify a single de-locking step: that {@code residualBefore = k * residualAfter}
-     * for the peer whose committed key is {@code committedK}. Used by a peer before it
-     * applies its own unlock (to check the incoming chain) and by any observer.
+     * Verify a single de-locking step: that
+     * {@code residualBefore = k * residualAfter} for the peer whose committed
+     * key is {@code committedK}. Used by a peer before it applies its own
+     * unlock (to check the incoming chain) and by any observer.
      */
     public static boolean verifyStep(byte[] residualBefore, byte[] residualAfter,
-                                     byte[] committedK, byte[] proof) {
+            byte[] committedK, byte[] proof) {
         EdwardsPoint before = Ristretto255.decode(residualBefore);
         EdwardsPoint after = Ristretto255.decode(residualAfter);
         EdwardsPoint k = Ristretto255.decode(committedK);
@@ -90,15 +103,18 @@ public final class VerifiableUnlock {
     /**
      * Verify a whole de-locking chain for one slot.
      *
-     * @param committedSlot the committed MEGAPACKET[slot] bytes (chain MUST start here)
-     * @param residuals     residuals[0]..residuals[n]; residuals[0] is the chain start
-     * @param committedKs   committedKs[m] is the committed key of the peer who produced
-     *                      residuals[m+1] from residuals[m]
-     * @param proofs        proofs[m] is the DLEQ for step m
-     * @return true iff the chain starts at the committed slot and every step verifies
+     * @param committedSlot the committed MEGAPACKET[slot] bytes (chain MUST
+     * start here)
+     * @param residuals residuals[0]..residuals[n]; residuals[0] is the chain
+     * start
+     * @param committedKs committedKs[m] is the committed key of the peer who
+     * produced residuals[m+1] from residuals[m]
+     * @param proofs proofs[m] is the DLEQ for step m
+     * @return true iff the chain starts at the committed slot and every step
+     * verifies
      */
     public static boolean verifyChain(byte[] committedSlot, byte[][] residuals,
-                                      byte[][] committedKs, byte[][] proofs) {
+            byte[][] committedKs, byte[][] proofs) {
         if (residuals == null || residuals.length < 1) {
             return false;
         }

@@ -9,7 +9,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.junit.jupiter.api.Test;
 
-/** Regression guard for the community panel's pre-layout zoom wait. */
+/**
+ * Regression guard for the community panel's pre-layout zoom wait.
+ */
 class CommunityZoomEventDrivenCanaryTest {
 
     @Test

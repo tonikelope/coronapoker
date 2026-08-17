@@ -27,17 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * AAA test del Helpers.writeStringAtomic introducido en deferred 🟠-26.
  *
- * Cobertura:
- *   - Crear fichero nuevo (target no existía).
- *   - Sobrescribir fichero existente.
- *   - Después de éxito NO queda ningún .tmp- huérfano en el dir.
- *   - null target rechazado.
- *   - Datos con saltos de línea + UTF-8 (preserve byte-for-byte).
+ * Cobertura: - Crear fichero nuevo (target no existía). - Sobrescribir fichero
+ * existente. - Después de éxito NO queda ningún .tmp- huérfano en el dir. -
+ * null target rechazado. - Datos con saltos de línea + UTF-8 (preserve
+ * byte-for-byte).
  *
- * NO testeable directamente sin mockear el filesystem:
- *   - Resistencia real a process-kill mid-write. La garantía es
- *     "tmp se escribe completo antes del move" — testeable por
- *     inspección de código, no por test runtime.
+ * NO testeable directamente sin mockear el filesystem: - Resistencia real a
+ * process-kill mid-write. La garantía es "tmp se escribe completo antes del
+ * move" — testeable por inspección de código, no por test runtime.
  */
 class WriteStringAtomicSmoke {
 
@@ -55,12 +52,12 @@ class WriteStringAtomicSmoke {
         }
         try (Stream<Path> walk = Files.walk(tmpDir)) {
             walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
-                .forEach(p -> {
-                    try {
-                        Files.deleteIfExists(p);
-                    } catch (IOException ignored) {
-                    }
-                });
+                    .forEach(p -> {
+                        try {
+                            Files.deleteIfExists(p);
+                        } catch (IOException ignored) {
+                        }
+                    });
         }
     }
 

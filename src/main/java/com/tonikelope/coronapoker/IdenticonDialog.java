@@ -42,16 +42,16 @@ import javax.swing.SwingConstants;
  *
  * Two operational modes:
  *
- *   - SESSION (legacy, host vs client AES channel key): no "Verificar" button.
- *     Compares against the counterpart's identicon out-of-band to detect a network
- *     MITM between client and host. The fact that the dialog can be opened at all
- *     means the channel is established, so the user reads the visual + hex
- *     fingerprint and compares it via a side channel.
+ * - SESSION (legacy, host vs client AES channel key): no "Verificar" button.
+ * Compares against the counterpart's identicon out-of-band to detect a network
+ * MITM between client and host. The fact that the dialog can be opened at all
+ * means the channel is established, so the user reads the visual + hex
+ * fingerprint and compares it via a side channel.
  *
- *   - IDENTITY (Ed25519 pubkey of a peer): exposes a "Verificar identidad" button
- *     that marks (nick, pubkey) as verified_oob in known_identities. A hint line
- *     reminds the user to compare the fingerprint through an external secure channel
- *     (WhatsApp, Telegram, voice...) before pressing it.
+ * - IDENTITY (Ed25519 pubkey of a peer): exposes a "Verificar identidad" button
+ * that marks (nick, pubkey) as verified_oob in known_identities. A hint line
+ * reminds the user to compare the fingerprint through an external secure
+ * channel (WhatsApp, Telegram, voice...) before pressing it.
  *
  * Both modes use SHA-256 over the raw input bytes and render a 7x7 grid with
  * horizontal symmetry, using two foreground colors derived from disjoint hash
@@ -97,12 +97,12 @@ public class IdenticonDialog extends JDialog {
      * @param parent parent frame
      * @param modal modal flag
      * @param nick displayed in the dialog title
-     * @param rawInput bytes to fingerprint (AES key bytes for SESSION, Ed25519 pubkey
-     *                 for IDENTITY)
+     * @param rawInput bytes to fingerprint (AES key bytes for SESSION, Ed25519
+     * pubkey for IDENTITY)
      * @param mode SESSION or IDENTITY
-     * @param pubkeyForVerify in IDENTITY mode, the same 32-byte pubkey to pass to
-     *                        TOFUResolver.markVerified when the user clicks the verify
-     *                        button. Pass null for SESSION mode.
+     * @param pubkeyForVerify in IDENTITY mode, the same 32-byte pubkey to pass
+     * to TOFUResolver.markVerified when the user clicks the verify button. Pass
+     * null for SESSION mode.
      */
     public IdenticonDialog(java.awt.Frame parent, boolean modal, String nick,
             byte[] rawInput, Mode mode, byte[] pubkeyForVerify) {
@@ -143,7 +143,6 @@ public class IdenticonDialog extends JDialog {
             // ===== CENTER: identicon (icon_panel from form, with padding around) =====
             // icon_panel already has the icon_label set above plus an EmptyBorder so
             // the identicon does not touch the dialog edges.
-
             // ===== SOUTH: fingerprint + extra panels (verify for remote IDENTITY,
             //              explanatory hint for self IDENTITY) + copy-to-clipboard
             //              button (always available regardless of mode).
@@ -193,10 +192,10 @@ public class IdenticonDialog extends JDialog {
     }
 
     /**
-     * Explanatory hint panel shown only on a self-identity dialog (own pubkey in the
-     * mesa, no peer to verify against). Tells the user that the rendered image and
-     * fingerprint are theirs to share through an external secure channel so others
-     * can verify them.
+     * Explanatory hint panel shown only on a self-identity dialog (own pubkey
+     * in the mesa, no peer to verify against). Tells the user that the rendered
+     * image and fingerprint are theirs to share through an external secure
+     * channel so others can verify them.
      */
     private JPanel buildSelfHintPanel() {
         JPanel panel = new JPanel(new BorderLayout());
@@ -215,9 +214,10 @@ public class IdenticonDialog extends JDialog {
     }
 
     /**
-     * Explanatory hint panel shown on a session-channel identicon (Mode.SESSION).
-     * Tells the user that the image is the fingerprint of the encrypted AES channel
-     * and that comparing it out-of-band with the other end detects a network MITM.
+     * Explanatory hint panel shown on a session-channel identicon
+     * (Mode.SESSION). Tells the user that the image is the fingerprint of the
+     * encrypted AES channel and that comparing it out-of-band with the other
+     * end detects a network MITM.
      */
     private JPanel buildSessionHintPanel() {
         JPanel panel = new JPanel(new BorderLayout());
@@ -236,11 +236,11 @@ public class IdenticonDialog extends JDialog {
     }
 
     /**
-     * Sharing row. Always present, mode-agnostic and role-agnostic: lets the user
-     * push the identicon to the system clipboard (paste into any chat / mail app) or
-     * save it as a PNG file (attach the file by hand from any chat / mail app). No
-     * third-party services involved — both options stay strictly local, which keeps
-     * the OOB verification model intact.
+     * Sharing row. Always present, mode-agnostic and role-agnostic: lets the
+     * user push the identicon to the system clipboard (paste into any chat /
+     * mail app) or save it as a PNG file (attach the file by hand from any chat
+     * / mail app). No third-party services involved — both options stay
+     * strictly local, which keeps the OOB verification model intact.
      */
     private JPanel buildCopyImagePanel() {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 4));
@@ -285,10 +285,11 @@ public class IdenticonDialog extends JDialog {
     }
 
     /**
-     * Opens a JFileChooser pre-populated with a sensible default filename derived
-     * from nick and short fingerprint ("identicon_<nick>_<short_fp>.png") and writes
-     * the identicon to disk as PNG. If the user picks an existing file we confirm
-     * before overwriting; any I/O failure is surfaced as an error popup.
+     * Opens a JFileChooser pre-populated with a sensible default filename
+     * derived from nick and short fingerprint
+     * ("identicon_<nick>_<short_fp>.png") and writes the identicon to disk as
+     * PNG. If the user picks an existing file we confirm before overwriting;
+     * any I/O failure is surfaced as an error popup.
      */
     private void savePngWithChooser() {
         if (identiconImage == null) {
@@ -329,10 +330,11 @@ public class IdenticonDialog extends JDialog {
     }
 
     /**
-     * Builds a filesystem-safe default filename: {@code identicon_<sanitized_nick>_<short_fp>.png}.
-     * Replaces every non-{@code [A-Za-z0-9_-]} character with {@code _} so chats nicks
-     * containing spaces, emojis or punctuation do not produce invalid filenames on any
-     * platform.
+     * Builds a filesystem-safe default filename:
+     * {@code identicon_<sanitized_nick>_<short_fp>.png}. Replaces every
+     * non-{@code [A-Za-z0-9_-]} character with {@code _} so chats nicks
+     * containing spaces, emojis or punctuation do not produce invalid filenames
+     * on any platform.
      */
     private String defaultPngFilename() {
         String safeNick = nick == null ? "anon" : nick.replaceAll("[^A-Za-z0-9_-]", "_");
@@ -413,7 +415,10 @@ public class IdenticonDialog extends JDialog {
         return verifyPanel;
     }
 
-    /** EDT. Collapses the verify panel to the compact "✓ already verified" label. */
+    /**
+     * EDT. Collapses the verify panel to the compact "✓ already verified"
+     * label.
+     */
     private void showVerifiedLabel(JPanel verifyPanel) {
         verifyPanel.removeAll();
         JLabel done = new JLabel(
@@ -427,8 +432,8 @@ public class IdenticonDialog extends JDialog {
     }
 
     /**
-     * Formats the first 16 bytes of a SHA-256 digest as 8 groups of 4 lowercase hex
-     * separated by spaces ("a3f9 1c4b 7e2d 9faa 8c12 4456 ef78 1234").
+     * Formats the first 16 bytes of a SHA-256 digest as 8 groups of 4 lowercase
+     * hex separated by spaces ("a3f9 1c4b 7e2d 9faa 8c12 4456 ef78 1234").
      */
     public static String formatFullFingerprint(byte[] hash) {
         StringBuilder sb = new StringBuilder(39);
@@ -442,11 +447,11 @@ public class IdenticonDialog extends JDialog {
     }
 
     /**
-     * Renders a 7x7 identicon with horizontal symmetry and two foreground colors
-     * derived from disjoint bytes of the hash. The input is the SHA-256 digest of
-     * whatever raw bytes seeded this view; this method picks bytes from it for the
-     * pattern (positions 8..14, four unique columns after symmetry × seven rows)
-     * and the two colors (bytes 0..2 and 4..6).
+     * Renders a 7x7 identicon with horizontal symmetry and two foreground
+     * colors derived from disjoint bytes of the hash. The input is the SHA-256
+     * digest of whatever raw bytes seeded this view; this method picks bytes
+     * from it for the pattern (positions 8..14, four unique columns after
+     * symmetry × seven rows) and the two colors (bytes 0..2 and 4..6).
      *
      * Static so callers like the mosaic dialog can render tiles without needing
      * a JDialog instance for layout reasons.

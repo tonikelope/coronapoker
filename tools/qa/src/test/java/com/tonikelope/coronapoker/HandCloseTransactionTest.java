@@ -105,8 +105,7 @@ class HandCloseTransactionTest {
             assertHand(con, 999L, 0d);
             assertBalance(con, "alice", 95d);
             assertBalance(con, "bob", 105d);
-            try (Statement st = con.createStatement();
-                    ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM balance WHERE id_hand=10")) {
+            try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM balance WHERE id_hand=10")) {
                 assertTrue(rs.next());
                 assertEquals(2, rs.getInt(1));
             }
@@ -131,8 +130,7 @@ class HandCloseTransactionTest {
     }
 
     private static void assertHand(Connection con, long end, double pot) throws Exception {
-        try (Statement st = con.createStatement();
-                ResultSet rs = st.executeQuery("SELECT end, pot FROM hand WHERE id=10")) {
+        try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery("SELECT end, pot FROM hand WHERE id=10")) {
             assertTrue(rs.next());
             assertEquals(end, rs.getLong(1));
             assertEquals(pot, rs.getDouble(2));
@@ -140,8 +138,7 @@ class HandCloseTransactionTest {
     }
 
     private static void assertBalance(Connection con, String nick, double stack) throws Exception {
-        try (Statement st = con.createStatement();
-                ResultSet rs = st.executeQuery("SELECT stack FROM balance WHERE id_hand=10 AND player='" + nick + "'")) {
+        try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery("SELECT stack FROM balance WHERE id_hand=10 AND player='" + nick + "'")) {
             assertTrue(rs.next());
             assertEquals(stack, rs.getDouble(1));
         }

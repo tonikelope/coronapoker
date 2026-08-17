@@ -20,18 +20,23 @@ import java.math.BigInteger;
 import java.util.List;
 
 /**
- * Byte-oriented wiring for the full {@link DualLockCascade} verification, so the network layer only
- * moves {@code byte[]} / {@code List<byte[]>}. The genesis is NOT transmitted — every peer recomputes it
- * locally (the anchor); a peer that receives the cascade-deck chain, the rotation-state chain and the
- * two proof lists runs {@link #verifyFullChainWire} before participating in the unlock, and refuses the
- * deck on any failure. Decoding is total: malformed input yields {@code false}, never an exception.
+ * Byte-oriented wiring for the full {@link DualLockCascade} verification, so
+ * the network layer only moves {@code byte[]} / {@code List<byte[]>}. The
+ * genesis is NOT transmitted — every peer recomputes it locally (the anchor); a
+ * peer that receives the cascade-deck chain, the rotation-state chain and the
+ * two proof lists runs {@link #verifyFullChainWire} before participating in the
+ * unlock, and refuses the deck on any failure. Decoding is total: malformed
+ * input yields {@code false}, never an exception.
  */
 public final class DualLockWire {
 
     private DualLockWire() {
     }
 
-    /** Flat encoding of a deck/region: {@code n × 32} bytes (canonical Ristretto points). */
+    /**
+     * Flat encoding of a deck/region: {@code n × 32} bytes (canonical Ristretto
+     * points).
+     */
     public static byte[] encodeDeck(EdwardsPoint[] deck) {
         if (deck == null) {
             return null;
@@ -43,7 +48,10 @@ public final class DualLockWire {
         return out;
     }
 
-    /** Serialize a {@link RotationProof.Proof} to a fixed 64 bytes: {@code T (32) || z (32 BE)}. */
+    /**
+     * Serialize a {@link RotationProof.Proof} to a fixed 64 bytes:
+     * {@code T (32) || z (32 BE)}.
+     */
     public static byte[] encodeRotationProof(RotationProof.Proof p) {
         if (p == null || p.t == null || p.t.length != 32 || p.z == null) {
             return null;
@@ -64,14 +72,16 @@ public final class DualLockWire {
     }
 
     /**
-     * Verify a SINGLE rotation step from flat bytes: is {@code proofBytes} a valid RotationProof that
-     * {@code afterBytes = s · beforeBytes} for some secret scalar s? Analogous to
-     * {@link ShuffleCascade#verifyStepWire}. The host uses this to authenticate a REMOTE peer's rotation
-     * proof at ingestion before folding it into the broadcast bundle: a peer can rotate the pieces
-     * correctly (they pass the on-curve check) yet ship a well-formed-but-invalid 64-byte proof; without
-     * this check that garbage makes the host's own full-chain self-check fail while the bundle is still
-     * broadcast, framing the host as dishonest table-wide. Total: malformed input yields {@code false},
-     * never an exception.
+     * Verify a SINGLE rotation step from flat bytes: is {@code proofBytes} a
+     * valid RotationProof that {@code afterBytes = s · beforeBytes} for some
+     * secret scalar s? Analogous to {@link ShuffleCascade#verifyStepWire}. The
+     * host uses this to authenticate a REMOTE peer's rotation proof at
+     * ingestion before folding it into the broadcast bundle: a peer can rotate
+     * the pieces correctly (they pass the on-curve check) yet ship a
+     * well-formed-but-invalid 64-byte proof; without this check that garbage
+     * makes the host's own full-chain self-check fail while the bundle is still
+     * broadcast, framing the host as dishonest table-wide. Total: malformed
+     * input yields {@code false}, never an exception.
      */
     public static boolean verifyRotationStepWire(byte[] beforeBytes, byte[] afterBytes, byte[] proofBytes) {
         try {
@@ -88,16 +98,17 @@ public final class DualLockWire {
     }
 
     /**
-     * Verify the full dual-lock chain from flat bytes. {@code genesisBytes} is the locally-recomputed
-     * anchor (never trust a sender's genesis). {@code cascadeDeckBytes} are decks {@code [1..N]} (deck 0
-     * is the genesis, prepended here); {@code rotationStateBytes} are community states {@code [1..M]}
-     * (state 0 is the pre-rotation community region, derived here). Returns false on any malformed/short/
-     * non-anchored input.
+     * Verify the full dual-lock chain from flat bytes. {@code genesisBytes} is
+     * the locally-recomputed anchor (never trust a sender's genesis).
+     * {@code cascadeDeckBytes} are decks {@code [1..N]} (deck 0 is the genesis,
+     * prepended here); {@code rotationStateBytes} are community states
+     * {@code [1..M]} (state 0 is the pre-rotation community region, derived
+     * here). Returns false on any malformed/short/ non-anchored input.
      */
     public static boolean verifyFullChainWire(byte[] genesisBytes,
-                                              List<byte[]> cascadeDeckBytes, List<byte[]> cascadeProofBytes,
-                                              int pocketCount, byte[] megapacketBytes,
-                                              List<byte[]> rotationStateBytes, List<byte[]> rotationProofBytes) {
+            List<byte[]> cascadeDeckBytes, List<byte[]> cascadeProofBytes,
+            int pocketCount, byte[] megapacketBytes,
+            List<byte[]> rotationStateBytes, List<byte[]> rotationProofBytes) {
         try {
             if (genesisBytes == null || cascadeDeckBytes == null || cascadeProofBytes == null
                     || megapacketBytes == null || rotationStateBytes == null || rotationProofBytes == null) {

@@ -68,14 +68,15 @@ import javax.swing.Timer;
 
  */
 /**
- * "About" dialog: credits, version/system info, an animated corona-logo (played back
- * pre-decoded to fixed frames to avoid AWT GIF flicker, see {@link #setupLogoAnimation()}),
- * live memory/thread stats, and optional MOD branding. Mutes whatever background music loop
- * was already playing for its own track and restores it on close.
+ * "About" dialog: credits, version/system info, an animated corona-logo (played
+ * back pre-decoded to fixed frames to avoid AWT GIF flicker, see
+ * {@link #setupLogoAnimation()}), live memory/thread stats, and optional MOD
+ * branding. Mutes whatever background music loop was already playing for its
+ * own track and restores it on close.
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "23.52";
+    public static final String VERSION = "23.53";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
 
     public static final String TITLE = "about.titulo";
@@ -205,10 +206,11 @@ public class AboutDialog extends JDialog {
     }
 
     /**
-     * Pre-decodes corona_logo.gif in the background at startup (alongside the other warmups in
-     * {@code Init}), so the first About dialog opened doesn't pay the ~120 ms decode cost on the
-     * constructor's EDT. {@link #logoAnim()} is idempotent and thread-safe, so opening the dialog
-     * later reuses the already-decoded result (and decodes on the spot if the warmup hasn't
+     * Pre-decodes corona_logo.gif in the background at startup (alongside the
+     * other warmups in {@code Init}), so the first About dialog opened doesn't
+     * pay the ~120 ms decode cost on the constructor's EDT. {@link #logoAnim()}
+     * is idempotent and thread-safe, so opening the dialog later reuses the
+     * already-decoded result (and decodes on the spot if the warmup hasn't
      * finished yet).
      */
     public static void warmupLogoAnim() {

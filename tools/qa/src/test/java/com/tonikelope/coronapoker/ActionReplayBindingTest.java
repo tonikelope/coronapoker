@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
-/** TDD coverage for rejecting a signed action replay before money is applied. */
+/**
+ * TDD coverage for rejecting a signed action replay before money is applied.
+ */
 class ActionReplayBindingTest {
 
     @Test

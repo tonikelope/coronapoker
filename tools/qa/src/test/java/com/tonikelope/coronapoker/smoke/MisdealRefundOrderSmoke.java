@@ -20,8 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * They exercise a model written inside this file, so THEY WILL NOT CATCH a
  * regression in the settlement. Breaking the real guards leaves them green.
  * They are here as executable documentation of the rule and of the exact
- * numbers that were lost when it was wrong, not as a safety net. Do not treat
- * a green run as evidence that the settlement is correct.
+ * numbers that were lost when it was wrong, not as a safety net. Do not treat a
+ * green run as evidence that the settlement is correct.
  *
  * The real settlement lives inside the Crupier state machine, which cannot be
  * instantiated from here (see GameFlowSmoke: the state machine is out of scope
@@ -30,12 +30,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * The invariant across the whole game is:
  *
- *   sum(stacks) + leftover == sum(buyins)
+ * sum(stacks) + leftover == sum(buyins)
  *
  * A voided hand refunds every bet and keeps the leftover, which belongs to the
  * game and not to the hand. Settling assigns whatever nobody claimed to the
  * leftover. Both run under the accounting lock, but the "hand is void" flag is
- * raised OUTSIDE it, so a whole settlement fits between the flag and the refund.
+ * raised OUTSIDE it, so a whole settlement fits between the flag and the
+ * refund.
  *
  * Hence the settlement asks whether the money HAS ALREADY BEEN GIVEN BACK
  * rather than whether the hand is void: those are different questions, and
@@ -44,11 +45,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Both halves matter, and only one of them needs the question asked:
  *
  * <ul>
- *   <li>with NOBODY left standing, nothing is paid out, so the settlement is
- *       the only chance to park the pot somewhere and it must ask;</li>
- *   <li>with a winner, the payout comes out of pot PLUS leftover, so asking
- *       there and skipping only the sink pays the inherited leftover AND keeps
- *       it. That mistake was made during this audit and is pinned below.</li>
+ * <li>with NOBODY left standing, nothing is paid out, so the settlement is the
+ * only chance to park the pot somewhere and it must ask;</li>
+ * <li>with a winner, the payout comes out of pot PLUS leftover, so asking there
+ * and skipping only the sink pays the inherited leftover AND keeps it. That
+ * mistake was made during this audit and is pinned below.</li>
  * </ul>
  */
 class MisdealRefundOrderSmoke {
@@ -77,7 +78,9 @@ class MisdealRefundOrderSmoke {
         double leftover = 0.03d;
         boolean refunded = false;
 
-        /** Total money that ever entered the game. */
+        /**
+         * Total money that ever entered the game.
+         */
         static double buyins() {
             return BUYIN_EACH * SEATS;
         }
@@ -100,7 +103,9 @@ class MisdealRefundOrderSmoke {
             return sum;
         }
 
-        /** Settlement, nobody left standing: the pot goes to the leftover. */
+        /**
+         * Settlement, nobody left standing: the pot goes to the leftover.
+         */
         void settleWithNoWinner() {
             if (!refunded) {
                 leftover = pot_total;
@@ -111,9 +116,9 @@ class MisdealRefundOrderSmoke {
         }
 
         /**
-         * Settlement with a winner: the payout comes out of pot PLUS leftover, and
-         * the sink takes whatever was left unclaimed. NEITHER half asks whether the
-         * money came back, on purpose: see the class javadoc.
+         * Settlement with a winner: the payout comes out of pot PLUS leftover,
+         * and the sink takes whatever was left unclaimed. NEITHER half asks
+         * whether the money came back, on purpose: see the class javadoc.
          */
         void settleWithWinner(int winner) {
             // The real payout is hand pot PLUS leftover, a sum of two separate
@@ -138,7 +143,9 @@ class MisdealRefundOrderSmoke {
             }
         }
 
-        /** Void: every bet goes home, the leftover is untouched by design. */
+        /**
+         * Void: every bet goes home, the leftover is untouched by design.
+         */
         void refund() {
             for (int seat = 0; seat < SEATS; seat++) {
                 stack[seat] += bet[seat];
@@ -215,9 +222,9 @@ class MisdealRefundOrderSmoke {
 
     /**
      * The ordering that used to lose the pot: the void flag was already up, so
-     * the old guard skipped the assignment expecting the refund to hand the money
-     * back, but the settlement emptied every bet first and the refund then found
-     * nothing to give.
+     * the old guard skipped the assignment expecting the refund to hand the
+     * money back, but the settlement emptied every bet first and the refund
+     * then found nothing to give.
      */
     @Test
     @DisplayName("Nobody standing, settled between the void flag and the refund: the pot is not lost")
@@ -275,9 +282,9 @@ class MisdealRefundOrderSmoke {
     }
 
     /**
-     * Guarding the sink but not the payout, which is what a well meaning fix did
-     * during this audit: the winner is paid the inherited leftover out of an empty
-     * pot AND the leftover is kept, so the money exists twice.
+     * Guarding the sink but not the payout, which is what a well meaning fix
+     * did during this audit: the winner is paid the inherited leftover out of
+     * an empty pot AND the leftover is kept, so the money exists twice.
      */
     @Test
     @DisplayName("Guarding only the sink on a winner CREATES chips")

@@ -61,9 +61,9 @@ import javax.swing.SwingUtilities;
  * avatar steals neither its hover nor the identicon's click.
  *
  * The enlargement is NOT scaled up from the seat icon (~64 px): it is rebuilt
- * from the original avatar file, kept intact, downscaling in steps with
- * bicubic interpolation. Default and bot avatars are 200x200, so at the usual
- * sizes the magnifier does not invent detail.
+ * from the original avatar file, kept intact, downscaling in steps with bicubic
+ * interpolation. Default and bot avatars are 200x200, so at the usual sizes the
+ * magnifier does not invent detail.
  *
  * @author tonikelope
  */
@@ -281,9 +281,9 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     }
 
     /**
-     * Resizes the magnifier if the stack or nick changed while it was up (a bet,
-     * a pot being awarded). If the box grows enough to push it off the table,
-     * relocates it back inside.
+     * Resizes the magnifier if the stack or nick changed while it was up (a
+     * bet, a pot being awarded). If the box grows enough to push it off the
+     * table, relocates it back inside.
      */
     private void refreshIfChanged() {
 
@@ -371,10 +371,10 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
 
     /**
      * Attaches the magnifier to a seat's avatar, with that seat's stack shown
-     * enlarged next to the photo. The supplier returns the SAME string setAvatar
-     * uses to paint the seat (file path, "*" for a bot, or "" for the default
-     * avatar) and is queried at show time, not here: at install time the seat
-     * doesn't have a nick yet.
+     * enlarged next to the photo. The supplier returns the SAME string
+     * setAvatar uses to paint the seat (file path, "*" for a bot, or "" for the
+     * default avatar) and is queried at show time, not here: at install time
+     * the seat doesn't have a nick yet.
      *
      * @param avatar the seat's avatar label to watch for hover
      * @param stack the seat's stack label, enlarged alongside the photo
@@ -699,9 +699,9 @@ public final class AvatarZoomOverlay extends javax.swing.JComponent {
     }
 
     /**
-     * Quality downscaling: bicubic, halving step by step while the image is more
-     * than twice the target size (shrinking a large photo in one jump loses
-     * detail and leaves hard edges).
+     * Quality downscaling: bicubic, halving step by step while the image is
+     * more than twice the target size (shrinking a large photo in one jump
+     * loses detail and leaves hard edges).
      */
     private static BufferedImage scale(BufferedImage src, int size) {
 

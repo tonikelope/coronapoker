@@ -24,7 +24,10 @@ public class RotationProofWiringTest {
         }
     }
 
-    /** Replica EXACTA de Crupier.genRotationProof (host/bot): s = s1*s2, prove(in, out). */
+    /**
+     * Replica EXACTA de Crupier.genRotationProof (host/bot): s = s1*s2,
+     * prove(in, out).
+     */
     private static byte[] genRotationProofLikeHost(byte[] before, byte[] after, byte[] s1, byte[] s2) {
         BigInteger s = RistrettoSRA.bytesToScalar(s1).multiply(RistrettoSRA.bytesToScalar(s2)).mod(L);
         EdwardsPoint[] in = ShuffleCascade.decodeDeck(before);

@@ -19,22 +19,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * AAA test del Crupier.synthesizeExitFoldAction(Object[]) introducido en
- * el deferred 🟠-2. Garantiza que cuando se sintetiza FOLD porque el peer
- * se fue, el action[] queda en estado canónico que la rueda de apuestas
- * reconoce y que NO desencadena absorb al chain.
+ * AAA test del Crupier.synthesizeExitFoldAction(Object[]) introducido en el
+ * deferred 🟠-2. Garantiza que cuando se sintetiza FOLD porque el peer se fue,
+ * el action[] queda en estado canónico que la rueda de apuestas reconoce y que
+ * NO desencadena absorb al chain.
  *
- * Cobertura:
- *   - decision se reemplaza por Player.FOLD INDEPENDIENTEMENTE de
- *     lo que viniera (BET, ALLIN, CHECK, FOLD ya).
- *   - bet se anula a 0f.
- *   - cinematic se anula (slot 2).
- *   - record y sig se anulan (slots 3 y 4) → absorbActionIntoChain
- *     será no-op para este slot.
- *   - voluntary se marca FALSE (slot 5) → rondaApuestas salta el
- *     broadcast y el absorb.
- *   - null o length < 6 lanzan IllegalArgumentException (defensiva
- *     contra mal uso).
+ * Cobertura: - decision se reemplaza por Player.FOLD INDEPENDIENTEMENTE de lo
+ * que viniera (BET, ALLIN, CHECK, FOLD ya). - bet se anula a 0f. - cinematic se
+ * anula (slot 2). - record y sig se anulan (slots 3 y 4) →
+ * absorbActionIntoChain será no-op para este slot. - voluntary se marca FALSE
+ * (slot 5) → rondaApuestas salta el broadcast y el absorb. - null o length < 6
+ * lanzan IllegalArgumentException (defensiva contra mal uso).
  *
  * El OTRO synth (el del wire que no supera la verificación, que SÍ hay que
  * emitir) vive en UnverifiedActionSynthTest.
@@ -43,8 +38,8 @@ class SynthesizeFoldActionSmoke {
 
     /**
      * synthesizeExitFoldAction es package-private. Tests viven en package
-     * .smoke (distinto del .coronapoker del Crupier), así que llamamos
-     * via reflection.
+     * .smoke (distinto del .coronapoker del Crupier), así que llamamos via
+     * reflection.
      */
     private static void invokeSynthesize(Object[] action) throws Exception {
         Method m = Crupier.class.getDeclaredMethod("synthesizeExitFoldAction", Object[].class);

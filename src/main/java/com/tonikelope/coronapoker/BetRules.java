@@ -59,14 +59,16 @@ public final class BetRules {
      * Minimum raise INCREMENT (how much the bet must go up by): the previous
      * raise increment this street, or the big blind if there has been none yet.
      *
-     * @param lastRaiseIncrement the size of the last raise this street, 0 if none
+     * @param lastRaiseIncrement the size of the last raise this street, 0 if
+     * none
      */
     public static float minRaiseIncrement(float lastRaiseIncrement, float bigBlind) {
         return lastRaiseIncrement > 0f ? lastRaiseIncrement : bigBlind;
     }
 
     /**
-     * {@code double} money overload of {@link #minRaiseIncrement(float, float)}.
+     * {@code double} money overload of
+     * {@link #minRaiseIncrement(float, float)}.
      */
     public static double minRaiseIncrement(double lastRaiseIncrement, double bigBlind) {
         return lastRaiseIncrement > 0d ? lastRaiseIncrement : bigBlind;
@@ -81,7 +83,8 @@ public final class BetRules {
     }
 
     /**
-     * {@code double} money overload of {@link #minRaiseTo(float, float, float)}.
+     * {@code double} money overload of
+     * {@link #minRaiseTo(float, float, float)}.
      */
     public static double minRaiseTo(double currentBet, double lastRaiseIncrement, double bigBlind) {
         return currentBet + minRaiseIncrement(lastRaiseIncrement, bigBlind);
@@ -89,11 +92,12 @@ public final class BetRules {
 
     /**
      * Whether a committed raise increment is a FULL raise (reopens the betting)
-     * rather than an all-in for less than the minimum (a partial raise that does
-     * not reopen). Compared at the engine's cent resolution.
+     * rather than an all-in for less than the minimum (a partial raise that
+     * does not reopen). Compared at the engine's cent resolution.
      *
      * @param raiseIncrement how much the player actually raised the bet by
-     * @param minRaiseIncrement the minimum legal increment ({@link #minRaiseIncrement})
+     * @param minRaiseIncrement the minimum legal increment
+     * ({@link #minRaiseIncrement})
      */
     public static boolean isFullRaise(float raiseIncrement, float minRaiseIncrement) {
         return Math.round((double) raiseIncrement * 100.0) >= Math.round((double) minRaiseIncrement * 100.0);
@@ -110,15 +114,17 @@ public final class BetRules {
     /**
      * Nick of the first player to act POSTFLOP (flop, turn and river).
      *
-     * Multiway the small blind opens. Heads-up rule 4.3 takes over: the button IS the
-     * small blind, opens preflop and acts LAST postflop, so the big blind is the one who
-     * opens the later streets. Opening always with the small blind inverts the positional
-     * advantage for the whole heads-up phase, which is how every game ends.
+     * Multiway the small blind opens. Heads-up rule 4.3 takes over: the button
+     * IS the small blind, opens preflop and acts LAST postflop, so the big
+     * blind is the one who opens the later streets. Opening always with the
+     * small blind inverts the positional advantage for the whole heads-up
+     * phase, which is how every game ends.
      *
-     * Takes the heads-up condition as a boolean on purpose, so the caller has to decide it
-     * from the hand's own dealt positions. Recomputing it from a live player count would
-     * make the answer drift between streets when somebody leaves mid-hand, and could differ
-     * between peers that have not yet processed the same exit.
+     * Takes the heads-up condition as a boolean on purpose, so the caller has
+     * to decide it from the hand's own dealt positions. Recomputing it from a
+     * live player count would make the answer drift between streets when
+     * somebody leaves mid-hand, and could differ between peers that have not
+     * yet processed the same exit.
      */
     public static String firstToActPostflop(boolean headsUp, String smallBlindNick, String bigBlindNick) {
         return headsUp ? bigBlindNick : smallBlindNick;

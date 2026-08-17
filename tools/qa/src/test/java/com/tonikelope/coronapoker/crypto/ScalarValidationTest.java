@@ -44,7 +44,10 @@ public class ScalarValidationTest {
         }
     }
 
-    /** The scalar L itself (the order), little-endian — the first value out of range. */
+    /**
+     * The scalar L itself (the order), little-endian — the first value out of
+     * range.
+     */
     private static byte[] scalarL() {
         byte[] be = RistrettoSRA.L.toByteArray();
         byte[] le = new byte[32];

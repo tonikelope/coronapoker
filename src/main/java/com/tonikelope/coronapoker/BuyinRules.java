@@ -41,10 +41,9 @@ public final class BuyinRules {
     // big blind at 4,000,000, so big_blind * maxBB is at most 500 * 4,000,000 =
     // 2,000,000,000, which fits in an int. The blind ladder and the buy-in ceiling
     // are kept consistent at the source (the blind limit), not patched here.
-
     /**
-     * Minimum buy-in, in chips: {@code minBB} big blinds. ({@code big_blind} is double-typed
-     * money; the returned chip count stays an int.)
+     * Minimum buy-in, in chips: {@code minBB} big blinds. ({@code big_blind} is
+     * double-typed money; the returned chip count stays an int.)
      *
      * @param big_blind current big blind size
      * @param minBB minimum buy-in, in big blinds
@@ -66,9 +65,9 @@ public final class BuyinRules {
     }
 
     /**
-     * Suggested buy-in, in chips: {@link #SUGGESTED_BB} big blinds, clamped into
-     * {@code [min,max]} (so a deep range such as 100-300 BB suggests its minimum
-     * rather than the bare 50 BB).
+     * Suggested buy-in, in chips: {@link #SUGGESTED_BB} big blinds, clamped
+     * into {@code [min,max]} (so a deep range such as 100-300 BB suggests its
+     * minimum rather than the bare 50 BB).
      *
      * @param big_blind current big blind size
      * @param minBB minimum buy-in, in big blinds
@@ -81,14 +80,17 @@ public final class BuyinRules {
     }
 
     /**
-     * Per-table stack ceiling: the single fixed buy-in everyone shares, or {@code maxBB} big
-     * blinds when each player chooses their own (the deepest anybody could have bought in for).
-     * No player may ever hold more than this.
+     * Per-table stack ceiling: the single fixed buy-in everyone shares, or
+     * {@code maxBB} big blinds when each player chooses their own (the deepest
+     * anybody could have bought in for). No player may ever hold more than
+     * this.
      *
      * @param fixed whether the table uses one shared buy-in for every player
-     * @param buyin the shared buy-in, in chips (used only when {@code fixed} is true)
+     * @param buyin the shared buy-in, in chips (used only when {@code fixed} is
+     * true)
      * @param big_blind current big blind size
-     * @param maxBB maximum buy-in, in big blinds (used only when {@code fixed} is false)
+     * @param maxBB maximum buy-in, in big blinds (used only when {@code fixed}
+     * is false)
      * @return stack ceiling, in chips
      */
     public static int cap(boolean fixed, int buyin, double big_blind, int maxBB) {
@@ -96,15 +98,18 @@ public final class BuyinRules {
     }
 
     /**
-     * Maximum a player may ADD to their stack via a rebuy/top-up without exceeding the
-     * ceiling; 0 if already at (or over) it. {@code current_stack} is rounded up before
-     * subtracting, so a fractional stack (from sub-1 blinds) never lets a whole-chip rebuy
-     * push the total above the cap.
+     * Maximum a player may ADD to their stack via a rebuy/top-up without
+     * exceeding the ceiling; 0 if already at (or over) it.
+     * {@code current_stack} is rounded up before subtracting, so a fractional
+     * stack (from sub-1 blinds) never lets a whole-chip rebuy push the total
+     * above the cap.
      *
      * @param fixed whether the table uses one shared buy-in for every player
-     * @param buyin the shared buy-in, in chips (used only when {@code fixed} is true)
+     * @param buyin the shared buy-in, in chips (used only when {@code fixed} is
+     * true)
      * @param big_blind current big blind size
-     * @param maxBB maximum buy-in, in big blinds (used only when {@code fixed} is false)
+     * @param maxBB maximum buy-in, in big blinds (used only when {@code fixed}
+     * is false)
      * @param current_stack player's current stack
      * @return maximum rebuy amount, in chips; never negative
      */

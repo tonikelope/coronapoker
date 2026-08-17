@@ -29,31 +29,41 @@ public class HandStateChainSettlementTest {
 
     private static byte[] handId(int seed) {
         byte[] out = new byte[16];
-        for (int i = 0; i < 16; i++) out[i] = (byte) (seed + i);
+        for (int i = 0; i < 16; i++) {
+            out[i] = (byte) (seed + i);
+        }
         return out;
     }
 
     private static byte[] deck(int seed, int len) {
         byte[] out = new byte[len];
-        for (int i = 0; i < len; i++) out[i] = (byte) (seed + i);
+        for (int i = 0; i < len; i++) {
+            out[i] = (byte) (seed + i);
+        }
         return out;
     }
 
     private static byte[] commit(int seed) {
         byte[] out = new byte[32];
-        for (int i = 0; i < 32; i++) out[i] = (byte) (seed * 7 + i);
+        for (int i = 0; i < 32; i++) {
+            out[i] = (byte) (seed * 7 + i);
+        }
         return out;
     }
 
     private static List<byte[]> commits(int base, int n) {
         List<byte[]> out = new ArrayList<>();
-        for (int i = 0; i < n; i++) out.add(commit(base + i));
+        for (int i = 0; i < n; i++) {
+            out.add(commit(base + i));
+        }
         return out;
     }
 
     private static HandStateChain startFor(byte[] hid, byte[] dck, String... nicks) {
         List<byte[]> ids = new ArrayList<>();
-        for (String n : nicks) ids.add(CanonicalActionRecord.playerIdFromNick(n));
+        for (String n : nicks) {
+            ids.add(CanonicalActionRecord.playerIdFromNick(n));
+        }
         return HandStateChain.start(hid, ids, commits(1, ids.size()), commits(100, ids.size()), dck);
     }
 

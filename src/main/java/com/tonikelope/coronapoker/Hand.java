@@ -32,8 +32,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
- * Evaluates the best 5-card poker hand out of a set of candidate cards (hole + community) and
- * exposes the winning cards, kickers, numeric rank and translated name.
+ * Evaluates the best 5-card poker hand out of a set of candidate cards (hole +
+ * community) and exposes the winning cards, kickers, numeric rank and
+ * translated name.
  *
  * @author tonikelope
  */
@@ -45,7 +46,9 @@ public class Hand {
         "hand.straight_flush", "hand.royal_flush"
     };
 
-    /** @return the ten hand-rank names, translated into the current UI language. */
+    /**
+     * @return the ten hand-rank names, translated into the current UI language.
+     */
     public static String[] getNombreJugadas() {
         String[] nombres = new String[HAND_KEYS.length];
         for (int i = 0; i < HAND_KEYS.length; i++) {
@@ -68,7 +71,8 @@ public class Hand {
     public static final int ESCALERA_COLOR_REAL = 10;
 
     /**
-     * Maps a translated hand name (as produced by {@link #getNombreJugadas()}) back to its rank.
+     * Maps a translated hand name (as produced by {@link #getNombreJugadas()})
+     * back to its rank.
      *
      * @param name translated hand name to look up
      * @return the matching rank (1-10), or -1 if not found
@@ -230,28 +234,40 @@ public class Hand {
         return color.size() >= Crupier.CARTAS_COLOR ? color : null;
     }
 
-    /** @return the highest pair (2 cards), or {@code null} if the candidates have none. */
+    /**
+     * @return the highest pair (2 cards), or {@code null} if the candidates
+     * have none.
+     */
     public static ArrayList<Card> hayPareja(ArrayList<Card> candidatas) {
 
         return buscarCartasValoresRepetidos(candidatas, Crupier.CARTAS_PAREJA);
 
     }
 
-    /** @return the highest three of a kind (3 cards), or {@code null} if the candidates have none. */
+    /**
+     * @return the highest three of a kind (3 cards), or {@code null} if the
+     * candidates have none.
+     */
     public static ArrayList<Card> hayTrio(ArrayList<Card> candidatas) {
 
         return buscarCartasValoresRepetidos(candidatas, Crupier.CARTAS_TRIO);
 
     }
 
-    /** @return the four of a kind (4 cards), or {@code null} if the candidates have none. */
+    /**
+     * @return the four of a kind (4 cards), or {@code null} if the candidates
+     * have none.
+     */
     public static ArrayList<Card> hayPoker(ArrayList<Card> candidatas) {
 
         return buscarCartasValoresRepetidos(candidatas, Crupier.CARTAS_POKER);
 
     }
 
-    /** @return trips + a pair (5 cards), or {@code null} if the candidates don't make a full house. */
+    /**
+     * @return trips + a pair (5 cards), or {@code null} if the candidates don't
+     * make a full house.
+     */
     public static ArrayList<Card> hayFull(ArrayList<Card> candidatas) {
 
         ArrayList<Card> cartas = new ArrayList<>(candidatas);
@@ -278,9 +294,9 @@ public class Hand {
     }
 
     /**
-     * @return the two highest pairs (4 cards), or {@code null} if not found. Skipped when the
-     *         candidates already make a four of a kind (which would otherwise look like two
-     *         pairs of the same value).
+     * @return the two highest pairs (4 cards), or {@code null} if not found.
+     * Skipped when the candidates already make a four of a kind (which would
+     * otherwise look like two pairs of the same value).
      */
     public static ArrayList<Card> hayDoblePareja(ArrayList<Card> candidatas) {
 
@@ -308,7 +324,10 @@ public class Hand {
 
     }
 
-    /** @return the straight (5 cards, descending; ace playable high or low), or {@code null} if none. */
+    /**
+     * @return the straight (5 cards, descending; ace playable high or low), or
+     * {@code null} if none.
+     */
     public static ArrayList<Card> hayEscalera(ArrayList<Card> candidatas) {
 
         ArrayList<Card> escalera_alta = buscarCartasValoresCorrelativos(candidatas, false);
@@ -322,8 +341,9 @@ public class Hand {
     }
 
     /**
-     * @return the straight flush (5 cards, descending), or {@code null} if none. Ace only sorts
-     *         low here; the ace-high case (10-J-Q-K-A) is {@link #hayEscaleraReal}.
+     * @return the straight flush (5 cards, descending), or {@code null} if
+     * none. Ace only sorts low here; the ace-high case (10-J-Q-K-A) is
+     * {@link #hayEscaleraReal}.
      */
     public static ArrayList<Card> hayEscaleraColor(ArrayList<Card> candidatas) {
 
@@ -331,7 +351,9 @@ public class Hand {
 
     }
 
-    /** @return the royal flush (A-K-Q-J-10 suited), or {@code null} if none. */
+    /**
+     * @return the royal flush (A-K-Q-J-10 suited), or {@code null} if none.
+     */
     public static ArrayList<Card> hayEscaleraReal(ArrayList<Card> candidatas) {
 
         ArrayList<Card> posible_escalera_real = buscarCartasValoresCorrelativos(buscarCartasMismoPalo(candidatas), false);
@@ -340,7 +362,10 @@ public class Hand {
 
     }
 
-    /** @return the flush (5 highest cards of the largest suited group), or {@code null} if none. */
+    /**
+     * @return the flush (5 highest cards of the largest suited group), or
+     * {@code null} if none.
+     */
     public static ArrayList<Card> hayColor(ArrayList<Card> candidatas) {
 
         ArrayList<Card> posible_color = buscarCartasMismoPalo(candidatas);
@@ -356,14 +381,18 @@ public class Hand {
     private volatile String hand_name = null;
     private volatile double loki_fuerza;
 
-    /** @return the Loki bot's estimated hand strength (0-100) stashed on this hand via {@link #setFuerza}. */
+    /**
+     * @return the Loki bot's estimated hand strength (0-100) stashed on this
+     * hand via {@link #setFuerza}.
+     */
     public double getFuerza() {
         return loki_fuerza;
     }
 
     /**
-     * Stashes the Loki bot's hand-strength estimate alongside this hand, for the odds/multiverse
-     * display; unrelated to the rank computed by the constructor.
+     * Stashes the Loki bot's hand-strength estimate alongside this hand, for
+     * the odds/multiverse display; unrelated to the rank computed by the
+     * constructor.
      *
      * @param fuerza strength estimate (0-100)
      */
@@ -372,8 +401,8 @@ public class Hand {
     }
 
     /**
-     * Evaluates the best 5-card hand out of {@code cartas} (hole + community cards). Leaves
-     * every field unset if {@code cartas} is empty.
+     * Evaluates the best 5-card hand out of {@code cartas} (hole + community
+     * cards). Leaves every field unset if {@code cartas} is empty.
      *
      * @param cartas candidate cards to evaluate, in any order
      */
@@ -404,22 +433,31 @@ public class Hand {
         return this.hand_name + " " + Card.collection2String(this.winners);
     }
 
-    /** @return the cards that make up the hand, excluding kickers. */
+    /**
+     * @return the cards that make up the hand, excluding kickers.
+     */
     public ArrayList<Card> getWinners() {
         return winners;
     }
 
-    /** @return the numeric hand rank (1 = high card ... 10 = royal flush). */
+    /**
+     * @return the numeric hand rank (1 = high card ... 10 = royal flush).
+     */
     public int getValue() {
         return hand_value;
     }
 
-    /** @return the cards that make up the hand, including kickers (up to {@code Crupier.CARTAS_MAX}). */
+    /**
+     * @return the cards that make up the hand, including kickers (up to
+     * {@code Crupier.CARTAS_MAX}).
+     */
     public ArrayList<Card> getMano() {
         return mano;
     }
 
-    /** @return the translated hand name (e.g. "Two Pair"). */
+    /**
+     * @return the translated hand name (e.g. "Two Pair").
+     */
     public String getName() {
         return hand_name;
     }

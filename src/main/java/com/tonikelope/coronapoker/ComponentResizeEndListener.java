@@ -35,23 +35,27 @@ import java.awt.event.ComponentEvent;
 import javax.swing.Timer;
 
 /**
- * Component listener that fires {@link #resizeTimedOut()} once resize events stop arriving for a
- * configurable delay, instead of on every intermediate resize.
+ * Component listener that fires {@link #resizeTimedOut()} once resize events
+ * stop arriving for a configurable delay, instead of on every intermediate
+ * resize.
  *
- * @see <a href="https://stackoverflow.com/a/51201622">Debounce technique source</a>
+ * @see <a href="https://stackoverflow.com/a/51201622">Debounce technique
+ * source</a>
  */
 public abstract class ComponentResizeEndListener extends ComponentAdapter implements ActionListener {
 
     private final Timer timer;
 
-    /** Uses the default 250ms settle delay. */
+    /**
+     * Uses the default 250ms settle delay.
+     */
     public ComponentResizeEndListener() {
         this(250);
     }
 
     /**
-     * @param delayMS milliseconds to wait after the last resize event before firing
-     *                {@link #resizeTimedOut()}
+     * @param delayMS milliseconds to wait after the last resize event before
+     * firing {@link #resizeTimedOut()}
      */
     public ComponentResizeEndListener(int delayMS) {
         timer = new Timer(delayMS, this);
@@ -69,6 +73,9 @@ public abstract class ComponentResizeEndListener extends ComponentAdapter implem
         resizeTimedOut();
     }
 
-    /** Called once resizing has settled (no new resize event arrived within the delay). */
+    /**
+     * Called once resizing has settled (no new resize event arrived within the
+     * delay).
+     */
     public abstract void resizeTimedOut();
 }

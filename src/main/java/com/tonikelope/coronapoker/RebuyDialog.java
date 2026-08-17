@@ -33,11 +33,11 @@ import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 
 /**
- * Rebuy / initial buy-in dialog: a spinner to pick a chip amount, an optional Cancel button,
- * and a countdown that auto-accepts (or auto-cancels) on timeout. In "defer close" mode (used
- * by the variable initial buy-in) accepting doesn't close the dialog; it switches to an
- * indeterminate "waiting for the other players" state that the dealer closes once collection
- * finishes.
+ * Rebuy / initial buy-in dialog: a spinner to pick a chip amount, an optional
+ * Cancel button, and a countdown that auto-accepts (or auto-cancels) on
+ * timeout. In "defer close" mode (used by the variable initial buy-in)
+ * accepting doesn't close the dialog; it switches to an indeterminate "waiting
+ * for the other players" state that the dealer closes once collection finishes.
  *
  * @author tonikelope
  */
@@ -70,10 +70,11 @@ public class RebuyDialog extends JDialog {
     }
 
     /**
-     * After the initial buy-in is accepted: hides the spinner/buttons and shows an
-     * indeterminate bar plus "waiting for the other players" until the dealer closes the
-     * dialog once everyone is in. {@code Helpers.barraIndeterminada} cancels the
-     * smoothCountdown timer, so the countdown -> indeterminate handoff is clean.
+     * After the initial buy-in is accepted: hides the spinner/buttons and shows
+     * an indeterminate bar plus "waiting for the other players" until the
+     * dealer closes the dialog once everyone is in.
+     * {@code Helpers.barraIndeterminada} cancels the smoothCountdown timer, so
+     * the countdown -> indeterminate handoff is clean.
      */
     public void enterWaitingMode() {
         Helpers.GUIRun(() -> {
@@ -131,19 +132,21 @@ public class RebuyDialog extends JDialog {
     }
 
     /**
-     * Same as {@link #RebuyDialog(java.awt.Frame, boolean, boolean, int, int, int, int)} with
-     * the legacy fixed range [1, BUYIN] and default value BUYIN.
+     * Same as
+     * {@link #RebuyDialog(java.awt.Frame, boolean, boolean, int, int, int, int)}
+     * with the legacy fixed range [1, BUYIN] and default value BUYIN.
      */
     public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout) {
         this(parent, modal, cancel, timeout, 1, GameFrame.BUYIN, GameFrame.BUYIN);
     }
 
     /**
-     * Same as {@link #RebuyDialog(java.awt.Frame, boolean, boolean, int, int, int, int, String)}
-     * with the default header key for a plain rebuy ("rebuy.recomprar_3"). Used by the
-     * variable buy-in flow (table-entry buy-in and rebuys), where the range and default come
-     * from the configurable buy-in bounds (getBuyinMin/getBuyinMax/getBuyinDefault) instead of
-     * the fixed buy-in.
+     * Same as
+     * {@link #RebuyDialog(java.awt.Frame, boolean, boolean, int, int, int, int, String)}
+     * with the default header key for a plain rebuy ("rebuy.recomprar_3"). Used
+     * by the variable buy-in flow (table-entry buy-in and rebuys), where the
+     * range and default come from the configurable buy-in bounds
+     * (getBuyinMin/getBuyinMax/getBuyinDefault) instead of the fixed buy-in.
      */
     public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout, int min, int max, int default_value) {
         this(parent, modal, cancel, timeout, min, max, default_value, "rebuy.recomprar_3");
@@ -154,15 +157,16 @@ public class RebuyDialog extends JDialog {
      *
      * @param parent owner frame
      * @param modal whether the dialog blocks input to the owner
-     * @param cancel whether Cancel is shown; if false, timing out auto-accepts the current
-     *     spinner value instead of cancelling
-     * @param timeout countdown length in seconds, or {@code <= 0} to disable the countdown
+     * @param cancel whether Cancel is shown; if false, timing out auto-accepts
+     * the current spinner value instead of cancelling
+     * @param timeout countdown length in seconds, or {@code <= 0} to disable
+     * the countdown
      * @param min minimum spinner value
      * @param max maximum spinner value
      * @param default_value initial spinner value, clamped into [min, max]
-     * @param header_key i18n key for the header/title: "rebuy.recomprar_3" (RECOMPRAR) for a
-     *     rebuy, "rebuy.compra_inicial" (COMPRA INICIAL) for the table-entry buy-in in variable
-     *     mode
+     * @param header_key i18n key for the header/title: "rebuy.recomprar_3"
+     * (RECOMPRAR) for a rebuy, "rebuy.compra_inicial" (COMPRA INICIAL) for the
+     * table-entry buy-in in variable mode
      */
     public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout, int min, int max, int default_value, String header_key) {
         super(parent, modal);
@@ -244,13 +248,13 @@ public class RebuyDialog extends JDialog {
     }
 
     /**
-     * AUTO-mode variant: always shows the red Cancel button (even when {@code cancel} is
-     * false, which keeps "timeout -> rebuy"), so the automatic rebuy can still be aborted at
-     * the last moment. Used by the dealer's automatic rebuy-on-bust when the game-over
-     * countdown runs out.
+     * AUTO-mode variant: always shows the red Cancel button (even when
+     * {@code cancel} is false, which keeps "timeout -> rebuy"), so the
+     * automatic rebuy can still be aborted at the last moment. Used by the
+     * dealer's automatic rebuy-on-bust when the game-over countdown runs out.
      *
-     * @param auto_rebuy_mode when true, forces the Cancel button visible in red regardless of
-     *     {@code cancel}
+     * @param auto_rebuy_mode when true, forces the Cancel button visible in red
+     * regardless of {@code cancel}
      */
     public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout, int min, int max, int default_value, String header_key, boolean auto_rebuy_mode) {
 
@@ -293,6 +297,7 @@ public class RebuyDialog extends JDialog {
             public void windowActivated(java.awt.event.WindowEvent evt) {
                 formWindowActivated(evt);
             }
+
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
             }
@@ -331,9 +336,8 @@ public class RebuyDialog extends JDialog {
             }
         });
 
-
         rebuy_spinner.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        rebuy_spinner.setModel(new SpinnerNumberModel(GameFrame.BUYIN, 1, GameFrame.BUYIN, NewGameDialog.BUYIN_SPINNER_STEP) );
+        rebuy_spinner.setModel(new SpinnerNumberModel(GameFrame.BUYIN, 1, GameFrame.BUYIN, NewGameDialog.BUYIN_SPINNER_STEP));
         rebuy_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent evt) {
@@ -349,52 +353,52 @@ public class RebuyDialog extends JDialog {
         javax.swing.GroupLayout panelLayout = new javax.swing.GroupLayout(panel);
         panel.setLayout(panelLayout);
         panelLayout.setHorizontalGroup(
-            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(panelLayout.createSequentialGroup()
-                        .addComponent(jLabel2)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(rebuy_spinner, javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(jLabel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(ok_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                    .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(wait_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
+                panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addGroup(panelLayout.createSequentialGroup()
+                                                .addComponent(jLabel2)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addGroup(panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(rebuy_spinner, javax.swing.GroupLayout.Alignment.TRAILING)
+                                                        .addComponent(jLabel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(ok_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                                        .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(wait_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addContainerGap())
         );
         panelLayout.setVerticalGroup(
-            panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(panelLayout.createSequentialGroup()
-                        .addComponent(jLabel1)
-                        .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
-                        .addComponent(rebuy_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(ok_button)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(cancel_button))
-                    .addComponent(jLabel2))
-                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
-                .addComponent(wait_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
+                panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addGroup(panelLayout.createSequentialGroup()
+                                                .addComponent(jLabel1)
+                                                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(rebuy_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                                .addComponent(ok_button)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                                .addComponent(cancel_button))
+                                        .addComponent(jLabel2))
+                                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
+                                .addComponent(wait_label)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addContainerGap())
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();

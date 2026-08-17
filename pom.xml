@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>23.52</version>
+    <version>23.53</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -26,10 +26,10 @@
                         <manifestEntries>
                             <SplashScreen-Image>images/splash.gif</SplashScreen-Image>
                             <!-- Java 24+ avisa por consola cada vez que una libreria del
-                                 classpath carga codigo nativo (sqlite-jdbc, JNA), y las
-                                 versiones siguientes lo deniegan de fabrica. Concederlo
-                                 aqui evita el aviso y que el arranque muera el dia que
-                                 pase a denegarse. Solo lo lee la JVM al lanzar con -jar. -->
+                            classpath carga codigo nativo (sqlite-jdbc, JNA), y las
+                            versiones siguientes lo deniegan de fabrica. Concederlo
+                            aqui evita el aviso y que el arranque muera el dia que
+                            pase a denegarse. Solo lo lee la JVM al lanzar con -jar. -->
                             <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
                         </manifestEntries>
                     </archive>

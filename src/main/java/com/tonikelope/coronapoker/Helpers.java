@@ -222,7 +222,8 @@ import static java.beans.Beans.isDesignTime;
 import java.util.Base64;
 
 /**
- * Grab-bag of static helpers used across the app (GUI, crypto, I/O, config, misc).
+ * Grab-bag of static helpers used across the app (GUI, crypto, I/O, config,
+ * misc).
  *
  * @author tonikelope
  */
@@ -290,6 +291,7 @@ public class Helpers {
     // zoom (GameFrame.ZOOM_LEVEL), which this control does NOT touch.
     public volatile static float DIALOG_ZOOM = readDialogZoom();
     public volatile static Font GUI_FONT = null;
+
     static {
         if (!isDesignTime()) {
 
@@ -807,11 +809,12 @@ public class Helpers {
     private static final int SMOOTH_TICK_MS = 50;
 
     /**
-     * Smooth visual countdown for a JProgressBar: starts full and drains to 0 over
-     * {@code seconds}. Uses an ms scale (max = seconds * 1000) and a 50 ms Timer based
-     * on a deadline-now diff (no cumulative drift). The Timer is stashed on the bar via
-     * clientProperty, so a second call, or resetBarra/barraIndeterminada, cancels it
-     * cleanly. seconds <= 0 leaves the bar at 0 without starting a Timer.
+     * Smooth visual countdown for a JProgressBar: starts full and drains to 0
+     * over {@code seconds}. Uses an ms scale (max = seconds * 1000) and a 50 ms
+     * Timer based on a deadline-now diff (no cumulative drift). The Timer is
+     * stashed on the bar via clientProperty, so a second call, or
+     * resetBarra/barraIndeterminada, cancels it cleanly. seconds <= 0 leaves
+     * the bar at 0 without starting a Timer.
      */
     public static void smoothCountdown(JProgressBar barra, int seconds) {
         Helpers.GUIRunAndWait(new Runnable() {
@@ -976,8 +979,7 @@ public class Helpers {
 
     public static boolean isImageGIF(URL url) {
 
-        try (InputStream stream = url.openStream();
-                ImageInputStream iis = ImageIO.createImageInputStream(stream)) {
+        try (InputStream stream = url.openStream(); ImageInputStream iis = ImageIO.createImageInputStream(stream)) {
 
             Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
 
@@ -1576,10 +1578,10 @@ public class Helpers {
      * @return true if the database ends up open with an up-to-date schema.
      *
      * Returns false (never propagates) on any failure, including ones that
-     * aren't an Exception: if the SQLite native library can't be loaded
-     * (locked in the temp directory, or native access denied by the JVM) what
-     * comes out of here is an Error, which used to escape the catch and kill
-     * the startup thread, leaving the splash frozen with no explanation.
+     * aren't an Exception: if the SQLite native library can't be loaded (locked
+     * in the temp directory, or native access denied by the JVM) what comes out
+     * of here is an Error, which used to escape the catch and kill the startup
+     * thread, leaving the splash frozen with no explanation.
      */
     public static boolean initSQLITE() {
         try {
@@ -1709,20 +1711,23 @@ public class Helpers {
     }
 
     /**
-     * Startup integrity gate. Runs single-threaded before any game thread touches
-     * the DB, so it is free of the Connection-sharing / lock-ordering hazards that a
-     * close-time backup would face.
+     * Startup integrity gate. Runs single-threaded before any game thread
+     * touches the DB, so it is free of the Connection-sharing / lock-ordering
+     * hazards that a close-time backup would face.
      *
      * <ul>
-     * <li>If the main DB passes {@code PRAGMA quick_check}, refresh the {@code .autobak}
-     * snapshot — it then always holds a state already proven healthy.</li>
-     * <li>If it fails (corrupt / unreadable), set the corrupt file aside (never deleted,
-     * for forensics) and restore the last {@code .autobak}. If there is no usable backup,
-     * start fresh: the {@code CREATE TABLE IF NOT EXISTS} block rebuilds an empty schema.</li>
+     * <li>If the main DB passes {@code PRAGMA quick_check}, refresh the
+     * {@code .autobak} snapshot — it then always holds a state already proven
+     * healthy.</li>
+     * <li>If it fails (corrupt / unreadable), set the corrupt file aside (never
+     * deleted, for forensics) and restore the last {@code .autobak}. If there
+     * is no usable backup, start fresh: the {@code CREATE TABLE IF NOT EXISTS}
+     * block rebuilds an empty schema.</li>
      * </ul>
      *
-     * Doing it at launch (not at close) also captures data after an unclean previous
-     * shutdown and never overwrites a good backup with a corrupt source.
+     * Doing it at launch (not at close) also captures data after an unclean
+     * previous shutdown and never overwrites a good backup with a corrupt
+     * source.
      */
     private static void verifyAndBackupDatabase() {
         if (SQL_FILE == null || SQL_FILE.isBlank()) {
@@ -1775,9 +1780,10 @@ public class Helpers {
     }
 
     /**
-     * @return true only if {@code PRAGMA quick_check} reports "ok". A SQLException
-     * (e.g. "database disk image is malformed") or any other result is treated as
-     * unhealthy. Opens the connection lazily through {@link #getSQLITE()}.
+     * @return true only if {@code PRAGMA quick_check} reports "ok". A
+     * SQLException (e.g. "database disk image is malformed") or any other
+     * result is treated as unhealthy. Opens the connection lazily through
+     * {@link #getSQLITE()}.
      */
     private static boolean isSQLiteHealthy() {
         // Self-contained probe on its OWN short-lived connection, not the shared
@@ -1786,8 +1792,7 @@ public class Helpers {
         // getSQLITE would log it as a SEVERE "could not open" stack trace and look
         // like a crash. The connection is closed (try-with-resources) before we
         // return, leaving the file unlocked for the move/restore that follows.
-        try (java.sql.Connection conn = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE);
-                Statement st = conn.createStatement()) {
+        try (java.sql.Connection conn = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE); Statement st = conn.createStatement()) {
             st.setQueryTimeout(60);
             try (ResultSet rs = st.executeQuery("PRAGMA quick_check")) {
                 return rs.next() && "ok".equalsIgnoreCase(rs.getString(1));
@@ -1799,9 +1804,10 @@ public class Helpers {
     }
 
     /**
-     * Copies the main DB over the {@code .autobak} snapshot. Called only after the DB
-     * has just passed its integrity check and the connection is closed, so the backup
-     * is taken from a file at rest and is never poisoned by a corrupt source.
+     * Copies the main DB over the {@code .autobak} snapshot. Called only after
+     * the DB has just passed its integrity check and the connection is closed,
+     * so the backup is taken from a file at rest and is never poisoned by a
+     * corrupt source.
      */
     private static void backupSQLite() {
         java.nio.file.Path tmp = java.nio.file.Paths.get(SQL_FILE + ".autobak.tmp");
@@ -1848,68 +1854,68 @@ public class Helpers {
         // thread AND from StatsDialog's "stats-db" executor (purge / delete-all / delete-imported) —
         // so taking SQL_LOCK here respects the "never request SQL_LOCK from the EDT" invariant.
         synchronized (GameFrame.SQL_LOCK) {
-        try (Statement statement = Helpers.getSQLITE().createStatement()) {
+            try (Statement statement = Helpers.getSQLITE().createStatement()) {
 
-            // VACUUM rewrites the ENTIRE database file, so its cost grows
-            // linearly with the DB size (measured ~16 ms/MB: ~38 ms at 2 MB,
-            // ~274 ms at 16 MB). The game history (game/hand/action/...) is only
-            // ever purged manually from StatsDialog, so the file grows
-            // monotonically across sessions. Running a full VACUUM on every game
-            // end therefore made the return to the main screen progressively
-            // slower while, in the common case (no rows deleted since the last
-            // run), reclaiming nothing at all — pure wasted I/O on the exit path.
-            //
-            // Only compact when there is non-trivial free space to reclaim (i.e.
-            // after a manual purge actually freed pages). Otherwise this is a
-            // cheap no-op and the return to the lobby stays instant no matter how
-            // large the history has grown.
-            long free_pages = 0;
-            long total_pages = 0;
+                // VACUUM rewrites the ENTIRE database file, so its cost grows
+                // linearly with the DB size (measured ~16 ms/MB: ~38 ms at 2 MB,
+                // ~274 ms at 16 MB). The game history (game/hand/action/...) is only
+                // ever purged manually from StatsDialog, so the file grows
+                // monotonically across sessions. Running a full VACUUM on every game
+                // end therefore made the return to the main screen progressively
+                // slower while, in the common case (no rows deleted since the last
+                // run), reclaiming nothing at all — pure wasted I/O on the exit path.
+                //
+                // Only compact when there is non-trivial free space to reclaim (i.e.
+                // after a manual purge actually freed pages). Otherwise this is a
+                // cheap no-op and the return to the lobby stays instant no matter how
+                // large the history has grown.
+                long free_pages = 0;
+                long total_pages = 0;
 
-            try (ResultSet rs = statement.executeQuery("PRAGMA freelist_count")) {
-                if (rs.next()) {
-                    free_pages = rs.getLong(1);
+                try (ResultSet rs = statement.executeQuery("PRAGMA freelist_count")) {
+                    if (rs.next()) {
+                        free_pages = rs.getLong(1);
+                    }
                 }
-            }
 
-            try (ResultSet rs = statement.executeQuery("PRAGMA page_count")) {
-                if (rs.next()) {
-                    total_pages = rs.getLong(1);
+                try (ResultSet rs = statement.executeQuery("PRAGMA page_count")) {
+                    if (rs.next()) {
+                        total_pages = rs.getLong(1);
+                    }
                 }
-            }
 
-            // Worth a full rewrite only when the free space is both absolutely
-            // (> 256 free pages — a few hundred KB to ~1 MB depending on the
-            // file's page_size) and relatively (>= 10% of the file) significant.
-            // The relative gate is what matters; the page floor just avoids churn
-            // on a small DB.
-            boolean worth_compacting = free_pages > 256 && total_pages > 0
-                    && (free_pages * 100L) / total_pages >= 10;
+                // Worth a full rewrite only when the free space is both absolutely
+                // (> 256 free pages — a few hundred KB to ~1 MB depending on the
+                // file's page_size) and relatively (>= 10% of the file) significant.
+                // The relative gate is what matters; the page floor just avoids churn
+                // on a small DB.
+                boolean worth_compacting = free_pages > 256 && total_pages > 0
+                        && (free_pages * 100L) / total_pages >= 10;
 
-            if (!worth_compacting) {
-                LOGGER.log(Level.INFO, "SQLite VACUUM skipped ({0}/{1} free pages — nothing significant to reclaim).",
+                if (!worth_compacting) {
+                    LOGGER.log(Level.INFO, "SQLite VACUUM skipped ({0}/{1} free pages — nothing significant to reclaim).",
+                            new Object[]{free_pages, total_pages});
+                    return;
+                }
+
+                statement.execute("VACUUM");
+
+                LOGGER.log(Level.INFO, "SQLite VACUUM done (reclaimed {0}/{1} pages).",
                         new Object[]{free_pages, total_pages});
-                return;
+
+            } catch (SQLException ex) {
+                String msg = ex.getMessage();
+                // VACUUM is opportunistic maintenance and benignly fails when
+                // other SQL statements are still in progress (typical during a
+                // busy game exit). That specific case is INFO. ANY other SQL
+                // error (disk full, permission denied, corruption, etc.) is a
+                // real problem and stays SEVERE.
+                if (msg != null && msg.contains("SQL statements in progress")) {
+                    LOGGER.log(Level.INFO, "SQLite VACUUM skipped (SQL statements in progress, will retry next session).");
+                } else {
+                    LOGGER.log(Level.SEVERE, "SQLite VACUUM failed", ex);
+                }
             }
-
-            statement.execute("VACUUM");
-
-            LOGGER.log(Level.INFO, "SQLite VACUUM done (reclaimed {0}/{1} pages).",
-                    new Object[]{free_pages, total_pages});
-
-        } catch (SQLException ex) {
-            String msg = ex.getMessage();
-            // VACUUM is opportunistic maintenance and benignly fails when
-            // other SQL statements are still in progress (typical during a
-            // busy game exit). That specific case is INFO. ANY other SQL
-            // error (disk full, permission denied, corruption, etc.) is a
-            // real problem and stays SEVERE.
-            if (msg != null && msg.contains("SQL statements in progress")) {
-                LOGGER.log(Level.INFO, "SQLite VACUUM skipped (SQL statements in progress, will retry next session).");
-            } else {
-                LOGGER.log(Level.SEVERE, "SQLite VACUUM failed", ex);
-            }
-        }
         } // synchronized (GameFrame.SQL_LOCK)
 
     }
@@ -2168,14 +2174,17 @@ public class Helpers {
     }
 
     /**
-     * Raw-bytes sibling of {@link #encryptString(String, SecretKeySpec, byte[], SecretKeySpec)}:
-     * encrypts the given payload bytes (no UTF-8 string round-trip, no Base64) and
-     * returns {@code HMAC(32) || IV(16) || AES-CBC/PKCS5(payload)} as raw bytes — the
-     * exact same wire structure encryptString produces, minus the trailing Base64.
+     * Raw-bytes sibling of
+     * {@link #encryptString(String, SecretKeySpec, byte[], SecretKeySpec)}:
+     * encrypts the given payload bytes (no UTF-8 string round-trip, no Base64)
+     * and returns {@code HMAC(32) || IV(16) || AES-CBC/PKCS5(payload)} as raw
+     * bytes — the exact same wire structure encryptString produces, minus the
+     * trailing Base64.
      *
-     * Used as the body of a binary {@link WireFrame} so blobs (voice notes, avatars) ride
-     * the channel without the double Base64 inflation of the text command path.
-     * encryptString/decryptString are intentionally left untouched.
+     * Used as the body of a binary {@link WireFrame} so blobs (voice notes,
+     * avatars) ride the channel without the double Base64 inflation of the text
+     * command path. encryptString/decryptString are intentionally left
+     * untouched.
      */
     public static byte[] encryptBytes(byte[] payload, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
 
@@ -2229,11 +2238,12 @@ public class Helpers {
     }
 
     /**
-     * Raw-bytes sibling of {@link #decryptString(String, SecretKeySpec, SecretKeySpec)}:
-     * takes the raw {@code HMAC(32) || IV(16) || ciphertext} bytes (no Base64 decode),
-     * verifies the HMAC in constant time, AES-decrypts and returns the plaintext bytes
-     * (no UTF-8 string round-trip). Throws {@link KeyException} on HMAC mismatch, the
-     * same contract decryptString uses.
+     * Raw-bytes sibling of
+     * {@link #decryptString(String, SecretKeySpec, SecretKeySpec)}: takes the
+     * raw {@code HMAC(32) || IV(16) || ciphertext} bytes (no Base64 decode),
+     * verifies the HMAC in constant time, AES-decrypts and returns the
+     * plaintext bytes (no UTF-8 string round-trip). Throws {@link KeyException}
+     * on HMAC mismatch, the same contract decryptString uses.
      */
     public static byte[] decryptBytes(byte[] full_msg, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
 
@@ -2352,20 +2362,23 @@ public class Helpers {
     }
 
     /**
-     * Verbs the keepalive writes WITHOUT encryption, by design: transport writers dump
-     * the raw string and each caller is the one that applies encryption — something the
-     * PING/PONG senders don't do, unlike the game ones, which do go through
-     * encryptCommand. There are six: on the host, {@code Participant}'s three (the
-     * heartbeat PING, and the PONG and PONG2 it replies with to the client's), and on the
-     * client, {@code WaitingRoomFrame}'s (its own PING and the replies to the host's),
-     * which go out via {@code writeCommandToServer}. WireFrame documents this in its header.
+     * Verbs the keepalive writes WITHOUT encryption, by design: transport
+     * writers dump the raw string and each caller is the one that applies
+     * encryption — something the PING/PONG senders don't do, unlike the game
+     * ones, which do go through encryptCommand. There are six: on the host,
+     * {@code Participant}'s three (the heartbeat PING, and the PONG and PONG2
+     * it replies with to the client's), and on the client,
+     * {@code WaitingRoomFrame}'s (its own PING and the replies to the host's),
+     * which go out via {@code writeCommandToServer}. WireFrame documents this
+     * in its header.
      */
     private static final String[] PLAINTEXT_CONTROL_VERBS = {"PING", "PONG", "PONG2"};
 
     /**
-     * {@code PING#<n>}, {@code PONG#<n>} or {@code PONG2#<n>} and nothing else: an exact
-     * verb from the closed set plus an integer counter. Deliberately strict, so the door
-     * the keepalive needs can't be used to smuggle anything else through.
+     * {@code PING#<n>}, {@code PONG#<n>} or {@code PONG2#<n>} and nothing else:
+     * an exact verb from the closed set plus an integer counter. Deliberately
+     * strict, so the door the keepalive needs can't be used to smuggle anything
+     * else through.
      */
     private static boolean isPlaintextControlFrame(String frame) {
 
@@ -2408,23 +2421,26 @@ public class Helpers {
     }
 
     /**
-     * Atomically writes {@code data} to {@code target}: first to a tempfile next to the
-     * target, then {@code Files.move} with ATOMIC_MOVE + REPLACE_EXISTING.
+     * Atomically writes {@code data} to {@code target}: first to a tempfile
+     * next to the target, then {@code Files.move} with ATOMIC_MOVE +
+     * REPLACE_EXISTING.
      *
-     * Solves the problem with Files.writeString's default open options (CREATE +
-     * TRUNCATE_EXISTING + WRITE): it opens the file, truncates it to 0, then writes. If
-     * the process dies between TRUNCATE and the first write (power cut, BSOD, JVM kill,
-     * AV lock), the file is left EMPTY on disk — data lost.
+     * Solves the problem with Files.writeString's default open options (CREATE
+     * + TRUNCATE_EXISTING + WRITE): it opens the file, truncates it to 0, then
+     * writes. If the process dies between TRUNCATE and the first write (power
+     * cut, BSOD, JVM kill, AV lock), the file is left EMPTY on disk — data
+     * lost.
      *
-     * With write-tmp + atomic-move, at any instant the target points to a COMPLETE file
-     * (old or new, never partial). If the process dies during the writeString to tmp,
-     * the tmp is left partial but the target is still intact with its previous value.
+     * With write-tmp + atomic-move, at any instant the target points to a
+     * COMPLETE file (old or new, never partial). If the process dies during the
+     * writeString to tmp, the tmp is left partial but the target is still
+     * intact with its previous value.
      *
-     * Non-atomic fallback on filesystems that don't support ATOMIC_MOVE (FAT32 across
-     * volumes, rare cases): Files.move without ATOMIC_MOVE. Still preserves the "tmp
-     * fully written before the move" invariant; only the window between delete-target
-     * and rename-tmp can leave the system without a target (much shorter than the
-     * original's TRUNCATE-then-write window).
+     * Non-atomic fallback on filesystems that don't support ATOMIC_MOVE (FAT32
+     * across volumes, rare cases): Files.move without ATOMIC_MOVE. Still
+     * preserves the "tmp fully written before the move" invariant; only the
+     * window between delete-target and rename-tmp can leave the system without
+     * a target (much shorter than the original's TRUNCATE-then-write window).
      *
      * If the move fails for any reason, the orphaned tmp is cleaned up.
      */
@@ -2458,14 +2474,18 @@ public class Helpers {
     }
 
     /**
-     * Telemetry: payload of a latency/reconnections snapshot that the host emits
-     * periodically to all clients. Immutable.
+     * Telemetry: payload of a latency/reconnections snapshot that the host
+     * emits periodically to all clients. Immutable.
      */
     public static final class TelemetryFrame {
 
-        /** Host's timestamp when emitted (System.currentTimeMillis). */
+        /**
+         * Host's timestamp when emitted (System.currentTimeMillis).
+         */
         public final long serverTimestampMs;
-        /** nick (canonical, NFC) -> [lat1_ms, lat2_ms, reconnection_count]. */
+        /**
+         * nick (canonical, NFC) -> [lat1_ms, lat2_ms, reconnection_count].
+         */
         public final java.util.Map<String, int[]> perPeer;
 
         public TelemetryFrame(long serverTimestampMs, java.util.Map<String, int[]> perPeer) {
@@ -2475,21 +2495,20 @@ public class Helpers {
     }
 
     /**
-     * Encodes a TelemetryFrame to the wire format used by the TELEMETRY broadcast.
-     * Format:
+     * Encodes a TelemetryFrame to the wire format used by the TELEMETRY
+     * broadcast. Format:
      *
-     *   <ts>#<b64nick>|<lat1>/<lat2>/<recon>@<b64nick>|<lat1>/<lat2>/<recon>@...
+     * <ts>#<b64nick>|<lat1>/<lat2>/<recon>@<b64nick>|<lat1>/<lat2>/<recon>@...
      *
-     * - ts is the host's System.currentTimeMillis when emitted.
-     * - nick is Base64-encoded UTF-8 to avoid clashing with the #/@/| separators
-     *   (nicks can contain any char).
-     *   IMPORTANT: the nick/values separator is '|' (NOT '='), because '=' is valid
-     *   Base64 padding and mixing it in would confuse the parser.
-     * - lat1, lat2 are ms. -1 = not measured / timeout.
-     * - recon is that peer's cumulative reconnection count.
+     * - ts is the host's System.currentTimeMillis when emitted. - nick is
+     * Base64-encoded UTF-8 to avoid clashing with the #/@/| separators (nicks
+     * can contain any char). IMPORTANT: the nick/values separator is '|' (NOT
+     * '='), because '=' is valid Base64 padding and mixing it in would confuse
+     * the parser. - lat1, lat2 are ms. -1 = not measured / timeout. - recon is
+     * that peer's cumulative reconnection count.
      *
-     * The caller wraps the result in "GAME#<id>#TELEMETRY#<payload>" before the usual
-     * encryptCommand.
+     * The caller wraps the result in "GAME#<id>#TELEMETRY#<payload>" before the
+     * usual encryptCommand.
      */
     public static String encodeTelemetry(Helpers.TelemetryFrame frame) {
         if (frame == null) {
@@ -2521,9 +2540,9 @@ public class Helpers {
     }
 
     /**
-     * Decodes the TELEMETRY wire format. Tolerates malformed input (silently skips
-     * entries with missing fields or that fail to parse as int) so a hostile peer can't
-     * crash the client with a corrupt payload.
+     * Decodes the TELEMETRY wire format. Tolerates malformed input (silently
+     * skips entries with missing fields or that fail to parse as int) so a
+     * hostile peer can't crash the client with a corrupt payload.
      *
      * Returns null if the payload doesn't even have the leading ts.
      */
@@ -2591,16 +2610,19 @@ public class Helpers {
     }
 
     /**
-     * Runs {@code action} on the EDT as soon as {@code c} has height > 0 (layout
-     * applied). If already laid out, runs immediately. Otherwise installs a one-shot
-     * ComponentListener that removes itself after the first resize with height > 0.
+     * Runs {@code action} on the EDT as soon as {@code c} has height > 0
+     * (layout applied). If already laid out, runs immediately. Otherwise
+     * installs a one-shot ComponentListener that removes itself after the first
+     * resize with height > 0.
      *
      * Replaces the anti-pattern {@code Helpers.threadRun(() -> { while (c.getHeight() == 0)
      * Helpers.pausar(125); Helpers.GUIRun(action); })}, which polled Swing's
-     * event-driven state with sleeps — zero CPU while waiting, zero latency on wake-up.
+     * event-driven state with sleeps — zero CPU while waiting, zero latency on
+     * wake-up.
      *
-     * Only suitable when {@code action} doesn't need to hold an external lock during its
-     * execution (it runs directly on the EDT). If a lock + GUIRunAndWait is needed, use
+     * Only suitable when {@code action} doesn't need to hold an external lock
+     * during its execution (it runs directly on the EDT). If a lock +
+     * GUIRunAndWait is needed, use
      * {@link #awaitFirstLayout(javax.swing.JComponent)} from an off-EDT thread.
      */
     public static void runWhenLaidOut(javax.swing.JComponent c, Runnable action) {
@@ -2618,8 +2640,8 @@ public class Helpers {
             // safety Timer that runs the action anyway if none of the above fired.
             // Better late than never; without the timer, a component born at size 0x0
             // that never gets laid out would leave the action hanging forever.
-            java.util.concurrent.atomic.AtomicBoolean done =
-                    new java.util.concurrent.atomic.AtomicBoolean(false);
+            java.util.concurrent.atomic.AtomicBoolean done
+                    = new java.util.concurrent.atomic.AtomicBoolean(false);
             java.awt.event.ComponentListener[] cl = new java.awt.event.ComponentListener[1];
             java.awt.event.HierarchyListener[] hl = new java.awt.event.HierarchyListener[1];
             javax.swing.Timer[] timer = new javax.swing.Timer[1];
@@ -2662,9 +2684,9 @@ public class Helpers {
     /**
      * Blocks the current thread (which must NOT be the EDT) until {@code c} has
      * height > 0. Use when the caller needs to hold an external lock during the
-     * subsequent GUIRunAndWait — the lock can't be taken from the EDT because another
-     * non-EDT thread might be holding it while blocked waiting on the EDT, which would
-     * deadlock.
+     * subsequent GUIRunAndWait — the lock can't be taken from the EDT because
+     * another non-EDT thread might be holding it while blocked waiting on the
+     * EDT, which would deadlock.
      *
      * Returns without blocking if already laid out.
      */
@@ -2717,22 +2739,23 @@ public class Helpers {
     }
 
     /**
-     * Sanitizes a nick for safe use as a filename SEGMENT on disk. Defends against path
-     * traversal when the nick comes from a remote peer (a hostile host sending
-     * NEWUSER/USERSLIST with nick "../../../../foo") and against Windows reserved names
-     * ("CON", "NUL", etc.) that would make FileOutputStream fail silently.
+     * Sanitizes a nick for safe use as a filename SEGMENT on disk. Defends
+     * against path traversal when the nick comes from a remote peer (a hostile
+     * host sending NEWUSER/USERSLIST with nick "../../../../foo") and against
+     * Windows reserved names ("CON", "NUL", etc.) that would make
+     * FileOutputStream fail silently.
      *
-     * Rules:
-     *   - Only keeps [A-Za-z0-9_-]. Any other char (including '.', '/', '\', ':',
-     *     control chars, Unicode) is replaced with '_'.
-     *   - Truncates to 32 chars max (logs and avatars don't need more).
-     *   - Windows reserved names (CON/PRN/AUX/NUL/COM[1-9]/LPT[1-9], case-insensitive)
-     *     are prefixed with '_' to avoid AccessDeniedException.
-     *   - null or an empty string after sanitization returns "user".
+     * Rules: - Only keeps [A-Za-z0-9_-]. Any other char (including '.', '/',
+     * '\', ':', control chars, Unicode) is replaced with '_'. - Truncates to 32
+     * chars max (logs and avatars don't need more). - Windows reserved names
+     * (CON/PRN/AUX/NUL/COM[1-9]/LPT[1-9], case-insensitive) are prefixed with
+     * '_' to avoid AccessDeniedException. - null or an empty string after
+     * sanitization returns "user".
      *
-     * NOTE: the result is NOT a unique identifier (two different nicks can collide after
-     * sanitization). Call sites that need uniqueness must add their own suffix (random
-     * file_id, hash, etc.) — this helper only guarantees the segment is filesystem-safe.
+     * NOTE: the result is NOT a unique identifier (two different nicks can
+     * collide after sanitization). Call sites that need uniqueness must add
+     * their own suffix (random file_id, hash, etc.) — this helper only
+     * guarantees the segment is filesystem-safe.
      */
     public static String safeNickForFilename(String nick) {
         if (nick == null || nick.isEmpty()) {
@@ -2761,15 +2784,16 @@ public class Helpers {
     }
 
     /**
-     * Bounded replacement for {@link java.io.BufferedReader#readLine()}. Same contract
-     * (null if EOF before reading anything, CR-LF trimmed) but ABORTS with an
-     * IOException if the line accumulates more than {@code maxChars} characters before
-     * the line break. Defends against a peer that opens the channel and sends bytes
-     * with no '\n' to force an OOM on the receiver (the standard readLine grows its
-     * internal buffer without limit).
+     * Bounded replacement for {@link java.io.BufferedReader#readLine()}. Same
+     * contract (null if EOF before reading anything, CR-LF trimmed) but ABORTS
+     * with an IOException if the line accumulates more than {@code maxChars}
+     * characters before the line break. Defends against a peer that opens the
+     * channel and sends bytes with no '\n' to force an OOM on the receiver (the
+     * standard readLine grows its internal buffer without limit).
      *
-     * The cap is measured in Reader characters (post UTF-8 decode). The char~=byte
-     * approximation is valid for our wire format (Base64 + digits + '#'), all ASCII.
+     * The cap is measured in Reader characters (post UTF-8 decode). The
+     * char~=byte approximation is valid for our wire format (Base64 + digits +
+     * '#'), all ASCII.
      */
     public static String readBoundedLine(java.io.BufferedReader reader, int maxChars) throws IOException {
         StringBuilder sb = new StringBuilder(256);
@@ -2792,9 +2816,9 @@ public class Helpers {
     }
 
     /**
-     * Derives a 64-byte channel secret from the raw ECDH shared secret. If a password is
-     * provided, the secret is bound to it via HMAC-SHA512, blocking passive MITM attacks
-     * for password-protected games.
+     * Derives a 64-byte channel secret from the raw ECDH shared secret. If a
+     * password is provided, the secret is bound to it via HMAC-SHA512, blocking
+     * passive MITM attacks for password-protected games.
      */
     public static byte[] deriveChannelSecret(byte[] sharedSecret, String password) {
         try {
@@ -2810,11 +2834,11 @@ public class Helpers {
     }
 
     /**
-     * Estimates the entropy of a password in bits using the character-class heuristic:
-     * alphabet size is the sum of the sizes of the character classes present, and the
-     * entropy is length * log2(alphabet). Used by the password strength warning at
-     * game creation. This is a floor estimate that does not penalize dictionary words
-     * or common patterns.
+     * Estimates the entropy of a password in bits using the character-class
+     * heuristic: alphabet size is the sum of the sizes of the character classes
+     * present, and the entropy is length * log2(alphabet). Used by the password
+     * strength warning at game creation. This is a floor estimate that does not
+     * penalize dictionary words or common patterns.
      *
      * Returns 0 for null or empty input.
      */
@@ -2967,10 +2991,10 @@ public class Helpers {
     }
 
     /**
-     * Pushes the given BufferedImage to the system clipboard wrapped in a Transferable
-     * that exposes DataFlavor.imageFlavor (consumed by image-aware apps like Gimp,
-     * Photoshop, Telegram desktop, browsers, etc.). Returns false if the image is null
-     * or the clipboard is unreachable.
+     * Pushes the given BufferedImage to the system clipboard wrapped in a
+     * Transferable that exposes DataFlavor.imageFlavor (consumed by image-aware
+     * apps like Gimp, Photoshop, Telegram desktop, browsers, etc.). Returns
+     * false if the image is null or the clipboard is unreachable.
      */
     public static boolean copyImageToClipboard(BufferedImage img) {
 
@@ -3097,12 +3121,11 @@ public class Helpers {
     }
 
     /**
-     * Attaches a DocumentListener to the JPasswordField that repaints its background
-     * based on the password's estimated strength in entropy bits:
-     *   - empty      -> defaultBg (no password = OK, public game).
-     *   - 1..59 bits -> light yellow (weak).
-     *   - >=60 bits  -> light green (strong).
-     * Same thresholds as the "ui.password_debil_aviso" popup.
+     * Attaches a DocumentListener to the JPasswordField that repaints its
+     * background based on the password's estimated strength in entropy bits: -
+     * empty -> defaultBg (no password = OK, public game). - 1..59 bits -> light
+     * yellow (weak). - >=60 bits -> light green (strong). Same thresholds as
+     * the "ui.password_debil_aviso" popup.
      */
     public static void attachPasswordStrengthHint(final javax.swing.JPasswordField field) {
         if (field == null) {
@@ -3122,24 +3145,35 @@ public class Helpers {
             }
         };
         field.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { update.run(); }
-            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { update.run(); }
-            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { update.run(); }
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                update.run();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                update.run();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                update.run();
+            }
         });
         update.run();
     }
 
     /**
-     * Adds an "eye" button anchored to the JPasswordField's right edge that reveals the
-     * password in the clear WHILE held down (mouse) and hides it again on release (even
-     * if released outside the button).
+     * Adds an "eye" button anchored to the JPasswordField's right edge that
+     * reveals the password in the clear WHILE held down (mouse) and hides it
+     * again on release (even if released outside the button).
      *
-     * Self-contained: only touches the field itself (its layout manager and its right
-     * margin), so it works with any parent layout — GroupLayout, BorderLayout — without
-     * restructuring it or touching the NetBeans .form. The button is positioned by hand
-     * at the real right edge (ignoring the inset), and the reserved right margin keeps
-     * the text/caret from running under the eye. The icon is drawn vectorially (no
-     * assets). Idempotent.
+     * Self-contained: only touches the field itself (its layout manager and its
+     * right margin), so it works with any parent layout — GroupLayout,
+     * BorderLayout — without restructuring it or touching the NetBeans .form.
+     * The button is positioned by hand at the real right edge (ignoring the
+     * inset), and the reserved right margin keeps the text/caret from running
+     * under the eye. The icon is drawn vectorially (no assets). Idempotent.
      */
     public static void attachPasswordRevealButton(final javax.swing.JPasswordField field) {
         if (field == null) {
@@ -3216,8 +3250,8 @@ public class Helpers {
     }
 
     /**
-     * Vector icon of an eye (almond outline + pupil) for the password reveal button.
-     * Scales with the requested size; no image files. Antialiased.
+     * Vector icon of an eye (almond outline + pupil) for the password reveal
+     * button. Scales with the requested size; no image files. Antialiased.
      */
     private static final class EyeIcon implements javax.swing.Icon {
 
@@ -3269,20 +3303,20 @@ public class Helpers {
     }
 
     /**
-     * Generates a STRONG random password with a CSPRNG (not Random) using an alphabet
-     * designed to be EASY TO DICTATE / TYPE by hand: lowercase letters + digits only (36
-     * chars). No uppercase (avoids upper/lower confusion when dictating) and no symbols
-     * (avoids international keyboard issues, dictation problems, and clashes with wire
-     * format characters).
+     * Generates a STRONG random password with a CSPRNG (not Random) using an
+     * alphabet designed to be EASY TO DICTATE / TYPE by hand: lowercase letters
+     * + digits only (36 chars). No uppercase (avoids upper/lower confusion when
+     * dictating) and no symbols (avoids international keyboard issues,
+     * dictation problems, and clashes with wire format characters).
      *
-     * Entropy: log2(36^length). For length=14, ~72 bits — above the game's 60-bit
-     * "weak password" warning threshold.
+     * Entropy: log2(36^length). For length=14, ~72 bits — above the game's
+     * 60-bit "weak password" warning threshold.
      *
      * Typical example: "k7m3p2n8qjz5xv".
      *
      * NOT to be confused with genRandomString (also a-z but uses pseudorandom
-     * java.util.Random, NOT a CSPRNG — still fine for legacy non-sensitive tokens:
-     * tempfile nicks, ephemeral ids).
+     * java.util.Random, NOT a CSPRNG — still fine for legacy non-sensitive
+     * tokens: tempfile nicks, ephemeral ids).
      */
     public static String genStrongPassword(int length) {
         // a-z + 0-9 = 36 chars. Easy to dictate and type; ~2.8 bits/char.
@@ -4450,27 +4484,27 @@ public class Helpers {
 
     /**
      * Shows a (typically maximized) JFrame on the monitor described by the
-     * given GraphicsConfiguration instead of wherever it was last realized.
-     * The start window is created maximized on the PRIMARY monitor and merely
+     * given GraphicsConfiguration instead of wherever it was last realized. The
+     * start window is created maximized on the PRIMARY monitor and merely
      * hidden between games, so returning to it would always pop it back on the
      * primary screen even when the game and its final screen were on a
      * secondary monitor. A null config (no reference window) just shows the
      * frame where it already was.
      *
-     * When {@code maximized} is false and {@code restoreSize} is valid (the size
-     * the window had right before it was hidden to launch the game), the window
-     * is reopened in NORMAL state at that size, centered on the target monitor
-     * {@code gc} (the screen the waiting room is on, which may differ from the
-     * one it launched from). Otherwise it is maximized on the target monitor as
-     * described below.
+     * When {@code maximized} is false and {@code restoreSize} is valid (the
+     * size the window had right before it was hidden to launch the game), the
+     * window is reopened in NORMAL state at that size, centered on the target
+     * monitor {@code gc} (the screen the waiting room is on, which may differ
+     * from the one it launched from). Otherwise it is maximized on the target
+     * monitor as described below.
      *
      * Same proven technique as GameFrame.placeOnWaitingRoomMonitor: place the
      * window centered on the target monitor while in NORMAL state and maximize
-     * BEFORE setVisible — on Windows setExtendedState(MAXIMIZED_BOTH) honors the
-     * monitor where the window currently is. Because this frame came back from a
-     * maximized+hidden state on the primary monitor (whose retained native
-     * placement would otherwise snap it back), setMaximizedBounds pins the
-     * maximized rectangle to the target monitor's work area explicitly.
+     * BEFORE setVisible — on Windows setExtendedState(MAXIMIZED_BOTH) honors
+     * the monitor where the window currently is. Because this frame came back
+     * from a maximized+hidden state on the primary monitor (whose retained
+     * native placement would otherwise snap it back), setMaximizedBounds pins
+     * the maximized rectangle to the target monitor's work area explicitly.
      *
      * The restored (NORMAL) bounds are set to 80% of the target monitor,
      * centered, so that when the user un-maximizes the window it lands at a
@@ -4992,10 +5026,10 @@ public class Helpers {
 
     /**
      * Log a cooperative-cancellation event from a pool worker that was
-     * waiting/sleeping when the pool was shut down. This is NEVER a real
-     * error in CoronaPoker: the only source of {@code InterruptedException}
-     * is {@code pool.shutdownNow()} during exit/teardown, and the only source
-     * of {@code BrokenBarrierException} is another thread on the same barrier
+     * waiting/sleeping when the pool was shut down. This is NEVER a real error
+     * in CoronaPoker: the only source of {@code InterruptedException} is
+     * {@code pool.shutdownNow()} during exit/teardown, and the only source of
+     * {@code BrokenBarrierException} is another thread on the same barrier
      * being interrupted (cascade from the same shutdown). Re-raises the
      * interrupt flag for InterruptedException so callers up the stack can
      * observe the cancellation.
@@ -5009,20 +5043,22 @@ public class Helpers {
     }
 
     /**
-     * Control-flow throwable signalled by {@link #pausar(long)} when the calling
-     * thread has been interrupted (typically by {@code pool.shutdownNow()} during
-     * exit/teardown). Lets outer {@code while}/{@code for} loops bail out of
-     * cooperative cancellation naturally without each callsite having to check
+     * Control-flow throwable signalled by {@link #pausar(long)} when the
+     * calling thread has been interrupted (typically by
+     * {@code pool.shutdownNow()} during exit/teardown). Lets outer
+     * {@code while}/{@code for} loops bail out of cooperative cancellation
+     * naturally without each callsite having to check
      * {@code Thread.interrupted()} by hand.
      *
-     * <p>Extends {@link Error} ON PURPOSE so the dozens of existing
+     * <p>
+     * Extends {@link Error} ON PURPOSE so the dozens of existing
      * {@code catch (Exception)} blocks (some of which trigger destructive side
      * effects like {@code cancelarManoYDevolverApuestas} or
      * {@code System.exit(1)} on a fatal Crupier error) do NOT swallow it: the
      * throwable must propagate to the top of the worker's {@code Runnable} and
-     * be absorbed silently by the {@code Future}. The interrupt flag is restored
-     * before the throw, so any catch site that explicitly wants to react can
-     * still observe it. NOT a real error — never logged as SEVERE.
+     * be absorbed silently by the {@code Future}. The interrupt flag is
+     * restored before the throw, so any catch site that explicitly wants to
+     * react can still observe it. NOT a real error — never logged as SEVERE.
      */
     public static class CooperativeCancellationException extends Error {
 
@@ -5032,7 +5068,6 @@ public class Helpers {
         // Control-flow throwables don't need traces; suppressing them also
         // means any rare catch (Throwable) that prints the throwable produces
         // a single short line instead of a noisy multi-frame dump.
-
         public CooperativeCancellationException() {
             super("cooperative cancellation", null, false, false);
         }
@@ -5042,8 +5077,8 @@ public class Helpers {
         }
     }
 
-    private static final ThreadLocal<Boolean> PAUSAR_CANCELLATION_LOGGED =
-            ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private static final ThreadLocal<Boolean> PAUSAR_CANCELLATION_LOGGED
+            = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     private static void logPausarCancellationOnce(String msg) {
         // One-time log per thread. Without this guard, a worker that ignores
@@ -5080,14 +5115,16 @@ public class Helpers {
     }
 
     /**
-     * Defensive wrap: if the lambda throws an NPE because GameFrame.getInstance()
-     * already returns null (resetInstance() drained the window before the EDT got
-     * around to processing it — a normal race in post-MISDEAL / end-of-game cleanup),
-     * the lambda is silently discarded. If GameFrame is still alive instead, the NPE is
-     * a real bug and is rethrown so the EDT logs it as usual.
+     * Defensive wrap: if the lambda throws an NPE because
+     * GameFrame.getInstance() already returns null (resetInstance() drained the
+     * window before the EDT got around to processing it — a normal race in
+     * post-MISDEAL / end-of-game cleanup), the lambda is silently discarded. If
+     * GameFrame is still alive instead, the NPE is a real bug and is rethrown
+     * so the EDT logs it as usual.
      *
-     * Without this wrap, every Helpers.GUIRun(() -> GameFrame.getInstance()...) lambda
-     * would have to pre-validate the singleton — and there are literally hundreds.
+     * Without this wrap, every Helpers.GUIRun(() -> GameFrame.getInstance()...)
+     * lambda would have to pre-validate the singleton — and there are literally
+     * hundreds.
      */
     private static Runnable wrapGuiRunnable(Runnable r) {
         return () -> {

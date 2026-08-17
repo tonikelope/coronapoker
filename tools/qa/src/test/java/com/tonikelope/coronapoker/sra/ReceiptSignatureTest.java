@@ -40,13 +40,17 @@ public class ReceiptSignatureTest {
 
     private static byte[] sampleHandId(int seed) {
         byte[] out = new byte[CanonicalActionRecord.HAND_ID_BYTES];
-        for (int i = 0; i < out.length; i++) out[i] = (byte) (seed + i);
+        for (int i = 0; i < out.length; i++) {
+            out[i] = (byte) (seed + i);
+        }
         return out;
     }
 
     private static byte[] sampleHFinal(int seed) {
         byte[] out = new byte[32];
-        for (int i = 0; i < out.length; i++) out[i] = (byte) (0xA0 + ((seed + i) & 0x1F));
+        for (int i = 0; i < out.length; i++) {
+            out[i] = (byte) (0xA0 + ((seed + i) & 0x1F));
+        }
         return out;
     }
 

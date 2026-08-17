@@ -35,28 +35,30 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Orchestrates the peer-to-peer statistics database sync — the protocol logic on
- * top of the data layer ({@link StatsSync}), the message codec
+ * Orchestrates the peer-to-peer statistics database sync — the protocol logic
+ * on top of the data layer ({@link StatsSync}), the message codec
  * ({@link StatsSyncProtocol}) and the waiting-room wire glue
  * ({@link WaitingRoomFrame#statsSyncRawSendToServer}/{@code ...ToClient}).
  *
- * <p>Topology is star (clients ↔ host). Flow, flag-free except for one
+ * <p>
+ * Topology is star (clients ↔ host). Flow, flag-free except for one
  * {@code wantsReceive} bit so a side never pushes to an unwilling receiver:
  * <ol>
- *   <li>The <b>client</b>, on connect, sends a MANIFEST (its shareable ugis +
- *       whether it wants to receive) — but only if it participates at all.</li>
- *   <li>The <b>host</b>, on a client's MANIFEST: if it shares and the client
- *       wants to receive, pushes the games the client lacks; and if it wants to
- *       receive, replies with its own MANIFEST so the client can push back.</li>
- *   <li>On a peer's MANIFEST, a side that shares pushes {@code difference(mine,
+ * <li>The <b>client</b>, on connect, sends a MANIFEST (its shareable ugis +
+ * whether it wants to receive) — but only if it participates at all.</li>
+ * <li>The <b>host</b>, on a client's MANIFEST: if it shares and the client
+ * wants to receive, pushes the games the client lacks; and if it wants to
+ * receive, replies with its own MANIFEST so the client can push back.</li>
+ * <li>On a peer's MANIFEST, a side that shares pushes {@code difference(mine,
  *       theirs)} as GAMES batches; the receiver imports them idempotently.</li>
- *   <li>When the host imports new games from one client, it re-forwards them to
- *       the other connected clients that lack them (same-session convergence),
- *       tracking each client's known set so a game is normally not re-sent (a
- *       rare concurrent overlap is harmless — imports dedup by ugi).</li>
+ * <li>When the host imports new games from one client, it re-forwards them to
+ * the other connected clients that lack them (same-session convergence),
+ * tracking each client's known set so a game is normally not re-sent (a rare
+ * concurrent overlap is harmless — imports dedup by ugi).</li>
  * </ol>
  *
- * <p>All heavy work (DB read/write, socket writes) runs off the reader thread, so
+ * <p>
+ * All heavy work (DB read/write, socket writes) runs off the reader thread, so
  * a sync never blocks game traffic; if a session ends mid-transfer the next
  * connection resumes it (imports are idempotent by ugi).
  */
@@ -84,7 +86,9 @@ public final class StatsSyncManager {
         this.room = room;
     }
 
-    /** CLIENT: the connection to the host is fully established. */
+    /**
+     * CLIENT: the connection to the host is fully established.
+     */
     void onConnectedToServer() {
         if (!GameFrame.SYNC_STATS_RECEIVE_PREF && !GameFrame.SYNC_STATS_SHARE_PREF) {
             LOGGER.log(Level.FINE, "StatsSync [CLIENT]: stats sync fully OFF — not syncing.");
@@ -104,7 +108,9 @@ public final class StatsSyncManager {
         });
     }
 
-    /** HOST: a client disconnected — drop its tracking state. */
+    /**
+     * HOST: a client disconnected — drop its tracking state.
+     */
     void onPeerGone(String nick) {
         if (peers.remove(nick) != null) {
             LOGGER.log(Level.FINE, "StatsSync [HOST]: {0} left — dropped its sync tracking state.", nick);
@@ -112,9 +118,9 @@ public final class StatsSyncManager {
     }
 
     /**
-     * A TYPE_DB message arrived from {@code peerNick}. {@code iAmHost} is true when
-     * this peer is the host receiving from a client. Called on the reader thread;
-     * the actual work is offloaded so the reader is never blocked.
+     * A TYPE_DB message arrived from {@code peerNick}. {@code iAmHost} is true
+     * when this peer is the host receiving from a client. Called on the reader
+     * thread; the actual work is offloaded so the reader is never blocked.
      */
     void onMessage(String peerNick, byte[] message, boolean iAmHost) {
         if (!GameFrame.SYNC_STATS_RECEIVE_PREF && !GameFrame.SYNC_STATS_SHARE_PREF) {
@@ -215,7 +221,10 @@ public final class StatsSyncManager {
         }
     }
 
-    /** HOST: push games each other client is still missing (idempotent, deduped per client). */
+    /**
+     * HOST: push games each other client is still missing (idempotent, deduped
+     * per client).
+     */
     private void forwardToOtherClients(String exceptNick) {
         if (!GameFrame.SYNC_STATS_SHARE_PREF) {
             return;
@@ -236,8 +245,8 @@ public final class StatsSyncManager {
 
     /**
      * Exports {@code ugis} in batches and sends them as GAMES messages — to the
-     * given client (host) or to the host (client). On the host the per-peer known
-     * set is updated so a game is never sent to the same client twice.
+     * given client (host) or to the host (client). On the host the per-peer
+     * known set is updated so a game is never sent to the same client twice.
      */
     private void pushGames(String peerNick, List<String> ugis, boolean iAmHost) {
         if (ugis == null || ugis.isEmpty()) {

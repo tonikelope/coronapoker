@@ -34,6 +34,7 @@ public class DealChainTest {
     }
 
     private static class Setup {
+
         byte[][] locks = new byte[N][];
         Map<String, byte[]> commitments = new HashMap<>();
         byte[] megapacketPoint; // genesis card locked by every peer

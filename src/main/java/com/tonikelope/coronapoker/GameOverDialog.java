@@ -33,10 +33,11 @@ import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 
 /**
- * Game-over dialog shown to a busted player: rebuy or go spectator. With cinematics enabled it
- * plays the game_over GIF and audio; with cinematics off (per-setting or the global
- * cinematics/animations master switch) it falls back to a static "GAME OVER" render with its own
- * silent countdown, since the GIF itself carries the countdown when animated.
+ * Game-over dialog shown to a busted player: rebuy or go spectator. With
+ * cinematics enabled it plays the game_over GIF and audio; with cinematics off
+ * (per-setting or the global cinematics/animations master switch) it falls back
+ * to a static "GAME OVER" render with its own silent countdown, since the GIF
+ * itself carries the countdown when animated.
  *
  * @author tonikelope
  */
@@ -103,8 +104,8 @@ public class GameOverDialog extends JDialog {
      *
      * @param parent owning game window
      * @param modal whether the dialog blocks input to its owner
-     * @param direct if true, shows the final (no-rebuy) state right away with both buttons
-     * disabled, instead of the interactive countdown
+     * @param direct if true, shows the final (no-rebuy) state right away with
+     * both buttons disabled, instead of the interactive countdown
      */
     public GameOverDialog(java.awt.Frame parent, boolean modal, boolean direct) {
         super(parent, modal);
@@ -366,7 +367,6 @@ public class GameOverDialog extends JDialog {
         // everything centered, but players and community cards stay visible behind it (dimmed),
         // and busted remote players show their own game-over GIF at the same time. This used to
         // call hideALL() — no longer, so the local player can still see the table during theirs.
-
         if (GameFrame.getInstance().getFastchat_dialog() != null) {
             GameFrame.getInstance().getFastchat_dialog().setVisible(false);
         }
@@ -375,7 +375,6 @@ public class GameOverDialog extends JDialog {
         // open, it stays visible during game-over so they can still read the hand result (the
         // GIF is centered on top; game-over is modal so it's frontmost, and the log stays
         // behind/beside it wherever the user placed it).
-
         if (GameFrame.getInstance().getJugadas_dialog() != null) {
             GameFrame.getInstance().getJugadas_dialog().setVisible(false);
         }
@@ -437,7 +436,6 @@ public class GameOverDialog extends JDialog {
 
         // The table is no longer hidden when game-over opens (see formWindowOpened), so
         // there's no visibility state to restore here on close.
-
         stopCountdown();
 
         if (last_mp3_loop != null) {

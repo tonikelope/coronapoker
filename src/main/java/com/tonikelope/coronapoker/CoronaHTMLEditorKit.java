@@ -50,9 +50,10 @@ import javax.swing.text.html.HTML;
 
 /**
  * {@link HTMLEditorKit} used for chat/log HTML rendering: wires in a
- * {@link CoronaParserDelegator}-backed {@link CoronaHTMLDocument} and a view factory that renders
- * "bubble-mine"/"bubble-other" DIVs as {@link RoundedBubbleView}s and the custom "tonimg" tag as
- * an async-loaded, cached, zoom-scaled chat image. Companion to {@link CoronaHTMLDocument} and
+ * {@link CoronaParserDelegator}-backed {@link CoronaHTMLDocument} and a view
+ * factory that renders "bubble-mine"/"bubble-other" DIVs as
+ * {@link RoundedBubbleView}s and the custom "tonimg" tag as an async-loaded,
+ * cached, zoom-scaled chat image. Companion to {@link CoronaHTMLDocument} and
  * {@link CoronaParserDelegator}; all three apply the technique from
  * https://stackoverflow.com/a/35012241.
  */
@@ -100,12 +101,13 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
         }
 
         /**
-         * Renders "bubble-mine"/"bubble-other" DIVs as {@link RoundedBubbleView}, and the custom
-         * "tonimg" tag as a {@link JLabel} that resolves the embedded Base64 URL, serves it from
-         * the static/GIF image cache when available, and otherwise loads and caches it
-         * asynchronously (capped to {@code MAX_IMAGE_WIDTH}, then re-scaled for display at the
-         * current {@link Helpers#DIALOG_ZOOM}). Delegates every other tag to the default
-         * {@link HTMLFactory}.
+         * Renders "bubble-mine"/"bubble-other" DIVs as
+         * {@link RoundedBubbleView}, and the custom "tonimg" tag as a
+         * {@link JLabel} that resolves the embedded Base64 URL, serves it from
+         * the static/GIF image cache when available, and otherwise loads and
+         * caches it asynchronously (capped to {@code MAX_IMAGE_WIDTH}, then
+         * re-scaled for display at the current {@link Helpers#DIALOG_ZOOM}).
+         * Delegates every other tag to the default {@link HTMLFactory}.
          */
         @Override
         public View create(Element element) {

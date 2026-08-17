@@ -22,26 +22,31 @@ import java.security.MessageDigest;
 import java.util.Arrays;
 
 /**
- * Pedersen <b>vector</b> commitment over Ristretto255: {@code C = r·H + Σ a_i·G_i}, where the
- * {@code G_i} and {@code H} are nothing-up-my-sleeve generators with unknown mutual discrete logs
- * (derived by hash-to-group). Perfectly hiding, computationally binding under discrete log.
+ * Pedersen <b>vector</b> commitment over Ristretto255:
+ * {@code C = r·H + Σ a_i·G_i}, where the {@code G_i} and {@code H} are
+ * nothing-up-my-sleeve generators with unknown mutual discrete logs (derived by
+ * hash-to-group). Perfectly hiding, computationally binding under discrete log.
  *
- * <p>This is the foundational commitment of the Bayer–Groth verifiable shuffle (see
- * {@code docs/SECURITY.md}): it lets the prover commit to a whole vector (e.g. a
- * permutation, or a row of the deck) in a single group element, and its homomorphic
- * structure (point addition / scalar scaling of commitments, exercised directly on
- * {@link EdwardsPoint}s by the argument verifiers) is what the product /
- * multi-exponentiation arguments exploit.
+ * <p>
+ * This is the foundational commitment of the Bayer–Groth verifiable shuffle
+ * (see {@code docs/SECURITY.md}): it lets the prover commit to a whole vector
+ * (e.g. a permutation, or a row of the deck) in a single group element, and its
+ * homomorphic structure (point addition / scalar scaling of commitments,
+ * exercised directly on {@link EdwardsPoint}s by the argument verifiers) is
+ * what the product / multi-exponentiation arguments exploit.
  *
- * <p>Generators are cached and grown on demand up to the requested length. All scalars are reduced
- * mod the group order L; commitments are canonical Ristretto encodings (byte equality = point
- * equality).
+ * <p>
+ * Generators are cached and grown on demand up to the requested length. All
+ * scalars are reduced mod the group order L; commitments are canonical
+ * Ristretto encodings (byte equality = point equality).
  */
 public final class PedersenVectorCommit {
 
     private static final String DOMAIN = "CoronaPoker/PedersenVec/v1/";
 
-    /** Blinding generator H. */
+    /**
+     * Blinding generator H.
+     */
     public static final EdwardsPoint H = deriveGen("H");
 
     private static volatile EdwardsPoint[] gens = new EdwardsPoint[0];
@@ -71,7 +76,9 @@ public final class PedersenVectorCommit {
         }
     }
 
-    /** The i-th vector generator G_i (cached, grown on demand). */
+    /**
+     * The i-th vector generator G_i (cached, grown on demand).
+     */
     public static EdwardsPoint generator(int i) {
         if (i < 0) {
             throw new IllegalArgumentException("negative generator index");
@@ -97,7 +104,10 @@ public final class PedersenVectorCommit {
         return gens[i];
     }
 
-    /** Commit to the vector {@code a} with blinding {@code r}: canonical encoding of {@code r·H + Σ a_i·G_i}. */
+    /**
+     * Commit to the vector {@code a} with blinding {@code r}: canonical
+     * encoding of {@code r·H + Σ a_i·G_i}.
+     */
     public static byte[] commit(BigInteger[] a, BigInteger r) {
         // Single-value case (r·H + v·G_0), by far the most frequent in proofs (~360 per prove):
         // fixed-base combs over H and G_0 (constants) instead of the ~256-doubling Straus ladder.

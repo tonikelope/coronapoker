@@ -19,20 +19,23 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * ZERO-TRUST RECOVER: reconstructing H_t when a player LEFT mid-hand and reconnected.
+ * ZERO-TRUST RECOVER: reconstructing H_t when a player LEFT mid-hand and
+ * reconnected.
  *
- * When a player leaves mid-hand, its exit-fold is handled by MUTUAL OMISSION: no peer
- * absorbs any record into H_t for that slot (the departed seat contributes nothing).
- * On recover, the chain MUST reproduce that omission. If the reconnected client instead
- * re-signs and absorbs a fold for its own exit-fold slot, the chain gains a record that
- * the live chain never had: H_t silently drifts off-live (the rebuilt record self-satisfies
- * its own PREV_H, so the absorb does not throw), and the very next ORIGINAL record — a bot's
- * action or the next street, still carrying its live PREV_H — fails to absorb. Host and every
- * client drift identically, so they agree on the same wrong H_final and consensus reports the
- * hand "verified" — a FALSE positive.
+ * When a player leaves mid-hand, its exit-fold is handled by MUTUAL OMISSION:
+ * no peer absorbs any record into H_t for that slot (the departed seat
+ * contributes nothing). On recover, the chain MUST reproduce that omission. If
+ * the reconnected client instead re-signs and absorbs a fold for its own
+ * exit-fold slot, the chain gains a record that the live chain never had: H_t
+ * silently drifts off-live (the rebuilt record self-satisfies its own PREV_H,
+ * so the absorb does not throw), and the very next ORIGINAL record — a bot's
+ * action or the next street, still carrying its live PREV_H — fails to absorb.
+ * Host and every client drift identically, so they agree on the same wrong
+ * H_final and consensus reports the hand "verified" — a FALSE positive.
  *
- * This test reproduces that exact mechanism at the HandStateChain level (no game engine) and
- * pins the fix: reproducing the exit-fold as mutual omission yields the live H_final exactly.
+ * This test reproduces that exact mechanism at the HandStateChain level (no
+ * game engine) and pins the fix: reproducing the exit-fold as mutual omission
+ * yields the live H_final exactly.
  */
 public class RecoverExitFoldChainConvergenceTest {
 

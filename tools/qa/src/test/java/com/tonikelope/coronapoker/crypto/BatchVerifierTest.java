@@ -32,7 +32,10 @@ public class BatchVerifierTest {
         return EdwardsPoint.multiscalarMul(s, p);
     }
 
-    /** COMPLETITUD: m ecuaciones todas ciertas -> allHold true, sobre muchos m y muchos intentos. */
+    /**
+     * COMPLETITUD: m ecuaciones todas ciertas -> allHold true, sobre muchos m y
+     * muchos intentos.
+     */
     @Test
     public void completenessAllHold() {
         Random r = new Random(0xBA7C4L);
@@ -53,7 +56,10 @@ public class BatchVerifierTest {
         }
     }
 
-    /** SOUNDNESS: entre m ecuaciones ciertas, romper UNA (expected desviado por BASE != O) -> false. */
+    /**
+     * SOUNDNESS: entre m ecuaciones ciertas, romper UNA (expected desviado por
+     * BASE != O) -> false.
+     */
     @Test
     public void soundnessBrokenExpectedRejected() {
         Random r = new Random(0x50D5AL);
@@ -79,7 +85,9 @@ public class BatchVerifierTest {
         }
     }
 
-    /** SOUNDNESS: romper UNA ecuacion tocando un escalar (+1) -> allHold false. */
+    /**
+     * SOUNDNESS: romper UNA ecuacion tocando un escalar (+1) -> allHold false.
+     */
     @Test
     public void soundnessBrokenScalarRejected() {
         Random r = new Random(0x5CA1B0L);
@@ -105,7 +113,10 @@ public class BatchVerifierTest {
         }
     }
 
-    /** poison: null en array/elemento/expected o longitudes que no casan -> allHold false. */
+    /**
+     * poison: null en array/elemento/expected o longitudes que no casan ->
+     * allHold false.
+     */
     @Test
     public void poisonOnMalformed() {
         BatchVerifier a = new BatchVerifier("test/p1");
@@ -133,7 +144,9 @@ public class BatchVerifierTest {
         assertFalse(e.allHold());
     }
 
-    /** Un batch vacio se cumple de forma vacua. */
+    /**
+     * Un batch vacio se cumple de forma vacua.
+     */
     @Test
     public void emptyVacuous() {
         assertTrue(new BatchVerifier("test/empty").allHold());

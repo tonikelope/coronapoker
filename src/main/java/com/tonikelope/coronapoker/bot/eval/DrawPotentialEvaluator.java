@@ -27,8 +27,10 @@ public interface DrawPotentialEvaluator {
      *
      * @param hole1 first hole card index
      * @param hole2 second hole card index
-     * @param board current board card indices (3 or 4 entries; river returns zero potential)
-     * @param fullLookahead if true, perform the slow two-card lookahead (only meaningful when board has 3 cards)
+     * @param board current board card indices (3 or 4 entries; river returns
+     * zero potential)
+     * @param fullLookahead if true, perform the slow two-card lookahead (only
+     * meaningful when board has 3 cards)
      */
     Potential potential(int hole1, int hole2, int[] board, boolean fullLookahead);
 

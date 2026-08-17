@@ -40,11 +40,12 @@ import java.util.logging.Logger;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Client side of the waiting room. Manages the connection to the server (host), the
- * ECDH/AES+HMAC handshake, the incoming command loop (CHAT, USERSLIST, NEWUSER, DELUSER,
- * GAME, CONF, etc.), ping/pong and automatic reconnection.
+ * Client side of the waiting room. Manages the connection to the server (host),
+ * the ECDH/AES+HMAC handshake, the incoming command loop (CHAT, USERSLIST,
+ * NEWUSER, DELUSER, GAME, CONF, etc.), ping/pong and automatic reconnection.
  *
- * <p>Instantiated from {@code WaitingRoomFrame} when {@code server == false}.
+ * <p>
+ * Instantiated from {@code WaitingRoomFrame} when {@code server == false}.
  */
 public class NetClient {
 
@@ -119,14 +120,15 @@ public class NetClient {
     }
 
     /**
-     * Queues what was read from the socket, honoring the queue cap. Client-side twin of
-     * {@code Participant.encolarLeido}.
+     * Queues what was read from the socket, honoring the queue cap. Client-side
+     * twin of {@code Participant.encolarLeido}.
      *
-     * <p>Never drops anything while the room is alive: retries every second while the queue is
-     * full, and TCP backpressure does the rest (the reader stops draining the socket, its
-     * window closes and the host throttles). A plain {@code put} would do the same but
-     * silently, with no way out. Do NOT use this for the close signal — use
-     * {@link #encolarSenalCierre()}.
+     * <p>
+     * Never drops anything while the room is alive: retries every second while
+     * the queue is full, and TCP backpressure does the rest (the reader stops
+     * draining the socket, its window closes and the host throttles). A plain
+     * {@code put} would do the same but silently, with no way out. Do NOT use
+     * this for the close signal — use {@link #encolarSenalCierre()}.
      *
      * @param mensaje the raw line read from the socket
      */
@@ -149,10 +151,12 @@ public class NetClient {
      * Queues the close signal no matter what. Client-side twin of
      * {@code Participant.encolarSenalCierre}.
      *
-     * <p>It's the only thing that pulls the consumer out of its {@code take()}, which is where
-     * the socket close and reconnect originate — that's why room exit isn't checked here. If
-     * the queue is full, room is made by dropping the oldest entry: those are commands from a
-     * connection that's already going down, and none of them matter more than the signal itself.
+     * <p>
+     * It's the only thing that pulls the consumer out of its {@code take()},
+     * which is where the socket close and reconnect originate — that's why room
+     * exit isn't checked here. If the queue is full, room is made by dropping
+     * the oldest entry: those are commands from a connection that's already
+     * going down, and none of them matter more than the signal itself.
      */
     public void encolarSenalCierre() {
         for (int intentos = 0; intentos < SOCKET_READER_QUEUE_CAPACITY
@@ -294,17 +298,17 @@ public class NetClient {
     }
 
     /**
-     * @return the number of SUCCESSFUL reconnections of this client to the server since the
-     * {@code NetClient} started (telemetry)
+     * @return the number of SUCCESSFUL reconnections of this client to the
+     * server since the {@code NetClient} started (telemetry)
      */
     public int getReconnectionCount() {
         return reconnection_count;
     }
 
     /**
-     * Increments the counter. Must be called from {@code reconectarCliente()} only when the
-     * reconnection completes successfully ({@code ok_rec == true}, before the positive
-     * branch's return).
+     * Increments the counter. Must be called from {@code reconectarCliente()}
+     * only when the reconnection completes successfully
+     * ({@code ok_rec == true}, before the positive branch's return).
      */
     public void incrementReconnectionCount() {
         this.reconnection_count++;
@@ -330,13 +334,15 @@ public class NetClient {
     }
 
     /**
-     * Closes a SPECIFIC socket whose write is stuck because the server stopped reading.
-     * Deliberately does NOT take {@code local_client_socket_lock}: that lock is exactly what
-     * the blocked write holds ({@link #writeCommand(String)} writes under it), so
-     * {@link #closeClientSocket()}, which needs it, couldn't unstick it. {@code close()} is
-     * thread-safe and wakes the stalled write with an {@code IOException}, whose catch forces a
-     * reconnect. Closes the received reference, not {@code local_client_socket}, so as not to
-     * tear down a new socket a reconnection may have installed meanwhile.
+     * Closes a SPECIFIC socket whose write is stuck because the server stopped
+     * reading. Deliberately does NOT take {@code local_client_socket_lock}:
+     * that lock is exactly what the blocked write holds
+     * ({@link #writeCommand(String)} writes under it), so
+     * {@link #closeClientSocket()}, which needs it, couldn't unstick it.
+     * {@code close()} is thread-safe and wakes the stalled write with an
+     * {@code IOException}, whose catch forces a reconnect. Closes the received
+     * reference, not {@code local_client_socket}, so as not to tear down a new
+     * socket a reconnection may have installed meanwhile.
      *
      * @param s the specific socket to close
      */
@@ -353,8 +359,8 @@ public class NetClient {
     // --- Transport: encrypted read/write to the server ---
     // This class is the client side, so the destination/origin is always the server.
     /**
-     * Encrypts and writes a text command to the server, blocking while a reconnect is in
-     * progress and forcing one if the write fails.
+     * Encrypts and writes a text command to the server, blocking while a
+     * reconnect is in progress and forcing one if the write fails.
      *
      * @param command the plaintext command to send
      */
@@ -406,10 +412,12 @@ public class NetClient {
     }
 
     /**
-     * Reads and decrypts the next text command from the server, transparently handling
-     * relayed binary frames and dropping (not disconnecting on) frames that fail channel auth.
+     * Reads and decrypts the next text command from the server, transparently
+     * handling relayed binary frames and dropping (not disconnecting on) frames
+     * that fail channel auth.
      *
-     * @return the decrypted command, or {@code null} on end of stream / I/O failure
+     * @return the decrypted command, or {@code null} on end of stream / I/O
+     * failure
      */
     public String readCommand() {
         // While reconnecting, wait.
@@ -491,10 +499,11 @@ public class NetClient {
     }
 
     /**
-     * Decrypts and dispatches a binary frame relayed by the host. The host is trusted
-     * to label the sender, so a voice note uses the frame's carried nick (parity with
-     * the client side of the legacy VOICEMSG text relay). A malformed or HMAC-failing
-     * frame is dropped without disturbing the command stream.
+     * Decrypts and dispatches a binary frame relayed by the host. The host is
+     * trusted to label the sender, so a voice note uses the frame's carried
+     * nick (parity with the client side of the legacy VOICEMSG text relay). A
+     * malformed or HMAC-failing frame is dropped without disturbing the command
+     * stream.
      */
     private void handleBinaryFromServer(byte[] frameBody) {
         // F2 ANTI-DoS: rate-limit the binary channel BEFORE decrypting/processing. Excess -> silent DROP.
@@ -519,9 +528,10 @@ public class NetClient {
     }
 
     /**
-     * Binary sibling of {@link #writeCommand(String)}: writes a binary {@link WireFrame}
-     * (a voice/avatar blob) to the server. Holds the same socket lock as the text writer,
-     * so a binary frame and a text line never interleave on the channel.
+     * Binary sibling of {@link #writeCommand(String)}: writes a binary
+     * {@link WireFrame} (a voice/avatar blob) to the server. Holds the same
+     * socket lock as the text writer, so a binary frame and a text line never
+     * interleave on the channel.
      *
      * @param frameBody the raw binary frame payload to send
      */

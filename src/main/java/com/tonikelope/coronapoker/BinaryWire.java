@@ -20,33 +20,42 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
- * Plaintext layout of a binary {@link WireFrame} body, before channel encryption.
+ * Plaintext layout of a binary {@link WireFrame} body, before channel
+ * encryption.
  *
  * <pre>
  *   payload = type(1) | uint16 nicklen (big-endian) | nick(UTF-8) | rest
  * </pre>
  *
  * The body that travels the wire is {@code encryptBytes(payload)} wrapped in a
- * binary frame, so this layout is only ever seen after HMAC verification — but it
- * is still parsed defensively (bounded nicklen) because the sender is a remote peer.
+ * binary frame, so this layout is only ever seen after HMAC verification — but
+ * it is still parsed defensively (bounded nicklen) because the sender is a
+ * remote peer.
  *
  * The leading {@code type} byte ('V' voice, future 'A' avatar) lets one binary
- * frame format carry several blob kinds; the carried {@code nick} is the claimed
- * sender (the host trusts its own relays; a server receiving a note re-anchors to
- * the connection's authenticated nick instead).
+ * frame format carry several blob kinds; the carried {@code nick} is the
+ * claimed sender (the host trusts its own relays; a server receiving a note
+ * re-anchors to the connection's authenticated nick instead).
  */
 public final class BinaryWire {
 
-    /** Voice note: {@code rest} is the µ-law WAV audio. */
+    /**
+     * Voice note: {@code rest} is the µ-law WAV audio.
+     */
     public static final byte TYPE_VOICE = 'V';
 
-    /** Stats DB sync: {@code rest} is a {@link StatsSyncProtocol} message (manifest or games). */
+    /**
+     * Stats DB sync: {@code rest} is a {@link StatsSyncProtocol} message
+     * (manifest or games).
+     */
     public static final byte TYPE_DB = 'D';
 
     private BinaryWire() {
     }
 
-    /** Decoded binary payload: a type tag, the claimed nick, and the blob bytes. */
+    /**
+     * Decoded binary payload: a type tag, the claimed nick, and the blob bytes.
+     */
     public static final class Decoded {
 
         public final byte type;
@@ -61,10 +70,11 @@ public final class BinaryWire {
     }
 
     /**
-     * Encodes {@code type | uint16 nicklen | nick(UTF-8) | rest} into a single payload.
+     * Encodes {@code type | uint16 nicklen | nick(UTF-8) | rest} into a single
+     * payload.
      *
-     * @throws IllegalArgumentException if {@code nick} or {@code rest} is null, or the
-     *                                  UTF-8-encoded nick is too long for the uint16 length field
+     * @throws IllegalArgumentException if {@code nick} or {@code rest} is null,
+     * or the UTF-8-encoded nick is too long for the uint16 length field
      */
     public static byte[] encode(byte type, String nick, byte[] rest) {
         if (nick == null || rest == null) {
@@ -83,7 +93,9 @@ public final class BinaryWire {
         return out;
     }
 
-    /** {@link #encode} with {@link #TYPE_VOICE}. */
+    /**
+     * {@link #encode} with {@link #TYPE_VOICE}.
+     */
     public static byte[] encodeVoice(String nick, byte[] audio) {
         return encode(TYPE_VOICE, nick, audio);
     }
@@ -91,8 +103,8 @@ public final class BinaryWire {
     /**
      * Decodes a payload produced by {@link #encode}.
      *
-     * @throws IllegalArgumentException if {@code data} is too short or its nicklen field
-     *                                  is out of bounds
+     * @throws IllegalArgumentException if {@code data} is too short or its
+     * nicklen field is out of bounds
      */
     public static Decoded decode(byte[] data) {
         if (data == null || data.length < 3) {

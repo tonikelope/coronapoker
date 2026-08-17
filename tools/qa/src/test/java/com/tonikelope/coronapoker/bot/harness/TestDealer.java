@@ -96,7 +96,6 @@ public final class TestDealer implements DealerView {
     }
 
     // --- DealerView contract ------------------------------------------------
-
     @Override
     public int getStreet() {
         return street;

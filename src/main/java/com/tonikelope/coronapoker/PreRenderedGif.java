@@ -50,11 +50,11 @@ import org.w3c.dom.Node;
  *
  * AWT's GIF animator decodes on the fly and sleeps each frame's delay via
  * {@code Thread.sleep}, never recovering lost time: with Windows' timer
- * granularity (15.6 ms by default, and it varies with global system state) a
- * 20 ms/frame animation can stretch by ~50%. Here frames are decoded up
- * front and the visible frame is picked by elapsed time ({@link #frameAt}),
- * skipping frames when needed, so the total playback duration always
- * matches the GIF's nominal duration.
+ * granularity (15.6 ms by default, and it varies with global system state) a 20
+ * ms/frame animation can stretch by ~50%. Here frames are decoded up front and
+ * the visible frame is picked by elapsed time ({@link #frameAt}), skipping
+ * frames when needed, so the total playback duration always matches the GIF's
+ * nominal duration.
  */
 public class PreRenderedGif {
 
@@ -91,32 +91,45 @@ public class PreRenderedGif {
         return new PreRenderedGif(frames, end, frames[0].getWidth(), frames[0].getHeight());
     }
 
-    /** @return the number of pre-rendered frames. */
+    /**
+     * @return the number of pre-rendered frames.
+     */
     public int getFrameCount() {
         return frames.length;
     }
 
-    /** @return the composited frame at index {@code i}. */
+    /**
+     * @return the composited frame at index {@code i}.
+     */
     public BufferedImage getFrame(int i) {
         return frames[i];
     }
 
-    /** @return the GIF's logical width, in pixels. */
+    /**
+     * @return the GIF's logical width, in pixels.
+     */
     public int getWidth() {
         return width;
     }
 
-    /** @return the GIF's logical height, in pixels. */
+    /**
+     * @return the GIF's logical height, in pixels.
+     */
     public int getHeight() {
         return height;
     }
 
-    /** @return the GIF's total nominal playback duration, in milliseconds. */
+    /**
+     * @return the GIF's total nominal playback duration, in milliseconds.
+     */
     public long getTotalMs() {
         return frame_end_ms[frame_end_ms.length - 1];
     }
 
-    /** @return the frame that should be visible after {@code elapsed_ms} of playback. */
+    /**
+     * @return the frame that should be visible after {@code elapsed_ms} of
+     * playback.
+     */
     public int frameAt(long elapsed_ms) {
         return frameAt(frame_end_ms, elapsed_ms);
     }
@@ -136,17 +149,19 @@ public class PreRenderedGif {
         return frame_end_ms.length - 1;
     }
 
-    /** {@link #decode(URL, long)} with no memory cap. */
+    /**
+     * {@link #decode(URL, long)} with no memory cap.
+     */
     public static PreRenderedGif decode(URL url) throws IOException {
         return decode(url, Long.MAX_VALUE);
     }
 
     /**
-     * Like {@link #decode(URL)} but with a memory cap: the storage estimate
-     * is computed from the metadata-only pass (without decoding a single
-     * pixel), and if it exceeds {@code max_bytes} an IOException is thrown
-     * so the caller can fall back to the legacy playback path without
-     * having paid for the decode.
+     * Like {@link #decode(URL)} but with a memory cap: the storage estimate is
+     * computed from the metadata-only pass (without decoding a single pixel),
+     * and if it exceeds {@code max_bytes} an IOException is thrown so the
+     * caller can fall back to the legacy playback path without having paid for
+     * the decode.
      *
      * @param url location of the GIF to decode
      * @param max_bytes upper bound on the estimated decoded size, in bytes

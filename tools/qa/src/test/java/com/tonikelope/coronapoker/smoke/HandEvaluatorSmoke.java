@@ -21,19 +21,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * AAA test del evaluador Hand.calcularMejorJugada. Cubre los 10 rankings
- * + edge cases que típicamente se rompen en refactors (A-5 wheel
- * straight, kickers post-pareja, full house vs trips+pair, straight
- * flush con A-K-Q-J-10, etc.).
+ * AAA test del evaluador Hand.calcularMejorJugada. Cubre los 10 rankings + edge
+ * cases que típicamente se rompen en refactors (A-5 wheel straight, kickers
+ * post-pareja, full house vs trips+pair, straight flush con A-K-Q-J-10, etc.).
  *
- * Esto NO arregla un bug existente — crea la RED DE SEGURIDAD para
- * futuros refactors. Si algún día se extrae HandEvaluator del Crupier
- * (Sprint 8 deferred), estos tests aseguran que los resultados
- * permanecen byte-for-byte idénticos.
+ * Esto NO arregla un bug existente — crea la RED DE SEGURIDAD para futuros
+ * refactors. Si algún día se extrae HandEvaluator del Crupier (Sprint 8
+ * deferred), estos tests aseguran que los resultados permanecen byte-for-byte
+ * idénticos.
  *
- * Card construction toca Swing (Helpers.GUIRunAndWait + initComponents).
- * Si el JVM de test es headless, skipeamos todos los tests via
- * Assumptions — no son críticos para el smoke principal.
+ * Card construction toca Swing (Helpers.GUIRunAndWait + initComponents). Si el
+ * JVM de test es headless, skipeamos todos los tests via Assumptions — no son
+ * críticos para el smoke principal.
  */
 class HandEvaluatorSmoke {
 
@@ -44,9 +43,9 @@ class HandEvaluatorSmoke {
     }
 
     /**
-     * Helper para crear una Card desde "valor_palo" string.
-     * Valores: A 2 3 4 5 6 7 8 9 10 J Q K
-     * Palos:   P (picas) C (corazones) T (tréboles) D (diamantes)
+     * Helper para crear una Card desde "valor_palo" string. Valores: A 2 3 4 5
+     * 6 7 8 9 10 J Q K Palos: P (picas) C (corazones) T (tréboles) D
+     * (diamantes)
      */
     private static Card card(String valorPalo) {
         String[] parts = valorPalo.split("_");

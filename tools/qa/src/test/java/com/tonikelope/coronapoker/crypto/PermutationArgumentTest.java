@@ -30,7 +30,10 @@ public class PermutationArgumentTest {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
-    /** Build commitments for a vector with fresh blindings; returns {commitments, blindings}. */
+    /**
+     * Build commitments for a vector with fresh blindings; returns
+     * {commitments, blindings}.
+     */
     private static byte[][] commitVec(BigInteger[] v, BigInteger[] sOut) {
         byte[][] c = new byte[v.length][];
         for (int i = 0; i < v.length; i++) {

@@ -20,12 +20,15 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 
 /**
- * Deterministic wire codec for the Bayer–Groth {@link ShuffleArgument} proof tree. Centralises the
- * byte format in one tested place so the network layer only ever moves {@code byte[]}. Every point is a
- * 32-byte Ristretto encoding; every scalar is a 32-byte big-endian value (responses are already reduced
- * into {@code [0, L)}); arrays carry a 4-byte length prefix. Decoding is total: any malformed, short, or
- * over-long input yields {@code null} (never an exception), so a network handler can feed untrusted bytes
- * directly. Point/scalar validity is NOT checked here — it is enforced later by {@link ShuffleArgument#verify}.
+ * Deterministic wire codec for the Bayer–Groth {@link ShuffleArgument} proof
+ * tree. Centralises the byte format in one tested place so the network layer
+ * only ever moves {@code byte[]}. Every point is a 32-byte Ristretto encoding;
+ * every scalar is a 32-byte big-endian value (responses are already reduced
+ * into {@code [0, L)}); arrays carry a 4-byte length prefix. Decoding is total:
+ * any malformed, short, or over-long input yields {@code null} (never an
+ * exception), so a network handler can feed untrusted bytes directly.
+ * Point/scalar validity is NOT checked here — it is enforced later by
+ * {@link ShuffleArgument#verify}.
  */
 public final class ProofCodec {
 
@@ -36,7 +39,6 @@ public final class ProofCodec {
     }
 
     // ---------- public entry points ----------
-
     public static byte[] encodeShuffle(ShuffleArgument.Proof p) {
         if (p == null) {
             return null;
@@ -64,7 +66,6 @@ public final class ProofCodec {
     }
 
     // ---------- ShuffleArgument ----------
-
     private static void writeShuffle(ByteArrayOutputStream out, ShuffleArgument.Proof p) {
         writePointArray(out, p.cf);
         writePermutation(out, p.perm);
@@ -85,7 +86,6 @@ public final class ProofCodec {
     }
 
     // ---------- PermutationArgument (wraps a ProductArgument) ----------
-
     private static void writePermutation(ByteArrayOutputStream out, PermutationArgument.Proof p) {
         writeProduct(out, p.product);
     }
@@ -95,7 +95,6 @@ public final class ProofCodec {
     }
 
     // ---------- ProductArgument ----------
-
     private static void writeProduct(ByteArrayOutputStream out, ProductArgument.Proof p) {
         writePointArray(out, p.cp);
         writeInt(out, p.steps.length);
@@ -119,7 +118,6 @@ public final class ProofCodec {
     }
 
     // ---------- MultiplicationProof ----------
-
     private static void writeMultiplication(ByteArrayOutputStream out, MultiplicationProof.Proof p) {
         writePoint(out, p.m1);
         writePoint(out, p.m2);
@@ -144,7 +142,6 @@ public final class ProofCodec {
     }
 
     // ---------- WeightedSumArgument ----------
-
     private static void writeWeightedSum(ByteArrayOutputStream out, WeightedSumArgument.Proof p) {
         writePointArray(out, p.t);
         writePoint(out, p.tq);
@@ -161,7 +158,6 @@ public final class ProofCodec {
     }
 
     // ---------- primitives ----------
-
     static byte[] scalarToBytes(BigInteger s) {
         byte[] raw = s.mod(L).toByteArray();
         byte[] fixed = new byte[32];
@@ -237,8 +233,12 @@ public final class ProofCodec {
         return arr;
     }
 
-    /** Bounds-checked cursor over the input; underflow throws (caught at the public entry points). */
+    /**
+     * Bounds-checked cursor over the input; underflow throws (caught at the
+     * public entry points).
+     */
     private static final class Reader {
+
         private final byte[] buf;
         private int pos;
 

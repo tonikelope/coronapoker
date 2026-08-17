@@ -40,7 +40,10 @@ public class CryptoEnginePerfTest {
         return xs[xs.length / 2];
     }
 
-    /** Palanca #2: BASE reutilizada -> su tabla de ventana se construye una vez y se reusa. */
+    /**
+     * Palanca #2: BASE reutilizada -> su tabla de ventana se construye una vez
+     * y se reusa.
+     */
     @Test
     public void baseScalarMulCost() {
         int iters = 2000;
@@ -83,7 +86,10 @@ public class CryptoEnginePerfTest {
         System.out.println("[PERF] BASE.scalarMul x" + iters + " (mediana de " + runs + "): " + medianMs(ms) + "ms");
     }
 
-    /** Palanca #1: operando constante reutilizado (D2) en el lazo caliente de EdwardsPoint.add. */
+    /**
+     * Palanca #1: operando constante reutilizado (D2) en el lazo caliente de
+     * EdwardsPoint.add.
+     */
     @Test
     public void pointAddCost() {
         int iters = 200_000;
@@ -111,7 +117,10 @@ public class CryptoEnginePerfTest {
         System.out.println("[PERF] EdwardsPoint.add x" + iters + " (mediana de " + runs + "): " + medianMs(ms) + "ms");
     }
 
-    /** Palanca #1: field-mul con operando reutilizado, contra referencia BigInteger. */
+    /**
+     * Palanca #1: field-mul con operando reutilizado, contra referencia
+     * BigInteger.
+     */
     @Test
     public void fieldMulCost() {
         int iters = 1_000_000;

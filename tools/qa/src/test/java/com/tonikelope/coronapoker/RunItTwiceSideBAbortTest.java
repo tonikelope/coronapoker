@@ -57,7 +57,6 @@ public class RunItTwiceSideBAbortTest {
     }
 
     // ---- Mapeo de ESCENARIOS reales a la decision (documenta el porque de cada combo) ----
-
     @Test
     public void scenarioManualHaltMidSideBLeavesInProgress() {
         // Detener la timba (o recibir SERVEREXITRECOVER) con la cara-B en vuelo: finTransmision
@@ -84,7 +83,7 @@ public class RunItTwiceSideBAbortTest {
     public void scenarioNormalRunItTwiceSettles() {
         // Los dos boards se reparten enteros: dealt=true -> se liquida, hand.end se escribe,
         // el recover salta la mano ya cerrada.
-        assertFalse(decide(/*dealt*/ true, false, false, false, false));
+        assertFalse(decide(/*dealt*/true, false, false, false, false));
     }
 
     @Test
@@ -92,8 +91,8 @@ public class RunItTwiceSideBAbortTest {
         // Solo bots no ofrece una espera de red que falle. Por eso el gate tiene que consultar
         // termination_pending directamente antes de iniciar B: detener tras A deja la mano en
         // curso para que la recuperacion repita el RIT entero.
-        assertTrue(Crupier.shouldAbortRunItTwiceSideBDeal(/*termination*/ true, false));
-        assertTrue(decide(/*dealt*/ false, false, /*termination*/ true, false, false));
+        assertTrue(Crupier.shouldAbortRunItTwiceSideBDeal(/*termination*/true, false));
+        assertTrue(decide(/*dealt*/false, false, /*termination*/ true, false, false));
     }
 
     @Test

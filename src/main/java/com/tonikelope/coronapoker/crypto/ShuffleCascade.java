@@ -19,43 +19,57 @@ package com.tonikelope.coronapoker.crypto;
 import java.math.BigInteger;
 
 /**
- * Orchestrates the {@link ShuffleArgument} (Bayer–Groth) engine over a whole SRA cascade, and is the
- * component that <b>enforces the discrete-log-independence precondition</b> that {@code ShuffleArgument}
- * alone cannot (see its class javadoc): it anchors the chain to the public genesis deck and verifies
- * every step against the previous ALREADY-VERIFIED deck. By induction each step's input is then a
- * genuine shuffle of DL-independent points, so the per-step soundness holds and a rotation smuggle
- * (a duplicated/relocated card) is impossible — the dishonest step would not be a real shuffle and
- * cannot be proven.
+ * Orchestrates the {@link ShuffleArgument} (Bayer–Groth) engine over a whole
+ * SRA cascade, and is the component that <b>enforces the
+ * discrete-log-independence precondition</b> that {@code ShuffleArgument} alone
+ * cannot (see its class javadoc): it anchors the chain to the public genesis
+ * deck and verifies every step against the previous ALREADY-VERIFIED deck. By
+ * induction each step's input is then a genuine shuffle of DL-independent
+ * points, so the per-step soundness holds and a rotation smuggle (a
+ * duplicated/relocated card) is impossible — the dishonest step would not be a
+ * real shuffle and cannot be proven.
  *
- * <p>Layout: {@code decks[0]} is the genesis deck, {@code decks[m+1] = shuffle_m(decks[m])} peer
- * {@code m}'s output, {@code proofs[m]} attests that step. The anchor ({@code decks[0] == genesis}) +
- * chain logic here is the load-bearing property the audit flagged: it pins each step's input to
- * DL-independent points. Wired live and validated by smoke (host self-verify + each peer re-verifies
- * the broadcast bundle).
+ * <p>
+ * Layout: {@code decks[0]} is the genesis deck,
+ * {@code decks[m+1] = shuffle_m(decks[m])} peer {@code m}'s output,
+ * {@code proofs[m]} attests that step. The anchor ({@code decks[0] == genesis})
+ * + chain logic here is the load-bearing property the audit flagged: it pins
+ * each step's input to DL-independent points. Wired live and validated by smoke
+ * (host self-verify + each peer re-verifies the broadcast bundle).
  */
 public final class ShuffleCascade {
 
     private ShuffleCascade() {
     }
 
-    /** Prove one cascade step: {@code out[i] = k·in[perm[i]]} (peer's shuffle {@code perm} + lock {@code k}). */
+    /**
+     * Prove one cascade step: {@code out[i] = k·in[perm[i]]} (peer's shuffle
+     * {@code perm} + lock {@code k}).
+     */
     public static ShuffleArgument.Proof proveStep(EdwardsPoint[] in, EdwardsPoint[] out, int[] perm, BigInteger k) {
         return ShuffleArgument.prove(in, out, perm, k);
     }
 
     /**
-     * Verify the whole cascade is an honest shuffle chain anchored to {@code genesis}: {@code decks[0]}
-     * must equal the public genesis deck byte-for-byte, and every step {@code decks[m] → decks[m+1]} must
-     * carry a valid {@link ShuffleArgument}. A single failure ⇒ reject the deck.
+     * Verify the whole cascade is an honest shuffle chain anchored to
+     * {@code genesis}: {@code decks[0]} must equal the public genesis deck
+     * byte-for-byte, and every step {@code decks[m] → decks[m+1]} must carry a
+     * valid {@link ShuffleArgument}. A single failure ⇒ reject the deck.
      *
-     * <p>The anchor is what makes the chain sound: {@code decks[0] == genesis} pins the first input to
-     * DL-independent NUMS points, and each verified step preserves DL-independence, so no step is ever
-     * verified against attacker-craftable points. Removing the anchor or skipping the chain (verifying a
-     * step against a caller-supplied deck) reopens the smuggle — do not.
+     * <p>
+     * The anchor is what makes the chain sound: {@code decks[0] == genesis}
+     * pins the first input to DL-independent NUMS points, and each verified
+     * step preserves DL-independence, so no step is ever verified against
+     * attacker-craftable points. Removing the anchor or skipping the chain
+     * (verifying a step against a caller-supplied deck) reopens the smuggle —
+     * do not.
      *
-     * @param genesis the public genesis deck every peer derives independently (the anchor)
-     * @param decks   {@code decks[0..N]}; {@code decks[0]} the cascade input, {@code decks[N]} the output
-     * @param proofs  {@code proofs[0..N-1]}; {@code proofs[m]} attests {@code decks[m+1] = shuffle(decks[m])}
+     * @param genesis the public genesis deck every peer derives independently
+     * (the anchor)
+     * @param decks {@code decks[0..N]}; {@code decks[0]} the cascade input,
+     * {@code decks[N]} the output
+     * @param proofs {@code proofs[0..N-1]}; {@code proofs[m]} attests
+     * {@code decks[m+1] = shuffle(decks[m])}
      */
     public static boolean verifyChain(EdwardsPoint[] genesis, EdwardsPoint[][] decks, ShuffleArgument.Proof[] proofs) {
         if (genesis == null || decks == null || proofs == null
@@ -76,8 +90,10 @@ public final class ShuffleCascade {
 
     // ---- Byte-oriented wiring helpers (decks as flat 32-byte-per-point arrays, proof as bytes) ----
     // Keep the byte↔point/proof conversion in this tested layer so the network handlers stay tiny.
-
-    /** Decode a flat deck (n×32 bytes) to points, or null if any point is non-canonical. */
+    /**
+     * Decode a flat deck (n×32 bytes) to points, or null if any point is
+     * non-canonical.
+     */
     public static EdwardsPoint[] decodeDeck(byte[] bytes) {
         if (bytes == null || bytes.length == 0 || bytes.length % 32 != 0) {
             return null;
@@ -93,8 +109,11 @@ public final class ShuffleCascade {
         return d;
     }
 
-    /** Encode points back to a flat deck (n×32 bytes), or null if the array or any element is null.
-     *  Inverse of {@link #decodeDeck} on valid points (canonical Ristretto encoding). */
+    /**
+     * Encode points back to a flat deck (n×32 bytes), or null if the array or
+     * any element is null. Inverse of {@link #decodeDeck} on valid points
+     * (canonical Ristretto encoding).
+     */
     public static byte[] encodeDeck(EdwardsPoint[] points) {
         if (points == null || points.length == 0) {
             return null;
@@ -111,8 +130,9 @@ public final class ShuffleCascade {
     }
 
     /**
-     * Prove a cascade step from flat byte decks: {@code deckOut[i] = kScalar·deckIn[perm[i]]}. Returns the
-     * serialized proof, or null on any failure (so a network-handler caller never throws).
+     * Prove a cascade step from flat byte decks:
+     * {@code deckOut[i] = kScalar·deckIn[perm[i]]}. Returns the serialized
+     * proof, or null on any failure (so a network-handler caller never throws).
      */
     public static byte[] proveStepWire(byte[] deckInBytes, byte[] deckOutBytes, int[] perm, byte[] kScalar) {
         try {
@@ -127,7 +147,10 @@ public final class ShuffleCascade {
         }
     }
 
-    /** Verify a serialized cascade-step proof against flat byte decks. False on any malformed input. */
+    /**
+     * Verify a serialized cascade-step proof against flat byte decks. False on
+     * any malformed input.
+     */
     public static boolean verifyStepWire(byte[] deckInBytes, byte[] deckOutBytes, byte[] proofBytes) {
         EdwardsPoint[] in = decodeDeck(deckInBytes);
         EdwardsPoint[] out = decodeDeck(deckOutBytes);
@@ -139,12 +162,14 @@ public final class ShuffleCascade {
     }
 
     /**
-     * Verify a whole cascade from flat byte decks + serialized proofs. {@code deckBytes.get(0)} must equal
-     * {@code genesisBytes}; {@code proofBytes.get(m)} attests {@code deckBytes.get(m) → deckBytes.get(m+1)}.
-     * False on any malformed / short / non-anchored input.
+     * Verify a whole cascade from flat byte decks + serialized proofs.
+     * {@code deckBytes.get(0)} must equal {@code genesisBytes};
+     * {@code proofBytes.get(m)} attests
+     * {@code deckBytes.get(m) → deckBytes.get(m+1)}. False on any malformed /
+     * short / non-anchored input.
      */
     public static boolean verifyChainWire(byte[] genesisBytes, java.util.List<byte[]> deckBytes,
-                                          java.util.List<byte[]> proofBytes) {
+            java.util.List<byte[]> proofBytes) {
         if (genesisBytes == null || deckBytes == null || proofBytes == null
                 || deckBytes.size() < 1 || proofBytes.size() != deckBytes.size() - 1) {
             return false;

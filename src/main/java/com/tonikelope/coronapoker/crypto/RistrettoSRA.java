@@ -26,14 +26,16 @@ import java.util.Arrays;
  * engine that replaced the retired Montgomery x-only core.
  *
  * Everything is a 32-byte canonical Ristretto encoding on the wire. Because
- * Ristretto has prime order, scalars need no clamping and there is no cofactor /
- * small-subgroup caveat: a lock is multiplication by a uniform scalar in [1, L),
- * an unlock is its inverse mod L, and decode() rejects any malformed point —
- * a valid decode IS the group-membership proof (see docs/SECURITY.md).
+ * Ristretto has prime order, scalars need no clamping and there is no cofactor
+ * / small-subgroup caveat: a lock is multiplication by a uniform scalar in [1,
+ * L), an unlock is its inverse mod L, and decode() rejects any malformed point
+ * — a valid decode IS the group-membership proof (see docs/SECURITY.md).
  */
 public final class RistrettoSRA {
 
-    /** Prime subgroup order L (scalar field modulus). */
+    /**
+     * Prime subgroup order L (scalar field modulus).
+     */
     public static final BigInteger L = EdwardsPoint.L;
 
     private static final int POINT_BYTES = 32;
@@ -45,7 +47,10 @@ public final class RistrettoSRA {
     private RistrettoSRA() {
     }
 
-    /** Generates a uniform lock scalar in [1, L), encoded as 32 little-endian bytes. */
+    /**
+     * Generates a uniform lock scalar in [1, L), encoded as 32 little-endian
+     * bytes.
+     */
     public static byte[] generateLockScalar() {
         while (true) {
             byte[] raw = new byte[32];
@@ -59,13 +64,15 @@ public final class RistrettoSRA {
     }
 
     /**
-     * Is this a usable SRA scalar? 32 bytes encoding a value in [1, L). Anything
-     * else has no inverse, so it can never be half of a lock/unlock pair.
+     * Is this a usable SRA scalar? 32 bytes encoding a value in [1, L).
+     * Anything else has no inverse, so it can never be half of a lock/unlock
+     * pair.
      *
-     * <p>Scalars that arrive from the wire (a leaving peer's testament, a revealed
-     * showdown key) MUST pass this before being stored: a length check alone lets
-     * through 32 zero bytes, and inverting that blows up in the dealer thread,
-     * which takes the whole process down with it.
+     * <p>
+     * Scalars that arrive from the wire (a leaving peer's testament, a revealed
+     * showdown key) MUST pass this before being stored: a length check alone
+     * lets through 32 zero bytes, and inverting that blows up in the dealer
+     * thread, which takes the whole process down with it.
      */
     public static boolean isValidScalar(byte[] scalar) {
         if (scalar == null || scalar.length != POINT_BYTES) {
@@ -78,7 +85,8 @@ public final class RistrettoSRA {
     /**
      * Multiplicative inverse mod L of a lock scalar — the matching unlock.
      *
-     * <p>The scalar must satisfy {@link #isValidScalar}; callers that take it from
+     * <p>
+     * The scalar must satisfy {@link #isValidScalar}; callers that take it from
      * the wire validate on arrival. Anything else is a local bug, and it is
      * reported as such instead of as a bare arithmetic failure.
      */
@@ -91,17 +99,18 @@ public final class RistrettoSRA {
     }
 
     /**
-     * Public commitment K = k*B (32-byte encoding) for a lock scalar k. Published
-     * in H_0 so peers can verify, via DLEQ, that an unlock used this committed key.
+     * Public commitment K = k*B (32-byte encoding) for a lock scalar k.
+     * Published in H_0 so peers can verify, via DLEQ, that an unlock used this
+     * committed key.
      */
     public static byte[] commitment(byte[] lockScalar) {
         return Ristretto255.encode(EdwardsPoint.BASE.scalarMul(bytesToScalar(lockScalar)));
     }
 
     /**
-     * Applies a commutative lock (scalar multiplication) to every 32-byte point in
-     * a flat deck. Returns null if the deck is malformed or any point fails to
-     * decode (off-group) — the caller treats null as a zero-trust rejection.
+     * Applies a commutative lock (scalar multiplication) to every 32-byte point
+     * in a flat deck. Returns null if the deck is malformed or any point fails
+     * to decode (off-group) — the caller treats null as a zero-trust rejection.
      */
     public static byte[] applyCommutativeLock(byte[] deck, byte[] scalar) {
         if (deck == null || deck.length == 0 || deck.length % POINT_BYTES != 0) {
@@ -122,13 +131,16 @@ public final class RistrettoSRA {
     }
 
     /**
-     * Points-based twin of {@link #applyCommutativeLock}: scalar-multiplies an ALREADY-DECODED array of
-     * points by {@code scalar}. The caller must have obtained {@code in} through a validating decode
-     * ({@link Ristretto255#decode} / {@link ShuffleCascade#decodeDeck}) — that decode IS the group-
-     * membership gate (see class javadoc); this method assumes it already passed and does not re-decode.
-     * Returns null if {@code in} is null or holds a null element (defensive). By construction,
-     * {@code ShuffleCascade.encodeDeck(lockPoints(ShuffleCascade.decodeDeck(deck), scalar))} is
-     * byte-identical to {@code applyCommutativeLock(deck, scalar)} (pinned in DecodeOnceLockTest).
+     * Points-based twin of {@link #applyCommutativeLock}: scalar-multiplies an
+     * ALREADY-DECODED array of points by {@code scalar}. The caller must have
+     * obtained {@code in} through a validating decode
+     * ({@link Ristretto255#decode} / {@link ShuffleCascade#decodeDeck}) — that
+     * decode IS the group- membership gate (see class javadoc); this method
+     * assumes it already passed and does not re-decode. Returns null if
+     * {@code in} is null or holds a null element (defensive). By construction,
+     * {@code ShuffleCascade.encodeDeck(lockPoints(ShuffleCascade.decodeDeck(deck), scalar))}
+     * is byte-identical to {@code applyCommutativeLock(deck, scalar)} (pinned
+     * in DecodeOnceLockTest).
      */
     public static EdwardsPoint[] lockPoints(EdwardsPoint[] in, byte[] scalar) {
         if (in == null) {
@@ -145,7 +157,10 @@ public final class RistrettoSRA {
         return out;
     }
 
-    /** The 52-card genesis deck as a flat 52*32-byte array of canonical encodings. */
+    /**
+     * The 52-card genesis deck as a flat 52*32-byte array of canonical
+     * encodings.
+     */
     public static byte[] getGenesisDeck() {
         byte[][] cache = genesisDeckCache;
         if (cache == null) {
@@ -174,10 +189,10 @@ public final class RistrettoSRA {
     }
 
     /**
-     * Validates that a flat array is a whole number of 32-byte points and that every
-     * one decodes as a canonical Ristretto255 element. Replaces the old
-     * arePointsOnCurve gate: in a prime-order group a valid decode IS the membership
-     * proof, and it additionally rejects non-canonical encodings.
+     * Validates that a flat array is a whole number of 32-byte points and that
+     * every one decodes as a canonical Ristretto255 element. Replaces the old
+     * arePointsOnCurve gate: in a prime-order group a valid decode IS the
+     * membership proof, and it additionally rejects non-canonical encodings.
      */
     public static boolean arePointsValid(byte[] data) {
         if (data == null || data.length == 0 || data.length % POINT_BYTES != 0) {
@@ -192,7 +207,9 @@ public final class RistrettoSRA {
         return true;
     }
 
-    /** Resolves a fully-unlocked 32-byte point to its card index 0-51, or -1. */
+    /**
+     * Resolves a fully-unlocked 32-byte point to its card index 0-51, or -1.
+     */
     public static int resolveCardIndex(byte[] unlockedCard) {
         if (unlockedCard == null || unlockedCard.length != POINT_BYTES) {
             return -1;
@@ -208,7 +225,6 @@ public final class RistrettoSRA {
     }
 
     // --- scalar <-> 32-byte little-endian helpers ---
-
     public static BigInteger bytesToScalar(byte[] le32) {
         byte[] be = new byte[le32.length];
         for (int i = 0; i < le32.length; i++) {

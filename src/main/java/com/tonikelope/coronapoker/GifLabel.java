@@ -43,16 +43,20 @@ import javax.swing.JLabel;
 
 /**
  * JLabel that plays an animated GIF via the AWT image-observer callback, with
- * hardware-accelerated stretch scaling, optional frame-synced audio, an optional
- * pre-decoded frame override (used for smooth catch-up during card-spin
- * animations), and a {@link CyclicBarrier} rendezvous fired when the GIF (and
- * its repeats) finishes.
+ * hardware-accelerated stretch scaling, optional frame-synced audio, an
+ * optional pre-decoded frame override (used for smooth catch-up during
+ * card-spin animations), and a {@link CyclicBarrier} rendezvous fired when the
+ * GIF (and its repeats) finishes.
  *
- * @see <a href="https://stackoverflow.com/a/42079313">Base painting technique source</a>
+ * @see <a href="https://stackoverflow.com/a/42079313">Base painting technique
+ * source</a>
  */
 public class GifLabel extends JLabel {
 
-    /** Seconds to wait for the GIF-completion barrier's rendezvous before giving up. */
+    /**
+     * Seconds to wait for the GIF-completion barrier's rendezvous before giving
+     * up.
+     */
     public final static long GIF_BARRIER_TIMEOUT = 5;
 
     private volatile int frames = 0;
@@ -130,12 +134,17 @@ public class GifLabel extends JLabel {
         }
     }
 
-    /** @return the barrier installed via {@link #setBarrier}, or {@code null}. */
+    /**
+     * @return the barrier installed via {@link #setBarrier}, or {@code null}.
+     */
     public CyclicBarrier getGif_barrier() {
         return gif_barrier;
     }
 
-    /** Sets how many times the GIF should loop before finishing; ignored when {@code r} is less than 1. */
+    /**
+     * Sets how many times the GIF should loop before finishing; ignored when
+     * {@code r} is less than 1.
+     */
     public void setRepeat(int r) {
         if (r >= 1) {
             conta_repeat = 0;
@@ -143,22 +152,29 @@ public class GifLabel extends JLabel {
         }
     }
 
-    /** {@link #addAudio(String, int, int, Runnable)} without a frame-start callback. */
+    /**
+     * {@link #addAudio(String, int, int, Runnable)} without a frame-start
+     * callback.
+     */
     public void addAudio(String aud, int start_frame, int end_frame) {
         addAudio(aud, start_frame, end_frame, null);
     }
 
     /**
-     * Schedules a sound effect to play from {@code start_frame} to {@code end_frame},
-     * and/or a callback fired once on that same start frame — e.g. to launch a flying
-     * chip into the pot in sync with the chip sound of a cinematic action GIF.
-     * {@code aud} may be {@code null} when only the frame-synced callback is needed
-     * (sound disabled, but the associated gesture must still fire).
+     * Schedules a sound effect to play from {@code start_frame} to
+     * {@code end_frame}, and/or a callback fired once on that same start frame
+     * — e.g. to launch a flying chip into the pot in sync with the chip sound
+     * of a cinematic action GIF. {@code aud} may be {@code null} when only the
+     * frame-synced callback is needed (sound disabled, but the associated
+     * gesture must still fire).
      *
      * @param aud sound resource name, or {@code null} for no sound
-     * @param start_frame frame at which playback/callback starts (must be {@code > 0})
-     * @param end_frame frame at which playback stops, or negative to play to the end
-     * @param on_audio_start callback fired once on {@code start_frame}, or {@code null}
+     * @param start_frame frame at which playback/callback starts (must be
+     * {@code > 0})
+     * @param end_frame frame at which playback stops, or negative to play to
+     * the end
+     * @param on_audio_start callback fired once on {@code start_frame}, or
+     * {@code null}
      */
     public void addAudio(String aud, int start_frame, int end_frame, Runnable on_audio_start) {
         if (!audio_playing && (aud != null || on_audio_start != null) && (start_frame < end_frame || end_frame < 0) && start_frame > 0) {
@@ -170,8 +186,8 @@ public class GifLabel extends JLabel {
     }
 
     /**
-     * Paints {@code frame} instead of the current icon, stretched to the label's
-     * bounds, until cleared with {@code null}. Triggers a repaint.
+     * Paints {@code frame} instead of the current icon, stretched to the
+     * label's bounds, until cleared with {@code null}. Triggers a repaint.
      */
     public void setFrameOverride(BufferedImage frame) {
         this.frame_override = frame;

@@ -25,11 +25,13 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Data-layer tests for {@link StatsSync}: serialization round-trip, primary-key
- * remapping, ugi-based deduplication / idempotency, the manifest set-difference,
- * and — the part that matters most for the "never corrupt the database" rule — a
- * truncation fuzz that proves no malformed blob can leave orphan rows behind.
+ * remapping, ugi-based deduplication / idempotency, the manifest
+ * set-difference, and — the part that matters most for the "never corrupt the
+ * database" rule — a truncation fuzz that proves no malformed blob can leave
+ * orphan rows behind.
  *
- * <p>Each test runs against throwaway in-memory SQLite databases, so nothing
+ * <p>
+ * Each test runs against throwaway in-memory SQLite databases, so nothing
  * touches the real {@code ~/.coronapoker/coronapoker.db}.
  */
 public class StatsSyncTest {
@@ -42,7 +44,6 @@ public class StatsSyncTest {
     // =========================================================================
     // Tests
     // =========================================================================
-
     @Test
     void listShareableUgis_keepsFinishedKeyedNonPrivateGames_regardlessOfHost() throws Exception {
         try (Connection c = mem()) {
@@ -248,8 +249,9 @@ public class StatsSyncTest {
     // =========================================================================
     // Fixtures
     // =========================================================================
-
-    /** Fresh in-memory database with the full stats schema and FKs enforced. */
+    /**
+     * Fresh in-memory database with the full stats schema and FKs enforced.
+     */
     private static Connection mem() throws Exception {
         Connection c = DriverManager.getConnection("jdbc:sqlite::memory:");
         try (Statement st = c.createStatement()) {
@@ -309,7 +311,10 @@ public class StatsSyncTest {
         return gid;
     }
 
-    /** Generic INSERT from alternating (column, value) pairs; returns the new id. */
+    /**
+     * Generic INSERT from alternating (column, value) pairs; returns the new
+     * id.
+     */
     private static long ins(Connection c, String table, Object... kv) throws Exception {
         StringBuilder cols = new StringBuilder(), qs = new StringBuilder();
         for (int i = 0; i < kv.length; i += 2) {
@@ -358,7 +363,9 @@ public class StatsSyncTest {
         }
     }
 
-    /** Asserts the FK graph is intact — no child row points at a missing parent. */
+    /**
+     * Asserts the FK graph is intact — no child row points at a missing parent.
+     */
     private static void assertNoOrphans(Connection c) throws Exception {
         try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery("PRAGMA foreign_key_check")) {
             assertFalse(rs.next(), "foreign_key_check reported orphan rows");

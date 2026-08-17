@@ -39,9 +39,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * AI opponent driving one seat: preflop hand-tier ranges, postflop EV/fold-equity decisions,
- * street plans (bet-bet-bet / bet-check-bet / check-call traps) and a per-difficulty mistake
- * injector, layered over the shared {@link BotEvaluator} (hand strength / draw potential).
+ * AI opponent driving one seat: preflop hand-tier ranges, postflop
+ * EV/fold-equity decisions, street plans (bet-bet-bet / bet-check-bet /
+ * check-call traps) and a per-difficulty mistake injector, layered over the
+ * shared {@link BotEvaluator} (hand strength / draw potential).
  */
 public class Bot {
 
@@ -60,9 +61,10 @@ public class Bot {
     public static final org.alberta.poker.ai.HandPotential HANDPOTENTIAL = new org.alberta.poker.ai.HandPotential();
 
     /**
-     * Default evaluator shared by every Bot instance. Uses the memoized PPot/NPot path
-     * (~8x faster on the flop two-card look-ahead) whose output is numerically
-     * identical to the plain Alberta adapter; see {@link MemoizedAlbertaEvaluator}.
+     * Default evaluator shared by every Bot instance. Uses the memoized
+     * PPot/NPot path (~8x faster on the flop two-card look-ahead) whose output
+     * is numerically identical to the plain Alberta adapter; see
+     * {@link MemoizedAlbertaEvaluator}.
      */
     public static final BotEvaluator EVALUATOR = new MemoizedAlbertaEvaluator();
 
@@ -131,8 +133,9 @@ public class Bot {
     }
 
     /**
-     * Per-opponent behavioural stats (VPIP, PFR, aggression factor) accumulated across hands,
-     * used to bias fold-equity and bet/call decisions toward an opponent's observed tendencies.
+     * Per-opponent behavioural stats (VPIP, PFR, aggression factor) accumulated
+     * across hands, used to bias fold-equity and bet/call decisions toward an
+     * opponent's observed tendencies.
      */
     public static class OpponentTracker {
 
@@ -202,12 +205,13 @@ public class Bot {
         }
 
         /**
-         * Early read of a passive calling-station shape, available <em>before</em>
-         * {@link #hasEnoughData()}: the opponent has called several post-flop bets
-         * without ever betting or raising. A thinking player mixes in aggression;
-         * a pure station never does. Used to stop bluffing into a player who never
-         * folds long before the full {@code isStation()} sample accrues — so the
-         * bot does not keep firing −EV bluffs at a fish during the first orbit.
+         * Early read of a passive calling-station shape, available
+         * <em>before</em> {@link #hasEnoughData()}: the opponent has called
+         * several post-flop bets without ever betting or raising. A thinking
+         * player mixes in aggression; a pure station never does. Used to stop
+         * bluffing into a player who never folds long before the full
+         * {@code isStation()} sample accrues — so the bot does not keep firing
+         * −EV bluffs at a fish during the first orbit.
          */
         public boolean looksPassiveStation() {
             return postFlopCalls >= 3 && postFlopBetsAndRaises == 0;
@@ -259,14 +263,16 @@ public class Bot {
     private static final Logger LOGGER = Logger.getLogger(Bot.class.getName());
 
     /**
-     * Attaches this AI to a {@link RemotePlayer} seat and rolls its skill/style personality.
+     * Attaches this AI to a {@link RemotePlayer} seat and rolls its skill/style
+     * personality.
      */
     public Bot(RemotePlayer player) {
         this((BotPlayerView) player);
     }
 
     /**
-     * Attaches this AI to any {@link BotPlayerView} seat and rolls its skill/style personality.
+     * Attaches this AI to any {@link BotPlayerView} seat and rolls its
+     * skill/style personality.
      */
     public Bot(BotPlayerView player) {
         this.cpuPlayer = player;
@@ -294,9 +300,9 @@ public class Bot {
 
     /**
      * Override the global {@link #DIFFICULTY} for this bot specifically. Used
-     * by mixed-matchup tests (e.g. HARD vs EASY in the same hand). Re-rolls
-     * the bot's personality so the new skill distribution applies. Passing
-     * null returns to the global static fallback.
+     * by mixed-matchup tests (e.g. HARD vs EASY in the same hand). Re-rolls the
+     * bot's personality so the new skill distribution applies. Passing null
+     * returns to the global static fallback.
      */
     public void setDifficulty(Difficulty d) {
         this.perBotDifficulty = d;
@@ -349,15 +355,15 @@ public class Bot {
     /**
      * Verbose logger for debugging bot decisions.
      *
-     * The {@code isLoggable} gate skips the {@code String.format} (pattern parsing +
-     * substitution) when INFO is off, the normal production case. Called 5-15 times per
-     * decision x N bots x hands, so without the gate the cost showed up in profiling even
-     * with the file handler disabled.
+     * The {@code isLoggable} gate skips the {@code String.format} (pattern
+     * parsing + substitution) when INFO is off, the normal production case.
+     * Called 5-15 times per decision x N bots x hands, so without the gate the
+     * cost showed up in profiling even with the file handler disabled.
      *
      * Note: the {@code message} string concatenation at each call site (e.g.
-     * {@code logVerbose("Overcard Penalty: Pair crushed by " + overcards + " cards.")}) still
-     * runs regardless. Avoiding that too would mean migrating all call sites to
-     * {@code Supplier<String>} — deferred.
+     * {@code logVerbose("Overcard Penalty: Pair crushed by " + overcards + " cards.")})
+     * still runs regardless. Avoiding that too would mean migrating all call
+     * sites to {@code Supplier<String>} — deferred.
      */
     private void logVerbose(String message) {
         if (!LOGGER.isLoggable(Level.INFO)) {
@@ -412,13 +418,19 @@ public class Bot {
             int stationCut, lagCut, tagCut;
             switch (effectiveDifficulty()) {
                 case EASY:
-                    stationCut = 75; lagCut = 87; tagCut = 96; // 75/12/9/4 (less LAG to drop PFR)
+                    stationCut = 75;
+                    lagCut = 87;
+                    tagCut = 96; // 75/12/9/4 (less LAG to drop PFR)
                     break;
                 case MEDIUM:
-                    stationCut = 55; lagCut = 78; tagCut = 92; // 55/23/14/8
+                    stationCut = 55;
+                    lagCut = 78;
+                    tagCut = 92; // 55/23/14/8
                     break;
                 default: // HARD (rec is tiny anyway)
-                    stationCut = 45; lagCut = 73; tagCut = 90; // 45/28/17/10
+                    stationCut = 45;
+                    lagCut = 73;
+                    tagCut = 90; // 45/28/17/10
                     break;
             }
             if (styleRoll < stationCut) {
@@ -486,8 +498,9 @@ public class Bot {
     }
 
     /**
-     * Resets all per-hand state (street plan, caches, slowplay/tilt rolls) at the start of a
-     * new hand and re-derives the current profile from stack depth.
+     * Resets all per-hand state (street plan, caches, slowplay/tilt rolls) at
+     * the start of a new hand and re-derives the current profile from stack
+     * depth.
      */
     public void resetBot() {
         holeCard1 = new org.alberta.poker.Card(cpuPlayer.getHoleCard1Index());
@@ -537,8 +550,8 @@ public class Bot {
     }
 
     /**
-     * Updates the recreational tilt tracker after a hand resolves: a win clears the loss
-     * streak and any tilt, a loss extends the streak.
+     * Updates the recreational tilt tracker after a hand resolves: a win clears
+     * the loss streak and any tilt, a loss extends the streak.
      *
      * @param won whether this bot won the hand
      */
@@ -552,17 +565,18 @@ public class Bot {
     }
 
     /**
-     * @return the bet size computed during the last decision, NOT a freshly recomputed one: a
-     * new call would draw new RNG and bet a different amount than the one the EV was evaluated on
+     * @return the bet size computed during the last decision, NOT a freshly
+     * recomputed one: a new call would draw new RNG and bet a different amount
+     * than the one the EV was evaluated on
      */
     public double getBetSize() {
         return lastBetSize;
     }
 
     /**
-     * Computes a bet/raise size for the current street: preflop open/3-bet sizing, or postflop
-     * sizing driven by board texture and pot fraction, then rounded to a legal small-blind
-     * multiple of the dealer's current stakes.
+     * Computes a bet/raise size for the current street: preflop open/3-bet
+     * sizing, or postflop sizing driven by board texture and pot fraction, then
+     * rounded to a legal small-blind multiple of the dealer's current stakes.
      *
      * @param effectiveStrength this bot's current hand-strength estimate (0-1)
      * @return the target bet size, legal and aligned to the current small blind
@@ -648,13 +662,13 @@ public class Bot {
     }
 
     /**
-     * Computes this bot's action for the current decision point: the EV/fold-equity-driven
-     * decision, possibly downgraded to a recognisable recreational mistake per
-     * {@link #mistakeRateForDifficulty()}.
+     * Computes this bot's action for the current decision point: the
+     * EV/fold-equity-driven decision, possibly downgraded to a recognisable
+     * recreational mistake per {@link #mistakeRateForDifficulty()}.
      *
      * @param opponentsCount number of other players still live in the hand
-     * @return one of {@link Player#BET}, {@link Player#CHECK} (covers check and call) or
-     * {@link Player#FOLD}
+     * @return one of {@link Player#BET}, {@link Player#CHECK} (covers check and
+     * call) or {@link Player#FOLD}
      */
     public int calculateBotDecision(int opponentsCount) {
         int decision = computeRawDecision(opponentsCount);
@@ -671,14 +685,14 @@ public class Bot {
     }
 
     /**
-     * Per-difficulty probability of replacing the bot's optimal-ish
-     * decision with a recognisable recreational poker mistake. HARD (the
-     * top level) plays its baseline cleanly. Lower difficulties commit
-     * recognisable leaks (sticky call, hero fold, missed value bet, spewy
-     * preflop call) at increasing frequencies — the Stockfish pattern that
-     * guarantees HARD &gt; MEDIUM &gt; EASY in bb/100 by construction. The
-     * three rates are spaced wide (0 / 22 / 45) so each level is clearly
-     * distinguishable to a human within a single session.
+     * Per-difficulty probability of replacing the bot's optimal-ish decision
+     * with a recognisable recreational poker mistake. HARD (the top level)
+     * plays its baseline cleanly. Lower difficulties commit recognisable leaks
+     * (sticky call, hero fold, missed value bet, spewy preflop call) at
+     * increasing frequencies — the Stockfish pattern that guarantees HARD &gt;
+     * MEDIUM &gt; EASY in bb/100 by construction. The three rates are spaced
+     * wide (0 / 22 / 45) so each level is clearly distinguishable to a human
+     * within a single session.
      */
     private double mistakeRateForDifficulty() {
         switch (effectiveDifficulty()) {
@@ -707,11 +721,11 @@ public class Bot {
     }
 
     /**
-     * Replace the bot's planned decision with a recreational leak when
-     * the current spot fits one. Mistakes are tried in cascade: the
-     * first applicable one fires. All downgrade decisions toward
-     * passivity or surrender; none inserts a new BET that would inflate
-     * the tracker's aggression factor.
+     * Replace the bot's planned decision with a recreational leak when the
+     * current spot fits one. Mistakes are tried in cascade: the first
+     * applicable one fires. All downgrade decisions toward passivity or
+     * surrender; none inserts a new BET that would inflate the tracker's
+     * aggression factor.
      */
     private int injectRecreationalMistake(int planned) {
         DealerView d = dealer();
@@ -1171,11 +1185,11 @@ public class Bot {
             if (effectiveDifficulty() == Difficulty.HARD) {
                 chance = (skillLevel == Skill.SHARK) ? 75
                         : (currentProfile == Profile.LAG) ? 55
-                        : (currentProfile == Profile.TAG) ? 45 : 0;
+                                : (currentProfile == Profile.TAG) ? 45 : 0;
             } else if (effectiveDifficulty() == Difficulty.MEDIUM) {
                 chance = (skillLevel == Skill.SHARK) ? 30
                         : (currentProfile == Profile.LAG) ? 18
-                        : (currentProfile == Profile.TAG) ? 10 : 0;
+                                : (currentProfile == Profile.TAG) ? 10 : 0;
             } else {
                 chance = 0; // EASY stays passive
             }
@@ -1292,12 +1306,13 @@ public class Bot {
     }
 
     /**
-     * True if any opponent still live in the hand has shown they essentially never
-     * fold (a proven calling station, by full sample {@link OpponentTracker#isStation()}
-     * or early read {@link OpponentTracker#looksPassiveStation()}). Used to zero out
-     * fold equity before opening a bluff: there is no point firing at a player who
-     * calls with anything, and unlike {@code getPrimaryOpponentStats()} this works
-     * when the bot is first to act (no last aggressor to read).
+     * True if any opponent still live in the hand has shown they essentially
+     * never fold (a proven calling station, by full sample
+     * {@link OpponentTracker#isStation()} or early read
+     * {@link OpponentTracker#looksPassiveStation()}). Used to zero out fold
+     * equity before opening a bluff: there is no point firing at a player who
+     * calls with anything, and unlike {@code getPrimaryOpponentStats()} this
+     * works when the bot is first to act (no last aggressor to read).
      */
     private boolean anyActiveOpponentNeverFolds() {
         java.util.List<? extends BotPlayerView> players = dealer().getPlayersInSeatingOrder();
@@ -1481,15 +1496,15 @@ public class Bot {
                 if (handTier == 4) {
                     defendChance = (currentProfile == Profile.NIT) ? 45
                             : (currentProfile == Profile.STATION) ? 88
-                            : (currentProfile == Profile.LAG) ? 78
-                            : (skillLevel == Skill.SHARK) ? 65
-                            : 62; // TAG default
+                                    : (currentProfile == Profile.LAG) ? 78
+                                            : (skillLevel == Skill.SHARK) ? 65
+                                                    : 62; // TAG default
                 } else { // tier 5 trash
                     defendChance = (currentProfile == Profile.NIT) ? 8
                             : (currentProfile == Profile.STATION) ? 55
-                            : (currentProfile == Profile.LAG) ? 30
-                            : (skillLevel == Skill.SHARK) ? 22
-                            : 20; // TAG default
+                                    : (currentProfile == Profile.LAG) ? 30
+                                            : (skillLevel == Skill.SHARK) ? 22
+                                                    : 20; // TAG default
                 }
                 defendChance = clampPct(defendChance + difficultyLoosenessOffset());
                 if (randInt(100) < defendChance) {
@@ -1826,8 +1841,8 @@ public class Bot {
      * percentages. EASY pulls everything looser (more fish-style play), HARD
      * pulls everything tighter (disciplined sharks fold trash). MEDIUM is the
      * neutral baseline. Combined with the profile-specific base rates this
-     * gives the per-difficulty VPIP gradient that mixed personality pools
-     * alone cannot produce.
+     * gives the per-difficulty VPIP gradient that mixed personality pools alone
+     * cannot produce.
      */
     private int difficultyLoosenessOffset() {
         switch (effectiveDifficulty()) {
@@ -1856,8 +1871,8 @@ public class Bot {
      * Base frequency (percent) at which the bot fires a polarized river bluff
      * with air when fold equity exists. Scales with difficulty so the river
      * betting range stays balanced (value + bluffs) for the strong levels and
-     * the weak levels stay transparently value-only — part of the per-difficulty
-     * "feel" rather than only the mistake-injection rate.
+     * the weak levels stay transparently value-only — part of the
+     * per-difficulty "feel" rather than only the mistake-injection rate.
      */
     private int riverBluffChance() {
         switch (effectiveDifficulty()) {
@@ -1918,8 +1933,8 @@ public class Bot {
     }
 
     /**
-     * Converts a Corona card index (1-52) to its Alberta engine {@code org.alberta.poker.Card}
-     * equivalent.
+     * Converts a Corona card index (1-52) to its Alberta engine
+     * {@code org.alberta.poker.Card} equivalent.
      */
     public static org.alberta.poker.Card coronaIntegerCard2LokiCard(int carta) {
         int v = (carta - 1) % 13;
@@ -1936,8 +1951,8 @@ public class Bot {
     }
 
     /**
-     * Converts a Corona {@link Card} to its Alberta engine {@code org.alberta.poker.Card}
-     * equivalent.
+     * Converts a Corona {@link Card} to its Alberta engine
+     * {@code org.alberta.poker.Card} equivalent.
      */
     public static org.alberta.poker.Card coronaCard2LokiCard(Card carta) {
         return new org.alberta.poker.Card(carta.getValorNumerico() - 2, Bot.coronaCardSuit2LokiCardSuit(carta));

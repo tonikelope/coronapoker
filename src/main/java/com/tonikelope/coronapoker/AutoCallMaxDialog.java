@@ -49,10 +49,11 @@ import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 
 /**
- * Modal AUTO CALL dialog: an "Enabled" checkbox (on/off), a "No limit" checkbox, and
- * an editable spinner for the MAXIMUM amount that a pre-pressed check/call will match
- * automatically. "No limit" maps to AUTO_CALL_MAX = 0 (the engine reads that as
- * matching any amount) and disables the spinner; "Enabled" gates both.
+ * Modal AUTO CALL dialog: an "Enabled" checkbox (on/off), a "No limit"
+ * checkbox, and an editable spinner for the MAXIMUM amount that a pre-pressed
+ * check/call will match automatically. "No limit" maps to AUTO_CALL_MAX = 0
+ * (the engine reads that as matching any amount) and disables the spinner;
+ * "Enabled" gates both.
  *
  * @author tonikelope
  */
@@ -98,8 +99,8 @@ public class AutoCallMaxDialog extends JDialog {
     /**
      * Reads the current threshold: 0 when "No limit" is checked; otherwise the
      * editor's raw TEXT (comma normalized to dot, grouping disabled, locale
-     * formatter not trusted), clamped to at least one step so it can never collide
-     * with the 0 that means "no limit".
+     * formatter not trusted), clamped to at least one step so it can never
+     * collide with the 0 that means "no limit".
      *
      * @return the AUTO_CALL_MAX threshold, with 2-decimal precision.
      */
@@ -125,7 +126,7 @@ public class AutoCallMaxDialog extends JDialog {
     }
 
     /**
-     * @param parent  owner frame
+     * @param parent owner frame
      * @param enabled initial state of the "Enabled" checkbox
      * @param current initial threshold; values &lt;= 0 start as "No limit"
      */

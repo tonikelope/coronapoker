@@ -61,8 +61,9 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
 /**
- * Stats/history window: browse games and hands, run built-in SQL reports with sortable
- * tables and charts, manage the "private game" flag, and configure P2P stats sync.
+ * Stats/history window: browse games and hands, run built-in SQL reports with
+ * sortable tables and charts, manage the "private game" flag, and configure P2P
+ * stats sync.
  *
  * @author tonikelope
  */
@@ -169,10 +170,10 @@ public class StatsDialog extends JFrame {
 
     /**
      * Closes the stats window if one is open. This is an ownerless, non-modal,
-     * APPLICATION_EXCLUDE frame, so it survives screen transitions on its own: if
-     * the user opens it and then starts/joins a game (or leaves the balance
-     * screen) without closing it, stats_music.mp3 would keep looping on top of the
-     * next screen's music — two loops at once. Callers performing such a
+     * APPLICATION_EXCLUDE frame, so it survives screen transitions on its own:
+     * if the user opens it and then starts/joins a game (or leaves the balance
+     * screen) without closing it, stats_music.mp3 would keep looping on top of
+     * the next screen's music — two loops at once. Callers performing such a
      * transition close it here.
      *
      * stats_music is stopped synchronously so it cannot outlive the window.
@@ -202,8 +203,8 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Builds the stats window: wires the hand-added chart/sync/privacy UI onto the
-     * generated .form layout and kicks off the initial games/stat load.
+     * Builds the stats window: wires the hand-added chart/sync/privacy UI onto
+     * the generated .form layout and kicks off the initial games/stat load.
      */
     public StatsDialog() {
         super();
@@ -684,9 +685,9 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Replaces the chart(s) shown under the results table (EDT only). Null entries are
-     * skipped; if nothing is left to show, the chart area is hidden. Several charts tile
-     * side by side.
+     * Replaces the chart(s) shown under the results table (EDT only). Null
+     * entries are skipped; if nothing is left to show, the chart area is
+     * hidden. Several charts tile side by side.
      */
     private void showChart(java.awt.Component... charts) {
         chart_panel.removeAll();
@@ -739,9 +740,10 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Parses a percentage-formatted string (e.g. "12.5%", "0%", "NULL%") into a float
-     * for sort comparisons. Returns {@link Float#NEGATIVE_INFINITY} for null/empty
-     * values or unparseable content, so malformed rows sort to the bottom.
+     * Parses a percentage-formatted string (e.g. "12.5%", "0%", "NULL%") into a
+     * float for sort comparisons. Returns {@link Float#NEGATIVE_INFINITY} for
+     * null/empty values or unparseable content, so malformed rows sort to the
+     * bottom.
      */
     private static float safeParsePercent(String value) {
         if (value == null) {
@@ -755,9 +757,9 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Coerces a numeric Object (Double/Float/Integer/BigDecimal/String) to double
-     * for sort comparators. Returns Double.NEGATIVE_INFINITY for null/unparseable
-     * so problematic rows sort to the bottom.
+     * Coerces a numeric Object (Double/Float/Integer/BigDecimal/String) to
+     * double for sort comparators. Returns Double.NEGATIVE_INFINITY for
+     * null/unparseable so problematic rows sort to the bottom.
      */
     private static double toDouble(Object value) {
         if (value == null) {
@@ -774,8 +776,9 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Drains a ResultSet into a DefaultTableModel, translating column labels via i18n.
-     * Used by the stats methods that build the result table from a query.
+     * Drains a ResultSet into a DefaultTableModel, translating column labels
+     * via i18n. Used by the stats methods that build the result table from a
+     * query.
      */
     private static void populateTableModel(DefaultTableModel tableModel, ResultSet rs) throws SQLException {
         if (rs == null) {
@@ -1603,8 +1606,8 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Populates the table model with balance columns; ROI column is suffixed with "%"
-     * so the display matches the other ROI usages in the dialog.
+     * Populates the table model with balance columns; ROI column is suffixed
+     * with "%" so the display matches the other ROI usages in the dialog.
      */
     private static void populateBalanceTable(DefaultTableModel tableModel, ResultSet rs) throws SQLException {
         if (rs == null) {
@@ -1743,8 +1746,9 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Decodes a '#'-separated list of Base64-encoded nicks into a "a  |  b  |  c" display
-     * string. Returns "" for a null/empty value (matches the empty-label behaviour).
+     * Decodes a '#'-separated list of Base64-encoded nicks into a "a | b | c"
+     * display string. Returns "" for a null/empty value (matches the
+     * empty-label behaviour).
      */
     private static String decodePlayers(String raw) throws UnsupportedEncodingException {
         if (raw == null) {
@@ -1763,93 +1767,93 @@ public class StatsDialog extends JFrame {
         setEnabled(false);
 
         stats_db_executor.submit(() -> {
-          try {
-            String sql = "SELECT * FROM hand WHERE id_game=? AND id=?";
+            try {
+                String sql = "SELECT * FROM hand WHERE id_game=? AND id=?";
 
-            // Read the row (including card parsing) on this worker thread; only the label
-            // updates run on the EDT.
-            boolean found = false;
-            String preflopText = "";
-            String flopText = "";
-            String turnText = "";
-            String riverText = "";
-            String blindsText = "";
-            String timeText = "";
-            String cpText = "";
-            String cgText = "";
-            String comcardsText = "";
-            String boteText = "";
+                // Read the row (including card parsing) on this worker thread; only the label
+                // updates run on the EDT.
+                boolean found = false;
+                String preflopText = "";
+                String flopText = "";
+                String turnText = "";
+                String riverText = "";
+                String blindsText = "";
+                String timeText = "";
+                String cpText = "";
+                String cgText = "";
+                String comcardsText = "";
+                String boteText = "";
 
-            // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
-            synchronized (GameFrame.SQL_LOCK) {
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, id_game);
-                    statement.setInt(2, id_hand);
-                    try (ResultSet rs = statement.executeQuery()) {
-                        if (rs.next()) {
-                            found = true;
-                            preflopText = decodePlayers(rs.getString("preflop_players"));
-                            flopText = decodePlayers(rs.getString("flop_players"));
-                            turnText = decodePlayers(rs.getString("turn_players"));
-                            riverText = decodePlayers(rs.getString("river_players"));
-                            blindsText = Helpers.money2String(rs.getDouble("sbval")) + " / " + Helpers.money2String(rs.getDouble("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")";
-                            timeText = Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000));
-                            cpText = rs.getString("sb");
-                            cgText = rs.getString("bb");
-                            if (rs.getString("com_cards") != null) {
-                                ArrayList<Card> cartas = new ArrayList<>();
-                                for (String c : rs.getString("com_cards").split("#")) {
-                                    String[] partes = c.split("_");
-                                    Card carta = new Card(false);
-                                    carta.actualizarValorPalo(partes[0], partes[1]);
-                                    cartas.add(carta);
+                // Serialize shared-connection access under SQL_LOCK (see StatsSync transactions).
+                synchronized (GameFrame.SQL_LOCK) {
+                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                        statement.setQueryTimeout(30);
+                        statement.setInt(1, id_game);
+                        statement.setInt(2, id_hand);
+                        try (ResultSet rs = statement.executeQuery()) {
+                            if (rs.next()) {
+                                found = true;
+                                preflopText = decodePlayers(rs.getString("preflop_players"));
+                                flopText = decodePlayers(rs.getString("flop_players"));
+                                turnText = decodePlayers(rs.getString("turn_players"));
+                                riverText = decodePlayers(rs.getString("river_players"));
+                                blindsText = Helpers.money2String(rs.getDouble("sbval")) + " / " + Helpers.money2String(rs.getDouble("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")";
+                                timeText = Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000));
+                                cpText = rs.getString("sb");
+                                cgText = rs.getString("bb");
+                                if (rs.getString("com_cards") != null) {
+                                    ArrayList<Card> cartas = new ArrayList<>();
+                                    for (String c : rs.getString("com_cards").split("#")) {
+                                        String[] partes = c.split("_");
+                                        Card carta = new Card(false);
+                                        carta.actualizarValorPalo(partes[0], partes[1]);
+                                        cartas.add(carta);
+                                    }
+                                    comcardsText = Card.collection2String(cartas);
                                 }
-                                comcardsText = Card.collection2String(cartas);
+                                boteText = String.valueOf(Helpers.doubleClean(rs.getDouble("pot")));
                             }
-                            boteText = String.valueOf(Helpers.doubleClean(rs.getDouble("pot")));
                         }
+                    } catch (Exception ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                } catch (Exception ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
-            }
 
-            final boolean fFound = found;
-            final String fPreflop = preflopText;
-            final String fFlop = flopText;
-            final String fTurn = turnText;
-            final String fRiver = riverText;
-            final String fBlinds = blindsText;
-            final String fTime = timeText;
-            final String fCp = cpText;
-            final String fCg = cgText;
-            final String fComcards = comcardsText;
-            final String fBote = boteText;
+                final boolean fFound = found;
+                final String fPreflop = preflopText;
+                final String fFlop = flopText;
+                final String fTurn = turnText;
+                final String fRiver = riverText;
+                final String fBlinds = blindsText;
+                final String fTime = timeText;
+                final String fCp = cpText;
+                final String fCg = cgText;
+                final String fComcards = comcardsText;
+                final String fBote = boteText;
 
-            if (fFound) {
+                if (fFound) {
+                    Helpers.GUIRunAndWait(() -> {
+                        hand_preflop_players_val.setText(fPreflop);
+                        hand_flop_players_val.setText(fFlop);
+                        hand_turn_players_val.setText(fTurn);
+                        hand_river_players_val.setText(fRiver);
+                        hand_blinds_val.setText(fBlinds);
+                        hand_time_val.setText(fTime);
+                        hand_cp_val.setText(fCp);
+                        hand_cg_val.setText(fCg);
+                        hand_comcards_val.setText(fComcards);
+                        hand_bote_val.setText(fBote);
+                    });
+
+                    loadShowdownData(id_hand);
+                }
+            } finally {
                 Helpers.GUIRunAndWait(() -> {
-                    hand_preflop_players_val.setText(fPreflop);
-                    hand_flop_players_val.setText(fFlop);
-                    hand_turn_players_val.setText(fTurn);
-                    hand_river_players_val.setText(fRiver);
-                    hand_blinds_val.setText(fBlinds);
-                    hand_time_val.setText(fTime);
-                    hand_cp_val.setText(fCp);
-                    hand_cg_val.setText(fCg);
-                    hand_comcards_val.setText(fComcards);
-                    hand_bote_val.setText(fBote);
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                    hand_data_panel.setVisible(true);
                 });
-
-                loadShowdownData(id_hand);
             }
-          } finally {
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-                setEnabled(true);
-                hand_data_panel.setVisible(true);
-            });
-          }
         });
 
     }
@@ -2095,8 +2099,8 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Populates the response-time table. The "ui.tiempo" header is suffixed with
-     * the "seconds" label to remind the user of the unit.
+     * Populates the response-time table. The "ui.tiempo" header is suffixed
+     * with the "seconds" label to remind the user of the unit.
      */
     private static void populateTiempoTable(DefaultTableModel tableModel, ResultSet rs) throws SQLException {
         if (rs == null) {
@@ -2237,7 +2241,10 @@ public class StatsDialog extends JFrame {
         return true;
     }
 
-    /** EDT-facing: confirms, then purges all imported (P2P-received) games off the EDT and refreshes. */
+    /**
+     * EDT-facing: confirms, then purges all imported (P2P-received) games off
+     * the EDT and refreshes.
+     */
     private void deleteImportedGamesAsync() {
         if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("stats.borrar_importadas_confirm"),
                 new ImageIcon(getClass().getResource("/images/menu/remove.png"))) != 0) {
@@ -2258,7 +2265,10 @@ public class StatsDialog extends JFrame {
         });
     }
 
-    /** Off-EDT. Deletes every game flagged imported = 1 (FK-cascades to hands/actions/...), then compacts. */
+    /**
+     * Off-EDT. Deletes every game flagged imported = 1 (FK-cascades to
+     * hands/actions/...), then compacts.
+     */
     private boolean deleteImportedGames() {
         Helpers.GUIRunAndWait(() -> {
             cargando.setVisible(true);
@@ -2338,13 +2348,13 @@ public class StatsDialog extends JFrame {
     // StatsSync.listShareableUgis), though the user can turn it off in the
     // "Exclude..." dialog. The flag is purely local (never sent in the payload).
     // =====================================================================
-
     /**
-     * Modal SHARE-exclusions dialog: picks which subset of MY games is left out of
-     * what I propagate (private games and/or games any of a comma-separated list of
-     * nicks played in). Persists the three global preferences on accept; they take
-     * effect on the next manifest exchange (applied by StatsSync.listShareableUgis).
-     * Built by hand, outside the .form, like the rest of this dialog's extras.
+     * Modal SHARE-exclusions dialog: picks which subset of MY games is left out
+     * of what I propagate (private games and/or games any of a comma-separated
+     * list of nicks played in). Persists the three global preferences on
+     * accept; they take effect on the next manifest exchange (applied by
+     * StatsSync.listShareableUgis). Built by hand, outside the .form, like the
+     * rest of this dialog's extras.
      */
     private void showShareExclusionsDialog() {
         final javax.swing.JDialog dlg = new javax.swing.JDialog(this, Translator.translate("stats.sync_exclude_title"), true);
@@ -2426,9 +2436,9 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Builds a struck-through lock: draws a red diagonal (with a white halo so it
-     * reads over any background) across the given icon. Used for "unmark private"
-     * actions (lock = mark private, struck lock = unmark).
+     * Builds a struck-through lock: draws a red diagonal (with a white halo so
+     * it reads over any background) across the given icon. Used for "unmark
+     * private" actions (lock = mark private, struck lock = unmark).
      */
     private static javax.swing.ImageIcon struckIcon(java.net.URL url) {
         javax.swing.ImageIcon base = new javax.swing.ImageIcon(url);
@@ -2449,7 +2459,10 @@ public class StatsDialog extends JFrame {
         return new javax.swing.ImageIcon(img);
     }
 
-    /** EDT. Syncs the 3 toolbar buttons (purge + global private) with the player filter. */
+    /**
+     * EDT. Syncs the 3 toolbar buttons (purge + global private) with the player
+     * filter.
+     */
     private void refreshFilterButtonsEnabled() {
         boolean filter_active = game_combo_filter.getBackground() == Color.YELLOW;
         purge_games_button.setEnabled(filter_active);
@@ -2457,7 +2470,10 @@ public class StatsDialog extends JFrame {
         unprivate_all_button.setEnabled(filter_active);
     }
 
-    /** EDT. Shows/hides the banner and enables the "MARK PRIVATE" button based on the selected game's state. */
+    /**
+     * EDT. Shows/hides the banner and enables the "MARK PRIVATE" button based
+     * on the selected game's state.
+     */
     private void refreshPrivateUI(boolean is_private) {
         private_game_label.setVisible(is_private);
         private_game_button.setEnabled(!is_private);
@@ -2468,7 +2484,10 @@ public class StatsDialog extends JFrame {
         }
     }
 
-    /** EDT. Shows/hides the "imported game" banner and, when shown, labels it with the sender nick. */
+    /**
+     * EDT. Shows/hides the "imported game" banner and, when shown, labels it
+     * with the sender nick.
+     */
     private void refreshImportedUI(boolean is_imported, String from) {
         if (is_imported) {
             imported_game_label.setText((from != null && !from.isBlank())
@@ -2483,7 +2502,10 @@ public class StatsDialog extends JFrame {
         }
     }
 
-    /** Marks/unmarks the selected game as private (off-EDT) and refreshes the banner/button. */
+    /**
+     * Marks/unmarks the selected game as private (off-EDT) and refreshes the
+     * banner/button.
+     */
     private void setSelectedGamePrivateAsync(boolean priv) {
         Helpers.GUIRun(() -> private_game_button.setEnabled(false));
         stats_db_executor.submit(() -> {
@@ -2493,7 +2515,10 @@ public class StatsDialog extends JFrame {
         });
     }
 
-    /** Off-EDT. UPDATEs the selected game's private flag and keeps the in-memory map consistent. */
+    /**
+     * Off-EDT. UPDATEs the selected game's private flag and keeps the in-memory
+     * map consistent.
+     */
     private boolean setSelectedGamePrivate(boolean priv) {
         final int[] idHolder = {-1};
         Helpers.GUIRunAndWait(() -> {
@@ -2531,7 +2556,10 @@ public class StatsDialog extends JFrame {
         return true;
     }
 
-    /** Marks/unmarks private ALL games of the filtered player (like purge), with confirmation. */
+    /**
+     * Marks/unmarks private ALL games of the filtered player (like purge), with
+     * confirmation.
+     */
     private void markFilteredGamesPrivateAsync(boolean priv) {
         Helpers.GUIRun(() -> {
             private_all_button.setEnabled(false);
@@ -2557,7 +2585,10 @@ public class StatsDialog extends JFrame {
         }
     }
 
-    /** Off-EDT. UPDATEs the private flag for every game currently in the combo (= the filtered player's games). */
+    /**
+     * Off-EDT. UPDATEs the private flag for every game currently in the combo
+     * (= the filtered player's games).
+     */
     private boolean setFilteredGamesPrivate(boolean priv) {
         final String[][] idsHolder = new String[1][];
         Helpers.GUIRunAndWait(() -> {
@@ -2756,15 +2787,19 @@ public class StatsDialog extends JFrame {
             public void windowActivated(java.awt.event.WindowEvent evt) {
                 formWindowActivated(evt);
             }
+
             public void windowClosed(java.awt.event.WindowEvent evt) {
                 formWindowClosed(evt);
             }
+
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
             }
+
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
             }
+
             public void windowOpened(java.awt.event.WindowEvent evt) {
                 formWindowOpened(evt);
             }
@@ -2880,7 +2915,6 @@ public class StatsDialog extends JFrame {
             }
         });
 
-
         game_textarea.setEditable(false);
         game_textarea.setBorder(null);
         game_textarea_scrollpane.setViewportView(game_textarea);
@@ -2888,77 +2922,77 @@ public class StatsDialog extends JFrame {
         javax.swing.GroupLayout game_data_panelLayout = new javax.swing.GroupLayout(game_data_panel);
         game_data_panel.setLayout(game_data_panelLayout);
         game_data_panelLayout.setHorizontalGroup(
-            game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(game_data_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(game_textarea_scrollpane)
-                    .addGroup(game_data_panelLayout.createSequentialGroup()
-                        .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                            .addComponent(game_blinds_double_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_blinds_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_buyin_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_hand_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_playtime_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_players_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_rebuy_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(game_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_hand_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_playtime_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_buyin_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_blinds_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(game_blinds_double_val, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(1056 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
-                            .addComponent(game_rebuy_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, game_data_panelLayout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
-                        .addComponent(log_game_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
-                        .addComponent(chat_game_button)
-                        .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
-                        .addComponent(delete_game_button)))
-                .addContainerGap())
+                game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(game_data_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(game_textarea_scrollpane)
+                                        .addGroup(game_data_panelLayout.createSequentialGroup()
+                                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                                        .addComponent(game_blinds_double_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_blinds_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_buyin_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_hand_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_playtime_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_players_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_rebuy_label, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(game_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_hand_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_playtime_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_buyin_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_blinds_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(game_blinds_double_val, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(1056 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
+                                                        .addComponent(game_rebuy_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, game_data_panelLayout.createSequentialGroup()
+                                                .addGap(0, 0, Short.MAX_VALUE)
+                                                .addComponent(log_game_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(chat_game_button)
+                                                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
+                                                .addComponent(delete_game_button)))
+                                .addContainerGap())
         );
         game_data_panelLayout.setVerticalGroup(
-            game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(game_data_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(delete_game_button)
-                    .addComponent(log_game_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(chat_game_button))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(game_textarea_scrollpane, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(480 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_playtime_label)
-                    .addComponent(game_playtime_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_hand_label)
-                    .addComponent(game_hand_val, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(19 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_players_label)
-                    .addComponent(game_players_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_buyin_label)
-                    .addComponent(game_buyin_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_blinds_label)
-                    .addComponent(game_blinds_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_blinds_double_label)
-                    .addComponent(game_blinds_double_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_rebuy_label)
-                    .addComponent(game_rebuy_val))
-                .addContainerGap())
+                game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(game_data_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(delete_game_button)
+                                        .addComponent(log_game_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(chat_game_button))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(game_textarea_scrollpane, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(480 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(game_playtime_label)
+                                        .addComponent(game_playtime_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(game_hand_label)
+                                        .addComponent(game_hand_val, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(19 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(game_players_label)
+                                        .addComponent(game_players_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(game_buyin_label)
+                                        .addComponent(game_buyin_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(game_blinds_label)
+                                        .addComponent(game_blinds_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(game_blinds_double_label)
+                                        .addComponent(game_blinds_double_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(game_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(game_rebuy_label)
+                                        .addComponent(game_rebuy_val))
+                                .addContainerGap())
         );
 
         game_combo_filter.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
@@ -3067,101 +3101,100 @@ public class StatsDialog extends JFrame {
         hand_bote_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_bote_val.setText(" ");
 
-
         showdown_table.setFont(new java.awt.Font("DejaVu Sans", 0, 16)); // NOI18N
         showdown_table.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
-            },
-            new String [] {
-                "Title 1", "Title 2", "Title 3", "Title 4"
-            }
+                new Object[][]{
+                    {null, null, null, null},
+                    {null, null, null, null},
+                    {null, null, null, null},
+                    {null, null, null, null}
+                },
+                new String[]{
+                    "Title 1", "Title 2", "Title 3", "Title 4"
+                }
         ));
         showdown_panel.setViewportView(showdown_table);
 
         javax.swing.GroupLayout hand_data_panelLayout = new javax.swing.GroupLayout(hand_data_panel);
         hand_data_panel.setLayout(hand_data_panelLayout);
         hand_data_panelLayout.setHorizontalGroup(
-            hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(hand_data_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(showdown_panel, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(1191 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
-                    .addGroup(hand_data_panelLayout.createSequentialGroup()
-                        .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(hand_blinds_label, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(146 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(hand_time_label)
-                            .addComponent(hand_cp_label)
-                            .addComponent(hand_cg_label)
-                            .addComponent(hand_comcards_label)
-                            .addComponent(hand_preflop_players_label)
-                            .addComponent(hand_flop_players_label)
-                            .addComponent(hand_turn_players_label)
-                            .addComponent(hand_bote_label)
-                            .addComponent(hand_river_players_label))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(hand_blinds_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_time_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_cp_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_cg_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_comcards_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_preflop_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_flop_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_turn_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_river_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(hand_bote_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
-                .addContainerGap())
+                hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(hand_data_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(showdown_panel, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(1191 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
+                                        .addGroup(hand_data_panelLayout.createSequentialGroup()
+                                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(hand_blinds_label, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(146 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                        .addComponent(hand_time_label)
+                                                        .addComponent(hand_cp_label)
+                                                        .addComponent(hand_cg_label)
+                                                        .addComponent(hand_comcards_label)
+                                                        .addComponent(hand_preflop_players_label)
+                                                        .addComponent(hand_flop_players_label)
+                                                        .addComponent(hand_turn_players_label)
+                                                        .addComponent(hand_bote_label)
+                                                        .addComponent(hand_river_players_label))
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                                        .addComponent(hand_blinds_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(hand_time_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(hand_cp_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(hand_cg_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(hand_comcards_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(hand_preflop_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(hand_flop_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(hand_turn_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(hand_river_players_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                        .addComponent(hand_bote_val, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                                .addContainerGap())
         );
         hand_data_panelLayout.setVerticalGroup(
-            hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(hand_data_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_blinds_label, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(hand_blinds_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_time_label)
-                    .addComponent(hand_time_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_cp_label)
-                    .addComponent(hand_cp_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_cg_label)
-                    .addComponent(hand_cg_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_comcards_label)
-                    .addComponent(hand_comcards_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_preflop_players_label)
-                    .addComponent(hand_preflop_players_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_flop_players_label)
-                    .addComponent(hand_flop_players_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_turn_players_label)
-                    .addComponent(hand_turn_players_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_river_players_label)
-                    .addComponent(hand_river_players_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(hand_bote_label)
-                    .addComponent(hand_bote_val))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(showdown_panel, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(240 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(hand_data_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_blinds_label, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(hand_blinds_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_time_label)
+                                        .addComponent(hand_time_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_cp_label)
+                                        .addComponent(hand_cp_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_cg_label)
+                                        .addComponent(hand_cg_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_comcards_label)
+                                        .addComponent(hand_comcards_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_preflop_players_label)
+                                        .addComponent(hand_preflop_players_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_flop_players_label)
+                                        .addComponent(hand_flop_players_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_turn_players_label)
+                                        .addComponent(hand_turn_players_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_river_players_label)
+                                        .addComponent(hand_river_players_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(hand_data_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(hand_bote_label)
+                                        .addComponent(hand_bote_val))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(showdown_panel, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(240 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         stats_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -3172,18 +3205,17 @@ public class StatsDialog extends JFrame {
             }
         });
 
-
         res_table.setFont(new java.awt.Font("DejaVu Sans", 0, 16)); // NOI18N
         res_table.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
-            },
-            new String [] {
-                "Title 1", "Title 2", "Title 3", "Title 4"
-            }
+                new Object[][]{
+                    {null, null, null, null},
+                    {null, null, null, null},
+                    {null, null, null, null},
+                    {null, null, null, null}
+                },
+                new String[]{
+                    "Title 1", "Title 2", "Title 3", "Title 4"
+                }
         ));
         table_panel.setViewportView(res_table);
 
@@ -3193,59 +3225,59 @@ public class StatsDialog extends JFrame {
         javax.swing.GroupLayout hands_panelLayout = new javax.swing.GroupLayout(hands_panel);
         hands_panel.setLayout(hands_panelLayout);
         hands_panelLayout.setHorizontalGroup(
-            hands_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(hands_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(hands_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(hand_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(stats_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(table_panel)
-                    .addComponent(hand_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(res_table_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
+                hands_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(hands_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(hands_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(hand_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(stats_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(table_panel)
+                                        .addComponent(hand_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(res_table_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addContainerGap())
         );
         hands_panelLayout.setVerticalGroup(
-            hands_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(hands_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(hand_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(hand_data_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(stats_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(table_panel, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(475 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(res_table_warning)
-                .addContainerGap())
+                hands_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(hands_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(hand_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(hand_data_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(stats_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(table_panel, javax.swing.GroupLayout.DEFAULT_SIZE, Math.round(475 * Helpers.DIALOG_ZOOM), Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(res_table_warning)
+                                .addContainerGap())
         );
 
         javax.swing.GroupLayout stats_panelLayout = new javax.swing.GroupLayout(stats_panel);
         stats_panel.setLayout(stats_panelLayout);
         stats_panelLayout.setHorizontalGroup(
-            stats_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(game_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(stats_panelLayout.createSequentialGroup()
-                .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(game_combo_filter, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(200 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(purge_games_button)
-                .addContainerGap())
-            .addComponent(hands_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                stats_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(game_data_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addGroup(stats_panelLayout.createSequentialGroup()
+                                .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(game_combo_filter, javax.swing.GroupLayout.PREFERRED_SIZE, Math.round(200 * Helpers.DIALOG_ZOOM), javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(purge_games_button)
+                                .addContainerGap())
+                        .addComponent(hands_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         stats_panelLayout.setVerticalGroup(
-            stats_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(stats_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(stats_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(game_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(game_combo_filter, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(purge_games_button))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(game_data_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(hands_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                stats_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(stats_panelLayout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addGroup(stats_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(game_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(game_combo_filter, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(purge_games_button))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(game_data_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(hands_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         scroll_stats_panel.setViewportView(stats_panel);
@@ -3253,24 +3285,24 @@ public class StatsDialog extends JFrame {
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(scroll_stats_panel)
-                .addContainerGap())
-            .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(cargando, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(scroll_stats_panel)
+                                .addContainerGap())
+                        .addComponent(title, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(cargando, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(title)
-                .addGap(Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(2 * Helpers.DIALOG_ZOOM))
-                .addComponent(cargando, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
-                .addComponent(scroll_stats_panel)
-                .addContainerGap())
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(layout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addComponent(title)
+                                .addGap(Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(2 * Helpers.DIALOG_ZOOM), Math.round(2 * Helpers.DIALOG_ZOOM))
+                                .addComponent(cargando, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM), Math.round(18 * Helpers.DIALOG_ZOOM))
+                                .addComponent(scroll_stats_panel)
+                                .addContainerGap())
         );
 
         pack();

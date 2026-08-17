@@ -39,15 +39,16 @@ import javax.swing.WindowConstants;
 import javax.swing.border.TitledBorder;
 
 /**
- * Unified settings dialog. Appearance, Audio, Shortcuts and Debug tabs are always
- * present; the Game tab (blinds + rules) is added only in-game (live, GameSettingsPanel)
- * or in the waiting room (pre-game config, WaitingGameSettingsPanel), never both. Outside
- * a game (launcher, no GameFrame) the Game tab is omitted entirely.
+ * Unified settings dialog. Appearance, Audio, Shortcuts and Debug tabs are
+ * always present; the Game tab (blinds + rules) is added only in-game (live,
+ * GameSettingsPanel) or in the waiting room (pre-game config,
+ * WaitingGameSettingsPanel), never both. Outside a game (launcher, no
+ * GameFrame) the Game tab is omitted entirely.
  *
- * Appearance and Audio apply LIVE in-game (local preference) and only PERSIST the
- * preference outside of one (no table to preview against). Game (blinds + rules) applies
- * only on SAVE. For clients the Game tab is read-only (the host owns the rules);
- * Appearance and Audio remain editable (local).
+ * Appearance and Audio apply LIVE in-game (local preference) and only PERSIST
+ * the preference outside of one (no table to preview against). Game (blinds +
+ * rules) applies only on SAVE. For clients the Game tab is read-only (the host
+ * owns the rules); Appearance and Audio remain editable (local).
  *
  * @author tonikelope
  */
@@ -290,7 +291,6 @@ public class SettingsDialog extends JDialog {
 
         // Packed size stays at the content's minimum: Audio (two-column effects) is
         // already the widest tab and stretches the rest, so no extra widening is needed.
-
         // Cap to the screen's usable area (same low-resolution pattern as NewGameDialog:
         // getMaximumWindowBounds excludes the taskbar). The dialog stays as small as the
         // content allows; if it still overflows (very low resolution / high scaling),
@@ -333,11 +333,12 @@ public class SettingsDialog extends JDialog {
     }
 
     /**
-     * Closes the currently open dialog, if any, WITHOUT asking about unsaved changes.
-     * Used when a game starts on the client: once the session has started, the
-     * waiting-room Game tab settings no longer apply. A direct dispose() does not fire
-     * windowClosing (where the discard confirmation lives), so this closes like Alt+F4
-     * but without the "discard changes?" prompt; unsaved changes are dropped. Idempotent.
+     * Closes the currently open dialog, if any, WITHOUT asking about unsaved
+     * changes. Used when a game starts on the client: once the session has
+     * started, the waiting-room Game tab settings no longer apply. A direct
+     * dispose() does not fire windowClosing (where the discard confirmation
+     * lives), so this closes like Alt+F4 but without the "discard changes?"
+     * prompt; unsaved changes are dropped. Idempotent.
      */
     public static void closeIfOpen() {
         Helpers.GUIRun(() -> {
@@ -349,8 +350,8 @@ public class SettingsDialog extends JDialog {
     }
 
     /**
-     * Refreshes (live) the read-only waiting-room Game tab when a new host config mirror
-     * arrives (GAMECONFIG). Must be called on the EDT.
+     * Refreshes (live) the read-only waiting-room Game tab when a new host
+     * config mirror arrives (GAMECONFIG). Must be called on the EDT.
      */
     public static void refreshWaitingMirror() {
         SettingsDialog d = INSTANCE;

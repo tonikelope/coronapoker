@@ -26,11 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * that never opens. Two ways in:
  *
  * <ul>
- *   <li>a broken unicode escape in the file, which {@code Properties.load}
- *       reports as an IllegalArgumentException — NOT an IOException, so the
- *       read's catch never saw it;</li>
- *   <li>an unreadable file, where the read returned nothing at all and every
- *       later lookup blew up on the spot, because no caller checks.</li>
+ * <li>a broken unicode escape in the file, which {@code Properties.load}
+ * reports as an IllegalArgumentException — NOT an IOException, so the read's
+ * catch never saw it;</li>
+ * <li>an unreadable file, where the read returned nothing at all and every
+ * later lookup blew up on the spot, because no caller checks.</li>
  * </ul>
  *
  * These pin the JDK behaviour the fix relies on (the exception type that must

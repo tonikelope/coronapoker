@@ -20,18 +20,24 @@ import com.tonikelope.coronapoker.Helpers;
 import java.math.BigInteger;
 
 /**
- * Deck transform for the verifiable-shuffle engine: a "shuffle step" applies a permutation and a
- * single common scalar to a deck of Ristretto points, {@code out[i] = k · deck[perm[i]]} — exactly
- * the statement a {@link ShuffleArgument} attests. {@link #decksEqual} is the genesis-anchor
- * comparison of {@link ShuffleCascade#verifyChain}; {@link #apply}, {@link #randomPermutation} and
- * {@link #isPermutation} are the reference transform the QA battery uses to build honest shuffles.
+ * Deck transform for the verifiable-shuffle engine: a "shuffle step" applies a
+ * permutation and a single common scalar to a deck of Ristretto points,
+ * {@code out[i] = k · deck[perm[i]]} — exactly the statement a
+ * {@link ShuffleArgument} attests. {@link #decksEqual} is the genesis-anchor
+ * comparison of
+ * {@link ShuffleCascade#verifyChain}; {@link #apply}, {@link #randomPermutation}
+ * and {@link #isPermutation} are the reference transform the QA battery uses to
+ * build honest shuffles.
  */
 public final class DeckTransform {
 
     private DeckTransform() {
     }
 
-    /** {@code out[i] = k · deck[perm[i]]}. {@code perm} must be a permutation of {@code 0..n-1}. */
+    /**
+     * {@code out[i] = k · deck[perm[i]]}. {@code perm} must be a permutation of
+     * {@code 0..n-1}.
+     */
     public static EdwardsPoint[] apply(EdwardsPoint[] deck, int[] perm, BigInteger k) {
         BigInteger kk = k.mod(EdwardsPoint.L);
         EdwardsPoint[] out = new EdwardsPoint[deck.length];
@@ -41,7 +47,10 @@ public final class DeckTransform {
         return out;
     }
 
-    /** Uniform random permutation of {@code 0..n-1} (Fisher–Yates with the project CSPRNG). */
+    /**
+     * Uniform random permutation of {@code 0..n-1} (Fisher–Yates with the
+     * project CSPRNG).
+     */
     public static int[] randomPermutation(int n) {
         int[] p = new int[n];
         for (int i = 0; i < n; i++) {
@@ -56,7 +65,9 @@ public final class DeckTransform {
         return p;
     }
 
-    /** True iff {@code perm} is a permutation of {@code 0..n-1}. */
+    /**
+     * True iff {@code perm} is a permutation of {@code 0..n-1}.
+     */
     public static boolean isPermutation(int[] perm, int n) {
         if (perm == null || perm.length != n) {
             return false;
@@ -72,8 +83,9 @@ public final class DeckTransform {
     }
 
     /**
-     * Decks equal as Ristretto group elements, position by position (same relation as comparing
-     * canonical encodings — see {@link Ristretto255#equalPoints} — without the encodes).
+     * Decks equal as Ristretto group elements, position by position (same
+     * relation as comparing canonical encodings — see
+     * {@link Ristretto255#equalPoints} — without the encodes).
      */
     public static boolean decksEqual(EdwardsPoint[] a, EdwardsPoint[] b) {
         if (a == null || b == null || a.length != b.length) {

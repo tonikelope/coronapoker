@@ -17,18 +17,19 @@ import org.junit.jupiter.api.BeforeAll;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Per-matchup base for the 6-handed gradient tests. Each concrete subclass
- * sits one hero bot at seat 0 and fills the remaining five seats with bots
- * of the villain difficulty. The hero must outperform the villains by a
- * meaningful bb/100 margin to PASS — this is the multi-way equivalent of
- * the heads-up acid test and reflects the actual scenario where CoronaPoker
- * is played.
+ * Per-matchup base for the 6-handed gradient tests. Each concrete subclass sits
+ * one hero bot at seat 0 and fills the remaining five seats with bots of the
+ * villain difficulty. The hero must outperform the villains by a meaningful
+ * bb/100 margin to PASS — this is the multi-way equivalent of the heads-up acid
+ * test and reflects the actual scenario where CoronaPoker is played.
  *
- * <p>Per-session DELTA = hero bb/100 − average villain bb/100. Session
- * deltas are averaged and a standard error is computed; PASS requires both
- * DELTA &gt; {@code MIN_DELTA_BB100} and DELTA &gt; 2 × SE.</p>
+ * <p>
+ * Per-session DELTA = hero bb/100 − average villain bb/100. Session deltas are
+ * averaged and a standard error is computed; PASS requires both DELTA &gt;
+ * {@code MIN_DELTA_BB100} and DELTA &gt; 2 × SE.</p>
  *
- * <p>Hero rotates through all six seats across sessions so any positional
+ * <p>
+ * Hero rotates through all six seats across sessions so any positional
  * advantage from the seed→button rotation washes out.</p>
  */
 abstract class MultiwayMatchupBase {
@@ -162,6 +163,7 @@ abstract class MultiwayMatchupBase {
     }
 
     private static final class MatchupResult {
+
         final Bot.Difficulty hero;
         final Bot.Difficulty villain;
         final BotStats heroStats;
@@ -170,7 +172,7 @@ abstract class MultiwayMatchupBase {
         final double seDelta;
 
         MatchupResult(Bot.Difficulty hero, Bot.Difficulty villain, BotStats heroStats,
-                      BotStats villainStats, double meanDelta, double seDelta) {
+                BotStats villainStats, double meanDelta, double seDelta) {
             this.hero = hero;
             this.villain = villain;
             this.heroStats = heroStats;

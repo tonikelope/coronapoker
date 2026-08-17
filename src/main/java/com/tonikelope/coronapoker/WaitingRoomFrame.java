@@ -304,12 +304,18 @@ public class WaitingRoomFrame extends JFrame {
         return host_self_sig;
     }
 
-    /** Called by the single socket-consumer thread before dispatching a rebuy task. */
+    /**
+     * Called by the single socket-consumer thread before dispatching a rebuy
+     * task.
+     */
     private long nextRebuyRelaySequence() {
         return rebuy_relay_sequence.incrementAndGet();
     }
 
-    /** Called by the single socket-consumer thread before dispatching a PAUSE task. */
+    /**
+     * Called by the single socket-consumer thread before dispatching a PAUSE
+     * task.
+     */
     private long nextPauseRelaySequence() {
         return pause_relay_sequence.incrementAndGet();
     }
@@ -577,14 +583,14 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Handles a right-click anywhere inside the participant list (including empty
-     * space below the rows). The opened dialog does not depend on where the click
-     * lands: a host always gets the mosaic of every channel, a client always gets
-     * its single channel with the host.
+     * Handles a right-click anywhere inside the participant list (including
+     * empty space below the rows). The opened dialog does not depend on where
+     * the click lands: a host always gets the mosaic of every channel, a client
+     * always gets its single channel with the host.
      *
      * For now the dialog opens directly. The popup menu in
-     * {@link #buildSessionIdenticonMenu()} is intentionally kept but not shown, ready
-     * for when more than one per-list action is needed.
+     * {@link #buildSessionIdenticonMenu()} is intentionally kept but not shown,
+     * ready for when more than one per-list action is needed.
      */
     private void handleParticipantListRightClick(java.awt.event.MouseEvent evt) {
         if (!evt.isPopupTrigger()) {
@@ -595,10 +601,11 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Reserved: per-row right-click menu for the participant list. Currently unused
-     * because a single action ("view session identicon") opens directly, but kept so
-     * extra actions can be added later by showing this menu instead of opening the
-     * dialog directly in {@link #handleParticipantListRightClick(java.awt.event.MouseEvent)}.
+     * Reserved: per-row right-click menu for the participant list. Currently
+     * unused because a single action ("view session identicon") opens directly,
+     * but kept so extra actions can be added later by showing this menu instead
+     * of opening the dialog directly in
+     * {@link #handleParticipantListRightClick(java.awt.event.MouseEvent)}.
      */
     private JPopupMenu buildSessionIdenticonMenu() {
         JPopupMenu menu = new JPopupMenu();
@@ -610,8 +617,8 @@ public class WaitingRoomFrame extends JFrame {
 
     /**
      * Opens the session-key identicon dialog. The host gets the mosaic of every
-     * per-client channel ({@link SessionIdenticonMosaicDialog}); a client gets the
-     * single AES identicon of its channel with the host.
+     * per-client channel ({@link SessionIdenticonMosaicDialog}); a client gets
+     * the single AES identicon of its channel with the host.
      */
     private void openSessionIdenticon() {
         SessionIdenticonMosaicDialog mosaic = SessionIdenticonMosaicDialog.buildForHost(this, this);
@@ -1154,7 +1161,6 @@ public class WaitingRoomFrame extends JFrame {
             // (The "Click to refresh game data" tooltip on buyin/blinds/hands was removed:
             // it was stale — clicking those labels is a no-op now that config is edited in
             // the settings wheel's "Game" tab; see game_info_buyinMouseClicked.)
-
             pass_icon.setVisible(true);
 
             if (password != null) {
@@ -1877,7 +1883,9 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
-    /** Parses a base64 CSV (DUALLOCK_BUNDLE format) into a list of byte[]. */
+    /**
+     * Parses a base64 CSV (DUALLOCK_BUNDLE format) into a list of byte[].
+     */
     private static java.util.List<byte[]> csvToBytes(String csv) {
         java.util.List<byte[]> out = new java.util.ArrayList<>();
         if (csv == null || csv.isEmpty()) {
@@ -2020,174 +2028,174 @@ public class WaitingRoomFrame extends JFrame {
             int ping_write_stall_counter = 0;
 
             try {
-            while (!exit && WaitingRoomFrame.getInstance() != null) {
+                while (!exit && WaitingRoomFrame.getInstance() != null) {
 
-                // If reconectarCliente completed a reconnect during the last cycle, the
-                // counters accumulated against the old socket no longer apply. Reset before
-                // sending the first PING on the new socket.
-                if (net_client.isReset_ping_counters()) {
-                    consecutive_ping_failures = 0;
-                    ping_write_stall_counter = 0;
-                    net_client.setReset_ping_counters(false);
-                }
+                    // If reconectarCliente completed a reconnect during the last cycle, the
+                    // counters accumulated against the old socket no longer apply. Reset before
+                    // sending the first PING on the new socket.
+                    if (net_client.isReset_ping_counters()) {
+                        consecutive_ping_failures = 0;
+                        ping_write_stall_counter = 0;
+                        net_client.setReset_ping_counters(false);
+                    }
 
-                int ping = Helpers.CSPRNG_GENERATOR.nextInt();
+                    int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
-                net_client.setRemote_server_pong(null);
-                net_client.setRemote_server_pong2(null);
-                net_client.setRemote_server_latency(-1);
-                net_client.setRemote_server_latency2(-1);
+                    net_client.setRemote_server_pong(null);
+                    net_client.setRemote_server_pong2(null);
+                    net_client.setRemote_server_latency(-1);
+                    net_client.setRemote_server_latency2(-1);
 
-                long pingStartNs = System.nanoTime();
+                    long pingStartNs = System.nanoTime();
 
-                // The PING write goes to a pool thread with a deadline, like the host's twin
-                // (Participant.runPingPongThread). writeCommandToServer is SYNCHRONOUS and holds
-                // local_client_socket_lock during the os.write, so if the server stops reading,
-                // that write hangs the heartbeat thread forever and, with the lock held, every
-                // send and the defensive close itself too. After the deadline is missed several
-                // times in a row, the socket is closed so the reader detects the null and starts
-                // reconnection. The socket is captured BEFORE and closed by direct reference
-                // (closeStalledSocket), because closeClientSocket would take the lock the stuck
-                // write is holding; it's only closed if it's still the live socket, in case a
-                // reconnect swapped it out meanwhile.
-                java.net.Socket ping_socket = net_client.getLocal_client_socket();
-                java.util.concurrent.Future<?> ping_write;
-                try {
-                    ping_write = Helpers.THREAD_POOL.submit(() -> writeCommandToServer("PING#" + ping));
-                } catch (Exception ex) {
-                    LOGGER.log(Level.SEVERE,
-                            "Error dispatching PING", ex);
-                    break;
-                }
-                try {
-                    ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
-                    ping_write_stall_counter = 0;
-                } catch (java.util.concurrent.TimeoutException ex) {
-                    if (!exit && !net_client.isReconnecting()
-                            && ping_socket != null && ping_socket == net_client.getLocal_client_socket()
-                            && ++ping_write_stall_counter >= MAX_CONSECUTIVE_PING_FAILURES) {
+                    // The PING write goes to a pool thread with a deadline, like the host's twin
+                    // (Participant.runPingPongThread). writeCommandToServer is SYNCHRONOUS and holds
+                    // local_client_socket_lock during the os.write, so if the server stops reading,
+                    // that write hangs the heartbeat thread forever and, with the lock held, every
+                    // send and the defensive close itself too. After the deadline is missed several
+                    // times in a row, the socket is closed so the reader detects the null and starts
+                    // reconnection. The socket is captured BEFORE and closed by direct reference
+                    // (closeStalledSocket), because closeClientSocket would take the lock the stuck
+                    // write is holding; it's only closed if it's still the live socket, in case a
+                    // reconnect swapped it out meanwhile.
+                    java.net.Socket ping_socket = net_client.getLocal_client_socket();
+                    java.util.concurrent.Future<?> ping_write;
+                    try {
+                        ping_write = Helpers.THREAD_POOL.submit(() -> writeCommandToServer("PING#" + ping));
+                    } catch (Exception ex) {
                         LOGGER.log(Level.SEVERE,
-                                "PING write to server stalled {0} times in a row ({1} ms each) — server not reading; closing socket to force reconnect",
-                                new Object[]{ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
-                        net_client.setPingPongThreadAlive(false);
-                        net_client.closeStalledSocket(ping_socket);
+                                "Error dispatching PING", ex);
                         break;
                     }
-                } catch (Exception ex) {
-                    LOGGER.log(Level.SEVERE,
-                            "Error dispatching PING", ex);
-                    break;
-                }
-
-                long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
-
-                while (!exit && (net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null)
-                        && System.currentTimeMillis() < end) {
-                    synchronized (ping_pong_lock) {
-                        // Re-check inside the monitor (same as the Participant's
-                        // runPingPongThread): closes the PONG missed-notify race and avoids
-                        // wait(0)/wait(<0) in the remaining-time race window.
-                        long remaining = end - System.currentTimeMillis();
-                        if ((net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null) && remaining > 0) {
-                            try {
-                                ping_pong_lock.wait(remaining);
-                            } catch (InterruptedException ignored) {
-                            }
-                        }
-                    }
-
-                    Integer pong1 = net_client.getRemote_server_pong();
-                    if (net_client.getRemote_server_latency() == -1 && pong1 != null
-                            && pong1 == ping + 1) {
-
-                        net_client.setRemote_server_latency(Math
-                                .round((System.nanoTime() - pingStartNs) / 1_000_000));
-                    }
-
-                    Integer pong2 = net_client.getRemote_server_pong2();
-                    if (net_client.getRemote_server_latency2() == -1 && pong2 != null
-                            && pong2 == ping + 2) {
-
-                        net_client.setRemote_server_latency2(Math
-                                .round((System.nanoTime() - pingStartNs) / 1_000_000));
-                    }
-                }
-
-                if (net_client.getRemote_server_latency() != -1) {
-
-                    Helpers.GUIRun(() -> {
-                        this.latency_label.setVisible(true);
-                        this.latency_label.setText(Translator.translate("ui.latencia_servidor")
-                                + " " + String.valueOf(net_client.getRemote_server_latency()) + " ms");
-                    });
-                }
-
-                if (!exit && WaitingRoomFrame.getInstance() != null) {
-
-                    Integer pong1 = net_client.getRemote_server_pong();
-                    Integer pong2 = net_client.getRemote_server_pong2();
-                    boolean round_ok = pong1 != null && pong1 == ping + 1
-                            && pong2 != null && pong2 == ping + 2;
-
-                    if (pong1 == null) {
-                        LOGGER.log(Level.WARNING,
-                                "Server failed to respond to PING");
-                    } else if (pong1 != ping + 1) {
-                        LOGGER.log(Level.WARNING,
-                                "Invalid PONG from server");
-                    } else if (pong2 == null) {
-                        LOGGER.log(Level.WARNING,
-                                "Server failed to respond to PING2");
-                    } else if (pong2 != ping + 2) {
-                        LOGGER.log(Level.WARNING,
-                                "Invalid PONG2 from server");
-                    } else if (DEV_MODE) {
-                        LOGGER.log(Level.INFO,
-                                "Server PONGs received (latency: {0} ms / {1} ms)",
-                                new Object[]{net_client.getRemote_server_latency(), net_client.getRemote_server_latency2()});
-                    }
-
-                    // Safety net: if the socket is mute (PONGs missed N rounds in a row) we
-                    // close locally and let runSocketReaderClientThread detect the null read
-                    // and start reconectarCliente. The primary path is still the IOException on
-                    // write (NetClient.writeCommand).
-                    if (round_ok) {
-                        consecutive_ping_failures = 0;
-                    } else {
-                        consecutive_ping_failures++;
-                        if (consecutive_ping_failures >= MAX_CONSECUTIVE_PING_FAILURES) {
-                            LOGGER.log(Level.WARNING,
-                                    "Client lost {0} consecutive PONGs — closing socket to force reconnect",
-                                    consecutive_ping_failures);
-                            // alive=false BEFORE closing: this way reconectarCliente sees the
-                            // thread as dead and resurrects it. Without this, in the break->finally
-                            // window the resurrection check saw alive=true and never relaunched it.
+                    try {
+                        ping_write.get(WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT, java.util.concurrent.TimeUnit.MILLISECONDS);
+                        ping_write_stall_counter = 0;
+                    } catch (java.util.concurrent.TimeoutException ex) {
+                        if (!exit && !net_client.isReconnecting()
+                                && ping_socket != null && ping_socket == net_client.getLocal_client_socket()
+                                && ++ping_write_stall_counter >= MAX_CONSECUTIVE_PING_FAILURES) {
+                            LOGGER.log(Level.SEVERE,
+                                    "PING write to server stalled {0} times in a row ({1} ms each) — server not reading; closing socket to force reconnect",
+                                    new Object[]{ping_write_stall_counter, WaitingRoomFrame.PING_WRITE_STALL_TIMEOUT});
                             net_client.setPingPongThreadAlive(false);
-                            closeClientSocket();
+                            net_client.closeStalledSocket(ping_socket);
                             break;
                         }
-                    }
-
-                    // Telemetry: also update the client's LocalPlayer LatencyDot with its own
-                    // measurement to the server + its reconnection count. This gives IMMEDIATE
-                    // feedback (doesn't wait for the host's TELEMETRY broadcast) on local link
-                    // quality.
-                    try {
-                        if (GameFrame.getInstance() != null
-                                && GameFrame.getInstance().getLocalPlayer() instanceof LocalPlayer) {
-                            ((LocalPlayer) GameFrame.getInstance().getLocalPlayer()).applyTelemetry(
-                                    net_client.getRemote_server_latency(),
-                                    net_client.getRemote_server_latency2(),
-                                    net_client.getReconnectionCount());
-                        }
                     } catch (Exception ex) {
-                        // Best-effort visualization; does not affect game logic.
+                        LOGGER.log(Level.SEVERE,
+                                "Error dispatching PING", ex);
+                        break;
                     }
 
-                    Helpers.pausar(PING_INTERVAL_MS);
-                }
+                    long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
 
-            }
+                    while (!exit && (net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null)
+                            && System.currentTimeMillis() < end) {
+                        synchronized (ping_pong_lock) {
+                            // Re-check inside the monitor (same as the Participant's
+                            // runPingPongThread): closes the PONG missed-notify race and avoids
+                            // wait(0)/wait(<0) in the remaining-time race window.
+                            long remaining = end - System.currentTimeMillis();
+                            if ((net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null) && remaining > 0) {
+                                try {
+                                    ping_pong_lock.wait(remaining);
+                                } catch (InterruptedException ignored) {
+                                }
+                            }
+                        }
+
+                        Integer pong1 = net_client.getRemote_server_pong();
+                        if (net_client.getRemote_server_latency() == -1 && pong1 != null
+                                && pong1 == ping + 1) {
+
+                            net_client.setRemote_server_latency(Math
+                                    .round((System.nanoTime() - pingStartNs) / 1_000_000));
+                        }
+
+                        Integer pong2 = net_client.getRemote_server_pong2();
+                        if (net_client.getRemote_server_latency2() == -1 && pong2 != null
+                                && pong2 == ping + 2) {
+
+                            net_client.setRemote_server_latency2(Math
+                                    .round((System.nanoTime() - pingStartNs) / 1_000_000));
+                        }
+                    }
+
+                    if (net_client.getRemote_server_latency() != -1) {
+
+                        Helpers.GUIRun(() -> {
+                            this.latency_label.setVisible(true);
+                            this.latency_label.setText(Translator.translate("ui.latencia_servidor")
+                                    + " " + String.valueOf(net_client.getRemote_server_latency()) + " ms");
+                        });
+                    }
+
+                    if (!exit && WaitingRoomFrame.getInstance() != null) {
+
+                        Integer pong1 = net_client.getRemote_server_pong();
+                        Integer pong2 = net_client.getRemote_server_pong2();
+                        boolean round_ok = pong1 != null && pong1 == ping + 1
+                                && pong2 != null && pong2 == ping + 2;
+
+                        if (pong1 == null) {
+                            LOGGER.log(Level.WARNING,
+                                    "Server failed to respond to PING");
+                        } else if (pong1 != ping + 1) {
+                            LOGGER.log(Level.WARNING,
+                                    "Invalid PONG from server");
+                        } else if (pong2 == null) {
+                            LOGGER.log(Level.WARNING,
+                                    "Server failed to respond to PING2");
+                        } else if (pong2 != ping + 2) {
+                            LOGGER.log(Level.WARNING,
+                                    "Invalid PONG2 from server");
+                        } else if (DEV_MODE) {
+                            LOGGER.log(Level.INFO,
+                                    "Server PONGs received (latency: {0} ms / {1} ms)",
+                                    new Object[]{net_client.getRemote_server_latency(), net_client.getRemote_server_latency2()});
+                        }
+
+                        // Safety net: if the socket is mute (PONGs missed N rounds in a row) we
+                        // close locally and let runSocketReaderClientThread detect the null read
+                        // and start reconectarCliente. The primary path is still the IOException on
+                        // write (NetClient.writeCommand).
+                        if (round_ok) {
+                            consecutive_ping_failures = 0;
+                        } else {
+                            consecutive_ping_failures++;
+                            if (consecutive_ping_failures >= MAX_CONSECUTIVE_PING_FAILURES) {
+                                LOGGER.log(Level.WARNING,
+                                        "Client lost {0} consecutive PONGs — closing socket to force reconnect",
+                                        consecutive_ping_failures);
+                                // alive=false BEFORE closing: this way reconectarCliente sees the
+                                // thread as dead and resurrects it. Without this, in the break->finally
+                                // window the resurrection check saw alive=true and never relaunched it.
+                                net_client.setPingPongThreadAlive(false);
+                                closeClientSocket();
+                                break;
+                            }
+                        }
+
+                        // Telemetry: also update the client's LocalPlayer LatencyDot with its own
+                        // measurement to the server + its reconnection count. This gives IMMEDIATE
+                        // feedback (doesn't wait for the host's TELEMETRY broadcast) on local link
+                        // quality.
+                        try {
+                            if (GameFrame.getInstance() != null
+                                    && GameFrame.getInstance().getLocalPlayer() instanceof LocalPlayer) {
+                                ((LocalPlayer) GameFrame.getInstance().getLocalPlayer()).applyTelemetry(
+                                        net_client.getRemote_server_latency(),
+                                        net_client.getRemote_server_latency2(),
+                                        net_client.getReconnectionCount());
+                            }
+                        } catch (Exception ex) {
+                            // Best-effort visualization; does not affect game logic.
+                        }
+
+                        Helpers.pausar(PING_INTERVAL_MS);
+                    }
+
+                }
             } finally {
                 net_client.setPingPongThreadAlive(false);
             }
@@ -2469,1427 +2477,1426 @@ public class WaitingRoomFrame extends JFrame {
                                     // the host does per-command. The switch body keeps its original
                                     // indentation on purpose to keep this a minimal, merge-safe diff.
                                     try {
-                                    switch (partes_comando[0]) {
-                                        case "PING":
-                                            // Same safety net as its twin in the in-game loop: a heartbeat
-                                            // missing its counter, or with a non-numeric one, no longer
-                                            // takes down the client sitting in the waiting room.
-                                            if (partes_comando.length >= 2) {
+                                        switch (partes_comando[0]) {
+                                            case "PING":
+                                                // Same safety net as its twin in the in-game loop: a heartbeat
+                                                // missing its counter, or with a non-numeric one, no longer
+                                                // takes down the client sitting in the waiting room.
+                                                if (partes_comando.length >= 2) {
+                                                    try {
+                                                        writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
+                                                    } catch (NumberFormatException nfe) {
+                                                    }
+                                                }
+                                                break;
+
+                                            case "CHAT":
+                                                String mensaje = (partes_comando.length == 3) ? new String(Base64.getDecoder().decode(partes_comando[2]), "UTF-8") : "";
+                                                recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
+                                                break;
+                                            case "EXIT":
+                                                exit = true;
+                                                mostrarMensajeError(THIS, Translator.translate("game.el_servidor_ha_cancelado_la"));
+                                                break;
+                                            case "KICKED":
+                                                exit = true;
+                                                Audio.playWavResource("loser/payaso.wav");
+                                                mostrarMensajeInformativo(THIS, Translator.translate("ui.error.kicked_out"));
+                                                break;
+
+                                            case "NEWPASS":
+                                                // The host changed the room password (kicking someone, changing
+                                                // it by hand, generating a strong one, or clearing it) and sends
+                                                // us the new one. Without this we'd be stuck with the old one,
+                                                // and since the channel is derived from it, a network drop would
+                                                // mean we could never rejoin. The "*" sentinel means "no password
+                                                // anymore", which also changes how the channel is derived.
+                                                // Arrives over the channel already encrypted with this session's
+                                                // keys, which don't depend on the password changing.
+                                                if (partes_comando.length > 1) {
+                                                    try {
+                                                        password = "*".equals(partes_comando[1])
+                                                                ? null
+                                                                : new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8");
+                                                    } catch (Exception ex) {
+                                                        LOGGER.log(Level.WARNING, "Could not read the new room password", ex);
+                                                    }
+                                                }
+                                                break;
+
+                                            case "GAME":
+                                                String subcomando = partes_comando[2];
+                                                int id = Integer.parseInt(partes_comando[1]);
+
                                                 try {
-                                                    writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
-                                                } catch (NumberFormatException nfe) {
+                                                    String confMsg = "CONF#" + String.valueOf(id + 1) + "#OK";
+                                                    this.writeCommandToServer(Helpers.encryptCommand(confMsg, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                } catch (Exception e) {
                                                 }
-                                            }
-                                            break;
 
-                                        case "CHAT":
-                                            String mensaje = (partes_comando.length == 3) ? new String(Base64.getDecoder().decode(partes_comando[2]), "UTF-8") : "";
-                                            recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
-                                            break;
-                                        case "EXIT":
-                                            exit = true;
-                                            mostrarMensajeError(THIS, Translator.translate("game.el_servidor_ha_cancelado_la"));
-                                            break;
-                                        case "KICKED":
-                                            exit = true;
-                                            Audio.playWavResource("loser/payaso.wav");
-                                            mostrarMensajeInformativo(THIS, Translator.translate("ui.error.kicked_out"));
-                                            break;
-
-                                        case "NEWPASS":
-                                            // The host changed the room password (kicking someone, changing
-                                            // it by hand, generating a strong one, or clearing it) and sends
-                                            // us the new one. Without this we'd be stuck with the old one,
-                                            // and since the channel is derived from it, a network drop would
-                                            // mean we could never rejoin. The "*" sentinel means "no password
-                                            // anymore", which also changes how the channel is derived.
-                                            // Arrives over the channel already encrypted with this session's
-                                            // keys, which don't depend on the password changing.
-                                            if (partes_comando.length > 1) {
-                                                try {
-                                                    password = "*".equals(partes_comando[1])
-                                                            ? null
-                                                            : new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8");
-                                                } catch (Exception ex) {
-                                                    LOGGER.log(Level.WARNING, "Could not read the new room password", ex);
-                                                }
-                                            }
-                                            break;
-
-                                        case "GAME":
-                                            String subcomando = partes_comando[2];
-                                            int id = Integer.parseInt(partes_comando[1]);
-
-                                            try {
-                                                String confMsg = "CONF#" + String.valueOf(id + 1) + "#OK";
-                                                this.writeCommandToServer(Helpers.encryptCommand(confMsg, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
-                                            } catch (Exception e) {
-                                            }
-
-                                            if (!net_client.getCliente_last_received().containsKey(subcomando) || !net_client.getCliente_last_received().get(subcomando).equals(id)) {
-                                                // Same cap as on the host side: the key is the subcommand
-                                                // name, which the sender chooses, so without a bound a hostile
-                                                // host could grow this table without limit.
-                                                if (net_client.getCliente_last_received().size() >= Participant.MAX_DEDUP_SUBCOMMANDS) {
-                                                    LOGGER.log(Level.WARNING,
-                                                            "Client de-dup table hit {0} distinct subcommands — clearing it",
-                                                            Participant.MAX_DEDUP_SUBCOMMANDS);
-                                                    net_client.getCliente_last_received().clear();
-                                                }
-                                                net_client.getCliente_last_received().put(subcomando, id);
-                                                if (isPartida_empezada()) {
-                                                    switch (subcomando) {
-                                                        case "DECK_CASCADE_REQ":
-                                                            final String[] partes_cascade = partes_comando;
-                                                            Helpers.threadRun(() -> {
-                                                                try {
-                                                                    // ZERO-TRUST: if we've already caught this host cheating this
-                                                                    // session, never generate a key for it again. The zero-trust
-                                                                    // promise ("once we detect cheating, we hand out no more keys")
-                                                                    // only holds if the lockdown is a hard gate, not just a popup.
-                                                                    if (Crupier.SECURITY_LOCKDOWN) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ refused — security lockdown active");
-                                                                        return;
-                                                                    }
-                                                                    // ZERO-TRUST: refuse cascade mid-hand. If we already have an
-                                                                    // active MEGAPACKET, accepting a new cascade would overwrite our
-                                                                    // sra_unlock and destroy the hand in progress. An honest host
-                                                                    // NEVER requests DECK_CASCADE_REQ after the MEGAPACKET until
-                                                                    // NUEVA_MANO (which clears local_mega_packet to null).
-                                                                    Crupier crupierCheck = GameFrame.getInstance().getCrupier();
-                                                                    if (crupierCheck != null && crupierCheck.hasMegaPacket()) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received mid-hand (MEGAPACKET already locked) — refusing to overwrite my sra_unlock");
-                                                                        crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_cascade_mid_hand"));
-                                                                        return;
-                                                                    }
-
-                                                                    // ZERO-TRUST: wire with fewer fields than we read (partes_cascade[3])
-                                                                    // -> reject cleanly instead of AIOOBE, same as sibling DECK_ROTATION_REQ.
-                                                                    if (partes_cascade.length < 4) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ malformed wire (parts={0}) — refusing", partes_cascade.length);
-                                                                        return;
-                                                                    }
-
-                                                                    byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
-
-                                                                    // Dual-lock (Option G): the client needs the Crupier to store the
-                                                                    // community lock it will apply during the rotation phase. If for
-                                                                    // some reason the Crupier doesn't exist yet, refuse — a sane host
-                                                                    // never sends DECK_CASCADE_REQ before the client has a Crupier.
-                                                                    if (crupierCheck == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received before Crupier exists — refusing");
-                                                                        return;
-                                                                    }
-
-                                                                    // ZERO-TRUST: the host asks us to apply our lock to the deck it
-                                                                    // sends. If the deck isn't 52 valid Curve25519 points, it's garbage
-                                                                    // (host downgrade: sending us invalid bytes so we waste our
-                                                                    // shuffle/lock on unrecoverable data, or smuggling). Reject before
-                                                                    // committing our freshly generated sra_unlock. decodeDeck validates
-                                                                    // (exactly 52 points, each on-curve/canonical) in a SINGLE decode and
-                                                                    // hands us the points (incomingPoints) to reuse for the lock. Kept
-                                                                    // HERE, before generating/storing the scalars, to reject a garbage
-                                                                    // deck without committing our freshly generated sra_unlock.
-                                                                    com.tonikelope.coronapoker.crypto.EdwardsPoint[] incomingPoints =
-                                                                            (incomingDeck != null && incomingDeck.length == 1664)
-                                                                                    ? com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingDeck) : null;
-                                                                    if (incomingPoints == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ payload is not a valid 52-point curve deck (len={0}) — refusing",
-                                                                                incomingDeck == null ? -1 : incomingDeck.length);
-                                                                        crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
-                                                                        return;
-                                                                    }
-
-                                                                    byte[] lockScalar = RistrettoSRA.generateLockScalar();
-                                                                    byte[] unlockScalar = RistrettoSRA.getUnlockScalar(lockScalar);
-                                                                    this.participantes.get(local_nick).setSra_unlock(unlockScalar);
-
-                                                                    // Dual-lock (Option G): second pair of scalars for the community
-                                                                    // pieces rotation that will come after the cascade. Stored on the
-                                                                    // Crupier so the DECK_ROTATION_REQ handler can retrieve them without
-                                                                    // needing to request fresh entropy at that point.
-                                                                    byte[] communityLockScalar = RistrettoSRA.generateLockScalar();
-                                                                    byte[] communityUnlockScalar = RistrettoSRA.getUnlockScalar(communityLockScalar);
-                                                                    crupierCheck.local_sra_lock_community = communityLockScalar;
-                                                                    crupierCheck.local_sra_unlock_community = communityUnlockScalar;
-                                                                    this.participantes.get(local_nick).setSra_unlock_community(communityUnlockScalar);
-                                                                    // Anti-replay: a new cascade (or legitimate retry) enables ONE
-                                                                    // rotation. A second rotation without going through here is rejected.
-                                                                    crupierCheck.rotation_served_this_cascade = false;
-
-                                                                    // Lock over the points already decoded and validated above (incomingPoints):
-                                                                    // bytes identical to applyCommutativeLock(incomingDeck, lockScalar), no re-decoding.
-                                                                    byte[] locked = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(
-                                                                            RistrettoSRA.lockPoints(incomingPoints, lockScalar));
-
-                                                                    // Generate fresh local entropy for THIS shuffle on the spot.
-                                                                    // The handler runs on an async thread that may fire before the
-                                                                    // local Crupier reaches readyForNextHand() and sets
-                                                                    // local_hand_seed for the new hand. Reading c.getLocal_hand_seed()
-                                                                    // there used to yield null (first hand) or stale (previous
-                                                                    // hand's seed), which either threw an NPE inside shuffleDeck
-                                                                    // — silently aborting the hand from the host's perspective —
-                                                                    // or reused stale entropy. The seed never leaves this process
-                                                                    // so there is no protocol reason to share it with the Crupier.
-                                                                    byte[] mySeed = new byte[48];
-                                                                    Helpers.CSPRNG_GENERATOR.nextBytes(mySeed);
-                                                                    byte[] shuffled = DeterministicShuffle.shuffleDeck(locked, mySeed);
-
-                                                                    // (last-mile lockdown re-check removed — see the equivalent note
-                                                                    // in REQ_SRA_UNLOCK. The gate at the top of the handler already
-                                                                    // stops new requests from being processed post-lockdown. Keeping
-                                                                    // it here left the host hanging indefinitely when a concurrent
-                                                                    // duplicate triggered lockdown while the legitimate request was
-                                                                    // being processed.)
-
-                                                                    String b64Deck = Base64.getEncoder().encodeToString(shuffled);
-                                                                    String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
-
-                                                                    int respId = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    // Send the K=k*B commitments (pocket and community) along with the
-                                                                    // cascaded deck, so the host can aggregate them and anchor them in H_0.
-                                                                    String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
-                                                                    String kCommunityB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(communityLockScalar));
-                                                                    // B1: send the RESP with the deck + commitments RIGHT AWAY (without
-                                                                    // the proof), so the host does NOT wait for the prove step (132/377/8900
-                                                                    // ms) INSIDE the deal. The shuffle proof (deckOut = shuffle(k·deckIn))
-                                                                    // travels separately, ASYNC, in a DECK_CASCADE_PROOF matched by
-                                                                    // hash(deckOut) (see Crupier.collectAsyncCascadeProofs). The host appends
-                                                                    // it to the chain that EVERYONE verifies, so a modified host cannot slip
-                                                                    // a card in. If generating it fails or it doesn't arrive in time, the
-                                                                    // host treats it as absent (degrades to today's proofless-peer case, no
-                                                                    // enforcement).
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                if (!net_client.getCliente_last_received().containsKey(subcomando) || !net_client.getCliente_last_received().get(subcomando).equals(id)) {
+                                                    // Same cap as on the host side: the key is the subcommand
+                                                    // name, which the sender chooses, so without a bound a hostile
+                                                    // host could grow this table without limit.
+                                                    if (net_client.getCliente_last_received().size() >= Participant.MAX_DEDUP_SUBCOMMANDS) {
+                                                        LOGGER.log(Level.WARNING,
+                                                                "Client de-dup table hit {0} distinct subcommands — clearing it",
+                                                                Participant.MAX_DEDUP_SUBCOMMANDS);
+                                                        net_client.getCliente_last_received().clear();
+                                                    }
+                                                    net_client.getCliente_last_received().put(subcomando, id);
+                                                    if (isPartida_empezada()) {
+                                                        switch (subcomando) {
+                                                            case "DECK_CASCADE_REQ":
+                                                                final String[] partes_cascade = partes_comando;
+                                                                Helpers.threadRun(() -> {
                                                                     try {
-                                                                        int myPermN = incomingDeck.length / 32;
-                                                                        int[] myPerm = DeterministicShuffle.shufflePermutation(myPermN, mySeed);
-                                                                        byte[] cascadeProof = com.tonikelope.coronapoker.crypto.ShuffleCascade
-                                                                                .proveStepWire(incomingDeck, shuffled, myPerm, lockScalar);
-                                                                        if (cascadeProof != null) {
-                                                                            String deckHashB64 = Base64.getEncoder().encodeToString(
-                                                                                    java.security.MessageDigest.getInstance("SHA-256").digest(shuffled));
-                                                                            int proofId = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                            writeCommandToServer(Helpers.encryptCommand("GAME#" + proofId + "#DECK_CASCADE_PROOF#" + deckHashB64 + "#" + Base64.getEncoder().encodeToString(cascadeProof), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                        // ZERO-TRUST: if we've already caught this host cheating this
+                                                                        // session, never generate a key for it again. The zero-trust
+                                                                        // promise ("once we detect cheating, we hand out no more keys")
+                                                                        // only holds if the lockdown is a hard gate, not just a popup.
+                                                                        if (Crupier.SECURITY_LOCKDOWN) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ refused — security lockdown active");
+                                                                            return;
                                                                         }
-                                                                    } catch (Exception proofEx) {
-                                                                        LOGGER.log(Level.WARNING, "Failed to generate/send async cascade proof (host treats as proofless)", proofEx);
-                                                                    }
-                                                                } catch (Exception e) {
-                                                                    LOGGER.log(Level.SEVERE, "Failed to process DECK_CASCADE_REQ; host will time out and abort the hand", e);
-                                                                }
-                                                            });
-                                                            break;
+                                                                        // ZERO-TRUST: refuse cascade mid-hand. If we already have an
+                                                                        // active MEGAPACKET, accepting a new cascade would overwrite our
+                                                                        // sra_unlock and destroy the hand in progress. An honest host
+                                                                        // NEVER requests DECK_CASCADE_REQ after the MEGAPACKET until
+                                                                        // NUEVA_MANO (which clears local_mega_packet to null).
+                                                                        Crupier crupierCheck = GameFrame.getInstance().getCrupier();
+                                                                        if (crupierCheck != null && crupierCheck.hasMegaPacket()) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received mid-hand (MEGAPACKET already locked) — refusing to overwrite my sra_unlock");
+                                                                            crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_cascade_mid_hand"));
+                                                                            return;
+                                                                        }
 
-                                                        case "DECK_ROTATION_REQ":
-                                                            // Dual-lock (Option G): after the main cascade, the host asks each peer
-                                                            // in order to apply uPocket (remove its pocket lock) + kCommunity (add
-                                                            // its community lock) to the community pieces. Result: the community
-                                                            // pieces end up encrypted ONLY with community scalars, and their unlock
-                                                            // is delivered later, separately from the pocket unlock.
-                                                            final String[] partes_rotation = partes_comando;
-                                                            Helpers.threadRun(() -> {
-                                                                try {
-                                                                    if (Crupier.SECURITY_LOCKDOWN) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ refused — security lockdown active");
-                                                                        return;
-                                                                    }
-                                                                    Crupier crupierRot = GameFrame.getInstance().getCrupier();
-                                                                    if (crupierRot == null
-                                                                            || crupierRot.local_sra_lock_community == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without community lock (Crupier or local_sra_lock_community null) — refusing");
-                                                                        return;
-                                                                    }
-                                                                    // Anti-replay: only ONE rotation per cascade. A second one without
-                                                                    // a new cascade = a hostile host using the rotation as a covert
-                                                                    // pocket-unlock oracle (attempting to read a departing peer's cards).
-                                                                    if (crupierRot.rotation_served_this_cascade) {
-                                                                        // Not fatal: we reject the extra rotation (the oracle gets nothing)
-                                                                        // and the game CAN continue with the legitimate rotation already
-                                                                        // served. Policy: warn + continue (assuming good faith), don't
-                                                                        // freeze. The user decides whether to leave.
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ replay (2nd rotation this cascade) — refusing extra rotation, warning user (game may continue)");
-                                                                        crupierRot.warnSuspiciousHost(Translator.translate("zero_trust.host_rotation_replay"));
-                                                                        return;
-                                                                    }
-                                                                    // The client's pocket unlock lives on the local Participant (the
-                                                                    // cascade handler stores it there, not on the Crupier — the pocket
-                                                                    // half isn't "published" to the Crupier until the MEGAPACKET arrives
-                                                                    // and the client copies it from Participant). For the rotation we
-                                                                    // need uPocket (remove our pocket lock) + kCommunity (add our
-                                                                    // community lock), so we read uPocket straight from Participant.
-                                                                    byte[] myPocketUnlock = this.participantes.get(local_nick).getSra_unlock();
-                                                                    if (myPocketUnlock == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without local pocket unlock (Participant.sra_unlock null) — refusing");
-                                                                        return;
-                                                                    }
-                                                                    if (partes_rotation.length < 4) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ malformed wire (parts={0}) — refusing", partes_rotation.length);
-                                                                        return;
-                                                                    }
-                                                                    byte[] incomingPieces = Base64.getDecoder().decode(partes_rotation[3]);
-                                                                    // ZERO-TRUST: decodeDeck validates in a SINGLE decode that the
-                                                                    // payload is a multiple of 32 bytes and each point is on-curve /
-                                                                    // canonical (null otherwise); we reuse those points (inR) for the
-                                                                    // lock and the proof without re-decoding. The exact length depends
-                                                                    // on the host's ring; we don't re-derive it, but a non-curve payload
-                                                                    // is always rejected.
-                                                                    com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR =
-                                                                            com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingPieces);
-                                                                    if (inR == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ payload not a valid curve-point block (len={0}) — refusing",
-                                                                                incomingPieces == null ? -1 : incomingPieces.length);
-                                                                        crupierRot.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
-                                                                        return;
-                                                                    }
-                                                                    // Rotation in ONE lock: uPocket then kCommunity = multiply by
-                                                                    // s = uPocket*kCommunity (mod L). We work on the points already
-                                                                    // decoded (inR); the result stays on-curve and its bytes are
-                                                                    // identical to applyCommutativeLock. The same s signs the proof.
-                                                                    java.math.BigInteger sRot = RistrettoSRA.bytesToScalar(myPocketUnlock)
-                                                                            .multiply(RistrettoSRA.bytesToScalar(crupierRot.local_sra_lock_community))
-                                                                            .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
-                                                                    com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR =
-                                                                            RistrettoSRA.lockPoints(inR, RistrettoSRA.scalarToBytes(sRot));
-                                                                    byte[] rotated = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(outR);
-                                                                    // Rotation served: any other one this cascade gets rejected (anti-replay).
-                                                                    crupierRot.rotation_served_this_cascade = true;
+                                                                        // ZERO-TRUST: wire with fewer fields than we read (partes_cascade[3])
+                                                                        // -> reject cleanly instead of AIOOBE, same as sibling DECK_ROTATION_REQ.
+                                                                        if (partes_cascade.length < 4) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ malformed wire (parts={0}) — refusing", partes_cascade.length);
+                                                                            return;
+                                                                        }
 
-                                                                    // Closing the rotation flank: proves our step is an honest in-place
-                                                                    // re-key (out[i]=s*in[i], s=uPocket*kCommunity), with no relocation or
-                                                                    // duplication. The host appends it to the bundle so everyone can
-                                                                    // verify the genesis->MEGAPACKET chain.
-                                                                    String rotProofB64 = "";
+                                                                        byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
+
+                                                                        // Dual-lock (Option G): the client needs the Crupier to store the
+                                                                        // community lock it will apply during the rotation phase. If for
+                                                                        // some reason the Crupier doesn't exist yet, refuse — a sane host
+                                                                        // never sends DECK_CASCADE_REQ before the client has a Crupier.
+                                                                        if (crupierCheck == null) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received before Crupier exists — refusing");
+                                                                            return;
+                                                                        }
+
+                                                                        // ZERO-TRUST: the host asks us to apply our lock to the deck it
+                                                                        // sends. If the deck isn't 52 valid Curve25519 points, it's garbage
+                                                                        // (host downgrade: sending us invalid bytes so we waste our
+                                                                        // shuffle/lock on unrecoverable data, or smuggling). Reject before
+                                                                        // committing our freshly generated sra_unlock. decodeDeck validates
+                                                                        // (exactly 52 points, each on-curve/canonical) in a SINGLE decode and
+                                                                        // hands us the points (incomingPoints) to reuse for the lock. Kept
+                                                                        // HERE, before generating/storing the scalars, to reject a garbage
+                                                                        // deck without committing our freshly generated sra_unlock.
+                                                                        com.tonikelope.coronapoker.crypto.EdwardsPoint[] incomingPoints
+                                                                                = (incomingDeck != null && incomingDeck.length == 1664)
+                                                                                        ? com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingDeck) : null;
+                                                                        if (incomingPoints == null) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ payload is not a valid 52-point curve deck (len={0}) — refusing",
+                                                                                    incomingDeck == null ? -1 : incomingDeck.length);
+                                                                            crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                            return;
+                                                                        }
+
+                                                                        byte[] lockScalar = RistrettoSRA.generateLockScalar();
+                                                                        byte[] unlockScalar = RistrettoSRA.getUnlockScalar(lockScalar);
+                                                                        this.participantes.get(local_nick).setSra_unlock(unlockScalar);
+
+                                                                        // Dual-lock (Option G): second pair of scalars for the community
+                                                                        // pieces rotation that will come after the cascade. Stored on the
+                                                                        // Crupier so the DECK_ROTATION_REQ handler can retrieve them without
+                                                                        // needing to request fresh entropy at that point.
+                                                                        byte[] communityLockScalar = RistrettoSRA.generateLockScalar();
+                                                                        byte[] communityUnlockScalar = RistrettoSRA.getUnlockScalar(communityLockScalar);
+                                                                        crupierCheck.local_sra_lock_community = communityLockScalar;
+                                                                        crupierCheck.local_sra_unlock_community = communityUnlockScalar;
+                                                                        this.participantes.get(local_nick).setSra_unlock_community(communityUnlockScalar);
+                                                                        // Anti-replay: a new cascade (or legitimate retry) enables ONE
+                                                                        // rotation. A second rotation without going through here is rejected.
+                                                                        crupierCheck.rotation_served_this_cascade = false;
+
+                                                                        // Lock over the points already decoded and validated above (incomingPoints):
+                                                                        // bytes identical to applyCommutativeLock(incomingDeck, lockScalar), no re-decoding.
+                                                                        byte[] locked = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(
+                                                                                RistrettoSRA.lockPoints(incomingPoints, lockScalar));
+
+                                                                        // Generate fresh local entropy for THIS shuffle on the spot.
+                                                                        // The handler runs on an async thread that may fire before the
+                                                                        // local Crupier reaches readyForNextHand() and sets
+                                                                        // local_hand_seed for the new hand. Reading c.getLocal_hand_seed()
+                                                                        // there used to yield null (first hand) or stale (previous
+                                                                        // hand's seed), which either threw an NPE inside shuffleDeck
+                                                                        // — silently aborting the hand from the host's perspective —
+                                                                        // or reused stale entropy. The seed never leaves this process
+                                                                        // so there is no protocol reason to share it with the Crupier.
+                                                                        byte[] mySeed = new byte[48];
+                                                                        Helpers.CSPRNG_GENERATOR.nextBytes(mySeed);
+                                                                        byte[] shuffled = DeterministicShuffle.shuffleDeck(locked, mySeed);
+
+                                                                        // (last-mile lockdown re-check removed — see the equivalent note
+                                                                        // in REQ_SRA_UNLOCK. The gate at the top of the handler already
+                                                                        // stops new requests from being processed post-lockdown. Keeping
+                                                                        // it here left the host hanging indefinitely when a concurrent
+                                                                        // duplicate triggered lockdown while the legitimate request was
+                                                                        // being processed.)
+                                                                        String b64Deck = Base64.getEncoder().encodeToString(shuffled);
+                                                                        String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
+
+                                                                        int respId = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                        // Send the K=k*B commitments (pocket and community) along with the
+                                                                        // cascaded deck, so the host can aggregate them and anchor them in H_0.
+                                                                        String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
+                                                                        String kCommunityB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(communityLockScalar));
+                                                                        // B1: send the RESP with the deck + commitments RIGHT AWAY (without
+                                                                        // the proof), so the host does NOT wait for the prove step (132/377/8900
+                                                                        // ms) INSIDE the deal. The shuffle proof (deckOut = shuffle(k·deckIn))
+                                                                        // travels separately, ASYNC, in a DECK_CASCADE_PROOF matched by
+                                                                        // hash(deckOut) (see Crupier.collectAsyncCascadeProofs). The host appends
+                                                                        // it to the chain that EVERYONE verifies, so a modified host cannot slip
+                                                                        // a card in. If generating it fails or it doesn't arrive in time, the
+                                                                        // host treats it as absent (degrades to today's proofless-peer case, no
+                                                                        // enforcement).
+                                                                        writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                        try {
+                                                                            int myPermN = incomingDeck.length / 32;
+                                                                            int[] myPerm = DeterministicShuffle.shufflePermutation(myPermN, mySeed);
+                                                                            byte[] cascadeProof = com.tonikelope.coronapoker.crypto.ShuffleCascade
+                                                                                    .proveStepWire(incomingDeck, shuffled, myPerm, lockScalar);
+                                                                            if (cascadeProof != null) {
+                                                                                String deckHashB64 = Base64.getEncoder().encodeToString(
+                                                                                        java.security.MessageDigest.getInstance("SHA-256").digest(shuffled));
+                                                                                int proofId = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                                writeCommandToServer(Helpers.encryptCommand("GAME#" + proofId + "#DECK_CASCADE_PROOF#" + deckHashB64 + "#" + Base64.getEncoder().encodeToString(cascadeProof), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                            }
+                                                                        } catch (Exception proofEx) {
+                                                                            LOGGER.log(Level.WARNING, "Failed to generate/send async cascade proof (host treats as proofless)", proofEx);
+                                                                        }
+                                                                    } catch (Exception e) {
+                                                                        LOGGER.log(Level.SEVERE, "Failed to process DECK_CASCADE_REQ; host will time out and abort the hand", e);
+                                                                    }
+                                                                });
+                                                                break;
+
+                                                            case "DECK_ROTATION_REQ":
+                                                                // Dual-lock (Option G): after the main cascade, the host asks each peer
+                                                                // in order to apply uPocket (remove its pocket lock) + kCommunity (add
+                                                                // its community lock) to the community pieces. Result: the community
+                                                                // pieces end up encrypted ONLY with community scalars, and their unlock
+                                                                // is delivered later, separately from the pocket unlock.
+                                                                final String[] partes_rotation = partes_comando;
+                                                                Helpers.threadRun(() -> {
                                                                     try {
-                                                                        byte[] rp = com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
-                                                                                com.tonikelope.coronapoker.crypto.RotationProof.prove(sRot, inR, outR));
-                                                                        if (rp != null) {
-                                                                            rotProofB64 = Base64.getEncoder().encodeToString(rp);
+                                                                        if (Crupier.SECURITY_LOCKDOWN) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ refused — security lockdown active");
+                                                                            return;
                                                                         }
-                                                                    } catch (Exception rotProofEx) {
-                                                                        rotProofB64 = ""; // no proof -> host marks the step as remote-pending, nothing breaks
+                                                                        Crupier crupierRot = GameFrame.getInstance().getCrupier();
+                                                                        if (crupierRot == null
+                                                                                || crupierRot.local_sra_lock_community == null) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without community lock (Crupier or local_sra_lock_community null) — refusing");
+                                                                            return;
+                                                                        }
+                                                                        // Anti-replay: only ONE rotation per cascade. A second one without
+                                                                        // a new cascade = a hostile host using the rotation as a covert
+                                                                        // pocket-unlock oracle (attempting to read a departing peer's cards).
+                                                                        if (crupierRot.rotation_served_this_cascade) {
+                                                                            // Not fatal: we reject the extra rotation (the oracle gets nothing)
+                                                                            // and the game CAN continue with the legitimate rotation already
+                                                                            // served. Policy: warn + continue (assuming good faith), don't
+                                                                            // freeze. The user decides whether to leave.
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ replay (2nd rotation this cascade) — refusing extra rotation, warning user (game may continue)");
+                                                                            crupierRot.warnSuspiciousHost(Translator.translate("zero_trust.host_rotation_replay"));
+                                                                            return;
+                                                                        }
+                                                                        // The client's pocket unlock lives on the local Participant (the
+                                                                        // cascade handler stores it there, not on the Crupier — the pocket
+                                                                        // half isn't "published" to the Crupier until the MEGAPACKET arrives
+                                                                        // and the client copies it from Participant). For the rotation we
+                                                                        // need uPocket (remove our pocket lock) + kCommunity (add our
+                                                                        // community lock), so we read uPocket straight from Participant.
+                                                                        byte[] myPocketUnlock = this.participantes.get(local_nick).getSra_unlock();
+                                                                        if (myPocketUnlock == null) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without local pocket unlock (Participant.sra_unlock null) — refusing");
+                                                                            return;
+                                                                        }
+                                                                        if (partes_rotation.length < 4) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ malformed wire (parts={0}) — refusing", partes_rotation.length);
+                                                                            return;
+                                                                        }
+                                                                        byte[] incomingPieces = Base64.getDecoder().decode(partes_rotation[3]);
+                                                                        // ZERO-TRUST: decodeDeck validates in a SINGLE decode that the
+                                                                        // payload is a multiple of 32 bytes and each point is on-curve /
+                                                                        // canonical (null otherwise); we reuse those points (inR) for the
+                                                                        // lock and the proof without re-decoding. The exact length depends
+                                                                        // on the host's ring; we don't re-derive it, but a non-curve payload
+                                                                        // is always rejected.
+                                                                        com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR
+                                                                                = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingPieces);
+                                                                        if (inR == null) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ payload not a valid curve-point block (len={0}) — refusing",
+                                                                                    incomingPieces == null ? -1 : incomingPieces.length);
+                                                                            crupierRot.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                            return;
+                                                                        }
+                                                                        // Rotation in ONE lock: uPocket then kCommunity = multiply by
+                                                                        // s = uPocket*kCommunity (mod L). We work on the points already
+                                                                        // decoded (inR); the result stays on-curve and its bytes are
+                                                                        // identical to applyCommutativeLock. The same s signs the proof.
+                                                                        java.math.BigInteger sRot = RistrettoSRA.bytesToScalar(myPocketUnlock)
+                                                                                .multiply(RistrettoSRA.bytesToScalar(crupierRot.local_sra_lock_community))
+                                                                                .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
+                                                                        com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR
+                                                                                = RistrettoSRA.lockPoints(inR, RistrettoSRA.scalarToBytes(sRot));
+                                                                        byte[] rotated = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(outR);
+                                                                        // Rotation served: any other one this cascade gets rejected (anti-replay).
+                                                                        crupierRot.rotation_served_this_cascade = true;
+
+                                                                        // Closing the rotation flank: proves our step is an honest in-place
+                                                                        // re-key (out[i]=s*in[i], s=uPocket*kCommunity), with no relocation or
+                                                                        // duplication. The host appends it to the bundle so everyone can
+                                                                        // verify the genesis->MEGAPACKET chain.
+                                                                        String rotProofB64 = "";
+                                                                        try {
+                                                                            byte[] rp = com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
+                                                                                    com.tonikelope.coronapoker.crypto.RotationProof.prove(sRot, inR, outR));
+                                                                            if (rp != null) {
+                                                                                rotProofB64 = Base64.getEncoder().encodeToString(rp);
+                                                                            }
+                                                                        } catch (Exception rotProofEx) {
+                                                                            rotProofB64 = ""; // no proof -> host marks the step as remote-pending, nothing breaks
+                                                                        }
+
+                                                                        String b64Rot = Base64.getEncoder().encodeToString(rotated);
+                                                                        String myNickB64Rot = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
+                                                                        int respIdRot = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                        writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot + "#" + rotProofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    } catch (Exception e) {
+                                                                        LOGGER.log(Level.SEVERE, "Failed to process DECK_ROTATION_REQ; host will time out and abort the hand", e);
                                                                     }
+                                                                });
+                                                                break;
 
-                                                                    String b64Rot = Base64.getEncoder().encodeToString(rotated);
-                                                                    String myNickB64Rot = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
-                                                                    int respIdRot = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot + "#" + rotProofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
-                                                                } catch (Exception e) {
-                                                                    LOGGER.log(Level.SEVERE, "Failed to process DECK_ROTATION_REQ; host will time out and abort the hand", e);
-                                                                }
-                                                            });
-                                                            break;
-
-                                                        case "DUALLOCK_BUNDLE":
-                                                            // Each peer verifies ON ITS OWN that the deal is an honest
-                                                            // shuffle+rotation genesis->MEGAPACKET. pocketCount is derived
-                                                            // LOCALLY (active_crypto_ring.length*2), NEVER from the host, and the
-                                                            // genesis is recomputed. On failure -> warn+recommend leaving but
-                                                            // ALLOW continuing (in case it's a bug), no hard abort. Background,
-                                                            // doesn't touch the UI.
-                                                            final String[] partes_bundle = partes_comando;
-                                                            Helpers.threadRun(() -> {
-                                                                Crupier cruB = GameFrame.getInstance().getCrupier();
-                                                                // State not ready yet (race with MEGAPACKET processing): NOT
-                                                                // suspicious, ignore silently.
-                                                                if (cruB == null || cruB.local_mega_packet == null || cruB.active_crypto_ring == null) {
-                                                                    return;
-                                                                }
-                                                                // A bundle for this deck ARRIVED from the host: mark it before
-                                                                // parsing/verifying. This distinguishes, on receipt, a slow peer
-                                                                // (received, queue pending -> benign) from a host that never sends the
-                                                                // proof (received != live deck -> warn the table). Even if it arrives
-                                                                // malformed/unparseable, the host sent SOMETHING -> counts as received
-                                                                // (those cases already trigger their own warnSuspiciousHost live below).
-                                                                cruB.dual_lock_bundle_received_for = cruB.local_mega_packet;
-                                                                // A bundle that was RECEIVED but malformed (AES+HMAC channel -> came
-                                                                // from the host intact) is anomalous: an honest host always sends 7
-                                                                // valid fields.
-                                                                if (partes_bundle.length < 7) {
-                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformed (fields={0}) — warning user", partes_bundle.length);
-                                                                    cruB.markShuffleProofFailed(cruB.local_mega_packet);
-                                                                    cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
-                                                                    return;
-                                                                }
-                                                                try {
-                                                                    // Immutable SNAPSHOT of THIS deck+bundle, queued serially. The
-                                                                    // verify runs against this snapshot, NOT against the live
-                                                                    // local_mega_packet: a new hand can no longer clobber this
-                                                                    // verification, and a slow team still finishes it even if the hand
-                                                                    // has moved on (catching a past smuggle). The verdict comes back
-                                                                    // through the Sink (see Crupier).
-                                                                    byte[] genesisB = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck();
-                                                                    int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
-                                                                    ShuffleVerificationQueue.Job job = new ShuffleVerificationQueue.Job(
-                                                                            genesisB, csvToBytes(partes_bundle[3]), csvToBytes(partes_bundle[4]),
-                                                                            pocketCount, cruB.local_mega_packet,
-                                                                            csvToBytes(partes_bundle[5]), csvToBytes(partes_bundle[6]),
-                                                                            cruB.getMano());
-                                                                    if (!cruB.getShuffleVerifyQueue().enqueue(job)) {
+                                                            case "DUALLOCK_BUNDLE":
+                                                                // Each peer verifies ON ITS OWN that the deal is an honest
+                                                                // shuffle+rotation genesis->MEGAPACKET. pocketCount is derived
+                                                                // LOCALLY (active_crypto_ring.length*2), NEVER from the host, and the
+                                                                // genesis is recomputed. On failure -> warn+recommend leaving but
+                                                                // ALLOW continuing (in case it's a bug), no hard abort. Background,
+                                                                // doesn't touch the UI.
+                                                                final String[] partes_bundle = partes_comando;
+                                                                Helpers.threadRun(() -> {
+                                                                    Crupier cruB = GameFrame.getInstance().getCrupier();
+                                                                    // State not ready yet (race with MEGAPACKET processing): NOT
+                                                                    // suspicious, ignore silently.
+                                                                    if (cruB == null || cruB.local_mega_packet == null || cruB.active_crypto_ring == null) {
+                                                                        return;
+                                                                    }
+                                                                    // A bundle for this deck ARRIVED from the host: mark it before
+                                                                    // parsing/verifying. This distinguishes, on receipt, a slow peer
+                                                                    // (received, queue pending -> benign) from a host that never sends the
+                                                                    // proof (received != live deck -> warn the table). Even if it arrives
+                                                                    // malformed/unparseable, the host sent SOMETHING -> counts as received
+                                                                    // (those cases already trigger their own warnSuspiciousHost live below).
+                                                                    cruB.dual_lock_bundle_received_for = cruB.local_mega_packet;
+                                                                    // A bundle that was RECEIVED but malformed (AES+HMAC channel -> came
+                                                                    // from the host intact) is anomalous: an honest host always sends 7
+                                                                    // valid fields.
+                                                                    if (partes_bundle.length < 7) {
+                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformed (fields={0}) — warning user", partes_bundle.length);
+                                                                        cruB.markShuffleProofFailed(cruB.local_mega_packet);
+                                                                        cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                        return;
+                                                                    }
+                                                                    try {
+                                                                        // Immutable SNAPSHOT of THIS deck+bundle, queued serially. The
+                                                                        // verify runs against this snapshot, NOT against the live
+                                                                        // local_mega_packet: a new hand can no longer clobber this
+                                                                        // verification, and a slow team still finishes it even if the hand
+                                                                        // has moved on (catching a past smuggle). The verdict comes back
+                                                                        // through the Sink (see Crupier).
+                                                                        byte[] genesisB = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck();
+                                                                        int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
+                                                                        ShuffleVerificationQueue.Job job = new ShuffleVerificationQueue.Job(
+                                                                                genesisB, csvToBytes(partes_bundle[3]), csvToBytes(partes_bundle[4]),
+                                                                                pocketCount, cruB.local_mega_packet,
+                                                                                csvToBytes(partes_bundle[5]), csvToBytes(partes_bundle[6]),
+                                                                                cruB.getMano());
+                                                                        if (!cruB.getShuffleVerifyQueue().enqueue(job)) {
+                                                                            cruB.markShuffleProofFailed(cruB.local_mega_packet);
+                                                                            cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                        }
+                                                                    } catch (Exception bundleEx) {
+                                                                        // Unparseable (invalid base64, etc.) = anomalous but ambiguous -> warn.
+                                                                        // (Only jobs that DO parse and then fail the proof are reported as
+                                                                        // "proven dishonest" from the queue; this is just malformation.)
+                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE unparseable — warning user", bundleEx);
                                                                         cruB.markShuffleProofFailed(cruB.local_mega_packet);
                                                                         cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                     }
-                                                                } catch (Exception bundleEx) {
-                                                                    // Unparseable (invalid base64, etc.) = anomalous but ambiguous -> warn.
-                                                                    // (Only jobs that DO parse and then fail the proof are reported as
-                                                                    // "proven dishonest" from the queue; this is just malformation.)
-                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE unparseable — warning user", bundleEx);
-                                                                    cruB.markShuffleProofFailed(cruB.local_mega_packet);
-                                                                    cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
-                                                                }
-                                                            });
-                                                            break;
+                                                                });
+                                                                break;
 
-                                                        case "REQ_SRA_UNLOCK_CHAIN":
-                                                            // VERIFIABLE unlock batch. For each point, the host sends the
-                                                            // DealChain of previous peers; this peer verifies it against ITS
-                                                            // committed MEGAPACKET and, if valid, applies its unlock with a DLEQ
-                                                            // proof and extends the chain. The host never sends it the point to
-                                                            // decrypt (only offset + proofs), so blinding is impossible.
-                                                            final String[] partes_chain = partes_comando;
-                                                            Helpers.threadRun(() -> {
-                                                                try {
-                                                                    if (Crupier.SECURITY_LOCKDOWN) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN refused — security lockdown active");
-                                                                        return;
-                                                                    }
-                                                                    if (partes_chain.length < 6) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN malformed wire (parts={0}) — refusing", partes_chain.length);
-                                                                        return;
-                                                                    }
-                                                                    int phase;
-                                                                    int hand_id;
+                                                            case "REQ_SRA_UNLOCK_CHAIN":
+                                                                // VERIFIABLE unlock batch. For each point, the host sends the
+                                                                // DealChain of previous peers; this peer verifies it against ITS
+                                                                // committed MEGAPACKET and, if valid, applies its unlock with a DLEQ
+                                                                // proof and extends the chain. The host never sends it the point to
+                                                                // decrypt (only offset + proofs), so blinding is impossible.
+                                                                final String[] partes_chain = partes_comando;
+                                                                Helpers.threadRun(() -> {
                                                                     try {
-                                                                        phase = Integer.parseInt(partes_chain[3]);
-                                                                        hand_id = Integer.parseInt(partes_chain[4]);
-                                                                    } catch (NumberFormatException nfe) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN non-numeric phase/hand_id — refusing");
-                                                                        return;
-                                                                    }
-                                                                    String payloadChain = partes_chain[5];
-                                                                    Crupier crupier = GameFrame.getInstance().getCrupier();
-                                                                    if (crupier == null) {
-                                                                        return;
-                                                                    }
-                                                                    Crupier.UnlockWaitResult waitResult = crupier.awaitStreetForUnlockPhase(phase, hand_id, Crupier.UNLOCK_WAIT_TIMEOUT_MS);
-                                                                    if (waitResult != Crupier.UnlockWaitResult.READY) {
-                                                                        if (waitResult == Crupier.UnlockWaitResult.TIMEOUT) {
-                                                                            // Policy: a TIMEOUT is ambiguous evidence (host out of order OR plain
-                                                                            // network lag, indistinguishable). The operation is ALREADY rejected
-                                                                            // (return below), so we lose no protection; we downgrade from
-                                                                            // lockdown to SOFT-WARN (warn+recommend leaving but allow continuing)
-                                                                            // instead of ending the game over something that could be lag.
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order or lag, refusing + warning", phase);
-                                                                            crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_unlock_out_of_order"));
+                                                                        if (Crupier.SECURITY_LOCKDOWN) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN refused — security lockdown active");
+                                                                            return;
                                                                         }
-                                                                        return;
-                                                                    }
-                                                                    if (hand_id != crupier.getMano()) {
-                                                                        LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK_CHAIN: hand advanced — dropping");
-                                                                        return;
-                                                                    }
-                                                                    // POCKET_STRADDLE (the straddler's deferred unlock) uses the POCKET
-                                                                    // half, same as POCKET: strips my pocket-lock from the straddler's slot.
-                                                                    boolean pocketPhase = (phase == Crupier.UNLOCK_PHASE_POCKET
-                                                                            || phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE);
-                                                                    byte[] myUnlock = pocketPhase
-                                                                            ? this.participantes.get(local_nick).getSra_unlock()
-                                                                            : this.participantes.get(local_nick).getSra_unlock_community();
-                                                                    if (myUnlock == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN no local unlock for phase {0} — refusing", phase);
-                                                                        return;
-                                                                    }
-                                                                    byte[] myLock = RistrettoSRA.getUnlockScalar(myUnlock); // k = (k^-1)^-1
-                                                                    java.util.Map<String, byte[]> commitments = pocketPhase
-                                                                            ? crupier.peer_k_pocket : crupier.peer_k_community;
-                                                                    byte[] megapacket = crupier.local_mega_packet;
-                                                                    String[] ring = crupier.active_crypto_ring;
-                                                                    if (megapacket == null || ring == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
-                                                                        return;
-                                                                    }
-                                                                    // Fail closed at the smuggling read window. A proof still queued may
-                                                                    // finish during the bounded wait; missing, malformed or dishonest proof
-                                                                    // enters lockdown and this peer never contributes a community unlock.
-                                                                    if (crupier.awaitShuffleProofGate(phase,
-                                                                            Crupier.SHUFFLE_PROOF_GATE_TIMEOUT_MS)
-                                                                            != Crupier.ShuffleProofGateDecision.ALLOW) {
-                                                                        crupier.markShuffleProofFailed(megapacket);
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: refusing community unlock without a verified honest-shuffle proof");
-                                                                        crupier.triggerSecurityLockdown(
-                                                                                Translator.translate("zero_trust.host_shuffle_proof_failed"));
-                                                                        return;
-                                                                    }
-                                                                    java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
-                                                                    if (items == null) {
-                                                                        // STRUCTURAL malformation (fails to parse) -> almost certainly a
-                                                                        // bug/version mismatch. The op is already rejected (return);
-                                                                        // SILENT-REFUSE, no lockdown. Consistent with this same handler's
-                                                                        // malformed-wire twin (< 6 fields, also silent).
-                                                                        LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK_CHAIN malformed items — refusing (silent: likely a bug)");
-                                                                        return;
-                                                                    }
-                                                                    // My own slot in the ring: I must NEVER strip my own lock from MY
-                                                                    // pocket (megapacket[mySlot*2], [mySlot*2+1]). The host controls
-                                                                    // offsetBase independently of peerIdx, so the correct guard is on the
-                                                                    // stripped POINT (pointIdx), not on the peerIdx label: otherwise a
-                                                                    // hostile host sends peerIdx=someone-else + offsetBase=mySlot*2 and
-                                                                    // extracts my cards.
-                                                                    int mySlot = -1;
-                                                                    for (int s = 0; s < ring.length; s++) {
-                                                                        if (ring[s].equals(local_nick)) {
-                                                                            mySlot = s;
-                                                                            break;
+                                                                        if (partes_chain.length < 6) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN malformed wire (parts={0}) — refusing", partes_chain.length);
+                                                                            return;
                                                                         }
-                                                                    }
-                                                                    // ANTI "peek at the future board": in a COMMUNITY phase, the slot the
-                                                                    // host asks me to strip MUST fall within the slots THAT phase is
-                                                                    // allowed to touch (derived LOCALLY: see Crupier.communitySlotRange).
-                                                                    // The host controls offsetBase; if it asks for a slot from another
-                                                                    // street (turn/river during the flop) it's reading the board ahead of
-                                                                    // time -> an attack on me -> lockdown. POCKET (commRange==null) is
-                                                                    // already covered by the disjoint scalar space + the self-strip check
-                                                                    // below.
-                                                                    final int[] commRange = Crupier.communitySlotRange(phase, ring.length);
-                                                                    // Blind straddle: under POCKET_STRADDLE the ONLY slot I may strip is
-                                                                    // the straddler's, whose SIGNED decision I verified. The state gate
-                                                                    // already required a verified decision to exist; here I pin the slot:
-                                                                    // if the host asks for a different slot under this phase, it's trying
-                                                                    // to extract someone else's pocket -> lockdown.
-                                                                    int straddlePocketSlot = -1;
-                                                                    if (phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE) {
-                                                                        String sNick = crupier.getStraddleDecisionVerifiedNick();
-                                                                        if (sNick != null) {
-                                                                            for (int s = 0; s < ring.length; s++) {
-                                                                                if (ring[s].equals(sNick)) {
-                                                                                    straddlePocketSlot = s;
-                                                                                    break;
+                                                                        int phase;
+                                                                        int hand_id;
+                                                                        try {
+                                                                            phase = Integer.parseInt(partes_chain[3]);
+                                                                            hand_id = Integer.parseInt(partes_chain[4]);
+                                                                        } catch (NumberFormatException nfe) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN non-numeric phase/hand_id — refusing");
+                                                                            return;
+                                                                        }
+                                                                        String payloadChain = partes_chain[5];
+                                                                        Crupier crupier = GameFrame.getInstance().getCrupier();
+                                                                        if (crupier == null) {
+                                                                            return;
+                                                                        }
+                                                                        Crupier.UnlockWaitResult waitResult = crupier.awaitStreetForUnlockPhase(phase, hand_id, Crupier.UNLOCK_WAIT_TIMEOUT_MS);
+                                                                        if (waitResult != Crupier.UnlockWaitResult.READY) {
+                                                                            if (waitResult == Crupier.UnlockWaitResult.TIMEOUT) {
+                                                                                // Policy: a TIMEOUT is ambiguous evidence (host out of order OR plain
+                                                                                // network lag, indistinguishable). The operation is ALREADY rejected
+                                                                                // (return below), so we lose no protection; we downgrade from
+                                                                                // lockdown to SOFT-WARN (warn+recommend leaving but allow continuing)
+                                                                                // instead of ending the game over something that could be lag.
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order or lag, refusing + warning", phase);
+                                                                                crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_unlock_out_of_order"));
+                                                                            }
+                                                                            return;
+                                                                        }
+                                                                        if (hand_id != crupier.getMano()) {
+                                                                            LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK_CHAIN: hand advanced — dropping");
+                                                                            return;
+                                                                        }
+                                                                        // POCKET_STRADDLE (the straddler's deferred unlock) uses the POCKET
+                                                                        // half, same as POCKET: strips my pocket-lock from the straddler's slot.
+                                                                        boolean pocketPhase = (phase == Crupier.UNLOCK_PHASE_POCKET
+                                                                                || phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE);
+                                                                        byte[] myUnlock = pocketPhase
+                                                                                ? this.participantes.get(local_nick).getSra_unlock()
+                                                                                : this.participantes.get(local_nick).getSra_unlock_community();
+                                                                        if (myUnlock == null) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN no local unlock for phase {0} — refusing", phase);
+                                                                            return;
+                                                                        }
+                                                                        byte[] myLock = RistrettoSRA.getUnlockScalar(myUnlock); // k = (k^-1)^-1
+                                                                        java.util.Map<String, byte[]> commitments = pocketPhase
+                                                                                ? crupier.peer_k_pocket : crupier.peer_k_community;
+                                                                        byte[] megapacket = crupier.local_mega_packet;
+                                                                        String[] ring = crupier.active_crypto_ring;
+                                                                        if (megapacket == null || ring == null) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
+                                                                            return;
+                                                                        }
+                                                                        // Fail closed at the smuggling read window. A proof still queued may
+                                                                        // finish during the bounded wait; missing, malformed or dishonest proof
+                                                                        // enters lockdown and this peer never contributes a community unlock.
+                                                                        if (crupier.awaitShuffleProofGate(phase,
+                                                                                Crupier.SHUFFLE_PROOF_GATE_TIMEOUT_MS)
+                                                                                != Crupier.ShuffleProofGateDecision.ALLOW) {
+                                                                            crupier.markShuffleProofFailed(megapacket);
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: refusing community unlock without a verified honest-shuffle proof");
+                                                                            crupier.triggerSecurityLockdown(
+                                                                                    Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                            return;
+                                                                        }
+                                                                        java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
+                                                                        if (items == null) {
+                                                                            // STRUCTURAL malformation (fails to parse) -> almost certainly a
+                                                                            // bug/version mismatch. The op is already rejected (return);
+                                                                            // SILENT-REFUSE, no lockdown. Consistent with this same handler's
+                                                                            // malformed-wire twin (< 6 fields, also silent).
+                                                                            LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK_CHAIN malformed items — refusing (silent: likely a bug)");
+                                                                            return;
+                                                                        }
+                                                                        // My own slot in the ring: I must NEVER strip my own lock from MY
+                                                                        // pocket (megapacket[mySlot*2], [mySlot*2+1]). The host controls
+                                                                        // offsetBase independently of peerIdx, so the correct guard is on the
+                                                                        // stripped POINT (pointIdx), not on the peerIdx label: otherwise a
+                                                                        // hostile host sends peerIdx=someone-else + offsetBase=mySlot*2 and
+                                                                        // extracts my cards.
+                                                                        int mySlot = -1;
+                                                                        for (int s = 0; s < ring.length; s++) {
+                                                                            if (ring[s].equals(local_nick)) {
+                                                                                mySlot = s;
+                                                                                break;
+                                                                            }
+                                                                        }
+                                                                        // ANTI "peek at the future board": in a COMMUNITY phase, the slot the
+                                                                        // host asks me to strip MUST fall within the slots THAT phase is
+                                                                        // allowed to touch (derived LOCALLY: see Crupier.communitySlotRange).
+                                                                        // The host controls offsetBase; if it asks for a slot from another
+                                                                        // street (turn/river during the flop) it's reading the board ahead of
+                                                                        // time -> an attack on me -> lockdown. POCKET (commRange==null) is
+                                                                        // already covered by the disjoint scalar space + the self-strip check
+                                                                        // below.
+                                                                        final int[] commRange = Crupier.communitySlotRange(phase, ring.length);
+                                                                        // Blind straddle: under POCKET_STRADDLE the ONLY slot I may strip is
+                                                                        // the straddler's, whose SIGNED decision I verified. The state gate
+                                                                        // already required a verified decision to exist; here I pin the slot:
+                                                                        // if the host asks for a different slot under this phase, it's trying
+                                                                        // to extract someone else's pocket -> lockdown.
+                                                                        int straddlePocketSlot = -1;
+                                                                        if (phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE) {
+                                                                            String sNick = crupier.getStraddleDecisionVerifiedNick();
+                                                                            if (sNick != null) {
+                                                                                for (int s = 0; s < ring.length; s++) {
+                                                                                    if (ring[s].equals(sNick)) {
+                                                                                        straddlePocketSlot = s;
+                                                                                        break;
+                                                                                    }
                                                                                 }
                                                                             }
-                                                                        }
-                                                                        if (straddlePocketSlot < 0) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE without a verified straddler slot — refusing");
-                                                                            return;
-                                                                        }
-                                                                    }
-                                                                    // Blind straddle (RESPONDER-side defense, closes the POCKET-phase
-                                                                    // bypass): I compute the blind straddler's slot for this hand MYSELF
-                                                                    // (I have utg_nick via POSITIONS, STRADDLE, and the set of active
-                                                                    // players). Under the normal POCKET phase that slot is UNTOUCHABLE
-                                                                    // (only strippable under POCKET_STRADDLE with a signed decision).
-                                                                    // Without this, a hostile host — especially when IT is the UTG — could
-                                                                    // request the unlock under POCKET (no signature gate) and resolve its
-                                                                    // own cards before committing, defeating the blind.
-                                                                    final int blindStraddlerSlot = crupier.blindStraddlerSlot();
-                                                                    java.util.List<UnlockChainWire.RespItem> resp = new java.util.ArrayList<>();
-                                                                    for (UnlockChainWire.ReqItem it : items) {
-                                                                        if (it.peerIdx >= 0 && it.peerIdx < ring.length && ring[it.peerIdx].equals(local_nick)) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to unlock my own slot — extraction, refusing");
-                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
-                                                                            return;
-                                                                        }
-                                                                        if (commRange != null) {
-                                                                            // long for the same reason as the loop below: offsetBase comes
-                                                                            // from the wire and in int the sum would overflow to negative,
-                                                                            // which would let this window guard wave through a huge offset.
-                                                                            // UnlockChainWire already bounds it at parse time; this was the
-                                                                            // last bit of arithmetic in the handler still depending on that.
-                                                                            long reqLast = (long) it.offsetBase + it.chains.size() - 1;
-                                                                            if (it.chains.isEmpty() || it.offsetBase < commRange[0] || reqLast >= commRange[0] + commRange[1]) {
-                                                                                LOGGER.log(Level.SEVERE,
-                                                                                        "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset {0}(+{1}) outside phase {2} community slots [{3},{4}) — host reading the future board, refusing",
-                                                                                        new Object[]{it.offsetBase, it.chains.size(), phase, commRange[0], commRange[0] + commRange[1]});
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_board_peek"));
+                                                                            if (straddlePocketSlot < 0) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE without a verified straddler slot — refusing");
                                                                                 return;
                                                                             }
                                                                         }
-                                                                        java.util.List<String> outChains = new java.util.ArrayList<>();
-                                                                        for (int j = 0; j < it.chains.size(); j++) {
-                                                                            // Deliberate long arithmetic: offsetBase comes from the wire and
-                                                                            // pointIdx * 32 in int overflows at 2^27 points (= 2^32 bytes),
-                                                                            // wrapping back into the valid range and defeating both this
-                                                                            // guard and the slot equality checks below. UnlockChainWire
-                                                                            // already bounds offsetBase at parse time; this closes it here
-                                                                            // too, without relying on that.
-                                                                            long pointIdx = (long) it.offsetBase + j;
-                                                                            if (pointIdx < 0 || (pointIdx + 1) * 32L > megapacket.length) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset out of range — refusing");
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
-                                                                                return;
-                                                                            }
-                                                                            // Real defense against the back-door oracle: even if the
-                                                                            // megapacket anchoring is valid, I NEVER strip a point from MY pocket.
-                                                                            if ((phase == Crupier.UNLOCK_PHASE_POCKET || phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE)
-                                                                                    && mySlot >= 0
-                                                                                    && (pointIdx == mySlot * 2 || pointIdx == mySlot * 2 + 1)) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to strip my OWN pocket (offset {0}) — extraction, refusing", pointIdx);
+                                                                        // Blind straddle (RESPONDER-side defense, closes the POCKET-phase
+                                                                        // bypass): I compute the blind straddler's slot for this hand MYSELF
+                                                                        // (I have utg_nick via POSITIONS, STRADDLE, and the set of active
+                                                                        // players). Under the normal POCKET phase that slot is UNTOUCHABLE
+                                                                        // (only strippable under POCKET_STRADDLE with a signed decision).
+                                                                        // Without this, a hostile host — especially when IT is the UTG — could
+                                                                        // request the unlock under POCKET (no signature gate) and resolve its
+                                                                        // own cards before committing, defeating the blind.
+                                                                        final int blindStraddlerSlot = crupier.blindStraddlerSlot();
+                                                                        java.util.List<UnlockChainWire.RespItem> resp = new java.util.ArrayList<>();
+                                                                        for (UnlockChainWire.ReqItem it : items) {
+                                                                            if (it.peerIdx >= 0 && it.peerIdx < ring.length && ring[it.peerIdx].equals(local_nick)) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to unlock my own slot — extraction, refusing");
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                                 return;
                                                                             }
-                                                                            // Blind straddle: under POCKET_STRADDLE the stripped point MUST be
-                                                                            // one of the 2 from the verified straddler's slot; any other one
-                                                                            // means extraction of someone else's pocket.
-                                                                            if (phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE
-                                                                                    && pointIdx != straddlePocketSlot * 2 && pointIdx != straddlePocketSlot * 2 + 1) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE asked to strip non-straddler slot (offset {0}) — extraction, refusing", pointIdx);
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
-                                                                                return;
+                                                                            if (commRange != null) {
+                                                                                // long for the same reason as the loop below: offsetBase comes
+                                                                                // from the wire and in int the sum would overflow to negative,
+                                                                                // which would let this window guard wave through a huge offset.
+                                                                                // UnlockChainWire already bounds it at parse time; this was the
+                                                                                // last bit of arithmetic in the handler still depending on that.
+                                                                                long reqLast = (long) it.offsetBase + it.chains.size() - 1;
+                                                                                if (it.chains.isEmpty() || it.offsetBase < commRange[0] || reqLast >= commRange[0] + commRange[1]) {
+                                                                                    LOGGER.log(Level.SEVERE,
+                                                                                            "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset {0}(+{1}) outside phase {2} community slots [{3},{4}) — host reading the future board, refusing",
+                                                                                            new Object[]{it.offsetBase, it.chains.size(), phase, commRange[0], commRange[0] + commRange[1]});
+                                                                                    crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_board_peek"));
+                                                                                    return;
+                                                                                }
                                                                             }
-                                                                            // Blind straddle (bypass closure): under NORMAL POCKET the blind
-                                                                            // straddler's slot is UNTOUCHABLE — it's only stripped under
-                                                                            // POCKET_STRADDLE with a signed decision. Requesting it via POCKET =
-                                                                            // an attempt to skip the signature gate (seeing the cards before
-                                                                            // committing, especially a host-straddler on its own) -> extraction
-                                                                            // -> lockdown.
-                                                                            if (phase == Crupier.UNLOCK_PHASE_POCKET && blindStraddlerSlot >= 0
-                                                                                    && (pointIdx == blindStraddlerSlot * 2 || pointIdx == blindStraddlerSlot * 2 + 1)) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET asked to strip the blind-straddler slot (offset {0}) — requires POCKET_STRADDLE with a signed decision, refusing", pointIdx);
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
-                                                                                return;
+                                                                            java.util.List<String> outChains = new java.util.ArrayList<>();
+                                                                            for (int j = 0; j < it.chains.size(); j++) {
+                                                                                // Deliberate long arithmetic: offsetBase comes from the wire and
+                                                                                // pointIdx * 32 in int overflows at 2^27 points (= 2^32 bytes),
+                                                                                // wrapping back into the valid range and defeating both this
+                                                                                // guard and the slot equality checks below. UnlockChainWire
+                                                                                // already bounds offsetBase at parse time; this closes it here
+                                                                                // too, without relying on that.
+                                                                                long pointIdx = (long) it.offsetBase + j;
+                                                                                if (pointIdx < 0 || (pointIdx + 1) * 32L > megapacket.length) {
+                                                                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset out of range — refusing");
+                                                                                    crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                                    return;
+                                                                                }
+                                                                                // Real defense against the back-door oracle: even if the
+                                                                                // megapacket anchoring is valid, I NEVER strip a point from MY pocket.
+                                                                                if ((phase == Crupier.UNLOCK_PHASE_POCKET || phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE)
+                                                                                        && mySlot >= 0
+                                                                                        && (pointIdx == mySlot * 2 || pointIdx == mySlot * 2 + 1)) {
+                                                                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to strip my OWN pocket (offset {0}) — extraction, refusing", pointIdx);
+                                                                                    crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    return;
+                                                                                }
+                                                                                // Blind straddle: under POCKET_STRADDLE the stripped point MUST be
+                                                                                // one of the 2 from the verified straddler's slot; any other one
+                                                                                // means extraction of someone else's pocket.
+                                                                                if (phase == Crupier.UNLOCK_PHASE_POCKET_STRADDLE
+                                                                                        && pointIdx != straddlePocketSlot * 2 && pointIdx != straddlePocketSlot * 2 + 1) {
+                                                                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE asked to strip non-straddler slot (offset {0}) — extraction, refusing", pointIdx);
+                                                                                    crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    return;
+                                                                                }
+                                                                                // Blind straddle (bypass closure): under NORMAL POCKET the blind
+                                                                                // straddler's slot is UNTOUCHABLE — it's only stripped under
+                                                                                // POCKET_STRADDLE with a signed decision. Requesting it via POCKET =
+                                                                                // an attempt to skip the signature gate (seeing the cards before
+                                                                                // committing, especially a host-straddler on its own) -> extraction
+                                                                                // -> lockdown.
+                                                                                if (phase == Crupier.UNLOCK_PHASE_POCKET && blindStraddlerSlot >= 0
+                                                                                        && (pointIdx == blindStraddlerSlot * 2 || pointIdx == blindStraddlerSlot * 2 + 1)) {
+                                                                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET asked to strip the blind-straddler slot (offset {0}) — requires POCKET_STRADDLE with a signed decision, refusing", pointIdx);
+                                                                                    crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    return;
+                                                                                }
+                                                                                byte[] point = java.util.Arrays.copyOfRange(megapacket, (int) (pointIdx * 32L), (int) ((pointIdx + 1) * 32L));
+                                                                                DealChain.Extended ext = DealChain.extend(point, it.chains.get(j), commitments, local_nick, myLock);
+                                                                                if (ext == null) {
+                                                                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN chain not anchored/invalid (offset {0}) — extraction or tampering, refusing", pointIdx);
+                                                                                    crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    return;
+                                                                                }
+                                                                                // GATE 6 (community/rabbit): after stripping MY community-lock the
+                                                                                // residual must NEVER be genesis — that would mean the host handed
+                                                                                // me the "every lock except mine" chain so I'd reveal the card ahead
+                                                                                // of time. With the binding, blinding is impossible, so a genesis
+                                                                                // here is guaranteed extraction. (Under POCKET the self-strip guard
+                                                                                // already covers the analogous flank and the intermediate residual
+                                                                                // never reaches genesis.)
+                                                                                if (phase != Crupier.UNLOCK_PHASE_POCKET
+                                                                                        && RistrettoSRA.resolveCardIndex(ext.residual) >= 0) {
+                                                                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN community strip reveals genesis (offset {0}) — extraction, refusing", pointIdx);
+                                                                                    crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_extraction"));
+                                                                                    return;
+                                                                                }
+                                                                                outChains.add(ext.wire);
                                                                             }
-                                                                            byte[] point = java.util.Arrays.copyOfRange(megapacket, (int) (pointIdx * 32L), (int) ((pointIdx + 1) * 32L));
-                                                                            DealChain.Extended ext = DealChain.extend(point, it.chains.get(j), commitments, local_nick, myLock);
-                                                                            if (ext == null) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN chain not anchored/invalid (offset {0}) — extraction or tampering, refusing", pointIdx);
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
-                                                                                return;
-                                                                            }
-                                                                            // GATE 6 (community/rabbit): after stripping MY community-lock the
-                                                                            // residual must NEVER be genesis — that would mean the host handed
-                                                                            // me the "every lock except mine" chain so I'd reveal the card ahead
-                                                                            // of time. With the binding, blinding is impossible, so a genesis
-                                                                            // here is guaranteed extraction. (Under POCKET the self-strip guard
-                                                                            // already covers the analogous flank and the intermediate residual
-                                                                            // never reaches genesis.)
-                                                                            if (phase != Crupier.UNLOCK_PHASE_POCKET
-                                                                                    && RistrettoSRA.resolveCardIndex(ext.residual) >= 0) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN community strip reveals genesis (offset {0}) — extraction, refusing", pointIdx);
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_extraction"));
-                                                                                return;
-                                                                            }
-                                                                            outChains.add(ext.wire);
+                                                                            resp.add(new UnlockChainWire.RespItem(it.peerIdx, outChains));
                                                                         }
-                                                                        resp.add(new UnlockChainWire.RespItem(it.peerIdx, outChains));
-                                                                    }
-                                                                    String respPayload = UnlockChainWire.serializeResp(resp);
-                                                                    int respIdChain = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdChain + "#RESP_SRA_UNLOCK_CHAIN#" + myNickB64 + "#" + respPayload, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
-                                                                } catch (Exception e) {
-                                                                    LOGGER.log(Level.SEVERE, "Failed to process REQ_SRA_UNLOCK_CHAIN; host will time out and abort", e);
-                                                                }
-                                                            });
-                                                            break;
-                                                        case "H_CHECK":
-                                                            // Identity: debug-only chain divergence probe. The host
-                                                            // broadcasts its H_t after every action when
-                                                            // HandStateChain.DEBUG_HANDCHAIN is on; clients compare it to
-                                                            // their own absorbed chain and log SEVERE on mismatch. The case
-                                                            // is always wired (cheap no-op when the flag is off in release
-                                                            // builds) so probes from a debug host never crash a release client.
-                                                            try {
-                                                                String hcheckNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                byte[] hostHash = Base64.getDecoder().decode(partes_comando[4]);
-                                                                Crupier hcheckC = GameFrame.getInstance().getCrupier();
-                                                                if (HandStateChain.DEBUG_HANDCHAIN && hcheckC != null && hcheckC.hand_state_chain != null) {
-                                                                    byte[] localHash = hcheckC.hand_state_chain.getCurrentHash();
-                                                                    if (!java.util.Arrays.equals(localHash, hostHash)) {
-                                                                        LOGGER.log(Level.SEVERE,
-                                                                                "H_CHECK DIVERGENCE after {0}'s action: host={1} local={2}",
-                                                                                new Object[]{hcheckNick,
-                                                                                    Base64.getEncoder().encodeToString(hostHash),
-                                                                                    Base64.getEncoder().encodeToString(localHash)});
-                                                                    } else {
-                                                                        LOGGER.log(Level.INFO,
-                                                                                "H_CHECK match after {0}'s action: {1}",
-                                                                                new Object[]{hcheckNick,
-                                                                                    Base64.getEncoder().encodeToString(localHash)});
-                                                                    }
-                                                                }
-                                                            } catch (Exception e) {
-                                                                // Debug-only command: never tear down the socket thread.
-                                                            }
-                                                            break;
-                                                        case "TELEMETRY":
-                                                            // Telemetry. The payload's wire format uses '#' as an internal
-                                                            // separator (timestamp#entries), so if the GAME command's
-                                                            // split('#') produced more than 4 parts, parts[3..end] must be
-                                                            // rejoined with '#' to reconstruct the original payload before
-                                                            // decoding.
-                                                            try {
-                                                                if (partes_comando.length >= 4) {
-                                                                    String payload;
-                                                                    if (partes_comando.length == 4) {
-                                                                        payload = partes_comando[3];
-                                                                    } else {
-                                                                        StringBuilder sb = new StringBuilder();
-                                                                        for (int i = 3; i < partes_comando.length; i++) {
-                                                                            if (i > 3) {
-                                                                                sb.append('#');
-                                                                            }
-                                                                            sb.append(partes_comando[i]);
-                                                                        }
-                                                                        payload = sb.toString();
-                                                                    }
-                                                                    Helpers.TelemetryFrame frame = Helpers.decodeTelemetry(payload);
-                                                                    if (frame != null) {
-                                                                        this.latest_telemetry = frame;
-                                                                        if (GameFrame.getInstance() != null
-                                                                                && GameFrame.getInstance().getCrupier() != null) {
-                                                                            GameFrame.getInstance().getCrupier().applyTelemetryFrameLocally(frame);
-                                                                        }
-                                                                    }
-                                                                }
-                                                            } catch (Exception e) {
-                                                                LOGGER.log(Level.WARNING, "Bad TELEMETRY payload — ignored", e);
-                                                            }
-                                                            break;
-                                                        case "TIMEOUT":
-                                                            // Process the timeout command directly in the client UI thread
-                                                            try {
-                                                                String timeoutNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                Helpers.GUIRun(() -> {
-                                                                    if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
-                                                                        Player p = GameFrame.getInstance().getCrupier().getNick2player().get(timeoutNick);
-                                                                        if (p != null) {
-                                                                            // Triggers the visual change (red/purple border and timeout icon)
-                                                                            p.setTimeout(true);
-                                                                        }
+                                                                        String respPayload = UnlockChainWire.serializeResp(resp);
+                                                                        int respIdChain = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                        String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
+                                                                        writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdChain + "#RESP_SRA_UNLOCK_CHAIN#" + myNickB64 + "#" + respPayload, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    } catch (Exception e) {
+                                                                        LOGGER.log(Level.SEVERE, "Failed to process REQ_SRA_UNLOCK_CHAIN; host will time out and abort", e);
                                                                     }
                                                                 });
-                                                            } catch (Exception e) {
-                                                                // Ignore decoding errors to prevent socket thread crash
-                                                            }
-                                                            break;
-                                                        case "YOUARELATE":
-                                                            try {
-                                                                String client_nick2 = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                String ipCliente = partes_comando[4];
-                                                                if (!net_client.getLate_clients_warning().contains(ipCliente)) {
-                                                                    if (GameFrame.entrarSalaSonidoOn()) {
-                                                                        Audio.playWavResource("misc/new_user.wav");
-                                                                    }
-                                                                    net_client.getLate_clients_warning().add(ipCliente);
-                                                                }
-                                                                Helpers.GUIRun(() -> {
-                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick2 + "] " + Translator.translate("game.quiere_entrar_en_la_timba"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), NOTIFICATION_TIMEOUT);
-                                                                    dialog.setLocation(dialog.getParent().getLocation());
-                                                                    dialog.setVisible(true);
-                                                                });
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "IWTSTH":
-                                                            if (GameFrame.getInstance().getCrupier().isShow_time() && !GameFrame.getInstance().getCrupier().isIwtsthing()) {
+                                                                break;
+                                                            case "H_CHECK":
+                                                                // Identity: debug-only chain divergence probe. The host
+                                                                // broadcasts its H_t after every action when
+                                                                // HandStateChain.DEBUG_HANDCHAIN is on; clients compare it to
+                                                                // their own absorbed chain and log SEVERE on mismatch. The case
+                                                                // is always wired (cheap no-op when the flag is off in release
+                                                                // builds) so probes from a debug host never crash a release client.
                                                                 try {
-                                                                    String authNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(authNick);
-                                                                } catch (Exception e) {
-                                                                }
-                                                            }
-                                                            break;
-                                                        case "IWTSTHSHOW":
-                                                            try {
-                                                                String showNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                GameFrame.getInstance().getCrupier().IWTSTH_SHOW(showNick, Boolean.parseBoolean(partes_comando[4]));
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "IWTSTHRULE":
-                                                            // Global host rule. The "Game settings" dialog reflects the flag
-                                                            // when it opens; there's no menu/popup control left to sync.
-                                                            GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
-                                                            break;
-                                                        case "RUNITWICERULE":
-                                                            GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
-                                                            break;
-                                                        case "BOTBALRULE":
-                                                            // Whether bots' balance is split among humans (editable mid-game by
-                                                            // the host). The "Game settings" dialog reflects the flag on open.
-                                                            GameFrame.BOT_BALANCE_TO_HUMANS = "1".equals(partes_comando[3]);
-                                                            break;
-                                                        case "BOTREBUYRULE":
-                                                            // Whether bots rebuy (editable mid-game by the host).
-                                                            GameFrame.BOT_REBUY = "1".equals(partes_comando[3]);
-                                                            break;
-                                                        case "VOICEMSGRULE":
-                                                            // Global host rule. The audio settings dialog reflects the flag
-                                                            // when it opens; there's no menu/popup control left to sync.
-                                                            GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
-                                                            break;
-                                                        case "RIT_VOTE_REQ":
-                                                            Helpers.threadRun(() -> {
-                                                                try {
-                                                                    int rit_timeout = Integer.parseInt(partes_comando[3]);
-                                                                    int rit_total = Integer.parseInt(partes_comando[4]);
-                                                                    double rit_pot = Double.parseDouble(partes_comando[5]);
-                                                                    GameFrame.getInstance().getCrupier().showRitClientVoteDialog(rit_timeout, rit_total, rit_pot);
-                                                                } catch (Exception e) {
-                                                                }
-                                                            });
-                                                            break;
-                                                        case "RIT_VOTE_TALLY":
-                                                            try {
-                                                                GameFrame.getInstance().getCrupier().updateRitClientTally(Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "RIT_VOTE_CLOSE":
-                                                            try {
-                                                                GameFrame.getInstance().getCrupier().closeRitClientDialog("1".equals(partes_comando[3]));
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "RABBITRULE":
-                                                            GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
-                                                            break;
-                                                        case "RABBIT":
-                                                            try {
-                                                                // Gated by HAND_ID (not by show_time): we apply the rabbit if it
-                                                                // belongs to the hand in progress, so the fee/reveal stays
-                                                                // deterministic with the host and the rest of the peers (avoids a
-                                                                // money divergence -> false DIVERGENT). Falls back to show_time if
-                                                                // the peer doesn't send HAND_ID (older version).
-                                                                String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
-                                                                boolean acceptRabbit = (rabbitHid != null)
-                                                                        ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
-                                                                        : GameFrame.getInstance().getCrupier().isShow_time();
-                                                                if (acceptRabbit) {
-                                                                    String rNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
-                                                                            rNick, Integer.parseInt(partes_comando[4]), rabbitHid);
-                                                                }
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "MEGAPACKET":
-                                                            // The REQ_SRA_UNLOCK handler that follows runs on its own threadRun
-                                                            // and needs to see local_mega_packet + active_crypto_ring for its
-                                                            // state machine. If we left the Crupier to set them from its queue,
-                                                            // there'd be a race (another thread processes REQ_SRA_UNLOCK first
-                                                            // and rejects it for hand-not-started). We populate them
-                                                            // synchronously here and forward to the queue so the rest of the
-                                                            // Crupier's flow (decrypting my pocket cards) keeps working exactly
-                                                            // as before.
-                                                            try {
-                                                                Crupier crupierMP = GameFrame.getInstance().getCrupier();
-                                                                String orderStr = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                String[] orderTokens = orderStr.split(",");
-                                                                java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
-                                                                for (String token : orderTokens) {
-                                                                    if (!token.isEmpty()) {
-                                                                        ringList.add(new String(Base64.getDecoder().decode(token), "UTF-8"));
-                                                                    }
-                                                                }
-                                                                crupierMP.active_crypto_ring = ringList.toArray(new String[0]);
-                                                                crupierMP.local_mega_packet = Base64.getDecoder().decode(partes_comando[4]);
-                                                                // Populate the K commitments SYNCHRONOUSLY here. The
-                                                                // REQ_SRA_UNLOCK_CHAIN handler runs on its own threadRun and needs
-                                                                // them; if we relied on recibirMisCartas (the queue's async
-                                                                // consumer) there'd be a race and the binding would verify against
-                                                                // an empty map -> a false lockdown.
-                                                                if (partes_comando.length >= 7) {
-                                                                    crupierMP.parseCommitments(partes_comando[6]);
-                                                                }
-                                                            } catch (Exception e) {
-                                                                LOGGER.log(Level.SEVERE, "Error pre-parsing MEGAPACKET in WaitingRoomFrame; queue handler will retry", e);
-                                                            }
-                                                            synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
-                                                            }
-                                                            break;
-                                                        case "POCKET_CARDS":
-                                                            Helpers.threadRun(() -> {
-                                                                try {
-                                                                    String targetNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    byte[] unlockedByOthers = Base64.getDecoder().decode(partes_comando[4]);
-                                                                    if (unlockedByOthers != null) {
-                                                                        GameFrame.getInstance().getCrupier().single_locked_pocket_cards.put(targetNick, unlockedByOthers);
+                                                                    String hcheckNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    byte[] hostHash = Base64.getDecoder().decode(partes_comando[4]);
+                                                                    Crupier hcheckC = GameFrame.getInstance().getCrupier();
+                                                                    if (HandStateChain.DEBUG_HANDCHAIN && hcheckC != null && hcheckC.hand_state_chain != null) {
+                                                                        byte[] localHash = hcheckC.hand_state_chain.getCurrentHash();
+                                                                        if (!java.util.Arrays.equals(localHash, hostHash)) {
+                                                                            LOGGER.log(Level.SEVERE,
+                                                                                    "H_CHECK DIVERGENCE after {0}'s action: host={1} local={2}",
+                                                                                    new Object[]{hcheckNick,
+                                                                                        Base64.getEncoder().encodeToString(hostHash),
+                                                                                        Base64.getEncoder().encodeToString(localHash)});
+                                                                        } else {
+                                                                            LOGGER.log(Level.INFO,
+                                                                                    "H_CHECK match after {0}'s action: {1}",
+                                                                                    new Object[]{hcheckNick,
+                                                                                        Base64.getEncoder().encodeToString(localHash)});
+                                                                        }
                                                                     }
                                                                 } catch (Exception e) {
+                                                                    // Debug-only command: never tear down the socket thread.
                                                                 }
-                                                            });
-                                                            // Forward to the queue so the Crupier can continue its normal local flow
-                                                            synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
-                                                            }
-                                                            break;
-                                                        case "REBUYNOW":
-                                                            // On a separate thread, mirroring the host side: rebuyNow holds
-                                                            // lock_rebuynow, and our OWN rebuy (client-side branch, EDT) holds it
-                                                            // during a SYNCHRONOUS send that waits for the host's CONF, which
-                                                            // THIS consumer thread reads. If the consumer handled an incoming
-                                                            // REBUYNOW from another player inline, it would block on
-                                                            // lock_rebuynow and never read our own rebuy's CONF -> self-deadlock
-                                                            // (same class of bug as the pause).
-                                                            try {
-                                                                final String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                final int rbBuyin = Integer.parseInt(partes_comando[4]);
-                                                                final long rbSequence = nextRebuyRelaySequence();
-                                                                Helpers.threadRun(() -> GameFrame.getInstance().getCrupier()
-                                                                        .applyRemoteRebuyNow(rbNick, rbBuyin, rbSequence));
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "REBUYDENIED":
-                                                            try {
-                                                                final String dnNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                final int dnLimit = Integer.parseInt(partes_comando[4]);
-                                                                final long dnSequence = nextRebuyRelaySequence();
+                                                                break;
+                                                            case "TELEMETRY":
+                                                                // Telemetry. The payload's wire format uses '#' as an internal
+                                                                // separator (timestamp#entries), so if the GAME command's
+                                                                // split('#') produced more than 4 parts, parts[3..end] must be
+                                                                // rejoined with '#' to reconstruct the original payload before
+                                                                // decoding.
+                                                                try {
+                                                                    if (partes_comando.length >= 4) {
+                                                                        String payload;
+                                                                        if (partes_comando.length == 4) {
+                                                                            payload = partes_comando[3];
+                                                                        } else {
+                                                                            StringBuilder sb = new StringBuilder();
+                                                                            for (int i = 3; i < partes_comando.length; i++) {
+                                                                                if (i > 3) {
+                                                                                    sb.append('#');
+                                                                                }
+                                                                                sb.append(partes_comando[i]);
+                                                                            }
+                                                                            payload = sb.toString();
+                                                                        }
+                                                                        Helpers.TelemetryFrame frame = Helpers.decodeTelemetry(payload);
+                                                                        if (frame != null) {
+                                                                            this.latest_telemetry = frame;
+                                                                            if (GameFrame.getInstance() != null
+                                                                                    && GameFrame.getInstance().getCrupier() != null) {
+                                                                                GameFrame.getInstance().getCrupier().applyTelemetryFrameLocally(frame);
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                } catch (Exception e) {
+                                                                    LOGGER.log(Level.WARNING, "Bad TELEMETRY payload — ignored", e);
+                                                                }
+                                                                break;
+                                                            case "TIMEOUT":
+                                                                // Process the timeout command directly in the client UI thread
+                                                                try {
+                                                                    String timeoutNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    Helpers.GUIRun(() -> {
+                                                                        if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                                                                            Player p = GameFrame.getInstance().getCrupier().getNick2player().get(timeoutNick);
+                                                                            if (p != null) {
+                                                                                // Triggers the visual change (red/purple border and timeout icon)
+                                                                                p.setTimeout(true);
+                                                                            }
+                                                                        }
+                                                                    });
+                                                                } catch (Exception e) {
+                                                                    // Ignore decoding errors to prevent socket thread crash
+                                                                }
+                                                                break;
+                                                            case "YOUARELATE":
+                                                                try {
+                                                                    String client_nick2 = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    String ipCliente = partes_comando[4];
+                                                                    if (!net_client.getLate_clients_warning().contains(ipCliente)) {
+                                                                        if (GameFrame.entrarSalaSonidoOn()) {
+                                                                            Audio.playWavResource("misc/new_user.wav");
+                                                                        }
+                                                                        net_client.getLate_clients_warning().add(ipCliente);
+                                                                    }
+                                                                    Helpers.GUIRun(() -> {
+                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick2 + "] " + Translator.translate("game.quiere_entrar_en_la_timba"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), NOTIFICATION_TIMEOUT);
+                                                                        dialog.setLocation(dialog.getParent().getLocation());
+                                                                        dialog.setVisible(true);
+                                                                    });
+                                                                } catch (Exception e) {
+                                                                }
+                                                                break;
+                                                            case "IWTSTH":
+                                                                if (GameFrame.getInstance().getCrupier().isShow_time() && !GameFrame.getInstance().getCrupier().isIwtsthing()) {
+                                                                    try {
+                                                                        String authNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                        GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(authNick);
+                                                                    } catch (Exception e) {
+                                                                    }
+                                                                }
+                                                                break;
+                                                            case "IWTSTHSHOW":
+                                                                try {
+                                                                    String showNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    GameFrame.getInstance().getCrupier().IWTSTH_SHOW(showNick, Boolean.parseBoolean(partes_comando[4]));
+                                                                } catch (Exception e) {
+                                                                }
+                                                                break;
+                                                            case "IWTSTHRULE":
+                                                                // Global host rule. The "Game settings" dialog reflects the flag
+                                                                // when it opens; there's no menu/popup control left to sync.
+                                                                GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
+                                                                break;
+                                                            case "RUNITWICERULE":
+                                                                GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
+                                                                break;
+                                                            case "BOTBALRULE":
+                                                                // Whether bots' balance is split among humans (editable mid-game by
+                                                                // the host). The "Game settings" dialog reflects the flag on open.
+                                                                GameFrame.BOT_BALANCE_TO_HUMANS = "1".equals(partes_comando[3]);
+                                                                break;
+                                                            case "BOTREBUYRULE":
+                                                                // Whether bots rebuy (editable mid-game by the host).
+                                                                GameFrame.BOT_REBUY = "1".equals(partes_comando[3]);
+                                                                break;
+                                                            case "VOICEMSGRULE":
+                                                                // Global host rule. The audio settings dialog reflects the flag
+                                                                // when it opens; there's no menu/popup control left to sync.
+                                                                GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
+                                                                break;
+                                                            case "RIT_VOTE_REQ":
                                                                 Helpers.threadRun(() -> {
-                                                                    // A denial is an ordered zero relay. Applying it through the same
-                                                                    // sequence gate prevents an older positive task from restoring the
-                                                                    // optimistic entry after the host has rejected it.
-                                                                    GameFrame.getInstance().getCrupier()
-                                                                            .applyRemoteRebuyNow(dnNick, 0, dnSequence);
-                                                                    if (GameFrame.getInstance().getLocalPlayer() != null
-                                                                            && dnNick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-                                                                        Helpers.GUIRun(() -> {
-                                                                            if (GameFrame.getInstance().getRebuy_now_menu() != null) {
-                                                                                GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
-                                                                                GameFrame.getInstance().getRebuy_now_menu().setEnabled(true);
-                                                                                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
-                                                                                Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
-                                                                            }
-                                                                            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("rebuy.limite_alcanzado", String.valueOf(dnLimit)));
-                                                                        });
+                                                                    try {
+                                                                        int rit_timeout = Integer.parseInt(partes_comando[3]);
+                                                                        int rit_total = Integer.parseInt(partes_comando[4]);
+                                                                        double rit_pot = Double.parseDouble(partes_comando[5]);
+                                                                        GameFrame.getInstance().getCrupier().showRitClientVoteDialog(rit_timeout, rit_total, rit_pot);
+                                                                    } catch (Exception e) {
                                                                     }
                                                                 });
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "SHOWCARDS":
-                                                            Helpers.threadRun(() -> {
+                                                                break;
+                                                            case "RIT_VOTE_TALLY":
                                                                 try {
-                                                                    String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    String sraKeyB64 = partes_comando[4];
-                                                                    // PHASE A.1: SHOWCARDS now carries an Ed25519 sig at the end. If it
-                                                                    // arrived without one (pre-20.65 client, or the host stripping it),
-                                                                    // pass null -> showPlayerCards refuses without revealing.
-                                                                    String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
-                                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
+                                                                    GameFrame.getInstance().getCrupier().updateRitClientTally(Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
                                                                 } catch (Exception e) {
-                                                                    LOGGER.log(Level.SEVERE, "Error processing SHOWCARDS on client", e);
                                                                 }
-                                                            });
-                                                            break;
-                                                        case "RABBIT_FLOP_PIECE":
-                                                        case "RABBIT_TURN_PIECE":
-                                                        case "RABBIT_RIVER_PIECE": {
-                                                            // v3: the host sends each remote human its piece
-                                                            // (RABBIT_*_PIECE#nickB64#payloadB64) with everyone else's locks
-                                                            // already removed. Only the recipient can decrypt it.
-                                                            final String[] partes_rp = partes_comando;
-                                                            final String cmdName = partes_comando[2];
-                                                            Helpers.threadRun(() -> {
+                                                                break;
+                                                            case "RIT_VOTE_CLOSE":
                                                                 try {
-                                                                    if (partes_rp.length < 5) {
-                                                                        LOGGER.log(Level.WARNING, "rabbit piece malformed wire (parts={0}) — refusing (cosmetic, not shown)", partes_rp.length);
-                                                                        return;
+                                                                    GameFrame.getInstance().getCrupier().closeRitClientDialog("1".equals(partes_comando[3]));
+                                                                } catch (Exception e) {
+                                                                }
+                                                                break;
+                                                            case "RABBITRULE":
+                                                                GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
+                                                                break;
+                                                            case "RABBIT":
+                                                                try {
+                                                                    // Gated by HAND_ID (not by show_time): we apply the rabbit if it
+                                                                    // belongs to the hand in progress, so the fee/reveal stays
+                                                                    // deterministic with the host and the rest of the peers (avoids a
+                                                                    // money divergence -> false DIVERGENT). Falls back to show_time if
+                                                                    // the peer doesn't send HAND_ID (older version).
+                                                                    String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
+                                                                    boolean acceptRabbit = (rabbitHid != null)
+                                                                            ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
+                                                                            : GameFrame.getInstance().getCrupier().isShow_time();
+                                                                    if (acceptRabbit) {
+                                                                        String rNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                        GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
+                                                                                rNick, Integer.parseInt(partes_comando[4]), rabbitHid);
                                                                     }
-                                                                    String targetNick = new String(Base64.getDecoder().decode(partes_rp[3]), "UTF-8");
-                                                                    if (!targetNick.equals(local_nick)) {
-                                                                        return; // someone else's piece, silent drop
+                                                                } catch (Exception e) {
+                                                                }
+                                                                break;
+                                                            case "MEGAPACKET":
+                                                                // The REQ_SRA_UNLOCK handler that follows runs on its own threadRun
+                                                                // and needs to see local_mega_packet + active_crypto_ring for its
+                                                                // state machine. If we left the Crupier to set them from its queue,
+                                                                // there'd be a race (another thread processes REQ_SRA_UNLOCK first
+                                                                // and rejects it for hand-not-started). We populate them
+                                                                // synchronously here and forward to the queue so the rest of the
+                                                                // Crupier's flow (decrypting my pocket cards) keeps working exactly
+                                                                // as before.
+                                                                try {
+                                                                    Crupier crupierMP = GameFrame.getInstance().getCrupier();
+                                                                    String orderStr = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    String[] orderTokens = orderStr.split(",");
+                                                                    java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
+                                                                    for (String token : orderTokens) {
+                                                                        if (!token.isEmpty()) {
+                                                                            ringList.add(new String(Base64.getDecoder().decode(token), "UTF-8"));
+                                                                        }
                                                                     }
-                                                                    byte[] piece = Base64.getDecoder().decode(partes_rp[4]);
-                                                                    int expectedLen = "RABBIT_FLOP_PIECE".equals(cmdName) ? 96 : 32;
-                                                                    Crupier crupierRP = GameFrame.getInstance().getCrupier();
-                                                                    if (crupierRP == null || piece == null || piece.length != expectedLen) {
-                                                                        // Policy: the rabbit is a COSMETIC post-hand reveal (the hand is
-                                                                        // already settled); a bad piece cannot steal money ->
-                                                                        // SILENT-REFUSE (that rabbit just isn't shown), we do NOT end the
-                                                                        // game. Almost certainly a bug, not an attack.
-                                                                        LOGGER.log(Level.WARNING, "rabbit piece {0} bad length {1} — refusing (cosmetic, not shown)", new Object[]{cmdName, piece == null ? -1 : piece.length});
-                                                                        return;
+                                                                    crupierMP.active_crypto_ring = ringList.toArray(new String[0]);
+                                                                    crupierMP.local_mega_packet = Base64.getDecoder().decode(partes_comando[4]);
+                                                                    // Populate the K commitments SYNCHRONOUSLY here. The
+                                                                    // REQ_SRA_UNLOCK_CHAIN handler runs on its own threadRun and needs
+                                                                    // them; if we relied on recibirMisCartas (the queue's async
+                                                                    // consumer) there'd be a race and the binding would verify against
+                                                                    // an empty map -> a false lockdown.
+                                                                    if (partes_comando.length >= 7) {
+                                                                        crupierMP.parseCommitments(partes_comando[6]);
                                                                     }
-                                                                    // Dual-lock: rabbit pieces are community pieces, encrypted with
-                                                                    // community scalars after the rotation.
-                                                                    byte[] unlockedRP = RistrettoSRA.applyCommutativeLock(piece, this.participantes.get(local_nick).getSra_unlock_community());
-                                                                    int numCards = "RABBIT_FLOP_PIECE".equals(cmdName) ? 3 : 1;
-                                                                    int[] indices = new int[numCards];
-                                                                    for (int k = 0; k < numCards; k++) {
-                                                                        byte[] chunk = Arrays.copyOfRange(unlockedRP, k * 32, (k + 1) * 32);
-                                                                        int idx = RistrettoSRA.resolveCardIndex(chunk);
-                                                                        if (idx < 0) {
-                                                                            // Post-hand cosmetic -> SILENT-REFUSE (that rabbit just isn't shown), no lockdown.
-                                                                            LOGGER.log(Level.WARNING, "rabbit piece {0} chunk {1} does NOT resolve to genesis — refusing (cosmetic, not shown)", new Object[]{cmdName, k});
+                                                                } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE, "Error pre-parsing MEGAPACKET in WaitingRoomFrame; queue handler will retry", e);
+                                                                }
+                                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                                }
+                                                                break;
+                                                            case "POCKET_CARDS":
+                                                                Helpers.threadRun(() -> {
+                                                                    try {
+                                                                        String targetNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                        byte[] unlockedByOthers = Base64.getDecoder().decode(partes_comando[4]);
+                                                                        if (unlockedByOthers != null) {
+                                                                            GameFrame.getInstance().getCrupier().single_locked_pocket_cards.put(targetNick, unlockedByOthers);
+                                                                        }
+                                                                    } catch (Exception e) {
+                                                                    }
+                                                                });
+                                                                // Forward to the queue so the Crupier can continue its normal local flow
+                                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                                }
+                                                                break;
+                                                            case "REBUYNOW":
+                                                                // On a separate thread, mirroring the host side: rebuyNow holds
+                                                                // lock_rebuynow, and our OWN rebuy (client-side branch, EDT) holds it
+                                                                // during a SYNCHRONOUS send that waits for the host's CONF, which
+                                                                // THIS consumer thread reads. If the consumer handled an incoming
+                                                                // REBUYNOW from another player inline, it would block on
+                                                                // lock_rebuynow and never read our own rebuy's CONF -> self-deadlock
+                                                                // (same class of bug as the pause).
+                                                                try {
+                                                                    final String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    final int rbBuyin = Integer.parseInt(partes_comando[4]);
+                                                                    final long rbSequence = nextRebuyRelaySequence();
+                                                                    Helpers.threadRun(() -> GameFrame.getInstance().getCrupier()
+                                                                            .applyRemoteRebuyNow(rbNick, rbBuyin, rbSequence));
+                                                                } catch (Exception e) {
+                                                                }
+                                                                break;
+                                                            case "REBUYDENIED":
+                                                                try {
+                                                                    final String dnNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    final int dnLimit = Integer.parseInt(partes_comando[4]);
+                                                                    final long dnSequence = nextRebuyRelaySequence();
+                                                                    Helpers.threadRun(() -> {
+                                                                        // A denial is an ordered zero relay. Applying it through the same
+                                                                        // sequence gate prevents an older positive task from restoring the
+                                                                        // optimistic entry after the host has rejected it.
+                                                                        GameFrame.getInstance().getCrupier()
+                                                                                .applyRemoteRebuyNow(dnNick, 0, dnSequence);
+                                                                        if (GameFrame.getInstance().getLocalPlayer() != null
+                                                                                && dnNick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                                                                            Helpers.GUIRun(() -> {
+                                                                                if (GameFrame.getInstance().getRebuy_now_menu() != null) {
+                                                                                    GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
+                                                                                    GameFrame.getInstance().getRebuy_now_menu().setEnabled(true);
+                                                                                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+                                                                                    Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                                                                                }
+                                                                                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("rebuy.limite_alcanzado", String.valueOf(dnLimit)));
+                                                                            });
+                                                                        }
+                                                                    });
+                                                                } catch (Exception e) {
+                                                                }
+                                                                break;
+                                                            case "SHOWCARDS":
+                                                                Helpers.threadRun(() -> {
+                                                                    try {
+                                                                        String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                        String sraKeyB64 = partes_comando[4];
+                                                                        // PHASE A.1: SHOWCARDS now carries an Ed25519 sig at the end. If it
+                                                                        // arrived without one (pre-20.65 client, or the host stripping it),
+                                                                        // pass null -> showPlayerCards refuses without revealing.
+                                                                        String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
+                                                                        GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
+                                                                    } catch (Exception e) {
+                                                                        LOGGER.log(Level.SEVERE, "Error processing SHOWCARDS on client", e);
+                                                                    }
+                                                                });
+                                                                break;
+                                                            case "RABBIT_FLOP_PIECE":
+                                                            case "RABBIT_TURN_PIECE":
+                                                            case "RABBIT_RIVER_PIECE": {
+                                                                // v3: the host sends each remote human its piece
+                                                                // (RABBIT_*_PIECE#nickB64#payloadB64) with everyone else's locks
+                                                                // already removed. Only the recipient can decrypt it.
+                                                                final String[] partes_rp = partes_comando;
+                                                                final String cmdName = partes_comando[2];
+                                                                Helpers.threadRun(() -> {
+                                                                    try {
+                                                                        if (partes_rp.length < 5) {
+                                                                            LOGGER.log(Level.WARNING, "rabbit piece malformed wire (parts={0}) — refusing (cosmetic, not shown)", partes_rp.length);
                                                                             return;
                                                                         }
-                                                                        indices[k] = idx;
+                                                                        String targetNick = new String(Base64.getDecoder().decode(partes_rp[3]), "UTF-8");
+                                                                        if (!targetNick.equals(local_nick)) {
+                                                                            return; // someone else's piece, silent drop
+                                                                        }
+                                                                        byte[] piece = Base64.getDecoder().decode(partes_rp[4]);
+                                                                        int expectedLen = "RABBIT_FLOP_PIECE".equals(cmdName) ? 96 : 32;
+                                                                        Crupier crupierRP = GameFrame.getInstance().getCrupier();
+                                                                        if (crupierRP == null || piece == null || piece.length != expectedLen) {
+                                                                            // Policy: the rabbit is a COSMETIC post-hand reveal (the hand is
+                                                                            // already settled); a bad piece cannot steal money ->
+                                                                            // SILENT-REFUSE (that rabbit just isn't shown), we do NOT end the
+                                                                            // game. Almost certainly a bug, not an attack.
+                                                                            LOGGER.log(Level.WARNING, "rabbit piece {0} bad length {1} — refusing (cosmetic, not shown)", new Object[]{cmdName, piece == null ? -1 : piece.length});
+                                                                            return;
+                                                                        }
+                                                                        // Dual-lock: rabbit pieces are community pieces, encrypted with
+                                                                        // community scalars after the rotation.
+                                                                        byte[] unlockedRP = RistrettoSRA.applyCommutativeLock(piece, this.participantes.get(local_nick).getSra_unlock_community());
+                                                                        int numCards = "RABBIT_FLOP_PIECE".equals(cmdName) ? 3 : 1;
+                                                                        int[] indices = new int[numCards];
+                                                                        for (int k = 0; k < numCards; k++) {
+                                                                            byte[] chunk = Arrays.copyOfRange(unlockedRP, k * 32, (k + 1) * 32);
+                                                                            int idx = RistrettoSRA.resolveCardIndex(chunk);
+                                                                            if (idx < 0) {
+                                                                                // Post-hand cosmetic -> SILENT-REFUSE (that rabbit just isn't shown), no lockdown.
+                                                                                LOGGER.log(Level.WARNING, "rabbit piece {0} chunk {1} does NOT resolve to genesis — refusing (cosmetic, not shown)", new Object[]{cmdName, k});
+                                                                                return;
+                                                                            }
+                                                                            indices[k] = idx;
+                                                                        }
+                                                                        if ("RABBIT_FLOP_PIECE".equals(cmdName)) {
+                                                                            crupierRP.setFlop_revealed(true);
+                                                                            Helpers.GUIRun(() -> {
+                                                                                GameFrame.getInstance().getFlop1().actualizarConValorNumerico(indices[0] + 1);
+                                                                                GameFrame.getInstance().getFlop2().actualizarConValorNumerico(indices[1] + 1);
+                                                                                GameFrame.getInstance().getFlop3().actualizarConValorNumerico(indices[2] + 1);
+                                                                                GameFrame.getInstance().getFlop1().taparRabbit();
+                                                                                GameFrame.getInstance().getFlop2().taparRabbit();
+                                                                                GameFrame.getInstance().getFlop3().taparRabbit();
+                                                                            });
+                                                                        } else if ("RABBIT_TURN_PIECE".equals(cmdName)) {
+                                                                            crupierRP.setTurn_revealed(true);
+                                                                            Helpers.GUIRun(() -> {
+                                                                                GameFrame.getInstance().getTurn().actualizarConValorNumerico(indices[0] + 1);
+                                                                                GameFrame.getInstance().getTurn().taparRabbit();
+                                                                            });
+                                                                        } else {
+                                                                            crupierRP.setRiver_revealed(true);
+                                                                            Helpers.GUIRun(() -> {
+                                                                                GameFrame.getInstance().getRiver().actualizarConValorNumerico(indices[0] + 1);
+                                                                                GameFrame.getInstance().getRiver().taparRabbit();
+                                                                            });
+                                                                        }
+                                                                    } catch (Exception e) {
+                                                                        LOGGER.log(Level.SEVERE, "Error processing " + cmdName, e);
                                                                     }
-                                                                    if ("RABBIT_FLOP_PIECE".equals(cmdName)) {
-                                                                        crupierRP.setFlop_revealed(true);
-                                                                        Helpers.GUIRun(() -> {
-                                                                            GameFrame.getInstance().getFlop1().actualizarConValorNumerico(indices[0] + 1);
-                                                                            GameFrame.getInstance().getFlop2().actualizarConValorNumerico(indices[1] + 1);
-                                                                            GameFrame.getInstance().getFlop3().actualizarConValorNumerico(indices[2] + 1);
-                                                                            GameFrame.getInstance().getFlop1().taparRabbit();
-                                                                            GameFrame.getInstance().getFlop2().taparRabbit();
-                                                                            GameFrame.getInstance().getFlop3().taparRabbit();
-                                                                        });
-                                                                    } else if ("RABBIT_TURN_PIECE".equals(cmdName)) {
-                                                                        crupierRP.setTurn_revealed(true);
-                                                                        Helpers.GUIRun(() -> {
-                                                                            GameFrame.getInstance().getTurn().actualizarConValorNumerico(indices[0] + 1);
-                                                                            GameFrame.getInstance().getTurn().taparRabbit();
-                                                                        });
-                                                                    } else {
-                                                                        crupierRP.setRiver_revealed(true);
-                                                                        Helpers.GUIRun(() -> {
-                                                                            GameFrame.getInstance().getRiver().actualizarConValorNumerico(indices[0] + 1);
-                                                                            GameFrame.getInstance().getRiver().taparRabbit();
-                                                                        });
-                                                                    }
-                                                                } catch (Exception e) {
-                                                                    LOGGER.log(Level.SEVERE, "Error processing " + cmdName, e);
-                                                                }
-                                                            });
-                                                            break;
-                                                        }
-                                                        case "FLOP_PIECE":
-                                                        case "TURN_PIECE":
-                                                        case "RIVER_PIECE":
+                                                                });
+                                                                break;
+                                                            }
+                                                            case "FLOP_PIECE":
+                                                            case "TURN_PIECE":
+                                                            case "RIVER_PIECE":
                                                             // v3: community pieces during a live hand. The handler just
                                                             // re-queues onto the Crupier — decryption and verification live in
                                                             // Crupier.recibirCartasComunitarias, which blocks in
                                                             // rondaApuestas and drains the queue.
                                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
-                                                            }
-                                                            break;
-                                                        case "LASTHAND":
-                                                            // Guard: the reader thread can have LASTHAND buffered when
-                                                            // RESET_GAME has already run GameFrame.resetInstance() — without
-                                                            // this guard, NPE in getInstance().getCrupier(). Rare race, cheap
-                                                            // to cover.
-                                                            GameFrame inst_lasthand = GameFrame.getInstance();
-                                                            if (inst_lasthand == null) {
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                                }
                                                                 break;
-                                                            }
-                                                            if (partes_comando[3].equals("0")) {
-                                                                inst_lasthand.getCrupier().setForce_recover(false);
-                                                                inst_lasthand.getTapete().getCommunityCards().last_hand_off();
-                                                            } else {
-                                                                if (partes_comando[3].equals("2")) {
-                                                                    inst_lasthand.getCrupier().setForce_recover(true);
-                                                                    if (partes_comando.length > 4) {
-                                                                        try {
-                                                                            password = new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8");
-                                                                        } catch (Exception e) {
-                                                                        }
-                                                                    }
+                                                            case "LASTHAND":
+                                                                // Guard: the reader thread can have LASTHAND buffered when
+                                                                // RESET_GAME has already run GameFrame.resetInstance() — without
+                                                                // this guard, NPE in getInstance().getCrupier(). Rare race, cheap
+                                                                // to cover.
+                                                                GameFrame inst_lasthand = GameFrame.getInstance();
+                                                                if (inst_lasthand == null) {
+                                                                    break;
                                                                 }
-                                                                inst_lasthand.getTapete().getCommunityCards().last_hand_on();
-                                                            }
-                                                            break;
-                                                        case "MAXHANDS":
-                                                            GameFrame.MANOS = Integer.parseInt(partes_comando[3]);
-                                                            GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
-                                                            break;
-                                                        case "UPDATEBLINDS":
-                                                            GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Double.parseDouble(partes_comando[5]), Double.parseDouble(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
-                                                            GameFrame.BLIND_CAP = partes_comando.length > 7 ? Double.parseDouble(partes_comando[7]) : 0;
-                                                            boolean ante_nuevo = partes_comando.length > 8 && Boolean.parseBoolean(partes_comando[8]);
-                                                            boolean straddle_nuevo = partes_comando.length > 9 && Boolean.parseBoolean(partes_comando[9]);
-                                                            // Same deferred notice as the blinds when ante/straddle changes: the
-                                                            // value is applied immediately (below), this only raises the flag.
-                                                            if (GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo) {
-                                                                GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
-                                                            }
-                                                            GameFrame.ANTE = ante_nuevo;
-                                                            GameFrame.STRADDLE = straddle_nuevo;
-                                                            // The host can change the blind structure live (Settings > Game).
-                                                            // When it's the DEFAULT ladder the field is empty, and Java's
-                                                            // split('#') DROPS a trailing empty field, so the length>10 guard
-                                                            // isn't enough: it must be reset to null (same as in INIT) so host
-                                                            // and clients escalate blinds on the SAME ladder (otherwise they
-                                                            // desync as blinds go up).
-                                                            if (partes_comando.length > 10 && !partes_comando[10].isEmpty()) {
-                                                                try {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[10]);
-                                                                } catch (Exception ex) {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                                    LOGGER.log(Level.WARNING, "Bad blind structure in UPDATEBLINDS", ex);
-                                                                }
-                                                            } else {
-                                                                GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                            }
-                                                            break;
-                                                        case "SERVEREXIT":
-                                                            exit = true;
-                                                            break;
-                                                        case "SERVEREXITRECOVER":
-                                                            exit = true;
-                                                            GameFrame.getInstance().getCrupier().setForce_recover(true);
-                                                            if (partes_comando.length > 3) {
-                                                                try {
-                                                                    password = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                } catch (Exception e) {
-                                                                }
-                                                            }
-                                                            break;
-                                                        case "TTS":
-                                                            // The host turns TTS on/off (global) for everyone. The audio
-                                                            // settings dialog reflects the flag when it opens; there's no
-                                                            // menu/popup control left to sync.
-                                                            GameFrame.TTS_SERVER = "1".equals(partes_comando[3]);
-                                                            break;
-                                                        case "PAUSE":
-                                                            // The host is AUTHORITATIVE for pause coordination: "0" resumes, "1"
-                                                            // pauses, with no nick comparison (the consensus seat makes them
-                                                            // identical, and tying it to that was fragile).
-                                                            //
-                                                            // KEY (deadlock): this is processed on a SEPARATE thread
-                                                            // (Helpers.threadRun), like the host's handler (Participant), NOT
-                                                            // inline on this consumer thread. pauseTimba, when the pauser itself
-                                                            // applies it upon receiving the resume, does a SYNCHRONOUS
-                                                            // sendGAMECommandToServer that waits on the host's CONF, and that
-                                                            // CONF is read by this SAME consumer thread (case "CONF"): doing it
-                                                            // inline would self-deadlock the consumer waiting on a CONF only it
-                                                            // could process, leaving the pauser hanging. threadRun frees the
-                                                            // consumer to read the CONF. The check-then-act runs under
-                                                            // lock_pause, same as the host.
-                                                            try {
-                                                                if (partes_comando.length < 4
-                                                                        || (!"0".equals(partes_comando[3]) && !"1".equals(partes_comando[3]))) {
-                                                                    throw new IllegalArgumentException("invalid PAUSE value");
-                                                                }
-                                                                final String pause_value = partes_comando[3];
-                                                                final String pauser = (partes_comando.length >= 5)
-                                                                        ? new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8")
-                                                                        : server_nick;
-                                                                final long pause_sequence = nextPauseRelaySequence();
-                                                                Helpers.threadRun(() -> {
-                                                                    // Keep this asynchronous to avoid the CONF self-deadlock, but
-                                                                    // serialize the sequence gate with the state transition so a
-                                                                    // late pool task cannot undo a newer host decision.
-                                                                    synchronized (pause_relay_order_lock) {
-                                                                        if (!Crupier.shouldApplyAsyncSequence(pause_sequence, pause_relay_applied_sequence)) {
-                                                                            return;
-                                                                        }
-                                                                        synchronized (GameFrame.getInstance().getLock_pause()) {
-                                                                            pause_relay_applied_sequence = pause_sequence;
-                                                                            if (("0".equals(pause_value) && GameFrame.getInstance().isTimba_pausada())
-                                                                                    || ("1".equals(pause_value) && !GameFrame.getInstance().isTimba_pausada())) {
-                                                                                GameFrame.getInstance().pauseTimba(pauser);
+                                                                if (partes_comando[3].equals("0")) {
+                                                                    inst_lasthand.getCrupier().setForce_recover(false);
+                                                                    inst_lasthand.getTapete().getCommunityCards().last_hand_off();
+                                                                } else {
+                                                                    if (partes_comando[3].equals("2")) {
+                                                                        inst_lasthand.getCrupier().setForce_recover(true);
+                                                                        if (partes_comando.length > 4) {
+                                                                            try {
+                                                                                password = new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8");
+                                                                            } catch (Exception e) {
                                                                             }
                                                                         }
                                                                     }
-                                                                });
-                                                            } catch (Exception ex) {
-                                                                LOGGER.log(Level.SEVERE, "Error processing PAUSE", ex);
-                                                            }
-                                                            break;
-                                                        case "SHUFFLE_TURN":
-                                                            // VISUAL shuffle overlay: the host announces which player is
-                                                            // processing its cascade step right now, so this peer can paint it
-                                                            // over that player (local or remote). Purely for display; the
-                                                            // GameFrame controller honors the local preference. Doesn't touch
-                                                            // the cascade or consensus.
-                                                            try {
-                                                                if (partes_comando.length >= 4) {
-                                                                    String shuffleNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    GameFrame.getInstance().onShuffleTurn(shuffleNick);
+                                                                    inst_lasthand.getTapete().getCommunityCards().last_hand_on();
                                                                 }
-                                                            } catch (Exception ex) {
-                                                                LOGGER.log(Level.SEVERE, "Error processing SHUFFLE_TURN", ex);
-                                                            }
-                                                            break;
-                                                        case "SHUFFLE_TURN_END":
-                                                            // Shuffle end: hides the shuffle overlay on this peer.
-                                                            GameFrame.getInstance().onShuffleTurnEnd();
-                                                            break;
-                                                        case "MISDEAL":
-                                                            // The host aborts the hand. Cancel locally and forward to the
-                                                            // queue to wake up any consumer (receiveMyCards,
-                                                            // recibirConsensoFinal, etc.) waiting on a timeout.
-                                                            try {
-                                                                String motivoMisdeal = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                GameFrame.getInstance().getCrupier().cancelarManoYDevolverApuestas(motivoMisdeal, false);
-                                                            } catch (Exception ex) {
-                                                                LOGGER.log(Level.SEVERE, "Error processing MISDEAL", ex);
-                                                            }
-                                                            synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
-                                                            }
-                                                            break;
-                                                        case "EXIT":
-                                                            String exitingNick = local_nick;
-                                                            if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
-                                                                int offset = 3;
-                                                                if (!GameFrame.getInstance().isPartida_local() && partes_comando.length >= 4) {
+                                                                break;
+                                                            case "MAXHANDS":
+                                                                GameFrame.MANOS = Integer.parseInt(partes_comando[3]);
+                                                                GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+                                                                break;
+                                                            case "UPDATEBLINDS":
+                                                                GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Double.parseDouble(partes_comando[5]), Double.parseDouble(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
+                                                                GameFrame.BLIND_CAP = partes_comando.length > 7 ? Double.parseDouble(partes_comando[7]) : 0;
+                                                                boolean ante_nuevo = partes_comando.length > 8 && Boolean.parseBoolean(partes_comando[8]);
+                                                                boolean straddle_nuevo = partes_comando.length > 9 && Boolean.parseBoolean(partes_comando[9]);
+                                                                // Same deferred notice as the blinds when ante/straddle changes: the
+                                                                // value is applied immediately (below), this only raises the flag.
+                                                                if (GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo) {
+                                                                    GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
+                                                                }
+                                                                GameFrame.ANTE = ante_nuevo;
+                                                                GameFrame.STRADDLE = straddle_nuevo;
+                                                                // The host can change the blind structure live (Settings > Game).
+                                                                // When it's the DEFAULT ladder the field is empty, and Java's
+                                                                // split('#') DROPS a trailing empty field, so the length>10 guard
+                                                                // isn't enough: it must be reset to null (same as in INIT) so host
+                                                                // and clients escalate blinds on the SAME ladder (otherwise they
+                                                                // desync as blinds go up).
+                                                                if (partes_comando.length > 10 && !partes_comando[10].isEmpty()) {
                                                                     try {
-                                                                        exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[10]);
+                                                                    } catch (Exception ex) {
+                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = null;
+                                                                        LOGGER.log(Level.WARNING, "Bad blind structure in UPDATEBLINDS", ex);
+                                                                    }
+                                                                } else {
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = null;
+                                                                }
+                                                                break;
+                                                            case "SERVEREXIT":
+                                                                exit = true;
+                                                                break;
+                                                            case "SERVEREXITRECOVER":
+                                                                exit = true;
+                                                                GameFrame.getInstance().getCrupier().setForce_recover(true);
+                                                                if (partes_comando.length > 3) {
+                                                                    try {
+                                                                        password = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                     } catch (Exception e) {
                                                                     }
-                                                                    offset = 4;
                                                                 }
-
-                                                                if (partes_comando.length > offset) {
-                                                                    Participant p = GameFrame.getInstance().getParticipantes().get(exitingNick);
-                                                                    if (p != null && !partes_comando[offset].equals("*")) {
-                                                                        try {
-                                                                            byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                                            // Dual-lock: the testament is the community half of the departing
-                                                                            // peer. The pocket half is never shared via EXIT. A USABLE
-                                                                            // scalar is required, not just one of the right size: 32 zero
-                                                                            // bytes passed the size check and blew up the Crupier thread when
-                                                                            // inverted, taking the process down with it.
-                                                                            if (RistrettoSRA.isValidScalar(testament)) {
-                                                                                p.setSra_unlock_community(testament);
+                                                                break;
+                                                            case "TTS":
+                                                                // The host turns TTS on/off (global) for everyone. The audio
+                                                                // settings dialog reflects the flag when it opens; there's no
+                                                                // menu/popup control left to sync.
+                                                                GameFrame.TTS_SERVER = "1".equals(partes_comando[3]);
+                                                                break;
+                                                            case "PAUSE":
+                                                                // The host is AUTHORITATIVE for pause coordination: "0" resumes, "1"
+                                                                // pauses, with no nick comparison (the consensus seat makes them
+                                                                // identical, and tying it to that was fragile).
+                                                                //
+                                                                // KEY (deadlock): this is processed on a SEPARATE thread
+                                                                // (Helpers.threadRun), like the host's handler (Participant), NOT
+                                                                // inline on this consumer thread. pauseTimba, when the pauser itself
+                                                                // applies it upon receiving the resume, does a SYNCHRONOUS
+                                                                // sendGAMECommandToServer that waits on the host's CONF, and that
+                                                                // CONF is read by this SAME consumer thread (case "CONF"): doing it
+                                                                // inline would self-deadlock the consumer waiting on a CONF only it
+                                                                // could process, leaving the pauser hanging. threadRun frees the
+                                                                // consumer to read the CONF. The check-then-act runs under
+                                                                // lock_pause, same as the host.
+                                                                try {
+                                                                    if (partes_comando.length < 4
+                                                                            || (!"0".equals(partes_comando[3]) && !"1".equals(partes_comando[3]))) {
+                                                                        throw new IllegalArgumentException("invalid PAUSE value");
+                                                                    }
+                                                                    final String pause_value = partes_comando[3];
+                                                                    final String pauser = (partes_comando.length >= 5)
+                                                                            ? new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8")
+                                                                            : server_nick;
+                                                                    final long pause_sequence = nextPauseRelaySequence();
+                                                                    Helpers.threadRun(() -> {
+                                                                        // Keep this asynchronous to avoid the CONF self-deadlock, but
+                                                                        // serialize the sequence gate with the state transition so a
+                                                                        // late pool task cannot undo a newer host decision.
+                                                                        synchronized (pause_relay_order_lock) {
+                                                                            if (!Crupier.shouldApplyAsyncSequence(pause_sequence, pause_relay_applied_sequence)) {
+                                                                                return;
                                                                             }
+                                                                            synchronized (GameFrame.getInstance().getLock_pause()) {
+                                                                                pause_relay_applied_sequence = pause_sequence;
+                                                                                if (("0".equals(pause_value) && GameFrame.getInstance().isTimba_pausada())
+                                                                                        || ("1".equals(pause_value) && !GameFrame.getInstance().isTimba_pausada())) {
+                                                                                    GameFrame.getInstance().pauseTimba(pauser);
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    });
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Error processing PAUSE", ex);
+                                                                }
+                                                                break;
+                                                            case "SHUFFLE_TURN":
+                                                                // VISUAL shuffle overlay: the host announces which player is
+                                                                // processing its cascade step right now, so this peer can paint it
+                                                                // over that player (local or remote). Purely for display; the
+                                                                // GameFrame controller honors the local preference. Doesn't touch
+                                                                // the cascade or consensus.
+                                                                try {
+                                                                    if (partes_comando.length >= 4) {
+                                                                        String shuffleNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                        GameFrame.getInstance().onShuffleTurn(shuffleNick);
+                                                                    }
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Error processing SHUFFLE_TURN", ex);
+                                                                }
+                                                                break;
+                                                            case "SHUFFLE_TURN_END":
+                                                                // Shuffle end: hides the shuffle overlay on this peer.
+                                                                GameFrame.getInstance().onShuffleTurnEnd();
+                                                                break;
+                                                            case "MISDEAL":
+                                                                // The host aborts the hand. Cancel locally and forward to the
+                                                                // queue to wake up any consumer (receiveMyCards,
+                                                                // recibirConsensoFinal, etc.) waiting on a timeout.
+                                                                try {
+                                                                    String motivoMisdeal = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    GameFrame.getInstance().getCrupier().cancelarManoYDevolverApuestas(motivoMisdeal, false);
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Error processing MISDEAL", ex);
+                                                                }
+                                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                                }
+                                                                break;
+                                                            case "EXIT":
+                                                                String exitingNick = local_nick;
+                                                                if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                                                                    int offset = 3;
+                                                                    if (!GameFrame.getInstance().isPartida_local() && partes_comando.length >= 4) {
+                                                                        try {
+                                                                            exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                         } catch (Exception e) {
                                                                         }
+                                                                        offset = 4;
                                                                     }
-                                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
-                                                                } else {
-                                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
-                                                                }
-                                                            }
-                                                            break;
-                                                        case "STRADDLE_DECISION":
-                                                            // Blind straddle: the host broadcasts the straddler's SIGNED
-                                                            // decision. I verify it and, if valid, enable the deferred unlock of
-                                                            // its slot (recordVerifiedStraddleDecision). Dispatched IMMEDIATELY
-                                                            // (not queued) to unblock a REQ_SRA_UNLOCK_CHAIN handler that might
-                                                            // already be waiting on the flag in awaitStreetForUnlockPhase.
-                                                            if (GameFrame.getInstance().getCrupier() != null) {
-                                                                GameFrame.getInstance().getCrupier().onStraddleDecisionCommand(partes_comando);
-                                                            }
-                                                            break;
-                                                        default:
-                                                            synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
-                                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
-                                                            }
-                                                            break;
-                                                    }
-                                                } else {
-                                                    switch (subcomando) {
-                                                        case "GAMEINFO":
-                                                            String ginfo = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                            String[] game_info2 = ginfo.split("\\|");
-                                                            Helpers.GUIRun(() -> {
-                                                                applyGameInfoBuyinLabel(game_info2);
-                                                            });
-                                                            break;
-                                                        case "GAMECONFIG":
-                                                            // FULL config mirror (the HOST changed it). Only stored in the
-                                                            // holder (GameFrame.* is NOT written) and, if the settings wheel
-                                                            // is open, its Game tab is refreshed.
-                                                            GAMECONFIG_MIRROR = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                            Helpers.GUIRun(() -> SettingsDialog.refreshWaitingMirror());
-                                                            break;
-                                                        case "DELUSER":
-                                                            try {
-                                                                borrarParticipante(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"));
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "NEWUSER":
-                                                            // Identity: layout
-                                                            //   [3] nickB64
-                                                            //   [4] unsecureFlag
-                                                            //   [5] avatarB64_or_*
-                                                            //   [6] pubkeyB64_or_*
-                                                            //   [7] selfSigB64_or_*
-                                                            if (GameFrame.entraSonidoOn()) {
-                                                                Audio.playWavResource("misc/laser.wav");
-                                                            }
-                                                            try {
-                                                                String nickNew = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                boolean isBot = nickNew.startsWith("CoronaBot$");
-                                                                 RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant(
-                                                                         nickNew,
-                                                                         partes_comando.length >= 6 ? partes_comando[5] : "*",
-                                                                         isBot, "1".equals(partes_comando[4]), "NEWUSER");
-                                                                 if (rosterAdmission == RemoteRosterAdmission.REJECT) {
-                                                                     rejectRemoteRoster(nickNew, "NEWUSER");
-                                                                     break;
-                                                                 } else if (rosterAdmission == RemoteRosterAdmission.DUPLICATE) {
-                                                                     break;
-                                                                 }
 
-                                                                if (partes_comando.length >= 8
-                                                                        && !"*".equals(partes_comando[6]) && !"*".equals(partes_comando[7])) {
-                                                                    try {
-                                                                        byte[] idPubkey = Base64.getDecoder().decode(partes_comando[6]);
-                                                                        byte[] idSig = Base64.getDecoder().decode(partes_comando[7]);
-                                                                        if (idPubkey.length != 32 || idSig.length != 64) {
-                                                                            LOGGER.log(Level.WARNING, "NEWUSER identity malformed for {0}", nickNew);
-                                                                        } else if (!IdentityManager.verifyJoin(this.session_id, nickNew, idPubkey, idSig)) {
-                                                                            LOGGER.log(Level.WARNING, "NEWUSER identity bad self_sig for {0}", nickNew);
-                                                                        } else {
-                                                                            TOFUResolver.Resolution res = TOFUResolver.resolve(nickNew, idPubkey);
-                                                                            Participant p = participantes.get(nickNew);
-                                                                            if (p != null) {
-                                                                                p.setIdentity_pubkey(idPubkey);
-                                                                                p.setIdentity_self_sig(idSig);
+                                                                    if (partes_comando.length > offset) {
+                                                                        Participant p = GameFrame.getInstance().getParticipantes().get(exitingNick);
+                                                                        if (p != null && !partes_comando[offset].equals("*")) {
+                                                                            try {
+                                                                                byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
+                                                                                // Dual-lock: the testament is the community half of the departing
+                                                                                // peer. The pocket half is never shared via EXIT. A USABLE
+                                                                                // scalar is required, not just one of the right size: 32 zero
+                                                                                // bytes passed the size check and blew up the Crupier thread when
+                                                                                // inverted, taking the process down with it.
+                                                                                if (RistrettoSRA.isValidScalar(testament)) {
+                                                                                    p.setSra_unlock_community(testament);
+                                                                                }
+                                                                            } catch (Exception e) {
                                                                             }
-                                                                            LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via NEWUSER",
-                                                                                    new Object[]{nickNew, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
                                                                         }
-                                                                    } catch (Exception idex) {
-                                                                        LOGGER.log(Level.WARNING, "NEWUSER identity decode failed for " + nickNew, idex);
+                                                                        GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
+                                                                    } else {
+                                                                        GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                                                     }
                                                                 }
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "USERSLIST":
-                                                            // Identity: each entry now carries pubkey + self_sig in
-                                                            // fields [3] and [4] (or "*" for bots / unknown). Apply them
-                                                            // to the Participant once it exists, after TOFU.
-                                                            //
-                                                            // USERSLIST may arrive empty when the joining client is the
-                                                            // only peer besides the host (host is never an entry here — its
-                                                            // identity comes through the intro packet). Skip when there is
-                                                            // no payload.
-                                                            if (partes_comando.length < 4) {
                                                                 break;
-                                                            }
-                                                            String[] current_users_parts = partes_comando[3].split("@");
-                                                            for (String user : current_users_parts) {
-                                                                if (user.isEmpty()) {
-                                                                    continue;
+                                                            case "STRADDLE_DECISION":
+                                                                // Blind straddle: the host broadcasts the straddler's SIGNED
+                                                                // decision. I verify it and, if valid, enable the deferred unlock of
+                                                                // its slot (recordVerifiedStraddleDecision). Dispatched IMMEDIATELY
+                                                                // (not queued) to unblock a REQ_SRA_UNLOCK_CHAIN handler that might
+                                                                // already be waiting on the flag in awaitStreetForUnlockPhase.
+                                                                if (GameFrame.getInstance().getCrupier() != null) {
+                                                                    GameFrame.getInstance().getCrupier().onStraddleDecisionCommand(partes_comando);
                                                                 }
-                                                                String[] user_parts = user.split("\\|");
+                                                                break;
+                                                            default:
+                                                            synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                                }
+                                                                break;
+                                                        }
+                                                    } else {
+                                                        switch (subcomando) {
+                                                            case "GAMEINFO":
+                                                                String ginfo = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                String[] game_info2 = ginfo.split("\\|");
+                                                                Helpers.GUIRun(() -> {
+                                                                    applyGameInfoBuyinLabel(game_info2);
+                                                                });
+                                                                break;
+                                                            case "GAMECONFIG":
+                                                                // FULL config mirror (the HOST changed it). Only stored in the
+                                                                // holder (GameFrame.* is NOT written) and, if the settings wheel
+                                                                // is open, its Game tab is refreshed.
+                                                                GAMECONFIG_MIRROR = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                Helpers.GUIRun(() -> SettingsDialog.refreshWaitingMirror());
+                                                                break;
+                                                            case "DELUSER":
                                                                 try {
-                                                                    String list_nick = new String(Base64.getDecoder().decode(user_parts[0]), "UTF-8");
-                                                                    boolean isListBot = list_nick.startsWith("CoronaBot$");
-                                                                     RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant(
-                                                                             list_nick,
-                                                                             user_parts.length >= 3 ? user_parts[2] : "*",
-                                                                             isListBot, "1".equals(user_parts[1]), "USERSLIST");
-                                                                     if (rosterAdmission == RemoteRosterAdmission.REJECT) {
-                                                                         rejectRemoteRoster(list_nick, "USERSLIST");
-                                                                         break;
-                                                                     } else if (rosterAdmission == RemoteRosterAdmission.DUPLICATE) {
-                                                                         continue;
-                                                                     }
+                                                                    borrarParticipante(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"));
+                                                                } catch (Exception e) {
+                                                                }
+                                                                break;
+                                                            case "NEWUSER":
+                                                                // Identity: layout
+                                                                //   [3] nickB64
+                                                                //   [4] unsecureFlag
+                                                                //   [5] avatarB64_or_*
+                                                                //   [6] pubkeyB64_or_*
+                                                                //   [7] selfSigB64_or_*
+                                                                if (GameFrame.entraSonidoOn()) {
+                                                                    Audio.playWavResource("misc/laser.wav");
+                                                                }
+                                                                try {
+                                                                    String nickNew = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    boolean isBot = nickNew.startsWith("CoronaBot$");
+                                                                    RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant(
+                                                                            nickNew,
+                                                                            partes_comando.length >= 6 ? partes_comando[5] : "*",
+                                                                            isBot, "1".equals(partes_comando[4]), "NEWUSER");
+                                                                    if (rosterAdmission == RemoteRosterAdmission.REJECT) {
+                                                                        rejectRemoteRoster(nickNew, "NEWUSER");
+                                                                        break;
+                                                                    } else if (rosterAdmission == RemoteRosterAdmission.DUPLICATE) {
+                                                                        break;
+                                                                    }
 
-                                                                    if (user_parts.length >= 5
-                                                                            && !"*".equals(user_parts[3]) && !"*".equals(user_parts[4])) {
+                                                                    if (partes_comando.length >= 8
+                                                                            && !"*".equals(partes_comando[6]) && !"*".equals(partes_comando[7])) {
                                                                         try {
-                                                                            byte[] idPubkey = Base64.getDecoder().decode(user_parts[3]);
-                                                                            byte[] idSig = Base64.getDecoder().decode(user_parts[4]);
+                                                                            byte[] idPubkey = Base64.getDecoder().decode(partes_comando[6]);
+                                                                            byte[] idSig = Base64.getDecoder().decode(partes_comando[7]);
                                                                             if (idPubkey.length != 32 || idSig.length != 64) {
-                                                                                LOGGER.log(Level.WARNING, "USERSLIST identity malformed for {0}", list_nick);
-                                                                            } else if (!IdentityManager.verifyJoin(this.session_id, list_nick, idPubkey, idSig)) {
-                                                                                LOGGER.log(Level.WARNING, "USERSLIST identity bad self_sig for {0}", list_nick);
+                                                                                LOGGER.log(Level.WARNING, "NEWUSER identity malformed for {0}", nickNew);
+                                                                            } else if (!IdentityManager.verifyJoin(this.session_id, nickNew, idPubkey, idSig)) {
+                                                                                LOGGER.log(Level.WARNING, "NEWUSER identity bad self_sig for {0}", nickNew);
                                                                             } else {
-                                                                                TOFUResolver.Resolution res = TOFUResolver.resolve(list_nick, idPubkey);
-                                                                                Participant p = participantes.get(list_nick);
+                                                                                TOFUResolver.Resolution res = TOFUResolver.resolve(nickNew, idPubkey);
+                                                                                Participant p = participantes.get(nickNew);
                                                                                 if (p != null) {
                                                                                     p.setIdentity_pubkey(idPubkey);
                                                                                     p.setIdentity_self_sig(idSig);
                                                                                 }
-                                                                                LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via USERSLIST",
-                                                                                        new Object[]{list_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
+                                                                                LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via NEWUSER",
+                                                                                        new Object[]{nickNew, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
                                                                             }
                                                                         } catch (Exception idex) {
-                                                                            LOGGER.log(Level.WARNING, "USERSLIST identity decode failed for " + list_nick, idex);
+                                                                            LOGGER.log(Level.WARNING, "NEWUSER identity decode failed for " + nickNew, idex);
                                                                         }
                                                                     }
                                                                 } catch (Exception e) {
                                                                 }
-                                                            }
-                                                            break;
-                                                        case "INIT":
-                                                            Helpers.GUIRun(() -> {
-                                                                setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
-                                                                sound_icon.setVisible(false);
-                                                                status.setText(Translator.translate("status.inicializando_juego"));
-                                                                status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
-                                                                barra.setVisible(true);
-                                                            });
-                                                            GameFrame.BUYIN = Integer.parseInt(partes_comando[3]);
-                                                            GameFrame.CIEGA_PEQUEÑA = Double.parseDouble(partes_comando[4]);
-                                                            GameFrame.CIEGA_GRANDE = Double.parseDouble(partes_comando[5]);
-                                                            String[] ciegas_double = partes_comando[6].split("@");
-                                                            GameFrame.CIEGAS_DOUBLE = Integer.parseInt(ciegas_double[0]);
-                                                            GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
-                                                            GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
-                                                            GameFrame.UGI = partes_comando[7].split("@")[1];
-                                                            GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
-                                                            GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
-                                                            GameFrame.BLIND_CAP = partes_comando.length > 10 ? Double.parseDouble(partes_comando[10]) : 0;
-                                                            GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
-                                                            GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
-                                                            GameFrame.FIXED_BUYIN = partes_comando.length > 13 ? Boolean.parseBoolean(partes_comando[13]) : true;
-                                                            // Editable buy-in range and rebuy-cap policy (fixed fields; the
-                                                            // client's cap/headroom must match the host's).
-                                                            GameFrame.BUYIN_MIN_BB = partes_comando.length > 14 ? Integer.parseInt(partes_comando[14]) : BuyinRules.DEFAULT_MIN_BB;
-                                                            GameFrame.BUYIN_MAX_BB = partes_comando.length > 15 ? Integer.parseInt(partes_comando[15]) : BuyinRules.DEFAULT_MAX_BB;
-                                                            GameFrame.REBUY_CAP_POLICY = partes_comando.length > 16 ? Integer.parseInt(partes_comando[16]) : GameFrame.REBUY_CAP_BUYIN;
-                                                            // Ante and straddle (fixed fields; the client must match the host).
-                                                            GameFrame.ANTE = partes_comando.length > 17 && Boolean.parseBoolean(partes_comando[17]);
-                                                            GameFrame.STRADDLE = partes_comando.length > 18 && Boolean.parseBoolean(partes_comando[18]);
-                                                            // Game rules chosen when the game was created (fixed fields; the
-                                                            // client must start with the same rules as the host).
-                                                            GameFrame.IWTSTH_RULE = partes_comando.length > 19 && "1".equals(partes_comando[19]);
-                                                            GameFrame.RUN_IT_TWICE = partes_comando.length > 20 && "1".equals(partes_comando[20]);
-                                                            GameFrame.RABBIT_HUNTING = partes_comando.length > 21 ? Integer.parseInt(partes_comando[21]) : 0;
-                                                            // Think time (seconds, index 22) + whether it's enabled (index 23):
-                                                            // FIXED fields before the structure; the client must start with the
-                                                            // same think time (or no limit) the host set. Length guards in case
-                                                            // they're missing (default = DEFAULT_THINK_TIME / enabled).
-                                                            GameFrame.THINK_TIME = partes_comando.length > 22 ? Integer.parseInt(partes_comando[22]) : GameFrame.DEFAULT_THINK_TIME;
-                                                            GameFrame.THINK_TIME_ENABLED = partes_comando.length <= 23 || "1".equals(partes_comando[23]);
-                                                            // Showdown pause time (seconds, index 24): FIXED field before the
-                                                            // structure; the client shows the result for the same duration as
-                                                            // the host. Length guard in case it's missing (default = DEFAULT_SHOWDOWN_TIME).
-                                                            GameFrame.SHOWDOWN_TIME = partes_comando.length > 24 ? Integer.parseInt(partes_comando[24]) : GameFrame.DEFAULT_SHOWDOWN_TIME;
-                                                            // Whether bots' balance is split among humans when the game ends
-                                                            // (index 25, FIXED field before the structure): the client must
-                                                            // apply the same setting the host uses in its final settlement.
-                                                            // Length guard in case it's missing (default = off).
-                                                            GameFrame.BOT_BALANCE_TO_HUMANS = partes_comando.length > 25 && "1".equals(partes_comando[25]);
-                                                            // Custom blind structure (optional trailing field, now at index
-                                                            // 26): the client recomputes the ladder with the SAME list as the
-                                                            // host. Absent = default ladder (null). Never keep a stale
-                                                            // structure from a previous game.
-                                                            if (partes_comando.length > 26 && !partes_comando[26].isEmpty()) {
-                                                                try {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[26]);
-                                                                } catch (IllegalArgumentException blinds_ex) {
-                                                                    LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed or invalid; falling back to default", blinds_ex);
+                                                                break;
+                                                            case "USERSLIST":
+                                                                // Identity: each entry now carries pubkey + self_sig in
+                                                                // fields [3] and [4] (or "*" for bots / unknown). Apply them
+                                                                // to the Participant once it exists, after TOFU.
+                                                                //
+                                                                // USERSLIST may arrive empty when the joining client is the
+                                                                // only peer besides the host (host is never an entry here — its
+                                                                // identity comes through the intro packet). Skip when there is
+                                                                // no payload.
+                                                                if (partes_comando.length < 4) {
+                                                                    break;
+                                                                }
+                                                                String[] current_users_parts = partes_comando[3].split("@");
+                                                                for (String user : current_users_parts) {
+                                                                    if (user.isEmpty()) {
+                                                                        continue;
+                                                                    }
+                                                                    String[] user_parts = user.split("\\|");
+                                                                    try {
+                                                                        String list_nick = new String(Base64.getDecoder().decode(user_parts[0]), "UTF-8");
+                                                                        boolean isListBot = list_nick.startsWith("CoronaBot$");
+                                                                        RemoteRosterAdmission rosterAdmission = admitRemoteRosterParticipant(
+                                                                                list_nick,
+                                                                                user_parts.length >= 3 ? user_parts[2] : "*",
+                                                                                isListBot, "1".equals(user_parts[1]), "USERSLIST");
+                                                                        if (rosterAdmission == RemoteRosterAdmission.REJECT) {
+                                                                            rejectRemoteRoster(list_nick, "USERSLIST");
+                                                                            break;
+                                                                        } else if (rosterAdmission == RemoteRosterAdmission.DUPLICATE) {
+                                                                            continue;
+                                                                        }
+
+                                                                        if (user_parts.length >= 5
+                                                                                && !"*".equals(user_parts[3]) && !"*".equals(user_parts[4])) {
+                                                                            try {
+                                                                                byte[] idPubkey = Base64.getDecoder().decode(user_parts[3]);
+                                                                                byte[] idSig = Base64.getDecoder().decode(user_parts[4]);
+                                                                                if (idPubkey.length != 32 || idSig.length != 64) {
+                                                                                    LOGGER.log(Level.WARNING, "USERSLIST identity malformed for {0}", list_nick);
+                                                                                } else if (!IdentityManager.verifyJoin(this.session_id, list_nick, idPubkey, idSig)) {
+                                                                                    LOGGER.log(Level.WARNING, "USERSLIST identity bad self_sig for {0}", list_nick);
+                                                                                } else {
+                                                                                    TOFUResolver.Resolution res = TOFUResolver.resolve(list_nick, idPubkey);
+                                                                                    Participant p = participantes.get(list_nick);
+                                                                                    if (p != null) {
+                                                                                        p.setIdentity_pubkey(idPubkey);
+                                                                                        p.setIdentity_self_sig(idSig);
+                                                                                    }
+                                                                                    LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via USERSLIST",
+                                                                                            new Object[]{list_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
+                                                                                }
+                                                                            } catch (Exception idex) {
+                                                                                LOGGER.log(Level.WARNING, "USERSLIST identity decode failed for " + list_nick, idex);
+                                                                            }
+                                                                        }
+                                                                    } catch (Exception e) {
+                                                                    }
+                                                                }
+                                                                break;
+                                                            case "INIT":
+                                                                Helpers.GUIRun(() -> {
+                                                                    setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
+                                                                    sound_icon.setVisible(false);
+                                                                    status.setText(Translator.translate("status.inicializando_juego"));
+                                                                    status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
+                                                                    barra.setVisible(true);
+                                                                });
+                                                                GameFrame.BUYIN = Integer.parseInt(partes_comando[3]);
+                                                                GameFrame.CIEGA_PEQUEÑA = Double.parseDouble(partes_comando[4]);
+                                                                GameFrame.CIEGA_GRANDE = Double.parseDouble(partes_comando[5]);
+                                                                String[] ciegas_double = partes_comando[6].split("@");
+                                                                GameFrame.CIEGAS_DOUBLE = Integer.parseInt(ciegas_double[0]);
+                                                                GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
+                                                                GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
+                                                                GameFrame.UGI = partes_comando[7].split("@")[1];
+                                                                GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
+                                                                GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
+                                                                GameFrame.BLIND_CAP = partes_comando.length > 10 ? Double.parseDouble(partes_comando[10]) : 0;
+                                                                GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
+                                                                GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
+                                                                GameFrame.FIXED_BUYIN = partes_comando.length > 13 ? Boolean.parseBoolean(partes_comando[13]) : true;
+                                                                // Editable buy-in range and rebuy-cap policy (fixed fields; the
+                                                                // client's cap/headroom must match the host's).
+                                                                GameFrame.BUYIN_MIN_BB = partes_comando.length > 14 ? Integer.parseInt(partes_comando[14]) : BuyinRules.DEFAULT_MIN_BB;
+                                                                GameFrame.BUYIN_MAX_BB = partes_comando.length > 15 ? Integer.parseInt(partes_comando[15]) : BuyinRules.DEFAULT_MAX_BB;
+                                                                GameFrame.REBUY_CAP_POLICY = partes_comando.length > 16 ? Integer.parseInt(partes_comando[16]) : GameFrame.REBUY_CAP_BUYIN;
+                                                                // Ante and straddle (fixed fields; the client must match the host).
+                                                                GameFrame.ANTE = partes_comando.length > 17 && Boolean.parseBoolean(partes_comando[17]);
+                                                                GameFrame.STRADDLE = partes_comando.length > 18 && Boolean.parseBoolean(partes_comando[18]);
+                                                                // Game rules chosen when the game was created (fixed fields; the
+                                                                // client must start with the same rules as the host).
+                                                                GameFrame.IWTSTH_RULE = partes_comando.length > 19 && "1".equals(partes_comando[19]);
+                                                                GameFrame.RUN_IT_TWICE = partes_comando.length > 20 && "1".equals(partes_comando[20]);
+                                                                GameFrame.RABBIT_HUNTING = partes_comando.length > 21 ? Integer.parseInt(partes_comando[21]) : 0;
+                                                                // Think time (seconds, index 22) + whether it's enabled (index 23):
+                                                                // FIXED fields before the structure; the client must start with the
+                                                                // same think time (or no limit) the host set. Length guards in case
+                                                                // they're missing (default = DEFAULT_THINK_TIME / enabled).
+                                                                GameFrame.THINK_TIME = partes_comando.length > 22 ? Integer.parseInt(partes_comando[22]) : GameFrame.DEFAULT_THINK_TIME;
+                                                                GameFrame.THINK_TIME_ENABLED = partes_comando.length <= 23 || "1".equals(partes_comando[23]);
+                                                                // Showdown pause time (seconds, index 24): FIXED field before the
+                                                                // structure; the client shows the result for the same duration as
+                                                                // the host. Length guard in case it's missing (default = DEFAULT_SHOWDOWN_TIME).
+                                                                GameFrame.SHOWDOWN_TIME = partes_comando.length > 24 ? Integer.parseInt(partes_comando[24]) : GameFrame.DEFAULT_SHOWDOWN_TIME;
+                                                                // Whether bots' balance is split among humans when the game ends
+                                                                // (index 25, FIXED field before the structure): the client must
+                                                                // apply the same setting the host uses in its final settlement.
+                                                                // Length guard in case it's missing (default = off).
+                                                                GameFrame.BOT_BALANCE_TO_HUMANS = partes_comando.length > 25 && "1".equals(partes_comando[25]);
+                                                                // Custom blind structure (optional trailing field, now at index
+                                                                // 26): the client recomputes the ladder with the SAME list as the
+                                                                // host. Absent = default ladder (null). Never keep a stale
+                                                                // structure from a previous game.
+                                                                if (partes_comando.length > 26 && !partes_comando[26].isEmpty()) {
+                                                                    try {
+                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[26]);
+                                                                    } catch (IllegalArgumentException blinds_ex) {
+                                                                        LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed or invalid; falling back to default", blinds_ex);
+                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = null;
+                                                                    }
+                                                                } else {
                                                                     GameFrame.ACTIVE_BLIND_STRUCTURE = null;
                                                                 }
-                                                            } else {
-                                                                GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                            }
-                                                            Helpers.GUIRunAndWait(new Runnable() {
-                                                                public void run() {
-                                                                    // If the client had the settings wheel open (with the waiting
-                                                                    // room's Game tab), it closes itself when the game starts: those
-                                                                    // settings no longer apply. Direct dispose() = no "discard
-                                                                    // changes" dialog.
-                                                                    SettingsDialog.closeIfOpen();
-                                                                    new GameFrame(THIS, local_nick, false);
-                                                                }
-                                                            });
-                                                            partida_empezada = true;
-                                                            GameFrame.getInstance().AJUGAR();
-                                                            break;
+                                                                Helpers.GUIRunAndWait(new Runnable() {
+                                                                    public void run() {
+                                                                        // If the client had the settings wheel open (with the waiting
+                                                                        // room's Game tab), it closes itself when the game starts: those
+                                                                        // settings no longer apply. Direct dispose() = no "discard
+                                                                        // changes" dialog.
+                                                                        SettingsDialog.closeIfOpen();
+                                                                        new GameFrame(THIS, local_nick, false);
+                                                                    }
+                                                                });
+                                                                partida_empezada = true;
+                                                                GameFrame.getInstance().AJUGAR();
+                                                                break;
+                                                        }
                                                     }
                                                 }
-                                            }
-                                            break;
-                                        case "CONF":
-                                            if (WaitingRoomFrame.getInstance() != null) {
-                                                WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
-                                                synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                                                    WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
+                                                break;
+                                            case "CONF":
+                                                if (WaitingRoomFrame.getInstance() != null) {
+                                                    WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
+                                                    synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
+                                                        WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
+                                                    }
                                                 }
-                                            }
-                                            break;
-                                        default:
-                                            break;
-                                    }
+                                                break;
+                                            default:
+                                                break;
+                                        }
                                     } catch (Exception frame_ex) {
                                         // If the game was reset/torn down under us (RESET race:
                                         // resetInstance() ran while frames were still buffered),
@@ -3987,9 +3994,10 @@ public class WaitingRoomFrame extends JFrame {
 
     /**
      * Identity: verifies a JOIN_IDENTITY self_sig sent by a new client during
-     * their initial handshake. Decodes the base64-encoded pubkey (32 bytes) and signature
-     * (64 bytes), then delegates to {@link IdentityManager#verifyJoin} under the current
-     * game's session_id and the NFC-normalized nick.
+     * their initial handshake. Decodes the base64-encoded pubkey (32 bytes) and
+     * signature (64 bytes), then delegates to
+     * {@link IdentityManager#verifyJoin} under the current game's session_id
+     * and the NFC-normalized nick.
      *
      * Returns false on any decode error or signature mismatch. Never throws.
      */
@@ -4008,9 +4016,9 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Identity: stores the validated identity on the participant entry, runs the
-     * local TOFU resolution, and logs the outcome (NEW / MATCH / CHANGED). Called by
-     * the host right after a successful JOIN.
+     * Identity: stores the validated identity on the participant entry, runs
+     * the local TOFU resolution, and logs the outcome (NEW / MATCH / CHANGED).
+     * Called by the host right after a successful JOIN.
      */
     private void recordJoinIdentity(Participant par, String pubkeyB64, String selfSigB64) {
         try {
@@ -4027,23 +4035,28 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Identity/consensus guard: returns true when {@code client_nick} would collapse
-     * to the same canonical PLAYER_ID as an already-seated participant (the host
-     * included — its own nick lives in {@code participantes} with a null value).
+     * Identity/consensus guard: returns true when {@code client_nick} would
+     * collapse to the same canonical PLAYER_ID as an already-seated participant
+     * (the host included — its own nick lives in {@code participantes} with a
+     * null value).
      *
-     * <p>The settlement layer derives PLAYER_ID from NFC(nick) (see
-     * {@link CanonicalActionRecord#playerIdFromNick}). Two raw nicks whose bytes
-     * differ but whose NFC form is identical — e.g. a precomposed «é» (U+00E9)
-     * vs. «e» + combining acute (U+0301) — share a single PLAYER_ID. The exact-string
-     * NICKFAIL check upstream does NOT catch that (the strings differ), so both would
-     * seat; the SettlementRecord then rejects the second as a duplicate id and DISABLES
-     * settlement consensus for the whole table. Rejecting the join keeps every seated
-     * identity distinct at the PLAYER_ID level.
+     * <p>
+     * The settlement layer derives PLAYER_ID from NFC(nick) (see
+     * {@link CanonicalActionRecord#playerIdFromNick}). Two raw nicks whose
+     * bytes differ but whose NFC form is identical — e.g. a precomposed «é»
+     * (U+00E9) vs. «e» + combining acute (U+0301) — share a single PLAYER_ID.
+     * The exact-string NICKFAIL check upstream does NOT catch that (the strings
+     * differ), so both would seat; the SettlementRecord then rejects the second
+     * as a duplicate id and DISABLES settlement consensus for the whole table.
+     * Rejecting the join keeps every seated identity distinct at the PLAYER_ID
+     * level.
      *
-     * <p>Uses the same NFC form (no trim) as {@code playerIdFromNick} / the JOIN
-     * self-sig payload, so it flags exactly the pairs that collide in settlement and
-     * nothing else. Compares KEYS only, under the map's monitor (a synchronizedMap
-     * iterator is not otherwise safe against a concurrent join).
+     * <p>
+     * Uses the same NFC form (no trim) as {@code playerIdFromNick} / the JOIN
+     * self-sig payload, so it flags exactly the pairs that collide in
+     * settlement and nothing else. Compares KEYS only, under the map's monitor
+     * (a synchronizedMap iterator is not otherwise safe against a concurrent
+     * join).
      */
     private boolean nickCollisionNFC(String client_nick) {
         String nfc_incoming = java.text.Normalizer.normalize(client_nick, java.text.Normalizer.Form.NFC);
@@ -4065,186 +4078,211 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.threadRun(() -> {
             try {
 
-            LOGGER.log(Level.INFO, "A client is trying to connect...");
-            net_server.getClient_threads().add(Thread.currentThread().threadId());
-            String recibido;
-            String[] partes;
-            try {
-                client_socket.setTcpNoDelay(true);
-                client_socket.setKeepAlive(true);
-                // Anti-DoS lock: if the peer does NOT finish the handshake within
-                // HANDSHAKE_TIMEOUT_MS, the blocked read throws SocketTimeoutException and we
-                // fall into the catch that closes the socket and frees the thread. RESET to 0
-                // further down on the two success branches (nuevoParticipante for a clean JOIN
-                // and resetSocket for a reconnect).
-                client_socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
-                byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
-                // readFully (not read()): a magic split by TCP segmentation used to leave the
-                // buffer half-filled and wrongly reject a valid client. The SoTimeout above
-                // still covers a peer that never sends enough.
-                DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
-                dIn.readFully(magic);
-                if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
+                LOGGER.log(Level.INFO, "A client is trying to connect...");
+                net_server.getClient_threads().add(Thread.currentThread().threadId());
+                String recibido;
+                String[] partes;
+                try {
+                    client_socket.setTcpNoDelay(true);
+                    client_socket.setKeepAlive(true);
+                    // Anti-DoS lock: if the peer does NOT finish the handshake within
+                    // HANDSHAKE_TIMEOUT_MS, the blocked read throws SocketTimeoutException and we
+                    // fall into the catch that closes the socket and frees the thread. RESET to 0
+                    // further down on the two success branches (nuevoParticipante for a clean JOIN
+                    // and resetSocket for a reconnect).
+                    client_socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
+                    byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
+                    // readFully (not read()): a magic split by TCP segmentation used to leave the
+                    // buffer half-filled and wrongly reject a valid client. The SoTimeout above
+                    // still covers a peer that never sends enough.
+                    DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
+                    dIn.readFully(magic);
+                    if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
 
-                    /* CLEAN KEY EXCHANGE START */
-                    int length = dIn.readInt();
-                    if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
-                        throw new IOException("Handshake: invalid client pubkey length " + length
-                                + " (cap " + HANDSHAKE_MAX_PUBKEY_BYTES + ")");
-                    }
-                    byte[] clientPubKeyEnc = new byte[length];
-                    dIn.readFully(clientPubKeyEnc, 0, clientPubKeyEnc.length);
-                    KeyFactory serverKeyFac = KeyFactory.getInstance("EC");
-                    X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(clientPubKeyEnc);
-                    PublicKey clientPubKey = serverKeyFac.generatePublic(x509KeySpec);
-                    KeyPairGenerator serverKpairGen = KeyPairGenerator.getInstance("EC");
-                    serverKpairGen.initialize(EC_KEY_LENGTH);
-                    KeyPair serverKpair = serverKpairGen.generateKeyPair();
-                    KeyAgreement serverKeyAgree = KeyAgreement.getInstance("ECDH");
-                    serverKeyAgree.init(serverKpair.getPrivate());
-                    byte[] serverPubKeyEnc = serverKpair.getPublic().getEncoded();
-                    DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
-                    dOut.writeInt(serverPubKeyEnc.length);
-                    dOut.write(serverPubKeyEnc);
-                    // Identity: ship the game session_id immediately after the server
-                    // pubkey. Clients on this version expect these bytes; old clients are
-                    // blocked by the strict-equality VERSION gate further down.
-                    dOut.writeInt(session_id.length);
-                    dOut.write(session_id);
-                    dOut.flush();
-
-                    serverKeyAgree.doPhase(clientPubKey, true);
-                    byte[] serverSharedSecret = serverKeyAgree.generateSecret();
-                    byte[] secret_hash = Helpers.deriveChannelSecret(serverSharedSecret, password);
-                    SecretKeySpec aes_key = new SecretKeySpec(secret_hash, 0, 32, "AES");
-                    SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
-                    /* KEY EXCHANGE END */
-
-                    recibido = readCommandFromClient(client_socket, aes_key, hmac_key);
-
-                    if (recibido == null) {
-                        // readCommand returns null on socket failure (peer dropped between
-                        // key exchange and payload). Bail out cleanly instead of NPE-ing on split.
-                        LOGGER.log(Level.WARNING,
-                                "Handshake aborted: client closed connection before sending payload.");
-                        try {
-                            if (!client_socket.isClosed()) {
-                                client_socket.close();
-                            }
-                        } catch (Exception ex) {
+                        /* CLEAN KEY EXCHANGE START */
+                        int length = dIn.readInt();
+                        if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
+                            throw new IOException("Handshake: invalid client pubkey length " + length
+                                    + " (cap " + HANDSHAKE_MAX_PUBKEY_BYTES + ")");
                         }
-                        net_server.getClient_threads().remove(Thread.currentThread().threadId());
-                        return;
-                    }
+                        byte[] clientPubKeyEnc = new byte[length];
+                        dIn.readFully(clientPubKeyEnc, 0, clientPubKeyEnc.length);
+                        KeyFactory serverKeyFac = KeyFactory.getInstance("EC");
+                        X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(clientPubKeyEnc);
+                        PublicKey clientPubKey = serverKeyFac.generatePublic(x509KeySpec);
+                        KeyPairGenerator serverKpairGen = KeyPairGenerator.getInstance("EC");
+                        serverKpairGen.initialize(EC_KEY_LENGTH);
+                        KeyPair serverKpair = serverKpairGen.generateKeyPair();
+                        KeyAgreement serverKeyAgree = KeyAgreement.getInstance("ECDH");
+                        serverKeyAgree.init(serverKpair.getPrivate());
+                        byte[] serverPubKeyEnc = serverKpair.getPublic().getEncoded();
+                        DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
+                        dOut.writeInt(serverPubKeyEnc.length);
+                        dOut.write(serverPubKeyEnc);
+                        // Identity: ship the game session_id immediately after the server
+                        // pubkey. Clients on this version expect these bytes; old clients are
+                        // blocked by the strict-equality VERSION gate further down.
+                        dOut.writeInt(session_id.length);
+                        dOut.write(session_id);
+                        dOut.flush();
 
-                    partes = recibido.split("#");
+                        serverKeyAgree.doPhase(clientPubKey, true);
+                        byte[] serverSharedSecret = serverKeyAgree.generateSecret();
+                        byte[] secret_hash = Helpers.deriveChannelSecret(serverSharedSecret, password);
+                        SecretKeySpec aes_key = new SecretKeySpec(secret_hash, 0, 32, "AES");
+                        SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
+                        /* KEY EXCHANGE END */
 
-                    // Guard before touching partes[1]: a payload without the version
-                    // segment would throw AIOOBE into the general catch, which does NOT
-                    // close the socket (FD leak). Close it here, in a branch where the
-                    // socket has not yet been handed to a Participant, mirroring the
-                    // recibido == null path above.
-                    if (partes.length < 2) {
-                        LOGGER.log(Level.WARNING,
-                                "Handshake aborted: malformed payload (expected nick#version#...).");
-                        try {
-                            if (!client_socket.isClosed()) {
-                                client_socket.close();
-                            }
-                        } catch (Exception ex) {
-                        }
-                        net_server.getClient_threads().remove(Thread.currentThread().threadId());
-                        return;
-                    }
+                        recibido = readCommandFromClient(client_socket, aes_key, hmac_key);
 
-                    String client_nick = new String(Base64.getDecoder().decode(partes[0]), "UTF-8");
-
-                    String client_version = partes[1];
-                    File client_avatar = null;
-
-                    if (partes.length == 5) {
-                        LOGGER.log(Level.WARNING, "A potential client wants to reconnect...");
-                        if (participantes.containsKey(client_nick)) {
-                            LOGGER.log(Level.WARNING, "Client already exists");
-                            Mac orig_sha256_HMAC = Mac.getInstance("HmacSHA256");
-                            orig_sha256_HMAC.init(participantes.get(client_nick).getHmac_key_orig());
-                            byte[] orig_hmac = orig_sha256_HMAC.doFinal(client_nick.getBytes("UTF-8"));
-                            boolean rec_error = true;
-                            if (MessageDigest.isEqual(orig_hmac, Base64.getDecoder().decode(partes[4]))) {
-
-                                LOGGER.log(Level.WARNING, "Client HMAC is authentic");
-
-                                // Authenticated grace refresh BEFORE resetSocket: if the
-                                // Participant's reader is in wait and the base grace is about to
-                                // expire, this crypto-valid attempt extends it to
-                                // CLIENT_RECON_TIMEOUT. Covers the slow-network case where the
-                                // handshake+payload arrive right at the edge.
-                                participantes.get(client_nick).signalReconnectIntent();
-
-                                LOGGER.log(Level.WARNING, "Resetting client socket...");
-
-                                // Handshake complete: the Participant takes control of the
-                                // socket and its normal reads (PING/PONG, GAME, etc.) must not
-                                // inherit the handshake deadline.
-                                try {
-                                    client_socket.setSoTimeout(0);
-                                } catch (Exception ex) {
-                                    LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on reconnect", ex);
+                        if (recibido == null) {
+                            // readCommand returns null on socket failure (peer dropped between
+                            // key exchange and payload). Bail out cleanly instead of NPE-ing on split.
+                            LOGGER.log(Level.WARNING,
+                                    "Handshake aborted: client closed connection before sending payload.");
+                            try {
+                                if (!client_socket.isClosed()) {
+                                    client_socket.close();
                                 }
-                                if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
+                            } catch (Exception ex) {
+                            }
+                            net_server.getClient_threads().remove(Thread.currentThread().threadId());
+                            return;
+                        }
 
-                                    if (WaitingRoomFrame.getInstance().isPartida_empezada()
-                                            && GameFrame.getInstance() != null
-                                            && GameFrame.getInstance().getCrupier() != null
-                                            && GameFrame.getInstance().getCrupier().getNick2player() != null
-                                            && GameFrame.getInstance().getCrupier().getNick2player()
-                                                    .get(client_nick) != null) {
+                        partes = recibido.split("#");
+
+                        // Guard before touching partes[1]: a payload without the version
+                        // segment would throw AIOOBE into the general catch, which does NOT
+                        // close the socket (FD leak). Close it here, in a branch where the
+                        // socket has not yet been handed to a Participant, mirroring the
+                        // recibido == null path above.
+                        if (partes.length < 2) {
+                            LOGGER.log(Level.WARNING,
+                                    "Handshake aborted: malformed payload (expected nick#version#...).");
+                            try {
+                                if (!client_socket.isClosed()) {
+                                    client_socket.close();
+                                }
+                            } catch (Exception ex) {
+                            }
+                            net_server.getClient_threads().remove(Thread.currentThread().threadId());
+                            return;
+                        }
+
+                        String client_nick = new String(Base64.getDecoder().decode(partes[0]), "UTF-8");
+
+                        String client_version = partes[1];
+                        File client_avatar = null;
+
+                        if (partes.length == 5) {
+                            LOGGER.log(Level.WARNING, "A potential client wants to reconnect...");
+                            if (participantes.containsKey(client_nick)) {
+                                LOGGER.log(Level.WARNING, "Client already exists");
+                                Mac orig_sha256_HMAC = Mac.getInstance("HmacSHA256");
+                                orig_sha256_HMAC.init(participantes.get(client_nick).getHmac_key_orig());
+                                byte[] orig_hmac = orig_sha256_HMAC.doFinal(client_nick.getBytes("UTF-8"));
+                                boolean rec_error = true;
+                                if (MessageDigest.isEqual(orig_hmac, Base64.getDecoder().decode(partes[4]))) {
+
+                                    LOGGER.log(Level.WARNING, "Client HMAC is authentic");
+
+                                    // Authenticated grace refresh BEFORE resetSocket: if the
+                                    // Participant's reader is in wait and the base grace is about to
+                                    // expire, this crypto-valid attempt extends it to
+                                    // CLIENT_RECON_TIMEOUT. Covers the slow-network case where the
+                                    // handshake+payload arrive right at the edge.
+                                    participantes.get(client_nick).signalReconnectIntent();
+
+                                    LOGGER.log(Level.WARNING, "Resetting client socket...");
+
+                                    // Handshake complete: the Participant takes control of the
+                                    // socket and its normal reads (PING/PONG, GAME, etc.) must not
+                                    // inherit the handshake deadline.
+                                    try {
+                                        client_socket.setSoTimeout(0);
+                                    } catch (Exception ex) {
+                                        LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on reconnect", ex);
+                                    }
+                                    if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
+
+                                        if (WaitingRoomFrame.getInstance().isPartida_empezada()
+                                                && GameFrame.getInstance() != null
+                                                && GameFrame.getInstance().getCrupier() != null
+                                                && GameFrame.getInstance().getCrupier().getNick2player() != null
+                                                && GameFrame.getInstance().getCrupier().getNick2player()
+                                                        .get(client_nick) != null) {
+                                            try {
+                                                GameFrame.getInstance().getCrupier().getNick2player().get(client_nick)
+                                                        .setTimeout(false);
+                                            } catch (Exception ex) {
+                                            }
+                                        }
+
+                                        LOGGER.log(Level.WARNING, "Client {0} has reconnected successfully", client_nick);
+
+                                        // Explicit ack to the client so its reconectarCliente knows the
+                                        // reconnect was truly accepted. Without this ack the client
+                                        // marked ok_rec=true just because the crypto handshake finished
+                                        // without an exception, and if the server closed the socket
+                                        // immediately (any of the DENIED branches), the client's reader
+                                        // read null and looped back into reconectarCliente() with no
+                                        // pause — a busy-loop doing ECDH every iteration that froze the
+                                        // UI and spiked CPU to 100%.
                                         try {
-                                            GameFrame.getInstance().getCrupier().getNick2player().get(client_nick)
-                                                    .setTimeout(false);
+                                            participantes.get(client_nick).writeCommandFromServer(
+                                                    Helpers.encryptCommand("RECONNECT_OK", aes_key, hmac_key));
+                                        } catch (Exception ackEx) {
+                                            LOGGER.log(Level.WARNING, "Failed to send RECONNECT_OK ack to " + client_nick, ackEx);
+                                        }
+
+                                        rec_error = false;
+
+                                        if (WaitingRoomFrame.getInstance().isPartida_empezada()
+                                                && GameFrame.getInstance() != null) {
+                                            Helpers.GUIRun(() -> {
+                                                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(),
+                                                        false, client_nick + " " + Translator.translate("conn.ha_reconectado"),
+                                                        Color.GREEN, Color.WHITE,
+                                                        getClass().getResource("/images/action/plug.png"),
+                                                        NOTIFICATION_TIMEOUT);
+                                                dialog.setLocation(dialog.getParent().getLocation());
+                                                dialog.setVisible(true);
+                                            });
+                                        }
+
+                                    } else {
+                                        LOGGER.log(Level.WARNING, "Client {0} failed to reconnect", client_nick);
+                                        // Explicit denial ack before closing (see the note on the OK
+                                        // branch above for why the ack is needed).
+                                        try {
+                                            writeCommandFromServer(
+                                                    Helpers.encryptCommand("RECONNECT_DENIED#RESET_FAIL", aes_key, hmac_key),
+                                                    client_socket);
+                                        } catch (Exception ackEx) {
+                                        }
+                                        try {
+                                            if (!client_socket.isClosed()) {
+                                                client_socket.close();
+                                            }
                                         } catch (Exception ex) {
                                         }
                                     }
 
-                                    LOGGER.log(Level.WARNING, "Client {0} has reconnected successfully", client_nick);
-
-                                    // Explicit ack to the client so its reconectarCliente knows the
-                                    // reconnect was truly accepted. Without this ack the client
-                                    // marked ok_rec=true just because the crypto handshake finished
-                                    // without an exception, and if the server closed the socket
-                                    // immediately (any of the DENIED branches), the client's reader
-                                    // read null and looped back into reconectarCliente() with no
-                                    // pause — a busy-loop doing ECDH every iteration that froze the
-                                    // UI and spiked CPU to 100%.
-                                    try {
-                                        participantes.get(client_nick).writeCommandFromServer(
-                                                Helpers.encryptCommand("RECONNECT_OK", aes_key, hmac_key));
-                                    } catch (Exception ackEx) {
-                                        LOGGER.log(Level.WARNING, "Failed to send RECONNECT_OK ack to " + client_nick, ackEx);
-                                    }
-
-                                    rec_error = false;
-
-                                    if (WaitingRoomFrame.getInstance().isPartida_empezada()
-                                            && GameFrame.getInstance() != null) {
-                                        Helpers.GUIRun(() -> {
-                                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(),
-                                                    false, client_nick + " " + Translator.translate("conn.ha_reconectado"),
-                                                    Color.GREEN, Color.WHITE,
-                                                    getClass().getResource("/images/action/plug.png"),
-                                                    NOTIFICATION_TIMEOUT);
-                                            dialog.setLocation(dialog.getParent().getLocation());
-                                            dialog.setVisible(true);
-                                        });
-                                    }
-
                                 } else {
-                                    LOGGER.log(Level.WARNING, "Client {0} failed to reconnect", client_nick);
-                                    // Explicit denial ack before closing (see the note on the OK
-                                    // branch above for why the ack is needed).
+                                    // BAD HMAC: the client brought an old session key (its orig HMAC
+                                    // doesn't match the Participant's current one). EXPECTED case
+                                    // after a long interruption — the client's Reconnect2ServerDialog
+                                    // retries automatically every few seconds. We do NOT pop up a
+                                    // dialog on the host: every attempt would generate a new popup and
+                                    // they'd pile up until the server became unusable. The client will
+                                    // see the explicit denial (RECONNECT_DENIED) in its
+                                    // reconectarCliente and land on its own dialog with a pause
+                                    // between attempts.
+                                    LOGGER.log(Level.WARNING, "Client {0} failed to reconnect (bad HMAC) — silencing popup (expected after long interruption; client will land on its own reconnect-failed dialog)", client_nick);
                                     try {
                                         writeCommandFromServer(
-                                                Helpers.encryptCommand("RECONNECT_DENIED#RESET_FAIL", aes_key, hmac_key),
+                                                Helpers.encryptCommand("RECONNECT_DENIED#BAD_HMAC", aes_key, hmac_key),
                                                 client_socket);
                                     } catch (Exception ackEx) {
                                     }
@@ -4254,22 +4292,25 @@ public class WaitingRoomFrame extends JFrame {
                                         }
                                     } catch (Exception ex) {
                                     }
+                                    rec_error = false;
                                 }
-
+                                if (rec_error) {
+                                    Helpers.threadRun(() -> {
+                                        Helpers.mostrarMensajeError(THIS,
+                                                Translator.translate("conn.error_al_intentar_reconectar") + client_nick);
+                                    });
+                                }
                             } else {
-                                // BAD HMAC: the client brought an old session key (its orig HMAC
-                                // doesn't match the Participant's current one). EXPECTED case
-                                // after a long interruption — the client's Reconnect2ServerDialog
-                                // retries automatically every few seconds. We do NOT pop up a
-                                // dialog on the host: every attempt would generate a new popup and
-                                // they'd pile up until the server became unusable. The client will
-                                // see the explicit denial (RECONNECT_DENIED) in its
-                                // reconectarCliente and land on its own dialog with a pause
-                                // between attempts.
-                                LOGGER.log(Level.WARNING, "Client {0} failed to reconnect (bad HMAC) — silencing popup (expected after long interruption; client will land on its own reconnect-failed dialog)", client_nick);
+                                LOGGER.log(Level.WARNING, "User {0} trying to reconnect to a previous game — denied", client_nick);
+                                // Explicit denial ack before closing the socket. Without this the
+                                // client thinks it reconnected (its handshake finished OK), its
+                                // reader reads null immediately when the server closes, and it
+                                // calls reconectarCliente() again in a no-pause busy-loop (the 5s
+                                // pause only applies when ok_rec=false) — yxmgl bug, 20.59 issue 1:
+                                // freeze + CPU spike after a server "recover".
                                 try {
                                     writeCommandFromServer(
-                                            Helpers.encryptCommand("RECONNECT_DENIED#BAD_HMAC", aes_key, hmac_key),
+                                            Helpers.encryptCommand("RECONNECT_DENIED#UNKNOWN_NICK", aes_key, hmac_key),
                                             client_socket);
                                 } catch (Exception ackEx) {
                                 }
@@ -4279,307 +4320,279 @@ public class WaitingRoomFrame extends JFrame {
                                     }
                                 } catch (Exception ex) {
                                 }
-                                rec_error = false;
                             }
-                            if (rec_error) {
-                                Helpers.threadRun(() -> {
-                                    Helpers.mostrarMensajeError(THIS,
-                                            Translator.translate("conn.error_al_intentar_reconectar") + client_nick);
+                        } else if (!AboutDialog.VERSION.equals(client_version)) {
+                            writeCommandFromServer(
+                                    Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key),
+                                    client_socket);
+                            try {
+                                client_socket.close();
+                            } catch (Exception ex) {
+                            }
+                        } else if (hasReservedBotNickCharacter(client_nick)) {
+                            LOGGER.log(Level.WARNING,
+                                    "Rejected unauthorized remote nick {0}: '$' is reserved for bots",
+                                    client_nick);
+                            writeCommandFromServer(
+                                    Helpers.encryptCommand("NICKUNAUTHORIZED", aes_key, hmac_key),
+                                    client_socket);
+                            try {
+                                client_socket.close();
+                            } catch (Exception ex) {
+                            }
+                        } else if (WaitingRoomFrame.getInstance().isPartida_empezando()
+                                || WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                            writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
+
+                            try {
+                                String ipCliente = Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-256")
+                                        .digest(client_socket.getInetAddress().getHostAddress().getBytes()));
+
+                                if (!net_server.getLate_clients_warning().contains(ipCliente)) {
+                                    if (GameFrame.entrarSalaSonidoOn()) {
+                                        Audio.playWavResource("misc/new_user.wav");
+                                    }
+                                    net_server.getLate_clients_warning().add(ipCliente);
+                                }
+
+                                Helpers.GUIRun(() -> {
+                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
+                                            "[" + client_nick + "] " + Translator.translate("game.quiere_entrar_en_la_timba"),
+                                            Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"),
+                                            NOTIFICATION_TIMEOUT);
+                                    dialog.setLocation(dialog.getParent().getLocation());
+                                    dialog.setVisible(true);
                                 });
+
+                                Helpers.threadRun(() -> {
+                                    try {
+                                        GameFrame.getInstance().getCrupier()
+                                                .broadcastGAMECommandFromServer("YOUARELATE#"
+                                                        + Base64.getEncoder().encodeToString(client_nick.getBytes("UTF-8")) + "#"
+                                                        + ipCliente, null);
+                                    } catch (UnsupportedEncodingException ex) {
+                                        LOGGER.log(Level.SEVERE, null, ex);
+                                    }
+                                });
+                            } catch (Exception e) {
+                            }
+
+                            LOGGER.log(Level.WARNING,
+                                    "User {0} arrived too late — denied", client_nick);
+
+                            try {
+                                client_socket.close();
+                            } catch (Exception ex) {
+                            }
+
+                        } else if (participantes.size() == MAX_PARTICIPANTES) {
+                            writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
+                            try {
+                                client_socket.close();
+                            } catch (Exception ex) {
+                            }
+                        } else if (participantes.containsKey(client_nick) || nickCollisionNFC(client_nick)) {
+                            // NICKFAIL covers both the exact-same nick AND one that collides in NFC
+                            // form (same PLAYER_ID -> would break settlement consensus). See
+                            // nickCollisionNFC.
+                            writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
+                            try {
+                                client_socket.close();
+                            } catch (Exception ex) {
+                            }
+                        } else if (partes.length != 6 || !"JOIN".equals(partes[3])) {
+                            // Identity: clients on the new wire MUST send a JOIN payload
+                            // with pubkey + self_sig. Anything else is a misformatted client and
+                            // gets the same response as a version mismatch.
+                            LOGGER.log(Level.WARNING, "Client {0} sent malformed JOIN (fields={1}, marker={2})",
+                                    new Object[]{client_nick, partes.length, partes.length > 3 ? partes[3] : "(missing)"});
+                            writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
+                            try {
+                                client_socket.close();
+                            } catch (Exception ex) {
+                            }
+                        } else if (!verifyJoinSelfSig(client_nick, partes[4], partes[5])) {
+                            // Identity: self_sig invalid means either the client is on the
+                            // wrong session_id (replay from another game) or has a tampered key.
+                            // Reject without explanation to deny an oracle to attackers.
+                            LOGGER.log(Level.WARNING, "Client {0} sent invalid JOIN self_sig -> rejecting", client_nick);
+                            try {
+                                client_socket.close();
+                            } catch (Exception ex) {
                             }
                         } else {
-                            LOGGER.log(Level.WARNING, "User {0} trying to reconnect to a previous game — denied", client_nick);
-                            // Explicit denial ack before closing the socket. Without this the
-                            // client thinks it reconnected (its handshake finished OK), its
-                            // reader reads null immediately when the server closes, and it
-                            // calls reconectarCliente() again in a no-pause busy-loop (the 5s
-                            // pause only applies when ok_rec=false) — yxmgl bug, 20.59 issue 1:
-                            // freeze + CPU spike after a server "recover".
-                            try {
-                                writeCommandFromServer(
-                                        Helpers.encryptCommand("RECONNECT_DENIED#UNKNOWN_NICK", aes_key, hmac_key),
-                                        client_socket);
-                            } catch (Exception ackEx) {
-                            }
-                            try {
-                                if (!client_socket.isClosed()) {
-                                    client_socket.close();
+                            // Fourth field (#) ADDED to the same NICKOK command: the FULL config
+                            // mirror (serialized GamePreset.Settings) so the newly joined client can
+                            // populate its Game tab greyed out. It's an extra field on the SAME
+                            // message (not a new read), so the handshake sequence is unchanged.
+                            writeCommandFromServer(Helpers.encryptCommand(
+                                    "NICKOK#" + (password == null ? "0" : "1") + "#"
+                                    + Base64.getEncoder().encodeToString(
+                                            (game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|"
+                                                    + game_info_hands.getText()).getBytes("UTF-8"))
+                                    + "#" + Base64.getEncoder().encodeToString(
+                                            GamePreset.Settings.fromGameFrame().serialize().getBytes("UTF-8")),
+                                    aes_key, hmac_key), client_socket);
+
+                            byte[] avatar_bytes = null;
+
+                            if (local_avatar != null && local_avatar.length() > 0) {
+                                try (FileInputStream is = new FileInputStream(local_avatar)) {
+                                    avatar_bytes = is.readAllBytes();
                                 }
-                            } catch (Exception ex) {
-                            }
-                        }
-                    } else if (!AboutDialog.VERSION.equals(client_version)) {
-                        writeCommandFromServer(
-                                Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key),
-                                client_socket);
-                        try {
-                            client_socket.close();
-                        } catch (Exception ex) {
-                        }
-                    } else if (hasReservedBotNickCharacter(client_nick)) {
-                        LOGGER.log(Level.WARNING,
-                                "Rejected unauthorized remote nick {0}: '$' is reserved for bots",
-                                client_nick);
-                        writeCommandFromServer(
-                                Helpers.encryptCommand("NICKUNAUTHORIZED", aes_key, hmac_key),
-                                client_socket);
-                        try {
-                            client_socket.close();
-                        } catch (Exception ex) {
-                        }
-                    } else if (WaitingRoomFrame.getInstance().isPartida_empezando()
-                            || WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                        writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
-
-                        try {
-                            String ipCliente = Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-256")
-                                    .digest(client_socket.getInetAddress().getHostAddress().getBytes()));
-
-                            if (!net_server.getLate_clients_warning().contains(ipCliente)) {
-                                if (GameFrame.entrarSalaSonidoOn()) {
-                                    Audio.playWavResource("misc/new_user.wav");
-                                }
-                                net_server.getLate_clients_warning().add(ipCliente);
                             }
 
-                            Helpers.GUIRun(() -> {
-                                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
-                                        "[" + client_nick + "] " + Translator.translate("game.quiere_entrar_en_la_timba"),
-                                        Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"),
-                                        NOTIFICATION_TIMEOUT);
-                                dialog.setLocation(dialog.getParent().getLocation());
-                                dialog.setVisible(true);
-                            });
+                            // Identity: piggyback host's pubkey + self_sig on the sync intro so
+                            // the new client has the host's identity in the same packet as nick + avatar
+                            // — no dependency on any async queue. Avatar slot uses "*" placeholder when
+                            // there is no avatar, keeping a fixed 4-field layout
+                            // (nick_b64 # avatar_b64_or_* # pubkey_b64_or_* # self_sig_b64_or_*).
+                            writeCommandFromServer(Helpers.encryptCommand(
+                                    Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"))
+                                    + "#" + (avatar_bytes != null ? Base64.getEncoder().encodeToString(avatar_bytes) : "*")
+                                    + "#" + (host_identity_pubkey != null ? Base64.getEncoder().encodeToString(host_identity_pubkey) : "*")
+                                    + "#" + (host_self_sig != null ? Base64.getEncoder().encodeToString(host_self_sig) : "*"),
+                                    aes_key, hmac_key), client_socket);
 
-                            Helpers.threadRun(() -> {
+                            writeCommandFromServer(Helpers.encryptCommand(
+                                    chat_text.toString().isEmpty() ? "*"
+                                    : Base64.getEncoder().encodeToString(chat_text.toString().getBytes("UTF-8")),
+                                    aes_key, hmac_key), client_socket);
+
+                            synchronized (lock_new_client) {
                                 try {
-                                    GameFrame.getInstance().getCrupier()
-                                            .broadcastGAMECommandFromServer("YOUARELATE#"
+                                    Helpers.GUIRunAndWait(() -> {
+                                        empezar_timba.setEnabled(false);
+                                        game_info_buyin.setEnabled(false);
+                                        game_info_blinds.setEnabled(false);
+                                        game_info_hands.setEnabled(false);
+                                        revalidate();
+                                        repaint();
+                                    });
+                                    // The containsKey from the early check (NICKFAIL) runs OUTSIDE
+                                    // lock_new_client, and simultaneous JOINs each get their own
+                                    // thread: two clients with the same nick could pass that check
+                                    // before either inserted, and end up overwriting each other in
+                                    // participantes (the first socket/thread was left orphaned but
+                                    // alive). The nick is RE-checked here, under the same lock as
+                                    // the insertion, closing the TOCTOU window.
+                                    if (participantes.size() < MAX_PARTICIPANTES
+                                            && !WaitingRoomFrame.getInstance().isPartida_empezando()
+                                            && !WaitingRoomFrame.getInstance().isPartida_empezada()
+                                            && !participantes.containsKey(client_nick)
+                                            && !nickCollisionNFC(client_nick)) {
+                                        client_avatar = decodeRemoteAvatar(partes[2], client_nick, "JOIN");
+                                        // Handshake complete: the Participant takes control of the
+                                        // socket and its normal reads (PING/PONG, GAME, etc.) must not
+                                        // inherit the handshake deadline.
+                                        try {
+                                            client_socket.setSoTimeout(0);
+                                        } catch (Exception ex) {
+                                            LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on new join", ex);
+                                        }
+                                        nuevoParticipanteRemoto(client_nick, client_avatar, client_socket, aes_key, hmac_key,
+                                                false, false);
+                                        // Identity: cache pubkey+self_sig on the new Participant
+                                        // and run local TOFU resolution. partes[4] / partes[5] were
+                                        // validated above by verifyJoinSelfSig.
+                                        recordJoinIdentity(participantes.get(client_nick), partes[4], partes[5]);
+                                        if (GameFrame.entraSonidoOn()) {
+                                            Audio.playWavResource("misc/laser.wav");
+                                        }
+
+                                        if (participantes.size() > 2) {
+                                            // USERSLIST is only sent when there's at least one other peer
+                                            // besides the new one (host + new == size 2 -> nothing to
+                                            // list; the host's identity already travels in the
+                                            // synchronous intro).
+                                            enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
+
+                                            // Identity: NEWUSER carries the new peer's pubkey +
+                                            // self_sig so already-connected peers can independently verify
+                                            // and TOFU-resolve in the same packet that announces the join.
+                                            // Avatar slot uses "*" placeholder for a fixed 5-field layout
+                                            // (nick|flag|avatar|pubkey|sig).
+                                            Participant newPar = participantes.get(client_nick);
+                                            if (newPar == null) {
+                                                // The newcomer is already gone (dropped between joining and
+                                                // this announcement). Without this check, a failure would
+                                                // hit here that the catch below swallowed SILENTLY, and the
+                                                // join was left half-done: in the list but never announced
+                                                // to the rest.
+                                                LOGGER.log(Level.WARNING,
+                                                        "{0} vanished before its join could be announced — skipping the announcement",
+                                                        client_nick);
+                                                return;
+                                            }
+                                            String avatarB64 = "*";
+                                            if (client_avatar != null) {
+                                                byte[] avatar_b;
+                                                try (FileInputStream is = new FileInputStream(client_avatar)) {
+                                                    avatar_b = is.readAllBytes();
+                                                }
+                                                avatarB64 = Base64.getEncoder().encodeToString(avatar_b);
+                                            }
+                                            byte[] newPubkey = newPar.getIdentity_pubkey();
+                                            byte[] newSig = newPar.getIdentity_self_sig();
+                                            String comando = "NEWUSER#"
                                                     + Base64.getEncoder().encodeToString(client_nick.getBytes("UTF-8")) + "#"
-                                                    + ipCliente, null);
-                                } catch (UnsupportedEncodingException ex) {
-                                    LOGGER.log(Level.SEVERE, null, ex);
+                                                    + (newPar.isUnsecure_player() ? "1" : "0") + "#"
+                                                    + avatarB64 + "#"
+                                                    + (newPubkey != null ? Base64.getEncoder().encodeToString(newPubkey) : "*") + "#"
+                                                    + (newSig != null ? Base64.getEncoder().encodeToString(newSig) : "*");
+                                            broadcastASYNCGAMECommandFromServer(comando, newPar);
+                                        }
+                                        Helpers.GUIRun(() -> {
+                                            kick_user.setEnabled(true);
+                                            new_bot_button
+                                                    .setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
+                                        });
+                                        LOGGER.log(Level.INFO, "{0} connected", client_nick);
+                                    } else {
+                                        try (client_socket) {
+                                            LOGGER.log(Level.INFO,
+                                                    "{0} could not connect properly (game full, already started, or nick claimed by a concurrent join)",
+                                                    client_nick);
+                                        }
+                                    }
+                                } catch (Exception ex) {
+                                    // This catch used to be SILENT. A join that broke midway left the
+                                    // newcomer half-done (in the list, never announced to the rest)
+                                    // with no trace of why.
+                                    LOGGER.log(Level.SEVERE, "Failed to complete the join of " + client_nick, ex);
+                                } finally {
+                                    Helpers.GUIRun(() -> {
+                                        empezar_timba.setEnabled((participantes.size() > 1));
+                                        game_info_buyin.setEnabled(true);
+                                        game_info_blinds.setEnabled(true);
+                                        game_info_hands.setEnabled(true);
+                                        revalidate();
+                                        repaint();
+                                    });
                                 }
-                            });
-                        } catch (Exception e) {
-                        }
-
-                        LOGGER.log(Level.WARNING,
-                                "User {0} arrived too late — denied", client_nick);
-
-                        try {
-                            client_socket.close();
-                        } catch (Exception ex) {
-                        }
-
-                    } else if (participantes.size() == MAX_PARTICIPANTES) {
-                        writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
-                        try {
-                            client_socket.close();
-                        } catch (Exception ex) {
-                        }
-                    } else if (participantes.containsKey(client_nick) || nickCollisionNFC(client_nick)) {
-                        // NICKFAIL covers both the exact-same nick AND one that collides in NFC
-                        // form (same PLAYER_ID -> would break settlement consensus). See
-                        // nickCollisionNFC.
-                        writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
-                        try {
-                            client_socket.close();
-                        } catch (Exception ex) {
-                        }
-                    } else if (partes.length != 6 || !"JOIN".equals(partes[3])) {
-                        // Identity: clients on the new wire MUST send a JOIN payload
-                        // with pubkey + self_sig. Anything else is a misformatted client and
-                        // gets the same response as a version mismatch.
-                        LOGGER.log(Level.WARNING, "Client {0} sent malformed JOIN (fields={1}, marker={2})",
-                                new Object[]{client_nick, partes.length, partes.length > 3 ? partes[3] : "(missing)"});
-                        writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
-                        try {
-                            client_socket.close();
-                        } catch (Exception ex) {
-                        }
-                    } else if (!verifyJoinSelfSig(client_nick, partes[4], partes[5])) {
-                        // Identity: self_sig invalid means either the client is on the
-                        // wrong session_id (replay from another game) or has a tampered key.
-                        // Reject without explanation to deny an oracle to attackers.
-                        LOGGER.log(Level.WARNING, "Client {0} sent invalid JOIN self_sig -> rejecting", client_nick);
-                        try {
-                            client_socket.close();
-                        } catch (Exception ex) {
+                            }
                         }
                     } else {
-                        // Fourth field (#) ADDED to the same NICKOK command: the FULL config
-                        // mirror (serialized GamePreset.Settings) so the newly joined client can
-                        // populate its Game tab greyed out. It's an extra field on the SAME
-                        // message (not a new read), so the handshake sequence is unchanged.
-                        writeCommandFromServer(Helpers.encryptCommand(
-                                "NICKOK#" + (password == null ? "0" : "1") + "#"
-                                + Base64.getEncoder().encodeToString(
-                                        (game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|"
-                                                + game_info_hands.getText()).getBytes("UTF-8"))
-                                + "#" + Base64.getEncoder().encodeToString(
-                                        GamePreset.Settings.fromGameFrame().serialize().getBytes("UTF-8")),
-                                aes_key, hmac_key), client_socket);
-
-                        byte[] avatar_bytes = null;
-
-                        if (local_avatar != null && local_avatar.length() > 0) {
-                            try (FileInputStream is = new FileInputStream(local_avatar)) {
-                                avatar_bytes = is.readAllBytes();
-                            }
-                        }
-
-                        // Identity: piggyback host's pubkey + self_sig on the sync intro so
-                        // the new client has the host's identity in the same packet as nick + avatar
-                        // — no dependency on any async queue. Avatar slot uses "*" placeholder when
-                        // there is no avatar, keeping a fixed 4-field layout
-                        // (nick_b64 # avatar_b64_or_* # pubkey_b64_or_* # self_sig_b64_or_*).
-                        writeCommandFromServer(Helpers.encryptCommand(
-                                Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"))
-                                + "#" + (avatar_bytes != null ? Base64.getEncoder().encodeToString(avatar_bytes) : "*")
-                                + "#" + (host_identity_pubkey != null ? Base64.getEncoder().encodeToString(host_identity_pubkey) : "*")
-                                + "#" + (host_self_sig != null ? Base64.getEncoder().encodeToString(host_self_sig) : "*"),
-                                aes_key, hmac_key), client_socket);
-
-                        writeCommandFromServer(Helpers.encryptCommand(
-                                chat_text.toString().isEmpty() ? "*"
-                                : Base64.getEncoder().encodeToString(chat_text.toString().getBytes("UTF-8")),
-                                aes_key, hmac_key), client_socket);
-
-                        synchronized (lock_new_client) {
-                            try {
-                                Helpers.GUIRunAndWait(() -> {
-                                    empezar_timba.setEnabled(false);
-                                    game_info_buyin.setEnabled(false);
-                                    game_info_blinds.setEnabled(false);
-                                    game_info_hands.setEnabled(false);
-                                    revalidate();
-                                    repaint();
-                                });
-                                // The containsKey from the early check (NICKFAIL) runs OUTSIDE
-                                // lock_new_client, and simultaneous JOINs each get their own
-                                // thread: two clients with the same nick could pass that check
-                                // before either inserted, and end up overwriting each other in
-                                // participantes (the first socket/thread was left orphaned but
-                                // alive). The nick is RE-checked here, under the same lock as
-                                // the insertion, closing the TOCTOU window.
-                                if (participantes.size() < MAX_PARTICIPANTES
-                                        && !WaitingRoomFrame.getInstance().isPartida_empezando()
-                                        && !WaitingRoomFrame.getInstance().isPartida_empezada()
-                                        && !participantes.containsKey(client_nick)
-                                        && !nickCollisionNFC(client_nick)) {
-                                    client_avatar = decodeRemoteAvatar(partes[2], client_nick, "JOIN");
-                                    // Handshake complete: the Participant takes control of the
-                                    // socket and its normal reads (PING/PONG, GAME, etc.) must not
-                                    // inherit the handshake deadline.
-                                    try {
-                                        client_socket.setSoTimeout(0);
-                                    } catch (Exception ex) {
-                                        LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on new join", ex);
-                                    }
-                                    nuevoParticipanteRemoto(client_nick, client_avatar, client_socket, aes_key, hmac_key,
-                                            false, false);
-                                    // Identity: cache pubkey+self_sig on the new Participant
-                                    // and run local TOFU resolution. partes[4] / partes[5] were
-                                    // validated above by verifyJoinSelfSig.
-                                    recordJoinIdentity(participantes.get(client_nick), partes[4], partes[5]);
-                                    if (GameFrame.entraSonidoOn()) {
-                                        Audio.playWavResource("misc/laser.wav");
-                                    }
-
-                                    if (participantes.size() > 2) {
-                                        // USERSLIST is only sent when there's at least one other peer
-                                        // besides the new one (host + new == size 2 -> nothing to
-                                        // list; the host's identity already travels in the
-                                        // synchronous intro).
-                                        enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
-
-                                        // Identity: NEWUSER carries the new peer's pubkey +
-                                        // self_sig so already-connected peers can independently verify
-                                        // and TOFU-resolve in the same packet that announces the join.
-                                        // Avatar slot uses "*" placeholder for a fixed 5-field layout
-                                        // (nick|flag|avatar|pubkey|sig).
-                                        Participant newPar = participantes.get(client_nick);
-                                        if (newPar == null) {
-                                            // The newcomer is already gone (dropped between joining and
-                                            // this announcement). Without this check, a failure would
-                                            // hit here that the catch below swallowed SILENTLY, and the
-                                            // join was left half-done: in the list but never announced
-                                            // to the rest.
-                                            LOGGER.log(Level.WARNING,
-                                                    "{0} vanished before its join could be announced — skipping the announcement",
-                                                    client_nick);
-                                            return;
-                                        }
-                                        String avatarB64 = "*";
-                                        if (client_avatar != null) {
-                                            byte[] avatar_b;
-                                            try (FileInputStream is = new FileInputStream(client_avatar)) {
-                                                avatar_b = is.readAllBytes();
-                                            }
-                                            avatarB64 = Base64.getEncoder().encodeToString(avatar_b);
-                                        }
-                                        byte[] newPubkey = newPar.getIdentity_pubkey();
-                                        byte[] newSig = newPar.getIdentity_self_sig();
-                                        String comando = "NEWUSER#"
-                                                + Base64.getEncoder().encodeToString(client_nick.getBytes("UTF-8")) + "#"
-                                                + (newPar.isUnsecure_player() ? "1" : "0") + "#"
-                                                + avatarB64 + "#"
-                                                + (newPubkey != null ? Base64.getEncoder().encodeToString(newPubkey) : "*") + "#"
-                                                + (newSig != null ? Base64.getEncoder().encodeToString(newSig) : "*");
-                                        broadcastASYNCGAMECommandFromServer(comando, newPar);
-                                    }
-                                    Helpers.GUIRun(() -> {
-                                        kick_user.setEnabled(true);
-                                        new_bot_button
-                                                .setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
-                                    });
-                                    LOGGER.log(Level.INFO, "{0} connected", client_nick);
-                                } else {
-                                    try (client_socket) {
-                                        LOGGER.log(Level.INFO,
-                                                "{0} could not connect properly (game full, already started, or nick claimed by a concurrent join)",
-                                                client_nick);
-                                    }
-                                }
-                            } catch (Exception ex) {
-                                // This catch used to be SILENT. A join that broke midway left the
-                                // newcomer half-done (in the list, never announced to the rest)
-                                // with no trace of why.
-                                LOGGER.log(Level.SEVERE, "Failed to complete the join of " + client_nick, ex);
-                            } finally {
-                                Helpers.GUIRun(() -> {
-                                    empezar_timba.setEnabled((participantes.size() > 1));
-                                    game_info_buyin.setEnabled(true);
-                                    game_info_blinds.setEnabled(true);
-                                    game_info_hands.setEnabled(true);
-                                    revalidate();
-                                    repaint();
-                                });
-                            }
+                        try (client_socket) {
+                            LOGGER.log(Level.SEVERE,
+                                    "Bad magic bytes from client");
                         }
                     }
-                } else {
-                    try (client_socket) {
-                        LOGGER.log(Level.SEVERE,
-                                "Bad magic bytes from client");
+                } catch (Exception ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                    // Any exception landing here happened in the early handshake (reading
+                    // magic/pubkey, ECDH, version parsing, rejection branches,
+                    // verifyJoinSelfSig) — ALWAYS before the synchronized(lock_new_client) block,
+                    // whose handoff to Participant has its own inner catch. So the socket was
+                    // never handed to a peer: closing it plugs the residual FD leak with no risk
+                    // of closing a live socket already held by a Participant.
+                    if (client_socket != null) {
+                        try {
+                            client_socket.close();
+                        } catch (Exception ignored) {
+                        }
                     }
                 }
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-                // Any exception landing here happened in the early handshake (reading
-                // magic/pubkey, ECDH, version parsing, rejection branches,
-                // verifyJoinSelfSig) — ALWAYS before the synchronized(lock_new_client) block,
-                // whose handoff to Participant has its own inner catch. So the socket was
-                // never handed to a peer: closing it plugs the residual FD leak with no risk
-                // of closing a live socket already held by a Participant.
-                if (client_socket != null) {
-                    try {
-                        client_socket.close();
-                    } catch (Exception ignored) {
-                    }
-                }
-            }
             } finally {
                 // Pre-auth anti-DoS: releases the slot reserved in the accept loop, no matter
                 // how the handshake ended. Without this, a handshake exiting via return/exception
@@ -4782,9 +4795,10 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Telemetry: latest snapshot received from the host (lat1/lat2/recon per peer).
-     * Can be null if none has been received yet. Readers must tolerate null and
-     * missing map entries (a peer that just joined has not been measured yet).
+     * Telemetry: latest snapshot received from the host (lat1/lat2/recon per
+     * peer). Can be null if none has been received yet. Readers must tolerate
+     * null and missing map entries (a peer that just joined has not been
+     * measured yet).
      */
     public Helpers.TelemetryFrame getLatest_telemetry() {
         return latest_telemetry;
@@ -4919,7 +4933,6 @@ public class WaitingRoomFrame extends JFrame {
     // StatsSyncManager; this layer owns the per-peer channel keys and the
     // BinaryWire TYPE_DB framing, mirroring the voice-note send sites.
     // ===================================================================
-
     public void statsSyncOnConnectedToServer() {
         stats_sync_manager.onConnectedToServer();
     }
@@ -4932,7 +4945,10 @@ public class WaitingRoomFrame extends JFrame {
         stats_sync_manager.onPeerGone(nick);
     }
 
-    /** CLIENT → host: one stats-sync message over an encrypted TYPE_DB binary frame. */
+    /**
+     * CLIENT → host: one stats-sync message over an encrypted TYPE_DB binary
+     * frame.
+     */
     public void statsSyncRawSendToServer(byte[] dbMessage) {
         try {
             writeBinaryToServer(Helpers.encryptBytes(
@@ -4946,7 +4962,8 @@ public class WaitingRoomFrame extends JFrame {
     /**
      * HOST → one client: a stats-sync message over an encrypted TYPE_DB binary
      * frame. Returns false if the client is gone (its socket is closed), so an
-     * in-flight push can stop promptly instead of churning the remaining batches.
+     * in-flight push can stop promptly instead of churning the remaining
+     * batches.
      */
     public boolean statsSyncRawSendToClient(String nick, byte[] dbMessage) {
         Participant p = participantes.get(nick);
@@ -4965,7 +4982,9 @@ public class WaitingRoomFrame extends JFrame {
         }
     }
 
-    /** HOST: nicks of the currently connected (non-CPU) clients. */
+    /**
+     * HOST: nicks of the currently connected (non-CPU) clients.
+     */
     public java.util.List<String> statsSyncClientNicks() {
         java.util.ArrayList<Participant> snapshot;
         synchronized (participantes) {
@@ -5038,13 +5057,14 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Removes a participant. Delegates to NetServer (state + DELUSER broadcast + UI
-     * callback). Kept as a facade for external callers (Participant.java).
+     * Removes a participant. Delegates to NetServer (state + DELUSER broadcast
+     * + UI callback). Kept as a facade for external callers (Participant.java).
      *
-     * NOTE: used both by the host (Participant.java when a client disconnects) and by
-     * the client (on receiving DELUSER from the server). That's why the logic lives
-     * here rather than in NetServer — the client has no net_server. The DELUSER
-     * broadcast, which only applies to the host, is guarded by isServer().
+     * NOTE: used both by the host (Participant.java when a client disconnects)
+     * and by the client (on receiving DELUSER from the server). That's why the
+     * logic lives here rather than in NetServer — the client has no net_server.
+     * The DELUSER broadcast, which only applies to the host, is guarded by
+     * isServer().
      */
     public synchronized void borrarParticipante(String nick) {
         // get + null-check instead of containsKey: on the host, its own entry is a
@@ -5137,10 +5157,10 @@ public class WaitingRoomFrame extends JFrame {
     /**
      * Adds a participant.
      *
-     * NOTE: used both by the host (serverSocketHandler when accepting a new client,
-     * with a non-null socket) and by the client (registering the server and itself in
-     * the local list when the client receives the room info, with a null socket).
-     * That's why the logic lives here rather than in NetServer.
+     * NOTE: used both by the host (serverSocketHandler when accepting a new
+     * client, with a non-null socket) and by the client (registering the server
+     * and itself in the local list when the client receives the room info, with
+     * a null socket). That's why the logic lives here rather than in NetServer.
      */
     private synchronized void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k,
             SecretKeySpec hmac_k, boolean cpu, boolean unsecure) {
@@ -5198,8 +5218,9 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * NetServer callback when a Participant is removed: updates the UI (removes it
-     * from the list, adjusts the counter and buttons, notes the exit in chat).
+     * NetServer callback when a Participant is removed: updates the UI (removes
+     * it from the list, adjusts the counter and buttons, notes the exit in
+     * chat).
      */
     public void onParticipantRemoved(String nick, String avatar_chat_src) {
         onParticipantRemoved(nick, avatar_chat_src, null);
@@ -5344,7 +5365,6 @@ public class WaitingRoomFrame extends JFrame {
         // main_panel constraint. So the host (with the ADD BOT / START buttons) and the client
         // (which hides them) each use their own height, and the client no longer drags a grey gap
         // from the leftover. Width is fixed by the horizontal constraint (688), not this preferred.
-
         status.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         status.setForeground(new java.awt.Color(51, 153, 0));
         status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
@@ -5994,9 +6014,10 @@ public class WaitingRoomFrame extends JFrame {
     }//GEN-LAST:event_empezar_timbaActionPerformed
 
     /**
-     * EDT continuation of the "Start game" flow, once the recover "missing players" list has been
-     * read off the EDT. Confirms (when there are missing players), then kicks off the game exactly
-     * as before; on cancel it re-enables the "Start" button so the host can retry.
+     * EDT continuation of the "Start game" flow, once the recover "missing
+     * players" list has been read off the EDT. Confirms (when there are missing
+     * players), then kicks off the game exactly as before; on cancel it
+     * re-enables the "Start" button so the host can retry.
      */
     private void continueStartGame(String missing_players) {
         // Re-filter the "missing players" against a FRESH participant snapshot: the list was computed
@@ -6396,8 +6417,8 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Shortcut for the left click and the menu's "Copy password" item: copies the
-     * current password to the clipboard + a brief popup.
+     * Shortcut for the left click and the menu's "Copy password" item: copies
+     * the current password to the clipboard + a brief popup.
      */
     private void copyCurrentPasswordToClipboard() {
         if (password == null) {
@@ -6412,9 +6433,10 @@ public class WaitingRoomFrame extends JFrame {
 
     /**
      * Menu's "Change password" item: prompts the user for a new password with a
-     * JPasswordField that changes color (weak yellow / strong green) live, matching
-     * NewGameDialog. If the result has &lt;60 bits of entropy, an informational popup
-     * (non-blocking). Empty input -> game without a password.
+     * JPasswordField that changes color (weak yellow / strong green) live,
+     * matching NewGameDialog. If the result has &lt;60 bits of entropy, an
+     * informational popup (non-blocking). Empty input -> game without a
+     * password.
      */
     private void promptAndSetNewPassword() {
         javax.swing.JPasswordField field = new javax.swing.JPasswordField(20);
@@ -6461,20 +6483,23 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Broadcasts the room's CURRENT password (or the notice that there is none) to
-     * everyone still connected.
+     * Broadcasts the room's CURRENT password (or the notice that there is none)
+     * to everyone still connected.
      *
-     * <p>Called from all FOUR places that change it: kicking someone, changing it by
-     * hand, generating a strong one, and clearing it. Without this the others are left
-     * with the old one and, since the channel is derived from it, the first one to have
-     * their network drop would be locked out and unable to rejoin. Clearing it counts
-     * the same way: without a password the channel is derived a different way, so it
-     * also needs to be announced (the "*" sentinel travels for that case).
+     * <p>
+     * Called from all FOUR places that change it: kicking someone, changing it
+     * by hand, generating a strong one, and clearing it. Without this the
+     * others are left with the old one and, since the channel is derived from
+     * it, the first one to have their network drop would be locked out and
+     * unable to rejoin. Clearing it counts the same way: without a password the
+     * channel is derived a different way, so it also needs to be announced (the
+     * "*" sentinel travels for that case).
      *
-     * <p>ALWAYS runs on a separate thread: writing to a peer waits while that peer is
-     * reconnecting, and three of the four callers come from the EDT (the lock menu), so
-     * doing it there would freeze the whole room. Same reason the session identicon was
-     * moved off the EDT at the top of this class.
+     * <p>
+     * ALWAYS runs on a separate thread: writing to a peer waits while that peer
+     * is reconnecting, and three of the four callers come from the EDT (the
+     * lock menu), so doing it there would freeze the whole room. Same reason
+     * the session identicon was moved off the EDT at the top of this class.
      */
     private void difundirNuevaPassword() {
 
@@ -6535,8 +6560,8 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Menu's "Generate strong password" item (and shortcut when there's no password
-     * yet). Uses CSPRNG + a rich alphabet — ~86 bits at length=14.
+     * Menu's "Generate strong password" item (and shortcut when there's no
+     * password yet). Uses CSPRNG + a rich alphabet — ~86 bits at length=14.
      */
     private void generateAndShowStrongPassword() {
         password = Helpers.genStrongPassword(GEN_PASS_LENGTH);

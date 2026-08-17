@@ -36,28 +36,32 @@ import java.util.logging.Logger;
 /**
  * Identity: persistent per-nick Ed25519 keypair used for player identity.
  *
- * The keypair is bound to the NFC-canonicalized nick: each nick used on this machine
- * gets its own keypair on disk, so two test instances launched with different nicks on
- * the same machine end up with distinct identities. Switching to a previously used
- * nick reloads the existing keypair instead of generating a new one.
+ * The keypair is bound to the NFC-canonicalized nick: each nick used on this
+ * machine gets its own keypair on disk, so two test instances launched with
+ * different nicks on the same machine end up with distinct identities.
+ * Switching to a previously used nick reloads the existing keypair instead of
+ * generating a new one.
  *
  * Storage (per nick):
- *   <user.home>/.coronapoker/identity_<player_id_hex>.ed25519       PKCS#8 private key (0600 on POSIX)
- *   <user.home>/.coronapoker/identity_<player_id_hex>.ed25519.pub   32 raw bytes (no header)
+ * <user.home>/.coronapoker/identity_<player_id_hex>.ed25519 PKCS#8 private key
+ * (0600 on POSIX)
+ * <user.home>/.coronapoker/identity_<player_id_hex>.ed25519.pub 32 raw bytes
+ * (no header)
  *
- *   player_id_hex = first 16 hex chars (8 bytes / 64 bits) of SHA-256(NFC(nick) UTF-8).
+ * player_id_hex = first 16 hex chars (8 bytes / 64 bits) of SHA-256(NFC(nick)
+ * UTF-8).
  *
- * Lifecycle:
- *   - {@link #initializeForNick(String)} is called once the nick is committed (from
- *     NewGameDialog before opening the waiting room). It loads or generates the keypair
- *     synchronously and surfaces any I/O error via {@link #getLoadError()}.
- *   - {@link #getInstance()} returns the current singleton. If never initialized it
- *     returns an "uninitialized" instance with isReady()==false; callers in the
- *     networked code path must check isReady().
- *   - Re-initialization with a different nick swaps the keypair (testing scenario).
+ * Lifecycle: - {@link #initializeForNick(String)} is called once the nick is
+ * committed (from NewGameDialog before opening the waiting room). It loads or
+ * generates the keypair synchronously and surfaces any I/O error via
+ * {@link #getLoadError()}. - {@link #getInstance()} returns the current
+ * singleton. If never initialized it returns an "uninitialized" instance with
+ * isReady()==false; callers in the networked code path must check isReady(). -
+ * Re-initialization with a different nick swaps the keypair (testing scenario).
  *
- * Domain separators are required for every sign/verify call to prevent cross-protocol
- * signature confusion. Example: "ACTION\0", "JOIN\0", "RECEIPT\0".
+ * Domain separators are required for every sign/verify call to prevent
+ * cross-protocol signature confusion. Example: "ACTION\0", "JOIN\0",
+ * "RECEIPT\0".
  */
 public final class IdentityManager {
 
@@ -66,10 +70,10 @@ public final class IdentityManager {
     private static final String ALGORITHM = "Ed25519";
 
     /**
-     * Standard X.509 SubjectPublicKeyInfo header for an Ed25519 key. Followed by the
-     * 32 raw key bytes to make up a 44-byte X.509 encoded form. Used to reconstruct a
-     * java.security.PublicKey from the 32 raw bytes stored on disk and transmitted over
-     * the wire.
+     * Standard X.509 SubjectPublicKeyInfo header for an Ed25519 key. Followed
+     * by the 32 raw key bytes to make up a 44-byte X.509 encoded form. Used to
+     * reconstruct a java.security.PublicKey from the 32 raw bytes stored on
+     * disk and transmitted over the wire.
      */
     private static final byte[] X509_ED25519_HEADER = {
         0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00
@@ -83,17 +87,19 @@ public final class IdentityManager {
     private static final String IDENTITY_PUB_FILE_SUFFIX = ".ed25519.pub";
 
     /**
-     * Length in hex chars of the player-id slug appended to the identity filename.
-     * 16 hex chars == 8 bytes == 64 bits, derived from SHA-256(NFC(nick) UTF-8). Wide
-     * enough that accidental nick collisions on the same machine are astronomically
-     * unlikely; not so wide that it makes filenames unreadable.
+     * Length in hex chars of the player-id slug appended to the identity
+     * filename. 16 hex chars == 8 bytes == 64 bits, derived from
+     * SHA-256(NFC(nick) UTF-8). Wide enough that accidental nick collisions on
+     * the same machine are astronomically unlikely; not so wide that it makes
+     * filenames unreadable.
      */
     private static final int PLAYER_ID_HEX_LEN = 16;
 
     /**
-     * Resolved independently of Init.CORONA_DIR so this class stays standalone and
-     * unit-testable without dragging in the rest of the application's class graph.
-     * The path must remain in sync with Init.CORONA_DIR — both compute the same value.
+     * Resolved independently of Init.CORONA_DIR so this class stays standalone
+     * and unit-testable without dragging in the rest of the application's class
+     * graph. The path must remain in sync with Init.CORONA_DIR — both compute
+     * the same value.
      */
     private static final String CORONA_DIR_PATH = System.getProperty("user.home") + "/.coronapoker";
 
@@ -107,12 +113,14 @@ public final class IdentityManager {
     private final String boundNick;
 
     /**
-     * Loads or generates the Ed25519 keypair bound to {@code nick} and installs it as
-     * the current singleton. If a singleton already exists for the same nick it is
-     * returned unchanged. If the nick differs, the singleton is replaced.
+     * Loads or generates the Ed25519 keypair bound to {@code nick} and installs
+     * it as the current singleton. If a singleton already exists for the same
+     * nick it is returned unchanged. If the nick differs, the singleton is
+     * replaced.
      *
-     * Synchronous; surface any storage error via {@link #getLoadError()} on the returned
-     * instance and refuse to enter networked games when {@link #isReady()} is false.
+     * Synchronous; surface any storage error via {@link #getLoadError()} on the
+     * returned instance and refuse to enter networked games when
+     * {@link #isReady()} is false.
      */
     public static synchronized IdentityManager initializeForNick(String nick) {
         if (nick == null || nick.trim().isEmpty()) {
@@ -127,9 +135,10 @@ public final class IdentityManager {
     }
 
     /**
-     * Returns the singleton previously installed by {@link #initializeForNick(String)}.
-     * If no initialization has happened yet, returns an "uninitialized" instance whose
-     * {@link #isReady()} returns false; callers must check before using.
+     * Returns the singleton previously installed by
+     * {@link #initializeForNick(String)}. If no initialization has happened
+     * yet, returns an "uninitialized" instance whose {@link #isReady()} returns
+     * false; callers must check before using.
      */
     public static synchronized IdentityManager getInstance() {
         if (INSTANCE == null) {
@@ -191,19 +200,19 @@ public final class IdentityManager {
     }
 
     /**
-     * NFC-canonicalize a nick to the same form used everywhere else in the identity
-     * layer (joinPayload, PLAYER_ID hash). Trims surrounding whitespace because the
-     * nick may arrive from a text field.
+     * NFC-canonicalize a nick to the same form used everywhere else in the
+     * identity layer (joinPayload, PLAYER_ID hash). Trims surrounding
+     * whitespace because the nick may arrive from a text field.
      */
     private static String canonicalNick(String nick) {
         return java.text.Normalizer.normalize(nick.trim(), java.text.Normalizer.Form.NFC);
     }
 
     /**
-     * Derives the per-nick filename slug: the first PLAYER_ID_HEX_LEN hex chars of
-     * SHA-256(NFC(nick) UTF-8). Same nick on two machines yields the same slug; two
-     * nicks with different NFC bytes yield different slugs with overwhelming
-     * probability (64 bits).
+     * Derives the per-nick filename slug: the first PLAYER_ID_HEX_LEN hex chars
+     * of SHA-256(NFC(nick) UTF-8). Same nick on two machines yields the same
+     * slug; two nicks with different NFC bytes yield different slugs with
+     * overwhelming probability (64 bits).
      */
     private static String playerIdHex(String canonicalNick) {
         byte[] hash = sha256(canonicalNick.getBytes(StandardCharsets.UTF_8));
@@ -234,8 +243,9 @@ public final class IdentityManager {
     }
 
     /**
-     * 32-bit fingerprint as 8 hex chars with a single dash separator (e.g. "a3f9-1c4b").
-     * Compact display use; not safe alone against deliberate collisions.
+     * 32-bit fingerprint as 8 hex chars with a single dash separator (e.g.
+     * "a3f9-1c4b"). Compact display use; not safe alone against deliberate
+     * collisions.
      */
     public String getShortFingerprint() {
         return shortFingerprint;
@@ -250,9 +260,10 @@ public final class IdentityManager {
     }
 
     /**
-     * Signs (domain || data) with this installation's Ed25519 private key. The domain
-     * separator is mandatory and must be a unique non-empty byte string per protocol
-     * context (e.g. "ACTION\0", "JOIN\0"). Returns a 64-byte signature.
+     * Signs (domain || data) with this installation's Ed25519 private key. The
+     * domain separator is mandatory and must be a unique non-empty byte string
+     * per protocol context (e.g. "ACTION\0", "JOIN\0"). Returns a 64-byte
+     * signature.
      */
     public byte[] sign(byte[] domain, byte[] data) {
         if (!isReady()) {
@@ -276,9 +287,10 @@ public final class IdentityManager {
     }
 
     /**
-     * Verifies a signature over (domain || data) against the given 32-byte raw Ed25519
-     * public key. Returns false on any error or signature mismatch; never throws on
-     * invalid signature, throws only on programming errors (null inputs, wrong sizes).
+     * Verifies a signature over (domain || data) against the given 32-byte raw
+     * Ed25519 public key. Returns false on any error or signature mismatch;
+     * never throws on invalid signature, throws only on programming errors
+     * (null inputs, wrong sizes).
      */
     public static boolean verify(byte[] rawPubKey, byte[] domain, byte[] data, byte[] signature) {
         if (rawPubKey == null || rawPubKey.length != RAW_PUBKEY_LEN) {
@@ -304,11 +316,10 @@ public final class IdentityManager {
     }
 
     // ===== ACTION signing helpers =====
-
     /**
-     * Domain separator for per-action signatures (spec §4.4). Bound to the 92-byte
-     * CanonicalActionRecord so a signature cannot be replayed in any other protocol
-     * context.
+     * Domain separator for per-action signatures (spec §4.4). Bound to the
+     * 92-byte CanonicalActionRecord so a signature cannot be replayed in any
+     * other protocol context.
      */
     private static final byte[] ACTION_DOMAIN = "ACTION\0".getBytes(StandardCharsets.UTF_8);
 
@@ -316,8 +327,8 @@ public final class IdentityManager {
      * Signs a CanonicalActionRecord with this installation's privkey under the
      * ACTION domain. The host uses this both for its own player actions and for
      * actions it issues on behalf of others (auto-folds with voluntary=0, bot
-     * actions). The caller is responsible for building the record with the correct
-     * PLAYER_ID and FLAGS bits.
+     * actions). The caller is responsible for building the record with the
+     * correct PLAYER_ID and FLAGS bits.
      */
     public byte[] signAction(byte[] record) {
         if (record == null || record.length == 0) {
@@ -327,10 +338,10 @@ public final class IdentityManager {
     }
 
     /**
-     * Verifies a per-action signature against the given raw 32-byte Ed25519 pubkey
-     * under the ACTION domain. Returns false on any error or mismatch. Caller
-     * is responsible for picking the right pubkey using the §10 consolidated
-     * receiver rule (voluntary bit + bot check).
+     * Verifies a per-action signature against the given raw 32-byte Ed25519
+     * pubkey under the ACTION domain. Returns false on any error or mismatch.
+     * Caller is responsible for picking the right pubkey using the §10
+     * consolidated receiver rule (voluntary bit + bot check).
      */
     public static boolean verifyAction(byte[] rawPubKey, byte[] record, byte[] sig) {
         try {
@@ -342,7 +353,6 @@ public final class IdentityManager {
     }
 
     // ===== RECEIPT helpers (flags byte) =====
-
     /**
      * Domain separator for end-of-hand consensus receipts (spec §6.2). The
      * signed payload carries a 1-byte flags field (bit0 = the issuer observed
@@ -355,8 +365,8 @@ public final class IdentityManager {
      * Canonical payload for a receipt: {@code HAND_ID || H_final || flags}. The
      * flags byte is part of what gets signed so the host (or any relay) cannot
      * silently strip the "saw_invalid_sig" bit when forwarding a receipt to
-     * other peers. The domain separator "RECEIPT\0" is applied by
-     * sign/verify, not embedded here.
+     * other peers. The domain separator "RECEIPT\0" is applied by sign/verify,
+     * not embedded here.
      */
     public static byte[] receiptPayload(byte[] handId, byte[] hFinal, byte flags) {
         if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
@@ -375,8 +385,8 @@ public final class IdentityManager {
 
     /**
      * Signs an end-of-hand receipt {@code (HAND_ID || H_final || flags)} with
-     * this installation's privkey under the RECEIPT domain. Returns the
-     * 64-byte Ed25519 signature. The on-wire receipt is the concatenation
+     * this installation's privkey under the RECEIPT domain. Returns the 64-byte
+     * Ed25519 signature. The on-wire receipt is the concatenation
      * {@code HAND_ID || H_final || flags || sig}; the wire encoder lives in
      * {@link Crupier} so the format stays close to its consumer.
      */
@@ -385,8 +395,8 @@ public final class IdentityManager {
     }
 
     /**
-     * Verifies a receipt signature against the given 32-byte raw Ed25519 pubkey.
-     * Returns false on any error.
+     * Verifies a receipt signature against the given 32-byte raw Ed25519
+     * pubkey. Returns false on any error.
      */
     public static boolean verifyReceipt(byte[] rawPubKey, byte[] handId, byte[] hFinal, byte flags, byte[] sig) {
         try {
@@ -398,7 +408,6 @@ public final class IdentityManager {
     }
 
     // ===== SHOWDOWN_REVEAL helpers =====
-
     private static final byte[] SHOWDOWN_DOMAIN = "SHOWDOWN\0".getBytes(StandardCharsets.UTF_8);
 
     /**
@@ -450,16 +459,16 @@ public final class IdentityManager {
     }
 
     // ===== STRADDLE_DECISION helpers =====
-
     private static final byte[] STRADDLE_DOMAIN = "STRADDLE\0".getBytes(StandardCharsets.UTF_8);
 
     /**
      * Canonical payload for a blind-straddle decision: {@code HAND_ID || nick_utf8
      * || decision(1)}. The signature proves the straddler committed to their
-     * decision (POST/NO) for this hand; it's the gate every peer requires before
-     * releasing its lock on the straddler's pocket slots, so the straddler cannot
-     * see their own cards before committing, nor can a MitM host force the reveal.
-     * The domain "STRADDLE\0" is applied in sign/verify, not embedded here.
+     * decision (POST/NO) for this hand; it's the gate every peer requires
+     * before releasing its lock on the straddler's pocket slots, so the
+     * straddler cannot see their own cards before committing, nor can a MitM
+     * host force the reveal. The domain "STRADDLE\0" is applied in sign/verify,
+     * not embedded here.
      */
     public static byte[] straddlePayload(byte[] handId, String nick, int decision) {
         if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
@@ -499,16 +508,17 @@ public final class IdentityManager {
     }
 
     // ===== SEAT_DRAW commit helpers =====
-
     private static final byte[] SEATDRAW_DOMAIN = "SEATDRAW\0".getBytes(StandardCharsets.UTF_8);
 
     /**
-     * Canonical payload signed for a seat-draw commitment: {@code nonce || nick_utf8 || commit(32)}.
-     * The signature proves that THIS peer authored the commitment for THIS draw round (nonce), so
-     * a host relaying the commit set cannot forge or reattribute anyone's commitment. The seed that
-     * decides the seating is a fixed function of every reveal, so the signature — together with the
-     * hash-commit binding — is what stops the host from hand-picking the seats. The domain
-     * "SEATDRAW\0" is applied in sign/verify, not embedded here.
+     * Canonical payload signed for a seat-draw commitment:
+     * {@code nonce || nick_utf8 || commit(32)}. The signature proves that THIS
+     * peer authored the commitment for THIS draw round (nonce), so a host
+     * relaying the commit set cannot forge or reattribute anyone's commitment.
+     * The seed that decides the seating is a fixed function of every reveal, so
+     * the signature — together with the hash-commit binding — is what stops the
+     * host from hand-picking the seats. The domain "SEATDRAW\0" is applied in
+     * sign/verify, not embedded here.
      */
     public static byte[] seatCommitPayload(byte[] nonce, String nick, byte[] commit) {
         if (nonce == null || nonce.length != SeatDraw.NONCE_BYTES) {
@@ -550,13 +560,13 @@ public final class IdentityManager {
     }
 
     // ===== JOIN_IDENTITY helpers =====
-
     private static final byte[] JOIN_DOMAIN = "JOIN\0".getBytes(StandardCharsets.UTF_8);
 
     /**
-     * Canonical payload signed inside a JOIN_IDENTITY self_sig: NFC-normalized nick UTF-8
-     * concatenated with session_id and the 32-byte raw pubkey. The domain separator
-     * "JOIN\0" is applied by sign/verify, not embedded in this byte string.
+     * Canonical payload signed inside a JOIN_IDENTITY self_sig: NFC-normalized
+     * nick UTF-8 concatenated with session_id and the 32-byte raw pubkey. The
+     * domain separator "JOIN\0" is applied by sign/verify, not embedded in this
+     * byte string.
      */
     public static byte[] joinPayload(byte[] sessionId, String nick, byte[] rawPubKey) {
         if (sessionId == null || sessionId.length == 0) {
@@ -581,8 +591,9 @@ public final class IdentityManager {
     }
 
     /**
-     * Signs a JOIN_IDENTITY self-attestation for this installation. The returned 64-byte
-     * Ed25519 signature commits to (session_id, nick, own pubkey) under the JOIN domain.
+     * Signs a JOIN_IDENTITY self-attestation for this installation. The
+     * returned 64-byte Ed25519 signature commits to (session_id, nick, own
+     * pubkey) under the JOIN domain.
      */
     public byte[] signJoin(byte[] sessionId, String nick) {
         return sign(JOIN_DOMAIN, joinPayload(sessionId, nick, getPublicKey()));
@@ -601,8 +612,8 @@ public final class IdentityManager {
     }
 
     /**
-     * Reconstructs a java.security.PublicKey from the 32 raw Ed25519 bytes by prepending
-     * the standard X.509 SubjectPublicKeyInfo header.
+     * Reconstructs a java.security.PublicKey from the 32 raw Ed25519 bytes by
+     * prepending the standard X.509 SubjectPublicKeyInfo header.
      */
     public static PublicKey rawPubKeyToPublicKey(byte[] rawPubKey) throws Exception {
         if (rawPubKey == null || rawPubKey.length != RAW_PUBKEY_LEN) {
@@ -627,7 +638,6 @@ public final class IdentityManager {
     }
 
     // ===== Private helpers =====
-
     private static KeyPair generateKeyPair() throws Exception {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance(ALGORITHM);
         return kpg.generateKeyPair();
@@ -707,11 +717,10 @@ public final class IdentityManager {
 
     /**
      * Restricts the Ed25519 privkey to the current user on Windows via icacls.
-     *   /inheritance:r  -&gt; drops ACEs inherited from the parent (the file stops
-     *                      inheriting generic permissions like "Users:(RX)" or
-     *                      "Authenticated Users:(M)").
-     *   /grant:r USER:F -&gt; grants FULL control to the current user; /grant:r
-     *                      replaces any prior entry for that same user.
+     * /inheritance:r -&gt; drops ACEs inherited from the parent (the file stops
+     * inheriting generic permissions like "Users:(RX)" or "Authenticated
+     * Users:(M)"). /grant:r USER:F -&gt; grants FULL control to the current
+     * user; /grant:r replaces any prior entry for that same user.
      *
      * Result: only the owner can read/write the file. If the operation fails
      * (icacls unavailable, insufficient permissions), logs a WARNING and leaves
@@ -789,7 +798,6 @@ public final class IdentityManager {
     }
 
     // ===== Internal checked exception (kept private to avoid leaking implementation detail) =====
-
     private static final class IdentityException extends Exception {
 
         private static final long serialVersionUID = 1L;

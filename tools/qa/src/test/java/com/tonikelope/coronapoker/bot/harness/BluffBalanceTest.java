@@ -22,12 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Behavioural quality gate for the "feel human, not a robot" axis. The bb/100
- * gradient proves the levels are <em>distinguishable</em>; these tests prove the
- * top level is not a <em>readable</em> value-only bot — it bluffs the river a
- * credible fraction of the time against a foldable opponent, yet stays
+ * gradient proves the levels are <em>distinguishable</em>; these tests prove
+ * the top level is not a <em>readable</em> value-only bot — it bluffs the river
+ * a credible fraction of the time against a foldable opponent, yet stays
  * disciplined and (almost) never bluffs a calling station that can't fold.
  *
- * <p>A river that is bet ~0% as a bluff means a human can fold every river to the
+ * <p>
+ * A river that is bet ~0% as a bluff means a human can fold every river to the
  * bot and never be wrong; a river bluffed 50% is spew. The accepted band is the
  * polarised-but-sane range a thinking player shows.</p>
  */
@@ -47,7 +48,10 @@ class BluffBalanceTest {
         Logger.getLogger(Bot.class.getName()).setLevel(Level.WARNING);
     }
 
-    /** Run HARD vs one fixed-strategy archetype and return HARD's aggregate river-bluff %. */
+    /**
+     * Run HARD vs one fixed-strategy archetype and return HARD's aggregate
+     * river-bluff %.
+     */
     private double hardRiverBluffPctVs(FixedStrategyBot.Strategy opp) {
         BotStats hard = new BotStats("HARD");
         for (int session = 0; session < SESSIONS; session++) {

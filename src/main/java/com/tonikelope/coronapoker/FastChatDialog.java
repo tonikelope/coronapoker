@@ -62,10 +62,12 @@ public final class FastChatDialog extends JDialog {
     /**
      * Vacia el historial. Se llama al terminar una timba.
      *
-     * <p>Se hace EN EL HILO GRAFICO, que es el unico que toca esta lista (al escribir un
-     * mensaje y al recorrerla con las flechas). Vaciarla desde otro hilo, aunque fuera
-     * bajo su propio cerrojo, podia pillar al hilo grafico entre el "queda sitio" y el
-     * "dame ese", con el consiguiente fallo en plena interfaz.
+     * <p>
+     * Se hace EN EL HILO GRAFICO, que es el unico que toca esta lista (al
+     * escribir un mensaje y al recorrerla con las flechas). Vaciarla desde otro
+     * hilo, aunque fuera bajo su propio cerrojo, podia pillar al hilo grafico
+     * entre el "queda sitio" y el "dame ese", con el consiguiente fallo en
+     * plena interfaz.
      */
     public static void resetHistorial() {
         Helpers.GUIRun(() -> {
@@ -195,6 +197,7 @@ public final class FastChatDialog extends JDialog {
             public void focusGained(java.awt.event.FocusEvent evt) {
                 chat_boxFocusGained(evt);
             }
+
             public void focusLost(java.awt.event.FocusEvent evt) {
                 chat_boxFocusLost(evt);
             }
@@ -208,6 +211,7 @@ public final class FastChatDialog extends JDialog {
             public void keyPressed(java.awt.event.KeyEvent evt) {
                 chat_boxKeyPressed(evt);
             }
+
             public void keyReleased(java.awt.event.KeyEvent evt) {
                 chat_boxKeyReleased(evt);
             }
@@ -240,32 +244,32 @@ public final class FastChatDialog extends JDialog {
         javax.swing.GroupLayout chat_panelLayout = new javax.swing.GroupLayout(chat_panel);
         chat_panel.setLayout(chat_panelLayout);
         chat_panelLayout.setHorizontalGroup(
-            chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(chat_box)
-            .addComponent(auto_close_checkbox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 595, Short.MAX_VALUE)
-            .addComponent(history_scroll_panel)
+                chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(chat_box)
+                        .addComponent(auto_close_checkbox, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 595, Short.MAX_VALUE)
+                        .addComponent(history_scroll_panel)
         );
         chat_panelLayout.setVerticalGroup(
-            chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(chat_panelLayout.createSequentialGroup()
-                .addComponent(history_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 221, Short.MAX_VALUE)
-                .addGap(0, 0, 0)
-                .addComponent(auto_close_checkbox)
-                .addGap(0, 0, 0)
-                .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                chat_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(chat_panelLayout.createSequentialGroup()
+                                .addComponent(history_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 221, Short.MAX_VALUE)
+                                .addGap(0, 0, 0)
+                                .addComponent(auto_close_checkbox)
+                                .addGap(0, 0, 0)
+                                .addComponent(chat_box, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(chat_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addComponent(chat_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(chat_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(chat_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();

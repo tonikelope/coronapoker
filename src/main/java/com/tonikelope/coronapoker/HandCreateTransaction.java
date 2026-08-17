@@ -26,7 +26,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Atomic persistence boundary for a new hand and its recovery balance snapshot. */
+/**
+ * Atomic persistence boundary for a new hand and its recovery balance snapshot.
+ */
 public final class HandCreateTransaction {
 
     private HandCreateTransaction() {
@@ -130,15 +132,17 @@ public final class HandCreateTransaction {
         return createdId[0];
     }
 
-    /** Deduplicates legacy rows deterministically, then enforces one balance per player/hand. */
+    /**
+     * Deduplicates legacy rows deterministically, then enforces one balance per
+     * player/hand.
+     */
     public static void ensureUniqueBalanceRows(Connection con) throws SQLException {
         if (con == null) {
             throw new IllegalArgumentException("connection is required");
         }
         inTransaction(con, () -> {
-            try (Statement statement = con.createStatement();
-                    ResultSet rs = statement.executeQuery(
-                            "SELECT 1 FROM balance WHERE player IS NULL OR id_hand IS NULL LIMIT 1")) {
+            try (Statement statement = con.createStatement(); ResultSet rs = statement.executeQuery(
+                    "SELECT 1 FROM balance WHERE player IS NULL OR id_hand IS NULL LIMIT 1")) {
                 if (rs.next()) {
                     throw new SQLException("cannot migrate balance rows with null hand/player identity");
                 }

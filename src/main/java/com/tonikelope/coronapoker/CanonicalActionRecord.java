@@ -24,9 +24,9 @@ import java.text.Normalizer;
 /**
  * Identity: canonical 92-byte serialization of a hand action.
  *
- * Every action that mutates the hand state is encoded here before being absorbed
- * into the {@link HandStateChain} ratchet (signed with the
- * actor's Ed25519 key). The byte layout is documented in
+ * Every action that mutates the hand state is encoded here before being
+ * absorbed into the {@link HandStateChain} ratchet (signed with the actor's
+ * Ed25519 key). The byte layout is documented in
  * {@code docs/ec-identity-spec.md} §4.1:
  *
  * <pre>
@@ -42,25 +42,31 @@ import java.text.Normalizer;
  *                                            (Total: 92 bytes)
  * </pre>
  *
- * <p>This encoder is the <em>single source of truth</em>. Other parts of the
+ * <p>
+ * This encoder is the <em>single source of truth</em>. Other parts of the
  * codebase MUST NOT recreate this layout inline. Cross-platform reproducibility
  * (Windows / Linux / macOS) is guaranteed by:
  *
  * <ul>
- *   <li>NFC normalization of the nick before UTF-8 encoding (defends against
- *       precomposed vs decomposed Unicode differences between filesystems).</li>
- *   <li>Float → integer cents conversion through {@link #amountToCents(float)}
- *       (widens to {@code double} before scaling to eliminate float jitter such
- *       as {@code 0.1f + 0.2f != 0.3f}).</li>
- *   <li>Big-endian for all multi-byte integers, independent of host byte order.</li>
+ * <li>NFC normalization of the nick before UTF-8 encoding (defends against
+ * precomposed vs decomposed Unicode differences between filesystems).</li>
+ * <li>Float → integer cents conversion through {@link #amountToCents(float)}
+ * (widens to {@code double} before scaling to eliminate float jitter such as
+ * {@code 0.1f + 0.2f != 0.3f}).</li>
+ * <li>Big-endian for all multi-byte integers, independent of host byte
+ * order.</li>
  * </ul>
  */
 public final class CanonicalActionRecord {
 
-    /** Total size of an encoded record in bytes. */
+    /**
+     * Total size of an encoded record in bytes.
+     */
     public static final int RECORD_BYTES = 92;
 
-    /** Offset (within the record) where each field begins. Exposed for tests. */
+    /**
+     * Offset (within the record) where each field begins. Exposed for tests.
+     */
     public static final int OFFSET_PREV_H = 0;
     public static final int OFFSET_HAND_ID = 32;
     public static final int OFFSET_PLAYER_ID = 48;
@@ -69,13 +75,19 @@ public final class CanonicalActionRecord {
     public static final int OFFSET_AMOUNT_CENTS = 82;
     public static final int OFFSET_FLAGS = 90;
 
-    /** Length in bytes of {@code PREV_H} and {@code PLAYER_ID}. */
+    /**
+     * Length in bytes of {@code PREV_H} and {@code PLAYER_ID}.
+     */
     public static final int HASH_BYTES = 32;
 
-    /** Length in bytes of {@code HAND_ID}. */
+    /**
+     * Length in bytes of {@code HAND_ID}.
+     */
     public static final int HAND_ID_BYTES = 16;
 
-    /** Wire enum: street identifiers. Stable across releases. */
+    /**
+     * Wire enum: street identifiers. Stable across releases.
+     */
     public static final int STREET_PREFLOP = 0;
     public static final int STREET_FLOP = 1;
     public static final int STREET_TURN = 2;
@@ -84,8 +96,8 @@ public final class CanonicalActionRecord {
     /**
      * Run-it-twice SIDE-B street identifiers. The second board re-deals the
      * remaining community streets a second time; its community-reveal records
-     * carry these dedicated codes so they are unambiguous in the H_t ratchet
-     * (a SIDE-A turn reveal and a SIDE-B turn reveal must hash to different
+     * carry these dedicated codes so they are unambiguous in the H_t ratchet (a
+     * SIDE-A turn reveal and a SIDE-B turn reveal must hash to different
      * records or host and clients would disagree on the chain). Stable enum,
      * separate range from the live-board streets.
      */
@@ -95,13 +107,14 @@ public final class CanonicalActionRecord {
 
     /**
      * Wire enum: action identifiers. {@code CALL} (2) and {@code RAISE} (4) are
-     * reserved but never emitted: the producer ({@code Crupier.mapJavaActionToWire})
-     * mirrors the Java {@code Player} model, which has no separate CALL or RAISE, so
-     * a call is encoded as {@code CHECK} and a raise as {@code BET} (the
-     * {@code AMOUNT_CENTS} field carries the amount that distinguishes them). An
-     * auditor reconstructing the signed chain therefore sees CHECK/BET, never
-     * CALL/RAISE. The translation Java↔wire is the caller's responsibility; this
-     * class only accepts the already-translated wire constants.
+     * reserved but never emitted: the producer
+     * ({@code Crupier.mapJavaActionToWire}) mirrors the Java {@code Player}
+     * model, which has no separate CALL or RAISE, so a call is encoded as
+     * {@code CHECK} and a raise as {@code BET} (the {@code AMOUNT_CENTS} field
+     * carries the amount that distinguishes them). An auditor reconstructing
+     * the signed chain therefore sees CHECK/BET, never CALL/RAISE. The
+     * translation Java↔wire is the caller's responsibility; this class only
+     * accepts the already-translated wire constants.
      */
     public static final int ACTION_FOLD = 0;
     public static final int ACTION_CHECK = 1;
@@ -110,10 +123,10 @@ public final class CanonicalActionRecord {
     public static final int ACTION_RAISE = 4;
     public static final int ACTION_ALLIN = 5;
     /**
-     * Identity: host-signed announcement of the community cards
-     * revealed at a street boundary (flop, turn, river). PLAYER_ID is the host's
-     * canonical player id (the signer), STREET is the street being revealed,
-     * AMOUNT_CENTS packs the card indices (see {@link #packCommunityCards} /
+     * Identity: host-signed announcement of the community cards revealed at a
+     * street boundary (flop, turn, river). PLAYER_ID is the host's canonical
+     * player id (the signer), STREET is the street being revealed, AMOUNT_CENTS
+     * packs the card indices (see {@link #packCommunityCards} /
      * {@link #unpackCommunityCards}). Recipients verify the signature with the
      * host's pubkey, compare the announced indices against the locally-decoded
      * PIECE bytes (mismatch ⇒ security lockdown), and absorb the record+sig
@@ -124,7 +137,9 @@ public final class CanonicalActionRecord {
      */
     public static final int ACTION_COMMUNITY = 6;
 
-    /** {@code FLAGS} bit positions. */
+    /**
+     * {@code FLAGS} bit positions.
+     */
     public static final int FLAG_BIT_ALLIN = 0;
     public static final int FLAG_BIT_VOLUNTARY = 1;
 
@@ -135,7 +150,8 @@ public final class CanonicalActionRecord {
     /**
      * Computes a canonical {@code PLAYER_ID} from a player nick.
      *
-     * <p>The nick is NFC-normalized and UTF-8 encoded before hashing. Two nicks
+     * <p>
+     * The nick is NFC-normalized and UTF-8 encoded before hashing. Two nicks
      * that look the same on screen but use different Unicode normalization
      * forms collapse to the same {@code PLAYER_ID}, while genuinely different
      * nicks always produce different ids (with overwhelming probability).
@@ -169,11 +185,12 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * {@code double} money overload of {@link #amountToCents(float)}. The engine's
-     * working money type is {@code double}; this is the single consensus gate that
-     * quantizes it to integer cents. Below the float exactness ceiling it yields
-     * the same cents as the float overload (so migrated games keep byte-identical
-     * digests); above it the double input no longer loses cents.
+     * {@code double} money overload of {@link #amountToCents(float)}. The
+     * engine's working money type is {@code double}; this is the single
+     * consensus gate that quantizes it to integer cents. Below the float
+     * exactness ceiling it yields the same cents as the float overload (so
+     * migrated games keep byte-identical digests); above it the double input no
+     * longer loses cents.
      */
     public static long amountToCents(double amount) {
         if (Double.isNaN(amount) || Double.isInfinite(amount)) {
@@ -188,21 +205,21 @@ public final class CanonicalActionRecord {
     /**
      * Encodes one action into the canonical 92-byte record.
      *
-     * <p>All arguments are validated. The returned array is fresh on every
-     * call, never null, and always exactly {@link #RECORD_BYTES} bytes long.
+     * <p>
+     * All arguments are validated. The returned array is fresh on every call,
+     * never null, and always exactly {@link #RECORD_BYTES} bytes long.
      *
-     * @param prevH           previous chain hash {@code H_{t-1}}, exactly 32 bytes
-     * @param handId          per-hand identifier from the host, exactly 16 bytes
-     * @param playerId        canonical player id, exactly 32 bytes (use
-     *                        {@link #playerIdFromNick(String)})
-     * @param street          one of the {@code STREET_*} constants
-     * @param actionType      one of the {@code ACTION_*} constants
-     * @param amountCents     bet/raise amount in cents; must be {@code >= 0} and
-     *                        is {@code 0} for FOLD/CHECK
-     * @param isAllin         {@code true} if this action puts the player all-in
-     * @param isVoluntary     {@code true} for player-initiated actions;
-     *                        {@code false} only for host-issued auto-folds
-     *                        (timeouts; see spec §4.5)
+     * @param prevH previous chain hash {@code H_{t-1}}, exactly 32 bytes
+     * @param handId per-hand identifier from the host, exactly 16 bytes
+     * @param playerId canonical player id, exactly 32 bytes (use
+     * {@link #playerIdFromNick(String)})
+     * @param street one of the {@code STREET_*} constants
+     * @param actionType one of the {@code ACTION_*} constants
+     * @param amountCents bet/raise amount in cents; must be {@code >= 0} and is
+     * {@code 0} for FOLD/CHECK
+     * @param isAllin {@code true} if this action puts the player all-in
+     * @param isVoluntary {@code true} for player-initiated actions;
+     * {@code false} only for host-issued auto-folds (timeouts; see spec §4.5)
      * @return the 92-byte encoded record
      */
     public static byte[] encode(byte[] prevH, byte[] handId, byte[] playerId,
@@ -249,11 +266,11 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * Identity: packs 1..3 community card indices (0..51 each)
-     * into the AMOUNT_CENTS field of a community-reveal record. Layout is
-     * little-endian within the 8-byte slot but card-major (first card in the
-     * lowest byte of the packed value), so unpacking byte-by-byte yields the
-     * cards in announce order regardless of host endianness.
+     * Identity: packs 1..3 community card indices (0..51 each) into the
+     * AMOUNT_CENTS field of a community-reveal record. Layout is little-endian
+     * within the 8-byte slot but card-major (first card in the lowest byte of
+     * the packed value), so unpacking byte-by-byte yields the cards in announce
+     * order regardless of host endianness.
      */
     public static long packCommunityCards(int[] cards) {
         if (cards == null || cards.length == 0 || cards.length > 3) {
@@ -271,8 +288,8 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * Identity: inverse of {@link #packCommunityCards}.
-     * {@code numCards} is implied by the street (3 for FLOP, 1 for TURN/RIVER).
+     * Identity: inverse of {@link #packCommunityCards}. {@code numCards} is
+     * implied by the street (3 for FLOP, 1 for TURN/RIVER).
      */
     public static int[] unpackCommunityCards(long packed, int numCards) {
         if (numCards <= 0 || numCards > 3) {
@@ -286,9 +303,9 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * Identity: reads the {@code AMOUNT_CENTS} field (8 bytes, big-endian)
-     * from an encoded record. Exposed for receivers that need the raw amount
-     * (e.g., the community-reveal flow unpacks card indices from it).
+     * Identity: reads the {@code AMOUNT_CENTS} field (8 bytes, big-endian) from
+     * an encoded record. Exposed for receivers that need the raw amount (e.g.,
+     * the community-reveal flow unpacks card indices from it).
      */
     public static long readAmountCents(byte[] record) {
         if (record == null || record.length != RECORD_BYTES) {
@@ -320,9 +337,9 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * Identity: reads the 32-byte {@code PLAYER_ID} field (fresh defensive copy).
-     * Lets a receiver bind a signed record to the actual acting player, so a peer
-     * cannot sign an action attributing it to a different player.
+     * Identity: reads the 32-byte {@code PLAYER_ID} field (fresh defensive
+     * copy). Lets a receiver bind a signed record to the actual acting player,
+     * so a peer cannot sign an action attributing it to a different player.
      */
     public static byte[] readPlayerId(byte[] record) {
         if (record == null || record.length != RECORD_BYTES) {
@@ -357,7 +374,7 @@ public final class CanonicalActionRecord {
      * Writes a {@code long} in big-endian order at the given offset.
      */
     private static void writeInt64BE(byte[] buf, int offset, long v) {
-        buf[offset]     = (byte) ((v >>> 56) & 0xFF);
+        buf[offset] = (byte) ((v >>> 56) & 0xFF);
         buf[offset + 1] = (byte) ((v >>> 48) & 0xFF);
         buf[offset + 2] = (byte) ((v >>> 40) & 0xFF);
         buf[offset + 3] = (byte) ((v >>> 32) & 0xFF);

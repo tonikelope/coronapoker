@@ -47,14 +47,19 @@ public class RotationSmuggleEndToEndTest {
         return Arrays.copyOfRange(genesis, idx * 32, (idx + 1) * 32);
     }
 
-    /** Post-cascada: una carta bajo TODOS los pocket-locks del anillo. */
+    /**
+     * Post-cascada: una carta bajo TODOS los pocket-locks del anillo.
+     */
     private byte[] pocketLockAll(byte[] cardPoint) {
         byte[] p = RistrettoSRA.applyCommutativeLock(cardPoint, kpH);
         p = RistrettoSRA.applyCommutativeLock(p, kpX);
         return RistrettoSRA.applyCommutativeLock(p, kpY);
     }
 
-    /** Rotación del anillo: cada peer quita su k_pocket y añade su k_community (incl. X sin saberlo). */
+    /**
+     * Rotación del anillo: cada peer quita su k_pocket y añade su k_community
+     * (incl. X sin saberlo).
+     */
     private byte[] rotate(byte[] pocketLockedPiece) {
         byte[] r = pocketLockedPiece;
         r = RistrettoSRA.applyCommutativeLock(r, RistrettoSRA.getUnlockScalar(kpH));
@@ -67,10 +72,12 @@ public class RotationSmuggleEndToEndTest {
     }
 
     /**
-     * Reveal community de una posición (copia del host): los helpers X e Y pelan su k_community
-     * (GATE 6 EXACTO del handler: si el residuo resuelve a genesis tras pelar, lockdown), y el host
-     * pela el suyo al FINAL (local, sin GATE 6). Devuelve el índice de carta que lee el host.
-     * assertGate6Silent: comprueba que GATE 6 nunca dispara en los pasos de helper.
+     * Reveal community de una posición (copia del host): los helpers X e Y
+     * pelan su k_community (GATE 6 EXACTO del handler: si el residuo resuelve a
+     * genesis tras pelar, lockdown), y el host pela el suyo al FINAL (local,
+     * sin GATE 6). Devuelve el índice de carta que lee el host.
+     * assertGate6Silent: comprueba que GATE 6 nunca dispara en los pasos de
+     * helper.
      */
     private int hostReadsViaCommunityChain(byte[] communityLockedPiece) {
         byte[] r = communityLockedPiece;

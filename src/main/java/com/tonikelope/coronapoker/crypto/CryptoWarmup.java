@@ -24,21 +24,26 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * JIT warm-up for the heavy crypto path (SRA cascade + shuffle proof/verification), run in the
- * background at startup.
+ * JIT warm-up for the heavy crypto path (SRA cascade + shuffle
+ * proof/verification), run in the background at startup.
  *
- * <p>On a slow machine the first hands run through hot methods that are still interpreted / C1
- * compiled (3x-65x slower than once JIT-compiled to C2), so the first deal can feel frozen for
- * several seconds. This runs a REALISTIC cycle -the same path as a real cascade step: deck
- * lock, shuffle, {@code proveStepWire}, {@code verifyChainWire}, commitment and unlock- over
- * fixed DUMMY data, discarding the result, until per-cycle time stops improving (JIT already
- * reached C2) or a hard cap is hit. Warm-up INPUTS are fixed (dummy scalar), though the prover
- * still draws blinding scalars from the CSPRNG; harmless, since {@code SecureRandom} is
- * thread-safe and the game does not depend on a reproducible sequence. No effect on gameplay.
+ * <p>
+ * On a slow machine the first hands run through hot methods that are still
+ * interpreted / C1 compiled (3x-65x slower than once JIT-compiled to C2), so
+ * the first deal can feel frozen for several seconds. This runs a REALISTIC
+ * cycle -the same path as a real cascade step: deck lock, shuffle,
+ * {@code proveStepWire}, {@code verifyChainWire}, commitment and unlock- over
+ * fixed DUMMY data, discarding the result, until per-cycle time stops improving
+ * (JIT already reached C2) or a hard cap is hit. Warm-up INPUTS are fixed
+ * (dummy scalar), though the prover still draws blinding scalars from the
+ * CSPRNG; harmless, since {@code SecureRandom} is thread-safe and the game does
+ * not depend on a reproducible sequence. No effect on gameplay.
  *
- * <p>Crypto analogue of {@code Crupier.warmShuffleAnimCache()} (which pre-decodes the shuffle
- * GIF). Exercising the SAME path as a real deal also spares the first hand an uncommon-trap
- * deoptimization from taking a branch the warm-up never walked.
+ * <p>
+ * Crypto analogue of {@code Crupier.warmShuffleAnimCache()} (which pre-decodes
+ * the shuffle GIF). Exercising the SAME path as a real deal also spares the
+ * first hand an uncommon-trap deoptimization from taking a branch the warm-up
+ * never walked.
  *
  * @author tonikelope
  */
@@ -85,8 +90,9 @@ public final class CryptoWarmup {
     }
 
     /**
-     * Launches the warm-up exactly once, on a background thread. Idempotent and never throws:
-     * any failure is swallowed (the warm-up must never break startup).
+     * Launches the warm-up exactly once, on a background thread. Idempotent and
+     * never throws: any failure is swallowed (the warm-up must never break
+     * startup).
      */
     public static void warmup() {
         if (!STARTED.compareAndSet(false, true)) {
@@ -134,11 +140,13 @@ public final class CryptoWarmup {
     }
 
     /**
-     * One cycle = the same expensive operations as a real cascade step plus its proof and
-     * verification (exercises {@code Fe25519.mul}, {@code EdwardsPoint.add/dbl},
-     * {@code scalarMul}, {@code applyCommutativeLock} and the proofs' MSM), over dummy data.
-     * Returns true if prove+verify completed (the hot path ran end to end). Package-private so
-     * the test can check the cycle does REAL work, not a silent no-op.
+     * One cycle = the same expensive operations as a real cascade step plus its
+     * proof and verification (exercises {@code Fe25519.mul},
+     * {@code EdwardsPoint.add/dbl}, {@code scalarMul},
+     * {@code applyCommutativeLock} and the proofs' MSM), over dummy data.
+     * Returns true if prove+verify completed (the hot path ran end to end).
+     * Package-private so the test can check the cycle does REAL work, not a
+     * silent no-op.
      */
     static boolean runOneCycle() {
         byte[] genesis = RistrettoSRA.getGenesisDeck();

@@ -71,13 +71,14 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 /**
- * Full-screen end-of-session overlay mounted on {@link GameFrame}'s glassPane, on top of the
- * real felt (seen through via Swing component transparency, not OS compositor window
- * transparency like the old modal dialog). Layout top to bottom: button bar, title + date, the
- * local player's result in giant text with the net amount below, and a horizontal carousel of
- * player result cards. Fully responsive. GameFrame mounts/unmounts it and awaits the user's
- * choice (continue / main menu) via a CountDownLatch, replacing the old modal dialog without
- * using a window.
+ * Full-screen end-of-session overlay mounted on {@link GameFrame}'s glassPane,
+ * on top of the real felt (seen through via Swing component transparency, not
+ * OS compositor window transparency like the old modal dialog). Layout top to
+ * bottom: button bar, title + date, the local player's result in giant text
+ * with the net amount below, and a horizontal carousel of player result cards.
+ * Fully responsive. GameFrame mounts/unmounts it and awaits the user's choice
+ * (continue / main menu) via a CountDownLatch, replacing the old modal dialog
+ * without using a window.
  *
  * @author tonikelope
  */
@@ -158,8 +159,8 @@ public class BalanceScreen extends JPanel {
     private double anim_ganancia;
 
     /**
-     * @return {@code true} if the player chose to continue/reconnect rather than go to the main
-     * menu.
+     * @return {@code true} if the player chose to continue/reconnect rather
+     * than go to the main menu.
      */
     public boolean isRecover() {
         return recover;
@@ -168,8 +169,10 @@ public class BalanceScreen extends JPanel {
     /**
      * Builds the end-of-session overlay for the given parent frame.
      *
-     * @param parent screen used to size the overlay (falls back to 1280x800 if unavailable)
-     * @param on_close callback invoked once the player picks continue or main menu
+     * @param parent screen used to size the overlay (falls back to 1280x800 if
+     * unavailable)
+     * @param on_close callback invoked once the player picks continue or main
+     * menu
      */
     public BalanceScreen(java.awt.Frame parent, Runnable on_close) {
         super();
@@ -219,17 +222,18 @@ public class BalanceScreen extends JPanel {
     }
 
     /**
-     * Starts the amount roll animation. Call after mounting the overlay on the glassPane and
-     * making it visible (previously done in windowOpened).
+     * Starts the amount roll animation. Call after mounting the overlay on the
+     * glassPane and making it visible (previously done in windowOpened).
      */
     public void startAnimations() {
         startAmountAnimation();
     }
 
     /**
-     * Releases overlay resources: stops the animation timers, releases the preloaded counter SFX
-     * line, and closes the stats dialog if it was left open. Call once the user's choice is
-     * resolved, before unmounting the glassPane (previously done in windowClosed).
+     * Releases overlay resources: stops the animation timers, releases the
+     * preloaded counter SFX line, and closes the stats dialog if it was left
+     * open. Call once the user's choice is resolved, before unmounting the
+     * glassPane (previously done in windowClosed).
      */
     public void cleanup() {
         stopAmountAnimation();

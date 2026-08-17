@@ -1,832 +1,832 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <Form version="1.5" maxVersion="1.9" type="org.netbeans.modules.form.forminfo.JFrameFormInfo">
-  <Properties>
-    <Property name="defaultCloseOperation" type="int" value="0"/>
-    <Property name="title" type="java.lang.String" value="CoronaPoker - Sala de espera"/>
-    <Property name="iconImage" type="java.awt.Image" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-      <Connection code="new javax.swing.ImageIcon(getClass().getResource(&quot;/images/avatar_default.png&quot;)).getImage()" type="code"/>
-    </Property>
-  </Properties>
-  <SyntheticProperties>
-    <SyntheticProperty name="formSizePolicy" type="int" value="1"/>
-    <SyntheticProperty name="generateCenter" type="boolean" value="false"/>
-  </SyntheticProperties>
-  <Events>
-    <EventHandler event="componentHidden" listener="java.awt.event.ComponentListener" parameters="java.awt.event.ComponentEvent" handler="formComponentHidden"/>
-    <EventHandler event="componentShown" listener="java.awt.event.ComponentListener" parameters="java.awt.event.ComponentEvent" handler="formComponentShown"/>
-    <EventHandler event="windowStateChanged" listener="java.awt.event.WindowStateListener" parameters="java.awt.event.WindowEvent" handler="formWindowStateChanged"/>
-    <EventHandler event="windowClosing" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowClosing"/>
-    <EventHandler event="windowDeactivated" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowDeactivated"/>
-    <EventHandler event="windowDeiconified" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowDeiconified"/>
-    <EventHandler event="windowOpened" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowOpened"/>
-  </Events>
-  <AuxValues>
-    <AuxValue name="FormSettings_autoResourcing" type="java.lang.Integer" value="0"/>
-    <AuxValue name="FormSettings_autoSetComponentName" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_generateFQN" type="java.lang.Boolean" value="true"/>
-    <AuxValue name="FormSettings_generateMnemonicsCode" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_i18nAutoMode" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_layoutCodeTarget" type="java.lang.Integer" value="1"/>
-    <AuxValue name="FormSettings_listenerGenerationStyle" type="java.lang.Integer" value="0"/>
-    <AuxValue name="FormSettings_variablesLocal" type="java.lang.Boolean" value="false"/>
-    <AuxValue name="FormSettings_variablesModifier" type="java.lang.Integer" value="2"/>
-  </AuxValues>
-
-  <Layout>
-    <DimensionLayout dim="0">
-      <Group type="103" groupAlignment="0" attributes="0">
-          <Component id="main_scroll_panel" alignment="1" max="32767" attributes="0"/>
-      </Group>
-    </DimensionLayout>
-    <DimensionLayout dim="1">
-      <Group type="103" groupAlignment="0" attributes="0">
-          <Group type="102" alignment="0" attributes="0">
-              <Component id="main_scroll_panel" pref="784" max="32767" attributes="0"/>
-              <EmptySpace max="-2" attributes="0"/>
-          </Group>
-      </Group>
-    </DimensionLayout>
-  </Layout>
-  <SubComponents>
-    <Container class="javax.swing.JScrollPane" name="main_scroll_panel">
-      <Properties>
-        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-          <Border info="null"/>
+    <Properties>
+        <Property name="defaultCloseOperation" type="int" value="0"/>
+        <Property name="title" type="java.lang.String" value="CoronaPoker - Sala de espera"/>
+        <Property name="iconImage" type="java.awt.Image" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+            <Connection code="new javax.swing.ImageIcon(getClass().getResource(&quot;/images/avatar_default.png&quot;)).getImage()" type="code"/>
         </Property>
-        <Property name="doubleBuffered" type="boolean" value="true"/>
-        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-          <Dimension value="[700, 750]"/>
-        </Property>
-      </Properties>
+    </Properties>
+    <SyntheticProperties>
+        <SyntheticProperty name="formSizePolicy" type="int" value="1"/>
+        <SyntheticProperty name="generateCenter" type="boolean" value="false"/>
+    </SyntheticProperties>
+    <Events>
+        <EventHandler event="componentHidden" listener="java.awt.event.ComponentListener" parameters="java.awt.event.ComponentEvent" handler="formComponentHidden"/>
+        <EventHandler event="componentShown" listener="java.awt.event.ComponentListener" parameters="java.awt.event.ComponentEvent" handler="formComponentShown"/>
+        <EventHandler event="windowStateChanged" listener="java.awt.event.WindowStateListener" parameters="java.awt.event.WindowEvent" handler="formWindowStateChanged"/>
+        <EventHandler event="windowClosing" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowClosing"/>
+        <EventHandler event="windowDeactivated" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowDeactivated"/>
+        <EventHandler event="windowDeiconified" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowDeiconified"/>
+        <EventHandler event="windowOpened" listener="java.awt.event.WindowListener" parameters="java.awt.event.WindowEvent" handler="formWindowOpened"/>
+    </Events>
+    <AuxValues>
+        <AuxValue name="FormSettings_autoResourcing" type="java.lang.Integer" value="0"/>
+        <AuxValue name="FormSettings_autoSetComponentName" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_generateFQN" type="java.lang.Boolean" value="true"/>
+        <AuxValue name="FormSettings_generateMnemonicsCode" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_i18nAutoMode" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_layoutCodeTarget" type="java.lang.Integer" value="1"/>
+        <AuxValue name="FormSettings_listenerGenerationStyle" type="java.lang.Integer" value="0"/>
+        <AuxValue name="FormSettings_variablesLocal" type="java.lang.Boolean" value="false"/>
+        <AuxValue name="FormSettings_variablesModifier" type="java.lang.Integer" value="2"/>
+    </AuxValues>
 
-      <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
-      <SubComponents>
-        <Container class="javax.swing.JPanel" name="main_panel">
+    <Layout>
+        <DimensionLayout dim="0">
+            <Group type="103" groupAlignment="0" attributes="0">
+                <Component id="main_scroll_panel" alignment="1" max="32767" attributes="0"/>
+            </Group>
+        </DimensionLayout>
+        <DimensionLayout dim="1">
+            <Group type="103" groupAlignment="0" attributes="0">
+                <Group type="102" alignment="0" attributes="0">
+                    <Component id="main_scroll_panel" pref="784" max="32767" attributes="0"/>
+                    <EmptySpace max="-2" attributes="0"/>
+                </Group>
+            </Group>
+        </DimensionLayout>
+    </Layout>
+    <SubComponents>
+        <Container class="javax.swing.JScrollPane" name="main_scroll_panel">
+            <Properties>
+                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                    <Border info="null"/>
+                </Property>
+                <Property name="doubleBuffered" type="boolean" value="true"/>
+                <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                    <Dimension value="[700, 750]"/>
+                </Property>
+            </Properties>
 
-          <Layout>
-            <DimensionLayout dim="0">
-              <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" alignment="0" attributes="0">
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="panel_arriba" alignment="0" pref="688" max="32767" attributes="0"/>
-                          <Component id="chat_notifications" alignment="0" max="32767" attributes="0"/>
-                          <Component id="chat_scroll" alignment="0" pref="0" max="32767" attributes="0"/>
-                          <Component id="jPanel1" alignment="0" max="32767" attributes="0"/>
-                          <Component id="danger_server" alignment="1" max="32767" attributes="0"/>
-                          <Component id="latency_label" alignment="0" max="32767" attributes="0"/>
-                      </Group>
-                      <EmptySpace max="-2" attributes="0"/>
-                  </Group>
-              </Group>
-            </DimensionLayout>
-            <DimensionLayout dim="1">
-              <Group type="103" groupAlignment="0" attributes="0">
-                  <Group type="102" attributes="0">
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="latency_label" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace min="-2" pref="1" max="-2" attributes="0"/>
-                      <Component id="danger_server" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="panel_arriba" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="chat_notifications" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="chat_scroll" pref="22" max="32767" attributes="0"/>
-                      <EmptySpace max="-2" attributes="0"/>
-                      <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
-                      <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                  </Group>
-              </Group>
-            </DimensionLayout>
-          </Layout>
-          <SubComponents>
-            <Container class="javax.swing.JPanel" name="panel_arriba">
+            <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
+            <SubComponents>
+                <Container class="javax.swing.JPanel" name="main_panel">
 
-              <Layout>
-                <DimensionLayout dim="0">
-                  <Group type="103" groupAlignment="0" attributes="0">
-                      <Group type="102" alignment="0" attributes="0">
-                          <Component id="jPanel2" max="32767" attributes="0"/>
-                          <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                          <Component id="panel_con" max="32767" attributes="0"/>
-                      </Group>
-                      <Component id="empezar_timba" max="32767" attributes="0"/>
-                      <Component id="barra" alignment="0" max="32767" attributes="0"/>
-                      <Group type="102" alignment="0" attributes="0">
-                          <Component id="status" max="32767" attributes="0"/>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Component id="settings_icon" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Component id="sound_icon" min="-2" max="-2" attributes="0"/>
-                      </Group>
-                  </Group>
-                </DimensionLayout>
-                <DimensionLayout dim="1">
-                  <Group type="103" groupAlignment="0" attributes="0">
-                      <Group type="102" alignment="0" attributes="0">
-                          <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                          <Group type="103" groupAlignment="0" max="-2" attributes="0">
-                              <Component id="panel_con" max="32767" attributes="0"/>
-                              <Component id="jPanel2" max="32767" attributes="0"/>
-                          </Group>
-                          <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                          <Group type="103" groupAlignment="0" max="-2" attributes="0">
-                              <Component id="settings_icon" max="32767" attributes="0"/>
-                              <Component id="sound_icon" max="32767" attributes="0"/>
-                              <Component id="status" max="32767" attributes="0"/>
-                          </Group>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Component id="empezar_timba" min="-2" pref="60" max="-2" attributes="0"/>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Component id="barra" min="-2" pref="20" max="-2" attributes="0"/>
-                          <EmptySpace pref="8" max="32767" attributes="0"/>
-                      </Group>
-                  </Group>
-                </DimensionLayout>
-              </Layout>
-              <SubComponents>
-                <Component class="javax.swing.JLabel" name="status">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="20" style="1"/>
-                    </Property>
-                    <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                      <Color blue="0" green="99" red="33" type="rgb"/>
-                    </Property>
-                    <Property name="horizontalAlignment" type="int" value="0"/>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                  </Properties>
-                </Component>
-                <Component class="javax.swing.JLabel" name="settings_icon">
-                  <Properties>
-                    <Property name="toolTipText" type="java.lang.String" value="Ajustes"/>
-                    <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                      <Color id="Cursor de Mano"/>
-                    </Property>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                    <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                      <Dimension value="[30, 30]"/>
-                    </Property>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="settings_iconMouseClicked"/>
-                  </Events>
-                </Component>
-                <Component class="javax.swing.JLabel" name="sound_icon">
-                  <Properties>
-                    <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                      <Color blue="99" green="99" red="99" type="rgb"/>
-                    </Property>
-                    <Property name="toolTipText" type="java.lang.String" value="Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)"/>
-                    <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                      <Color id="Cursor de Mano"/>
-                    </Property>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                    <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
-                      <Dimension value="[30, 30]"/>
-                    </Property>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="sound_iconMouseClicked"/>
-                  </Events>
-                </Component>
-                <Container class="javax.swing.JPanel" name="panel_con">
-                  <Properties>
-                    <Property name="focusable" type="boolean" value="false"/>
-                    <Property name="opaque" type="boolean" value="false"/>
-                  </Properties>
-
-                  <Layout>
-                    <DimensionLayout dim="0">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" attributes="0">
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="0" attributes="0">
-                                  <Component id="kick_user" max="32767" attributes="0"/>
-                                  <Component id="panel_conectados" pref="376" max="32767" attributes="0"/>
-                              </Group>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                    <DimensionLayout dim="1">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" alignment="0" attributes="0">
-                              <Component id="panel_conectados" min="-2" pref="328" max="-2" attributes="0"/>
-                              <EmptySpace type="unrelated" max="32767" attributes="0"/>
-                              <Component id="kick_user" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                  </Layout>
-                  <SubComponents>
-                    <Container class="javax.swing.JScrollPane" name="panel_conectados">
-                      <Properties>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                        <Property name="focusable" type="boolean" value="false"/>
-                        <Property name="opaque" type="boolean" value="false"/>
-                      </Properties>
-                      <AuxValues>
-                        <AuxValue name="autoScrollPane" type="java.lang.Boolean" value="true"/>
-                      </AuxValues>
-
-                      <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
-                      <SubComponents>
-                        <Component class="javax.swing.JList" name="conectados">
-                          <Properties>
-                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                              <Font name="Dialog" size="16" style="0"/>
-                            </Property>
-                            <Property name="selectionMode" type="int" value="0"/>
-                            <Property name="toolTipText" type="java.lang.String" value="Participantes conectados"/>
-                            <Property name="cellRenderer" type="javax.swing.ListCellRenderer" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                              <Connection code="new com.tonikelope.coronapoker.ParticipantsListLabel()" type="code"/>
-                            </Property>
-                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                              <Color id="Cursor de Mano"/>
-                            </Property>
-                            <Property name="doubleBuffered" type="boolean" value="true"/>
-                            <Property name="focusable" type="boolean" value="false"/>
-                            <Property name="opaque" type="boolean" value="false"/>
-                          </Properties>
-                          <AuxValues>
-                            <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new javax.swing.JList&lt;ParticipantJListData&gt;()"/>
-                            <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;ParticipantJListData&gt;"/>
-                          </AuxValues>
-                        </Component>
-                      </SubComponents>
-                    </Container>
-                    <Component class="javax.swing.JButton" name="kick_user">
-                      <Properties>
-                        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                          <Color blue="0" green="0" red="ff" type="rgb"/>
-                        </Property>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="14" style="1"/>
-                        </Property>
-                        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                          <Color blue="ff" green="ff" red="ff" type="rgb"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Expulsar jugador"/>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="kick_userActionPerformed"/>
-                      </Events>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="kick_user.putClientProperty(&quot;i18n.key&quot;, &quot;ui.expulsar_jugador&quot;);"/>
-                      </AuxValues>
-                    </Component>
-                  </SubComponents>
-                </Container>
-                <Component class="javax.swing.JButton" name="empezar_timba">
-                  <Properties>
-                    <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                      <Color blue="0" green="82" red="0" type="rgb"/>
-                    </Property>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="24" style="1"/>
-                    </Property>
-                    <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                      <Color blue="ff" green="ff" red="ff" type="rgb"/>
-                    </Property>
-                    <Property name="text" type="java.lang.String" value="&#xa1;A JUGAR!"/>
-                    <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                      <Color id="Cursor de Mano"/>
-                    </Property>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="empezar_timbaActionPerformed"/>
-                  </Events>
-                  <AuxValues>
-                    <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="empezar_timba.putClientProperty(&quot;i18n.key&quot;, &quot;ui.a_jugar&quot;);"/>
-                  </AuxValues>
-                </Component>
-                <Component class="javax.swing.JProgressBar" name="barra">
-                </Component>
-                <Container class="javax.swing.JPanel" name="jPanel2">
-
-                  <Layout>
-                    <DimensionLayout dim="0">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" alignment="0" attributes="0">
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="0" attributes="0">
-                                  <Component id="jPanel3" max="32767" attributes="0"/>
-                                  <Component id="new_bot_button" alignment="0" max="32767" attributes="0"/>
-                                  <Component id="logo" alignment="0" max="32767" attributes="0"/>
-                                  <Component id="game_info_recover" alignment="0" min="-2" max="-2" attributes="0"/>
-                                  <Group type="102" alignment="0" attributes="0">
-                                      <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                                      <Component id="game_info_blinds" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace type="unrelated" max="32767" attributes="0"/>
-                                      <Component id="game_info_hands" min="-2" max="-2" attributes="0"/>
-                                  </Group>
-                              </Group>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                    <DimensionLayout dim="1">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" attributes="0">
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              <Component id="logo" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Component id="jPanel3" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="0" attributes="0">
-                                  <Component id="game_info_blinds" alignment="0" max="-2" attributes="0"/>
-                                  <Component id="game_info_hands" alignment="0" min="-2" pref="32" max="-2" attributes="0"/>
-                                  <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Component id="game_info_recover" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="32767" attributes="0"/>
-                              <Component id="new_bot_button" min="-2" pref="84" max="-2" attributes="0"/>
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                  </Layout>
-                  <SubComponents>
-                    <Component class="javax.swing.JButton" name="new_bot_button">
-                      <Properties>
-                        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                          <Color blue="33" green="33" red="33" type="rgb"/>
-                        </Property>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="18" style="1"/>
-                        </Property>
-                        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                          <Color blue="ff" green="ff" red="ff" type="rgb"/>
-                        </Property>
-                        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                          <Image iconType="3" name="/images/robot.png"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="A&#xd1;ADIR BOT"/>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="new_bot_buttonActionPerformed"/>
-                      </Events>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="new_bot_button.putClientProperty(&quot;i18n.key&quot;, &quot;ui.anadir_bot&quot;);"/>
-                      </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="game_info_blinds">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="18" style="1"/>
-                        </Property>
-                        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                          <Image iconType="3" name="/images/ciegas.png"/>
-                        </Property>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_blindsMouseClicked"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="game_info_hands">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="18" style="1"/>
-                        </Property>
-                        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                          <Image iconType="3" name="/images/menu/meter.png"/>
-                        </Property>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_handsMouseClicked"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="logo">
-                      <Properties>
-                        <Property name="horizontalAlignment" type="int" value="0"/>
-                        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                          <Image iconType="3" name="/images/corona_poker_15.png"/>
-                        </Property>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="logoMouseClicked"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="game_info_buyin">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="18" style="1"/>
-                        </Property>
-                        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                          <Image iconType="3" name="/images/emoji_chat/1202.png"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value=" "/>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_buyinMouseClicked"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="game_info_recover">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="18" style="1"/>
-                        </Property>
-                        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                          <Color blue="0" green="ff" red="ff" type="rgb"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="CONTINUANDO TIMBA ANTERIOR"/>
-                        <Property name="opaque" type="boolean" value="true"/>
-                        <Property name="visible" type="boolean" value="false"/>
-                      </Properties>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="game_info_recover.putClientProperty(&quot;i18n.key&quot;, &quot;game.continuando_timba_anterior&quot;);"/>
-                      </AuxValues>
-                    </Component>
-                    <Container class="javax.swing.JPanel" name="jPanel3">
-
-                      <Layout>
+                    <Layout>
                         <DimensionLayout dim="0">
-                          <Group type="103" groupAlignment="0" attributes="0">
-                              <Group type="102" attributes="0">
-                                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                                  <Component id="pass_icon" min="-2" max="-2" attributes="0"/>
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="server_address_label" max="32767" attributes="0"/>
-                                  <EmptySpace max="-2" attributes="0"/>
-                                  <Component id="tot_conectados" min="-2" max="-2" attributes="0"/>
-                                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              </Group>
-                          </Group>
+                            <Group type="103" groupAlignment="0" attributes="0">
+                                <Group type="102" alignment="0" attributes="0">
+                                    <EmptySpace max="-2" attributes="0"/>
+                                    <Group type="103" groupAlignment="0" attributes="0">
+                                        <Component id="panel_arriba" alignment="0" pref="688" max="32767" attributes="0"/>
+                                        <Component id="chat_notifications" alignment="0" max="32767" attributes="0"/>
+                                        <Component id="chat_scroll" alignment="0" pref="0" max="32767" attributes="0"/>
+                                        <Component id="jPanel1" alignment="0" max="32767" attributes="0"/>
+                                        <Component id="danger_server" alignment="1" max="32767" attributes="0"/>
+                                        <Component id="latency_label" alignment="0" max="32767" attributes="0"/>
+                                    </Group>
+                                    <EmptySpace max="-2" attributes="0"/>
+                                </Group>
+                            </Group>
                         </DimensionLayout>
                         <DimensionLayout dim="1">
-                          <Group type="103" groupAlignment="0" attributes="0">
-                              <Group type="102" alignment="0" attributes="0">
-                                  <EmptySpace min="-2" pref="0" max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="0" attributes="0">
-                                      <Group type="103" alignment="0" groupAlignment="3" attributes="0">
-                                          <Component id="server_address_label" alignment="3" min="-2" pref="39" max="-2" attributes="0"/>
-                                      </Group>
-                                      <Component id="tot_conectados" alignment="0" min="-2" max="-2" attributes="0"/>
-                                      <Component id="pass_icon" min="-2" pref="36" max="-2" attributes="0"/>
-                                  </Group>
-                              </Group>
-                          </Group>
+                            <Group type="103" groupAlignment="0" attributes="0">
+                                <Group type="102" attributes="0">
+                                    <EmptySpace max="-2" attributes="0"/>
+                                    <Component id="latency_label" min="-2" max="-2" attributes="0"/>
+                                    <EmptySpace min="-2" pref="1" max="-2" attributes="0"/>
+                                    <Component id="danger_server" min="-2" max="-2" attributes="0"/>
+                                    <EmptySpace max="-2" attributes="0"/>
+                                    <Component id="panel_arriba" min="-2" max="-2" attributes="0"/>
+                                    <EmptySpace max="-2" attributes="0"/>
+                                    <Component id="chat_notifications" min="-2" max="-2" attributes="0"/>
+                                    <EmptySpace max="-2" attributes="0"/>
+                                    <Component id="chat_scroll" pref="22" max="32767" attributes="0"/>
+                                    <EmptySpace max="-2" attributes="0"/>
+                                    <Component id="jPanel1" min="-2" max="-2" attributes="0"/>
+                                    <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                </Group>
+                            </Group>
                         </DimensionLayout>
-                      </Layout>
-                      <SubComponents>
-                        <Component class="javax.swing.JLabel" name="pass_icon">
-                          <Properties>
-                            <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                              <Image iconType="3" name="/images/lock.png"/>
-                            </Property>
-                            <Property name="toolTipText" type="java.lang.String" value="Click para gestionar contrase&#xf1;a"/>
-                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                              <Color id="Cursor de Mano"/>
-                            </Property>
-                          </Properties>
-                          <Events>
-                            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="pass_iconMouseClicked"/>
-                          </Events>
+                    </Layout>
+                    <SubComponents>
+                        <Container class="javax.swing.JPanel" name="panel_arriba">
+
+                            <Layout>
+                                <DimensionLayout dim="0">
+                                    <Group type="103" groupAlignment="0" attributes="0">
+                                        <Group type="102" alignment="0" attributes="0">
+                                            <Component id="jPanel2" max="32767" attributes="0"/>
+                                            <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                                            <Component id="panel_con" max="32767" attributes="0"/>
+                                        </Group>
+                                        <Component id="empezar_timba" max="32767" attributes="0"/>
+                                        <Component id="barra" alignment="0" max="32767" attributes="0"/>
+                                        <Group type="102" alignment="0" attributes="0">
+                                            <Component id="status" max="32767" attributes="0"/>
+                                            <EmptySpace max="-2" attributes="0"/>
+                                            <Component id="settings_icon" min="-2" max="-2" attributes="0"/>
+                                            <EmptySpace max="-2" attributes="0"/>
+                                            <Component id="sound_icon" min="-2" max="-2" attributes="0"/>
+                                        </Group>
+                                    </Group>
+                                </DimensionLayout>
+                                <DimensionLayout dim="1">
+                                    <Group type="103" groupAlignment="0" attributes="0">
+                                        <Group type="102" alignment="0" attributes="0">
+                                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                            <Group type="103" groupAlignment="0" max="-2" attributes="0">
+                                                <Component id="panel_con" max="32767" attributes="0"/>
+                                                <Component id="jPanel2" max="32767" attributes="0"/>
+                                            </Group>
+                                            <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                                            <Group type="103" groupAlignment="0" max="-2" attributes="0">
+                                                <Component id="settings_icon" max="32767" attributes="0"/>
+                                                <Component id="sound_icon" max="32767" attributes="0"/>
+                                                <Component id="status" max="32767" attributes="0"/>
+                                            </Group>
+                                            <EmptySpace max="-2" attributes="0"/>
+                                            <Component id="empezar_timba" min="-2" pref="60" max="-2" attributes="0"/>
+                                            <EmptySpace max="-2" attributes="0"/>
+                                            <Component id="barra" min="-2" pref="20" max="-2" attributes="0"/>
+                                            <EmptySpace pref="8" max="32767" attributes="0"/>
+                                        </Group>
+                                    </Group>
+                                </DimensionLayout>
+                            </Layout>
+                            <SubComponents>
+                                <Component class="javax.swing.JLabel" name="status">
+                                    <Properties>
+                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                            <Font name="Dialog" size="20" style="1"/>
+                                        </Property>
+                                        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                            <Color blue="0" green="99" red="33" type="rgb"/>
+                                        </Property>
+                                        <Property name="horizontalAlignment" type="int" value="0"/>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                    </Properties>
+                                </Component>
+                                <Component class="javax.swing.JLabel" name="settings_icon">
+                                    <Properties>
+                                        <Property name="toolTipText" type="java.lang.String" value="Ajustes"/>
+                                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                            <Color id="Cursor de Mano"/>
+                                        </Property>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                                            <Dimension value="[30, 30]"/>
+                                        </Property>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="settings_iconMouseClicked"/>
+                                    </Events>
+                                </Component>
+                                <Component class="javax.swing.JLabel" name="sound_icon">
+                                    <Properties>
+                                        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                            <Color blue="99" green="99" red="99" type="rgb"/>
+                                        </Property>
+                                        <Property name="toolTipText" type="java.lang.String" value="Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)"/>
+                                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                            <Color id="Cursor de Mano"/>
+                                        </Property>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                        <Property name="preferredSize" type="java.awt.Dimension" editor="org.netbeans.beaninfo.editors.DimensionEditor">
+                                            <Dimension value="[30, 30]"/>
+                                        </Property>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="sound_iconMouseClicked"/>
+                                    </Events>
+                                </Component>
+                                <Container class="javax.swing.JPanel" name="panel_con">
+                                    <Properties>
+                                        <Property name="focusable" type="boolean" value="false"/>
+                                        <Property name="opaque" type="boolean" value="false"/>
+                                    </Properties>
+
+                                    <Layout>
+                                        <DimensionLayout dim="0">
+                                            <Group type="103" groupAlignment="0" attributes="0">
+                                                <Group type="102" attributes="0">
+                                                    <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                                    <Group type="103" groupAlignment="0" attributes="0">
+                                                        <Component id="kick_user" max="32767" attributes="0"/>
+                                                        <Component id="panel_conectados" pref="376" max="32767" attributes="0"/>
+                                                    </Group>
+                                                </Group>
+                                            </Group>
+                                        </DimensionLayout>
+                                        <DimensionLayout dim="1">
+                                            <Group type="103" groupAlignment="0" attributes="0">
+                                                <Group type="102" alignment="0" attributes="0">
+                                                    <Component id="panel_conectados" min="-2" pref="328" max="-2" attributes="0"/>
+                                                    <EmptySpace type="unrelated" max="32767" attributes="0"/>
+                                                    <Component id="kick_user" min="-2" max="-2" attributes="0"/>
+                                                    <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                                </Group>
+                                            </Group>
+                                        </DimensionLayout>
+                                    </Layout>
+                                    <SubComponents>
+                                        <Container class="javax.swing.JScrollPane" name="panel_conectados">
+                                            <Properties>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                                <Property name="focusable" type="boolean" value="false"/>
+                                                <Property name="opaque" type="boolean" value="false"/>
+                                            </Properties>
+                                            <AuxValues>
+                                                <AuxValue name="autoScrollPane" type="java.lang.Boolean" value="true"/>
+                                            </AuxValues>
+
+                                            <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
+                                            <SubComponents>
+                                                <Component class="javax.swing.JList" name="conectados">
+                                                    <Properties>
+                                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                            <Font name="Dialog" size="16" style="0"/>
+                                                        </Property>
+                                                        <Property name="selectionMode" type="int" value="0"/>
+                                                        <Property name="toolTipText" type="java.lang.String" value="Participantes conectados"/>
+                                                        <Property name="cellRenderer" type="javax.swing.ListCellRenderer" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                                                            <Connection code="new com.tonikelope.coronapoker.ParticipantsListLabel()" type="code"/>
+                                                        </Property>
+                                                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                            <Color id="Cursor de Mano"/>
+                                                        </Property>
+                                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                                        <Property name="focusable" type="boolean" value="false"/>
+                                                        <Property name="opaque" type="boolean" value="false"/>
+                                                    </Properties>
+                                                    <AuxValues>
+                                                        <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new javax.swing.JList&lt;ParticipantJListData&gt;()"/>
+                                                        <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;ParticipantJListData&gt;"/>
+                                                    </AuxValues>
+                                                </Component>
+                                            </SubComponents>
+                                        </Container>
+                                        <Component class="javax.swing.JButton" name="kick_user">
+                                            <Properties>
+                                                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                                    <Color blue="0" green="0" red="ff" type="rgb"/>
+                                                </Property>
+                                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                    <Font name="Dialog" size="14" style="1"/>
+                                                </Property>
+                                                <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                                    <Color blue="ff" green="ff" red="ff" type="rgb"/>
+                                                </Property>
+                                                <Property name="text" type="java.lang.String" value="Expulsar jugador"/>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="kick_userActionPerformed"/>
+                                            </Events>
+                                            <AuxValues>
+                                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="kick_user.putClientProperty(&quot;i18n.key&quot;, &quot;ui.expulsar_jugador&quot;);"/>
+                                            </AuxValues>
+                                        </Component>
+                                    </SubComponents>
+                                </Container>
+                                <Component class="javax.swing.JButton" name="empezar_timba">
+                                    <Properties>
+                                        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                            <Color blue="0" green="82" red="0" type="rgb"/>
+                                        </Property>
+                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                            <Font name="Dialog" size="24" style="1"/>
+                                        </Property>
+                                        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                            <Color blue="ff" green="ff" red="ff" type="rgb"/>
+                                        </Property>
+                                        <Property name="text" type="java.lang.String" value="&#xa1;A JUGAR!"/>
+                                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                            <Color id="Cursor de Mano"/>
+                                        </Property>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="empezar_timbaActionPerformed"/>
+                                    </Events>
+                                    <AuxValues>
+                                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="empezar_timba.putClientProperty(&quot;i18n.key&quot;, &quot;ui.a_jugar&quot;);"/>
+                                    </AuxValues>
+                                </Component>
+                                <Component class="javax.swing.JProgressBar" name="barra">
+                                </Component>
+                                <Container class="javax.swing.JPanel" name="jPanel2">
+
+                                    <Layout>
+                                        <DimensionLayout dim="0">
+                                            <Group type="103" groupAlignment="0" attributes="0">
+                                                <Group type="102" alignment="0" attributes="0">
+                                                    <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                                    <Group type="103" groupAlignment="0" attributes="0">
+                                                        <Component id="jPanel3" max="32767" attributes="0"/>
+                                                        <Component id="new_bot_button" alignment="0" max="32767" attributes="0"/>
+                                                        <Component id="logo" alignment="0" max="32767" attributes="0"/>
+                                                        <Component id="game_info_recover" alignment="0" min="-2" max="-2" attributes="0"/>
+                                                        <Group type="102" alignment="0" attributes="0">
+                                                            <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
+                                                            <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                                                            <Component id="game_info_blinds" min="-2" max="-2" attributes="0"/>
+                                                            <EmptySpace type="unrelated" max="32767" attributes="0"/>
+                                                            <Component id="game_info_hands" min="-2" max="-2" attributes="0"/>
+                                                        </Group>
+                                                    </Group>
+                                                </Group>
+                                            </Group>
+                                        </DimensionLayout>
+                                        <DimensionLayout dim="1">
+                                            <Group type="103" groupAlignment="0" attributes="0">
+                                                <Group type="102" attributes="0">
+                                                    <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                                    <Component id="logo" min="-2" max="-2" attributes="0"/>
+                                                    <EmptySpace max="-2" attributes="0"/>
+                                                    <Component id="jPanel3" min="-2" max="-2" attributes="0"/>
+                                                    <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                                                    <Group type="103" groupAlignment="0" attributes="0">
+                                                        <Component id="game_info_blinds" alignment="0" max="-2" attributes="0"/>
+                                                        <Component id="game_info_hands" alignment="0" min="-2" pref="32" max="-2" attributes="0"/>
+                                                        <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
+                                                    </Group>
+                                                    <EmptySpace max="-2" attributes="0"/>
+                                                    <Component id="game_info_recover" min="-2" max="-2" attributes="0"/>
+                                                    <EmptySpace max="32767" attributes="0"/>
+                                                    <Component id="new_bot_button" min="-2" pref="84" max="-2" attributes="0"/>
+                                                    <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                                </Group>
+                                            </Group>
+                                        </DimensionLayout>
+                                    </Layout>
+                                    <SubComponents>
+                                        <Component class="javax.swing.JButton" name="new_bot_button">
+                                            <Properties>
+                                                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                                    <Color blue="33" green="33" red="33" type="rgb"/>
+                                                </Property>
+                                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                    <Font name="Dialog" size="18" style="1"/>
+                                                </Property>
+                                                <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                                    <Color blue="ff" green="ff" red="ff" type="rgb"/>
+                                                </Property>
+                                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                                    <Image iconType="3" name="/images/robot.png"/>
+                                                </Property>
+                                                <Property name="text" type="java.lang.String" value="A&#xd1;ADIR BOT"/>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="new_bot_buttonActionPerformed"/>
+                                            </Events>
+                                            <AuxValues>
+                                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="new_bot_button.putClientProperty(&quot;i18n.key&quot;, &quot;ui.anadir_bot&quot;);"/>
+                                            </AuxValues>
+                                        </Component>
+                                        <Component class="javax.swing.JLabel" name="game_info_blinds">
+                                            <Properties>
+                                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                    <Font name="Dialog" size="18" style="1"/>
+                                                </Property>
+                                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                                    <Image iconType="3" name="/images/ciegas.png"/>
+                                                </Property>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_blindsMouseClicked"/>
+                                            </Events>
+                                        </Component>
+                                        <Component class="javax.swing.JLabel" name="game_info_hands">
+                                            <Properties>
+                                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                    <Font name="Dialog" size="18" style="1"/>
+                                                </Property>
+                                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                                    <Image iconType="3" name="/images/menu/meter.png"/>
+                                                </Property>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_handsMouseClicked"/>
+                                            </Events>
+                                        </Component>
+                                        <Component class="javax.swing.JLabel" name="logo">
+                                            <Properties>
+                                                <Property name="horizontalAlignment" type="int" value="0"/>
+                                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                                    <Image iconType="3" name="/images/corona_poker_15.png"/>
+                                                </Property>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="logoMouseClicked"/>
+                                            </Events>
+                                        </Component>
+                                        <Component class="javax.swing.JLabel" name="game_info_buyin">
+                                            <Properties>
+                                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                    <Font name="Dialog" size="18" style="1"/>
+                                                </Property>
+                                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                                    <Image iconType="3" name="/images/emoji_chat/1202.png"/>
+                                                </Property>
+                                                <Property name="text" type="java.lang.String" value=" "/>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_buyinMouseClicked"/>
+                                            </Events>
+                                        </Component>
+                                        <Component class="javax.swing.JLabel" name="game_info_recover">
+                                            <Properties>
+                                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                    <Font name="Dialog" size="18" style="1"/>
+                                                </Property>
+                                                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                                    <Color blue="0" green="ff" red="ff" type="rgb"/>
+                                                </Property>
+                                                <Property name="text" type="java.lang.String" value="CONTINUANDO TIMBA ANTERIOR"/>
+                                                <Property name="opaque" type="boolean" value="true"/>
+                                                <Property name="visible" type="boolean" value="false"/>
+                                            </Properties>
+                                            <AuxValues>
+                                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="game_info_recover.putClientProperty(&quot;i18n.key&quot;, &quot;game.continuando_timba_anterior&quot;);"/>
+                                            </AuxValues>
+                                        </Component>
+                                        <Container class="javax.swing.JPanel" name="jPanel3">
+
+                                            <Layout>
+                                                <DimensionLayout dim="0">
+                                                    <Group type="103" groupAlignment="0" attributes="0">
+                                                        <Group type="102" attributes="0">
+                                                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                                            <Component id="pass_icon" min="-2" max="-2" attributes="0"/>
+                                                            <EmptySpace max="-2" attributes="0"/>
+                                                            <Component id="server_address_label" max="32767" attributes="0"/>
+                                                            <EmptySpace max="-2" attributes="0"/>
+                                                            <Component id="tot_conectados" min="-2" max="-2" attributes="0"/>
+                                                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                                        </Group>
+                                                    </Group>
+                                                </DimensionLayout>
+                                                <DimensionLayout dim="1">
+                                                    <Group type="103" groupAlignment="0" attributes="0">
+                                                        <Group type="102" alignment="0" attributes="0">
+                                                            <EmptySpace min="-2" pref="0" max="-2" attributes="0"/>
+                                                            <Group type="103" groupAlignment="0" attributes="0">
+                                                                <Group type="103" alignment="0" groupAlignment="3" attributes="0">
+                                                                    <Component id="server_address_label" alignment="3" min="-2" pref="39" max="-2" attributes="0"/>
+                                                                </Group>
+                                                                <Component id="tot_conectados" alignment="0" min="-2" max="-2" attributes="0"/>
+                                                                <Component id="pass_icon" min="-2" pref="36" max="-2" attributes="0"/>
+                                                            </Group>
+                                                        </Group>
+                                                    </Group>
+                                                </DimensionLayout>
+                                            </Layout>
+                                            <SubComponents>
+                                                <Component class="javax.swing.JLabel" name="pass_icon">
+                                                    <Properties>
+                                                        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                                            <Image iconType="3" name="/images/lock.png"/>
+                                                        </Property>
+                                                        <Property name="toolTipText" type="java.lang.String" value="Click para gestionar contrase&#xf1;a"/>
+                                                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                            <Color id="Cursor de Mano"/>
+                                                        </Property>
+                                                    </Properties>
+                                                    <Events>
+                                                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="pass_iconMouseClicked"/>
+                                                    </Events>
+                                                </Component>
+                                                <Component class="javax.swing.JLabel" name="tot_conectados">
+                                                    <Properties>
+                                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                            <Font name="Dialog" size="30" style="1"/>
+                                                        </Property>
+                                                        <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                                            <Color blue="ff" green="66" red="0" type="rgb"/>
+                                                        </Property>
+                                                        <Property name="text" type="java.lang.String" value="0/10"/>
+                                                    </Properties>
+                                                </Component>
+                                                <Component class="javax.swing.JLabel" name="server_address_label">
+                                                    <Properties>
+                                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                            <Font name="Dialog" size="18" style="1"/>
+                                                        </Property>
+                                                        <Property name="text" type="java.lang.String" value="1.1.1.1"/>
+                                                        <Property name="toolTipText" type="java.lang.String" value="Click para obtener datos de conexi&#xf3;n"/>
+                                                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                            <Color id="Cursor de Mano"/>
+                                                        </Property>
+                                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                                    </Properties>
+                                                    <Events>
+                                                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="server_address_labelMouseClicked"/>
+                                                    </Events>
+                                                </Component>
+                                            </SubComponents>
+                                        </Container>
+                                    </SubComponents>
+                                </Container>
+                            </SubComponents>
+                        </Container>
+                        <Component class="javax.swing.JLabel" name="danger_server">
+                            <Properties>
+                                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                    <Color blue="0" green="0" red="ff" type="rgb"/>
+                                </Property>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="24" style="1"/>
+                                </Property>
+                                <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                                    <Color blue="ff" green="ff" red="ff" type="rgb"/>
+                                </Property>
+                                <Property name="horizontalAlignment" type="int" value="0"/>
+                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                    <Image iconType="3" name="/images/danger.png"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="POSIBLE SERVIDOR TRAMPOSO"/>
+                                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                                    <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
+                                        <EmptyBorder bottom="10" left="10" right="10" top="10"/>
+                                    </Border>
+                                </Property>
+                                <Property name="opaque" type="boolean" value="true"/>
+                            </Properties>
                         </Component>
-                        <Component class="javax.swing.JLabel" name="tot_conectados">
-                          <Properties>
-                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                              <Font name="Dialog" size="30" style="1"/>
-                            </Property>
-                            <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                              <Color blue="ff" green="66" red="0" type="rgb"/>
-                            </Property>
-                            <Property name="text" type="java.lang.String" value="0/10"/>
-                          </Properties>
+                        <Component class="javax.swing.JCheckBox" name="chat_notifications">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="14" style="1"/>
+                                </Property>
+                                <Property name="text" type="java.lang.String" value="Notificaciones del chat durante el juego"/>
+                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                    <Color id="Cursor de Mano"/>
+                                </Property>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                            <Events>
+                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="chat_notificationsActionPerformed"/>
+                            </Events>
+                            <AuxValues>
+                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="chat_notifications.putClientProperty(&quot;i18n.key&quot;, &quot;ui.notificaciones_del_chat_durante_el_juego&quot;);"/>
+                            </AuxValues>
                         </Component>
-                        <Component class="javax.swing.JLabel" name="server_address_label">
-                          <Properties>
-                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                              <Font name="Dialog" size="18" style="1"/>
-                            </Property>
-                            <Property name="text" type="java.lang.String" value="1.1.1.1"/>
-                            <Property name="toolTipText" type="java.lang.String" value="Click para obtener datos de conexi&#xf3;n"/>
-                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                              <Color id="Cursor de Mano"/>
-                            </Property>
-                            <Property name="doubleBuffered" type="boolean" value="true"/>
-                          </Properties>
-                          <Events>
-                            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="server_address_labelMouseClicked"/>
-                          </Events>
+                        <Container class="javax.swing.JScrollPane" name="chat_scroll">
+                            <Properties>
+                                <Property name="horizontalScrollBarPolicy" type="int" value="31"/>
+                                <Property name="verticalScrollBarPolicy" type="int" value="21"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
+                            <AuxValues>
+                                <AuxValue name="autoScrollPane" type="java.lang.Boolean" value="true"/>
+                            </AuxValues>
+
+                            <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
+                            <SubComponents>
+                                <Component class="javax.swing.JEditorPane" name="chat">
+                                    <Properties>
+                                        <Property name="editable" type="boolean" value="false"/>
+                                        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                                            <Border info="null"/>
+                                        </Property>
+                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                            <Font name="Dialog" size="16" style="0"/>
+                                        </Property>
+                                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                            <Color id="Cursor de Mano"/>
+                                        </Property>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                        <Property name="focusable" type="boolean" value="false"/>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="caretUpdate" listener="javax.swing.event.CaretListener" parameters="javax.swing.event.CaretEvent" handler="chatCaretUpdate"/>
+                                        <EventHandler event="focusLost" listener="java.awt.event.FocusListener" parameters="java.awt.event.FocusEvent" handler="chatFocusLost"/>
+                                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="chatMouseClicked"/>
+                                    </Events>
+                                </Component>
+                            </SubComponents>
+                        </Container>
+                        <Container class="javax.swing.JPanel" name="jPanel1">
+
+                            <Layout>
+                                <DimensionLayout dim="0">
+                                    <Group type="103" groupAlignment="0" attributes="0">
+                                        <Group type="102" attributes="0">
+                                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                            <Group type="103" groupAlignment="0" attributes="0">
+                                                <Component id="emoji_scroll_panel" pref="0" max="32767" attributes="0"/>
+                                                <Component id="tts_warning" max="32767" attributes="0"/>
+                                                <Component id="chat_box_panel" alignment="1" max="32767" attributes="0"/>
+                                            </Group>
+                                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                        </Group>
+                                    </Group>
+                                </DimensionLayout>
+                                <DimensionLayout dim="1">
+                                    <Group type="103" groupAlignment="0" attributes="0">
+                                        <Group type="102" attributes="0">
+                                            <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                            <Component id="chat_box_panel" min="-2" max="-2" attributes="0"/>
+                                            <EmptySpace max="-2" attributes="0"/>
+                                            <Component id="emoji_scroll_panel" min="-2" pref="60" max="-2" attributes="0"/>
+                                            <EmptySpace max="32767" attributes="0"/>
+                                            <Component id="tts_warning" min="-2" max="-2" attributes="0"/>
+                                        </Group>
+                                    </Group>
+                                </DimensionLayout>
+                            </Layout>
+                            <SubComponents>
+                                <Container class="javax.swing.JPanel" name="chat_box_panel">
+
+                                    <Layout>
+                                        <DimensionLayout dim="0">
+                                            <Group type="103" groupAlignment="0" attributes="0">
+                                                <Group type="102" alignment="0" attributes="0">
+                                                    <Component id="avatar_label" min="-2" max="-2" attributes="0"/>
+                                                    <EmptySpace max="-2" attributes="0"/>
+                                                    <Component id="emoji_button" min="-2" max="-2" attributes="0"/>
+                                                    <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                                    <Component id="image_button" min="-2" max="-2" attributes="0"/>
+                                                    <EmptySpace min="8" pref="8" max="-2" attributes="0"/>
+                                                    <Component id="chat_box" max="32767" attributes="0"/>
+                                                    <EmptySpace min="8" pref="8" max="-2" attributes="0"/>
+                                                    <Component id="send_label" min="-2" max="-2" attributes="0"/>
+                                                    <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                                    <Component id="max_min_label" min="-2" max="-2" attributes="0"/>
+                                                </Group>
+                                            </Group>
+                                        </DimensionLayout>
+                                        <DimensionLayout dim="1">
+                                            <Group type="103" groupAlignment="0" attributes="0">
+                                                <Component id="emoji_button" pref="43" max="32767" attributes="0"/>
+                                                <Component id="image_button" alignment="1" max="32767" attributes="0"/>
+                                                <Component id="chat_box" alignment="0" max="32767" attributes="0"/>
+                                                <Group type="102" attributes="0">
+                                                    <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
+                                                    <Group type="103" groupAlignment="3" attributes="0">
+                                                        <Component id="send_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                                        <Component id="max_min_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                                    </Group>
+                                                    <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
+                                                </Group>
+                                                <Component id="avatar_label" alignment="0" max="32767" attributes="0"/>
+                                            </Group>
+                                        </DimensionLayout>
+                                    </Layout>
+                                    <SubComponents>
+                                        <Component class="javax.swing.JTextPane" name="chat_box">
+                                            <Properties>
+                                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                    <Font name="Dialog" size="16" style="0"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                            </Properties>
+                                            <AuxValues>
+                                                <AuxValue name="JavaCodeGenerator_CustomCreationCode" type="java.lang.String" value="new com.tonikelope.coronapoker.EmojiChatBox()"/>
+                                            </AuxValues>
+                                        </Component>
+                                        <Component class="javax.swing.JButton" name="emoji_button">
+                                            <Properties>
+                                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                                    <Image iconType="3" name="/images/emoji_chat/1.png"/>
+                                                </Property>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                                <Property name="margin" type="java.awt.Insets" editor="org.netbeans.beaninfo.editors.InsetsEditor">
+                                                    <Insets value="[2, 2, 2, 2]"/>
+                                                </Property>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="emoji_buttonActionPerformed"/>
+                                            </Events>
+                                        </Component>
+                                        <Component class="javax.swing.JButton" name="image_button">
+                                            <Properties>
+                                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                                                    <Image iconType="3" name="/images/chat_image.png"/>
+                                                </Property>
+                                                <Property name="toolTipText" type="java.lang.String" value="Enviar imagen"/>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                                <Property name="margin" type="java.awt.Insets" editor="org.netbeans.beaninfo.editors.InsetsEditor">
+                                                    <Insets value="[0, 0, 0, 0]"/>
+                                                </Property>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="image_buttonActionPerformed"/>
+                                            </Events>
+                                        </Component>
+                                        <Component class="javax.swing.JLabel" name="send_label">
+                                            <Properties>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                                <Property name="focusable" type="boolean" value="false"/>
+                                                <Property name="requestFocusEnabled" type="boolean" value="false"/>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="send_labelMouseClicked"/>
+                                            </Events>
+                                        </Component>
+                                        <Component class="javax.swing.JLabel" name="max_min_label">
+                                            <Properties>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                            </Properties>
+                                            <Events>
+                                                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="max_min_labelMouseClicked"/>
+                                            </Events>
+                                        </Component>
+                                        <Component class="javax.swing.JLabel" name="avatar_label">
+                                            <Properties>
+                                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                                    <Font name="Dialog" size="16" style="1"/>
+                                                </Property>
+                                                <Property name="text" type="java.lang.String" value="Toni"/>
+                                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                                    <Color id="Cursor de Mano"/>
+                                                </Property>
+                                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                                            </Properties>
+                                        </Component>
+                                    </SubComponents>
+                                </Container>
+                                <Container class="javax.swing.JScrollPane" name="emoji_scroll_panel">
+                                    <Properties>
+                                        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                                            <Border info="null"/>
+                                        </Property>
+                                        <Property name="verticalScrollBarPolicy" type="int" value="21"/>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                        <Property name="focusable" type="boolean" value="false"/>
+                                        <Property name="requestFocusEnabled" type="boolean" value="false"/>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="componentHidden" listener="java.awt.event.ComponentListener" parameters="java.awt.event.ComponentEvent" handler="emoji_scroll_panelComponentHidden"/>
+                                    </Events>
+
+                                    <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
+                                    <SubComponents>
+                                        <Component class="com.tonikelope.coronapoker.EmojiPanel" name="emoji_panel">
+                                        </Component>
+                                    </SubComponents>
+                                </Container>
+                                <Component class="javax.swing.JLabel" name="tts_warning">
+                                    <Properties>
+                                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                            <Font name="Dialog" size="10" style="2"/>
+                                        </Property>
+                                        <Property name="horizontalAlignment" type="int" value="0"/>
+                                        <Property name="text" type="java.lang.String" value="Aviso: la privacidad del CHAT no est&#xe1; garantizada si alg&#xfa;n jugador usa la funci&#xf3;n de voz TTS (click para m&#xe1;s info)."/>
+                                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                                            <Color id="Cursor de Mano"/>
+                                        </Property>
+                                        <Property name="doubleBuffered" type="boolean" value="true"/>
+                                    </Properties>
+                                    <Events>
+                                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="tts_warningMouseClicked"/>
+                                    </Events>
+                                    <AuxValues>
+                                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="tts_warning.putClientProperty(&quot;i18n.key&quot;, &quot;chat.aviso_la_privacidad_del_chat&quot;);"/>
+                                    </AuxValues>
+                                </Component>
+                            </SubComponents>
+                        </Container>
+                        <Component class="javax.swing.JLabel" name="latency_label">
+                            <Properties>
+                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                    <Font name="Dialog" size="12" style="0"/>
+                                </Property>
+                                <Property name="horizontalAlignment" type="int" value="2"/>
+                                <Property name="text" type="java.lang.String" value="Latencia del servidor: 0 ms | 0 ms"/>
+                                <Property name="doubleBuffered" type="boolean" value="true"/>
+                            </Properties>
                         </Component>
-                      </SubComponents>
-                    </Container>
-                  </SubComponents>
+                    </SubComponents>
                 </Container>
-              </SubComponents>
-            </Container>
-            <Component class="javax.swing.JLabel" name="danger_server">
-              <Properties>
-                <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                  <Color blue="0" green="0" red="ff" type="rgb"/>
-                </Property>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="24" style="1"/>
-                </Property>
-                <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-                  <Color blue="ff" green="ff" red="ff" type="rgb"/>
-                </Property>
-                <Property name="horizontalAlignment" type="int" value="0"/>
-                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                  <Image iconType="3" name="/images/danger.png"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="POSIBLE SERVIDOR TRAMPOSO"/>
-                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                  <Border info="org.netbeans.modules.form.compat2.border.EmptyBorderInfo">
-                    <EmptyBorder bottom="10" left="10" right="10" top="10"/>
-                  </Border>
-                </Property>
-                <Property name="opaque" type="boolean" value="true"/>
-              </Properties>
-            </Component>
-            <Component class="javax.swing.JCheckBox" name="chat_notifications">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="1"/>
-                </Property>
-                <Property name="text" type="java.lang.String" value="Notificaciones del chat durante el juego"/>
-                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                  <Color id="Cursor de Mano"/>
-                </Property>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-              <Events>
-                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="chat_notificationsActionPerformed"/>
-              </Events>
-              <AuxValues>
-                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="chat_notifications.putClientProperty(&quot;i18n.key&quot;, &quot;ui.notificaciones_del_chat_durante_el_juego&quot;);"/>
-              </AuxValues>
-            </Component>
-            <Container class="javax.swing.JScrollPane" name="chat_scroll">
-              <Properties>
-                <Property name="horizontalScrollBarPolicy" type="int" value="31"/>
-                <Property name="verticalScrollBarPolicy" type="int" value="21"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-              <AuxValues>
-                <AuxValue name="autoScrollPane" type="java.lang.Boolean" value="true"/>
-              </AuxValues>
-
-              <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
-              <SubComponents>
-                <Component class="javax.swing.JEditorPane" name="chat">
-                  <Properties>
-                    <Property name="editable" type="boolean" value="false"/>
-                    <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                      <Border info="null"/>
-                    </Property>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="16" style="0"/>
-                    </Property>
-                    <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                      <Color id="Cursor de Mano"/>
-                    </Property>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                    <Property name="focusable" type="boolean" value="false"/>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="caretUpdate" listener="javax.swing.event.CaretListener" parameters="javax.swing.event.CaretEvent" handler="chatCaretUpdate"/>
-                    <EventHandler event="focusLost" listener="java.awt.event.FocusListener" parameters="java.awt.event.FocusEvent" handler="chatFocusLost"/>
-                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="chatMouseClicked"/>
-                  </Events>
-                </Component>
-              </SubComponents>
-            </Container>
-            <Container class="javax.swing.JPanel" name="jPanel1">
-
-              <Layout>
-                <DimensionLayout dim="0">
-                  <Group type="103" groupAlignment="0" attributes="0">
-                      <Group type="102" attributes="0">
-                          <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                          <Group type="103" groupAlignment="0" attributes="0">
-                              <Component id="emoji_scroll_panel" pref="0" max="32767" attributes="0"/>
-                              <Component id="tts_warning" max="32767" attributes="0"/>
-                              <Component id="chat_box_panel" alignment="1" max="32767" attributes="0"/>
-                          </Group>
-                          <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                      </Group>
-                  </Group>
-                </DimensionLayout>
-                <DimensionLayout dim="1">
-                  <Group type="103" groupAlignment="0" attributes="0">
-                      <Group type="102" attributes="0">
-                          <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                          <Component id="chat_box_panel" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace max="-2" attributes="0"/>
-                          <Component id="emoji_scroll_panel" min="-2" pref="60" max="-2" attributes="0"/>
-                          <EmptySpace max="32767" attributes="0"/>
-                          <Component id="tts_warning" min="-2" max="-2" attributes="0"/>
-                      </Group>
-                  </Group>
-                </DimensionLayout>
-              </Layout>
-              <SubComponents>
-                <Container class="javax.swing.JPanel" name="chat_box_panel">
-
-                  <Layout>
-                    <DimensionLayout dim="0">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" alignment="0" attributes="0">
-                              <Component id="avatar_label" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Component id="emoji_button" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              <Component id="image_button" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace min="8" pref="8" max="-2" attributes="0"/>
-                              <Component id="chat_box" max="32767" attributes="0"/>
-                              <EmptySpace min="8" pref="8" max="-2" attributes="0"/>
-                              <Component id="send_label" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              <Component id="max_min_label" min="-2" max="-2" attributes="0"/>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                    <DimensionLayout dim="1">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Component id="emoji_button" pref="43" max="32767" attributes="0"/>
-                          <Component id="image_button" alignment="1" max="32767" attributes="0"/>
-                          <Component id="chat_box" alignment="0" max="32767" attributes="0"/>
-                          <Group type="102" attributes="0">
-                              <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
-                              <Group type="103" groupAlignment="3" attributes="0">
-                                  <Component id="send_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="max_min_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
-                          </Group>
-                          <Component id="avatar_label" alignment="0" max="32767" attributes="0"/>
-                      </Group>
-                    </DimensionLayout>
-                  </Layout>
-                  <SubComponents>
-                    <Component class="javax.swing.JTextPane" name="chat_box">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="16" style="0"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                      </Properties>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_CustomCreationCode" type="java.lang.String" value="new com.tonikelope.coronapoker.EmojiChatBox()"/>
-                      </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JButton" name="emoji_button">
-                      <Properties>
-                        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                          <Image iconType="3" name="/images/emoji_chat/1.png"/>
-                        </Property>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                        <Property name="margin" type="java.awt.Insets" editor="org.netbeans.beaninfo.editors.InsetsEditor">
-                          <Insets value="[2, 2, 2, 2]"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="emoji_buttonActionPerformed"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JButton" name="image_button">
-                      <Properties>
-                        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                          <Image iconType="3" name="/images/chat_image.png"/>
-                        </Property>
-                        <Property name="toolTipText" type="java.lang.String" value="Enviar imagen"/>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                        <Property name="margin" type="java.awt.Insets" editor="org.netbeans.beaninfo.editors.InsetsEditor">
-                          <Insets value="[0, 0, 0, 0]"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="image_buttonActionPerformed"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="send_label">
-                      <Properties>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                        <Property name="focusable" type="boolean" value="false"/>
-                        <Property name="requestFocusEnabled" type="boolean" value="false"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="send_labelMouseClicked"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="max_min_label">
-                      <Properties>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="max_min_labelMouseClicked"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="avatar_label">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="16" style="1"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Toni"/>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                      </Properties>
-                    </Component>
-                  </SubComponents>
-                </Container>
-                <Container class="javax.swing.JScrollPane" name="emoji_scroll_panel">
-                  <Properties>
-                    <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                      <Border info="null"/>
-                    </Property>
-                    <Property name="verticalScrollBarPolicy" type="int" value="21"/>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                    <Property name="focusable" type="boolean" value="false"/>
-                    <Property name="requestFocusEnabled" type="boolean" value="false"/>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="componentHidden" listener="java.awt.event.ComponentListener" parameters="java.awt.event.ComponentEvent" handler="emoji_scroll_panelComponentHidden"/>
-                  </Events>
-
-                  <Layout class="org.netbeans.modules.form.compat2.layouts.support.JScrollPaneSupportLayout"/>
-                  <SubComponents>
-                    <Component class="com.tonikelope.coronapoker.EmojiPanel" name="emoji_panel">
-                    </Component>
-                  </SubComponents>
-                </Container>
-                <Component class="javax.swing.JLabel" name="tts_warning">
-                  <Properties>
-                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                      <Font name="Dialog" size="10" style="2"/>
-                    </Property>
-                    <Property name="horizontalAlignment" type="int" value="0"/>
-                    <Property name="text" type="java.lang.String" value="Aviso: la privacidad del CHAT no est&#xe1; garantizada si alg&#xfa;n jugador usa la funci&#xf3;n de voz TTS (click para m&#xe1;s info)."/>
-                    <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                      <Color id="Cursor de Mano"/>
-                    </Property>
-                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                  </Properties>
-                  <Events>
-                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="tts_warningMouseClicked"/>
-                  </Events>
-                  <AuxValues>
-                    <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="tts_warning.putClientProperty(&quot;i18n.key&quot;, &quot;chat.aviso_la_privacidad_del_chat&quot;);"/>
-                  </AuxValues>
-                </Component>
-              </SubComponents>
-            </Container>
-            <Component class="javax.swing.JLabel" name="latency_label">
-              <Properties>
-                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="12" style="0"/>
-                </Property>
-                <Property name="horizontalAlignment" type="int" value="2"/>
-                <Property name="text" type="java.lang.String" value="Latencia del servidor: 0 ms | 0 ms"/>
-                <Property name="doubleBuffered" type="boolean" value="true"/>
-              </Properties>
-            </Component>
-          </SubComponents>
+            </SubComponents>
         </Container>
-      </SubComponents>
-    </Container>
-  </SubComponents>
+    </SubComponents>
 </Form>

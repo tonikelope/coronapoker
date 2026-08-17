@@ -23,31 +23,34 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Wire serialization + verification of a per-point de-locking chain for verifiable
- * dealing. A chain records, for ONE 32-byte deck point, the ordered
- * sequence of peers that stripped their lock: each entry is (nick, residualAfter,
- * DLEQ proof). The chain's implicit start X0 is the committed MEGAPACKET point at
- * the relevant position (held locally by every peer), so it is NOT transmitted —
- * a peer reconstructs it and the chain cannot be re-anchored to a blinded value.
+ * Wire serialization + verification of a per-point de-locking chain for
+ * verifiable dealing. A chain records, for ONE 32-byte deck point, the ordered
+ * sequence of peers that stripped their lock: each entry is (nick,
+ * residualAfter, DLEQ proof). The chain's implicit start X0 is the committed
+ * MEGAPACKET point at the relevant position (held locally by every peer), so it
+ * is NOT transmitted — a peer reconstructs it and the chain cannot be
+ * re-anchored to a blinded value.
  *
  * Serialization (one point's chain): entries joined by ';', fields by ':' —
- *   nickB64:residualAfterB64:proofB64
- * Base64 uses none of ':', ';', '#', so the chain is safe inside the existing
- * '#'-split unlock-batch wire.
+ * nickB64:residualAfterB64:proofB64 Base64 uses none of ':', ';', '#', so the
+ * chain is safe inside the existing '#'-split unlock-batch wire.
  *
  * Verification chains {@link VerifiableUnlock#verifyChain} from the committed
  * MEGAPACKET point, resolving each step's committed key K by nick. This is what
- * lets a peer refuse to act as a blinded decryption oracle: the chain must start
- * at the committed point and every link must carry a valid DLEQ under a committed
- * key, neither of which a host can forge for a blinded input.
+ * lets a peer refuse to act as a blinded decryption oracle: the chain must
+ * start at the committed point and every link must carry a valid DLEQ under a
+ * committed key, neither of which a host can forge for a blinded input.
  */
 public final class DealChain {
 
     private DealChain() {
     }
 
-    /** One de-locking step in a point's chain. */
+    /**
+     * One de-locking step in a point's chain.
+     */
     public static final class Entry {
+
         public final String nick;
         public final byte[] residualAfter; // 32-byte encoding after this peer's unlock
         public final byte[] proof;         // 64-byte DLEQ proof
@@ -59,7 +62,9 @@ public final class DealChain {
         }
     }
 
-    /** Serializes a point's chain (possibly empty) to a wire string. */
+    /**
+     * Serializes a point's chain (possibly empty) to a wire string.
+     */
     public static String serialize(List<Entry> entries) {
         StringBuilder sb = new StringBuilder();
         for (Entry e : entries) {
@@ -75,8 +80,8 @@ public final class DealChain {
 
     /**
      * Parses a wire string back to a chain. Returns null on any malformed entry
-     * (wrong field count or out-of-spec lengths), so callers treat a bad chain as a
-     * zero-trust rejection rather than silently dropping links.
+     * (wrong field count or out-of-spec lengths), so callers treat a bad chain
+     * as a zero-trust rejection rather than silently dropping links.
      */
     public static List<Entry> parse(String wire) {
         List<Entry> out = new ArrayList<>();
@@ -110,13 +115,13 @@ public final class DealChain {
      * Verifies a point's chain against the committed MEGAPACKET point.
      *
      * @param megapacketPoint the committed deck point (chain start X0)
-     * @param entries         ordered de-locking steps
-     * @param commitments     nick -> committed key K = k*B (32-byte encoding)
-     * @return true iff the chain starts at megapacketPoint and every step carries a
-     *         valid DLEQ under the committed key of the peer that produced it
+     * @param entries ordered de-locking steps
+     * @param commitments nick -> committed key K = k*B (32-byte encoding)
+     * @return true iff the chain starts at megapacketPoint and every step
+     * carries a valid DLEQ under the committed key of the peer that produced it
      */
     public static boolean verify(byte[] megapacketPoint, List<Entry> entries,
-                                 Map<String, byte[]> commitments) {
+            Map<String, byte[]> commitments) {
         if (megapacketPoint == null || megapacketPoint.length != 32 || entries == null) {
             return false;
         }
@@ -139,8 +144,8 @@ public final class DealChain {
     }
 
     /**
-     * The residual after the last step (what the next peer or the recipient sees),
-     * or the committed point itself when the chain is empty.
+     * The residual after the last step (what the next peer or the recipient
+     * sees), or the committed point itself when the chain is empty.
      */
     public static byte[] tail(byte[] megapacketPoint, List<Entry> entries) {
         if (entries == null || entries.isEmpty()) {
@@ -149,8 +154,12 @@ public final class DealChain {
         return entries.get(entries.size() - 1).residualAfter;
     }
 
-    /** Result of {@link #extend}: the new chain wire and the residual after our step. */
+    /**
+     * Result of {@link #extend}: the new chain wire and the residual after our
+     * step.
+     */
     public static final class Extended {
+
         public final String wire;
         public final byte[] residual;
 
@@ -161,20 +170,23 @@ public final class DealChain {
     }
 
     /**
-     * Peer-side step for one point: verify the incoming chain from the committed
-     * MEGAPACKET point, then strip our lock and append our proven step. This is the
-     * gate that closes the blinded oracle — we refuse (return null) unless the chain
-     * provably descends from the committed deck point.
+     * Peer-side step for one point: verify the incoming chain from the
+     * committed MEGAPACKET point, then strip our lock and append our proven
+     * step. This is the gate that closes the blinded oracle — we refuse (return
+     * null) unless the chain provably descends from the committed deck point.
      *
-     * @param megapacketPoint the committed deck point this chain must start from
-     * @param incomingWire    the serialized incoming chain (empty string if we are first)
-     * @param commitments     nick -> committed key K (of the peers already in the chain)
-     * @param myNick          our nick (recorded in the appended entry)
-     * @param myLock          our lock scalar k (we derive k^-1 and prove with K=k*B)
+     * @param megapacketPoint the committed deck point this chain must start
+     * from
+     * @param incomingWire the serialized incoming chain (empty string if we are
+     * first)
+     * @param commitments nick -> committed key K (of the peers already in the
+     * chain)
+     * @param myNick our nick (recorded in the appended entry)
+     * @param myLock our lock scalar k (we derive k^-1 and prove with K=k*B)
      * @return the extended chain + new residual, or null to reject
      */
     public static Extended extend(byte[] megapacketPoint, String incomingWire,
-                                  Map<String, byte[]> commitments, String myNick, byte[] myLock) {
+            Map<String, byte[]> commitments, String myNick, byte[] myLock) {
         List<Entry> chain = parse(incomingWire);
         if (chain == null) {
             return null; // malformed incoming chain

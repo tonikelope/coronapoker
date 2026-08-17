@@ -25,7 +25,10 @@ public class ScalarMulWnafDiffTest {
 
     private static final BigInteger L = EdwardsPoint.L;
 
-    /** s*P por doble-y-suma bit a bit (MSB->LSB); oraculo obviamente correcto. s >= 0. */
+    /**
+     * s*P por doble-y-suma bit a bit (MSB->LSB); oraculo obviamente correcto. s
+     * >= 0.
+     */
     private static EdwardsPoint naive(EdwardsPoint p, BigInteger s) {
         EdwardsPoint r = EdwardsPoint.IDENTITY;
         for (int i = s.bitLength() - 1; i >= 0; i--) {
@@ -73,9 +76,11 @@ public class ScalarMulWnafDiffTest {
     }
 
     /**
-     * N hilos multiplican a la vez el MISMO punto recien creado (su nafTable aun sin construir): fuerza
-     * la carrera de construccion perezosa de la tabla de impares wNAF (volatile). Todos deben devolver el
-     * mismo s*P que el oraculo doble-y-suma (que no toca nafTable). Barrera sin sleeps, timeout defensivo.
+     * N hilos multiplican a la vez el MISMO punto recien creado (su nafTable
+     * aun sin construir): fuerza la carrera de construccion perezosa de la
+     * tabla de impares wNAF (volatile). Todos deben devolver el mismo s*P que
+     * el oraculo doble-y-suma (que no toca nafTable). Barrera sin sleeps,
+     * timeout defensivo.
      */
     @Test
     public void scalarMulNafTableConcurrent() throws Exception {

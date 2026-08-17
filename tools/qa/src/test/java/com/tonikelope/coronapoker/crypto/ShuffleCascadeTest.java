@@ -41,7 +41,9 @@ public class ShuffleCascadeTest {
         return a;
     }
 
-    /** Build an honest m-step cascade; returns {decks (m+1), proofs (m)}. */
+    /**
+     * Build an honest m-step cascade; returns {decks (m+1), proofs (m)}.
+     */
     private static Object[] honestCascade(EdwardsPoint[] genesis, int steps) {
         EdwardsPoint[][] decks = new EdwardsPoint[steps + 1][];
         ShuffleArgument.Proof[] proofs = new ShuffleArgument.Proof[steps];

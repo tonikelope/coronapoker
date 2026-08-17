@@ -372,13 +372,6 @@ Manual play is only a short complement for flows that genuinely require Swing,
 two live clients or human timing; it never replaces an automatable regression
 test. Record those steps and the environment in the audit report.
 
-For the 23.49 release validation, no manual play is used as a gate. Run the
-deterministic pots/rebuys/property checks in the fast lane, then run
-`-P qa-crypto` and `-P qa-network` separately. Do not run `-P qa-bots`
-as part of the normal audit unless the bot-quality question is explicitly in
-scope. Flows that require two Swing/client identities or the real Windows ACL
-remain explicit no-change items until a deterministic harness exists.
-
 ### Adding a test
 
 Put it in the matching package under `tools/qa/src/test/java`. If it is slow — a

@@ -2524,8 +2524,32 @@ public class WaitingRoomFrame extends JFrame {
                                                 break;
 
                                             case "GAME":
+                                                if (partes_comando.length < 3) {
+                                                    LOGGER.log(Level.SEVERE, "Malformed GAME frame from host; closing connection");
+                                                    exit = true;
+                                                    closeClientSocket();
+                                                    break;
+                                                }
                                                 String subcomando = partes_comando[2];
-                                                int id = Integer.parseInt(partes_comando[1]);
+                                                final int id;
+                                                try {
+                                                    id = Integer.parseInt(partes_comando[1]);
+                                                } catch (NumberFormatException ex) {
+                                                    LOGGER.log(Level.SEVERE, "Invalid GAME id from host; closing connection", ex);
+                                                    exit = true;
+                                                    closeClientSocket();
+                                                    break;
+                                                }
+                                                GameCommandGate.Decision gateDecision
+                                                        = net_client.getGameCommandGate().accept(subcomando, id);
+                                                if (gateDecision.closeConnection()) {
+                                                    LOGGER.log(Level.SEVERE,
+                                                            "Unknown GAME subcommand {0} from host; closing connection",
+                                                            subcomando);
+                                                    exit = true;
+                                                    closeClientSocket();
+                                                    break;
+                                                }
 
                                                 try {
                                                     String confMsg = "CONF#" + String.valueOf(id + 1) + "#OK";
@@ -2533,17 +2557,7 @@ public class WaitingRoomFrame extends JFrame {
                                                 } catch (Exception e) {
                                                 }
 
-                                                if (!net_client.getCliente_last_received().containsKey(subcomando) || !net_client.getCliente_last_received().get(subcomando).equals(id)) {
-                                                    // Same cap as on the host side: the key is the subcommand
-                                                    // name, which the sender chooses, so without a bound a hostile
-                                                    // host could grow this table without limit.
-                                                    if (net_client.getCliente_last_received().size() >= Participant.MAX_DEDUP_SUBCOMMANDS) {
-                                                        LOGGER.log(Level.WARNING,
-                                                                "Client de-dup table hit {0} distinct subcommands — clearing it",
-                                                                Participant.MAX_DEDUP_SUBCOMMANDS);
-                                                        net_client.getCliente_last_received().clear();
-                                                    }
-                                                    net_client.getCliente_last_received().put(subcomando, id);
+                                                if (gateDecision.enqueue()) {
                                                     if (isPartida_empezada()) {
                                                         switch (subcomando) {
                                                             case "DECK_CASCADE_REQ":
@@ -3307,7 +3321,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     LOGGER.log(Level.SEVERE, "Error pre-parsing MEGAPACKET in WaitingRoomFrame; queue handler will retry", e);
                                                                 }
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
@@ -3324,7 +3342,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                 });
                                                                 // Forward to the queue so the Crupier can continue its normal local flow
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
@@ -3468,7 +3490,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             // Crupier.recibirCartasComunitarias, which blocks in
                                                             // rondaApuestas and drains the queue.
                                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
@@ -3615,7 +3641,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     LOGGER.log(Level.SEVERE, "Error processing MISDEAL", ex);
                                                                 }
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
@@ -3665,7 +3695,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                 break;
                                                             default:
                                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;

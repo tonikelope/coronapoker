@@ -1411,7 +1411,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public final ConcurrentHashMap<String, byte[]> single_locked_pocket_cards = new ConcurrentHashMap<>();
 
-    private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
+    public static final int RECEIVED_COMMAND_CAPACITY = 4096;
+    public static final long MAX_DEFERRED_COMMAND_MS = 2L * GameFrame.CLIENT_RECEPTION_TIMEOUT;
+    private final GameCommandMailbox received_commands = new GameCommandMailbox(
+            RECEIVED_COMMAND_CAPACITY, MAX_DEFERRED_COMMAND_MS, System::currentTimeMillis);
     private final ConcurrentLinkedQueue<String> acciones_locales_recuperadas = new ConcurrentLinkedQueue<>();
     // Recover: 1-based index of the OWN action being replayed (per nick), and the count of own
     // actions this peer managed to persist to its local SQLite before reconnecting. If the index
@@ -1760,7 +1763,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
             // Outside the lock: verify each candidate and accept ONLY the valid ones.
@@ -1895,7 +1898,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
             if (fatalError) {
@@ -2025,7 +2028,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
             if (fatalError) {
@@ -2107,7 +2110,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
             if (!ok) {
@@ -3081,7 +3084,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
             if (!ok) {
@@ -5740,7 +5743,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                     rejected.clear();
                 }
             }
@@ -5980,7 +5983,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                     rejected.clear();
                 }
             }
@@ -6120,8 +6123,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return lock_apuestas;
     }
 
-    public ConcurrentLinkedQueue<String> getReceived_commands() {
+    public GameCommandMailbox getReceived_commands() {
         return received_commands;
+    }
+
+    public boolean enqueueReceivedCommand(String command, Runnable closeSource) {
+        return received_commands.offer(command, closeSource);
+    }
+
+    private void restoreRejectedCommands(ArrayList<String> rejected) {
+        int expired = received_commands.restoreRejected(rejected);
+        if (expired > 0) {
+            LOGGER.log(Level.SEVERE,
+                    "Expired {0} deferred critical GAME command(s); source connection closed",
+                    expired);
+        }
     }
 
     public double getApuesta_actual() {
@@ -8143,7 +8159,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                     rejected.clear();
                 }
 
@@ -8420,7 +8436,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                     if (!rejected.isEmpty()) {
-                        this.getReceived_commands().addAll(rejected);
+                        restoreRejectedCommands(rejected);
                     }
                 }
                 if (!serverCommitted && !isFin_de_la_transmision()) {
@@ -10639,7 +10655,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
 
@@ -10935,7 +10951,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                     if (!rejected.isEmpty()) {
-                        this.getReceived_commands().addAll(rejected);
+                        restoreRejectedCommands(rejected);
                     }
                 }
 
@@ -11493,7 +11509,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                     rejected.clear();
                 }
 
@@ -11587,7 +11603,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                     rejected.clear();
                 }
 
@@ -12221,7 +12237,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                     if (!rejected.isEmpty()) {
-                        this.getReceived_commands().addAll(rejected);
+                        restoreRejectedCommands(rejected);
                     }
                 }
 
@@ -12445,7 +12461,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
 
@@ -12971,7 +12987,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
                 if (answer != null) {
                     return answer;
@@ -13020,7 +13036,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
                 if (result != null) {
                     return result;
@@ -13441,7 +13457,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
                 if (residue != null) {
                     byte[] myUnlock = this.local_sra_unlock;
@@ -14689,7 +14705,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
 
@@ -15939,7 +15955,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                     if (!rejected.isEmpty()) {
-                        this.getReceived_commands().addAll(rejected);
+                        restoreRejectedCommands(rejected);
                     }
                 }
 
@@ -18506,7 +18522,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
 
@@ -18602,7 +18618,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
 
@@ -19827,7 +19843,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
+                    restoreRejectedCommands(rejected);
                 }
             }
 

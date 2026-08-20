@@ -84,7 +84,7 @@ public class Participant implements Runnable {
             "DECK_CASCADE_RESP", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP",
             "SEAT_COMMIT", "SEAT_REVEAL");
 
-    // F2 ANTI-DoS: per-peer size cap + frequency token-bucket for text commands. Thresholds
+    // F2 ANTI-DoS: per-peer size cap + frequency token-bucket for non-critical text commands. Thresholds
     // are huge relative to legit traffic (a real game command is < 10 KB, a few per second),
     // so they never trigger in normal play — only under flood/OOM. Over the limit -> SILENT-
     // REFUSE (drop) + strike; accumulated strikes -> AUTO-EXPEL (only this peer is kicked, the
@@ -115,11 +115,8 @@ public class Participant implements Runnable {
 
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
-    // Cap on distinct subcommand names in the de-dup table below. Real subcommands number a
-    // few dozen; only someone making up names to grow the table unboundedly hits this.
-    public static final int MAX_DEDUP_SUBCOMMANDS = 256;
-
-    private final HashMap<String, Integer> last_received = new HashMap<>();
+    private final GameCommandGate game_command_gate
+            = new GameCommandGate(GameCommandType.Direction.CLIENT_TO_HOST);
     private final ConcurrentLinkedQueue<String> pre_game_socket_writer_queue = new ConcurrentLinkedQueue<>();
     // BOUNDED queue. Unbounded, it would grow until memory ran out, and the abuse guard that
     // should throttle a flood runs at CONSUME time — i.e. behind it: a peer spamming commands
@@ -1756,6 +1753,13 @@ public class Participant implements Runnable {
                         // strike; accumulated strikes -> AUTO-EXPEL (kick THIS peer, the table
                         // continues). Thresholds are huge -> never affects an honest client.
                         if (inboundAbuse(recibido)) {
+                            if (recibido.startsWith("GAME#")) {
+                                LOGGER.log(Level.SEVERE,
+                                        "Rate-limited critical GAME command from {0}; closing connection", nick);
+                                game_command_gate.rejectForRateLimit(null);
+                                exitAndCloseSocket();
+                                break;
+                            }
                             if (registerAbuseStrike("inbound flood/oversize")) {
                                 autoExpel("inbound flood/oversize");
                                 break;
@@ -1795,8 +1799,29 @@ public class Participant implements Runnable {
                                 }
                                 break;
                             case "GAME":
+                                if (partes_comando.length < 3) {
+                                    LOGGER.log(Level.SEVERE, "Malformed GAME frame from {0}; closing connection", nick);
+                                    exitAndCloseSocket();
+                                    break;
+                                }
                                 String subcomando = partes_comando[2];
-                                int command_id = Integer.parseInt(partes_comando[1]);
+                                final int command_id;
+                                try {
+                                    command_id = Integer.parseInt(partes_comando[1]);
+                                } catch (NumberFormatException ex) {
+                                    LOGGER.log(Level.SEVERE, "Invalid GAME id from " + nick + "; closing connection", ex);
+                                    exitAndCloseSocket();
+                                    break;
+                                }
+                                GameCommandGate.Decision gateDecision
+                                        = game_command_gate.accept(subcomando, command_id);
+                                if (gateDecision.closeConnection()) {
+                                    LOGGER.log(Level.SEVERE,
+                                            "Unknown GAME subcommand {0} from {1}; closing connection",
+                                            new Object[]{subcomando, nick});
+                                    exitAndCloseSocket();
+                                    break;
+                                }
 
                                 // The CONF packet must be encrypted: the client always expects encrypted
                                 // commands, and a plaintext CONF causes a decrypt failure and deadlocks its
@@ -1808,21 +1833,7 @@ public class Participant implements Runnable {
                                     LOGGER.log(Level.SEVERE, "Failed to encrypt CONF message", e);
                                 }
 
-                                if (!last_received.containsKey(subcomando) || !last_received.get(subcomando).equals(command_id)) {
-                                    // The key is the subcommand NAME, chosen by the sender: making up
-                                    // distinct names grows this table without bound, since it's never
-                                    // otherwise cleared. The cap sits well above the subcommands that
-                                    // actually exist, so only someone inventing names can reach it; on
-                                    // hitting it the table is cleared, since it only exists to avoid
-                                    // repeating what just arrived.
-                                    if (last_received.size() >= MAX_DEDUP_SUBCOMMANDS) {
-                                        LOGGER.log(Level.WARNING,
-                                                "De-dup table for {0} hit {1} distinct subcommands — clearing it (peer sending made-up names?)",
-                                                new Object[]{nick, MAX_DEDUP_SUBCOMMANDS});
-                                        last_received.clear();
-                                    }
-                                    last_received.put(subcomando, command_id);
-
+                                if (gateDecision.enqueue()) {
                                     switch (subcomando) {
 
                                         case "PAUSE":
@@ -2003,7 +2014,8 @@ public class Participant implements Runnable {
                                                 if (partes_comando.length >= 5
                                                         && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
                                                     synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                        GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                        GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                () -> Helpers.threadRun(this::exitAndCloseSocket));
                                                         GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                     }
                                                 } else {
@@ -2023,7 +2035,8 @@ public class Participant implements Runnable {
                                                 if (partes_comando.length >= 5
                                                         && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
                                                     synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                        GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                        GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                () -> Helpers.threadRun(this::exitAndCloseSocket));
                                                         GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                     }
                                                 } else {
@@ -2059,7 +2072,8 @@ public class Participant implements Runnable {
                                                 }
                                             }
                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                        () -> Helpers.threadRun(this::exitAndCloseSocket));
                                                 GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                             }
                                             break;

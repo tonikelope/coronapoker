@@ -13,7 +13,6 @@ public final class RecoveredActionCodec {
     private static final int MAX_WIRE_CHARS = 512;
     private static final int MAX_ACTOR_BYTES = 128;
     private static final int MAX_NUMBER_CHARS = 20;
-    private static final long MAX_MONEY_CENTS = 9_000_000_000_000_000L;
 
     public enum Error {
         NULL_OR_OVERSIZED,
@@ -209,6 +208,6 @@ public final class RecoveredActionCodec {
     }
 
     private static Long checkedCents(long cents) {
-        return cents >= 0L && cents <= MAX_MONEY_CENTS ? cents : null;
+        return cents >= 0L && cents <= MoneyCents.MAX_CENTS ? cents : null;
     }
 }

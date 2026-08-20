@@ -11254,7 +11254,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 missing.add(nick);
                 continue;
             }
-            if (!Arrays.equals(hFinal, hFinalLocal)) {
+            if (!consensusFinalHashMatches(hFinal, hFinalLocal)) {
                 divergent.add(nick);
                 continue;
             }
@@ -11395,6 +11395,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     MessageFormat.format(Translator.translate("game.mano_verificada_consenso"), String.valueOf(handOrdinal)));
         }
         return true;
+    }
+
+    static boolean consensusFinalHashMatches(byte[] received, byte[] local) {
+        return received != null && received.length == RECEIPT_HFINAL_LEN
+                && local != null && local.length == RECEIPT_HFINAL_LEN
+                && Arrays.equals(received, local);
     }
 
     /**

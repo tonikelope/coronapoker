@@ -8287,8 +8287,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 String motivoB64 = Base64.getEncoder().encodeToString(motivo.getBytes("UTF-8"));
                 broadcastGAMECommandFromServer("MISDEAL#" + motivoB64, null, true);
-            } catch (UnsupportedEncodingException ex) {
-                LOGGER.log(Level.SEVERE, "Failed to broadcast MISDEAL to clients", ex);
+            } catch (UnsupportedEncodingException | RuntimeException ex) {
+                // The abort is local-first for integrity. A broken peer channel must not
+                // prevent refunding stacks and atomically closing (or preserving) this hand.
+                LOGGER.log(Level.SEVERE,
+                        "MISDEAL broadcast failed; continuing local refund and abort", ex);
             }
         }
 
@@ -12805,7 +12808,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void broadcastRitClose(int result) {
+    private boolean broadcastRitClose(int result) {
         // WITH confirmation, unlike the live tally. The tally is just cosmetic and can
         // be dropped for free, but this is the CANONICAL result deciding one board vs
         // two. A client that missed it would close its dialog assuming NORMAL and
@@ -12813,8 +12816,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // differently. Delivered like any other canonical data: retried until confirmed.
         try {
             broadcastGAMECommandFromServer("RIT_VOTE_CLOSE#" + result, null, true);
+            return true;
         } catch (RuntimeException e) {
-            LOGGER.log(Level.WARNING, "Failed to broadcast RIT_VOTE_CLOSE", e);
+            LOGGER.log(Level.SEVERE, "RIT_VOTE_CLOSE delivery failed; aborting hand", e);
+            cancelarManoYDevolverApuestas("peer.broadcast_failed");
+            return false;
         }
     }
 
@@ -12954,7 +12960,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         n += (totalVoters - votes.size());
 
         broadcastRitTally(n, r, hostDialog);
-        broadcastRitClose(agreed ? 1 : 0);
+        if (!broadcastRitClose(agreed ? 1 : 0)) {
+            if (hostDialog != null) {
+                hostDialog.closeDialog();
+            }
+            return false;
+        }
         if (hostDialog != null) {
             hostDialog.closeDialog();
         }
@@ -16157,10 +16168,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (firstResistencia && GameFrame.getInstance().isPartida_local()
                         && this.rit_allin_street < Crupier.RIVER) {
                     if (this.rit_vote_done) {
-                        broadcastRitClose(this.rit_agreed ? 1 : 0);
+                        if (!broadcastRitClose(this.rit_agreed ? 1 : 0)) {
+                            return resisten;
+                        }
                         printRitVoteResult(this.rit_agreed);
                     } else if (GameFrame.RUN_IT_TWICE) {
                         boolean agreed = runRitVote(resisten);
+                        if (isFin_de_la_transmision() || this.mano_anulada) {
+                            return resisten;
+                        }
                         this.rit_agreed = agreed;
                         this.rit_vote_done = true;
                         // Persist the vote to the fossil, so a hand recovered after the

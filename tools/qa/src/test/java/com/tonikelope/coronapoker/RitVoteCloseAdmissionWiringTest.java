@@ -20,6 +20,7 @@ class RitVoteCloseAdmissionWiringTest {
         assertTrue(waitingRoom.contains("RitVoteCloseEnvelope.parse(partes_comando)"));
         assertTrue(waitingRoom.contains("acceptRitVoteCloseOnce(result.agreed())"));
         assertTrue(crupier.contains("public synchronized void acceptRitVoteCloseOnce(boolean agreed)"));
+        assertTrue(crupier.contains("RIT_VOTE_CLOSE overrides this client's vote"));
         assertTrue(crupier.contains("this.rit_vote_close_received = false;"));
     }
 

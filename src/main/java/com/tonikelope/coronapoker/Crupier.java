@@ -13031,8 +13031,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (this.rit_vote_close_received) {
             throw new IllegalStateException("duplicate RIT_VOTE_CLOSE for current hand");
         }
+        RunItTwiceDialog dialog = this.rit_client_dialog;
+        Player local = GameFrame.getInstance().getLocalPlayer();
+        boolean localMustApprove = local != null && local.isActivo()
+                && !local.isCalentando() && !local.isSpectator()
+                && local.getDecision() != Player.FOLD;
+        int localVote = dialog != null ? dialog.getVote() : RunItTwiceDialog.VOTE_PENDING;
+        if (this.game_recovered != 0 && Boolean.TRUE.equals(this.rit_recover_fossil_agreed)) {
+            // The local fossil proves this client had already observed the unanimous
+            // result before the interruption; recovery intentionally does not re-vote.
+            localVote = RunItTwiceDialog.VOTE_RUN_IT_TWICE;
+        }
+        if (!ritResultCompatibleWithLocalVote(localMustApprove, localVote, agreed)) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST: RIT_VOTE_CLOSE overrides this client's vote; refusing result");
+            setFin_de_la_transmision(true);
+            throw new IllegalStateException("RIT_VOTE_CLOSE overrides this client's vote");
+        }
         this.rit_vote_close_received = true;
         closeRitClientDialog(agreed);
+    }
+
+    static boolean ritResultCompatibleWithLocalVote(boolean localMustApprove,
+            int localVote, boolean agreed) {
+        return !agreed || !localMustApprove
+                || localVote == RunItTwiceDialog.VOTE_RUN_IT_TWICE;
     }
 
     public void printRitVoteResult(boolean agreed) {

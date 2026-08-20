@@ -1462,6 +1462,91 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         parsed.pocketCommitments.forEach((nick, key) -> this.peer_k_pocket.put(nick, key.clone()));
         parsed.communityCommitments.forEach((nick, key) -> this.peer_k_community.put(nick, key.clone()));
     }
+
+    static final class ParsedPocketCards {
+        final String targetNick;
+        final byte[] residue;
+
+        ParsedPocketCards(String targetNick, byte[] residue) {
+            this.targetNick = targetNick;
+            this.residue = residue;
+        }
+    }
+
+    static ParsedPocketCards parsePocketCardsWire(String[] parts, String[] activeRing) {
+        try {
+            if (parts == null || parts.length != 5 || !"GAME".equals(parts[0])
+                    || !"POCKET_CARDS".equals(parts[2])) {
+                throw new IllegalArgumentException("POCKET_CARDS requires exactly 5 fields");
+            }
+            String target = decodeStrictUtf8(Base64.getDecoder().decode(parts[3]));
+            if (target.isEmpty()
+                    || !target.equals(java.text.Normalizer.normalize(target, java.text.Normalizer.Form.NFC))
+                    || activeRing == null || !java.util.Arrays.asList(activeRing).contains(target)) {
+                throw new IllegalArgumentException("POCKET_CARDS target is not in the active ring");
+            }
+            byte[] residue = Base64.getDecoder().decode(parts[4]);
+            if (residue.length != 64 || !RistrettoSRA.arePointsValid(residue)
+                    || isZeroPoint(residue, 0) || isZeroPoint(residue, 32)) {
+                throw new IllegalArgumentException("POCKET_CARDS must contain exactly two canonical points");
+            }
+            return new ParsedPocketCards(target, residue);
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("invalid POCKET_CARDS wire", ex);
+        }
+    }
+
+    private static boolean isZeroPoint(byte[] value, int offset) {
+        int aggregate = 0;
+        for (int i = offset; i < offset + 32; i++) {
+            aggregate |= value[i];
+        }
+        return aggregate == 0;
+    }
+
+    static void installPocketCardsOnce(java.util.concurrent.ConcurrentMap<String, byte[]> destination,
+            ParsedPocketCards parsed) {
+        if (destination == null || parsed == null) {
+            throw new IllegalArgumentException("pocket destination and value are required");
+        }
+        byte[] previous = destination.putIfAbsent(parsed.targetNick, parsed.residue.clone());
+        if (previous != null) {
+            throw new IllegalArgumentException("duplicate POCKET_CARDS delivery for " + parsed.targetNick);
+        }
+    }
+
+    static String parsePocketDeferredWire(String[] parts, String[] activeRing, String localNick) {
+        try {
+            if (parts == null || parts.length != 4 || !"GAME".equals(parts[0])
+                    || !"POCKET_DEFERRED".equals(parts[2])) {
+                throw new IllegalArgumentException("POCKET_DEFERRED requires exactly 4 fields");
+            }
+            String target = decodeStrictUtf8(Base64.getDecoder().decode(parts[3]));
+            if (target.isEmpty() || !target.equals(localNick)
+                    || !target.equals(java.text.Normalizer.normalize(target, java.text.Normalizer.Form.NFC))
+                    || activeRing == null || !java.util.Arrays.asList(activeRing).contains(target)) {
+                throw new IllegalArgumentException("POCKET_DEFERRED must target this client in the active ring");
+            }
+            return target;
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("invalid POCKET_DEFERRED wire", ex);
+        }
+    }
+
+    static void acceptPocketDeferredOnce(java.util.concurrent.atomic.AtomicBoolean accepted) {
+        if (accepted == null || !accepted.compareAndSet(false, true)) {
+            throw new IllegalArgumentException("duplicate POCKET_DEFERRED delivery");
+        }
+    }
+
+    void installPocketDeferredOnce() {
+        acceptPocketDeferredOnce(this.pocket_deferred_received);
+    }
+
     public volatile byte[] local_mega_packet = null;
 
     // Cascade chain log (no proofs generated here -> zero CPU cost during the deal).
@@ -1619,6 +1704,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // hand. Symmetric: when the host straddles, it's the CLIENTS who hold back their lock, so the
     // host can't peek before committing either.
     private volatile boolean straddle_cards_pending = false; // the LOCAL process is the blind straddler and its cards aren't resolved yet (skips VISUAL@ in the fossil; triggers deferred resolution after deciding)
+    private final java.util.concurrent.atomic.AtomicBoolean pocket_deferred_received = new java.util.concurrent.atomic.AtomicBoolean();
     private volatile String deferred_straddle_nick = null;   // host: nick of the straddler whose 2 slots were withheld during the deal (for the deferred cascade); null if none
     private volatile int deferred_straddle_slot = -1;        // ring index (active_crypto_ring) of the deferred straddler's slot; -1 if none
     private volatile String straddle_decision_verified_nick = null; // responder (each peer): nick of the straddler whose SIGNED decision verified this hand; the UNLOCK_PHASE_POCKET_STRADDLE gate requires the peeled slot to be theirs
@@ -3104,56 +3190,68 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             initHandStateChain();
                         } else if (partes[2].equals("POCKET_CARDS") && partes.length == 5) {
                             try {
-                                String targetNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
-                                byte[] unlockedByOthers = java.util.Base64.getDecoder().decode(partes[4]);
-                                if (unlockedByOthers != null) {
-                                    this.single_locked_pocket_cards.put(targetNick, unlockedByOthers);
+                                ParsedPocketCards parsed = parsePocketCardsWire(partes, this.active_crypto_ring);
+                                String targetNick = parsed.targetNick;
+                                byte[] unlockedByOthers = parsed.residue;
+                                byte[] installed = this.single_locked_pocket_cards.get(targetNick);
+                                if (installed == null) {
+                                    installPocketCardsOnce(this.single_locked_pocket_cards, parsed);
+                                } else if (!java.util.Arrays.equals(installed, unlockedByOthers)) {
+                                    throw new IllegalArgumentException("POCKET_CARDS differs from installed delivery");
                                 }
 
                                 if (targetNick.equals(GameFrame.getInstance().getNick_local())) {
-
-                                    // The MEGAPACKET must have been processed already.
-                                    if (this.local_mega_packet != null) {
-                                        this.local_sra_unlock = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local()).getSra_unlock();
-
-                                        // Strip our own lock (the last layer of encryption).
-                                        byte[] myPocket = RistrettoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
-                                        byte[] c1 = java.util.Arrays.copyOfRange(myPocket, 0, 32);
-                                        byte[] c2 = java.util.Arrays.copyOfRange(myPocket, 32, 64);
-
-                                        int id1 = RistrettoSRA.resolveCardIndex(c1);
-                                        int id2 = RistrettoSRA.resolveCardIndex(c2);
-
-                                        if (id1 >= 0 && id2 >= 0) {
-                                            this.local_original_cards[0] = (byte) id1;
-                                            this.local_original_cards[1] = (byte) id2;
-                                            cartas[0] = Card.VALORES[id1 % 13] + "_" + Card.PALOS[id1 / 13];
-                                            cartas[1] = Card.VALORES[id2 % 13] + "_" + Card.PALOS[id2 / 13];
-                                            ok = true;
-                                        }
-                                    } else {
-                                        // Arrived before the deck: put it back on the queue and keep waiting.
-                                        rejected.add(comando);
+                                    if (this.local_mega_packet == null) {
+                                        throw new IllegalArgumentException("POCKET_CARDS received before MEGAPACKET");
                                     }
+                                    Participant localParticipant = GameFrame.getInstance().getParticipantes()
+                                            .get(GameFrame.getInstance().getNick_local());
+                                    this.local_sra_unlock = localParticipant == null ? null : localParticipant.getSra_unlock();
+                                    if (!RistrettoSRA.isValidScalar(this.local_sra_unlock)) {
+                                        throw new IllegalArgumentException("missing local pocket unlock");
+                                    }
+                                    byte[] myPocket = RistrettoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
+                                    if (myPocket.length != 64 || !RistrettoSRA.arePointsValid(myPocket)) {
+                                        throw new IllegalArgumentException("invalid unlocked POCKET_CARDS points");
+                                    }
+                                    byte[] c1 = java.util.Arrays.copyOfRange(myPocket, 0, 32);
+                                    byte[] c2 = java.util.Arrays.copyOfRange(myPocket, 32, 64);
+                                    int id1 = RistrettoSRA.resolveCardIndex(c1);
+                                    int id2 = RistrettoSRA.resolveCardIndex(c2);
+                                    if (id1 < 0 || id2 < 0 || id1 == id2) {
+                                        throw new IllegalArgumentException("POCKET_CARDS do not resolve to two distinct cards");
+                                    }
+                                    this.local_original_cards[0] = (byte) id1;
+                                    this.local_original_cards[1] = (byte) id2;
+                                    cartas[0] = Card.VALORES[id1 % 13] + "_" + Card.PALOS[id1 / 13];
+                                    cartas[1] = Card.VALORES[id2 % 13] + "_" + Card.PALOS[id2 / 13];
+                                    ok = true;
                                 }
                             } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Error processing POCKET_CARDS", e);
+                                LOGGER.log(Level.SEVERE, "Invalid critical POCKET_CARDS; closing host channel", e);
+                                this.received_commands.reject(comando);
+                                setFin_de_la_transmision(true);
+                                WaitingRoomFrame.getInstance().closeClientSocket();
+                                return null;
                             }
                         } else if (partes[2].equals("POCKET_DEFERRED") && partes.length == 4) {
                             // Blind straddle: I'm the UTG deciding blind. The host withheld my 2
                             // pocket cards (no POCKET_CARDS yet), so I leave the loop without cards
                             // (ok=true), mark straddle_cards_pending, and move on to
                             // resolveVoluntaryStraddle. After I sign my decision the host runs the
-                            // deferred cascade and sends POCKET_CARDS, which I then resolve. Only
-                            // act if the nick is mine; otherwise drop it — it shouldn't reach us.
+                            // deferred cascade and sends POCKET_CARDS, which I then resolve. The
+                            // point-to-point marker must name this client or the channel is closed.
                             try {
-                                String dnick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
-                                if (dnick.equals(GameFrame.getInstance().getNick_local())) {
-                                    this.straddle_cards_pending = true;
-                                    ok = true;
-                                }
+                                parsePocketDeferredWire(partes, this.active_crypto_ring,
+                                        GameFrame.getInstance().getNick_local());
+                                this.straddle_cards_pending = true;
+                                ok = true;
                             } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Malformed POCKET_DEFERRED", e);
+                                LOGGER.log(Level.SEVERE, "Invalid critical POCKET_DEFERRED; closing host channel", e);
+                                this.received_commands.reject(comando);
+                                setFin_de_la_transmision(true);
+                                WaitingRoomFrame.getInstance().closeClientSocket();
+                                return null;
                             }
                         } else if (partes[2].equals("MISDEAL") && partes.length >= 4) {
                             // The host aborts the hand: exit the consumer without cards. The actual
@@ -8347,6 +8445,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // otherwise this could throw ConcurrentModificationException or leave next-hand
         // messages in an inconsistent state.
         single_locked_pocket_cards.clear();
+        pocket_deferred_received.set(false);
 
         synchronized (received_commands) {
             received_commands.clear();
@@ -13520,16 +13619,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 while (!this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
                     String[] partes = comando.split("#");
-                    if (partes.length == 5 && partes[2].equals("POCKET_CARDS")) {
+                    if (partes.length >= 3 && partes[2].equals("POCKET_CARDS")) {
                         try {
-                            String tnick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (tnick.equals(myNick)) {
-                                residue = Base64.getDecoder().decode(partes[4]);
+                            ParsedPocketCards parsed = parsePocketCardsWire(partes, this.active_crypto_ring);
+                            if (parsed.targetNick.equals(myNick)) {
+                                byte[] installed = this.single_locked_pocket_cards.get(myNick);
+                                if (installed == null || !Arrays.equals(installed, parsed.residue)) {
+                                    throw new IllegalArgumentException("deferred POCKET_CARDS not atomically installed");
+                                }
+                                residue = parsed.residue;
                             } else {
                                 rejected.add(comando);
                             }
                         } catch (Exception e) {
-                            rejected.add(comando);
+                            LOGGER.log(Level.SEVERE,
+                                    "Invalid critical deferred POCKET_CARDS; closing host channel", e);
+                            this.received_commands.reject(comando);
+                            setFin_de_la_transmision(true);
+                            WaitingRoomFrame.getInstance().closeClientSocket();
+                            return false;
                         }
                     } else {
                         rejected.add(comando);
@@ -13546,16 +13654,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             myUnlock = p.getSra_unlock();
                         }
                     }
-                    if (myUnlock == null) {
+                    if (!RistrettoSRA.isValidScalar(myUnlock)) {
                         LOGGER.log(Level.SEVERE, "Straddle ciego: cliente sin unlock para resolver sus cartas diferidas");
                         return false;
                     }
                     this.local_sra_unlock = myUnlock;
-                    this.single_locked_pocket_cards.put(myNick, residue);
                     byte[] myPocket = RistrettoSRA.applyCommutativeLock(residue, myUnlock);
+                    if (myPocket.length != 64 || !RistrettoSRA.arePointsValid(myPocket)) {
+                        LOGGER.log(Level.SEVERE, "Straddle ciego: cartas diferidas no son puntos canonicos");
+                        return false;
+                    }
                     int id1 = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(myPocket, 0, 32));
                     int id2 = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(myPocket, 32, 64));
-                    if (id1 < 0 || id2 < 0) {
+                    if (id1 < 0 || id2 < 0 || id1 == id2) {
                         LOGGER.log(Level.SEVERE, "Straddle ciego: cliente no pudo resolver sus cartas diferidas");
                         return false;
                     }

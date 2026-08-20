@@ -3335,17 +3335,42 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 break;
                                                             case "POCKET_CARDS":
-                                                                Helpers.threadRun(() -> {
-                                                                    try {
-                                                                        String targetNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                        byte[] unlockedByOthers = Base64.getDecoder().decode(partes_comando[4]);
-                                                                        if (unlockedByOthers != null) {
-                                                                            GameFrame.getInstance().getCrupier().single_locked_pocket_cards.put(targetNick, unlockedByOthers);
-                                                                        }
-                                                                    } catch (Exception e) {
-                                                                    }
-                                                                });
+                                                                try {
+                                                                    Crupier crupierPC = GameFrame.getInstance().getCrupier();
+                                                                    Crupier.ParsedPocketCards parsedPocket = Crupier.parsePocketCardsWire(
+                                                                            partes_comando, crupierPC.active_crypto_ring);
+                                                                    Crupier.installPocketCardsOnce(
+                                                                            crupierPC.single_locked_pocket_cards, parsedPocket);
+                                                                } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid or duplicate critical POCKET_CARDS; closing host connection", e);
+                                                                    exit = true;
+                                                                    closeClientSocket();
+                                                                    break;
+                                                                }
                                                                 // Forward to the queue so the Crupier can continue its normal local flow
+                                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                                }
+                                                                break;
+                                                            case "POCKET_DEFERRED":
+                                                                try {
+                                                                    Crupier crupierPD = GameFrame.getInstance().getCrupier();
+                                                                    Crupier.parsePocketDeferredWire(partes_comando,
+                                                                            crupierPD.active_crypto_ring, local_nick);
+                                                                    crupierPD.installPocketDeferredOnce();
+                                                                } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical POCKET_DEFERRED; closing host connection", e);
+                                                                    exit = true;
+                                                                    closeClientSocket();
+                                                                    break;
+                                                                }
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                                     GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
                                                                             () -> Helpers.threadRun(() -> {

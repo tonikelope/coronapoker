@@ -678,6 +678,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // hand for recovery instead of ever settling blindly.
     public static final long HANDVERIFY_TRIGGER_PROGRESS_TIMEOUT_MS
             = RECON_CHURN_HARD_CAP_MS + BROADCAST_PROGRESS_TIMEOUT_MS;
+    // Last-resort active-time bound for the initial client deal. Full-table cascade
+    // retries can legitimately be very long, so this is deliberately 24h. Expiry
+    // closes the host channel and never authorizes dealing without cards.
+    public static final long RECEIVE_CARDS_HARD_TIMEOUT_MS = 24L * 60L * 60L * 1000L;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Seconds the run-it-twice vote lasts (timeout = NORMAL)
@@ -2957,6 +2961,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean ok = false;
         String[] cartas = new String[2];
         long espera_inicio = System.currentTimeMillis();
+        long last_progress_tick = espera_inicio;
+        long active_wait_ms = 0L;
         boolean aviso_parada = false;
 
         do {
@@ -3097,19 +3103,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isFin_de_la_transmision()) {
                     break;
                 }
-                // Deliberately NO deadline here: a timeout was tried and made things worse —
-                // nothing checks this method's return value, so on timeout the client kept
-                // dealing without a megapacket or hand ID (playing with someone else's cards,
-                // signature chain dead, no action verified all hand). Any reasonable deadline
-                // is also too short: the host allows itself two minutes PER PEER for its
-                // shuffle step and restarts the whole cascade if anyone drops out mid-way.
-                // Waiting forever is noisy but doesn't corrupt the hand; adding a deadline
-                // first requires the caller to know what to do with no cards.
-                // A pause doesn't count toward "table stalled": without resetting the clock, a
-                // long pause would fire the warning right as play resumed.
+                // The 24h active-time ceiling is intentionally far above every legitimate
+                // full-table cascade/retry path. It is a fail-closed safety net, not latency policy.
+                long now = System.currentTimeMillis();
                 if (GameFrame.getInstance().checkPause()) {
-                    espera_inicio = System.currentTimeMillis();
+                    espera_inicio = now;
+                } else {
+                    active_wait_ms += Math.max(0L, now - last_progress_tick);
+                    if (receiveCardsWaitExpired(active_wait_ms)) {
+                        LOGGER.log(Level.SEVERE,
+                                "Initial card delivery timed out; closing host channel without dealing");
+                        setFin_de_la_transmision(true);
+                        WaitingRoomFrame.getInstance().closeClientSocket();
+                        return null;
+                    }
                 }
+                last_progress_tick = now;
                 aviso_parada = avisarMesaParada(espera_inicio, aviso_parada);
                 // Standard Crupier pattern (used by 15+ receive* loops): wait on
                 // received_commands so a producer's notifyAll (Participant reader,
@@ -3135,6 +3144,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.guardarFosilSRA();
 
         return new ArrayList<>(java.util.Arrays.asList(cartas));
+    }
+
+    static boolean receiveCardsWaitExpired(long activeWaitMs) {
+        return activeWaitMs >= RECEIVE_CARDS_HARD_TIMEOUT_MS;
+    }
+
+    static boolean receivedCardsAllowDeal(java.util.List<String> cards) {
+        return cards != null;
     }
 
     public String getTestamentoCriptografico() {
@@ -9509,6 +9526,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // The shuffle has finished: stop the audio before dealing. The animation paths
             // already stop it on exit; this covers any remaining edge case.
             Audio.stopPreloadedWav("misc/shuffle.wav");
+
+            if (!GameFrame.getInstance().isPartida_local()
+                    && !GameFrame.getInstance().getLocalPlayer().isCalentando()
+                    && this.game_recovered == 0
+                    && !receivedCardsAllowDeal(cartas_locales_recibidas)) {
+                LOGGER.log(Level.SEVERE,
+                        "Initial card delivery ended without cards; refusing to enter reparto/betting");
+                return false;
+            }
 
             repartir();
             // Voluntary straddle: after the deal (local UTG's cards face-down, waiting), the UTG

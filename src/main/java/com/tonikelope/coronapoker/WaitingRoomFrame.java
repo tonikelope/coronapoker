@@ -3315,30 +3315,16 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // and rejects it for hand-not-started). We populate them
                                                                 // synchronously here and forward to the queue so the rest of the
                                                                 // Crupier's flow (decrypting my pocket cards) keeps working exactly
-                                                                // as before.
-                                                                try {
-                                                                    Crupier crupierMP = GameFrame.getInstance().getCrupier();
-                                                                    String orderStr = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    String[] orderTokens = orderStr.split(",");
-                                                                    java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
-                                                                    for (String token : orderTokens) {
-                                                                        if (!token.isEmpty()) {
-                                                                            ringList.add(new String(Base64.getDecoder().decode(token), "UTF-8"));
-                                                                        }
-                                                                    }
-                                                                    crupierMP.active_crypto_ring = ringList.toArray(new String[0]);
-                                                                    crupierMP.local_mega_packet = Base64.getDecoder().decode(partes_comando[4]);
-                                                                    // Populate the K commitments SYNCHRONOUSLY here. The
-                                                                    // REQ_SRA_UNLOCK_CHAIN handler runs on its own threadRun and needs
-                                                                    // them; if we relied on recibirMisCartas (the queue's async
-                                                                    // consumer) there'd be a race and the binding would verify against
-                                                                    // an empty map -> a false lockdown.
-                                                                    if (partes_comando.length >= 7) {
-                                                                        crupierMP.parseCommitments(partes_comando[6]);
-                                                                    }
-                                                                } catch (Exception e) {
-                                                                    LOGGER.log(Level.SEVERE, "Error pre-parsing MEGAPACKET in WaitingRoomFrame; queue handler will retry", e);
-                                                                }
+                                                                 // as before.
+                                                                 try {
+                                                                     Crupier crupierMP = GameFrame.getInstance().getCrupier();
+                                                                     crupierMP.installMegaPacket(Crupier.parseMegaPacketWire(partes_comando));
+                                                                 } catch (Exception e) {
+                                                                     LOGGER.log(Level.SEVERE, "Invalid critical MEGAPACKET; closing host connection", e);
+                                                                     exit = true;
+                                                                     closeClientSocket();
+                                                                     break;
+                                                                 }
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                                     GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
                                                                             () -> Helpers.threadRun(() -> {

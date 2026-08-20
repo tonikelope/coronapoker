@@ -1349,6 +1349,119 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
     }
+
+    static final class ParsedMegaPacket {
+        final String[] ring;
+        final byte[] deck;
+        final byte[] handId;
+        final java.util.Map<String, byte[]> pocketCommitments;
+        final java.util.Map<String, byte[]> communityCommitments;
+
+        ParsedMegaPacket(String[] ring, byte[] deck, byte[] handId,
+                java.util.Map<String, byte[]> pocketCommitments,
+                java.util.Map<String, byte[]> communityCommitments) {
+            this.ring = ring;
+            this.deck = deck;
+            this.handId = handId;
+            this.pocketCommitments = pocketCommitments;
+            this.communityCommitments = communityCommitments;
+        }
+    }
+
+    static ParsedMegaPacket parseMegaPacketWire(String[] parts) {
+        try {
+            if (parts == null || parts.length != 7 || !"GAME".equals(parts[0])
+                    || !"MEGAPACKET".equals(parts[2])) {
+                throw new IllegalArgumentException("MEGAPACKET requires exactly 7 fields");
+            }
+            String order = decodeStrictUtf8(Base64.getDecoder().decode(parts[3]));
+            String[] orderTokens = order.split(",", -1);
+            if (orderTokens.length < 3 || orderTokens.length > WaitingRoomFrame.MAX_PARTICIPANTES + 1
+                    || !orderTokens[orderTokens.length - 1].isEmpty()) {
+                throw new IllegalArgumentException("invalid MEGAPACKET ring encoding");
+            }
+            String[] ring = new String[orderTokens.length - 1];
+            java.util.Set<String> unique = new java.util.HashSet<>();
+            for (int i = 0; i < ring.length; i++) {
+                if (orderTokens[i].isEmpty()) {
+                    throw new IllegalArgumentException("empty MEGAPACKET ring entry");
+                }
+                String nick = decodeStrictUtf8(Base64.getDecoder().decode(orderTokens[i]));
+                String nfc = java.text.Normalizer.normalize(nick, java.text.Normalizer.Form.NFC);
+                if (nick.isEmpty() || !nick.equals(nfc) || !unique.add(nick)) {
+                    throw new IllegalArgumentException("invalid or duplicate MEGAPACKET ring nick");
+                }
+                ring[i] = nick;
+            }
+
+            byte[] deck = Base64.getDecoder().decode(parts[4]);
+            if (deck.length != 52 * 32 || !RistrettoSRA.arePointsValid(deck)) {
+                throw new IllegalArgumentException("MEGAPACKET deck must be 52 canonical points");
+            }
+            byte[] handId = Base64.getDecoder().decode(parts[5]);
+            if (handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
+                throw new IllegalArgumentException("invalid MEGAPACKET HAND_ID length");
+            }
+
+            String[] entries = parts[6].split(";", -1);
+            if (entries.length != ring.length) {
+                throw new IllegalArgumentException("MEGAPACKET commitments must cover the exact ring");
+            }
+            java.util.Map<String, byte[]> pocket = new java.util.LinkedHashMap<>();
+            java.util.Map<String, byte[]> community = new java.util.LinkedHashMap<>();
+            for (int i = 0; i < entries.length; i++) {
+                String[] commitment = entries[i].split(":", -1);
+                if (commitment.length != 3) {
+                    throw new IllegalArgumentException("invalid MEGAPACKET commitment entry");
+                }
+                String nick = decodeStrictUtf8(Base64.getDecoder().decode(commitment[0]));
+                byte[] kp = Base64.getDecoder().decode(commitment[1]);
+                byte[] kc = Base64.getDecoder().decode(commitment[2]);
+                if (!ring[i].equals(nick) || pocket.containsKey(nick)
+                        || kp.length != 32 || kc.length != 32
+                        || allZero(kp) || allZero(kc)
+                        || !RistrettoSRA.arePointsValid(kp) || !RistrettoSRA.arePointsValid(kc)) {
+                    throw new IllegalArgumentException("invalid MEGAPACKET commitment binding");
+                }
+                pocket.put(nick, kp);
+                community.put(nick, kc);
+            }
+            return new ParsedMegaPacket(ring, deck, handId, pocket, community);
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("invalid MEGAPACKET wire", ex);
+        }
+    }
+
+    private static String decodeStrictUtf8(byte[] bytes) throws java.nio.charset.CharacterCodingException {
+        return java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                .decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+    }
+
+    private static boolean allZero(byte[] value) {
+        int aggregate = 0;
+        for (byte b : value) aggregate |= b;
+        return aggregate == 0;
+    }
+
+    synchronized void installMegaPacket(ParsedMegaPacket parsed) {
+        if (parsed == null) throw new IllegalArgumentException("parsed MEGAPACKET required");
+        String localNick = GameFrame.getInstance().getNick_local();
+        if (!java.util.Arrays.asList(parsed.ring).contains(localNick)) {
+            throw new IllegalArgumentException("local player missing from MEGAPACKET ring");
+        }
+        this.active_crypto_ring = parsed.ring.clone();
+        this.local_mega_packet = parsed.deck.clone();
+        this.current_hand_id = parsed.handId.clone();
+        this.dual_lock_expect_bundle_for = this.local_mega_packet;
+        this.peer_k_pocket.clear();
+        this.peer_k_community.clear();
+        parsed.pocketCommitments.forEach((nick, key) -> this.peer_k_pocket.put(nick, key.clone()));
+        parsed.communityCommitments.forEach((nick, key) -> this.peer_k_community.put(nick, key.clone()));
+    }
     public volatile byte[] local_mega_packet = null;
 
     // Cascade chain log (no proofs generated here -> zero CPU cost during the deal).
@@ -2978,58 +3091,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
 
                         if (partes[2].equals("MEGAPACKET") && partes.length == 7) {
-                            String orderB64 = partes[3];
-                            this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[4]);
-                            // Fresh deal: from now on we require an honest-shuffle bundle for this
-                            // deck (the community-unlock handler warns if it never arrives). Recover
-                            // doesn't go through here, so it doesn't require a bundle (the shuffle
-                            // was already verified pre-crash).
-                            this.dual_lock_expect_bundle_for = this.local_mega_packet;
                             try {
-                                String orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
-                                String[] orderTokens = orderStr.split(",");
-                                java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
-                                for (String token : orderTokens) {
-                                    if (!token.isEmpty()) {
-                                        ringList.add(new String(java.util.Base64.getDecoder().decode(token), "UTF-8"));
-                                    }
-                                }
-                                this.active_crypto_ring = ringList.toArray(new String[0]);
-                                logCryptoRingDebug("CLIENT (received order)", this.active_crypto_ring);
-                                // Ring debug: what order this client would derive locally
-                                // (getAnilloCriptografico). Since the ring starts at the DEALER, this
-                                // can legitimately differ from the received order if the client
-                                // doesn't have this hand's dealer_nick yet (stale/null/race with
-                                // POSITIONS) — not a consensus divergence, since the authoritative
-                                // order is the broadcast one (active_crypto_ring above); this local
-                                // derivation is never used to verify anything. Read-only.
-                                try {
-                                    java.util.ArrayList<Player> localRing = getAnilloCriptografico();
-                                    String[] localNicks = new String[localRing.size()];
-                                    for (int ri = 0; ri < localNicks.length; ri++) {
-                                        localNicks[ri] = localRing.get(ri).getNickname();
-                                    }
-                                    logCryptoRingDebug("CLIENT (local derive)", localNicks);
-                                } catch (Exception ex) {
-                                    LOGGER.log(Level.INFO, "[RING-DEBUG] CLIENT local derive failed", ex);
-                                }
-                            } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Error parsing ORDER of MEGAPACKET", e);
+                                installMegaPacket(parseMegaPacketWire(partes));
+                            } catch (Exception invalidMegaPacket) {
+                                LOGGER.log(Level.SEVERE,
+                                        "Invalid critical MEGAPACKET; closing host channel", invalidMegaPacket);
+                                this.received_commands.reject(comando);
+                                setFin_de_la_transmision(true);
+                                return null;
                             }
-                            // The fixed current wire includes the 16-byte HAND_ID and K commitments.
-                            try {
-                                byte[] hid = java.util.Base64.getDecoder().decode(partes[5]);
-                                if (hid.length == CanonicalActionRecord.HAND_ID_BYTES) {
-                                    this.current_hand_id = hid;
-                                } else {
-                                    LOGGER.log(Level.WARNING, "MEGAPACKET HAND_ID has wrong length: {0}", hid.length);
-                                    this.current_hand_id = null;
-                                }
-                            } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Error parsing HAND_ID of MEGAPACKET", e);
-                                this.current_hand_id = null;
-                            }
-                            parseCommitments(partes[6]);
+                            logCryptoRingDebug("CLIENT (validated order)", this.active_crypto_ring);
                             initHandStateChain();
                         } else if (partes[2].equals("POCKET_CARDS") && partes.length == 5) {
                             try {

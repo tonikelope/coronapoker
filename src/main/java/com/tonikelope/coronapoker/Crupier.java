@@ -17624,27 +17624,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * reject the action or cancel the dependent transition.
      */
     private byte[] resolveActionSignerPubkey(String actorNick, boolean isVoluntary) {
-        boolean useHostKey = !isVoluntary;
-        if (!useHostKey) {
-            Participant actorPar = GameFrame.getInstance().getParticipantes().get(actorNick);
-            if (actorPar != null && actorPar.isCpu()) {
-                useHostKey = true;
-            } else if (actorPar != null) {
-                return actorPar.getIdentity_pubkey();
-            } else {
-                return null;
-            }
+        GameFrame frame = GameFrame.getInstance();
+        IdentityManager identity = IdentityManager.getInstance();
+        byte[] localPubkey = identity.isReady() ? identity.getPublicKey() : null;
+        boolean actorIsLocal = actorNick != null && actorNick.equals(frame.getNick_local());
+        Participant actor = actorNick != null ? frame.getParticipantes().get(actorNick) : null;
+
+        byte[] hostPubkey;
+        if (frame.isPartida_local()) {
+            hostPubkey = localPubkey;
+        } else {
+            String hostNick = frame.getSala_espera().getServer_nick();
+            Participant host = hostNick != null ? frame.getParticipantes().get(hostNick) : null;
+            hostPubkey = host != null ? host.getIdentity_pubkey() : null;
         }
-        if (GameFrame.getInstance().isPartida_local()) {
-            IdentityManager im = IdentityManager.getInstance();
-            return im.isReady() ? im.getPublicKey() : null;
+
+        return selectGameplaySignerPubkey(!isVoluntary || (actor != null && actor.isCpu()),
+                actorIsLocal, localPubkey,
+                actor != null ? actor.getIdentity_pubkey() : null, hostPubkey);
+    }
+
+    /**
+     * Selects the identity that authored an ACTION or showdown record. The local human is
+     * deliberately handled before the Participant-backed remote path: local
+     * players are not entries in {@code GameFrame.participantes}. Recovery
+     * replays their persisted actions through the same verifier as remote
+     * actions, so treating a missing Participant as a missing key falsely
+     * accused every host/client of forging its own recovered action or reveal.
+     */
+    static byte[] selectGameplaySignerPubkey(boolean signedByHost, boolean actorIsLocal,
+            byte[] localPubkey, byte[] actorPubkey, byte[] hostPubkey) {
+        if (signedByHost) {
+            return hostPubkey;
         }
-        String hostNick = GameFrame.getInstance().getSala_espera().getServer_nick();
-        if (hostNick == null) {
-            return null;
-        }
-        Participant hostPar = GameFrame.getInstance().getParticipantes().get(hostNick);
-        return hostPar != null ? hostPar.getIdentity_pubkey() : null;
+        return actorIsLocal ? localPubkey : actorPubkey;
     }
 
     /**
@@ -17661,24 +17674,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * identity). The caller treats null as "cannot verify" — rejects.
      */
     private byte[] resolveShowdownSignerPubkey(String revealNick) {
-        Participant par = GameFrame.getInstance().getParticipantes().get(revealNick);
-        if (par == null) {
-            return null;
+        GameFrame frame = GameFrame.getInstance();
+        IdentityManager identity = IdentityManager.getInstance();
+        byte[] localPubkey = identity.isReady() ? identity.getPublicKey() : null;
+        boolean revealerIsLocal = revealNick != null && revealNick.equals(frame.getNick_local());
+        Participant revealer = revealNick != null ? frame.getParticipantes().get(revealNick) : null;
+
+        byte[] hostPubkey;
+        if (frame.isPartida_local()) {
+            hostPubkey = localPubkey;
+        } else {
+            String hostNick = frame.getSala_espera().getServer_nick();
+            Participant host = hostNick != null ? frame.getParticipantes().get(hostNick) : null;
+            hostPubkey = host != null ? host.getIdentity_pubkey() : null;
         }
-        if (par.isCpu()) {
-            // Bot — the signer is the host.
-            if (GameFrame.getInstance().isPartida_local()) {
-                IdentityManager im = IdentityManager.getInstance();
-                return im.isReady() ? im.getPublicKey() : null;
-            }
-            String hostNick = GameFrame.getInstance().getSala_espera().getServer_nick();
-            if (hostNick == null) {
-                return null;
-            }
-            Participant hostPar = GameFrame.getInstance().getParticipantes().get(hostNick);
-            return hostPar != null ? hostPar.getIdentity_pubkey() : null;
-        }
-        return par.getIdentity_pubkey();
+
+        return selectGameplaySignerPubkey(revealer != null && revealer.isCpu(),
+                revealerIsLocal, localPubkey,
+                revealer != null ? revealer.getIdentity_pubkey() : null, hostPubkey);
     }
 
     /**

@@ -1,7 +1,7 @@
 /*
  * Mecanica de ShuffleVerificationQueue (la correccion de fondo de DualLockWire.verifyFullChainWire
  * ya la cubren DualLockWireTest/DualLockCascadeTest; aqui probamos la COLA): FIFO, dispatch
- * honesto/deshonesto/malformed, snapshot por job, tope que descarta+reporta, y shutdown limpio.
+ * honesto/deshonesto/malformed, snapshot por job, tope que rechaza explicitamente, y shutdown limpio.
  * Verificador inyectado (fake) para probar la mecanica sin coste cripto.
  */
 package com.tonikelope.coronapoker;
@@ -111,16 +111,16 @@ public class ShuffleVerificationQueueTest {
     }
 
     @Test
-    public void fullQueueDropsAndReports() {
-        // Worker SIN arrancar: la cola se llena hasta el tope y los siguientes enqueue se descartan.
+    public void fullQueueRejectsAndReports() {
+        // Worker SIN arrancar: la cola se llena hasta el tope y los siguientes enqueue se rechazan.
         RecordingSink sink = new RecordingSink(0);
         int cap = 3;
         ShuffleVerificationQueue q = new ShuffleVerificationQueue(sink, j -> true, cap);
         assertTrue(q.enqueue(job(0)), "0 cabe");
         assertTrue(q.enqueue(job(1)), "1 cabe");
         assertTrue(q.enqueue(job(2)), "2 cabe (tope)");
-        assertFalse(q.enqueue(job(3)), "3 se descarta (cola llena) — sin cap silencioso");
-        assertFalse(q.enqueue(job(4)), "4 se descarta");
+        assertFalse(q.enqueue(job(3)), "3 se rechaza (cola llena); el caller debe cerrar");
+        assertFalse(q.enqueue(job(4)), "4 se rechaza");
         assertEquals(cap, q.pending(), "la cola no crece por encima del tope");
         q.shutdown();
     }

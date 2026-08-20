@@ -1,13 +1,13 @@
 /*
  * B1 (desacople del prove remoto del reparto): test del recolector async de pruebas de barajado
  * Crupier.collectAsyncCascadeProofs. Fija de forma determinista los tres comportamientos que la
- * auditoria adversaria de B1 arreglo, mas la degradacion elegante:
+ * auditoria adversaria de B1 arreglo, mas el retorno acotado al llamador fail-closed:
  *   1) acepta una prueba VALIDA y la casa con su paso por hash(deckOut);
  *   2) RE-ENCOLA (no se come) un comando que no es de sus pasos (otro builder / otro comando) -> no
  *      deja a otro builder sin sus pruebas (HIGH-1);
  *   3) RECHAZA y cierra al owner que entrega una prueba basura; no admite un retry posterior;
  *   4) liga la prueba al owner autenticado del paso y cierra a quien intente sustituirlo;
- *   5) sin prueba -> degrada a "proofless" (mapa incompleto) sin colgarse ni lanzar.
+ *   5) sin prueba -> mapa incompleto para que el llamador rechace el mazo, sin colgarse.
  *
  * Llama al metodo privado por reflexion. Construye pasos remotos reales con ShuffleCascade.proveStepWire
  * (mismo patron que ShuffleCascadeWireTest). new Crupier() solo inicializa campos (received_commands es
@@ -171,15 +171,14 @@ public class AsyncCascadeProofCollectorTest {
     }
 
     @Test
-    public void missingProofDegradesToProoflessWithoutHanging() throws Exception {
+    public void missingProofReturnsIncompleteForCallerToFailClosed() throws Exception {
         Step s = buildRemoteStep(9);
         Crupier c = new Crupier();
         c.setFin_de_la_transmision(true); // corta la espera al instante (simula fin de reparto)
-        // Sin prueba en la cola: el paso queda sin recoger (proofless). El bundle no se difundiria (el
-        // llamador lo gatea por fullOk) y el peer avisaria "missing proof": peor caso un aviso, no un
-        // reparto incorrecto. Aqui solo fijamos que devuelve un mapa incompleto sin colgarse ni lanzar.
+        // Sin prueba en la cola, el paso queda sin recoger. El llamador convierte este mapa incompleto
+        // en fallo terminal del mazo antes de apostar. Aqui fijamos que el recolector termina acotado.
         Map<String, byte[]> got = collect(c, s.decks, s.perms);
-        assertTrue(got.isEmpty(), "sin prueba -> mapa vacio (paso proofless), sin colgarse ni excepcion");
+        assertTrue(got.isEmpty(), "sin prueba -> mapa vacio para rechazo fail-closed");
         assertFalse(got.containsKey(s.hash), "el paso remoto queda sin prueba");
     }
 }

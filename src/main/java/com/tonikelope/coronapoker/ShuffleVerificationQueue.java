@@ -44,16 +44,16 @@ import java.util.logging.Logger;
  * of its own hand's deck and bundle, and a <b>single</b> daemon worker drains
  * them in FIFO order. A pathologically slow player still finishes verifying
  * past hands — and a smuggle in a past hand is still caught — even after the
- * live hand has moved on. Bounded capacity: a full queue drops the new job with
- * a log rather than blocking the caller or growing without limit (no silent
- * cap).
+ * live hand has moved on. Bounded capacity: a full queue rejects the new job
+ * explicitly; the production caller closes the critical host channel, so no
+ * hand continues with a discarded verification.
  *
  * <p>
  * Scope: this verifies and dispatches a verdict to a {@link Sink}; it does not
  * touch UI or game state itself. The {@code Sink} (wired by {@code Crupier})
  * decides what a verdict means — update the live "deck verified" gate only if
- * the snapshot is still the current deck, or soft-warn on a proven-dishonest
- * deck. The real-time anti-peek of a <i>live</i> player's pocket is unchanged
+ * the snapshot is still the current deck, or close the session on a dishonest
+ * or malformed verdict. The real-time anti-peek of a <i>live</i> player's pocket is unchanged
  * and independent of this (the synchronous DLEQ de-lock chain); this only makes
  * the deck-honesty audit reliable on slow hardware.
  */
@@ -173,11 +173,10 @@ public final class ShuffleVerificationQueue {
 
     /**
      * Enqueue a verification job. Never blocks the caller: if the bounded queue
-     * is full the job is dropped with a log (the deck stays unverified ⇒
-     * receipt {@code bit1}), so a runaway slow client cannot grow memory
-     * without bound.
+     * is full the job is rejected with a log. The production caller must close
+     * the critical host channel on {@code false}; it may not continue the hand.
      *
-     * @return true if accepted, false if dropped (queue full)
+     * @return true if accepted, false if rejected (queue full)
      */
     public boolean enqueue(Job job) {
         if (job == null) {
@@ -186,8 +185,8 @@ public final class ShuffleVerificationQueue {
         boolean accepted = queue.offer(job);
         if (!accepted) {
             LOGGER.log(Level.WARNING,
-                    "SHUFFLE-VERIFY: queue full (capacity reached) — dropping verify job for hand {0}; "
-                    + "that deck stays unverified (receipt bit1)", job.handId);
+                    "SHUFFLE-VERIFY: queue full — rejecting critical verify job for hand {0}; "
+                    + "caller must close the host channel", job.handId);
         }
         return accepted;
     }

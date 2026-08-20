@@ -792,7 +792,7 @@ public class Participant implements Runnable {
 
                     // The id is kept across retries so the client can dedupe by (subcommand, id) if a
                     // retransmission arrives after it already processed the first copy.
-                    int id = Helpers.CSPRNG_GENERATOR.nextInt();
+                    int id = entry.wireId();
                     String full_command = "GAME#" + String.valueOf(id) + "#" + command;
                     ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
                     ConfirmationTracker.Request request = tracker.register(id + 1, pendientes);
@@ -1618,9 +1618,11 @@ public class Participant implements Runnable {
                 this.input_stream_reader = nuevo_stream;
                 this.aes_key = aes_k;
                 this.hmac_key = hmac_k;
-                // A reconnect installs a new authenticated socket generation. Commands leased
-                // or queued for the previous socket must never be written through this one.
-                this.pre_game_socket_writer_queue.advanceGeneration();
+                // A reconnect installs a new authenticated socket generation. Invalidate any
+                // lease held by the old writer, but preserve pending critical pre-game commands:
+                // they are plaintext in the outbox and must be re-encrypted/retransmitted through
+                // the new authenticated socket rather than silently treated as delivered.
+                this.pre_game_socket_writer_queue.advanceGenerationPreservingEntries();
                 if (!isForce_reset_socket() && GameFrame.conexionSonidoOn()) {
                     Audio.playWavResource("misc/yahoo.wav");
                 }

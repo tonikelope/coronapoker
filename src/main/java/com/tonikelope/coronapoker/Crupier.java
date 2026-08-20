@@ -20718,35 +20718,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY) + "#" + String.valueOf(GameFrame.FIXED_BUYIN)
-                    // Editable buy-in range and rebuy-cap policy (fixed fields; come BEFORE
-                    // the optional structure field).
-                    + "#" + String.valueOf(GameFrame.BUYIN_MIN_BB) + "#" + String.valueOf(GameFrame.BUYIN_MAX_BB) + "#" + String.valueOf(GameFrame.REBUY_CAP_POLICY)
-                    // Ante and straddle (fixed fields; come BEFORE the optional structure field).
-                    + "#" + String.valueOf(GameFrame.ANTE) + "#" + String.valueOf(GameFrame.STRADDLE)
-                    // Game rules selectable at table creation (IWTSTH / Run It Twice /
-                    // Rabbit Hunting): fixed fields, BEFORE the optional structure field, so
-                    // a joining client knows the table's rules.
-                    + "#" + (GameFrame.IWTSTH_RULE ? "1" : "0") + "#" + (GameFrame.RUN_IT_TWICE ? "1" : "0") + "#" + String.valueOf(GameFrame.RABBIT_HUNTING)
-                    // Think time (seconds) + whether it's on: FIXED fields, BEFORE the
-                    // optional structure field, so the client starts with the same think
-                    // time (or no limit) the host set when creating/configuring.
-                    + "#" + String.valueOf(GameFrame.THINK_TIME) + "#" + (GameFrame.THINK_TIME_ENABLED ? "1" : "0")
-                    // Showdown pause time (seconds): FIXED field, BEFORE the optional structure
-                    // field, so the client shows the hand result for the same duration as the
-                    // host (clients also run pausaConBarra/setTiempo_pausa).
-                    + "#" + String.valueOf(GameFrame.SHOWDOWN_TIME)
-                    // Whether bots' balance is split among humans at the end (FIXED field,
-                    // BEFORE the optional structure field): the client must apply the SAME
-                    // adjustment as the host in its own final settlement (each peer computes
-                    // the auditor on its own), or the final table and balance screen would
-                    // disagree between peers.
-                    + "#" + (GameFrame.BOT_BALANCE_TO_HUMANS ? "1" : "0")
-                    // Custom blind structure (optional field at the end): clients recompute
-                    // the escalation on their own, so ALL of them must walk the same list or
-                    // they desync when blinds go up. Only added when there's a custom
-                    // structure; absent = default ladder.
-                    + (GameFrame.ACTIVE_BLIND_STRUCTURE != null ? "#" + BlindStructure.levelsToString(GameFrame.ACTIVE_BLIND_STRUCTURE) : ""), null);
+            GameConfigWireV1.Result config = GameConfigWireV1.fromGlobals();
+            if (!config.isOk()) {
+                LOGGER.log(Level.SEVERE, "Host table configuration is invalid: {0}", config.error());
+                return;
+            }
+            config.value().applyToGlobals();
+            broadcastGAMECommandFromServer("INIT#" + config.value().encodeBase64(), null);
         }
 
         if (GameFrame.RECOVER) {

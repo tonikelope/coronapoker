@@ -159,6 +159,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // clients and is persisted/restored on recover. See BlindStructure and
     // Crupier.doblarCiegas/simulateNextBlinds.
     public static volatile double[][] ACTIVE_BLIND_STRUCTURE = null;
+    // Complete validated table snapshot. Published only after every field has
+    // passed GameConfigWireV1 validation; invalid wire data never replaces it.
+    public static volatile GameConfigWireV1 TABLE_CONFIG = null;
     public static volatile boolean REBUY = true;
     public static volatile int REBUY_LIMIT = 0; //0 = no per-player rebuy limit; otherwise max times a player can rebuy in the game
     public static volatile boolean BOT_REBUY = true; //true = bots can rebuy (subject to the limit if > 0); false = bots sit out as spectators without asking the host

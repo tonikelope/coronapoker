@@ -3502,33 +3502,23 @@ public class WaitingRoomFrame extends JFrame {
                                                                 GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
                                                                 break;
                                                             case "UPDATEBLINDS":
-                                                                GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Double.parseDouble(partes_comando[5]), Double.parseDouble(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
-                                                                GameFrame.BLIND_CAP = partes_comando.length > 7 ? Double.parseDouble(partes_comando[7]) : 0;
-                                                                boolean ante_nuevo = partes_comando.length > 8 && Boolean.parseBoolean(partes_comando[8]);
-                                                                boolean straddle_nuevo = partes_comando.length > 9 && Boolean.parseBoolean(partes_comando[9]);
-                                                                // Same deferred notice as the blinds when ante/straddle changes: the
-                                                                // value is applied immediately (below), this only raises the flag.
-                                                                if (GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo) {
+                                                                GameConfigWireV1.Result updateConfig = partes_comando.length == 4
+                                                                        ? GameConfigWireV1.decodeBase64(partes_comando[3])
+                                                                        : null;
+                                                                if (updateConfig == null || !updateConfig.isOk()) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid UPDATEBLINDS configuration; closing connection");
+                                                                    exit = true;
+                                                                    closeClientSocket();
+                                                                    break;
+                                                                }
+                                                                if (GameFrame.ANTE != updateConfig.value().ante()
+                                                                        || GameFrame.STRADDLE != updateConfig.value().straddle()) {
                                                                     GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
                                                                 }
-                                                                GameFrame.ANTE = ante_nuevo;
-                                                                GameFrame.STRADDLE = straddle_nuevo;
-                                                                // The host can change the blind structure live (Settings > Game).
-                                                                // When it's the DEFAULT ladder the field is empty, and Java's
-                                                                // split('#') DROPS a trailing empty field, so the length>10 guard
-                                                                // isn't enough: it must be reset to null (same as in INIT) so host
-                                                                // and clients escalate blinds on the SAME ladder (otherwise they
-                                                                // desync as blinds go up).
-                                                                if (partes_comando.length > 10 && !partes_comando[10].isEmpty()) {
-                                                                    try {
-                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[10]);
-                                                                    } catch (Exception ex) {
-                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                                        LOGGER.log(Level.WARNING, "Bad blind structure in UPDATEBLINDS", ex);
-                                                                    }
-                                                                } else {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                                }
+                                                                updateConfig.value().applyBlindUpdateToGlobals();
+                                                                GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(
+                                                                        updateConfig.value().smallBlind(), updateConfig.value().bigBlind(),
+                                                                        updateConfig.value().blindsDouble(), updateConfig.value().blindsDoubleType());
                                                                 break;
                                                             case "SERVEREXIT":
                                                                 exit = true;
@@ -3812,6 +3802,16 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 break;
                                                             case "INIT":
+                                                                GameConfigWireV1.Result initConfig = partes_comando.length == 4
+                                                                        ? GameConfigWireV1.decodeBase64(partes_comando[3])
+                                                                        : null;
+                                                                if (initConfig == null || !initConfig.isOk()) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid INIT configuration; closing connection");
+                                                                    exit = true;
+                                                                    closeClientSocket();
+                                                                    break;
+                                                                }
+                                                                initConfig.value().applyToGlobals();
                                                                 Helpers.GUIRun(() -> {
                                                                     setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                                                                     sound_icon.setVisible(false);
@@ -3819,62 +3819,6 @@ public class WaitingRoomFrame extends JFrame {
                                                                     status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
                                                                     barra.setVisible(true);
                                                                 });
-                                                                GameFrame.BUYIN = Integer.parseInt(partes_comando[3]);
-                                                                GameFrame.CIEGA_PEQUEÑA = Double.parseDouble(partes_comando[4]);
-                                                                GameFrame.CIEGA_GRANDE = Double.parseDouble(partes_comando[5]);
-                                                                String[] ciegas_double = partes_comando[6].split("@");
-                                                                GameFrame.CIEGAS_DOUBLE = Integer.parseInt(ciegas_double[0]);
-                                                                GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
-                                                                GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
-                                                                GameFrame.UGI = partes_comando[7].split("@")[1];
-                                                                GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
-                                                                GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
-                                                                GameFrame.BLIND_CAP = partes_comando.length > 10 ? Double.parseDouble(partes_comando[10]) : 0;
-                                                                GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
-                                                                GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
-                                                                GameFrame.FIXED_BUYIN = partes_comando.length > 13 ? Boolean.parseBoolean(partes_comando[13]) : true;
-                                                                // Editable buy-in range and rebuy-cap policy (fixed fields; the
-                                                                // client's cap/headroom must match the host's).
-                                                                GameFrame.BUYIN_MIN_BB = partes_comando.length > 14 ? Integer.parseInt(partes_comando[14]) : BuyinRules.DEFAULT_MIN_BB;
-                                                                GameFrame.BUYIN_MAX_BB = partes_comando.length > 15 ? Integer.parseInt(partes_comando[15]) : BuyinRules.DEFAULT_MAX_BB;
-                                                                GameFrame.REBUY_CAP_POLICY = partes_comando.length > 16 ? Integer.parseInt(partes_comando[16]) : GameFrame.REBUY_CAP_BUYIN;
-                                                                // Ante and straddle (fixed fields; the client must match the host).
-                                                                GameFrame.ANTE = partes_comando.length > 17 && Boolean.parseBoolean(partes_comando[17]);
-                                                                GameFrame.STRADDLE = partes_comando.length > 18 && Boolean.parseBoolean(partes_comando[18]);
-                                                                // Game rules chosen when the game was created (fixed fields; the
-                                                                // client must start with the same rules as the host).
-                                                                GameFrame.IWTSTH_RULE = partes_comando.length > 19 && "1".equals(partes_comando[19]);
-                                                                GameFrame.RUN_IT_TWICE = partes_comando.length > 20 && "1".equals(partes_comando[20]);
-                                                                GameFrame.RABBIT_HUNTING = partes_comando.length > 21 ? Integer.parseInt(partes_comando[21]) : 0;
-                                                                // Think time (seconds, index 22) + whether it's enabled (index 23):
-                                                                // FIXED fields before the structure; the client must start with the
-                                                                // same think time (or no limit) the host set. Length guards in case
-                                                                // they're missing (default = DEFAULT_THINK_TIME / enabled).
-                                                                GameFrame.THINK_TIME = partes_comando.length > 22 ? Integer.parseInt(partes_comando[22]) : GameFrame.DEFAULT_THINK_TIME;
-                                                                GameFrame.THINK_TIME_ENABLED = partes_comando.length <= 23 || "1".equals(partes_comando[23]);
-                                                                // Showdown pause time (seconds, index 24): FIXED field before the
-                                                                // structure; the client shows the result for the same duration as
-                                                                // the host. Length guard in case it's missing (default = DEFAULT_SHOWDOWN_TIME).
-                                                                GameFrame.SHOWDOWN_TIME = partes_comando.length > 24 ? Integer.parseInt(partes_comando[24]) : GameFrame.DEFAULT_SHOWDOWN_TIME;
-                                                                // Whether bots' balance is split among humans when the game ends
-                                                                // (index 25, FIXED field before the structure): the client must
-                                                                // apply the same setting the host uses in its final settlement.
-                                                                // Length guard in case it's missing (default = off).
-                                                                GameFrame.BOT_BALANCE_TO_HUMANS = partes_comando.length > 25 && "1".equals(partes_comando[25]);
-                                                                // Custom blind structure (optional trailing field, now at index
-                                                                // 26): the client recomputes the ladder with the SAME list as the
-                                                                // host. Absent = default ladder (null). Never keep a stale
-                                                                // structure from a previous game.
-                                                                if (partes_comando.length > 26 && !partes_comando[26].isEmpty()) {
-                                                                    try {
-                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[26]);
-                                                                    } catch (IllegalArgumentException blinds_ex) {
-                                                                        LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed or invalid; falling back to default", blinds_ex);
-                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                                    }
-                                                                } else {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                                }
                                                                 Helpers.GUIRunAndWait(new Runnable() {
                                                                     public void run() {
                                                                         // If the client had the settings wheel open (with the waiting

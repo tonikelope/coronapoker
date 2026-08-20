@@ -1935,6 +1935,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // already done, the host does NOT re-vote (uses the restored rit_agreed); if the crash happened
     // before the vote, it stays false and the vote runs normally.
     private volatile boolean rit_vote_done = false;
+    private volatile boolean rit_vote_close_received = false;
     private volatile Boolean rit_recover_fossil_agreed = null; // recovery (client) zero-trust cross-check: our OWN fossil's run-it-twice vote result this hand (null = no vote / old fossil); compared against the host's rebroadcast RIT_VOTE_CLOSE to flag a hostile/buggy host WITHOUT changing the applied value
     // Street where the action closed (all-in run-out). Community cards on LATER streets are the ones
     // "run out" (rewound for SIDE-B); this street and earlier ones are shared. -1 = no all-in run-out.
@@ -9462,6 +9463,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.rit_agreed = false;
 
         this.rit_vote_done = false;
+        this.rit_vote_close_received = false;
 
         this.rit_recover_fossil_agreed = null;
 
@@ -13022,6 +13024,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.rit_client_dialog = null;
         }
         printRitVoteResult(agreed);
+    }
+
+    /** Current protocol admits exactly one canonical RIT result per hand. */
+    public synchronized void acceptRitVoteCloseOnce(boolean agreed) {
+        if (this.rit_vote_close_received) {
+            throw new IllegalStateException("duplicate RIT_VOTE_CLOSE for current hand");
+        }
+        this.rit_vote_close_received = true;
+        closeRitClientDialog(agreed);
     }
 
     public void printRitVoteResult(boolean agreed) {

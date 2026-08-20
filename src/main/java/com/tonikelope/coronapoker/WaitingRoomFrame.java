@@ -3322,8 +3322,17 @@ public class WaitingRoomFrame extends JFrame {
                                                                 break;
                                                             case "RIT_VOTE_CLOSE":
                                                                 try {
-                                                                    GameFrame.getInstance().getCrupier().closeRitClientDialog("1".equals(partes_comando[3]));
-                                                                } catch (Exception e) {
+                                                                    RitVoteCloseEnvelope.Result result
+                                                                            = RitVoteCloseEnvelope.parse(partes_comando);
+                                                                    if (!result.isOk()) {
+                                                                        throw new IllegalArgumentException(result.error());
+                                                                    }
+                                                                    GameFrame.getInstance().getCrupier()
+                                                                            .acceptRitVoteCloseOnce(result.agreed());
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical RIT_VOTE_CLOSE; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
                                                                 }
                                                                 break;
                                                             case "RABBITRULE":

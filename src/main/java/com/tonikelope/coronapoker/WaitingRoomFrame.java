@@ -206,8 +206,10 @@ public class WaitingRoomFrame extends JFrame {
     public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean
             .parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
     private static volatile WaitingRoomFrame THIS = null;
+    private static final SessionGuard SESSION_GUARD = new SessionGuard();
 
     private final File local_avatar;
+    private final SessionGuard.Generation session_generation = SESSION_GUARD.beginSession();
     // Every avatar received from the wire is validated before Swing/ImageIO can
     // rasterize it and is stored in this room-owned directory.
     private final AvatarIO avatar_io = AvatarIO.createDefault();
@@ -422,6 +424,7 @@ public class WaitingRoomFrame extends JFrame {
         if (THIS == null) {
             return;
         }
+        THIS.invalidateSession();
         if (THIS.net_server != null) {
             THIS.net_server.getLate_clients_warning().clear();
         }
@@ -432,6 +435,22 @@ public class WaitingRoomFrame extends JFrame {
         THIS.avatar_io.close();
         THIS.dispose();
         THIS = null;
+    }
+
+    public java.util.concurrent.Future runSessionCritical(Runnable callback) {
+        return Helpers.threadRun(() -> SESSION_GUARD.runIfCurrent(session_generation, callback));
+    }
+
+    public boolean runSessionCriticalNow(Runnable callback) {
+        return SESSION_GUARD.runIfCurrent(session_generation, callback);
+    }
+
+    public boolean isCurrentSession() {
+        return SESSION_GUARD.isCurrent(session_generation);
+    }
+
+    private void invalidateSession() {
+        SESSION_GUARD.invalidate(session_generation);
     }
 
     public JCheckBox getChat_notifications() {
@@ -491,7 +510,7 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
-    public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
+    public ConfirmationTracker getReceived_confirmations() {
         return server ? net_server.getReceived_confirmations() : net_client.getReceived_confirmations();
     }
 
@@ -2524,8 +2543,32 @@ public class WaitingRoomFrame extends JFrame {
                                                 break;
 
                                             case "GAME":
+                                                if (partes_comando.length < 3) {
+                                                    LOGGER.log(Level.SEVERE, "Malformed GAME frame from host; closing connection");
+                                                    exit = true;
+                                                    closeClientSocket();
+                                                    break;
+                                                }
                                                 String subcomando = partes_comando[2];
-                                                int id = Integer.parseInt(partes_comando[1]);
+                                                final int id;
+                                                try {
+                                                    id = Integer.parseInt(partes_comando[1]);
+                                                } catch (NumberFormatException ex) {
+                                                    LOGGER.log(Level.SEVERE, "Invalid GAME id from host; closing connection", ex);
+                                                    exit = true;
+                                                    closeClientSocket();
+                                                    break;
+                                                }
+                                                GameCommandGate.Decision gateDecision
+                                                        = net_client.getGameCommandGate().accept(subcomando, id);
+                                                if (gateDecision.closeConnection()) {
+                                                    LOGGER.log(Level.SEVERE,
+                                                            "Unknown GAME subcommand {0} from host; closing connection",
+                                                            subcomando);
+                                                    exit = true;
+                                                    closeClientSocket();
+                                                    break;
+                                                }
 
                                                 try {
                                                     String confMsg = "CONF#" + String.valueOf(id + 1) + "#OK";
@@ -2533,17 +2576,7 @@ public class WaitingRoomFrame extends JFrame {
                                                 } catch (Exception e) {
                                                 }
 
-                                                if (!net_client.getCliente_last_received().containsKey(subcomando) || !net_client.getCliente_last_received().get(subcomando).equals(id)) {
-                                                    // Same cap as on the host side: the key is the subcommand
-                                                    // name, which the sender chooses, so without a bound a hostile
-                                                    // host could grow this table without limit.
-                                                    if (net_client.getCliente_last_received().size() >= Participant.MAX_DEDUP_SUBCOMMANDS) {
-                                                        LOGGER.log(Level.WARNING,
-                                                                "Client de-dup table hit {0} distinct subcommands — clearing it",
-                                                                Participant.MAX_DEDUP_SUBCOMMANDS);
-                                                        net_client.getCliente_last_received().clear();
-                                                    }
-                                                    net_client.getCliente_last_received().put(subcomando, id);
+                                                if (gateDecision.enqueue()) {
                                                     if (isPartida_empezada()) {
                                                         switch (subcomando) {
                                                             case "DECK_CASCADE_REQ":
@@ -2823,7 +2856,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                         // verification, and a slow team still finishes it even if the hand
                                                                         // has moved on (catching a past smuggle). The verdict comes back
                                                                         // through the Sink (see Crupier).
-                                                                        byte[] genesisB = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck();
+                                                                        byte[] genesisB = Crupier.contextBoundShuffleGenesis(
+                                                                                GameFrame.UGI, cruB.current_hand_id,
+                                                                                cruB.active_crypto_ring);
                                                                         int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
                                                                         ShuffleVerificationQueue.Job job = new ShuffleVerificationQueue.Job(
                                                                                 genesisB, csvToBytes(partes_bundle[3]), csvToBytes(partes_bundle[4]),
@@ -2916,7 +2951,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                         // Fail closed at the smuggling read window. A proof still queued may
                                                                         // finish during the bounded wait; missing, malformed or dishonest proof
                                                                         // enters lockdown and this peer never contributes a community unlock.
-                                                                        if (crupier.awaitShuffleProofGate(phase,
+                                                                        // Pocket-chain transport is allowed to finish while the
+                                                                        // proof is built. Crupier's mandatory pre-betting barrier
+                                                                        // prevents those cards from influencing any action. Every
+                                                                        // community phase remains gated here as well.
+                                                                        if (phase != Crupier.UNLOCK_PHASE_POCKET
+                                                                                && crupier.awaitShuffleProofGate(phase,
                                                                                 Crupier.SHUFFLE_PROOF_GATE_TIMEOUT_MS)
                                                                                 != Crupier.ShuffleProofGateDecision.ALLOW) {
                                                                             crupier.markShuffleProofFailed(megapacket);
@@ -3248,23 +3288,23 @@ public class WaitingRoomFrame extends JFrame {
                                                             case "RABBITRULE":
                                                                 GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
                                                                 break;
-                                                            case "RABBIT":
+                                                            case "RABBIT_AUTH":
                                                                 try {
-                                                                    // Gated by HAND_ID (not by show_time): we apply the rabbit if it
-                                                                    // belongs to the hand in progress, so the fee/reveal stays
-                                                                    // deterministic with the host and the rest of the peers (avoids a
-                                                                    // money divergence -> false DIVERGENT). Falls back to show_time if
-                                                                    // the peer doesn't send HAND_ID (older version).
-                                                                    String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
-                                                                    boolean acceptRabbit = (rabbitHid != null)
-                                                                            ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
-                                                                            : GameFrame.getInstance().getCrupier().isShow_time();
-                                                                    if (acceptRabbit) {
-                                                                        String rNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                        GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
-                                                                                rNick, Integer.parseInt(partes_comando[4]), rabbitHid);
+                                                                    if (partes_comando.length != 4) {
+                                                                        throw new IllegalArgumentException("wrong Rabbit authorization arity");
                                                                     }
-                                                                } catch (Exception e) {
+                                                                    RabbitFeeLedger.Result<RabbitFeeLedger.Authorization> decoded
+                                                                            = RabbitFeeLedger.Authorization.decode(
+                                                                                    Base64.getDecoder().decode(partes_comando[3]));
+                                                                    if (!decoded.isOk()) {
+                                                                        throw new IllegalArgumentException(decoded.error());
+                                                                    }
+                                                                    GameFrame.getInstance().getCrupier()
+                                                                            .RABBIT_AUTHORIZATION_HANDLER(decoded.value());
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid critical Rabbit authorization; closing connection", ex);
+                                                                    exit = true;
+                                                                    closeClientSocket();
                                                                 }
                                                                 break;
                                                             case "MEGAPACKET":
@@ -3300,7 +3340,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     LOGGER.log(Level.SEVERE, "Error pre-parsing MEGAPACKET in WaitingRoomFrame; queue handler will retry", e);
                                                                 }
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
@@ -3317,7 +3361,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                 });
                                                                 // Forward to the queue so the Crupier can continue its normal local flow
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
@@ -3461,7 +3509,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             // Crupier.recibirCartasComunitarias, which blocks in
                                                             // rondaApuestas and drains the queue.
                                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
@@ -3495,33 +3547,23 @@ public class WaitingRoomFrame extends JFrame {
                                                                 GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
                                                                 break;
                                                             case "UPDATEBLINDS":
-                                                                GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Double.parseDouble(partes_comando[5]), Double.parseDouble(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
-                                                                GameFrame.BLIND_CAP = partes_comando.length > 7 ? Double.parseDouble(partes_comando[7]) : 0;
-                                                                boolean ante_nuevo = partes_comando.length > 8 && Boolean.parseBoolean(partes_comando[8]);
-                                                                boolean straddle_nuevo = partes_comando.length > 9 && Boolean.parseBoolean(partes_comando[9]);
-                                                                // Same deferred notice as the blinds when ante/straddle changes: the
-                                                                // value is applied immediately (below), this only raises the flag.
-                                                                if (GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo) {
+                                                                GameConfigWireV1.Result updateConfig = partes_comando.length == 4
+                                                                        ? GameConfigWireV1.decodeBase64(partes_comando[3])
+                                                                        : null;
+                                                                if (updateConfig == null || !updateConfig.isOk()) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid UPDATEBLINDS configuration; closing connection");
+                                                                    exit = true;
+                                                                    closeClientSocket();
+                                                                    break;
+                                                                }
+                                                                if (GameFrame.ANTE != updateConfig.value().ante()
+                                                                        || GameFrame.STRADDLE != updateConfig.value().straddle()) {
                                                                     GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
                                                                 }
-                                                                GameFrame.ANTE = ante_nuevo;
-                                                                GameFrame.STRADDLE = straddle_nuevo;
-                                                                // The host can change the blind structure live (Settings > Game).
-                                                                // When it's the DEFAULT ladder the field is empty, and Java's
-                                                                // split('#') DROPS a trailing empty field, so the length>10 guard
-                                                                // isn't enough: it must be reset to null (same as in INIT) so host
-                                                                // and clients escalate blinds on the SAME ladder (otherwise they
-                                                                // desync as blinds go up).
-                                                                if (partes_comando.length > 10 && !partes_comando[10].isEmpty()) {
-                                                                    try {
-                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[10]);
-                                                                    } catch (Exception ex) {
-                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                                        LOGGER.log(Level.WARNING, "Bad blind structure in UPDATEBLINDS", ex);
-                                                                    }
-                                                                } else {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                                }
+                                                                updateConfig.value().applyBlindUpdateToGlobals();
+                                                                GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(
+                                                                        updateConfig.value().smallBlind(), updateConfig.value().bigBlind(),
+                                                                        updateConfig.value().blindsDouble(), updateConfig.value().blindsDoubleType());
                                                                 break;
                                                             case "SERVEREXIT":
                                                                 exit = true;
@@ -3618,7 +3660,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     LOGGER.log(Level.SEVERE, "Error processing MISDEAL", ex);
                                                                 }
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
@@ -3668,7 +3714,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                 break;
                                                             default:
                                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
                                                                     GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                                 }
                                                                 break;
@@ -3805,6 +3855,16 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 break;
                                                             case "INIT":
+                                                                GameConfigWireV1.Result initConfig = partes_comando.length == 4
+                                                                        ? GameConfigWireV1.decodeBase64(partes_comando[3])
+                                                                        : null;
+                                                                if (initConfig == null || !initConfig.isOk()) {
+                                                                    LOGGER.log(Level.SEVERE, "Invalid INIT configuration; closing connection");
+                                                                    exit = true;
+                                                                    closeClientSocket();
+                                                                    break;
+                                                                }
+                                                                initConfig.value().applyToGlobals();
                                                                 Helpers.GUIRun(() -> {
                                                                     setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
                                                                     sound_icon.setVisible(false);
@@ -3812,62 +3872,6 @@ public class WaitingRoomFrame extends JFrame {
                                                                     status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
                                                                     barra.setVisible(true);
                                                                 });
-                                                                GameFrame.BUYIN = Integer.parseInt(partes_comando[3]);
-                                                                GameFrame.CIEGA_PEQUEÑA = Double.parseDouble(partes_comando[4]);
-                                                                GameFrame.CIEGA_GRANDE = Double.parseDouble(partes_comando[5]);
-                                                                String[] ciegas_double = partes_comando[6].split("@");
-                                                                GameFrame.CIEGAS_DOUBLE = Integer.parseInt(ciegas_double[0]);
-                                                                GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
-                                                                GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
-                                                                GameFrame.UGI = partes_comando[7].split("@")[1];
-                                                                GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
-                                                                GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
-                                                                GameFrame.BLIND_CAP = partes_comando.length > 10 ? Double.parseDouble(partes_comando[10]) : 0;
-                                                                GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
-                                                                GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
-                                                                GameFrame.FIXED_BUYIN = partes_comando.length > 13 ? Boolean.parseBoolean(partes_comando[13]) : true;
-                                                                // Editable buy-in range and rebuy-cap policy (fixed fields; the
-                                                                // client's cap/headroom must match the host's).
-                                                                GameFrame.BUYIN_MIN_BB = partes_comando.length > 14 ? Integer.parseInt(partes_comando[14]) : BuyinRules.DEFAULT_MIN_BB;
-                                                                GameFrame.BUYIN_MAX_BB = partes_comando.length > 15 ? Integer.parseInt(partes_comando[15]) : BuyinRules.DEFAULT_MAX_BB;
-                                                                GameFrame.REBUY_CAP_POLICY = partes_comando.length > 16 ? Integer.parseInt(partes_comando[16]) : GameFrame.REBUY_CAP_BUYIN;
-                                                                // Ante and straddle (fixed fields; the client must match the host).
-                                                                GameFrame.ANTE = partes_comando.length > 17 && Boolean.parseBoolean(partes_comando[17]);
-                                                                GameFrame.STRADDLE = partes_comando.length > 18 && Boolean.parseBoolean(partes_comando[18]);
-                                                                // Game rules chosen when the game was created (fixed fields; the
-                                                                // client must start with the same rules as the host).
-                                                                GameFrame.IWTSTH_RULE = partes_comando.length > 19 && "1".equals(partes_comando[19]);
-                                                                GameFrame.RUN_IT_TWICE = partes_comando.length > 20 && "1".equals(partes_comando[20]);
-                                                                GameFrame.RABBIT_HUNTING = partes_comando.length > 21 ? Integer.parseInt(partes_comando[21]) : 0;
-                                                                // Think time (seconds, index 22) + whether it's enabled (index 23):
-                                                                // FIXED fields before the structure; the client must start with the
-                                                                // same think time (or no limit) the host set. Length guards in case
-                                                                // they're missing (default = DEFAULT_THINK_TIME / enabled).
-                                                                GameFrame.THINK_TIME = partes_comando.length > 22 ? Integer.parseInt(partes_comando[22]) : GameFrame.DEFAULT_THINK_TIME;
-                                                                GameFrame.THINK_TIME_ENABLED = partes_comando.length <= 23 || "1".equals(partes_comando[23]);
-                                                                // Showdown pause time (seconds, index 24): FIXED field before the
-                                                                // structure; the client shows the result for the same duration as
-                                                                // the host. Length guard in case it's missing (default = DEFAULT_SHOWDOWN_TIME).
-                                                                GameFrame.SHOWDOWN_TIME = partes_comando.length > 24 ? Integer.parseInt(partes_comando[24]) : GameFrame.DEFAULT_SHOWDOWN_TIME;
-                                                                // Whether bots' balance is split among humans when the game ends
-                                                                // (index 25, FIXED field before the structure): the client must
-                                                                // apply the same setting the host uses in its final settlement.
-                                                                // Length guard in case it's missing (default = off).
-                                                                GameFrame.BOT_BALANCE_TO_HUMANS = partes_comando.length > 25 && "1".equals(partes_comando[25]);
-                                                                // Custom blind structure (optional trailing field, now at index
-                                                                // 26): the client recomputes the ladder with the SAME list as the
-                                                                // host. Absent = default ladder (null). Never keep a stale
-                                                                // structure from a previous game.
-                                                                if (partes_comando.length > 26 && !partes_comando[26].isEmpty()) {
-                                                                    try {
-                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[26]);
-                                                                    } catch (IllegalArgumentException blinds_ex) {
-                                                                        LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed or invalid; falling back to default", blinds_ex);
-                                                                        GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                                    }
-                                                                } else {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-                                                                }
                                                                 Helpers.GUIRunAndWait(new Runnable() {
                                                                     public void run() {
                                                                         // If the client had the settings wheel open (with the waiting
@@ -3888,10 +3892,8 @@ public class WaitingRoomFrame extends JFrame {
                                                 break;
                                             case "CONF":
                                                 if (WaitingRoomFrame.getInstance() != null) {
-                                                    WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
-                                                    synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                                                        WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
-                                                    }
+                                                    WaitingRoomFrame.getInstance().getReceived_confirmations()
+                                                            .confirm(server_nick, Integer.parseInt(partes_comando[1]));
                                                 }
                                                 break;
                                             default:
@@ -3966,6 +3968,7 @@ public class WaitingRoomFrame extends JFrame {
                 ping_pong_lock.notifyAll();
             }
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                invalidateSession();
                 Helpers.GUIRunAndWait(() -> {
                     // On cancel, reopen the launch screen at the same spot and size (or
                     // maximized if it was) on the screen the waiting room is on.
@@ -4070,12 +4073,12 @@ public class WaitingRoomFrame extends JFrame {
         return false;
     }
 
-    private void serverSocketHandler(final Socket client_socket) {
+    private boolean serverSocketHandler(final Socket client_socket) {
 
         // The accept loop already reserved a handshake slot (handshake_slots). This try/finally
         // guarantees it's released no matter what (success, rejection, exception, or any of the
         // body's early returns).
-        Helpers.threadRun(() -> {
+        return HandshakeAdmission.submit(Helpers::threadRun, () -> {
             try {
 
                 LOGGER.log(Level.INFO, "A client is trying to connect...");
@@ -4605,7 +4608,7 @@ public class WaitingRoomFrame extends JFrame {
                 // the session.
                 net_server.getClient_threads().remove(Thread.currentThread().threadId());
             }
-        });
+        }, client_socket, handshake_slots);
 
     }
 
@@ -4657,15 +4660,9 @@ public class WaitingRoomFrame extends JFrame {
                         // exhausted, we drop the connection WITHOUT spending a thread or EC keygen
                         // (the legitimate peer retries).
                         if (handshake_slots.tryAcquire()) {
-                            try {
-                                serverSocketHandler(incoming);
-                            } catch (RuntimeException handoffEx) {
-                                // If submitting the handshake thread failed (e.g. pool shutting
-                                // down during teardown), its finally would NOT release the slot: we
-                                // release it here so it isn't leaked. Re-thrown so exception
-                                // handling/logging is unchanged.
-                                handshake_slots.release();
-                                throw handoffEx;
+                            if (!serverSocketHandler(incoming)) {
+                                LOGGER.log(Level.FINE,
+                                        "Handshake submission rejected while the executor is stopping");
                             }
                         } else {
                             LOGGER.log(Level.WARNING,
@@ -4694,6 +4691,7 @@ public class WaitingRoomFrame extends JFrame {
                 Helpers.UPnPClose(server_port);
             }
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                invalidateSession();
                 Helpers.GUIRun(() -> {
                     // On cancel, reopen the launch screen at the same spot and size (or
                     // maximized if it was) on the screen the waiting room is on.

@@ -50,7 +50,7 @@ public final class BuyinRules {
      * @return minimum buy-in, in chips
      */
     public static int min(double big_blind, int minBB) {
-        return (int) (big_blind * minBB);
+        return wholeUnitsCeiling(exactCents(big_blind, minBB));
     }
 
     /**
@@ -61,7 +61,7 @@ public final class BuyinRules {
      * @return maximum buy-in, in chips
      */
     public static int max(double big_blind, int maxBB) {
-        return (int) (big_blind * maxBB);
+        return wholeUnitsFloor(exactCents(big_blind, maxBB));
     }
 
     /**
@@ -75,8 +75,78 @@ public final class BuyinRules {
      * @return suggested buy-in, in chips
      */
     public static int defaultBuyin(double big_blind, int minBB, int maxBB) {
-        int suggested = (int) (big_blind * SUGGESTED_BB);
-        return Math.max(min(big_blind, minBB), Math.min(suggested, max(big_blind, maxBB)));
+        return range(big_blind, minBB, maxBB).suggested();
+    }
+
+    /** Canonical effective range shared by UI, wire admission, rebuy and recovery. */
+    public static Range range(double bigBlind, int minBB, int maxBB) {
+        if (minBB <= 0 || maxBB < minBB) {
+            throw new IllegalArgumentException("invalid buy-in range in big blinds");
+        }
+        int effectiveMin = wholeUnitsCeiling(exactCents(bigBlind, minBB));
+        int effectiveMax = wholeUnitsFloor(exactCents(bigBlind, maxBB));
+        if (effectiveMin > effectiveMax) {
+            throw new IllegalArgumentException("buy-in range contains no whole-unit amount");
+        }
+        int suggested = wholeUnitsFloor(exactCents(bigBlind, SUGGESTED_BB));
+        return new Range(effectiveMin, effectiveMax,
+                Math.max(effectiveMin, Math.min(suggested, effectiveMax)));
+    }
+
+    private static long exactCents(double bigBlind, int bigBlinds) {
+        if (bigBlinds <= 0) {
+            throw new IllegalArgumentException("big-blind multiplier must be positive");
+        }
+        // CIEGA_GRANDE historically travels through float-typed call sites. Clean the
+        // widened binary artifact (for example 0.20f -> 0.20000000298d) before the
+        // exact cent conversion; validated blinds themselves have at most two decimals.
+        return Math.multiplyExact(MoneyCents.fromDouble(Helpers.doubleClean(bigBlind)).cents(),
+                (long) bigBlinds);
+    }
+
+    private static int wholeUnitsCeiling(long cents) {
+        return Math.toIntExact(Math.addExact(cents, 99L) / 100L);
+    }
+
+    private static int wholeUnitsFloor(long cents) {
+        return Math.toIntExact(cents / 100L);
+    }
+
+    public static final class Range {
+
+        private final int min;
+        private final int max;
+        private final int suggested;
+
+        private Range(int min, int max, int suggested) {
+            this.min = min;
+            this.max = max;
+            this.suggested = suggested;
+        }
+
+        public int min() {
+            return min;
+        }
+
+        public int max() {
+            return max;
+        }
+
+        public int suggested() {
+            return suggested;
+        }
+
+        public int clampWireAmount(int amount) {
+            return Math.max(min, Math.min(amount, max));
+        }
+
+        public long minEffectiveCents() {
+            return min * 100L;
+        }
+
+        public long maxEffectiveCents() {
+            return max * 100L;
+        }
     }
 
     /**

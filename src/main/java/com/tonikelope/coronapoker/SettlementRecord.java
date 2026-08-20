@@ -46,11 +46,6 @@ import java.util.List;
  * </pre>
  *
  * <p>
- * The three-argument {@link #encode(byte[], List, long)} method retains the
- * original unversioned layout for reading historical fixtures and records. New
- * settlement consensus must use the four-argument v2 encoder.
- *
- * <p>
  * Determinism guarantees, mirroring {@link CanonicalActionRecord}:
  * <ul>
  * <li>Entries are sorted by {@code player_id} (unsigned), so map iteration
@@ -131,25 +126,6 @@ public final class SettlementRecord {
     }
 
     /**
-     * Encodes the settlement table into its canonical byte form.
-     *
-     * <p>
-     * The returned array is fresh on every call and never null. Entries are
-     * sorted by {@code player_id} internally, so the caller may pass them in
-     * any order. Duplicate {@code player_id}s are rejected (each participant
-     * settles exactly once).
-     *
-     * @param handId per-hand identifier from the host, exactly 16 bytes
-     * @param entries one {@link Entry} per settled participant, 1..255 of them
-     * @param sobranteCents odd-chip remainder not credited to any player,
-     * {@code >= 0}
-     * @return the canonical settlement-table bytes
-     */
-    public static byte[] encode(byte[] handId, List<Entry> entries, long sobranteCents) {
-        return encodeLegacy(handId, entries, sobranteCents);
-    }
-
-    /**
      * Encodes the v2 transcript. The opening remainder is signed as part of
      * H_final, preventing peers from silently disagreeing about carry-in.
      */
@@ -168,20 +144,6 @@ public final class SettlementRecord {
         writeInt64BE(out, p, openingRemainderCents);
         p += 8;
         writeInt64BE(out, p, closingRemainderCents);
-        return out;
-    }
-
-    private static byte[] encodeLegacy(byte[] handId, List<Entry> entries, long sobranteCents) {
-        validateInputs(handId, entries, 0L, sobranteCents);
-        Entry[] sorted = sortedEntries(entries);
-        int totalLen = HAND_ID_BYTES + 1 + (ENTRY_BYTES * sorted.length) + 8;
-        byte[] out = new byte[totalLen];
-        int p = 0;
-        System.arraycopy(handId, 0, out, p, HAND_ID_BYTES);
-        p += HAND_ID_BYTES;
-        out[p++] = (byte) (sorted.length & 0xFF);
-        p = writeEntries(out, p, sorted);
-        writeInt64BE(out, p, sobranteCents);
         return out;
     }
 
@@ -244,10 +206,6 @@ public final class SettlementRecord {
      * receipt; a {@code false} result is a settlement bug in this peer's own
      * accounting, independent of any other peer.
      */
-    public static boolean amountsBalance(List<Entry> entries, long sobranteCents) {
-        return amountsBalance(entries, 0L, sobranteCents);
-    }
-
     /**
      * Exact conservation check including chips carried into this hand from the
      * previous one: paid + closing remainder = contributions + opening
@@ -283,20 +241,17 @@ public final class SettlementRecord {
      * readers (the {@code disputed_hands} blob parser) can walk the entries.
      */
     public static int readParticipantCount(byte[] table) {
-        if (table == null || table.length < HAND_ID_BYTES + 1 + 8) {
+        if (table == null || table.length < HAND_ID_BYTES + 2 + 16) {
             throw new IllegalArgumentException("table too short");
         }
-        int legacyCount = table[HAND_ID_BYTES] & 0xFF;
-        int legacyLength = HAND_ID_BYTES + 1 + (ENTRY_BYTES * legacyCount) + 8;
-        if (table.length == legacyLength) {
-            return legacyCount;
+        int version = table[HAND_ID_BYTES] & 0xFF;
+        if (version != FORMAT_VERSION) {
+            throw new IllegalArgumentException("unsupported settlement table version");
         }
-        if (legacyCount == FORMAT_VERSION && table.length >= HAND_ID_BYTES + 2 + 16) {
-            int versionedCount = table[HAND_ID_BYTES + 1] & 0xFF;
-            int versionedLength = HAND_ID_BYTES + 2 + (ENTRY_BYTES * versionedCount) + 16;
-            if (table.length == versionedLength) {
-                return versionedCount;
-            }
+        int count = table[HAND_ID_BYTES + 1] & 0xFF;
+        int expectedLength = HAND_ID_BYTES + 2 + (ENTRY_BYTES * count) + 16;
+        if (table.length == expectedLength) {
+            return count;
         }
         throw new IllegalArgumentException("invalid settlement table layout");
     }

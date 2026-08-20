@@ -100,7 +100,8 @@ public final class BetRules {
      * ({@link #minRaiseIncrement})
      */
     public static boolean isFullRaise(float raiseIncrement, float minRaiseIncrement) {
-        return Math.round((double) raiseIncrement * 100.0) >= Math.round((double) minRaiseIncrement * 100.0);
+        return MoneyCents.fromFloat(raiseIncrement).cents()
+                >= MoneyCents.fromFloat(minRaiseIncrement).cents();
     }
 
     /**
@@ -108,7 +109,8 @@ public final class BetRules {
      * cent-resolution comparison, without the float widening.
      */
     public static boolean isFullRaise(double raiseIncrement, double minRaiseIncrement) {
-        return Math.round(raiseIncrement * 100.0) >= Math.round(minRaiseIncrement * 100.0);
+        return MoneyCents.fromDouble(raiseIncrement).cents()
+                >= MoneyCents.fromDouble(minRaiseIncrement).cents();
     }
 
     /**

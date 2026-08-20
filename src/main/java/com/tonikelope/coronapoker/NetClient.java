@@ -53,7 +53,7 @@ public class NetClient {
 
     private final WaitingRoomFrame waiting_room;
 
-    private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
+    private final ConfirmationTracker received_confirmations = new ConfirmationTracker();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
     // Client-side twin of Participant.SOCKET_READER_QUEUE_CAPACITY: without it, a hostile host
     // flooding commands faster than the client can process them would OOM it. Once full, the
@@ -62,10 +62,8 @@ public class NetClient {
     public static final int SOCKET_READER_QUEUE_CAPACITY = 10000;
 
     private final LinkedBlockingQueue<String> local_client_socket_reader_queue = new LinkedBlockingQueue<>(SOCKET_READER_QUEUE_CAPACITY);
-    // Concurrent: written/read by the consumer thread (containsKey/get/put for GAME
-    // command dedup) and clear()-ed by the reader thread on a null-read. A plain
-    // HashMap raced across those two threads could corrupt the table during a resize.
-    private final Map<String, Integer> cliente_last_received = new ConcurrentHashMap<>();
+    private final GameCommandGate game_command_gate
+            = new GameCommandGate(GameCommandType.Direction.HOST_TO_CLIENT);
     private final Object local_client_socket_lock = new Object();
     private final Object lock_reconnect = new Object();
     private final Object lock_client_reconnect = new Object();
@@ -107,7 +105,7 @@ public class NetClient {
     }
 
     // --- Queues and maps ---
-    public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
+    public ConfirmationTracker getReceived_confirmations() {
         return received_confirmations;
     }
 
@@ -165,8 +163,8 @@ public class NetClient {
         }
     }
 
-    public Map<String, Integer> getCliente_last_received() {
-        return cliente_last_received;
+    public GameCommandGate getGameCommandGate() {
+        return game_command_gate;
     }
 
     // --- Locks ---

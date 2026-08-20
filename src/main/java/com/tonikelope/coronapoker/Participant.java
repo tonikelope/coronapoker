@@ -40,7 +40,6 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
@@ -84,7 +83,7 @@ public class Participant implements Runnable {
             "DECK_CASCADE_RESP", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP",
             "SEAT_COMMIT", "SEAT_REVEAL");
 
-    // F2 ANTI-DoS: per-peer size cap + frequency token-bucket for text commands. Thresholds
+    // F2 ANTI-DoS: per-peer size cap + frequency token-bucket for non-critical text commands. Thresholds
     // are huge relative to legit traffic (a real game command is < 10 KB, a few per second),
     // so they never trigger in normal play — only under flood/OOM. Over the limit -> SILENT-
     // REFUSE (drop) + strike; accumulated strikes -> AUTO-EXPEL (only this peer is kicked, the
@@ -115,12 +114,12 @@ public class Participant implements Runnable {
 
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
-    // Cap on distinct subcommand names in the de-dup table below. Real subcommands number a
-    // few dozen; only someone making up names to grow the table unboundedly hits this.
-    public static final int MAX_DEDUP_SUBCOMMANDS = 256;
-
-    private final HashMap<String, Integer> last_received = new HashMap<>();
-    private final ConcurrentLinkedQueue<String> pre_game_socket_writer_queue = new ConcurrentLinkedQueue<>();
+    private final GameCommandGate game_command_gate
+            = new GameCommandGate(GameCommandType.Direction.CLIENT_TO_HOST);
+    public static final int PRE_GAME_OUTBOX_MAX_ELEMENTS = 4096;
+    public static final long PRE_GAME_OUTBOX_MAX_BYTES = 64L * 1024L * 1024L;
+    private final SessionOutbox pre_game_socket_writer_queue
+            = new SessionOutbox(PRE_GAME_OUTBOX_MAX_ELEMENTS, PRE_GAME_OUTBOX_MAX_BYTES);
     // BOUNDED queue. Unbounded, it would grow until memory ran out, and the abuse guard that
     // should throttle a flood runs at CONSUME time — i.e. behind it: a peer spamming commands
     // faster than they're processed would OOM the process before anything stops it. Once full,
@@ -783,7 +782,11 @@ public class Participant implements Runnable {
             while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                 while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getPre_game_socket_writer_queue().isEmpty()) {
-                    String command = getPre_game_socket_writer_queue().peek();
+                    SessionOutbox.Entry entry = getPre_game_socket_writer_queue().peek();
+                    if (entry == null) {
+                        break;
+                    }
+                    String command = entry.command();
                     ArrayList<String> pendientes = new ArrayList<>();
                     pendientes.add(getNick());
 
@@ -791,10 +794,16 @@ public class Participant implements Runnable {
                     // retransmission arrives after it already processed the first copy.
                     int id = Helpers.CSPRNG_GENERATOR.nextInt();
                     String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+                    ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
+                    ConfirmationTracker.Request request = tracker.register(id + 1, pendientes);
 
+                    try {
                     do {
-                        if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
-                            waitPreGameCommandConfirmations(id, pendientes);
+                        Boolean writeFailed = writePreGameCommandIfCurrent(entry, full_command);
+                        if (writeFailed == null) {
+                            break;
+                        } else if (!writeFailed) {
+                            waitPreGameCommandConfirmations(pendientes, entry, request);
                         } else {
                             // The write failed, typically because the socket is closed while
                             // the peer is getting its window to return. The loop's only wait
@@ -806,9 +815,14 @@ public class Participant implements Runnable {
                             // delivered.
                             Helpers.pausar(PRE_GAME_WRITE_RETRY_MS);
                         }
-                    } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
+                    } while (getPre_game_socket_writer_queue().isCurrent(entry)
+                            && !pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit()
+                            && !WaitingRoomFrame.getInstance().isPartida_empezada());
+                    } finally {
+                        tracker.close(request);
+                    }
 
-                    getPre_game_socket_writer_queue().poll();
+                    getPre_game_socket_writer_queue().removeIfHead(entry);
                 }
 
                 synchronized (WaitingRoomFrame.getInstance().getLock_client_pre_game_commands_wait()) {
@@ -855,8 +869,48 @@ public class Participant implements Runnable {
         return participant_socket_lock;
     }
 
-    public ConcurrentLinkedQueue<String> getPre_game_socket_writer_queue() {
+    public SessionOutbox getPre_game_socket_writer_queue() {
         return pre_game_socket_writer_queue;
+    }
+
+    public boolean enqueuePreGameCommand(String command) {
+        if (pre_game_socket_writer_queue.offer(command)) {
+            return true;
+        }
+        LOGGER.log(Level.SEVERE,
+                "Pre-game critical outbox overflow for {0}; closing connection", nick);
+        pre_game_socket_writer_queue.advanceGeneration();
+        markExitAndNotify("pre-game critical outbox overflow");
+        socketClose();
+        return false;
+    }
+
+    /**
+     * Returns null when the leased entry became stale, false on success and true on I/O failure.
+     * Holding participant_socket_lock makes the generation check, encryption and socket write
+     * atomic against resetSocket.
+     */
+    private Boolean writePreGameCommandIfCurrent(SessionOutbox.Entry entry, String fullCommand) {
+        boolean failed = false;
+        synchronized (getParticipant_socket_lock()) {
+            if (!pre_game_socket_writer_queue.isCurrent(entry)) {
+                return null;
+            }
+            try {
+                String encrypted = Helpers.encryptCommand(fullCommand, aes_key, hmac_key);
+                synchronized (socket.getOutputStream()) {
+                    socket.getOutputStream().write((encrypted + "\n").getBytes("UTF-8"));
+                    socket.getOutputStream().flush();
+                }
+            } catch (IOException ex) {
+                failed = true;
+            }
+        }
+        if (failed && !exit && pre_game_socket_writer_queue.isCurrent(entry)
+                && !isStallClose() && !timeout && !resetting_socket && !force_reset_socket) {
+            markExitAndNotify("pre-game outbox write failed (socket closed)");
+        }
+        return failed;
     }
 
     public SecretKeySpec getHmac_key_orig() {
@@ -1564,6 +1618,9 @@ public class Participant implements Runnable {
                 this.input_stream_reader = nuevo_stream;
                 this.aes_key = aes_k;
                 this.hmac_key = hmac_k;
+                // A reconnect installs a new authenticated socket generation. Commands leased
+                // or queued for the previous socket must never be written through this one.
+                this.pre_game_socket_writer_queue.advanceGeneration();
                 if (!isForce_reset_socket() && GameFrame.conexionSonidoOn()) {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
@@ -1622,39 +1679,26 @@ public class Participant implements Runnable {
      * @param id command id (confirmations carry id+1, see the "CONF" case in
      * {@link #run()})
      * @param pending nicks still awaiting confirmation; mutated in place
+     * @param entry outbox lease whose socket generation must remain current
      * @return {@code true} if the confirmation deadline expired with peers
      * still pending
      */
-    public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending) {
+    public boolean waitPreGameCommandConfirmations(ArrayList<String> pending,
+            SessionOutbox.Entry entry, ConfirmationTracker.Request request) {
         long start_time = System.currentTimeMillis();
         boolean plazo_vencido = false;
-        ArrayList<Object[]> rejected = new ArrayList<>();
+        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
 
-        while (!exit && !pending.isEmpty() && !plazo_vencido) {
-            Object[] confirmation;
-            synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                while (!exit && !WaitingRoomFrame.getInstance().getReceived_confirmations().isEmpty()) {
-                    confirmation = WaitingRoomFrame.getInstance().getReceived_confirmations().poll();
-                    if (confirmation != null && confirmation[0] != null && confirmation[1] != null) {
-                        if ((int) confirmation[1] == id + 1) {
-                            pending.remove((String) confirmation[0]);
-                        } else {
-                            rejected.add(confirmation);
-                        }
-                    }
-                }
-
-                if (!exit) {
-                    if (!rejected.isEmpty()) {
-                        WaitingRoomFrame.getInstance().getReceived_confirmations().addAll(rejected);
-                        rejected.clear();
-                    }
-
+        while (!exit && pre_game_socket_writer_queue.isCurrent(entry)
+                && !pending.isEmpty() && !plazo_vencido) {
+            synchronized (tracker) {
+                pending.retainAll(tracker.remaining(request));
+                if (!exit && pre_game_socket_writer_queue.isCurrent(entry)) {
                     if (System.currentTimeMillis() - start_time > GameFrame.CONFIRMATION_TIMEOUT) {
                         plazo_vencido = true;
                     } else if (!pending.isEmpty()) {
                         try {
-                            WaitingRoomFrame.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
+                            tracker.wait(WAIT_QUEUES);
                         } catch (Exception ex) {
                         }
                     }
@@ -1756,6 +1800,13 @@ public class Participant implements Runnable {
                         // strike; accumulated strikes -> AUTO-EXPEL (kick THIS peer, the table
                         // continues). Thresholds are huge -> never affects an honest client.
                         if (inboundAbuse(recibido)) {
+                            if (recibido.startsWith("GAME#")) {
+                                LOGGER.log(Level.SEVERE,
+                                        "Rate-limited critical GAME command from {0}; closing connection", nick);
+                                game_command_gate.rejectForRateLimit(null);
+                                exitAndCloseSocket();
+                                break;
+                            }
                             if (registerAbuseStrike("inbound flood/oversize")) {
                                 autoExpel("inbound flood/oversize");
                                 break;
@@ -1789,14 +1840,33 @@ public class Participant implements Runnable {
                                 sala_espera.recibirMensajeChat(nick, mensaje);
                                 break;
                             case "CONF":
-                                WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{nick, Integer.valueOf(partes_comando[1])});
-                                synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                                    WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
-                                }
+                                WaitingRoomFrame.getInstance().getReceived_confirmations()
+                                        .confirm(nick, Integer.parseInt(partes_comando[1]));
                                 break;
                             case "GAME":
+                                if (partes_comando.length < 3) {
+                                    LOGGER.log(Level.SEVERE, "Malformed GAME frame from {0}; closing connection", nick);
+                                    exitAndCloseSocket();
+                                    break;
+                                }
                                 String subcomando = partes_comando[2];
-                                int command_id = Integer.parseInt(partes_comando[1]);
+                                final int command_id;
+                                try {
+                                    command_id = Integer.parseInt(partes_comando[1]);
+                                } catch (NumberFormatException ex) {
+                                    LOGGER.log(Level.SEVERE, "Invalid GAME id from " + nick + "; closing connection", ex);
+                                    exitAndCloseSocket();
+                                    break;
+                                }
+                                GameCommandGate.Decision gateDecision
+                                        = game_command_gate.accept(subcomando, command_id);
+                                if (gateDecision.closeConnection()) {
+                                    LOGGER.log(Level.SEVERE,
+                                            "Unknown GAME subcommand {0} from {1}; closing connection",
+                                            new Object[]{subcomando, nick});
+                                    exitAndCloseSocket();
+                                    break;
+                                }
 
                                 // The CONF packet must be encrypted: the client always expects encrypted
                                 // commands, and a plaintext CONF causes a decrypt failure and deadlocks its
@@ -1808,21 +1878,7 @@ public class Participant implements Runnable {
                                     LOGGER.log(Level.SEVERE, "Failed to encrypt CONF message", e);
                                 }
 
-                                if (!last_received.containsKey(subcomando) || !last_received.get(subcomando).equals(command_id)) {
-                                    // The key is the subcommand NAME, chosen by the sender: making up
-                                    // distinct names grows this table without bound, since it's never
-                                    // otherwise cleared. The cap sits well above the subcommands that
-                                    // actually exist, so only someone inventing names can reach it; on
-                                    // hitting it the table is cleared, since it only exists to avoid
-                                    // repeating what just arrived.
-                                    if (last_received.size() >= MAX_DEDUP_SUBCOMMANDS) {
-                                        LOGGER.log(Level.WARNING,
-                                                "De-dup table for {0} hit {1} distinct subcommands — clearing it (peer sending made-up names?)",
-                                                new Object[]{nick, MAX_DEDUP_SUBCOMMANDS});
-                                        last_received.clear();
-                                    }
-                                    last_received.put(subcomando, command_id);
-
+                                if (gateDecision.enqueue()) {
                                     switch (subcomando) {
 
                                         case "PAUSE":
@@ -1861,23 +1917,20 @@ public class Participant implements Runnable {
                                                 GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(nick);
                                             }
                                             break;
-                                        case "RABBIT": {
-                                            // Gated by HAND_ID instead of show_time: apply the rabbit
-                                            // hunt (fee + reveal) if it belongs to the current hand, so
-                                            // it's deterministic across ALL peers and money doesn't
-                                            // diverge (which used to trigger a false DIVERGENT on the
-                                            // next hand). The host used to apply it ALWAYS (no guard),
-                                            // while a client whose show_time had already closed would
-                                            // discard it -> asymmetry. Falls back to show_time only if
-                                            // the peer doesn't send a HAND_ID (older client version).
-                                            // Also guards against a rabbit request from a past hand.
-                                            String rabbitHid = partes_comando.length > 5 ? partes_comando[5] : null;
-                                            boolean acceptRabbit = (rabbitHid != null)
-                                                    ? GameFrame.getInstance().getCrupier().rabbitBelongsToCurrentHand(rabbitHid)
-                                                    : GameFrame.getInstance().getCrupier().isShow_time();
-                                            if (acceptRabbit) {
-                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(
-                                                        nick, Integer.parseInt(partes_comando[4]), rabbitHid);
+                                        case "RABBIT_REQ": {
+                                            try {
+                                                if (partes_comando.length != 4) {
+                                                    throw new IllegalArgumentException("wrong Rabbit request arity");
+                                                }
+                                                RabbitFeeLedger.Result<RabbitFeeLedger.Request> decoded
+                                                        = RabbitFeeLedger.Request.decode(Base64.getDecoder().decode(partes_comando[3]));
+                                                if (!decoded.isOk() || !nick.equals(decoded.value().playerId())) {
+                                                    throw new IllegalArgumentException("invalid Rabbit request identity or wire");
+                                                }
+                                                GameFrame.getInstance().getCrupier().RABBIT_REQUEST_HANDLER(decoded.value());
+                                            } catch (Exception ex) {
+                                                LOGGER.log(Level.SEVERE, "Invalid critical Rabbit request from " + nick + "; closing connection", ex);
+                                                exitAndCloseSocket();
                                             }
                                             break;
                                         }
@@ -2006,7 +2059,8 @@ public class Participant implements Runnable {
                                                 if (partes_comando.length >= 5
                                                         && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
                                                     synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                        GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                        GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                () -> Helpers.threadRun(this::exitAndCloseSocket));
                                                         GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                     }
                                                 } else {
@@ -2026,7 +2080,8 @@ public class Participant implements Runnable {
                                                 if (partes_comando.length >= 5
                                                         && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
                                                     synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                        GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                        GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                () -> Helpers.threadRun(this::exitAndCloseSocket));
                                                         GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                     }
                                                 } else {
@@ -2062,7 +2117,8 @@ public class Participant implements Runnable {
                                                 }
                                             }
                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                        () -> Helpers.threadRun(this::exitAndCloseSocket));
                                                 GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                             }
                                             break;

@@ -159,6 +159,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // clients and is persisted/restored on recover. See BlindStructure and
     // Crupier.doblarCiegas/simulateNextBlinds.
     public static volatile double[][] ACTIVE_BLIND_STRUCTURE = null;
+    // Complete validated table snapshot. Published only after every field has
+    // passed GameConfigWireV1 validation; invalid wire data never replaces it.
+    public static volatile GameConfigWireV1 TABLE_CONFIG = null;
     public static volatile boolean REBUY = true;
     public static volatile int REBUY_LIMIT = 0; //0 = no per-player rebuy limit; otherwise max times a player can rebuy in the game
     public static volatile boolean BOT_REBUY = true; //true = bots can rebuy (subject to the limit if > 0); false = bots sit out as spectators without asking the host
@@ -350,9 +353,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // text. On mouse-out the winner's highlight is restored as it was. Same focus/unfocus
     // mechanism the winner already uses. Purely visual and LOCAL per client (not broadcast).
     // Off by default.
-    // Key migration: this used to be stored as "resaltar_jugada_perdedor" (losers only); that
-    // old key is read as a fallback so existing users don't lose their setting.
-    public static volatile boolean RESALTAR_JUGADA_SHOWDOWN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_showdown", Helpers.PROPERTIES.getProperty("resaltar_jugada_perdedor", "true")));
+    public static volatile boolean RESALTAR_JUGADA_SHOWDOWN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("resaltar_jugada_showdown", "true"));
     // Hovering a seat's avatar shows it enlarged over the table next to that player's nick and
     // stack (AvatarZoomOverlay), and removes it on mouse-out. Purely visual and LOCAL per
     // client (not broadcast). OFF by default (covers part of the table).
@@ -380,13 +381,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // screenshot per game (whichever happens first). LOCAL preference, OFF by default (can
     // pile up many screenshots); enabled in Appearance > Table.
     public static volatile boolean SCREENSHOT_FIN_TIMBA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("screenshot_fin_timba", "false"));
-    // The old "Cards" checkbox (animacion_reparto) used to govern SHUFFLE, DEAL and UNCOVER
-    // all at once. It's now split into three independent preferences: "animacion_reparto"
-    // keeps its key and now only governs the deal; "animacion_barajado" and "animacion_destape"
-    // are new and MIGRATE from the historical "animacion_reparto" value the first time (to
-    // honor the user's prior choice on upgrade).
-    public static volatile boolean ANIMACION_BARAJADO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_barajado", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
-    public static volatile boolean ANIMACION_DESTAPE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_destape", Helpers.PROPERTIES.getProperty("animacion_reparto", "true")));
+    // Shuffle, deal and uncover are independent current-version preferences.
+    public static volatile boolean ANIMACION_BARAJADO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_barajado", "true"));
+    public static volatile boolean ANIMACION_DESTAPE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_destape", "true"));
     // Animated swap of the local player's two hole cards when sorting the hand (high card to
     // the left): each card slides into the other's position (they cross). Off = plain swap, as
     // before. On by default.
@@ -505,28 +502,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static boolean downgradeAnimOn() {
         return ANIMACIONES && ANIMACION_DOWNGRADE_PREF;
-    }
-
-    // One-shot migration of the old "Cards" checkbox (animacion_reparto), split into
-    // shuffle/deal/uncover. ANIMACION_BARAJADO_PREF and ANIMACION_DESTAPE_PREF inherit its value
-    // the first time by reading animacion_reparto as a fallback; but that fallback STAYS LIVE as
-    // long as their own keys don't exist in the file, so a later change to animacion_reparto
-    // (e.g. from the Deal menu item) would drag them along again on the next startup. This
-    // method persists the new keys with their already-migrated value ONCE, breaking the link.
-    // Idempotent: doesn't touch a key that already exists. Called by startup (Init) before warm-up.
-    public static void migrateSplitAnimationPrefs() {
-        boolean changed = false;
-        if (Helpers.PROPERTIES.getProperty("animacion_barajado") == null) {
-            Helpers.PROPERTIES.setProperty("animacion_barajado", String.valueOf(ANIMACION_BARAJADO_PREF));
-            changed = true;
-        }
-        if (Helpers.PROPERTIES.getProperty("animacion_destape") == null) {
-            Helpers.PROPERTIES.setProperty("animacion_destape", String.valueOf(ANIMACION_DESTAPE_PREF));
-            changed = true;
-        }
-        if (changed) {
-            Helpers.savePropertiesFile();
-        }
     }
 
     public static boolean ciegasDealerAnimOn() {
@@ -908,9 +883,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean CINEMATICAS_GAMEOVER_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas_gameover", "true"));
     public static volatile boolean CHAT_IMAGES_INGAME = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_images_ingame", "true"));
     public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
-    // Local player's position chip over their cards: 3 states cycled by click (persisted):
-    // 0=normal, 1=70% opacity, 2=hidden. parseLocalPosChipState migrates the old boolean
-    // "true"/"false" value from previous versions (true->normal, false->hidden).
+    // Local player's position chip over their cards: 3 states cycled by click (persisted).
     public static final int LOCAL_POS_CHIP_NORMAL = 0;
     public static final int LOCAL_POS_CHIP_DIM = 1;
     public static final int LOCAL_POS_CHIP_HIDDEN = 2;
@@ -920,18 +893,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         if (v == null) {
             return LOCAL_POS_CHIP_NORMAL;
         }
-        switch (v.trim()) {
-            case "true":
-                return LOCAL_POS_CHIP_NORMAL;
-            case "false":
-                return LOCAL_POS_CHIP_HIDDEN;
-            default:
-                try {
-                    int s = Integer.parseInt(v.trim());
-                    return (s >= LOCAL_POS_CHIP_NORMAL && s <= LOCAL_POS_CHIP_HIDDEN) ? s : LOCAL_POS_CHIP_NORMAL;
-                } catch (NumberFormatException e) {
-                    return LOCAL_POS_CHIP_NORMAL;
-                }
+        try {
+            int s = Integer.parseInt(v.trim());
+            return (s >= LOCAL_POS_CHIP_NORMAL && s <= LOCAL_POS_CHIP_HIDDEN) ? s : LOCAL_POS_CHIP_NORMAL;
+        } catch (NumberFormatException e) {
+            return LOCAL_POS_CHIP_NORMAL;
         }
     }
     public static volatile String SERVER_HISTORY = Helpers.PROPERTIES.getProperty("server_history", "");
@@ -1128,36 +1094,47 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 + "#SHOWDOWN=" + SHOWDOWN_TIME;
     }
 
+    private static final java.util.Set<String> RECOVER_SETTINGS_KEYS = java.util.Set.of(
+            "IWTSTH", "RABBIT", "DIFFICULTY", "BLIND_CAP", "REBUY_LIMIT",
+            "BOT_REBUY", "BOTBAL", "RUNITWICE", "VOICEMSG", "TTS",
+            "FIXED_BUYIN", "BLINDS", "BMINBB", "BMAXBB", "RBCAP",
+            "ANTE", "STRADDLE", "MANOS", "THINKT", "THINKON", "SHOWDOWN");
+
+    private static boolean hasCurrentRecoverSettingsSchema(String serialized) {
+        if (serialized == null || serialized.isEmpty()) {
+            return false;
+        }
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (String pair : serialized.split("#", -1)) {
+            int eq = pair.indexOf('=');
+            if (eq <= 0 || pair.indexOf('=', eq + 1) >= 0) {
+                return false;
+            }
+            String key = pair.substring(0, eq);
+            if (!RECOVER_SETTINGS_KEYS.contains(key) || !seen.add(key)) {
+                return false;
+            }
+        }
+        return seen.equals(RECOVER_SETTINGS_KEYS);
+    }
+
     public static void applyRecoverSettings(String serialized) {
-        // Clean slate: recovery ALWAYS starts from the default ladder. If the recovered row
-        // doesn't carry a BLINDS key (a game from before this feature), ACTIVE deterministically
-        // stays null instead of carrying over a custom structure left active by another game
-        // in this session.
+        if (!hasCurrentRecoverSettingsSchema(serialized)) {
+            throw new IllegalArgumentException("recover settings do not match the current schema");
+        }
+
+        // Clean slate before applying the complete current schema.
         ACTIVE_BLIND_STRUCTURE = null;
-        // Same rule for the buy-in range and the rebuy cap policy: a row from before this
-        // feature carries no BMINBB/BMAXBB/RBCAP, so we ALWAYS start from the defaults and
-        // never carry over a stale range/policy from another game open in this same session.
         BUYIN_MIN_BB = BuyinRules.DEFAULT_MIN_BB;
         BUYIN_MAX_BB = BuyinRules.DEFAULT_MAX_BB;
         REBUY_CAP_POLICY = REBUY_CAP_BUYIN;
-        // Same rule for ante/straddle: a row from before this feature carries no such keys, so
-        // we ALWAYS start off instead of carrying over stale state from another game open in
-        // this same session.
         ANTE = false;
         STRADDLE = false;
-        // Hand limit + think time: a row from before this feature carries no such keys, so we
-        // start from their defaults (no limit / enabled at DEFAULT_THINK_TIME).
         MANOS = -1;
         THINK_TIME = DEFAULT_THINK_TIME;
         THINK_TIME_ENABLED = true;
         SHOWDOWN_TIME = DEFAULT_SHOWDOWN_TIME;
-        // Splitting bot balance among humans: a row from before this feature carries no such
-        // key, so we ALWAYS start off instead of carrying over stale state from another game
-        // open in this same session.
         BOT_BALANCE_TO_HUMANS = false;
-        if (serialized == null || serialized.isEmpty()) {
-            return;
-        }
         for (String pair : serialized.split("#")) {
             int eq = pair.indexOf('=');
             if (eq <= 0) {
@@ -1177,11 +1154,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 case "DIFFICULTY":
                     try {
-                        // "EXPERT" is a legacy value from the old 4-level scheme;
-                        // it maps to the current top level HARD.
-                        Bot.DIFFICULTY = "EXPERT".equals(val)
-                                ? Bot.Difficulty.HARD
-                                : Bot.Difficulty.valueOf(val);
+                        Bot.DIFFICULTY = Bot.Difficulty.valueOf(val);
                     } catch (IllegalArgumentException ignore) {
                     }
                     break;
@@ -1298,15 +1271,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // unit-tested); these bind it to the live game config (CIEGA_GRANDE, BUYIN,
     // FIXED_BUYIN).
     public static int getBuyinMin() {
-        return BuyinRules.min(CIEGA_GRANDE, BUYIN_MIN_BB);
+        return getBuyinRange().min();
     }
 
     public static int getBuyinDefault() {
-        return BuyinRules.defaultBuyin(CIEGA_GRANDE, BUYIN_MIN_BB, BUYIN_MAX_BB);
+        return getBuyinRange().suggested();
     }
 
     public static int getBuyinMax() {
-        return BuyinRules.max(CIEGA_GRANDE, BUYIN_MAX_BB);
+        return getBuyinRange().max();
+    }
+
+    public static BuyinRules.Range getBuyinRange() {
+        return BuyinRules.range(CIEGA_GRANDE, BUYIN_MIN_BB, BUYIN_MAX_BB);
     }
 
     // Per-table stack ceiling for rebuys/top-ups, per REBUY_CAP_POLICY:
@@ -3257,6 +3234,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return sala_espera;
     }
 
+    private java.util.concurrent.Future runCriticalAsync(Runnable callback) {
+        return sala_espera.runSessionCritical(callback);
+    }
+
     public void updateSoundIcon() {
 
         if (tapete.getCommunityCards().getBlinds_label().getHeight() > 0) {
@@ -3679,7 +3660,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 gf.getCrupier().broadcastGAMECommandFromServer("TTS#" + (on ? "1" : "0"), null);
                 // Persists the rule so it survives a stop+recover.
                 GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
@@ -3701,7 +3682,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 gf.getCrupier().broadcastGAMECommandFromServer("VOICEMSGRULE#" + (on ? "1" : "0"), null);
                 GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
             });
@@ -3719,7 +3700,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.IWTSTH_RULE = on;
                     gf.getCrupier().broadcastGAMECommandFromServer("IWTSTHRULE#" + (on ? "1" : "0"), null);
@@ -3740,7 +3721,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.BOT_BALANCE_TO_HUMANS = on;
                     gf.getCrupier().broadcastGAMECommandFromServer("BOTBALRULE#" + (on ? "1" : "0"), null);
@@ -3760,7 +3741,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.BOT_REBUY = on;
                     gf.getCrupier().broadcastGAMECommandFromServer("BOTREBUYRULE#" + (on ? "1" : "0"), null);
@@ -3783,7 +3764,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.RUN_IT_TWICE = on;
                     gf.getCrupier().broadcastGAMECommandFromServer("RUNITWICERULE#" + (on ? "1" : "0"), null);
@@ -3800,7 +3781,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.RABBIT_HUNTING = mode;
                     gf.getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(mode), null);
@@ -4976,7 +4957,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
-        Helpers.threadRun(crupier);
+        runCriticalAsync(crupier);
 
         // javax.swing.Timer already executes in the EDT. Removed redundant GUIRun context switch.
         tiempo_juego = new Timer(1000, (ActionEvent ae) -> {
@@ -5008,7 +4989,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
      * abort the chain).
      */
     private void telemetryBroadcasterWatchdog() {
-        Helpers.threadRun(() -> {
+        runCriticalAsync(() -> {
             while (crupier != null && !crupier.isFin_de_la_transmision()) {
                 try {
                     Helpers.pausar(WaitingRoomFrame.PING_INTERVAL_MS);
@@ -5027,7 +5008,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void TTSWatchdog() {
 
-        Helpers.threadRun(new Runnable() {
+        runCriticalAsync(new Runnable() {
             private volatile boolean temp_notify_blocked;
 
             @Override

@@ -169,37 +169,21 @@ public final class CanonicalActionRecord {
 
     /**
      * Converts a float amount (in CoronaPoker chips, two decimals) into the
-     * 64-bit integer cents value stored in the record. Defends against IEEE-754
-     * jitter: float arithmetic is widened to {@code double} before scaling and
-     * rounded via {@link Math#round(double)} (banker's rounding to nearest
-     * long). Negative amounts are rejected — actions never have negative bets.
+     * bounded integer cents value stored in the record. Exact cent values and
+     * insignificant IEEE-754 representation noise are accepted; off-grid,
+     * negative and out-of-domain amounts are rejected.
      */
     public static long amountToCents(float amount) {
-        if (Float.isNaN(amount) || Float.isInfinite(amount)) {
-            throw new IllegalArgumentException("amount must be finite: " + amount);
-        }
-        if (amount < 0f) {
-            throw new IllegalArgumentException("amount cannot be negative: " + amount);
-        }
-        return Math.round((double) amount * 100.0);
+        return MoneyCents.fromFloat(amount).cents();
     }
 
     /**
      * {@code double} money overload of {@link #amountToCents(float)}. The
-     * engine's working money type is {@code double}; this is the single
-     * consensus gate that quantizes it to integer cents. Below the float
-     * exactness ceiling it yields the same cents as the float overload (so
-     * migrated games keep byte-identical digests); above it the double input no
-     * longer loses cents.
+     * engine's working money type is {@code double}; this is the consensus gate
+     * that validates it against the exact, bounded cent domain.
      */
     public static long amountToCents(double amount) {
-        if (Double.isNaN(amount) || Double.isInfinite(amount)) {
-            throw new IllegalArgumentException("amount must be finite: " + amount);
-        }
-        if (amount < 0d) {
-            throw new IllegalArgumentException("amount cannot be negative: " + amount);
-        }
-        return Math.round(amount * 100.0);
+        return MoneyCents.fromDouble(amount).cents();
     }
 
     /**

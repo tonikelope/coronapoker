@@ -132,10 +132,7 @@ public final class HandCreateTransaction {
         return createdId[0];
     }
 
-    /**
-     * Deduplicates legacy rows deterministically, then enforces one balance per
-     * player/hand.
-     */
+    /** Enforces one balance per player/hand without rewriting invalid data. */
     public static void ensureUniqueBalanceRows(Connection con) throws SQLException {
         if (con == null) {
             throw new IllegalArgumentException("connection is required");
@@ -144,13 +141,11 @@ public final class HandCreateTransaction {
             try (Statement statement = con.createStatement(); ResultSet rs = statement.executeQuery(
                     "SELECT 1 FROM balance WHERE player IS NULL OR id_hand IS NULL LIMIT 1")) {
                 if (rs.next()) {
-                    throw new SQLException("cannot migrate balance rows with null hand/player identity");
+                    throw new SQLException("balance rows require non-null hand/player identity");
                 }
             }
             try (Statement statement = con.createStatement()) {
                 statement.setQueryTimeout(30);
-                statement.executeUpdate("DELETE FROM balance WHERE id NOT IN "
-                        + "(SELECT MAX(id) FROM balance GROUP BY id_hand, player)");
                 statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_balance_hand_player "
                         + "ON balance(id_hand, player)");
             }

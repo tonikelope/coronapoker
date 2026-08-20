@@ -379,8 +379,9 @@ public class BlindStructureTest {
         assertEquals(1, BlindStructure.indexOfLevel(s, 0.25));
         assertEquals(2, BlindStructure.indexOfLevel(s, 0.5));
         assertEquals(3, BlindStructure.indexOfLevel(s, 25));
-        // Tolerant of double drift (rounds to the same cent).
-        assertEquals(1, BlindStructure.indexOfLevel(s, 0.250001));
+        // Material off-grid values are rejected rather than rounded onto a level.
+        assertThrows(IllegalArgumentException.class,
+                () -> BlindStructure.indexOfLevel(s, 0.250001));
         // Off the ladder (0.27 is not a level).
         assertEquals(-1, BlindStructure.indexOfLevel(s, 0.27));
         assertEquals(-1, BlindStructure.indexOfLevel(null, 1));

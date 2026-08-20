@@ -1382,16 +1382,43 @@ public class Helpers {
         THREAD_POOL.shutdown();
 
         THREAD_POOL.shutdownNow();
+        boolean workersTerminated = awaitTermination(THREAD_POOL, "worker");
+        if (!workersTerminated) {
+            LOGGER.log(Level.SEVERE,
+                    "Worker pool remains active; a guarded table session cannot be replaced yet.");
+        }
 
         if (LOG_POOL != null) {
             LOG_POOL.shutdown();
             LOG_POOL.shutdownNow();
+            awaitTermination(LOG_POOL, "log");
         }
 
         LOGGER.log(Level.INFO, "Thread pool shutdown — cooperative cancellation notices that follow are expected.");
     }
 
+    private static boolean awaitTermination(ExecutorService executor, String name) {
+        try {
+            boolean terminated = executor.awaitTermination(THREAD_POOL_SHUTDOWN_TIMEOUT,
+                    java.util.concurrent.TimeUnit.SECONDS);
+            if (!terminated) {
+                LOGGER.log(Level.SEVERE, "{0} executor still active after {1}s",
+                        new Object[]{name, THREAD_POOL_SHUTDOWN_TIMEOUT});
+            }
+            return terminated;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            LOGGER.log(Level.WARNING, name + " executor termination wait interrupted", ex);
+            return false;
+        }
+    }
+
     public static void CREATE_THREAD_POOL() {
+        ThreadPoolExecutor previous = THREAD_POOL;
+        if (previous != null && previous.isShutdown() && !previous.isTerminated()) {
+            throw new IllegalStateException(
+                    "Cannot create a new table executor while the previous one is still active");
+        }
         THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 
         LOG_POOL = Executors.newSingleThreadExecutor();
@@ -1594,11 +1621,11 @@ public class Helpers {
 
             try (Statement statement = getSQLITE().createStatement()) {
                 statement.setQueryTimeout(30);  // set timeout to 30 sec.
-                statement.execute("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER)");
-                statement.execute("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
-                statement.execute("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
+                statement.execute("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER, ugi TEXT, local INTEGER NOT NULL DEFAULT 0, recover_settings TEXT, private INTEGER NOT NULL DEFAULT 0, imported INTEGER NOT NULL DEFAULT 0, imported_from TEXT)");
+                statement.execute("CREATE TABLE IF NOT EXISTS hand(id INTEGER PRIMARY KEY, id_game INTEGER, counter INTEGER, sbval REAL, blinds_double INTEGER, dealer TEXT, sb TEXT, bb TEXT, start INTEGER, end INTEGER, com_cards TEXT, preflop_players TEXT, flop_players TEXT, turn_players TEXT, river_players TEXT, pot REAL, hand_id_b64 TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
+                statement.execute("CREATE TABLE IF NOT EXISTS action(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, counter INTEGER, round INTEGER, action INTEGER, bet REAL, conta_raise INTEGER, response_time INTEGER, record_b64 TEXT, sig_b64 TEXT, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS showdown(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, hole_cards TEXT, hand_cards TEXT, hand_val INTEGER, winner INTEGER, pay REAL, profit REAL, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
-                statement.execute("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
+                statement.execute("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, rebuy_count INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
                 statement.execute("CREATE TABLE IF NOT EXISTS hand_state(id_game INTEGER PRIMARY KEY, payload TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
@@ -1629,74 +1656,8 @@ public class Helpers {
                 // H_final || sig, 16+32+64 = 112 bytes); local_h is this peer's own H_final at
                 // dispute time.
                 statement.execute("CREATE TABLE IF NOT EXISTS disputed_hands(id INTEGER PRIMARY KEY, id_hand INTEGER NOT NULL, timestamp INTEGER NOT NULL, receipts BLOB NOT NULL, local_h BLOB NOT NULL, reason TEXT, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
-                // SCHEMA MIGRATIONS — best-effort ALTER TABLE, silently ignored when the
-                // column already exists.
-                try {
-                    statement.execute("ALTER TABLE game ADD ugi TEXT");
-                } catch (Exception ex) {
-                }
-                try {
-                    statement.execute("ALTER TABLE game ADD local INTEGER DEFAULT 0");
-                } catch (Exception ex) {
-                }
-                try {
-                    statement.execute("ALTER TABLE game ADD recover_settings TEXT");
-                } catch (Exception ex) {
-                }
-                // Per-game "private" flag (0/1). A private game is withheld from the
-                // stats P2P sync by default — the "exclude private games" share-exclusion
-                // is ON out of the box, though the user can turn it off in the Exclude
-                // dialog; see StatsSync.listShareableUgis(). Purely local: it is NOT part
-                // of the sync payload, so a game received from a peer is never private here.
-                try {
-                    statement.execute("ALTER TABLE game ADD private INTEGER DEFAULT 0");
-                } catch (Exception ex) {
-                }
-                // Per-game "imported" flag (0/1): set to 1 by StatsSync when a game arrives via
-                // P2P sync (a game another player shared with us), 0 for games we played or hosted
-                // ourselves. Purely local (NOT part of the sync payload), it lets the user tell
-                // apart — and bulk-delete — received games. Distinct from local=0, which only means
-                // "this table was not hosted on this machine".
-                try {
-                    statement.execute("ALTER TABLE game ADD imported INTEGER DEFAULT 0");
-                } catch (Exception ex) {
-                }
-                // Nick of the peer that sent us an imported game (the direct sender: the host for a
-                // client, the originating client for the host). Display-only, local, never on the wire.
-                try {
-                    statement.execute("ALTER TABLE game ADD imported_from TEXT");
-                } catch (Exception ex) {
-                }
-                try {
-                    statement.execute("ALTER TABLE balance ADD rebuy_count INTEGER DEFAULT 0");
-                } catch (Exception ex) {
-                }
                 // Recovery requires one unambiguous snapshot row per player and hand.
-                // Legacy MISDEAL paths could append duplicates; retain the newest row
-                // deterministically before enforcing the invariant.
                 HandCreateTransaction.ensureUniqueBalanceRows(getSQLITE());
-                // Recovery: per-hand cryptographic HAND_ID (16 bytes,
-                // base64). Needed to rebuild HandStateChain on recovery — the SQL
-                // hand.id is an auto-increment PK and does NOT match the bytes that
-                // initHandStateChain feeds into SHA-256(domain || HAND_ID || ...).
-                try {
-                    statement.execute("ALTER TABLE hand ADD hand_id_b64 TEXT");
-                } catch (Exception ex) {
-                }
-                // Recovery: per-action canonical 92-byte record + Ed25519
-                // signature, both base64. Stored so recovery can replay every action
-                // through HandStateChain.absorb with the exact bytes that were absorbed
-                // pre-crash. Other peers' signatures cannot be re-derived locally
-                // (different privkeys), so persisting them is the only way to converge
-                // the chain after a recovery.
-                try {
-                    statement.execute("ALTER TABLE action ADD record_b64 TEXT");
-                } catch (Exception ex) {
-                }
-                try {
-                    statement.execute("ALTER TABLE action ADD sig_b64 TEXT");
-                } catch (Exception ex) {
-                }
 
             }
 
@@ -5053,8 +5014,8 @@ public class Helpers {
      * <p>
      * Extends {@link Error} ON PURPOSE so the dozens of existing
      * {@code catch (Exception)} blocks (some of which trigger destructive side
-     * effects like {@code cancelarManoYDevolverApuestas} or
-     * {@code System.exit(1)} on a fatal Crupier error) do NOT swallow it: the
+     * effects like {@code cancelarManoYDevolverApuestas} or the Crupier's
+     * fail-closed recovery transition) do NOT swallow it: the
      * throwable must propagate to the top of the worker's {@code Runnable} and
      * be absorbed silently by the {@code Future}. The interrupt flag is
      * restored before the throw, so any catch site that explicitly wants to
@@ -5633,10 +5594,8 @@ public class Helpers {
         return Float.compare(floatClean(val1), floatClean(val2));
     }
 
-    // Double version of the money quantizer. The engine's money migrates from float to
-    // double to raise the cent-precision ceiling from ~131072 chips (float32) to ~9e13
-    // (double). BELOW that ceiling it's byte-identical to floatClean (verified), so
-    // normal games don't change. CRITICAL: uses the PRECISE new BigDecimal(double)
+    // Current high-range money quantizer. Double raises the cent-precision ceiling
+    // from ~131072 chips (float32) to ~9e13. Uses the precise new BigDecimal(double)
     // constructor, NOT BigDecimal.valueOf(double): on half-cents (2.675/0.145/1.005)
     // the precise one reproduces the float path's rounding (2.67/0.14/1.00) while
     // valueOf drifts (2.68/0.15/1.01).
@@ -5646,7 +5605,9 @@ public class Helpers {
     }
 
     public static double doubleClean(double val, int decs) {
-
+        if (!Double.isFinite(val)) {
+            throw new IllegalArgumentException("money value must be finite");
+        }
         return new BigDecimal(val).setScale(decs, RoundingMode.HALF_UP).doubleValue();
     }
 

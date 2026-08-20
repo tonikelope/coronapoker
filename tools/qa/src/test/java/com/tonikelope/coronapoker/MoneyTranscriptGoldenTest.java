@@ -1,5 +1,5 @@
 /*
- * Golden transcript = identity oracle for the float -> double money migration.
+ * Golden transcript for the current exact-cent money path.
  *
  * Re-enacts a fully specified Texas Hold'em hand through the REAL consensus money
  * primitives — CanonicalActionRecord.amountToCents (the cents choke point),
@@ -7,24 +7,15 @@
  * PotMath.splitAmongWinners (pot division) and SettlementRecord (the terminal
  * settlement table) — and pins the resulting H_final.
  *
- * Why this is the safety net for the migration: the engine's working money type
- * changes from float to double, but every value still funnels through ONE
- * quantization gate (Helpers.floatClean/doubleClean) and ONE consensus gate
- * (amountToCents = round(x*100) -> integer cents). Below the float exactness
- * ceiling (~131072 chips) the float and double paths produce byte-identical
- * cents, so the whole transcript — and therefore H_final — must not move. This
- * test:
+ * Every value funnels through one quantization gate and one consensus gate. This test:
  *   1. pins H_final for a realistic multi-street, multi-winner hand (a tripwire
  *      for ANY accidental change to the money transcript);
- *   2. proves the float and double working types agree on every cent below the
- *      ceiling (the migration is consensus-invariant);
- *   3. proves the double path stays exact above the ceiling where float drifts
- *      (the reason the migration exists).
+ *   2. proves the current path stays exact at high stacks.
  *
  * The bare HandStateChain.absorb(record) ratchet (no signatures) is used on
  * purpose: signatures are orthogonal to the money arithmetic and would need test
  * Ed25519 keys. The cents in the records and the settlement table fully capture
- * what the float -> double change can affect.
+ * all money that affects consensus.
  */
 package com.tonikelope.coronapoker;
 
@@ -34,7 +25,6 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MoneyTranscriptGoldenTest {
@@ -64,15 +54,7 @@ public class MoneyTranscriptGoldenTest {
         return CanonicalActionRecord.playerIdFromNick(nick);
     }
 
-    // The engine's cents choke point, float working type (today's production path,
-    // see Crupier.predictPostActionBetCents): clean to the cent grid, then round.
-    private static long centsFloatPath(double betTo) {
-        return CanonicalActionRecord.amountToCents(Helpers.floatClean((float) betTo));
-    }
-
-    // The same choke point after the migration, double working type: clean via the
-    // double cleaner, then round to integer cents. Below the ceiling this must
-    // agree with centsFloatPath cent-for-cent.
+    // The current cents choke point.
     private static long centsDoublePath(double betTo) {
         return Math.round(Helpers.doubleClean(betTo) * 100.0);
     }
@@ -132,38 +114,38 @@ public class MoneyTranscriptGoldenTest {
         final int RIVER = CanonicalActionRecord.STREET_RIVER;
 
         // --- Preflop -----------------------------------------------------------
-        action(chain, handId, "alice", PRE, CanonicalActionRecord.ACTION_RAISE, centsFloatPath(1.50), false, true);
+        action(chain, handId, "alice", PRE, CanonicalActionRecord.ACTION_RAISE, centsDoublePath(1.50), false, true);
         action(chain, handId, "bob", PRE, CanonicalActionRecord.ACTION_FOLD, 0L, false, true);
-        action(chain, handId, "carol", PRE, CanonicalActionRecord.ACTION_CALL, centsFloatPath(1.50), false, true);
+        action(chain, handId, "carol", PRE, CanonicalActionRecord.ACTION_CALL, centsDoublePath(1.50), false, true);
 
         // --- Flop --------------------------------------------------------------
         community(chain, handId, FLOP, new int[]{3, 17, 42});
-        action(chain, handId, "carol", FLOP, CanonicalActionRecord.ACTION_CHECK, centsFloatPath(0.00), false, true);
-        action(chain, handId, "alice", FLOP, CanonicalActionRecord.ACTION_BET, centsFloatPath(2.00), false, true);
-        action(chain, handId, "carol", FLOP, CanonicalActionRecord.ACTION_CALL, centsFloatPath(2.00), false, true);
+        action(chain, handId, "carol", FLOP, CanonicalActionRecord.ACTION_CHECK, centsDoublePath(0.00), false, true);
+        action(chain, handId, "alice", FLOP, CanonicalActionRecord.ACTION_BET, centsDoublePath(2.00), false, true);
+        action(chain, handId, "carol", FLOP, CanonicalActionRecord.ACTION_CALL, centsDoublePath(2.00), false, true);
 
         // --- Turn --------------------------------------------------------------
         community(chain, handId, TURN, new int[]{8});
-        action(chain, handId, "carol", TURN, CanonicalActionRecord.ACTION_CHECK, centsFloatPath(0.00), false, true);
-        action(chain, handId, "alice", TURN, CanonicalActionRecord.ACTION_BET, centsFloatPath(3.05), false, true);
-        action(chain, handId, "carol", TURN, CanonicalActionRecord.ACTION_CALL, centsFloatPath(3.05), false, true);
+        action(chain, handId, "carol", TURN, CanonicalActionRecord.ACTION_CHECK, centsDoublePath(0.00), false, true);
+        action(chain, handId, "alice", TURN, CanonicalActionRecord.ACTION_BET, centsDoublePath(3.05), false, true);
+        action(chain, handId, "carol", TURN, CanonicalActionRecord.ACTION_CALL, centsDoublePath(3.05), false, true);
 
         // --- River -------------------------------------------------------------
         community(chain, handId, RIVER, new int[]{25});
-        action(chain, handId, "carol", RIVER, CanonicalActionRecord.ACTION_CHECK, centsFloatPath(0.00), false, true);
-        action(chain, handId, "alice", RIVER, CanonicalActionRecord.ACTION_CHECK, centsFloatPath(0.00), false, true);
+        action(chain, handId, "carol", RIVER, CanonicalActionRecord.ACTION_CHECK, centsDoublePath(0.00), false, true);
+        action(chain, handId, "alice", RIVER, CanonicalActionRecord.ACTION_CHECK, centsDoublePath(0.00), false, true);
 
         // --- Settlement --------------------------------------------------------
         // Per-player contribution to the pot (bote) across all streets.
-        long boteAlice = centsFloatPath(1.50 + 2.00 + 3.05); // 6.55
-        long boteBob = centsFloatPath(0.25);                 // posted SB, then folded
-        long boteCarol = centsFloatPath(1.50 + 2.00 + 3.05); // 6.55
+        long boteAlice = centsDoublePath(1.50 + 2.00 + 3.05); // 6.55
+        long boteBob = centsDoublePath(0.25);                 // posted SB, then folded
+        long boteCarol = centsDoublePath(1.50 + 2.00 + 3.05); // 6.55
         long potCents = boteAlice + boteBob + boteCarol;     // 13.35 -> 1335
 
         // Two winners (alice, carol) split the pot; PotMath carries the odd cent.
-        var split = PotMath.splitAmongWinners((float) (potCents / 100.0), 2);
-        long perCents = Math.round((double) split[0] * 100.0);
-        long sobranteCents = Math.round((double) split[1] * 100.0);
+        var split = PotMath.splitAmongWinners(potCents / 100.0, 2);
+        long perCents = Math.round(split[0] * 100.0);
+        long sobranteCents = Math.round(split[1] * 100.0);
 
         List<SettlementRecord.Entry> entries = new ArrayList<>();
         entries.add(new SettlementRecord.Entry(pid("alice"), boteAlice, perCents));
@@ -171,18 +153,17 @@ public class MoneyTranscriptGoldenTest {
         entries.add(new SettlementRecord.Entry(pid("carol"), boteCarol, perCents));
 
         // Conservation must hold before we commit the table.
-        assertTrue(SettlementRecord.amountsBalance(entries, sobranteCents),
+        assertTrue(SettlementRecord.amountsBalance(entries, 0L, sobranteCents),
                 "settlement must conserve money: pagar + sobrante == bote");
 
-        byte[] table = SettlementRecord.encode(handId, entries, sobranteCents);
+        byte[] table = SettlementRecord.encode(handId, entries, 0L, sobranteCents);
         chain.absorbSettlement(table);
         return chain.getCurrentHash();
     }
 
-    // The pinned transcript digest. Frozen against the current (float) money path;
-    // the migration to double must leave it byte-identical (that is the test).
+    // The pinned transcript digest for the current settlement format.
     private static final String GOLDEN_HFINAL
-            = "1b12232c746d0fa418ea77351c1e6cf33558e34734a884da3c4223158ec4a436";
+            = "5da3a5282990faf910ca9c23a6c00710e3a2e1a75a6c59531c196a5723b710fb";
 
     @Test
     void fullHandTranscriptMatchesGolden() {
@@ -198,41 +179,22 @@ public class MoneyTranscriptGoldenTest {
     }
 
     @Test
-    void floatAndDoubleWorkingTypesAgreeBelowCeiling() {
-        // Every money amount the golden hand touches, plus the odd-cent split
-        // boundary, must convert to identical cents in both working types.
-        double[] amounts = {0.00, 0.25, 0.50, 1.50, 2.00, 3.05, 6.55, 13.35,
-            0.05, 0.35, 12.34, 999.90, 5000.00, 131072.00};
-        for (double v : amounts) {
-            assertEquals(centsFloatPath(v), centsDoublePath(v),
-                    "float and double cents must agree below the ceiling: " + v);
-        }
-    }
-
-    @Test
-    void potSplitCentsAreWorkingTypeIndependent() {
-        // The pot division feeds the settlement payout; its cents must be the same
-        // whatever the working type PotMath returns.
-        var split = PotMath.splitAmongWinners(13.35f, 2);
-        long per = Math.round((double) split[0] * 100.0);
-        long rem = Math.round((double) split[1] * 100.0);
+    void potSplitCentsAreExact() {
+        var split = PotMath.splitAmongWinners(13.35, 2);
+        long per = Math.round(split[0] * 100.0);
+        long rem = Math.round(split[1] * 100.0);
         assertEquals(667L, per, "13.35 split two ways -> 6.67 each");
         assertEquals(1L, rem, "odd cent carried");
         assertEquals(1335L, per * 2 + rem, "split conserves the pot");
     }
 
     @Test
-    void doubleWorkingTypeIsExactAboveCeilingWhereFloatDrifts() {
-        // The migration payoff: above ~131072 chips float32 can no longer carry
-        // every cent, so the float path drifts off the true cents while the double
-        // path stays exact. A high-stakes hand only settles correctly in double.
+    void currentMoneyTypeIsExactAtHighStacks() {
         double[] amounts = {200000.07, 1000000.55, 9999999.99};
         long[] exactCents = {20000007L, 100000055L, 999999999L};
         for (int i = 0; i < amounts.length; i++) {
             assertEquals(exactCents[i], centsDoublePath(amounts[i]),
                     "double path must be exact above the ceiling: " + amounts[i]);
-            assertNotEquals(exactCents[i], centsFloatPath(amounts[i]),
-                    "float path is expected to drift above the ceiling: " + amounts[i]);
         }
     }
 }

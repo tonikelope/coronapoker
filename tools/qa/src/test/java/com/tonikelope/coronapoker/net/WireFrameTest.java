@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Covers: binary roundtrip across edge sizes and adversarial byte content,
  * length-cap / truncation / negative-length DoS guards, back-to-back and mixed
  * frames, read fragmentation (one byte per read), atomicity under concurrent
- * writers, and byte-for-byte equivalence of the text branch with the legacy
+ * writers, and byte-for-byte equivalence of the text branch with the reference
  * {@link Helpers#readBoundedLine}.
  */
 class WireFrameTest {
@@ -244,7 +244,7 @@ class WireFrameTest {
     }
 
     // ---- text branch equivalence with readBoundedLine ----
-    private static String legacyLine(String wire, int cap) throws IOException {
+    private static String referenceLine(String wire, int cap) throws IOException {
         BufferedReader r = new BufferedReader(
                 new InputStreamReader(new ByteArrayInputStream(wire.getBytes(StandardCharsets.ISO_8859_1)),
                         StandardCharsets.ISO_8859_1));
@@ -272,7 +272,7 @@ class WireFrameTest {
             "a\n"
         };
         for (String wire : corpus) {
-            assertEquals(legacyLine(wire, CAP), frameLine(wire, CAP),
+            assertEquals(referenceLine(wire, CAP), frameLine(wire, CAP),
                     "mismatch for corpus entry: " + wire.replace("\n", "\\n").replace("\r", "\\r"));
         }
     }
@@ -280,7 +280,7 @@ class WireFrameTest {
     @Test
     @DisplayName("empty stream returns null in both readers")
     void textEmptyNull() throws IOException {
-        assertNull(legacyLine("", CAP));
+        assertNull(referenceLine("", CAP));
         assertNull(frameLine("", CAP));
     }
 
@@ -288,14 +288,14 @@ class WireFrameTest {
     @DisplayName("over-cap line throws in both readers")
     void textOverCapBothThrow() {
         String wire = "AAAAAA\n"; // 6 chars before \n
-        assertThrows(IOException.class, () -> legacyLine(wire, 4));
+        assertThrows(IOException.class, () -> referenceLine(wire, 4));
         assertThrows(IOException.class, () -> frameLine(wire, 4));
     }
 
     @Test
     @DisplayName("line of exactly cap chars passes in both readers")
     void textExactCapBoth() throws IOException {
-        assertEquals("ABCD", legacyLine("ABCD\n", 4));
+        assertEquals("ABCD", referenceLine("ABCD\n", 4));
         assertEquals("ABCD", frameLine("ABCD\n", 4));
     }
 
@@ -303,11 +303,11 @@ class WireFrameTest {
     @DisplayName("multiple text lines read sequentially match between readers")
     void textMultiLineSequential() throws IOException {
         String wire = "*line1==\n*line2==\nPING#3\n";
-        InputStream legacyIn = new ByteArrayInputStream(wire.getBytes(StandardCharsets.ISO_8859_1));
-        BufferedReader legacy = new BufferedReader(new InputStreamReader(legacyIn, StandardCharsets.ISO_8859_1));
+        InputStream referenceIn = new ByteArrayInputStream(wire.getBytes(StandardCharsets.ISO_8859_1));
+        BufferedReader reference = new BufferedReader(new InputStreamReader(referenceIn, StandardCharsets.ISO_8859_1));
         InputStream frameIn = new ByteArrayInputStream(wire.getBytes(StandardCharsets.ISO_8859_1));
         for (int i = 0; i < 3; i++) {
-            String a = Helpers.readBoundedLine(legacy, CAP);
+            String a = Helpers.readBoundedLine(reference, CAP);
             WireFrame.Result b = WireFrame.read(frameIn, CAP);
             assertEquals(a, b.text(), "line " + i);
             assertTrue(b.isText());

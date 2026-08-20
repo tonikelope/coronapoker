@@ -36,9 +36,9 @@ public class ShuffleProofGateTest {
     }
 
     @Test
-    public void pocketPhaseAllowsWhileProofIsPending() {
+    public void pocketPhaseWaitsWhileProofIsPending() {
         byte[] m = deck(1);
-        assertEquals(Crupier.ShuffleProofGateDecision.ALLOW,
+        assertEquals(Crupier.ShuffleProofGateDecision.WAIT,
                 Crupier.shuffleProofGateDecision(POCKET, m, m, null, null));
     }
 

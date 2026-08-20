@@ -34,9 +34,9 @@ class ActionReplayBindingTest {
     void malformedRecordOrMissingExpectedHashIsNotAcceptedAsAReplay() {
         byte[] current = filled(32, (byte) 0x11);
         assertFalse(Crupier.recordStartsAtHash(new byte[4], current));
-        assertTrue(Crupier.recordStartsAtHash(
+        assertFalse(Crupier.recordStartsAtHash(
                 filled(CanonicalActionRecord.RECORD_BYTES, (byte) 0x00), null),
-                "legacy/no-chain callers intentionally have no hash to enforce");
+                "recovery must not accept an action without the current chain hash");
     }
 
     @Test

@@ -22,7 +22,7 @@ class HandCloseTransactionTest {
                         + "WHEN OLD.player='bob' BEGIN SELECT RAISE(FAIL, 'bob failed'); END");
             }
 
-            assertThrows(SQLException.class, () -> HandCloseTransaction.close(con, 10, 999L, 42.5d,
+            assertThrows(SQLException.class, () -> HandCloseTransaction.close(con, 10, 999L, pot(42.5d),
                     Arrays.asList(balance("alice", 90d), balance("bob", 110d))));
 
             assertHand(con, 0L, 5d);
@@ -35,7 +35,7 @@ class HandCloseTransactionTest {
     @Test
     void missingBalanceRowRollsBackInsteadOfSilentlyClosing() throws Exception {
         try (Connection con = database()) {
-            assertThrows(SQLException.class, () -> HandCloseTransaction.close(con, 10, 999L, 42.5d,
+            assertThrows(SQLException.class, () -> HandCloseTransaction.close(con, 10, 999L, pot(42.5d),
                     Arrays.asList(balance("alice", 90d), balance("ghost", 10d))));
 
             assertHand(con, 0L, 5d);
@@ -47,7 +47,7 @@ class HandCloseTransactionTest {
     @Test
     void omittedExistingPlayerRollsBackEntireClose() throws Exception {
         try (Connection con = database()) {
-            assertThrows(SQLException.class, () -> HandCloseTransaction.close(con, 10, 999L, 42.5d,
+            assertThrows(SQLException.class, () -> HandCloseTransaction.close(con, 10, 999L, pot(42.5d),
                     Arrays.asList(balance("alice", 90d))));
             assertHand(con, 0L, 5d);
             assertBalance(con, "alice", 100d);
@@ -58,7 +58,7 @@ class HandCloseTransactionTest {
     @Test
     void successfulCloseCommitsExactlyOneHandAndAllBalances() throws Exception {
         try (Connection con = database()) {
-            HandCloseTransaction.close(con, 10, 999L, 42.5d,
+            HandCloseTransaction.close(con, 10, 999L, pot(42.5d),
                     Arrays.asList(balance("alice", 90d), balance("bob", 110d)));
 
             assertHand(con, 999L, 42.5d);
@@ -71,7 +71,7 @@ class HandCloseTransactionTest {
     @Test
     void missingHandRowDoesNotTouchBalances() throws Exception {
         try (Connection con = database()) {
-            assertThrows(SQLException.class, () -> HandCloseTransaction.close(con, 999, 1L, 0d,
+            assertThrows(SQLException.class, () -> HandCloseTransaction.close(con, 999, 1L, pot(0d),
                     Arrays.asList(balance("alice", 90d), balance("bob", 110d))));
             assertBalance(con, "alice", 100d);
             assertBalance(con, "bob", 100d);
@@ -113,7 +113,12 @@ class HandCloseTransactionTest {
     }
 
     private static HandCloseTransaction.BalanceUpdate balance(String nick, double stack) {
-        return new HandCloseTransaction.BalanceUpdate(nick, stack, 200, 0);
+        return new HandCloseTransaction.BalanceUpdate(nick, MoneyCents.fromDouble(stack),
+                MoneyCents.fromDouble(200d), BuyinCount.of(0));
+    }
+
+    private static HandPotCents pot(double amount) {
+        return HandPotCents.fromDouble(amount);
     }
 
     private static Connection database() throws Exception {

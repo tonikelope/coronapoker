@@ -23,8 +23,8 @@ class AsyncStateOrderingTest {
     }
 
     @Test
-    void unsequencedLegacyCallsRemainCompatible() {
-        assertTrue(Crupier.shouldApplyAsyncSequence(0L, 99L),
-                "legacy callers without an arrival sequence must still be accepted");
+    void unsequencedCallsAreRejected() {
+        assertFalse(Crupier.shouldApplyAsyncSequence(0L, 99L),
+                "state-changing calls must carry a current positive arrival sequence");
     }
 }

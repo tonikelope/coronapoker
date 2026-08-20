@@ -339,12 +339,12 @@ public final class BlindStructure {
     }
 
     // ----- Escalation walk (pure, for the Crupier custom path) ----------------
-    // Money is represented at cent resolution (Helpers.floatClean, HALF_UP). Two
-    // blind values are the same ladder level iff they round to the same cent.
+    // Money is represented as exact, validated cents. Two blind values are the
+    // same ladder level iff they have the same canonical cent value.
     // Validated ladders have strictly increasing small blinds (>= 0.05 apart), so
     // this key is unique per level and distinguishes e.g. 0.25 from 0.30.
     private static int cents(double v) {
-        return (int) Math.round(v * 100);
+        return Math.toIntExact(MoneyCents.fromDouble(v).cents());
     }
 
     /**

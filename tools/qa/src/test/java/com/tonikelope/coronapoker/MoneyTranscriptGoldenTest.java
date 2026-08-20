@@ -10,7 +10,7 @@
  * Why this is the safety net for the migration: the engine's working money type
  * changes from float to double, but every value still funnels through ONE
  * quantization gate (Helpers.floatClean/doubleClean) and ONE consensus gate
- * (amountToCents = round(x*100) -> integer cents). Below the float exactness
+ * (amountToCents validates exact, bounded integer cents). Below the float exactness
  * ceiling (~131072 chips) the float and double paths produce byte-identical
  * cents, so the whole transcript — and therefore H_final — must not move. This
  * test:
@@ -71,7 +71,7 @@ public class MoneyTranscriptGoldenTest {
     }
 
     // The same choke point after the migration, double working type: clean via the
-    // double cleaner, then round to integer cents. Below the ceiling this must
+    // double cleaner, then validate exact integer cents. Below the ceiling this must
     // agree with centsFloatPath cent-for-cent.
     private static long centsDoublePath(double betTo) {
         return Math.round(Helpers.doubleClean(betTo) * 100.0);

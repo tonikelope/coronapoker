@@ -5450,8 +5450,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             double stack = Helpers.doubleClean(pasta[0]);
             double buyin = Helpers.doubleClean(pasta[1]);
-            long bot_cents = Math.round((stack - buyin) * 100.0);
-            sb_cents += bot_cents;
+            long bot_cents = Math.subtractExact(MoneyCents.fromDouble(stack).cents(),
+                    MoneyCents.fromDouble(buyin).cents());
+            sb_cents = Math.addExact(sb_cents, bot_cents);
             if (bot_cents != 0) {
                 any_bot_nonflat = true;
             }
@@ -20136,14 +20137,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     static long settlementAmountToCents(double amount) {
-        if (!Double.isFinite(amount) || amount < 0d) {
-            throw new IllegalArgumentException("settlement amount must be finite and non-negative: " + amount);
-        }
-        double cleaned = Helpers.doubleClean(amount);
-        if (!Double.isFinite(cleaned) || cleaned > ((double) Long.MAX_VALUE) / 100d) {
-            throw new IllegalArgumentException("settlement amount exceeds int64 cents: " + amount);
-        }
-        return CanonicalActionRecord.amountToCents(cleaned);
+        return MoneyCents.fromDouble(Helpers.doubleClean(amount)).cents();
     }
 
     // True if a host-driven decision the host REPLAYS on recover (voluntary straddle posted, or

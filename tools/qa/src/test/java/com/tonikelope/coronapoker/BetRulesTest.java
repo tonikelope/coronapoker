@@ -7,6 +7,7 @@ package com.tonikelope.coronapoker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,8 @@ public class BetRulesTest {
 
     @Test
     void fullRaiseComparesAtCentResolution() {
-        assertTrue(BetRules.isFullRaise(0.499999f, 0.50f)); // same cent -> full
+        assertThrows(IllegalArgumentException.class,
+                () -> BetRules.isFullRaise(0.499999f, 0.50f)); // off-grid money is invalid
         assertFalse(BetRules.isFullRaise(0.49f, 0.50f));    // one cent short -> partial
     }
 
@@ -83,7 +85,8 @@ public class BetRulesTest {
     @Test
     void doubleFullRaiseComparesAtCentResolution() {
         assertTrue(BetRules.isFullRaise(0.50, 0.50));      // exactly the minimum
-        assertTrue(BetRules.isFullRaise(0.499999, 0.50));  // same cent -> full
+        assertThrows(IllegalArgumentException.class,
+                () -> BetRules.isFullRaise(0.499999, 0.50)); // off-grid money is invalid
         assertFalse(BetRules.isFullRaise(0.49, 0.50));     // one cent short -> partial
         assertFalse(BetRules.isFullRaise(0.30, 0.50));
     }

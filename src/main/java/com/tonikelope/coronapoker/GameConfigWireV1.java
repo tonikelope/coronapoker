@@ -300,10 +300,7 @@ public final class GameConfigWireV1 {
     public boolean straddle() { return straddle; }
 
     private static long toCents(double value) {
-        if (!Double.isFinite(value)) {
-            throw new ArithmeticException("non-finite money");
-        }
-        return BigDecimal.valueOf(value).movePointRight(2).longValueExact();
+        return MoneyCents.fromDouble(value).cents();
     }
 
     private static double fromCents(long cents) {

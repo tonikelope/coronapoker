@@ -1798,9 +1798,9 @@ public class Participant implements Runnable {
                     recibido = socket_reader_queue.take();
                     if (!POISON_PILL.equals(recibido)) {
                         // F2 ANTI-DoS: size cap + per-peer rate limit BEFORE processing
-                        // anything. Over the limit -> discard the frame (SILENT-REFUSE) +
-                        // strike; accumulated strikes -> AUTO-EXPEL (kick THIS peer, the table
-                        // continues). Thresholds are huge -> never affects an honest client.
+                        // anything. A critical GAME frame is never silently discarded: close
+                        // its authenticated connection. Expendable non-game traffic is dropped
+                        // with strikes and repeated abuse AUTO-EXPELS the peer.
                         if (inboundAbuse(recibido)) {
                             if (recibido.startsWith("GAME#")) {
                                 LOGGER.log(Level.SEVERE,

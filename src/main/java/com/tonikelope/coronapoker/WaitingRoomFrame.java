@@ -418,6 +418,11 @@ public class WaitingRoomFrame extends JFrame {
         }
     }
 
+    private void closeCriticalHostChannel() {
+        exit = true;
+        closeClientSocket();
+    }
+
     public static void resetInstance() {
         // A return-to-menu cancel path may already have nulled THIS (see cliente()/servidor()); this
         // reset then has nothing to do and must not NPE dereferencing it.
@@ -2891,10 +2896,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                     try {
                                                                         if (Crupier.SECURITY_LOCKDOWN) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN refused — security lockdown active");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         if (partes_chain.length < 6) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN malformed wire (parts={0}) — refusing", partes_chain.length);
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         int phase;
@@ -2904,28 +2911,31 @@ public class WaitingRoomFrame extends JFrame {
                                                                             hand_id = Integer.parseInt(partes_chain[4]);
                                                                         } catch (NumberFormatException nfe) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN non-numeric phase/hand_id — refusing");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         String payloadChain = partes_chain[5];
                                                                         Crupier crupier = GameFrame.getInstance().getCrupier();
                                                                         if (crupier == null) {
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         Crupier.UnlockWaitResult waitResult = crupier.awaitStreetForUnlockPhase(phase, hand_id, Crupier.UNLOCK_WAIT_TIMEOUT_MS);
                                                                         if (waitResult != Crupier.UnlockWaitResult.READY) {
                                                                             if (waitResult == Crupier.UnlockWaitResult.TIMEOUT) {
-                                                                                // Policy: a TIMEOUT is ambiguous evidence (host out of order OR plain
-                                                                                // network lag, indistinguishable). The operation is ALREADY rejected
-                                                                                // (return below), so we lose no protection; we downgrade from
-                                                                                // lockdown to SOFT-WARN (warn+recommend leaving but allow continuing)
-                                                                                // instead of ending the game over something that could be lag.
+                                                                                // A timeout is ambiguous evidence (host out of order or lag), so it
+                                                                                // remains a warning rather than proof of cheating. Because this is a
+                                                                                // critical unlock, however, refusing it also closes the channel below;
+                                                                                // the hand must recover instead of continuing without the response.
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order or lag, refusing + warning", phase);
                                                                                 crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_unlock_out_of_order"));
                                                                             }
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         if (hand_id != crupier.getMano()) {
-                                                                            LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK_CHAIN: hand advanced — dropping");
+                                                                            LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK_CHAIN: hand advanced — closing stale critical channel");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         // POCKET_STRADDLE (the straddler's deferred unlock) uses the POCKET
@@ -2937,6 +2947,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 : this.participantes.get(local_nick).getSra_unlock_community();
                                                                         if (myUnlock == null) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN no local unlock for phase {0} — refusing", phase);
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         byte[] myLock = RistrettoSRA.getUnlockScalar(myUnlock); // k = (k^-1)^-1
@@ -2946,6 +2957,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         String[] ring = crupier.active_crypto_ring;
                                                                         if (megapacket == null || ring == null) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         // Fail closed at the smuggling read window. A proof still queued may
@@ -2963,15 +2975,16 @@ public class WaitingRoomFrame extends JFrame {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: refusing community unlock without a verified honest-shuffle proof");
                                                                             crupier.triggerSecurityLockdown(
                                                                                     Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
                                                                         if (items == null) {
-                                                                            // STRUCTURAL malformation (fails to parse) -> almost certainly a
-                                                                            // bug/version mismatch. The op is already rejected (return);
-                                                                            // SILENT-REFUSE, no lockdown. Consistent with this same handler's
-                                                                            // malformed-wire twin (< 6 fields, also silent).
-                                                                            LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK_CHAIN malformed items — refusing (silent: likely a bug)");
+                                                                            // Structural malformation is not proof of cheating, but the single
+                                                                            // supported protocol cannot continue a hand after rejecting a critical
+                                                                            // unlock request. Close below and let recovery decide deterministically.
+                                                                            LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK_CHAIN malformed items — closing critical channel");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         // My own slot in the ring: I must NEVER strip my own lock from MY
@@ -3014,6 +3027,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             }
                                                                             if (straddlePocketSlot < 0) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE without a verified straddler slot — refusing");
+                                                                                closeCriticalHostChannel();
                                                                                 return;
                                                                             }
                                                                         }
@@ -3031,6 +3045,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             if (it.peerIdx >= 0 && it.peerIdx < ring.length && ring[it.peerIdx].equals(local_nick)) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to unlock my own slot — extraction, refusing");
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                closeCriticalHostChannel();
                                                                                 return;
                                                                             }
                                                                             if (commRange != null) {
@@ -3045,6 +3060,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                             "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset {0}(+{1}) outside phase {2} community slots [{3},{4}) — host reading the future board, refusing",
                                                                                             new Object[]{it.offsetBase, it.chains.size(), phase, commRange[0], commRange[0] + commRange[1]});
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_board_peek"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                             }
@@ -3060,6 +3076,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 if (pointIdx < 0 || (pointIdx + 1) * 32L > megapacket.length) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset out of range — refusing");
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 // Real defense against the back-door oracle: even if the
@@ -3069,6 +3086,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                         && (pointIdx == mySlot * 2 || pointIdx == mySlot * 2 + 1)) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to strip my OWN pocket (offset {0}) — extraction, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 // Blind straddle: under POCKET_STRADDLE the stripped point MUST be
@@ -3078,6 +3096,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                         && pointIdx != straddlePocketSlot * 2 && pointIdx != straddlePocketSlot * 2 + 1) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE asked to strip non-straddler slot (offset {0}) — extraction, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 // Blind straddle (bypass closure): under NORMAL POCKET the blind
@@ -3090,6 +3109,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                         && (pointIdx == blindStraddlerSlot * 2 || pointIdx == blindStraddlerSlot * 2 + 1)) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET asked to strip the blind-straddler slot (offset {0}) — requires POCKET_STRADDLE with a signed decision, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 byte[] point = java.util.Arrays.copyOfRange(megapacket, (int) (pointIdx * 32L), (int) ((pointIdx + 1) * 32L));
@@ -3097,6 +3117,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 if (ext == null) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN chain not anchored/invalid (offset {0}) — extraction or tampering, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 // GATE 6 (community/rabbit): after stripping MY community-lock the
@@ -3110,6 +3131,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                         && RistrettoSRA.resolveCardIndex(ext.residual) >= 0) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN community strip reveals genesis (offset {0}) — extraction, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 outChains.add(ext.wire);
@@ -3121,7 +3143,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                         String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
                                                                         writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdChain + "#RESP_SRA_UNLOCK_CHAIN#" + myNickB64 + "#" + respPayload, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                     } catch (Exception e) {
-                                                                        LOGGER.log(Level.SEVERE, "Failed to process REQ_SRA_UNLOCK_CHAIN; host will time out and abort", e);
+                                                                        LOGGER.log(Level.SEVERE, "Failed to process critical REQ_SRA_UNLOCK_CHAIN; closing host channel", e);
+                                                                        closeCriticalHostChannel();
                                                                     }
                                                                 });
                                                                 break;

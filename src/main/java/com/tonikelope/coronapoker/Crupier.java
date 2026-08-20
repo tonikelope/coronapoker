@@ -11457,43 +11457,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Exit guard (see the note in recibirPosiciones). Returns null if the
         // transmission dies before RECOVERDATA arrives.
-        HashMap<String, Object> map = null;
-
-        boolean ok;
+        RecoveryReceiveState receiveState = new RecoveryReceiveState(GameFrame.UGI);
 
         long start_time = System.currentTimeMillis();
 
         do {
 
-            ok = false;
-
             synchronized (this.getReceived_commands()) {
 
                 ArrayList<String> rejected = new ArrayList<>();
 
-                while (!ok && !this.getReceived_commands().isEmpty()) {
+                while (!receiveState.isTerminal() && !this.getReceived_commands().isEmpty()) {
 
                     String comando = this.received_commands.poll();
                     try {
                         String[] partes = comando.split("#", -1);
 
                         if (partes.length == 4 && partes[2].equals("RECOVERDATA")) {
-                            try {
-                                ok = true;
-                                byte[] wire = Base64.getDecoder().decode(partes[3]);
-                                RecoverySnapshotV1.Result decoded = RecoverySnapshotV1.decode(wire, GameFrame.UGI);
-                                if (decoded.isOk()) {
-                                    map = decoded.value().toMap();
-                                } else {
-                                    LOGGER.log(Level.SEVERE, "RECOVERDATA rejected: {0}", decoded.error());
-                                }
-                            } catch (IllegalArgumentException ex) {
-                                ok = true;
-                                LOGGER.log(Level.SEVERE, "RECOVERDATA has invalid Base64", ex);
+                            receiveState.acceptBase64(partes[3]);
+                            if (!receiveState.isSuccess()) {
+                                LOGGER.log(Level.SEVERE, "RECOVERDATA rejected: {0}",
+                                        receiveState.error());
                             }
 
                         } else if (partes.length >= 3 && partes[2].equals("RECOVERDATA")) {
-                            LOGGER.log(Level.WARNING, "RECOVERDATA malformed dropped: {0}", comando);
+                            receiveState.rejectMalformedFrame();
+                            LOGGER.log(Level.SEVERE, "RECOVERDATA malformed; closing client connection: {0}", comando);
                         } else {
                             rejected.add(comando);
                         }
@@ -11510,13 +11499,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             }
 
-            if (!ok) {
+            if (receiveState.status() == RecoveryReceiveState.Status.FAILED) {
+                break;
+            }
+
+            if (!receiveState.isTerminal()) {
 
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                    LOGGER.log(Level.WARNING, "recibirDatosClaveRecuperados timeout — RECOVERDATA never arrived from host (host may not be in recovery mode). Breaking wait, returning null so caller can fall back to saltar_primera_mano.");
+                    LOGGER.log(Level.SEVERE, "RECOVERDATA timeout; recovery failed and the client connection will close");
+                    receiveState.rejectTimeout();
                     break;
                 } else {
                     synchronized (this.getReceived_commands()) {
@@ -11524,15 +11518,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
                             Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                            receiveState.rejectInterrupted();
                             break;
                         }
                     }
                 }
             }
 
-        } while (!ok && !isFin_de_la_transmision());
+        } while (!receiveState.isTerminal() && !isFin_de_la_transmision());
 
-        return map;
+        if (!receiveState.isTerminal()) {
+            receiveState.rejectTransportClosed();
+        }
+        if (receiveState.status() == RecoveryReceiveState.Status.FAILED
+                && !isFin_de_la_transmision()) {
+            WaitingRoomFrame.getInstance().closeClientSocket();
+        }
+
+        return receiveState.isSuccess() ? receiveState.snapshot().toMap() : null;
     }
 
     private String recibirAccionesRecuperadas() {

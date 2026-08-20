@@ -13,7 +13,10 @@ public class RecoveryWireWiringTest {
     public void recoverDataUsesTypedV1CodecAndNoJavaSerialization() throws IOException {
         String source = Files.readString(locateRoot().resolve(
                 "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
-        assertTrue(source.contains("RecoverySnapshotV1.decode(wire, GameFrame.UGI)"));
+        String receiveState = Files.readString(locateRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/RecoveryReceiveState.java"));
+        assertTrue(source.contains("new RecoveryReceiveState(GameFrame.UGI)"));
+        assertTrue(receiveState.contains("RecoverySnapshotV1.decode(wire, expectedSession)"));
         assertTrue(source.contains("snapshot.value().encode()"));
         assertFalse(source.contains("ObjectInputStream"));
         assertFalse(source.contains("ObjectOutputStream"));

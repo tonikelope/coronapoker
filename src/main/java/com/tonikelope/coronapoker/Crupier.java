@@ -5832,7 +5832,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING, "Initial buy-in for unknown nick: {0}", nick);
             return;
         }
-        int safe = Math.max(GameFrame.getBuyinMin(), Math.min(amount, GameFrame.getBuyinMax()));
+        int safe = GameFrame.getBuyinRange().clampWireAmount(amount);
         jugador.setStack(safe);
         jugador.setBuyin(safe);
     }
@@ -5880,8 +5880,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             // The spinner already clamps to the configured range; this clamp is defensive.
-            int chosen = Math.max(GameFrame.getBuyinMin(),
-                    Math.min((int) dlg[0].getRebuy_spinner().getValue(), GameFrame.getBuyinMax()));
+            int chosen = GameFrame.getBuyinRange().clampWireAmount(
+                    (int) dlg[0].getRebuy_spinner().getValue());
 
             ArrayList<String> pending = new ArrayList<>();
 
@@ -5970,7 +5970,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 continue;
                             }
                             int raw_buyin = Integer.parseInt(partes[4]);
-                            int safe_buyin = Math.max(GameFrame.getBuyinMin(), Math.min(raw_buyin, GameFrame.getBuyinMax()));
+                            int safe_buyin = GameFrame.getBuyinRange().clampWireAmount(raw_buyin);
                             if (safe_buyin != raw_buyin) {
                                 LOGGER.log(Level.WARNING, "Initial buy-in {0} from {1} out of range [{2},{3}] — clamped to {4}",
                                         new Object[]{raw_buyin, nick, GameFrame.getBuyinMin(), GameFrame.getBuyinMax(), safe_buyin});

@@ -1301,15 +1301,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // unit-tested); these bind it to the live game config (CIEGA_GRANDE, BUYIN,
     // FIXED_BUYIN).
     public static int getBuyinMin() {
-        return BuyinRules.min(CIEGA_GRANDE, BUYIN_MIN_BB);
+        return getBuyinRange().min();
     }
 
     public static int getBuyinDefault() {
-        return BuyinRules.defaultBuyin(CIEGA_GRANDE, BUYIN_MIN_BB, BUYIN_MAX_BB);
+        return getBuyinRange().suggested();
     }
 
     public static int getBuyinMax() {
-        return BuyinRules.max(CIEGA_GRANDE, BUYIN_MAX_BB);
+        return getBuyinRange().max();
+    }
+
+    public static BuyinRules.Range getBuyinRange() {
+        return BuyinRules.range(CIEGA_GRANDE, BUYIN_MIN_BB, BUYIN_MAX_BB);
     }
 
     // Per-table stack ceiling for rebuys/top-ups, per REBUY_CAP_POLICY:

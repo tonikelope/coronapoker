@@ -94,7 +94,7 @@ public final class StatsSyncManager {
             LOGGER.log(Level.FINE, "StatsSync [CLIENT]: stats sync fully OFF — not syncing.");
             return; // fully opted out
         }
-        Helpers.threadRun(() -> {
+        room.runSessionCritical(() -> {
             try {
                 List<String> mine = StatsSync.listShareableUgis();
                 byte[] manifest = StatsSyncProtocol.manifestMessage(mine, GameFrame.SYNC_STATS_RECEIVE_PREF);
@@ -131,9 +131,9 @@ public final class StatsSyncManager {
         if (subtype == StatsSyncProtocol.MANIFEST) {
             // Stamp arrival order HERE, on the ordered reader thread, before offloading.
             final long seq = manifestSeq.incrementAndGet();
-            Helpers.threadRun(() -> handleManifest(peerNick, message, iAmHost, seq));
+            room.runSessionCritical(() -> handleManifest(peerNick, message, iAmHost, seq));
         } else if (subtype == StatsSyncProtocol.GAMES) {
-            Helpers.threadRun(() -> handleGames(peerNick, message, iAmHost));
+            room.runSessionCritical(() -> handleGames(peerNick, message, iAmHost));
         }
     }
 

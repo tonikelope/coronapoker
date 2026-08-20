@@ -3260,6 +3260,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return sala_espera;
     }
 
+    private java.util.concurrent.Future runCriticalAsync(Runnable callback) {
+        return sala_espera.runSessionCritical(callback);
+    }
+
     public void updateSoundIcon() {
 
         if (tapete.getCommunityCards().getBlinds_label().getHeight() > 0) {
@@ -3682,7 +3686,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 gf.getCrupier().broadcastGAMECommandFromServer("TTS#" + (on ? "1" : "0"), null);
                 // Persists the rule so it survives a stop+recover.
                 GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
@@ -3704,7 +3708,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 gf.getCrupier().broadcastGAMECommandFromServer("VOICEMSGRULE#" + (on ? "1" : "0"), null);
                 GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
             });
@@ -3722,7 +3726,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.IWTSTH_RULE = on;
                     gf.getCrupier().broadcastGAMECommandFromServer("IWTSTHRULE#" + (on ? "1" : "0"), null);
@@ -3743,7 +3747,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.BOT_BALANCE_TO_HUMANS = on;
                     gf.getCrupier().broadcastGAMECommandFromServer("BOTBALRULE#" + (on ? "1" : "0"), null);
@@ -3763,7 +3767,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.BOT_REBUY = on;
                     gf.getCrupier().broadcastGAMECommandFromServer("BOTREBUYRULE#" + (on ? "1" : "0"), null);
@@ -3786,7 +3790,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.RUN_IT_TWICE = on;
                     gf.getCrupier().broadcastGAMECommandFromServer("RUNITWICERULE#" + (on ? "1" : "0"), null);
@@ -3803,7 +3807,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame gf = getInstance();
 
         if (gf != null && gf.isPartida_local()) {
-            Helpers.threadRun(() -> {
+            gf.runCriticalAsync(() -> {
                 synchronized (gf.getCrupier().getLock_fin_mano()) {
                     GameFrame.RABBIT_HUNTING = mode;
                     gf.getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(mode), null);
@@ -4979,7 +4983,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
-        Helpers.threadRun(crupier);
+        runCriticalAsync(crupier);
 
         // javax.swing.Timer already executes in the EDT. Removed redundant GUIRun context switch.
         tiempo_juego = new Timer(1000, (ActionEvent ae) -> {
@@ -5011,7 +5015,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
      * abort the chain).
      */
     private void telemetryBroadcasterWatchdog() {
-        Helpers.threadRun(() -> {
+        runCriticalAsync(() -> {
             while (crupier != null && !crupier.isFin_de_la_transmision()) {
                 try {
                     Helpers.pausar(WaitingRoomFrame.PING_INTERVAL_MS);
@@ -5030,7 +5034,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void TTSWatchdog() {
 
-        Helpers.threadRun(new Runnable() {
+        runCriticalAsync(new Runnable() {
             private volatile boolean temp_notify_blocked;
 
             @Override

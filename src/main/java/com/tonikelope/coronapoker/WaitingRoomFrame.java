@@ -206,8 +206,10 @@ public class WaitingRoomFrame extends JFrame {
     public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean
             .parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
     private static volatile WaitingRoomFrame THIS = null;
+    private static final SessionGuard SESSION_GUARD = new SessionGuard();
 
     private final File local_avatar;
+    private final SessionGuard.Generation session_generation = SESSION_GUARD.beginSession();
     // Every avatar received from the wire is validated before Swing/ImageIO can
     // rasterize it and is stored in this room-owned directory.
     private final AvatarIO avatar_io = AvatarIO.createDefault();
@@ -422,6 +424,7 @@ public class WaitingRoomFrame extends JFrame {
         if (THIS == null) {
             return;
         }
+        THIS.invalidateSession();
         if (THIS.net_server != null) {
             THIS.net_server.getLate_clients_warning().clear();
         }
@@ -432,6 +435,22 @@ public class WaitingRoomFrame extends JFrame {
         THIS.avatar_io.close();
         THIS.dispose();
         THIS = null;
+    }
+
+    public java.util.concurrent.Future runSessionCritical(Runnable callback) {
+        return Helpers.threadRun(() -> SESSION_GUARD.runIfCurrent(session_generation, callback));
+    }
+
+    public boolean runSessionCriticalNow(Runnable callback) {
+        return SESSION_GUARD.runIfCurrent(session_generation, callback);
+    }
+
+    public boolean isCurrentSession() {
+        return SESSION_GUARD.isCurrent(session_generation);
+    }
+
+    private void invalidateSession() {
+        SESSION_GUARD.invalidate(session_generation);
     }
 
     public JCheckBox getChat_notifications() {
@@ -3951,6 +3970,7 @@ public class WaitingRoomFrame extends JFrame {
                 ping_pong_lock.notifyAll();
             }
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                invalidateSession();
                 Helpers.GUIRunAndWait(() -> {
                     // On cancel, reopen the launch screen at the same spot and size (or
                     // maximized if it was) on the screen the waiting room is on.
@@ -4679,6 +4699,7 @@ public class WaitingRoomFrame extends JFrame {
                 Helpers.UPnPClose(server_port);
             }
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                invalidateSession();
                 Helpers.GUIRun(() -> {
                     // On cancel, reopen the launch screen at the same spot and size (or
                     // maximized if it was) on the screen the waiting room is on.

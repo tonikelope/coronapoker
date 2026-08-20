@@ -1382,16 +1382,43 @@ public class Helpers {
         THREAD_POOL.shutdown();
 
         THREAD_POOL.shutdownNow();
+        boolean workersTerminated = awaitTermination(THREAD_POOL, "worker");
+        if (!workersTerminated) {
+            LOGGER.log(Level.SEVERE,
+                    "Worker pool remains active; a guarded table session cannot be replaced yet.");
+        }
 
         if (LOG_POOL != null) {
             LOG_POOL.shutdown();
             LOG_POOL.shutdownNow();
+            awaitTermination(LOG_POOL, "log");
         }
 
         LOGGER.log(Level.INFO, "Thread pool shutdown — cooperative cancellation notices that follow are expected.");
     }
 
+    private static boolean awaitTermination(ExecutorService executor, String name) {
+        try {
+            boolean terminated = executor.awaitTermination(THREAD_POOL_SHUTDOWN_TIMEOUT,
+                    java.util.concurrent.TimeUnit.SECONDS);
+            if (!terminated) {
+                LOGGER.log(Level.SEVERE, "{0} executor still active after {1}s",
+                        new Object[]{name, THREAD_POOL_SHUTDOWN_TIMEOUT});
+            }
+            return terminated;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            LOGGER.log(Level.WARNING, name + " executor termination wait interrupted", ex);
+            return false;
+        }
+    }
+
     public static void CREATE_THREAD_POOL() {
+        ThreadPoolExecutor previous = THREAD_POOL;
+        if (previous != null && previous.isShutdown() && !previous.isTerminated()) {
+            throw new IllegalStateException(
+                    "Cannot create a new table executor while the previous one is still active");
+        }
         THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 
         LOG_POOL = Executors.newSingleThreadExecutor();

@@ -1,11 +1,13 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker;
 
-import java.util.EnumMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Registry-first acknowledgement and replay gate for GAME commands. */
 public final class GameCommandGate {
+
+    private static final int DEFAULT_MAX_SEEN_COMMANDS = 65_536;
 
     public static final class Decision {
         private final boolean acknowledge;
@@ -24,18 +26,32 @@ public final class GameCommandGate {
     }
 
     private final GameCommandType.Direction direction;
-    private final Map<GameCommandType, Integer> lastIds = new EnumMap<>(GameCommandType.class);
+    private final int maxSeenCommands;
+    private final Set<Long> seenCommands = new HashSet<>();
 
     public GameCommandGate(GameCommandType.Direction direction) {
+        this(direction, DEFAULT_MAX_SEEN_COMMANDS);
+    }
+
+    GameCommandGate(GameCommandType.Direction direction, int maxSeenCommands) {
         if (direction == null) throw new IllegalArgumentException("direction is required");
+        if (maxSeenCommands <= 0) throw new IllegalArgumentException("maxSeenCommands must be positive");
         this.direction = direction;
+        this.maxSeenCommands = maxSeenCommands;
     }
 
     public synchronized Decision accept(String wireName, int id) {
         GameCommandType type = GameCommandType.from(direction, wireName);
         if (type == null) return new Decision(false, false, true);
-        Integer previous = lastIds.put(type, id);
-        return new Decision(true, previous == null || previous.intValue() != id, false);
+        long replayKey = (((long) type.ordinal()) << 32) | (id & 0xffff_ffffL);
+        if (seenCommands.contains(replayKey)) {
+            return new Decision(true, false, false);
+        }
+        if (seenCommands.size() >= maxSeenCommands) {
+            return new Decision(false, false, true);
+        }
+        seenCommands.add(replayKey);
+        return new Decision(true, true, false);
     }
 
     /** Any rate-limited GAME frame is critical: close, never silently drop. */
@@ -44,6 +60,6 @@ public final class GameCommandGate {
     }
 
     public synchronized int dedupSize() {
-        return lastIds.size();
+        return seenCommands.size();
     }
 }

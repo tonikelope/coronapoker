@@ -288,10 +288,11 @@ public final class RecoverySnapshotV1 {
                 return false;
             }
             String player = decodeUtf8Base64(fields[0]);
+            Integer rebuyCount = parseNonNegativeInt(fields[3]);
             if (!validShortText(player) || !players.add(player)
                     || parseDecimalCents(fields[1]) == null
                     || parseNonNegativeInt(fields[2]) == null
-                    || parseNonNegativeInt(fields[3]) == null) {
+                    || rebuyCount == null || rebuyCount > BuyinCount.MAX_VALUE) {
                 return false;
             }
         }

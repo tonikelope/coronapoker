@@ -32,6 +32,16 @@ public class RecoverySnapshotCanonicalDomainTest {
     }
 
     @Test
+    public void rebuyCountAboveCanonicalDomainIsRejected() {
+        HashMap<String, Object> map = RecoverySnapshotFixtures.validMap();
+        map.put("balance", b64("alice") + "|99.50|100|" + (BuyinCount.MAX_VALUE + 1));
+
+        RecoverySnapshotV1.Result result = RecoverySnapshotV1.fromMap(map, "session-a");
+        assertFalse(result.isOk());
+        assertEquals(RecoverySnapshotV1.Error.BAD_MONEY, result.error());
+    }
+
+    @Test
     public void dealerCanBeSmallBlindHeadsUpButNotMultiway() {
         HashMap<String, Object> headsUp = RecoverySnapshotFixtures.validMap();
         assertTrue(RecoverySnapshotV1.fromMap(headsUp, "session-a").isOk());

@@ -739,33 +739,80 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // RECOVER anti-chip-theft: reads the TRUE balance from the client's OWN SQLite (same
     // query the host uses to build RECOVERDATA, but against MY DB — each peer persists
-    // balance per hand). Returns player -> {stack, buyin, rebuy_count}. Robust: on any
-    // failure returns an EMPTY map (balance then falls back to trusting the host, as
-    // before).
-    private java.util.Map<String, double[]> readLocalRecoverBalances() {
-        java.util.Map<String, double[]> out = new java.util.HashMap<>();
-        String sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
-        // The shared SQLite Connection is not thread-safe, and a StatsSync import may hold an
-        // open transaction on it from the network thread. Take SQL_LOCK like every other DB
-        // access so this anti-chip-theft read never observes an interleaved / uncommitted state
-        // (a dirty read here could either falsely flag the host or, on a native-contention throw,
-        // silently fall back to trusting the host).
+    // balance per hand). Any read failure is fatal; it never falls back to host truth.
+    private static final class LocalRecoveryBalanceEvidence {
+        private final boolean readable;
+        private final String handIdB64;
+        private final java.util.Set<String> roster;
+        private final java.util.Map<String, double[]> balances;
+
+        private LocalRecoveryBalanceEvidence(boolean readable, String handIdB64,
+                java.util.Set<String> roster, java.util.Map<String, double[]> balances) {
+            this.readable = readable;
+            this.handIdB64 = handIdB64;
+            this.roster = roster;
+            this.balances = balances;
+        }
+
+        private boolean hasOpenHand() {
+            return handIdB64 != null;
+        }
+    }
+
+    // Capture the client's own open-hand identity, roster and complete balance table
+    // before any host-supplied SQL shell can be inserted. A read failure is distinct
+    // from "no open hand": only the latter is a legitimate passive observer.
+    private LocalRecoveryBalanceEvidence readLocalRecoverBalanceEvidence() {
+        java.util.Map<String, double[]> balances = new java.util.LinkedHashMap<>();
         synchronized (GameFrame.SQL_LOCK) {
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-                statement.setInt(1, this.sqlite_id_game);
-                statement.setInt(2, this.sqlite_id_game);
-                try (ResultSet rs = statement.executeQuery()) {
-                    while (rs.next()) {
-                        out.put(rs.getString("PLAYER"),
-                                new double[]{rs.getDouble("STACK"), rs.getInt("BUYIN"), rs.getInt("REBUY_COUNT")});
+            try {
+                int localHandId;
+                String handIdB64;
+                java.util.Set<String> roster;
+                String handSql = "SELECT id, hand_id_b64, preflop_players FROM hand "
+                        + "WHERE id=(SELECT max(id) FROM hand WHERE id_game=?) AND end IS NULL";
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(handSql)) {
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, this.sqlite_id_game);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        if (!rs.next()) {
+                            return new LocalRecoveryBalanceEvidence(true, null,
+                                    java.util.Collections.emptySet(), java.util.Collections.emptyMap());
+                        }
+                        localHandId = rs.getInt("id");
+                        handIdB64 = rs.getString("hand_id_b64");
+                        byte[] handId = Base64.getDecoder().decode(handIdB64);
+                        if (handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
+                            throw new IllegalArgumentException("invalid local recovery HAND_ID");
+                        }
+                        roster = RecoveryBalanceReconciler.decodeRoster(rs.getString("preflop_players"));
                     }
                 }
+
+                String balanceSql = "SELECT player, round(stack,2) AS stack, buyin, rebuy_count "
+                        + "FROM balance WHERE id_hand=?";
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(balanceSql)) {
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, localHandId);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) {
+                            String player = rs.getString("player");
+                            if (balances.putIfAbsent(player, new double[]{rs.getDouble("stack"),
+                                rs.getInt("buyin"), rs.getInt("rebuy_count")}) != null) {
+                                throw new IllegalArgumentException("duplicate local recovery balance");
+                            }
+                        }
+                    }
+                }
+                return new LocalRecoveryBalanceEvidence(true, handIdB64, roster,
+                        java.util.Collections.unmodifiableMap(balances));
             } catch (Exception ex) {
-                LOGGER.log(Level.WARNING, "RECOVER: could not read local balances for reconciliation (falling back to host)", ex);
+                LOGGER.log(Level.SEVERE,
+                        "RECOVER: local open-hand evidence is unreadable; refusing host fallback", ex);
+                return new LocalRecoveryBalanceEvidence(false, null,
+                        java.util.Collections.emptySet(), java.util.Collections.emptyMap());
             }
         }
-        return out;
     }
 
     // Prepends "SUSPICIOUS: host «X»" to the message when we're the CLIENT (the
@@ -7313,6 +7360,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         turno = System.currentTimeMillis();
 
         java.util.HashMap<String, Object> map;
+        RecoveryBalanceReconciler.Result recoveredBalances = null;
         saltar_primera_mano = false;
 
         if (GameFrame.getInstance().isPartida_local()) {
@@ -7332,9 +7380,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!localSnapshot.isOk()) {
                 LOGGER.log(Level.SEVERE, "Invalid local recovery snapshot: {0}", localSnapshot.error());
                 saltar_primera_mano = true;
+                setFin_de_la_transmision(true);
                 return;
             }
             map = localSnapshot.value().toMap();
+            try {
+                recoveredBalances = RecoveryBalanceReconciler.parseObserver(
+                        (String) map.get("balance"),
+                        RecoveryBalanceReconciler.decodeRoster((String) map.get("preflop_players")));
+            } catch (IllegalArgumentException ex) {
+                LOGGER.log(Level.SEVERE, "Invalid local recovery balance roster", ex);
+            }
+            if (recoveredBalances == null || !recoveredBalances.isOk()) {
+                LOGGER.log(Level.SEVERE, "Invalid local recovery balance snapshot: {0}",
+                        recoveredBalances != null ? recoveredBalances.error() : "BAD_ROSTER");
+                saltar_primera_mano = true;
+                setFin_de_la_transmision(true);
+                return;
+            }
 
             if (map.get("start") != null) {
                 GameFrame.GAME_START_TIMESTAMP = (long) map.get("start");
@@ -7578,9 +7641,58 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             enviarDatosClaveRecuperados(pendientes, map);
         } else {
+            LocalRecoveryBalanceEvidence localEvidence = readLocalRecoverBalanceEvidence();
+            if (!localEvidence.readable) {
+                setFin_de_la_transmision(true);
+                WaitingRoomFrame.getInstance().closeClientSocket();
+                saltar_primera_mano = true;
+                return;
+            }
             map = recibirDatosClaveRecuperados();
             if (map == null) {
                 LOGGER.log(Level.SEVERE, "RECOVERDATA rejected; recovery state remains unapplied");
+                saltar_primera_mano = true;
+                return;
+            }
+            try {
+                java.util.Set<String> hostRoster = RecoveryBalanceReconciler.decodeRoster(
+                        (String) map.get("preflop_players"));
+                if (localEvidence.hasOpenHand()) {
+                    boolean sameOpenHand = RecoveryBalanceReconciler.sameOpenHand(
+                            localEvidence.handIdB64, localEvidence.roster,
+                            (Long) map.get("hand_end"), (String) map.get("hand_id_b64"), hostRoster);
+                    if (!sameOpenHand) {
+                        LOGGER.log(Level.SEVERE,
+                                "ZERO-TRUST RECOVER: host changed the locally open hand identity or roster");
+                        setFin_de_la_transmision(true);
+                        WaitingRoomFrame.getInstance().closeClientSocket();
+                        saltar_primera_mano = true;
+                        return;
+                    }
+                    recoveredBalances = RecoveryBalanceReconciler.reconcileExact(
+                            (String) map.get("balance"), localEvidence.balances);
+                } else {
+                    String localNick = GameFrame.getInstance().getNick_local();
+                    if (!RecoveryBalanceReconciler.passiveObserverContextIsSafe(
+                            (Long) map.get("hand_end"), hostRoster, localNick)) {
+                        LOGGER.log(Level.SEVERE,
+                                "ZERO-TRUST RECOVER: host placed an observer without local evidence in its open hand");
+                        setFin_de_la_transmision(true);
+                        WaitingRoomFrame.getInstance().closeClientSocket();
+                        saltar_primera_mano = true;
+                        return;
+                    }
+                    recoveredBalances = RecoveryBalanceReconciler.parseObserver(
+                            (String) map.get("balance"), hostRoster);
+                }
+            } catch (IllegalArgumentException ex) {
+                LOGGER.log(Level.SEVERE, "ZERO-TRUST RECOVER: invalid recovery balance context", ex);
+            }
+            if (recoveredBalances == null || !recoveredBalances.isOk()) {
+                LOGGER.log(Level.SEVERE, "ZERO-TRUST RECOVER: balance reconciliation failed: {0}",
+                        recoveredBalances != null ? recoveredBalances.error() : "BAD_ROSTER");
+                setFin_de_la_transmision(true);
+                WaitingRoomFrame.getInstance().closeClientSocket();
                 saltar_primera_mano = true;
                 return;
             }
@@ -7921,58 +8033,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameFrame.getInstance().setConta_tiempo_juego((long) map.get("play_time"));
             }
 
-            if (map.get("balance") != null) {
-                String[] bal = ((String) map.get("balance")).split("@");
-                java.util.ArrayList<String> nicksRec = new java.util.ArrayList<>();
-                // Anti chip-theft on RECOVER: my true balance lives in MY OWN SQLite (each peer
-                // persists its balance per hand). The host's balance is just a hint — the local
-                // value is preferred below, and a mismatch flags host tampering.
-                final java.util.Map<String, double[]> localBal = readLocalRecoverBalances();
-                for (String d : bal) {
-                    if (d.isEmpty()) {
-                        continue;
+            if (recoveredBalances != null && recoveredBalances.isOk()) {
+                java.util.Set<String> nicksRec = recoveredBalances.balances().keySet();
+                // The complete immutable snapshot was parsed and reconciled before any
+                // player, auditor or rebuy state is mutated.
+                for (java.util.Map.Entry<String, RecoveryBalanceReconciler.Balance> entry
+                        : recoveredBalances.balances().entrySet()) {
+                    String name = entry.getKey();
+                    RecoveryBalanceReconciler.Balance verified = entry.getValue();
+                    double stack = verified.stack().toDecimal().doubleValue();
+                    int buyin = verified.buyin();
+                    int rebuy = verified.rebuyCount().value();
+                    Player jug = nick2player.get(name);
+                    if (jug != null) {
+                        jug.setStack(stack);
+                        jug.setBuyin(buyin);
+                        jug.setBet(0f);
+                        this.auditor.put(name, new Double[]{stack, (double) buyin});
+                        if (Helpers.doubleSecureCompare(0f, jug.getStack()) == 0) {
+                            jug.setSpectator(null);
+                        }
+                    } else {
+                        this.auditor.put(name, new Double[]{stack, (double) buyin});
                     }
-                    String[] p = d.split("\\|");
-                    try {
-                        String name = new String(Base64.getDecoder().decode(p[0]), "UTF-8");
-                        nicksRec.add(name);
-                        double hostStack = Double.parseDouble(p[1]);
-                        int hostBuyin = Integer.parseInt(p[2]);
-                        int hostRebuy = (p.length > 3) ? Integer.parseInt(p[3]) : 0;
-                        // Prefer the LOCAL balance (my own truth); fall back to the host's only when
-                        // there's no local data (fresh join, etc). A mismatch means the host is
-                        // tampering with the ledger during recovery — use local + warn.
-                        double stack = hostStack;
-                        int buyin = hostBuyin;
-                        int rebuy = hostRebuy;
-                        double[] local = localBal.get(name);
-                        if (local != null) {
-                            stack = local[0];
-                            buyin = (int) local[1];
-                            rebuy = (int) local[2];
-                            if (Helpers.doubleSecureCompare(stack, hostStack) != 0 || buyin != hostBuyin || rebuy != hostRebuy) {
-                                LOGGER.log(Level.SEVERE,
-                                        "ZERO-TRUST RECOVER: host balance for {0} (stack={1}, buyin={2}, rebuy={3}) != local (stack={4}, buyin={5}, rebuy={6}) — using LOCAL + warning",
-                                        new Object[]{name, hostStack, hostBuyin, hostRebuy, stack, buyin, rebuy});
-                                warnSuspiciousHost(Translator.translate("zero_trust.host_recover_balance_mismatch"));
-                            }
-                        }
-                        Player jug = nick2player.get(name);
-                        if (jug != null) {
-                            jug.setStack(stack);
-                            jug.setBuyin(buyin);
-                            jug.setBet(0f);
-                            this.auditor.put(name, new Double[]{stack, (double) buyin});
-                            if (Helpers.doubleSecureCompare(0f, jug.getStack()) == 0) {
-                                jug.setSpectator(null);
-                            }
-                        } else {
-                            this.auditor.put(name, new Double[]{stack, (double) buyin});
-                        }
-                        if (rebuy > 0) {
-                            rebuy_counts.put(name, rebuy);
-                        }
-                    } catch (Exception e) {
+                    if (rebuy > 0) {
+                        rebuy_counts.put(name, rebuy);
                     }
                 }
 

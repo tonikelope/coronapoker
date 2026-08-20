@@ -3879,6 +3879,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
                                                                 });
                                                                 partida_empezada = true;
+                                                                Helpers.GUIRunAndWait(() -> setVisible(false));
                                                                 GameFrame.getInstance().AJUGAR();
                                                                 break;
                                                         }
@@ -4791,6 +4792,16 @@ public class WaitingRoomFrame extends JFrame {
 
     public boolean isPartida_empezada() {
         return partida_empezada;
+    }
+
+    @Override
+    public void setVisible(boolean visible) {
+        // Enforce the rule at the window boundary too: even a future direct caller
+        // must not be able to reopen the waiting-room chat during a running game.
+        if (visible && partida_empezada) {
+            return;
+        }
+        super.setVisible(visible);
     }
 
     /**
@@ -6182,6 +6193,7 @@ public class WaitingRoomFrame extends JFrame {
                 throw new RuntimeException("GameFrame construction failed", build_error[0]);
             }
             partida_empezada = true;
+            Helpers.GUIRunAndWait(() -> setVisible(false));
             GameFrame.getInstance().AJUGAR();
         }
     }
@@ -6813,14 +6825,6 @@ public class WaitingRoomFrame extends JFrame {
         if (!chat_text.toString().isEmpty()) {
             refreshChatPanel();
         }
-
-        // During the game, the game itself is borderless fullscreen; keeping the
-        // waiting room always-on-top while it's visible stops it from sliding behind
-        // when the game is clicked. This is purely z-order: it does NOT steal focus
-        // (that was formWindowDeactivated's hide/show reclaim, already removed). In the
-        // lobby (no game running) it stays normal so it doesn't cover its own modal
-        // dialogs.
-        setAlwaysOnTop(isPartida_empezada());
 
         main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
 

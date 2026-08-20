@@ -660,26 +660,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // MISDEAL / HANDVERIFY). Very generous to cover clients slowly processing a large SRA
     // deck. On expiry only the withholding peer is expelled.
     public static final int BROADCAST_PROGRESS_TIMEOUT_MS = 180000;
-    // The client's table can be left waiting on the host with no deadline by design:
-    // receiving the cards, the verification trigger, and starting the next hand
-    // deliberately have no timeout (see waitForHandverifyTrigger). If the host dies
-    // outright its socket dies with it and the wait ends there; but if its process is
-    // alive and just its dealing thread is stuck, nothing cuts the wait and the table
-    // sits silently frozen, with no way out but a hard close. Still not cut here (deciding
-    // what to do on expiry is the hard part, and a bare timeout proved worse than none: it
-    // kept playing the hand blind and skipped the one point where a late MISDEAL cuts it),
-    // but at least a "table is stuck" notice fires, without recommending anything. Leaving
-    // isn't suggested because it isn't always possible: while waiting for cards the exit
-    // menu is disabled (NUEVA_MANO disables it while dealing), so that would point to a
-    // closed door; it's enabled during the other two waits, but one notice valid for all
-    // three beats one that lies in one of them.
-    //
-    // The threshold must be MUCH more generous than it looks: a broadcast's progress
-    // deadline is 180s, but starting a hand chains a lot more ahead of it. The cascade is
-    // requested peer by peer with 120s granted to each, so three slow remotes alone reach
-    // six minutes on a perfectly healthy table, and if anyone drops mid-way the whole
-    // cascade restarts. The clock also resets while the table is paused: otherwise a long
-    // pause would fire the notice right at resume, exactly when it makes least sense.
+    // Warning threshold for other legacy host waits. Critical HANDVERIFY has its own
+    // fail-closed progress deadline below; no timeout path is allowed to continue payout.
     public static final long MESA_PARADA_AVISO_MS = 600000;
     private static final int MESA_PARADA_AVISO_TIMEOUT = 10000;
     // Reconnection cap on the progress deadlines. All five deadlines RESET while
@@ -690,6 +672,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // cap forward so it doesn't count). Deliberately generous: a legitimate reconnect
     // takes seconds, not ten minutes.
     public static final long RECON_CHURN_HARD_CAP_MS = 600000;
+    // A client cannot observe the host's per-peer ACK/reconnect progress while it waits for
+    // the bare HANDVERIFY trigger. Cover the host's complete legitimate hard-cap window plus
+    // its final broadcast deadline; on expiry close the host channel and preserve the open
+    // hand for recovery instead of ever settling blindly.
+    public static final long HANDVERIFY_TRIGGER_PROGRESS_TIMEOUT_MS
+            = RECON_CHURN_HARD_CAP_MS + BROADCAST_PROGRESS_TIMEOUT_MS;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Seconds the run-it-twice vote lasts (timeout = NORMAL)
@@ -10576,17 +10564,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Consensus: on the client, waits for the host's bare {@code HANDVERIFY}
-     * trigger (no payload). There is NO deadline here on purpose: see the
-     * comment inside the loop. Returns true when the trigger arrived; returns
-     * false only if a MISDEAL command was polled instead — in that case the
-     * hand was already cancelled here and the caller must NOT continue with the
-     * consensus phase. Other {@code HANDVERIFY} commands (with payload) and
+     * trigger (no payload). Returns true only when the trigger arrived. A
+     * MISDEAL cancels before payout; timeout or transport termination returns
+     * false and cannot fall through into settlement. Other {@code HANDVERIFY}
+     * commands (with payload) and
      * unrelated commands are left in {@code received_commands} so the consensus
      * phase loop can re-poll them after the trigger settles.
      */
     private boolean waitForHandverifyTrigger() {
         boolean trigger_seen = false;
         long espera_inicio = System.currentTimeMillis();
+        long last_progress_tick = espera_inicio;
+        long active_wait_ms = 0L;
         boolean aviso_parada = false;
 
         do {
@@ -10616,19 +10605,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!trigger_seen) {
-                // NO DEADLINE HERE, deliberately. Adding one was tried and was much worse: as
-                // the javadoc above says, this barrier is the ONLY point where a late-cancelled
-                // hand cuts cleanly BEFORE ANY CHIP MOVES. Timing out would return "trigger
-                // arrived" (nobody checks the return value here) and the client would settle the
-                // hand on its own, skipping that window. Any reasonable deadline would also be
-                // too short: the host can legitimately wait up to three minutes for a slow
-                // peer's confirmation per its own constants. Waiting is noisy, but it never
-                // settles anything at the wrong time.
-                // Pause doesn't count as a stalled table: without resetting the clock, a long
-                // pause would fire the warning right as it resumes.
+                // Paused time does not consume the progress budget. Expiry is fail-closed:
+                // close the host channel and leave the hand open for deterministic recovery.
+                long now = System.currentTimeMillis();
                 if (GameFrame.getInstance().checkPause()) {
-                    espera_inicio = System.currentTimeMillis();
+                    espera_inicio = now;
+                } else {
+                    active_wait_ms += Math.max(0L, now - last_progress_tick);
+                    if (handverifyTriggerWaitExpired(active_wait_ms)) {
+                        LOGGER.log(Level.SEVERE,
+                                "HANDVERIFY trigger timed out before payout; closing host channel and preserving open hand for recovery");
+                        setFin_de_la_transmision(true);
+                        WaitingRoomFrame.getInstance().closeClientSocket();
+                        return false;
+                    }
                 }
+                last_progress_tick = now;
                 aviso_parada = avisarMesaParada(espera_inicio, aviso_parada);
                 synchronized (this.getReceived_commands()) {
                     try {
@@ -10639,7 +10631,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         } while (!trigger_seen && !isFin_de_la_transmision());
 
-        return true;
+        return trigger_seen;
+    }
+
+    static boolean handverifyTriggerWaitExpired(long activeWaitMs) {
+        return activeWaitMs >= HANDVERIFY_TRIGGER_PROGRESS_TIMEOUT_MS;
     }
 
     /**
@@ -10710,7 +10706,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Client waits for the trigger. A MISDEAL polled here cancels the hand
                 // inside waitForHandverifyTrigger (sets mano_anulada + fin_de_la_transmision);
                 // we just return and the gated settlement-consensus never runs.
-                waitForHandverifyTrigger();
+                if (!waitForHandverifyTrigger()) {
+                    return false;
+                }
             }
             return !this.mano_anulada;
         } catch (RuntimeException ex) {

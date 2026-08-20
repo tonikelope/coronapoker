@@ -183,10 +183,7 @@ public class NetServer {
                     String full_command = "GAME#" + String.valueOf(id) + "#" + command;
                     p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
                 } else {
-                    synchronized (p.getPre_game_socket_writer_queue()) {
-                        p.getPre_game_socket_writer_queue().add(command);
-                        p.getPre_game_socket_writer_queue().notifyAll();
-                    }
+                    p.enqueuePreGameCommand(command);
                 }
             }
         }
@@ -211,10 +208,7 @@ public class NetServer {
             String full_command = "GAME#" + String.valueOf(id) + "#" + command;
             p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
         } else {
-            synchronized (p.getPre_game_socket_writer_queue()) {
-                p.getPre_game_socket_writer_queue().add(command);
-                p.getPre_game_socket_writer_queue().notifyAll();
-            }
+            p.enqueuePreGameCommand(command);
         }
     }
 

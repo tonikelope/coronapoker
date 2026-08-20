@@ -40,7 +40,6 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
@@ -117,7 +116,10 @@ public class Participant implements Runnable {
     private final Object participant_socket_lock = new Object();
     private final GameCommandGate game_command_gate
             = new GameCommandGate(GameCommandType.Direction.CLIENT_TO_HOST);
-    private final ConcurrentLinkedQueue<String> pre_game_socket_writer_queue = new ConcurrentLinkedQueue<>();
+    public static final int PRE_GAME_OUTBOX_MAX_ELEMENTS = 4096;
+    public static final long PRE_GAME_OUTBOX_MAX_BYTES = 64L * 1024L * 1024L;
+    private final SessionOutbox pre_game_socket_writer_queue
+            = new SessionOutbox(PRE_GAME_OUTBOX_MAX_ELEMENTS, PRE_GAME_OUTBOX_MAX_BYTES);
     // BOUNDED queue. Unbounded, it would grow until memory ran out, and the abuse guard that
     // should throttle a flood runs at CONSUME time — i.e. behind it: a peer spamming commands
     // faster than they're processed would OOM the process before anything stops it. Once full,
@@ -780,7 +782,11 @@ public class Participant implements Runnable {
             while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                 while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getPre_game_socket_writer_queue().isEmpty()) {
-                    String command = getPre_game_socket_writer_queue().peek();
+                    SessionOutbox.Entry entry = getPre_game_socket_writer_queue().peek();
+                    if (entry == null) {
+                        break;
+                    }
+                    String command = entry.command();
                     ArrayList<String> pendientes = new ArrayList<>();
                     pendientes.add(getNick());
 
@@ -790,8 +796,11 @@ public class Participant implements Runnable {
                     String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
                     do {
-                        if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
-                            waitPreGameCommandConfirmations(id, pendientes);
+                        Boolean writeFailed = writePreGameCommandIfCurrent(entry, full_command);
+                        if (writeFailed == null) {
+                            break;
+                        } else if (!writeFailed) {
+                            waitPreGameCommandConfirmations(id, pendientes, entry);
                         } else {
                             // The write failed, typically because the socket is closed while
                             // the peer is getting its window to return. The loop's only wait
@@ -803,9 +812,11 @@ public class Participant implements Runnable {
                             // delivered.
                             Helpers.pausar(PRE_GAME_WRITE_RETRY_MS);
                         }
-                    } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
+                    } while (getPre_game_socket_writer_queue().isCurrent(entry)
+                            && !pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit()
+                            && !WaitingRoomFrame.getInstance().isPartida_empezada());
 
-                    getPre_game_socket_writer_queue().poll();
+                    getPre_game_socket_writer_queue().removeIfHead(entry);
                 }
 
                 synchronized (WaitingRoomFrame.getInstance().getLock_client_pre_game_commands_wait()) {
@@ -852,8 +863,48 @@ public class Participant implements Runnable {
         return participant_socket_lock;
     }
 
-    public ConcurrentLinkedQueue<String> getPre_game_socket_writer_queue() {
+    public SessionOutbox getPre_game_socket_writer_queue() {
         return pre_game_socket_writer_queue;
+    }
+
+    public boolean enqueuePreGameCommand(String command) {
+        if (pre_game_socket_writer_queue.offer(command)) {
+            return true;
+        }
+        LOGGER.log(Level.SEVERE,
+                "Pre-game critical outbox overflow for {0}; closing connection", nick);
+        pre_game_socket_writer_queue.advanceGeneration();
+        markExitAndNotify("pre-game critical outbox overflow");
+        socketClose();
+        return false;
+    }
+
+    /**
+     * Returns null when the leased entry became stale, false on success and true on I/O failure.
+     * Holding participant_socket_lock makes the generation check, encryption and socket write
+     * atomic against resetSocket.
+     */
+    private Boolean writePreGameCommandIfCurrent(SessionOutbox.Entry entry, String fullCommand) {
+        boolean failed = false;
+        synchronized (getParticipant_socket_lock()) {
+            if (!pre_game_socket_writer_queue.isCurrent(entry)) {
+                return null;
+            }
+            try {
+                String encrypted = Helpers.encryptCommand(fullCommand, aes_key, hmac_key);
+                synchronized (socket.getOutputStream()) {
+                    socket.getOutputStream().write((encrypted + "\n").getBytes("UTF-8"));
+                    socket.getOutputStream().flush();
+                }
+            } catch (IOException ex) {
+                failed = true;
+            }
+        }
+        if (failed && !exit && pre_game_socket_writer_queue.isCurrent(entry)
+                && !isStallClose() && !timeout && !resetting_socket && !force_reset_socket) {
+            markExitAndNotify("pre-game outbox write failed (socket closed)");
+        }
+        return failed;
     }
 
     public SecretKeySpec getHmac_key_orig() {
@@ -1561,6 +1612,9 @@ public class Participant implements Runnable {
                 this.input_stream_reader = nuevo_stream;
                 this.aes_key = aes_k;
                 this.hmac_key = hmac_k;
+                // A reconnect installs a new authenticated socket generation. Commands leased
+                // or queued for the previous socket must never be written through this one.
+                this.pre_game_socket_writer_queue.advanceGeneration();
                 if (!isForce_reset_socket() && GameFrame.conexionSonidoOn()) {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
@@ -1619,18 +1673,22 @@ public class Participant implements Runnable {
      * @param id command id (confirmations carry id+1, see the "CONF" case in
      * {@link #run()})
      * @param pending nicks still awaiting confirmation; mutated in place
+     * @param entry outbox lease whose socket generation must remain current
      * @return {@code true} if the confirmation deadline expired with peers
      * still pending
      */
-    public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending) {
+    public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending,
+            SessionOutbox.Entry entry) {
         long start_time = System.currentTimeMillis();
         boolean plazo_vencido = false;
         ArrayList<Object[]> rejected = new ArrayList<>();
 
-        while (!exit && !pending.isEmpty() && !plazo_vencido) {
+        while (!exit && pre_game_socket_writer_queue.isCurrent(entry)
+                && !pending.isEmpty() && !plazo_vencido) {
             Object[] confirmation;
             synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-                while (!exit && !WaitingRoomFrame.getInstance().getReceived_confirmations().isEmpty()) {
+                while (!exit && pre_game_socket_writer_queue.isCurrent(entry)
+                        && !WaitingRoomFrame.getInstance().getReceived_confirmations().isEmpty()) {
                     confirmation = WaitingRoomFrame.getInstance().getReceived_confirmations().poll();
                     if (confirmation != null && confirmation[0] != null && confirmation[1] != null) {
                         if ((int) confirmation[1] == id + 1) {
@@ -1641,7 +1699,7 @@ public class Participant implements Runnable {
                     }
                 }
 
-                if (!exit) {
+                if (!exit && pre_game_socket_writer_queue.isCurrent(entry)) {
                     if (!rejected.isEmpty()) {
                         WaitingRoomFrame.getInstance().getReceived_confirmations().addAll(rejected);
                         rejected.clear();

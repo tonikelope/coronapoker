@@ -114,9 +114,11 @@ public final class RabbitFeeLedger {
         private final byte[] handId;
         private final String playerId;
         private final byte[] nonce;
+        private final byte[] requesterSignature;
 
-        public Request(byte[] handId, String playerId, byte[] nonce) {
+        public Request(byte[] handId, String playerId, byte[] nonce, byte[] requesterSignature) {
             if (handId == null || handId.length != HAND_BYTES || nonce == null || nonce.length != NONCE_BYTES
+                    || requesterSignature == null || requesterSignature.length != HandStateChain.SIG_BYTES
                     || playerId == null || playerId.isEmpty()) {
                 throw new IllegalArgumentException("invalid Rabbit request");
             }
@@ -128,11 +130,13 @@ public final class RabbitFeeLedger {
             this.handId = handId.clone();
             this.playerId = playerId;
             this.nonce = nonce.clone();
+            this.requesterSignature = requesterSignature.clone();
         }
 
         public byte[] handId() { return handId.clone(); }
         public String playerId() { return playerId; }
         public byte[] nonce() { return nonce.clone(); }
+        public byte[] requesterSignature() { return requesterSignature.clone(); }
 
         public byte[] encode() {
             try {
@@ -143,6 +147,7 @@ public final class RabbitFeeLedger {
                 out.write(handId);
                 writeString(out, playerId);
                 out.write(nonce);
+                out.write(requesterSignature);
                 out.flush();
                 return bytes.toByteArray();
             } catch (Exception ex) {
@@ -164,10 +169,12 @@ public final class RabbitFeeLedger {
                 String player = readString(in);
                 byte[] nonce = new byte[NONCE_BYTES];
                 in.readFully(nonce);
+                byte[] requesterSignature = new byte[HandStateChain.SIG_BYTES];
+                in.readFully(requesterSignature);
                 if (in.available() != 0) {
                     return Result.error("trailing Rabbit request data");
                 }
-                return Result.ok(new Request(hand, player, nonce));
+                return Result.ok(new Request(hand, player, nonce, requesterSignature));
             } catch (Exception ex) {
                 return Result.error("malformed Rabbit request");
             }

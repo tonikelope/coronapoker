@@ -10,7 +10,8 @@ public class RabbitDuplicateRequestIdempotentTest {
         RabbitFeeLedger ledger = new RabbitFeeLedger(RabbitClientChosenCounterRejectedTest.hand(2), 3, 10, 20);
         RabbitFeeLedger.Request request = new RabbitFeeLedger.Request(
                 RabbitClientChosenCounterRejectedTest.hand(2), "alice",
-                RabbitClientChosenCounterRejectedTest.nonce(9));
+                RabbitClientChosenCounterRejectedTest.nonce(9),
+                RabbitClientChosenCounterRejectedTest.signature(9));
         RabbitFeeLedger.Authorization first = ledger.authorize(request).value();
         RabbitFeeLedger.Authorization duplicate = ledger.authorize(request).value();
         assertArrayEquals(first.encode(), duplicate.encode());

@@ -519,6 +519,43 @@ public final class IdentityManager {
         }
     }
 
+    // ===== RABBIT request helpers =====
+    private static final byte[] RABBIT_DOMAIN = "RABBIT\0".getBytes(StandardCharsets.UTF_8);
+
+    /** Canonical requester-authorized Rabbit payload: HAND_ID || nick_utf8 || nonce. */
+    public static byte[] rabbitRequestPayload(byte[] handId, String nick, byte[] nonce) {
+        if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
+            throw new IllegalArgumentException("invalid Rabbit handId");
+        }
+        if (nick == null || nick.isEmpty()) {
+            throw new IllegalArgumentException("invalid Rabbit nick");
+        }
+        if (nonce == null || nonce.length != RabbitFeeLedger.NONCE_BYTES) {
+            throw new IllegalArgumentException("invalid Rabbit nonce");
+        }
+        byte[] nickBytes = nick.getBytes(StandardCharsets.UTF_8);
+        byte[] payload = new byte[handId.length + nickBytes.length + nonce.length];
+        System.arraycopy(handId, 0, payload, 0, handId.length);
+        System.arraycopy(nickBytes, 0, payload, handId.length, nickBytes.length);
+        System.arraycopy(nonce, 0, payload, handId.length + nickBytes.length, nonce.length);
+        return payload;
+    }
+
+    public byte[] signRabbitRequest(byte[] handId, String nick, byte[] nonce) {
+        return sign(RABBIT_DOMAIN, rabbitRequestPayload(handId, nick, nonce));
+    }
+
+    public static boolean verifyRabbitRequest(byte[] rawPubKey, byte[] handId,
+            String nick, byte[] nonce, byte[] requesterSignature) {
+        try {
+            return verify(rawPubKey, RABBIT_DOMAIN,
+                    rabbitRequestPayload(handId, nick, nonce), requesterSignature);
+        } catch (IllegalArgumentException ex) {
+            LOGGER.log(Level.WARNING, "verifyRabbitRequest rejected input: {0}", ex.getMessage());
+            return false;
+        }
+    }
+
     // ===== SEAT_DRAW commit helpers =====
     private static final byte[] SEATDRAW_DOMAIN = "SEATDRAW\0".getBytes(StandardCharsets.UTF_8);
 

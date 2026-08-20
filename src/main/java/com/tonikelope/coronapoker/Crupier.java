@@ -8907,7 +8907,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         byte[] nonce = new byte[RabbitFeeLedger.NONCE_BYTES];
         new java.security.SecureRandom().nextBytes(nonce);
-        RabbitFeeLedger.Request request = new RabbitFeeLedger.Request(hand, nick, nonce);
+        IdentityManager identity = IdentityManager.getInstance();
+        if (!identity.isReady()) {
+            LOGGER.log(Level.SEVERE, "Cannot sign Rabbit request: identity is not ready");
+            return;
+        }
+        byte[] requesterSignature = identity.signRabbitRequest(hand, nick, nonce);
+        RabbitFeeLedger.Request request = new RabbitFeeLedger.Request(
+                hand, nick, nonce, requesterSignature);
         if (GameFrame.getInstance().isPartida_local()) {
             RABBIT_REQUEST_HANDLER(request);
         } else {
@@ -8919,6 +8926,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void RABBIT_REQUEST_HANDLER(RabbitFeeLedger.Request request) {
         if (!GameFrame.getInstance().isPartida_local()) {
             return;
+        }
+        byte[] requesterPubkey = request == null
+                ? null : resolveReceiptSignerPubkey(request.playerId());
+        if (requesterPubkey == null || !IdentityManager.verifyRabbitRequest(
+                requesterPubkey, request.handId(), request.playerId(), request.nonce(),
+                request.requesterSignature())) {
+            throw new IllegalArgumentException("invalid Rabbit requester signature");
         }
         Helpers.threadRun(() -> {
             RabbitFeeLedger.Result<RabbitFeeLedger.Authorization> result;
@@ -8946,6 +8960,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final byte[] requestedHandId = authorization.request().handId();
         final String nick = authorization.request().playerId();
         final int conta_rabbit = authorization.count();
+        final byte[] requesterPubkey = resolveReceiptSignerPubkey(nick);
+        if (requesterPubkey == null || !IdentityManager.verifyRabbitRequest(
+                requesterPubkey, requestedHandId, nick, authorization.request().nonce(),
+                authorization.request().requesterSignature())) {
+            throw new IllegalArgumentException("invalid Rabbit requester signature");
+        }
 
         synchronized (lock_rabbit) {
 

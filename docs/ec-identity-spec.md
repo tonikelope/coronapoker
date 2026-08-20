@@ -409,6 +409,8 @@ The `receipts` blob is stored **as collected** (the receipts are already signed,
 | `GAME # ... # <record_b64> # <sig_b64>` | Player → host → all | Signed canonical action |
 | `<PIECE> # <nick_b64> # <payload_b64>` | Host → each recipient | Per-recipient encrypted community piece (`FLOP/TURN/RIVER_PIECE`, `RABBIT_*_PIECE`) |
 | `COMM_REVEAL # <record_b64> # <sig_b64>` | Host → all | Signed community-card announcement, absorbed into `H_t` |
+| `RABBIT_REQ # <request_b64>` | Requester → host | Hand-bound request carrying the requester's Ed25519 proof (`"RABBIT\0"`) |
+| `RABBIT_AUTH # <authorization_b64>` | Host → all | Canonical count/fee plus the unchanged signed request; every peer verifies requester authorship before charging |
 | `HANDVERIFY` (no payload) | Host → all | Consensus trigger |
 | `HANDVERIFY # <nick_b64> # <receipt_b64>` | Each peer → all | Signed end-of-hand receipt |
 

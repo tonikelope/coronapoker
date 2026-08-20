@@ -337,6 +337,8 @@ The fossil is a single row keyed by `id_game` (INSERT OR REPLACE) containing eve
 | `RIT@` | Run-it-twice vote state (vote done, agreed, all-in street) so a recovered hand replays both boards |
 | `STRADDLE@` | Whether the UTG seat posted a voluntary straddle this hand, so recover reposts it |
 
+`RIT@` and `STRADDLE@` are mandatory, single-occurrence current-protocol fields for every active participant's recovery. Recovery never migrates or default-fills an older or incomplete fossil. A missing, duplicated or malformed field terminates that recovery instead of guessing a decision or silently degrading an active player to an observer.
+
 Source: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java), `guardarFosilSRA`. The fossil never contains another peer's pocket scalars, so reading it does not leak anything that would not be revealed at showdown anyway.
 
 ### 7.3 Resume flow

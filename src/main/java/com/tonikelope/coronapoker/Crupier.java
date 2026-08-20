@@ -1856,7 +1856,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean straddle_posted = false; // true if the UTG chose to post a voluntary straddle this hand
     private volatile String straddle_utg_nick = null; // with straddle, the REAL "under the gun" (first to act) = next active after the straddler; null without straddle
     private volatile boolean straddle_recovered_posted = false; // recovery (host): whether the replayed hand had the straddle posted (from the fossil); host rebroadcasts this decision instead of asking again
-    private volatile Boolean straddle_recover_fossil_posted = null; // recovery (client) zero-trust cross-check: whether OUR OWN fossil recorded the straddle as posted this hand; compared against the host's STRADDLE_RESULT to flag a hostile/buggy host WITHOUT changing the applied value. null = not read (fresh hand, or an old fossil without the field)
+    private volatile Boolean straddle_recover_fossil_posted = null; // recovery (client) zero-trust cross-check: whether OUR OWN current-format fossil recorded the straddle as posted this hand; compared against the host's STRADDLE_RESULT to flag a hostile/buggy host WITHOUT changing the applied value. null = no active local recovery datum
     private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // voluntary-straddle dialog open on the UTG's peer (to close it externally)
 
     public VoluntaryStraddleDialog getStraddle_local_dialog() {
@@ -1936,7 +1936,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // before the vote, it stays false and the vote runs normally.
     private volatile boolean rit_vote_done = false;
     private volatile boolean rit_vote_close_received = false;
-    private volatile Boolean rit_recover_fossil_agreed = null; // recovery (client) zero-trust cross-check: our OWN fossil's run-it-twice vote result this hand (null = no vote / old fossil); compared against the host's rebroadcast RIT_VOTE_CLOSE to flag a hostile/buggy host WITHOUT changing the applied value
+    private volatile Boolean rit_recover_fossil_agreed = null; // recovery (client) zero-trust cross-check: our OWN current-format fossil's run-it-twice vote result this hand (null = no completed vote); compared against the host's rebroadcast RIT_VOTE_CLOSE to flag a hostile/buggy host WITHOUT changing the applied value
     // Street where the action closed (all-in run-out). Community cards on LATER streets are the ones
     // "run out" (rewound for SIDE-B); this street and earlier ones are shared. -1 = no all-in run-out.
     private volatile int rit_allin_street = -1;
@@ -7510,6 +7510,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try {
                     String fosil = Helpers.loadHandFossil(this.sqlite_id_game);
 
+                    if (!isCurrentRecoveryFossil(fosil)) {
+                        LOGGER.log(Level.SEVERE,
+                                "Recovery refused: local host fossil is not the current protocol format");
+                        saltar_primera_mano = true;
+                        setFin_de_la_transmision(true);
+                        return;
+                    }
+
                     if (fosil != null && fosil.contains("#")) {
                         String orderMap = null;
                         String[] sraFossilParts = fosil.split("#");
@@ -7819,6 +7827,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             try {
                 String fosil = shouldLoadFossil ? Helpers.loadHandFossil(this.sqlite_id_game) : null;
+                if (shouldLoadFossil) {
+                    if (!isCurrentRecoveryFossil(fosil)) {
+                        LOGGER.log(Level.SEVERE,
+                                "Recovery refused: local client fossil is not the current protocol format");
+                        saltar_primera_mano = true;
+                        setFin_de_la_transmision(true);
+                        WaitingRoomFrame.getInstance().closeClientSocket();
+                        return;
+                    }
+                }
                 if (fosil != null && fosil.contains("#")) {
                     String orderMap = null;
                     String[] sraFossilParts = fosil.split("#");
@@ -20903,12 +20921,53 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // True if a host-driven decision the host REPLAYS on recover (voluntary straddle posted, or
-    // run-it-twice vote result) contradicts our OWN fossil's record of it. A null fossil value
-    // (field not read: fresh hand, or an old fossil without the field) never mismatches, so a
-    // client lacking the datum never accuses an honest host. Pure so the client recover
+    // run-it-twice vote result) contradicts our OWN fossil's record of it. A null value means
+    // there is no applicable completed local decision (for example no RIT vote yet), so it does
+    // not mismatch. Active recoveries have already passed isCurrentRecoveryFossil. Pure so the client recover
     // cross-checks (straddle + RIT) can be pinned in a test.
     public static boolean recoverHostDecisionMismatch(Boolean fossilValue, boolean hostValue) {
         return fossilValue != null && fossilValue != hostValue;
+    }
+
+    /**
+     * Accepts only the one recovery-fossil decision shape written by this
+     * protocol version. Missing, duplicated or permissively parsed fields are
+     * rejected instead of being interpreted as an older/default state.
+     */
+    public static boolean isCurrentRecoveryFossil(String fossil) {
+        if (fossil == null || fossil.isEmpty()) {
+            return false;
+        }
+        int ritFields = 0;
+        int straddleFields = 0;
+        for (String part : fossil.split("#", -1)) {
+            if (part.startsWith("RIT@")) {
+                ritFields++;
+                String[] values = part.substring("RIT@".length()).split(",", -1);
+                if (values.length != 3 || !isStrictBoolean(values[0])
+                        || !isStrictBoolean(values[1])) {
+                    return false;
+                }
+                try {
+                    int street = Integer.parseInt(values[2]);
+                    if (street < -1 || street > RIVER) {
+                        return false;
+                    }
+                } catch (NumberFormatException ex) {
+                    return false;
+                }
+            } else if (part.startsWith("STRADDLE@")) {
+                straddleFields++;
+                if (!isStrictBoolean(part.substring("STRADDLE@".length()))) {
+                    return false;
+                }
+            }
+        }
+        return ritFields == 1 && straddleFields == 1;
+    }
+
+    private static boolean isStrictBoolean(String value) {
+        return "true".equals(value) || "false".equals(value);
     }
 
     // Pure decision for the run-it-twice SIDE-B abort path: when the second board's deal did NOT

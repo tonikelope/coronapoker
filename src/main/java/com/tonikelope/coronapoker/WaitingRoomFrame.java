@@ -4073,12 +4073,12 @@ public class WaitingRoomFrame extends JFrame {
         return false;
     }
 
-    private void serverSocketHandler(final Socket client_socket) {
+    private boolean serverSocketHandler(final Socket client_socket) {
 
         // The accept loop already reserved a handshake slot (handshake_slots). This try/finally
         // guarantees it's released no matter what (success, rejection, exception, or any of the
         // body's early returns).
-        Helpers.threadRun(() -> {
+        return HandshakeAdmission.submit(Helpers::threadRun, () -> {
             try {
 
                 LOGGER.log(Level.INFO, "A client is trying to connect...");
@@ -4608,7 +4608,7 @@ public class WaitingRoomFrame extends JFrame {
                 // the session.
                 net_server.getClient_threads().remove(Thread.currentThread().threadId());
             }
-        });
+        }, client_socket, handshake_slots);
 
     }
 
@@ -4660,15 +4660,9 @@ public class WaitingRoomFrame extends JFrame {
                         // exhausted, we drop the connection WITHOUT spending a thread or EC keygen
                         // (the legitimate peer retries).
                         if (handshake_slots.tryAcquire()) {
-                            try {
-                                serverSocketHandler(incoming);
-                            } catch (RuntimeException handoffEx) {
-                                // If submitting the handshake thread failed (e.g. pool shutting
-                                // down during teardown), its finally would NOT release the slot: we
-                                // release it here so it isn't leaked. Re-thrown so exception
-                                // handling/logging is unchanged.
-                                handshake_slots.release();
-                                throw handoffEx;
+                            if (!serverSocketHandler(incoming)) {
+                                LOGGER.log(Level.FINE,
+                                        "Handshake submission rejected while the executor is stopping");
                             }
                         } else {
                             LOGGER.log(Level.WARNING,

@@ -27,7 +27,6 @@ public final class RecoverySnapshotV1 {
     private static final int MAX_TEXT_BYTES = 1024 * 1024;
     private static final int MAX_SHORT_TEXT_BYTES = 4096;
     private static final int MAX_PLAYERS = 64;
-    private static final long MAX_MONEY_CENTS = 100_000_000_000_000L;
     private static final Set<String> REQUIRED_KEYS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "start", "hand_id", "hand_end", "server", "preflop_players", "hand_id_b64",
             "buyin", "rebuy", "play_time", "conta_mano", "sbval", "bbval",
@@ -116,6 +115,9 @@ public final class RecoverySnapshotV1 {
             if (roster == null || !roster.contains(dealer)
                     || !roster.contains(sb) || !roster.contains(bb)) {
                 return error(Error.BAD_ROSTER);
+            }
+            if (roster.size() > 2 && dealer.equals(sb)) {
+                return error(Error.BAD_VALUE);
             }
             byte[] cryptoHandId;
             try {
@@ -303,7 +305,7 @@ public final class RecoverySnapshotV1 {
         }
         try {
             long result = new BigDecimal(value).movePointRight(2).longValueExact();
-            return result <= MAX_MONEY_CENTS ? result : null;
+            return result <= MoneyCents.MAX_CENTS ? result : null;
         } catch (ArithmeticException ex) {
             return null;
         }
@@ -327,7 +329,7 @@ public final class RecoverySnapshotV1 {
         }
         try {
             long result = BigDecimal.valueOf(value).movePointRight(2).longValueExact();
-            return result <= MAX_MONEY_CENTS ? result : null;
+            return result <= MoneyCents.MAX_CENTS ? result : null;
         } catch (ArithmeticException ex) {
             return null;
         }

@@ -6057,13 +6057,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             } else {
-                // Consensus: on the client side, the Participant
-                // for the exiting peer is a shell with no socket, so exitAndCloseSocket
-                // is host-only. But computeExpectedConsensusSigners checks
-                // Participant.isExit() — without flipping the flag here, the client
-                // keeps expecting a receipt from a peer it knows has left, hits the
-                // CLIENT_RECEPTION_TIMEOUT, and surfaces MISSING + popup at hand
-                // close even though the peer's exit was clean.
+                // On clients the Participant for an exiting peer is only a local
+                // shell, so keep its runtime/UI state synchronized. Consensus remains
+                // anchored to active_crypto_ring and does not erase a required receipt.
                 Participant participante = GameFrame.getInstance().getParticipantes().get(nick);
                 if (participante != null) {
                     participante.setExit(true);
@@ -11082,60 +11078,44 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Returns the set of nicks this peer expects to receive a receipt from
-     * (spec §6.3): humans who actually played this hand and are still active at
-     * the moment the HANDVERIFY trigger fires. Excluded:
+     * (spec §6.3): every human in this hand's immutable crypto ring. Excluded:
      *
      * <ul>
      * <li>Bots — their actions are signed by the host inside H_t (§10), no
      * separate receipt.</li>
-     * <li>Players who left mid-hand (Participant.isExit()).</li>
-     * <li>Warming-up players (Player.isCalentando()) — joined a game already in
-     * progress, no hole cards, no chain state.</li>
-     * <li>Spectators (Player.isSpectator()) — bust or no buy-in for this hand,
-     * did not participate in the SRA cascade.</li>
+     * <li>Warming-up players and spectators, because they were never inserted
+     * into {@code active_crypto_ring} for this hand.</li>
      * </ul>
      *
      * <p>
-     * The local nick is added unconditionally only when this peer DOES have a
-     * chain (the caller has already snapshotted hand_state_chain and skips the
-     * consensus phase entirely when it's null), so reaching this method already
-     * implies localNick was a real participant.
+     * EXIT and mutable player-state flags are deliberately ignored: after a human
+     * entered the ring, absence of their receipt must fail closed instead of
+     * shrinking the expected set.
      */
     private Set<String> computeExpectedConsensusSigners() {
-        Set<String> out = new LinkedHashSet<>();
+        Set<String> botNicks = new HashSet<>();
         java.util.Map<String, Participant> participantes = GameFrame.getInstance().getParticipantes();
-        if (participantes == null) {
+        if (participantes != null) {
+            for (java.util.Map.Entry<String, Participant> entry : participantes.entrySet()) {
+                Participant participant = entry.getValue();
+                if (entry.getKey() != null && participant != null && participant.isCpu()) {
+                    botNicks.add(entry.getKey());
+                }
+            }
+        }
+        return expectedConsensusSignersForRing(this.active_crypto_ring, botNicks);
+    }
+
+    static Set<String> expectedConsensusSignersForRing(String[] activeRing, Set<String> botNicks) {
+        Set<String> out = new LinkedHashSet<>();
+        if (activeRing == null) {
             return out;
         }
-        String localNick = GameFrame.getInstance().getNick_local();
-        if (localNick != null) {
-            out.add(localNick);
-        }
-        for (java.util.Map.Entry<String, Participant> entry : participantes.entrySet()) {
-            String nick = entry.getKey();
-            Participant par = entry.getValue();
-            if (nick == null || nick.equals(localNick)) {
-                continue;
+        Set<String> bots = botNicks == null ? Collections.emptySet() : botNicks;
+        for (String nick : activeRing) {
+            if (nick != null && !bots.contains(nick)) {
+                out.add(nick);
             }
-            if (par == null) {
-                continue;
-            }
-            if (par.isCpu()) {
-                continue;
-            }
-            if (par.isExit()) {
-                continue;
-            }
-            Player jugador = nick2player.get(nick);
-            if (jugador != null) {
-                if (jugador.isCalentando()) {
-                    continue;
-                }
-                if (jugador.isSpectator()) {
-                    continue;
-                }
-            }
-            out.add(nick);
         }
         return out;
     }

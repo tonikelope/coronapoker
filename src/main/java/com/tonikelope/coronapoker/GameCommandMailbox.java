@@ -1,12 +1,14 @@
 /* Copyright (C) 2026 tonikelope; GPLv3 or later. */
 package com.tonikelope.coronapoker;
 
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.function.LongSupplier;
 
 /** Bounded FIFO mailbox whose deferred commands retain age and ordering. */
@@ -21,11 +23,40 @@ public final class GameCommandMailbox {
         }
     }
 
+    /** Weak key with identity, rather than String-content, equality. */
+    private static final class CommandRef extends WeakReference<String> {
+        private final int identityHash;
+
+        CommandRef(String command, ReferenceQueue<String> queue) {
+            super(command, queue);
+            this.identityHash = System.identityHashCode(command);
+        }
+
+        CommandRef(String command) {
+            super(command);
+            this.identityHash = System.identityHashCode(command);
+        }
+
+        @Override
+        public int hashCode() {
+            return identityHash;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof CommandRef)) return false;
+            String mine = get();
+            return mine != null && mine == ((CommandRef) other).get();
+        }
+    }
+
     private final int capacity;
     private final long maxDeferredAge;
     private final LongSupplier clock;
     private final ArrayDeque<String> queue = new ArrayDeque<>();
-    private final Map<String, Metadata> metadata = new WeakHashMap<>();
+    private final ReferenceQueue<String> collectedCommands = new ReferenceQueue<>();
+    private final Map<CommandRef, Metadata> metadata = new HashMap<>();
 
     public GameCommandMailbox(int capacity, long maxDeferredAge, LongSupplier clock) {
         if (capacity <= 0 || maxDeferredAge <= 0L || clock == null) {
@@ -39,9 +70,14 @@ public final class GameCommandMailbox {
     public boolean offer(String command, Runnable closeAction) {
         if (command == null) throw new IllegalArgumentException("command is required");
         synchronized (this) {
+            purgeCollectedMetadata();
             if (queue.size() < capacity) {
-                queue.addLast(command);
-                metadata.put(command, new Metadata(clock.getAsLong(), closeAction));
+                // One object per accepted occurrence: equal command text from two sources must
+                // never alias age or closeAction metadata.
+                String queuedCommand = new String(command);
+                queue.addLast(queuedCommand);
+                metadata.put(new CommandRef(queuedCommand, collectedCommands),
+                        new Metadata(clock.getAsLong(), closeAction));
                 notifyAll();
                 return true;
             }
@@ -70,6 +106,8 @@ public final class GameCommandMailbox {
     public synchronized void clear() {
         queue.clear();
         metadata.clear();
+        while (collectedCommands.poll() != null) {
+        }
     }
 
     /**
@@ -83,12 +121,14 @@ public final class GameCommandMailbox {
         List<Runnable> closes = new ArrayList<>();
         int expired = 0;
         synchronized (this) {
+            purgeCollectedMetadata();
             long now = clock.getAsLong();
             for (int i = rejected.size() - 1; i >= 0; i--) {
                 String command = rejected.get(i);
-                Metadata meta = metadata.get(command);
+                CommandRef lookup = new CommandRef(command);
+                Metadata meta = metadata.get(lookup);
                 if (meta != null && now - meta.acceptedAt >= maxDeferredAge) {
-                    metadata.remove(command);
+                    metadata.remove(lookup);
                     if (meta.closeAction != null) closes.add(meta.closeAction);
                     expired++;
                 } else {
@@ -101,6 +141,13 @@ public final class GameCommandMailbox {
         }
         for (Runnable close : closes) runClose(close);
         return expired;
+    }
+
+    private void purgeCollectedMetadata() {
+        CommandRef ref;
+        while ((ref = (CommandRef) collectedCommands.poll()) != null) {
+            metadata.remove(ref);
+        }
     }
 
     private static void runClose(Runnable closeAction) {

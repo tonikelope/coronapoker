@@ -418,6 +418,11 @@ public class WaitingRoomFrame extends JFrame {
         }
     }
 
+    private void closeCriticalHostChannel() {
+        exit = true;
+        closeClientSocket();
+    }
+
     public static void resetInstance() {
         // A return-to-menu cancel path may already have nulled THIS (see cliente()/servidor()); this
         // reset then has nothing to do and must not NPE dereferencing it.
@@ -2589,6 +2594,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         // only holds if the lockdown is a hard gate, not just a popup.
                                                                         if (Crupier.SECURITY_LOCKDOWN) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ refused — security lockdown active");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         // ZERO-TRUST: refuse cascade mid-hand. If we already have an
@@ -2600,13 +2606,15 @@ public class WaitingRoomFrame extends JFrame {
                                                                         if (crupierCheck != null && crupierCheck.hasMegaPacket()) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received mid-hand (MEGAPACKET already locked) — refusing to overwrite my sra_unlock");
                                                                             crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_cascade_mid_hand"));
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
 
                                                                         // ZERO-TRUST: wire with fewer fields than we read (partes_cascade[3])
                                                                         // -> reject cleanly instead of AIOOBE, same as sibling DECK_ROTATION_REQ.
-                                                                        if (partes_cascade.length < 4) {
+                                                                        if (partes_cascade.length != 4) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ malformed wire (parts={0}) — refusing", partes_cascade.length);
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
 
@@ -2618,8 +2626,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                         // never sends DECK_CASCADE_REQ before the client has a Crupier.
                                                                         if (crupierCheck == null) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received before Crupier exists — refusing");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
+                                                                        crupierCheck.acceptCascadeRequestOnce();
 
                                                                         // ZERO-TRUST: the host asks us to apply our lock to the deck it
                                                                         // sends. If the deck isn't 52 valid Curve25519 points, it's garbage
@@ -2637,6 +2647,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ payload is not a valid 52-point curve deck (len={0}) — refusing",
                                                                                     incomingDeck == null ? -1 : incomingDeck.length);
                                                                             crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
 
@@ -2653,10 +2664,6 @@ public class WaitingRoomFrame extends JFrame {
                                                                         crupierCheck.local_sra_lock_community = communityLockScalar;
                                                                         crupierCheck.local_sra_unlock_community = communityUnlockScalar;
                                                                         this.participantes.get(local_nick).setSra_unlock_community(communityUnlockScalar);
-                                                                        // Anti-replay: a new cascade (or legitimate retry) enables ONE
-                                                                        // rotation. A second rotation without going through here is rejected.
-                                                                        crupierCheck.rotation_served_this_cascade = false;
-
                                                                         // Lock over the points already decoded and validated above (incomingPoints):
                                                                         // bytes identical to applyCommutativeLock(incomingDeck, lockScalar), no re-decoding.
                                                                         byte[] locked = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(
@@ -2695,26 +2702,30 @@ public class WaitingRoomFrame extends JFrame {
                                                                         // travels separately, ASYNC, in a DECK_CASCADE_PROOF matched by
                                                                         // hash(deckOut) (see Crupier.collectAsyncCascadeProofs). The host appends
                                                                         // it to the chain that EVERYONE verifies, so a modified host cannot slip
-                                                                        // a card in. If generating it fails or it doesn't arrive in time, the
-                                                                        // host treats it as absent (degrades to today's proofless-peer case, no
-                                                                        // enforcement).
+                                                                        // a card in. Failure to generate or send it closes the channel below;
+                                                                        // there is no proofless fallback.
                                                                         writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                         try {
                                                                             int myPermN = incomingDeck.length / 32;
                                                                             int[] myPerm = DeterministicShuffle.shufflePermutation(myPermN, mySeed);
                                                                             byte[] cascadeProof = com.tonikelope.coronapoker.crypto.ShuffleCascade
                                                                                     .proveStepWire(incomingDeck, shuffled, myPerm, lockScalar);
-                                                                            if (cascadeProof != null) {
-                                                                                String deckHashB64 = Base64.getEncoder().encodeToString(
-                                                                                        java.security.MessageDigest.getInstance("SHA-256").digest(shuffled));
-                                                                                int proofId = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                                writeCommandToServer(Helpers.encryptCommand("GAME#" + proofId + "#DECK_CASCADE_PROOF#" + deckHashB64 + "#" + Base64.getEncoder().encodeToString(cascadeProof), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                            if (cascadeProof == null) {
+                                                                                LOGGER.log(Level.SEVERE, "Critical cascade proof generation returned null; closing host channel");
+                                                                                closeCriticalHostChannel();
+                                                                                return;
                                                                             }
+                                                                            String deckHashB64 = Base64.getEncoder().encodeToString(
+                                                                                    java.security.MessageDigest.getInstance("SHA-256").digest(shuffled));
+                                                                            int proofId = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                            writeCommandToServer(Helpers.encryptCommand("GAME#" + proofId + "#DECK_CASCADE_PROOF#" + myNickB64 + "#" + deckHashB64 + "#" + Base64.getEncoder().encodeToString(cascadeProof), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                         } catch (Exception proofEx) {
-                                                                            LOGGER.log(Level.WARNING, "Failed to generate/send async cascade proof (host treats as proofless)", proofEx);
+                                                                            LOGGER.log(Level.SEVERE, "Failed to generate/send critical cascade proof; closing host channel", proofEx);
+                                                                            closeCriticalHostChannel();
                                                                         }
                                                                     } catch (Exception e) {
-                                                                        LOGGER.log(Level.SEVERE, "Failed to process DECK_CASCADE_REQ; host will time out and abort the hand", e);
+                                                                        LOGGER.log(Level.SEVERE, "Failed to process critical DECK_CASCADE_REQ; closing host channel", e);
+                                                                        closeCriticalHostChannel();
                                                                     }
                                                                 });
                                                                 break;
@@ -2730,24 +2741,22 @@ public class WaitingRoomFrame extends JFrame {
                                                                     try {
                                                                         if (Crupier.SECURITY_LOCKDOWN) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ refused — security lockdown active");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         Crupier crupierRot = GameFrame.getInstance().getCrupier();
                                                                         if (crupierRot == null
                                                                                 || crupierRot.local_sra_lock_community == null) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without community lock (Crupier or local_sra_lock_community null) — refusing");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
-                                                                        // Anti-replay: only ONE rotation per cascade. A second one without
-                                                                        // a new cascade = a hostile host using the rotation as a covert
-                                                                        // pocket-unlock oracle (attempting to read a departing peer's cards).
-                                                                        if (crupierRot.rotation_served_this_cascade) {
-                                                                            // Not fatal: we reject the extra rotation (the oracle gets nothing)
-                                                                            // and the game CAN continue with the legitimate rotation already
-                                                                            // served. Policy: warn + continue (assuming good faith), don't
-                                                                            // freeze. The user decides whether to leave.
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ replay (2nd rotation this cascade) — refusing extra rotation, warning user (game may continue)");
+                                                                        try {
+                                                                            crupierRot.acceptRotationRequestOnce();
+                                                                        } catch (IllegalArgumentException replay) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ replay — closing pocket-unlock oracle", replay);
                                                                             crupierRot.warnSuspiciousHost(Translator.translate("zero_trust.host_rotation_replay"));
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         // The client's pocket unlock lives on the local Participant (the
@@ -2759,10 +2768,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                         byte[] myPocketUnlock = this.participantes.get(local_nick).getSra_unlock();
                                                                         if (myPocketUnlock == null) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without local pocket unlock (Participant.sra_unlock null) — refusing");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
-                                                                        if (partes_rotation.length < 4) {
+                                                                        if (partes_rotation.length != 4) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ malformed wire (parts={0}) — refusing", partes_rotation.length);
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         byte[] incomingPieces = Base64.getDecoder().decode(partes_rotation[3]);
@@ -2778,6 +2789,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ payload not a valid curve-point block (len={0}) — refusing",
                                                                                     incomingPieces == null ? -1 : incomingPieces.length);
                                                                             crupierRot.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         // Rotation in ONE lock: uPocket then kCommunity = multiply by
@@ -2790,22 +2802,24 @@ public class WaitingRoomFrame extends JFrame {
                                                                         com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR
                                                                                 = RistrettoSRA.lockPoints(inR, RistrettoSRA.scalarToBytes(sRot));
                                                                         byte[] rotated = com.tonikelope.coronapoker.crypto.ShuffleCascade.encodeDeck(outR);
-                                                                        // Rotation served: any other one this cascade gets rejected (anti-replay).
-                                                                        crupierRot.rotation_served_this_cascade = true;
-
                                                                         // Closing the rotation flank: proves our step is an honest in-place
                                                                         // re-key (out[i]=s*in[i], s=uPocket*kCommunity), with no relocation or
                                                                         // duplication. The host appends it to the bundle so everyone can
                                                                         // verify the genesis->MEGAPACKET chain.
-                                                                        String rotProofB64 = "";
+                                                                        String rotProofB64;
                                                                         try {
                                                                             byte[] rp = com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
                                                                                     com.tonikelope.coronapoker.crypto.RotationProof.prove(sRot, inR, outR));
-                                                                            if (rp != null) {
-                                                                                rotProofB64 = Base64.getEncoder().encodeToString(rp);
+                                                                            if (rp == null) {
+                                                                                LOGGER.log(Level.SEVERE, "Critical rotation proof generation returned null; closing host channel");
+                                                                                closeCriticalHostChannel();
+                                                                                return;
                                                                             }
+                                                                            rotProofB64 = Base64.getEncoder().encodeToString(rp);
                                                                         } catch (Exception rotProofEx) {
-                                                                            rotProofB64 = ""; // no proof -> host marks the step as remote-pending, nothing breaks
+                                                                            LOGGER.log(Level.SEVERE, "Failed to generate critical rotation proof; closing host channel", rotProofEx);
+                                                                            closeCriticalHostChannel();
+                                                                            return;
                                                                         }
 
                                                                         String b64Rot = Base64.getEncoder().encodeToString(rotated);
@@ -2813,7 +2827,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                         int respIdRot = Helpers.CSPRNG_GENERATOR.nextInt();
                                                                         writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot + "#" + rotProofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                     } catch (Exception e) {
-                                                                        LOGGER.log(Level.SEVERE, "Failed to process DECK_ROTATION_REQ; host will time out and abort the hand", e);
+                                                                        LOGGER.log(Level.SEVERE, "Failed to process critical DECK_ROTATION_REQ; closing host channel", e);
+                                                                        closeCriticalHostChannel();
                                                                     }
                                                                 });
                                                                 break;
@@ -2822,15 +2837,21 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // Each peer verifies ON ITS OWN that the deal is an honest
                                                                 // shuffle+rotation genesis->MEGAPACKET. pocketCount is derived
                                                                 // LOCALLY (active_crypto_ring.length*2), NEVER from the host, and the
-                                                                // genesis is recomputed. On failure -> warn+recommend leaving but
-                                                                // ALLOW continuing (in case it's a bug), no hard abort. Background,
-                                                                // doesn't touch the UI.
+                                                                // genesis is recomputed. Any rejected bundle closes the critical
+                                                                // channel; no hand may continue with a missing verification job.
                                                                 final String[] partes_bundle = partes_comando;
                                                                 Helpers.threadRun(() -> {
                                                                     Crupier cruB = GameFrame.getInstance().getCrupier();
-                                                                    // State not ready yet (race with MEGAPACKET processing): NOT
-                                                                    // suspicious, ignore silently.
                                                                     if (cruB == null || cruB.local_mega_packet == null || cruB.active_crypto_ring == null) {
+                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE arrived without installed MEGAPACKET; closing host channel");
+                                                                        closeCriticalHostChannel();
+                                                                        return;
+                                                                    }
+                                                                    try {
+                                                                        cruB.acceptDualLockBundleOnce();
+                                                                    } catch (IllegalArgumentException duplicateBundle) {
+                                                                        LOGGER.log(Level.SEVERE, "Duplicate critical DUALLOCK_BUNDLE; closing host channel", duplicateBundle);
+                                                                        closeCriticalHostChannel();
                                                                         return;
                                                                     }
                                                                     // A bundle for this deck ARRIVED from the host: mark it before
@@ -2843,10 +2864,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // A bundle that was RECEIVED but malformed (AES+HMAC channel -> came
                                                                     // from the host intact) is anomalous: an honest host always sends 7
                                                                     // valid fields.
-                                                                    if (partes_bundle.length < 7) {
-                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformed (fields={0}) — warning user", partes_bundle.length);
+                                                                    if (partes_bundle.length != 7) {
+                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformed (fields={0}) — closing host channel", partes_bundle.length);
                                                                         cruB.markShuffleProofFailed(cruB.local_mega_packet);
                                                                         cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                        closeCriticalHostChannel();
                                                                         return;
                                                                     }
                                                                     try {
@@ -2868,14 +2890,15 @@ public class WaitingRoomFrame extends JFrame {
                                                                         if (!cruB.getShuffleVerifyQueue().enqueue(job)) {
                                                                             cruB.markShuffleProofFailed(cruB.local_mega_packet);
                                                                             cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                            closeCriticalHostChannel();
                                                                         }
                                                                     } catch (Exception bundleEx) {
-                                                                        // Unparseable (invalid base64, etc.) = anomalous but ambiguous -> warn.
-                                                                        // (Only jobs that DO parse and then fail the proof are reported as
-                                                                        // "proven dishonest" from the queue; this is just malformation.)
-                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE unparseable — warning user", bundleEx);
+                                                                        // Malformation is not by itself proof of cheating, but there is no
+                                                                        // compatible alternate wire and the critical hand cannot continue.
+                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE unparseable — closing host channel", bundleEx);
                                                                         cruB.markShuffleProofFailed(cruB.local_mega_packet);
                                                                         cruB.triggerSecurityLockdown(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                        closeCriticalHostChannel();
                                                                     }
                                                                 });
                                                                 break;
@@ -2891,10 +2914,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                     try {
                                                                         if (Crupier.SECURITY_LOCKDOWN) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN refused — security lockdown active");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         if (partes_chain.length < 6) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN malformed wire (parts={0}) — refusing", partes_chain.length);
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         int phase;
@@ -2904,28 +2929,31 @@ public class WaitingRoomFrame extends JFrame {
                                                                             hand_id = Integer.parseInt(partes_chain[4]);
                                                                         } catch (NumberFormatException nfe) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN non-numeric phase/hand_id — refusing");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         String payloadChain = partes_chain[5];
                                                                         Crupier crupier = GameFrame.getInstance().getCrupier();
                                                                         if (crupier == null) {
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         Crupier.UnlockWaitResult waitResult = crupier.awaitStreetForUnlockPhase(phase, hand_id, Crupier.UNLOCK_WAIT_TIMEOUT_MS);
                                                                         if (waitResult != Crupier.UnlockWaitResult.READY) {
                                                                             if (waitResult == Crupier.UnlockWaitResult.TIMEOUT) {
-                                                                                // Policy: a TIMEOUT is ambiguous evidence (host out of order OR plain
-                                                                                // network lag, indistinguishable). The operation is ALREADY rejected
-                                                                                // (return below), so we lose no protection; we downgrade from
-                                                                                // lockdown to SOFT-WARN (warn+recommend leaving but allow continuing)
-                                                                                // instead of ending the game over something that could be lag.
+                                                                                // A timeout is ambiguous evidence (host out of order or lag), so it
+                                                                                // remains a warning rather than proof of cheating. Because this is a
+                                                                                // critical unlock, however, refusing it also closes the channel below;
+                                                                                // the hand must recover instead of continuing without the response.
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order or lag, refusing + warning", phase);
                                                                                 crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_unlock_out_of_order"));
                                                                             }
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         if (hand_id != crupier.getMano()) {
-                                                                            LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK_CHAIN: hand advanced — dropping");
+                                                                            LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK_CHAIN: hand advanced — closing stale critical channel");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         // POCKET_STRADDLE (the straddler's deferred unlock) uses the POCKET
@@ -2937,6 +2965,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 : this.participantes.get(local_nick).getSra_unlock_community();
                                                                         if (myUnlock == null) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN no local unlock for phase {0} — refusing", phase);
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         byte[] myLock = RistrettoSRA.getUnlockScalar(myUnlock); // k = (k^-1)^-1
@@ -2946,6 +2975,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         String[] ring = crupier.active_crypto_ring;
                                                                         if (megapacket == null || ring == null) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         // Fail closed at the smuggling read window. A proof still queued may
@@ -2963,15 +2993,16 @@ public class WaitingRoomFrame extends JFrame {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: refusing community unlock without a verified honest-shuffle proof");
                                                                             crupier.triggerSecurityLockdown(
                                                                                     Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
                                                                         if (items == null) {
-                                                                            // STRUCTURAL malformation (fails to parse) -> almost certainly a
-                                                                            // bug/version mismatch. The op is already rejected (return);
-                                                                            // SILENT-REFUSE, no lockdown. Consistent with this same handler's
-                                                                            // malformed-wire twin (< 6 fields, also silent).
-                                                                            LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK_CHAIN malformed items — refusing (silent: likely a bug)");
+                                                                            // Structural malformation is not proof of cheating, but the single
+                                                                            // supported protocol cannot continue a hand after rejecting a critical
+                                                                            // unlock request. Close below and let recovery decide deterministically.
+                                                                            LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK_CHAIN malformed items — closing critical channel");
+                                                                            closeCriticalHostChannel();
                                                                             return;
                                                                         }
                                                                         // My own slot in the ring: I must NEVER strip my own lock from MY
@@ -3014,6 +3045,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             }
                                                                             if (straddlePocketSlot < 0) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE without a verified straddler slot — refusing");
+                                                                                closeCriticalHostChannel();
                                                                                 return;
                                                                             }
                                                                         }
@@ -3031,6 +3063,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             if (it.peerIdx >= 0 && it.peerIdx < ring.length && ring[it.peerIdx].equals(local_nick)) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to unlock my own slot — extraction, refusing");
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                closeCriticalHostChannel();
                                                                                 return;
                                                                             }
                                                                             if (commRange != null) {
@@ -3045,6 +3078,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                             "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset {0}(+{1}) outside phase {2} community slots [{3},{4}) — host reading the future board, refusing",
                                                                                             new Object[]{it.offsetBase, it.chains.size(), phase, commRange[0], commRange[0] + commRange[1]});
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_board_peek"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                             }
@@ -3060,6 +3094,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 if (pointIdx < 0 || (pointIdx + 1) * 32L > megapacket.length) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset out of range — refusing");
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 // Real defense against the back-door oracle: even if the
@@ -3069,6 +3104,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                         && (pointIdx == mySlot * 2 || pointIdx == mySlot * 2 + 1)) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to strip my OWN pocket (offset {0}) — extraction, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 // Blind straddle: under POCKET_STRADDLE the stripped point MUST be
@@ -3078,6 +3114,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                         && pointIdx != straddlePocketSlot * 2 && pointIdx != straddlePocketSlot * 2 + 1) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET_STRADDLE asked to strip non-straddler slot (offset {0}) — extraction, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 // Blind straddle (bypass closure): under NORMAL POCKET the blind
@@ -3090,6 +3127,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                         && (pointIdx == blindStraddlerSlot * 2 || pointIdx == blindStraddlerSlot * 2 + 1)) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: POCKET asked to strip the blind-straddler slot (offset {0}) — requires POCKET_STRADDLE with a signed decision, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 byte[] point = java.util.Arrays.copyOfRange(megapacket, (int) (pointIdx * 32L), (int) ((pointIdx + 1) * 32L));
@@ -3097,6 +3135,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 if (ext == null) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN chain not anchored/invalid (offset {0}) — extraction or tampering, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 // GATE 6 (community/rabbit): after stripping MY community-lock the
@@ -3110,6 +3149,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                         && RistrettoSRA.resolveCardIndex(ext.residual) >= 0) {
                                                                                     LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN community strip reveals genesis (offset {0}) — extraction, refusing", pointIdx);
                                                                                     crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_extraction"));
+                                                                                    closeCriticalHostChannel();
                                                                                     return;
                                                                                 }
                                                                                 outChains.add(ext.wire);
@@ -3121,7 +3161,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                         String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
                                                                         writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdChain + "#RESP_SRA_UNLOCK_CHAIN#" + myNickB64 + "#" + respPayload, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                     } catch (Exception e) {
-                                                                        LOGGER.log(Level.SEVERE, "Failed to process REQ_SRA_UNLOCK_CHAIN; host will time out and abort", e);
+                                                                        LOGGER.log(Level.SEVERE, "Failed to process critical REQ_SRA_UNLOCK_CHAIN; closing host channel", e);
+                                                                        closeCriticalHostChannel();
                                                                     }
                                                                 });
                                                                 break;
@@ -3281,8 +3322,17 @@ public class WaitingRoomFrame extends JFrame {
                                                                 break;
                                                             case "RIT_VOTE_CLOSE":
                                                                 try {
-                                                                    GameFrame.getInstance().getCrupier().closeRitClientDialog("1".equals(partes_comando[3]));
-                                                                } catch (Exception e) {
+                                                                    RitVoteCloseEnvelope.Result result
+                                                                            = RitVoteCloseEnvelope.parse(partes_comando);
+                                                                    if (!result.isOk()) {
+                                                                        throw new IllegalArgumentException(result.error());
+                                                                    }
+                                                                    GameFrame.getInstance().getCrupier()
+                                                                            .acceptRitVoteCloseOnce(result.agreed());
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical RIT_VOTE_CLOSE; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
                                                                 }
                                                                 break;
                                                             case "RABBITRULE":
@@ -3307,6 +3357,32 @@ public class WaitingRoomFrame extends JFrame {
                                                                     closeClientSocket();
                                                                 }
                                                                 break;
+                                                            case "REQ_SHOWDOWN_KEY":
+                                                            case "POTCARDS":
+                                                                try {
+                                                                    Crupier crupierShowdown = GameFrame.getInstance().getCrupier();
+                                                                    if ("REQ_SHOWDOWN_KEY".equals(subcomando)) {
+                                                                        if (partes_comando.length != 3) {
+                                                                            throw new IllegalArgumentException("REQ_SHOWDOWN_KEY requires exactly 3 fields");
+                                                                        }
+                                                                        crupierShowdown.acceptShowdownKeyRequestOnce();
+                                                                    } else {
+                                                                        crupierShowdown.acceptPotCardsOnce();
+                                                                    }
+                                                                    synchronized (crupierShowdown.getReceived_commands()) {
+                                                                        crupierShowdown.enqueueReceivedCommand(recibido,
+                                                                                () -> Helpers.threadRun(() -> {
+                                                                                    exit = true;
+                                                                                    closeClientSocket();
+                                                                                }));
+                                                                        crupierShowdown.getReceived_commands().notifyAll();
+                                                                    }
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid or duplicate critical " + subcomando + "; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
+                                                                break;
                                                             case "MEGAPACKET":
                                                                 // The REQ_SRA_UNLOCK handler that follows runs on its own threadRun
                                                                 // and needs to see local_mega_packet + active_crypto_ring for its
@@ -3315,30 +3391,16 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // and rejects it for hand-not-started). We populate them
                                                                 // synchronously here and forward to the queue so the rest of the
                                                                 // Crupier's flow (decrypting my pocket cards) keeps working exactly
-                                                                // as before.
-                                                                try {
-                                                                    Crupier crupierMP = GameFrame.getInstance().getCrupier();
-                                                                    String orderStr = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    String[] orderTokens = orderStr.split(",");
-                                                                    java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
-                                                                    for (String token : orderTokens) {
-                                                                        if (!token.isEmpty()) {
-                                                                            ringList.add(new String(Base64.getDecoder().decode(token), "UTF-8"));
-                                                                        }
-                                                                    }
-                                                                    crupierMP.active_crypto_ring = ringList.toArray(new String[0]);
-                                                                    crupierMP.local_mega_packet = Base64.getDecoder().decode(partes_comando[4]);
-                                                                    // Populate the K commitments SYNCHRONOUSLY here. The
-                                                                    // REQ_SRA_UNLOCK_CHAIN handler runs on its own threadRun and needs
-                                                                    // them; if we relied on recibirMisCartas (the queue's async
-                                                                    // consumer) there'd be a race and the binding would verify against
-                                                                    // an empty map -> a false lockdown.
-                                                                    if (partes_comando.length >= 7) {
-                                                                        crupierMP.parseCommitments(partes_comando[6]);
-                                                                    }
-                                                                } catch (Exception e) {
-                                                                    LOGGER.log(Level.SEVERE, "Error pre-parsing MEGAPACKET in WaitingRoomFrame; queue handler will retry", e);
-                                                                }
+                                                                 // as before.
+                                                                 try {
+                                                                     Crupier crupierMP = GameFrame.getInstance().getCrupier();
+                                                                     crupierMP.installMegaPacketFromHost(Crupier.parseMegaPacketWire(partes_comando));
+                                                                 } catch (Exception e) {
+                                                                     LOGGER.log(Level.SEVERE, "Invalid critical MEGAPACKET; closing host connection", e);
+                                                                     exit = true;
+                                                                     closeClientSocket();
+                                                                     break;
+                                                                 }
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                                     GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
                                                                             () -> Helpers.threadRun(() -> {
@@ -3349,17 +3411,42 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 break;
                                                             case "POCKET_CARDS":
-                                                                Helpers.threadRun(() -> {
-                                                                    try {
-                                                                        String targetNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                        byte[] unlockedByOthers = Base64.getDecoder().decode(partes_comando[4]);
-                                                                        if (unlockedByOthers != null) {
-                                                                            GameFrame.getInstance().getCrupier().single_locked_pocket_cards.put(targetNick, unlockedByOthers);
-                                                                        }
-                                                                    } catch (Exception e) {
-                                                                    }
-                                                                });
+                                                                try {
+                                                                    Crupier crupierPC = GameFrame.getInstance().getCrupier();
+                                                                    Crupier.ParsedPocketCards parsedPocket = Crupier.parsePocketCardsWire(
+                                                                            partes_comando, crupierPC.active_crypto_ring);
+                                                                    Crupier.installPocketCardsOnce(
+                                                                            crupierPC.single_locked_pocket_cards, parsedPocket);
+                                                                } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid or duplicate critical POCKET_CARDS; closing host connection", e);
+                                                                    exit = true;
+                                                                    closeClientSocket();
+                                                                    break;
+                                                                }
                                                                 // Forward to the queue so the Crupier can continue its normal local flow
+                                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                                            () -> Helpers.threadRun(() -> {
+                                                                                exit = true;
+                                                                                closeClientSocket();
+                                                                            }));
+                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                                }
+                                                                break;
+                                                            case "POCKET_DEFERRED":
+                                                                try {
+                                                                    Crupier crupierPD = GameFrame.getInstance().getCrupier();
+                                                                    Crupier.parsePocketDeferredWire(partes_comando,
+                                                                            crupierPD.active_crypto_ring, local_nick);
+                                                                    crupierPD.installPocketDeferredOnce();
+                                                                } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical POCKET_DEFERRED; closing host connection", e);
+                                                                    exit = true;
+                                                                    closeClientSocket();
+                                                                    break;
+                                                                }
                                                                 synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                                     GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
                                                                             () -> Helpers.threadRun(() -> {
@@ -3416,15 +3503,22 @@ public class WaitingRoomFrame extends JFrame {
                                                             case "SHOWCARDS":
                                                                 Helpers.threadRun(() -> {
                                                                     try {
+                                                                        if (partes_comando.length != 6) {
+                                                                            throw new IllegalArgumentException("SHOWCARDS requires exactly 6 fields");
+                                                                        }
                                                                         String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                         String sraKeyB64 = partes_comando[4];
-                                                                        // PHASE A.1: SHOWCARDS now carries an Ed25519 sig at the end. If it
-                                                                        // arrived without one (pre-20.65 client, or the host stripping it),
-                                                                        // pass null -> showPlayerCards refuses without revealing.
-                                                                        String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
-                                                                        GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
+                                                                        String sigB64 = partes_comando[5];
+                                                                        boolean revealed = GameFrame.getInstance().getCrupier()
+                                                                                .showPlayerCards(shNick, sraKeyB64, sigB64);
+                                                                        if (!revealed) {
+                                                                            LOGGER.log(Level.SEVERE,
+                                                                                    "Invalid critical SHOWCARDS from host; closing channel");
+                                                                            closeCriticalHostChannel();
+                                                                        }
                                                                     } catch (Exception e) {
                                                                         LOGGER.log(Level.SEVERE, "Error processing SHOWCARDS on client", e);
+                                                                        closeCriticalHostChannel();
                                                                     }
                                                                 });
                                                                 break;
@@ -3648,6 +3742,27 @@ public class WaitingRoomFrame extends JFrame {
                                                             case "SHUFFLE_TURN_END":
                                                                 // Shuffle end: hides the shuffle overlay on this peer.
                                                                 GameFrame.getInstance().onShuffleTurnEnd();
+                                                                break;
+                                                            case "HANDVERIFY":
+                                                                try {
+                                                                    Crupier handverifyCrupier = GameFrame.getInstance().getCrupier();
+                                                                    if (partes_comando.length == 3) {
+                                                                        handverifyCrupier.acceptHandverifyTriggerOnce();
+                                                                    } else {
+                                                                        HandverifyReceiptEnvelope receipt
+                                                                                = HandverifyReceiptEnvelope.parse(partes_comando);
+                                                                        handverifyCrupier.acceptHandverifyReceiptOnce(receipt.nick());
+                                                                    }
+                                                                    synchronized (handverifyCrupier.getReceived_commands()) {
+                                                                        handverifyCrupier.enqueueReceivedCommand(recibido,
+                                                                                () -> Helpers.threadRun(this::closeCriticalHostChannel));
+                                                                        handverifyCrupier.getReceived_commands().notifyAll();
+                                                                    }
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid critical HANDVERIFY; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
                                                                 break;
                                                             case "MISDEAL":
                                                                 // The host aborts the hand. Cancel locally and forward to the

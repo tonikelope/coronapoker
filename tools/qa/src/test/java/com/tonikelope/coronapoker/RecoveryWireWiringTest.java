@@ -22,6 +22,29 @@ public class RecoveryWireWiringTest {
         assertFalse(source.contains("ObjectOutputStream"));
     }
 
+    @Test
+    public void balanceEvidenceIsReconciledBeforeHostShellsOrPlayerMutation() throws IOException {
+        String source = Files.readString(locateRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        int recoveryMethod = source.indexOf("void recuperarDatosClavePartida()");
+        int evidence = source.indexOf(
+                "LocalRecoveryBalanceEvidence localEvidence = readLocalRecoverBalanceEvidence()",
+                recoveryMethod);
+        int receive = source.indexOf("map = recibirDatosClaveRecuperados()", evidence);
+        int reconcile = source.indexOf("RecoveryBalanceReconciler.reconcileExact(", receive);
+        int syncShells = source.indexOf("sqlSyncRecoveryShells(map)", receive);
+        int mutateStack = source.indexOf("jug.setStack(stack)", reconcile);
+        int reject = source.indexOf("balance reconciliation failed", reconcile);
+        int stop = source.indexOf("setFin_de_la_transmision(true)", reject);
+        int close = source.indexOf("closeClientSocket()", stop);
+
+        assertTrue(evidence >= 0 && evidence < receive);
+        assertTrue(receive < reconcile && reconcile < syncShells);
+        assertTrue(syncShells < mutateStack);
+        assertTrue(reject < stop && stop < close && close < syncShells);
+        assertFalse(source.contains("falling back to host"));
+    }
+
     private static Path locateRoot() {
         Path start = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
         for (Path path = start; path != null; path = path.getParent()) {

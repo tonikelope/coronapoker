@@ -25,7 +25,7 @@ public final class RabbitFeeLedger {
     private static final int REQUEST_MAGIC = 0x52425251; // RBRQ
     private static final int AUTH_MAGIC = 0x52424155; // RBAU
     private static final int VERSION = 1;
-    public static final int HAND_BYTES = 32;
+    public static final int HAND_BYTES = CanonicalActionRecord.HAND_ID_BYTES;
     public static final int NONCE_BYTES = 16;
     private static final int MAX_PLAYER_BYTES = 1024;
     private static final int MAX_WIRE_BYTES = 2048;

@@ -58,6 +58,14 @@ public class ShuffleProofGateTest {
     }
 
     @Test
+    public void aLaterFailureOverridesAnEarlierVerifiedMarker() {
+        byte[] m = deck(1);
+        assertEquals(Crupier.ShuffleProofGateDecision.REJECT,
+                Crupier.shuffleProofGateDecision(COMMUNITY, m, m, deck(1), deck(1)),
+                "failure or broadcast loss must dominate an earlier local verification");
+    }
+
+    @Test
     public void nullMegapacketRejectsCommunityUnlock() {
         assertEquals(Crupier.ShuffleProofGateDecision.REJECT,
                 Crupier.shuffleProofGateDecision(COMMUNITY, null, null, null, null));

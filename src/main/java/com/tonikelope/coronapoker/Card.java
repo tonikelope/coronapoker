@@ -969,7 +969,14 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
      * protocol and wire proofs, or -1 if the card is unset
      */
     public int getCardIndex() {
-        int oneBased = getCartaComoEntero();
+        return cardIndexFromOneBased(getCartaComoEntero());
+    }
+
+    /**
+     * Converts the UI/bot/Monte-Carlo 1-52 card domain to the canonical SRA
+     * 0-51 domain, or returns -1 outside the source domain.
+     */
+    public static int cardIndexFromOneBased(int oneBased) {
         return oneBased >= 1 && oneBased <= 52 ? oneBased - 1 : -1;
     }
 

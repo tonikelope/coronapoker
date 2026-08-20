@@ -15163,15 +15163,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private java.util.List<Integer> priorCommunityCardsForCurrentStreet() {
         java.util.ArrayList<Integer> prior = new java.util.ArrayList<>();
         if (this.run_it_twice_side_b) {
-            prior.addAll(this.rit_side_a_runout_cards);
+            for (Integer oneBased : this.rit_side_a_runout_cards) {
+                if (oneBased != null) {
+                    prior.add(Card.cardIndexFromOneBased(oneBased));
+                }
+            }
         }
         if (street > Crupier.FLOP) {
-            prior.add(GameFrame.getInstance().getFlop1().getCartaComoEntero());
-            prior.add(GameFrame.getInstance().getFlop2().getCartaComoEntero());
-            prior.add(GameFrame.getInstance().getFlop3().getCartaComoEntero());
+            prior.add(GameFrame.getInstance().getFlop1().getCardIndex());
+            prior.add(GameFrame.getInstance().getFlop2().getCardIndex());
+            prior.add(GameFrame.getInstance().getFlop3().getCardIndex());
         }
         if (street > Crupier.TURN) {
-            prior.add(GameFrame.getInstance().getTurn().getCartaComoEntero());
+            prior.add(GameFrame.getInstance().getTurn().getCardIndex());
         }
         return prior;
     }

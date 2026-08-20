@@ -40,7 +40,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>11</maven.compiler.release>
+        <maven.compiler.release>17</maven.compiler.release>
         <!-- Override with -Dcoronapoker.version=X.Y if you have a different
         local install. Bump this property in sync with the root pom version
         so `mvn -o test` resolves against the just-installed jar. -->

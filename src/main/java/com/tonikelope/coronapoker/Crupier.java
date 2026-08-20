@@ -11291,12 +11291,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // later readyForNextHand doesn't shift it.
             final int handOrdinalSnap = getMano();
 
-            // Build our own receipt and emit it. Identity-not-ready is logged but does
-            // not prevent the loop below from collecting others' receipts (we will appear
-            // as MISSING in their consensus check, which is the correct outcome).
+            // Our own receipt and its confirmed transport are part of the settlement
+            // barrier. Without both, different peers could independently authorize SQL close.
             byte[] localReceipt = buildLocalReceipt(handIdSnap, hFinalSnap);
-            if (localReceipt != null) {
-                emitOwnReceipt(localReceipt);
+            if (localReceipt == null || !emitOwnReceipt(localReceipt)) {
+                LOGGER.log(Level.SEVERE,
+                        "Local HANDVERIFY receipt was not delivered; refusing SQL close");
+                setFin_de_la_transmision(true);
+                return false;
             }
 
             final Set<String> expected = computeExpectedConsensusSigners();
@@ -11414,8 +11416,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             broadcastGAMECommandFromServer(subcommand, r[2], true);
                         } catch (RuntimeException relayEx) {
-                            LOGGER.log(Level.WARNING,
-                                    "Failed to relay HANDVERIFY receipt from " + r[2], relayEx);
+                            LOGGER.log(Level.SEVERE,
+                                    "HANDVERIFY receipt relay failed; refusing SQL close", relayEx);
+                            setFin_de_la_transmision(true);
+                            return false; // receipt relay is a settlement barrier
                         }
                     }
                     pendingRelays.clear();
@@ -11542,7 +11546,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * connected clients; clients send to the host, which relays the receipt to
      * each of the other clients inside the consensus loop.
      */
-    private void emitOwnReceipt(byte[] localReceipt) {
+    private boolean emitOwnReceipt(byte[] localReceipt) {
         try {
             String myNick = GameFrame.getInstance().getNick_local();
             String myNickB64 = Base64.getEncoder().encodeToString(myNick.getBytes("UTF-8"));
@@ -11553,8 +11557,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
                 sendGAMECommandToServer(cmd);
             }
+            return !isFin_de_la_transmision();
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, "Failed to emit own consensus receipt", ex);
+            return false;
         }
     }
 

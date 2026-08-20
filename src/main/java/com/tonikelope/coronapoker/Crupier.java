@@ -1769,9 +1769,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public final ConcurrentHashMap<String, byte[]> single_locked_pocket_cards = new ConcurrentHashMap<>();
 
     public static final int RECEIVED_COMMAND_CAPACITY = 4096;
-    public static final long MAX_DEFERRED_COMMAND_MS = 2L * GameFrame.CLIENT_RECEPTION_TIMEOUT;
-    private final GameCommandMailbox received_commands = new GameCommandMailbox(
-            RECEIVED_COMMAND_CAPACITY, MAX_DEFERRED_COMMAND_MS, System::currentTimeMillis);
+    private final GameCommandMailbox received_commands = new GameCommandMailbox(RECEIVED_COMMAND_CAPACITY);
     private final ConcurrentLinkedQueue<String> acciones_locales_recuperadas = new ConcurrentLinkedQueue<>();
     // Recover: 1-based index of the OWN action being replayed (per nick), and the count of own
     // actions this peer managed to persist to its local SQLite before reconnecting. If the index
@@ -6613,12 +6611,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void restoreRejectedCommands(ArrayList<String> rejected) {
-        int expired = received_commands.restoreRejected(rejected);
-        if (expired > 0) {
-            LOGGER.log(Level.SEVERE,
-                    "Expired {0} deferred critical GAME command(s); source connection closed",
-                    expired);
-        }
+        received_commands.restoreRejected(rejected);
     }
 
     public double getApuesta_actual() {

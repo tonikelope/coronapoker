@@ -4,21 +4,17 @@ package com.tonikelope.coronapoker;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.LongSupplier;
 
-/** Bounded FIFO mailbox whose deferred commands retain age and ordering. */
+/** Bounded FIFO mailbox whose deferred commands retain ordering and source ownership. */
 public final class GameCommandMailbox {
 
     private static final class Metadata {
-        final long acceptedAt;
         final Runnable closeAction;
-        Metadata(long acceptedAt, Runnable closeAction) {
-            this.acceptedAt = acceptedAt;
+        Metadata(Runnable closeAction) {
             this.closeAction = closeAction;
         }
     }
@@ -52,19 +48,15 @@ public final class GameCommandMailbox {
     }
 
     private final int capacity;
-    private final long maxDeferredAge;
-    private final LongSupplier clock;
     private final ArrayDeque<String> queue = new ArrayDeque<>();
     private final ReferenceQueue<String> collectedCommands = new ReferenceQueue<>();
     private final Map<CommandRef, Metadata> metadata = new HashMap<>();
 
-    public GameCommandMailbox(int capacity, long maxDeferredAge, LongSupplier clock) {
-        if (capacity <= 0 || maxDeferredAge <= 0L || clock == null) {
-            throw new IllegalArgumentException("positive mailbox limits and clock are required");
+    public GameCommandMailbox(int capacity) {
+        if (capacity <= 0) {
+            throw new IllegalArgumentException("positive mailbox capacity is required");
         }
         this.capacity = capacity;
-        this.maxDeferredAge = maxDeferredAge;
-        this.clock = clock;
     }
 
     public boolean offer(String command, Runnable closeAction) {
@@ -77,7 +69,7 @@ public final class GameCommandMailbox {
                 String queuedCommand = new String(command);
                 queue.addLast(queuedCommand);
                 metadata.put(new CommandRef(queuedCommand, collectedCommands),
-                        new Metadata(clock.getAsLong(), closeAction));
+                        new Metadata(closeAction));
                 notifyAll();
                 return true;
             }
@@ -130,35 +122,22 @@ public final class GameCommandMailbox {
 
     /**
      * Restores scanned-but-unconsumed commands ahead of unscanned newer ones.
-     * Expired commands are not restored; their source is closed explicitly.
-     *
-     * @return number of expired commands
+     * An authenticated and accepted critical command never expires merely while
+     * waiting for the game phase that consumes it. Capacity remains bounded at
+     * admission; a protocol violation is rejected explicitly by {@link #reject}.
      */
-    public int restoreRejected(List<String> rejected) {
-        if (rejected == null || rejected.isEmpty()) return 0;
-        List<Runnable> closes = new ArrayList<>();
-        int expired = 0;
+    public void restoreRejected(List<String> rejected) {
+        if (rejected == null || rejected.isEmpty()) return;
         synchronized (this) {
             purgeCollectedMetadata();
-            long now = clock.getAsLong();
             for (int i = rejected.size() - 1; i >= 0; i--) {
                 String command = rejected.get(i);
-                CommandRef lookup = new CommandRef(command);
-                Metadata meta = metadata.get(lookup);
-                if (meta != null && now - meta.acceptedAt >= maxDeferredAge) {
-                    metadata.remove(lookup);
-                    if (meta.closeAction != null) closes.add(meta.closeAction);
-                    expired++;
-                } else {
-                    if (queue.size() >= capacity) {
-                        throw new IllegalStateException("critical mailbox overflow while restoring order");
-                    }
-                    queue.addFirst(command);
+                if (queue.size() >= capacity) {
+                    throw new IllegalStateException("critical mailbox overflow while restoring order");
                 }
+                queue.addFirst(command);
             }
         }
-        for (Runnable close : closes) runClose(close);
-        return expired;
     }
 
     private void purgeCollectedMetadata() {

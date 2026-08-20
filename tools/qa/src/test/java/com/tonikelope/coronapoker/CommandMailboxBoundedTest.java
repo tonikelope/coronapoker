@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 public class CommandMailboxBoundedTest {
     @Test
     public void overflowClosesInsteadOfGrowingOrDroppingSilently() {
-        GameCommandMailbox mailbox = new GameCommandMailbox(2, 1000L, () -> 0L);
+        GameCommandMailbox mailbox = new GameCommandMailbox(2);
         assertTrue(mailbox.offer("A", null));
         assertTrue(mailbox.offer("B", null));
         AtomicBoolean closed = new AtomicBoolean();

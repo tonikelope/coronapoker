@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 public class CommandStarvationTest {
     @Test
     public void expectedCommandBehindFutureCommandIsStillReached() {
-        GameCommandMailbox mailbox = new GameCommandMailbox(4, 1000L, () -> 0L);
+        GameCommandMailbox mailbox = new GameCommandMailbox(4);
         mailbox.offer("FUTURE", null);
         mailbox.offer("EXPECTED", null);
         String future = mailbox.poll();

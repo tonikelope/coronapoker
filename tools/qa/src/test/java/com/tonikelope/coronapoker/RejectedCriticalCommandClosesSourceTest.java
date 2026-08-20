@@ -10,7 +10,7 @@ public class RejectedCriticalCommandClosesSourceTest {
     @Test
     public void consumedInvalidCriticalCommandClosesItsExactSourceOnce() {
         AtomicInteger closed = new AtomicInteger();
-        GameCommandMailbox mailbox = new GameCommandMailbox(2, 100L, () -> 0L);
+        GameCommandMailbox mailbox = new GameCommandMailbox(2);
         assertTrue(mailbox.offer("GAME#1#DECK_CASCADE_PROOF#hash#bad", closed::incrementAndGet));
 
         String invalid = mailbox.poll();

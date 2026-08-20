@@ -3348,6 +3348,32 @@ public class WaitingRoomFrame extends JFrame {
                                                                     closeClientSocket();
                                                                 }
                                                                 break;
+                                                            case "REQ_SHOWDOWN_KEY":
+                                                            case "POTCARDS":
+                                                                try {
+                                                                    Crupier crupierShowdown = GameFrame.getInstance().getCrupier();
+                                                                    if ("REQ_SHOWDOWN_KEY".equals(subcomando)) {
+                                                                        if (partes_comando.length != 3) {
+                                                                            throw new IllegalArgumentException("REQ_SHOWDOWN_KEY requires exactly 3 fields");
+                                                                        }
+                                                                        crupierShowdown.acceptShowdownKeyRequestOnce();
+                                                                    } else {
+                                                                        crupierShowdown.acceptPotCardsOnce();
+                                                                    }
+                                                                    synchronized (crupierShowdown.getReceived_commands()) {
+                                                                        crupierShowdown.enqueueReceivedCommand(recibido,
+                                                                                () -> Helpers.threadRun(() -> {
+                                                                                    exit = true;
+                                                                                    closeClientSocket();
+                                                                                }));
+                                                                        crupierShowdown.getReceived_commands().notifyAll();
+                                                                    }
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.SEVERE,
+                                                                            "Invalid or duplicate critical " + subcomando + "; closing host channel", ex);
+                                                                    closeCriticalHostChannel();
+                                                                }
+                                                                break;
                                                             case "MEGAPACKET":
                                                                 // The REQ_SRA_UNLOCK handler that follows runs on its own threadRun
                                                                 // and needs to see local_mega_packet + active_crypto_ring for its
@@ -3468,15 +3494,22 @@ public class WaitingRoomFrame extends JFrame {
                                                             case "SHOWCARDS":
                                                                 Helpers.threadRun(() -> {
                                                                     try {
+                                                                        if (partes_comando.length != 6) {
+                                                                            throw new IllegalArgumentException("SHOWCARDS requires exactly 6 fields");
+                                                                        }
                                                                         String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                         String sraKeyB64 = partes_comando[4];
-                                                                        // PHASE A.1: SHOWCARDS now carries an Ed25519 sig at the end. If it
-                                                                        // arrived without one (pre-20.65 client, or the host stripping it),
-                                                                        // pass null -> showPlayerCards refuses without revealing.
-                                                                        String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
-                                                                        GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
+                                                                        String sigB64 = partes_comando[5];
+                                                                        boolean revealed = GameFrame.getInstance().getCrupier()
+                                                                                .showPlayerCards(shNick, sraKeyB64, sigB64);
+                                                                        if (!revealed) {
+                                                                            LOGGER.log(Level.SEVERE,
+                                                                                    "Invalid critical SHOWCARDS from host; closing channel");
+                                                                            closeCriticalHostChannel();
+                                                                        }
                                                                     } catch (Exception e) {
                                                                         LOGGER.log(Level.SEVERE, "Error processing SHOWCARDS on client", e);
+                                                                        closeCriticalHostChannel();
                                                                     }
                                                                 });
                                                                 break;

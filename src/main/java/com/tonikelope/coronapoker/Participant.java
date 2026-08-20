@@ -1968,6 +1968,9 @@ public class Participant implements Runnable {
                                         case "SHOWCARDS":
                                             Helpers.threadRun(() -> {
                                                 try {
+                                                    if (partes_comando.length != 6) {
+                                                        throw new IllegalArgumentException("SHOWCARDS requires exactly 6 fields");
+                                                    }
                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                     // ZERO-TRUST: a SHOWCARDS can only reveal the cards of the nick
                                                     // owning THIS authenticated connection (parity with
@@ -1988,7 +1991,7 @@ public class Participant implements Runnable {
                                                     // PHASE A.1: the Ed25519 signature travels alongside the SRA
                                                     // key. The host CANNOT tamper with it — it's the proof that it
                                                     // came from that nick's private key.
-                                                    String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
+                                                    String sigB64 = partes_comando[5];
 
                                                     // 1. The server verifies the signature + decrypts locally. On
                                                     // the HOST, a SHOWCARDS from a peer with a missing/invalid

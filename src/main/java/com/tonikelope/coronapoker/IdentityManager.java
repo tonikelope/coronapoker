@@ -412,12 +412,13 @@ public final class IdentityManager {
 
     /**
      * Canonical payload signed inside a SHOWCARDS / RESP_SHOWDOWN_KEY:
-     * {@code HAND_ID || nick_utf8 || pocketKey(32)}. The signature proves that
-     * this nick's specific pocket-key was authorized by its Ed25519 privkey, so
-     * a MitM host cannot substitute it or attribute it to the wrong peer. The
-     * domain "SHOWDOWN\0" is applied in sign/verify, not embedded here.
+     * {@code HAND_ID || nick_utf8 || pocketKey(32) || min(card1,card2) ||
+     * max(card1,card2)}. Binding the actual cards prevents a host from combining
+     * an authentic reveal key/signature with forged POTCARDS plaintext for an
+     * observer that did not participate in the encrypted deal.
      */
-    public static byte[] showdownPayload(byte[] handId, String nick, byte[] pocketKey) {
+    public static byte[] showdownPayload(byte[] handId, String nick, byte[] pocketKey,
+            int firstCard, int secondCard) {
         if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
             throw new IllegalArgumentException("handId must be "
                     + CanonicalActionRecord.HAND_ID_BYTES + " bytes");
@@ -428,30 +429,41 @@ public final class IdentityManager {
         if (pocketKey == null || pocketKey.length != 32) {
             throw new IllegalArgumentException("pocketKey must be 32 bytes");
         }
+        if (firstCard < 0 || firstCard > 51 || secondCard < 0 || secondCard > 51
+                || firstCard == secondCard) {
+            throw new IllegalArgumentException("showdown cards must be two distinct indices");
+        }
         byte[] nickBytes = nick.getBytes(StandardCharsets.UTF_8);
-        byte[] payload = new byte[handId.length + nickBytes.length + pocketKey.length];
+        byte[] payload = new byte[handId.length + nickBytes.length + pocketKey.length + 2];
         System.arraycopy(handId, 0, payload, 0, handId.length);
         System.arraycopy(nickBytes, 0, payload, handId.length, nickBytes.length);
         System.arraycopy(pocketKey, 0, payload, handId.length + nickBytes.length, pocketKey.length);
+        int cardOffset = handId.length + nickBytes.length + pocketKey.length;
+        payload[cardOffset] = (byte) Math.min(firstCard, secondCard);
+        payload[cardOffset + 1] = (byte) Math.max(firstCard, secondCard);
         return payload;
     }
 
     /**
-     * Signs a SHOWCARDS reveal {@code (HAND_ID || nick || pocketKey)} with this
-     * installation's privkey under the SHOWDOWN domain. Returns the 64-byte
-     * Ed25519 signature carried in RESP_SHOWDOWN_KEY and SHOWCARDS.
+     * Signs a card-bound SHOWCARDS reveal with this installation's private key
+     * under the SHOWDOWN domain. Returns the 64-byte Ed25519 signature carried
+     * in RESP_SHOWDOWN_KEY, SHOWCARDS and POTCARDS.
      */
-    public byte[] signShowdownReveal(byte[] handId, String nick, byte[] pocketKey) {
-        return sign(SHOWDOWN_DOMAIN, showdownPayload(handId, nick, pocketKey));
+    public byte[] signShowdownReveal(byte[] handId, String nick, byte[] pocketKey,
+            int firstCard, int secondCard) {
+        return sign(SHOWDOWN_DOMAIN,
+                showdownPayload(handId, nick, pocketKey, firstCard, secondCard));
     }
 
     /**
      * Verifies a SHOWCARDS signature against the owner nick's raw Ed25519
      * pubkey. Returns false on any failure.
      */
-    public static boolean verifyShowdownReveal(byte[] rawPubKey, byte[] handId, String nick, byte[] pocketKey, byte[] sig) {
+    public static boolean verifyShowdownReveal(byte[] rawPubKey, byte[] handId, String nick,
+            byte[] pocketKey, int firstCard, int secondCard, byte[] sig) {
         try {
-            return verify(rawPubKey, SHOWDOWN_DOMAIN, showdownPayload(handId, nick, pocketKey), sig);
+            return verify(rawPubKey, SHOWDOWN_DOMAIN,
+                    showdownPayload(handId, nick, pocketKey, firstCard, secondCard), sig);
         } catch (IllegalArgumentException ex) {
             LOGGER.log(Level.WARNING, "verifyShowdownReveal rejected by argument validation: {0}", ex.getMessage());
             return false;

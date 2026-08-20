@@ -702,6 +702,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // closes the host channel and preserves the open hand for recovery.
     public static final long COMMUNITY_DELIVERY_TIMEOUT_MS
             = RECON_CHURN_HARD_CAP_MS + REMOTE_SRA_PEER_TIMEOUT_MS;
+    public static final long SHOWDOWN_DELIVERY_TIMEOUT_MS = REMOTE_SRA_PEER_TIMEOUT_MS;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Seconds the run-it-twice vote lasts (timeout = NORMAL)
@@ -1639,6 +1640,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         acceptCriticalDealPhaseOnce(this.dual_lock_bundle_received, "DUALLOCK_BUNDLE");
     }
 
+    void acceptShowdownKeyRequestOnce() {
+        acceptCriticalDealPhaseOnce(this.showdown_key_request_received, "REQ_SHOWDOWN_KEY");
+    }
+
+    void acceptPotCardsOnce() {
+        acceptCriticalDealPhaseOnce(this.potcards_received, "POTCARDS");
+    }
+
     void installPocketDeferredOnce() {
         acceptPocketDeferredOnce(this.pocket_deferred_received);
     }
@@ -1803,6 +1812,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // host can't peek before committing either.
     private volatile boolean straddle_cards_pending = false; // the LOCAL process is the blind straddler and its cards aren't resolved yet (skips VISUAL@ in the fossil; triggers deferred resolution after deciding)
     private final java.util.concurrent.atomic.AtomicBoolean pocket_deferred_received = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean showdown_key_request_received = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean potcards_received = new java.util.concurrent.atomic.AtomicBoolean();
     private volatile String deferred_straddle_nick = null;   // host: nick of the straddler whose 2 slots were withheld during the deal (for the deferred cascade); null if none
     private volatile int deferred_straddle_slot = -1;        // ring index (active_crypto_ring) of the deferred straddler's slot; -1 if none
     private volatile String straddle_decision_verified_nick = null; // responder (each peer): nick of the straddler whose SIGNED decision verified this hand; the UNLOCK_PHASE_POCKET_STRADDLE gate requires the peeled slot to be theirs
@@ -3524,7 +3535,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Signs (HAND_ID || nick || pocketKey) with the LOCAL privkey under the
+     * Signs (HAND_ID || nick || pocketKey || unordered card ids) with the LOCAL privkey under the
      * SHOWDOWN domain, to accompany the pocketKey on the wire (SHOWCARDS /
      * RESP_SHOWDOWN_KEY), proving the key was authorized by whoever holds it:
      *
@@ -3553,7 +3564,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!im.isReady()) {
                 return "*";
             }
-            byte[] sig = im.signShowdownReveal(this.current_hand_id, revealNick, pocketKey);
+            Player revealPlayer = this.nick2player.get(revealNick);
+            if (revealPlayer == null) {
+                return "*";
+            }
+            int firstCard = revealPlayer.getHoleCard1().getCartaComoEntero();
+            int secondCard = revealPlayer.getHoleCard2().getCartaComoEntero();
+            if (firstCard < 0 || secondCard < 0 || firstCard == secondCard) {
+                return "*";
+            }
+            byte[] sig = im.signShowdownReveal(this.current_hand_id, revealNick, pocketKey,
+                    firstCard, secondCard);
             if (sig == null) {
                 return "*";
             }
@@ -6556,8 +6577,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Participant.sra_unlock and unlockPlayerCardsWithSRAKey applies it to the pocket
             // piece held in single_locked_pocket_cards.
             //
-            // Ed25519 signature over (HAND_ID || nick || pocketKey): the host can't substitute
-            // the key since it doesn't hold the nick's privkey (human = their own, bot = host's).
+            // Card-bound Ed25519 signature over (HAND_ID || nick || pocketKey || cards):
+            // the host cannot substitute either the key or observer-visible plaintext.
             try {
                 String sraKeyB64 = getShowdownPocketKey(nick);
                 String sigB64 = signShowdownRevealForBroadcast(nick, sraKeyB64);
@@ -7076,50 +7097,43 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             new Object[]{nick, sraKey.length, sig.length});
                                 }
                             } else {
-                                byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
-                                if (signerPubkey == null || this.current_hand_id == null) {
-                                    LOGGER.log(Level.WARNING,
-                                            "SHOWCARDS for {0}: signer pubkey or hand_id not resolved yet — card stays face-down (no lockdown, possible TOFU race)",
+                                int[] revealedCards = resolvePocketCardIndices(nick, sraKey);
+                                if (revealedCards == null) {
+                                    LOGGER.log(Level.SEVERE,
+                                            "ZERO-TRUST: SHOWCARDS for {0} does not resolve to two distinct cards; refusing",
                                             nick);
-                                } else if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, sraKey, sig)) {
-                                    if (!GameFrame.getInstance().isPartida_local()) {
-                                        LOGGER.log(Level.SEVERE,
-                                                "ZERO-TRUST: SHOWCARDS sig verify FAILED for {0} — host substituting key. Host hostile, lockdown.",
-                                                nick);
-                                        triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
+                                    if (GameFrame.getInstance().isPartida_local()) {
+                                        warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
                                     } else {
-                                        LOGGER.log(Level.SEVERE,
-                                                "ZERO-TRUST: peer {0} SHOWCARDS sig verify FAILED — refusing (card stays face-down, no lockdown).",
-                                                nick);
+                                        warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
                                     }
                                 } else {
-                                    Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                                    // Only store a USABLE scalar: a useless one (32 zero bytes) decrypts
-                                    // nothing and breaks as soon as anyone inverts it. If invalid, the
-                                    // reveal fails through the usual path ("SRA doesn't resolve"), already handled.
-                                    if (p != null && RistrettoSRA.isValidScalar(sraKey)) {
-                                        p.setSra_unlock(sraKey);
-                                    }
-                                    decrypted = unlockPlayerCardsWithSRAKey(jugador);
-                                    if (!decrypted && (jugador.getHoleCard1().getCartaComoEntero() >= 0 || (jugador.getHoleCard1().getValor() != null && !jugador.getHoleCard1().getValor().isEmpty()))) {
-                                        decrypted = true;
-                                    }
-                                    if (!decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
-                                        // Policy §8: signature OK but SRA doesn't resolve = an anomaly isolated
-                                        // to ONE peer -> forfeit (decrypted=false -> their cards aren't revealed,
-                                        // showdown mucks them, already handled), not a table-wide abort. Warn.
-                                        // Consistent with the twin case in RESP_SHOWDOWN_KEY.
-                                        LOGGER.log(Level.SEVERE,
-                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK but SRA does not resolve. Malicious peer or bug -> FORFEIT (cards not revealed) + warning.",
+                                    byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
+                                    if (signerPubkey == null || this.current_hand_id == null) {
+                                        LOGGER.log(Level.WARNING,
+                                                "SHOWCARDS for {0}: signer pubkey or hand_id not resolved; refusing",
                                                 nick);
-                                        // §8 visibility with the correct suspect named: on the HOST, the peer is
-                                        // at fault (warnMaliciousPeer names them in red + popup); on a client, the
-                                        // host is relaying the bad key (warnSuspiciousHost names the host).
-                                        if (GameFrame.getInstance().isPartida_local()) {
-                                            warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
+                                    } else if (!IdentityManager.verifyShowdownReveal(signerPubkey,
+                                            this.current_hand_id, nick, sraKey,
+                                            revealedCards[0], revealedCards[1], sig)) {
+                                        if (!GameFrame.getInstance().isPartida_local()) {
+                                            LOGGER.log(Level.SEVERE,
+                                                    "ZERO-TRUST: SHOWCARDS card-bound signature failed for {0}; host hostile, lockdown",
+                                                    nick);
+                                            triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
                                         } else {
-                                            warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                            LOGGER.log(Level.SEVERE,
+                                                    "ZERO-TRUST: peer {0} sent an invalid SHOWCARDS card-bound signature; refusing",
+                                                    nick);
                                         }
+                                    } else {
+                                        Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                                        if (p != null) {
+                                            p.setSra_unlock(sraKey);
+                                        }
+                                        jugador.getHoleCard1().iniciarConValorNumerico(revealedCards[0] + 1);
+                                        jugador.getHoleCard2().iniciarConValorNumerico(revealedCards[1] + 1);
+                                        decrypted = true;
                                     }
                                 }
                             }
@@ -9327,6 +9341,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.river_revealed = false;
         this.sra_unlock_tags_served.clear();
         this.cartas_resistencia = false;
+        this.showdown_key_request_received.set(false);
+        this.potcards_received.set(false);
         this.destapar_resistencia = false;
 
         // The run-out has ended: allow toggling RUN_IT_TWICE again (locked while the all-in
@@ -14119,6 +14135,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void resolverRunItTwiceShowdown(ArrayList<Player> resisten) {
         // Cards already revealed at the all-in; mirrors the normal showdown (idempotent).
         procesarCartasResistencia(resisten, false);
+        if (isFin_de_la_transmision() || this.termination_pending || Crupier.SECURITY_LOCKDOWN) {
+            return;
+        }
 
         // conta_win: snapshot to correct showdown()'s double increment.
         // pagar: snapshot so SIDE-A's settle can be REVERTED if SIDE-B's deal aborts
@@ -14871,6 +14890,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } finally {
             this.received_commands.reject(command);
             closeHostAfterCriticalCommunityFailure();
+        }
+    }
+
+    private int[] resolvePocketCardIndices(String nick, byte[] pocketKey) {
+        try {
+            if (!RistrettoSRA.isValidScalar(pocketKey)) {
+                return null;
+            }
+            byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
+            if (pocketCards == null || pocketCards.length != 64) {
+                return null;
+            }
+            byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, pocketKey);
+            int first = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(unlocked, 0, 32));
+            int second = RistrettoSRA.resolveCardIndex(Arrays.copyOfRange(unlocked, 32, 64));
+            return first >= 0 && second >= 0 && first != second
+                    ? new int[]{first, second} : null;
+        } catch (RuntimeException ex) {
+            return null;
         }
     }
 
@@ -15959,6 +15997,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     GameFrame.getInstance().getLocalPlayer().desactivarControles();
                 }
                 procesarCartasResistencia(resisten, true);
+                if (isFin_de_la_transmision() || this.termination_pending
+                        || Crupier.SECURITY_LOCKDOWN) {
+                    return resisten;
+                }
                 checkJugadasParciales(resisten);
                 // Run-it-twice: host-driven vote once action closes with 2+ players
                 // involved. Only offered if streets remain to run (rit_allin_street <
@@ -16255,9 +16297,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // nick + plaintext c1/c2 + sraKey + Ed25519 sig.
         //
         // Per-recipient verification:
-        //   - Spectators/warming up: apply plaintext directly (they have no
-        //     single_locked_pocket_cards to SRA-decrypt).
-        //   - Crypto-ring: verify sig (lockdown on fail) + SRA-decrypt and compare
+        //   - Spectators/warming up: verify the player's card-bound signature before
+        //     applying plaintext (they have no single_locked_pocket_cards to decrypt).
+        //   - Crypto-ring: verify that same signature + SRA-decrypt and compare
         //     against plaintext (peer FORFEITs on mismatch — a cheat attempt). The
         //     host is caught the same way if it tampers with the plaintext but
         //     leaves sigs intact: the decryption won't match.
@@ -16278,17 +16320,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean isBot = part != null && part.isCpu();
             if (isHost || isBot) {
                 String localKey = getShowdownPocketKey(nick);
-                if (!"*".equals(localKey)) {
-                    String sigB64 = signShowdownRevealForBroadcast(nick, localKey);
-                    if (!"*".equals(sigB64)) {
-                        nick2key.put(nick, localKey);
-                        nick2sig.put(nick, sigB64);
-                    } else {
-                        LOGGER.log(Level.WARNING,
-                                "solicitarYRecibirCartasVisuales: cannot sign POTCARDS entry for {0} — entry will be plaintext-only",
-                                nick);
-                    }
+                String sigB64 = signShowdownRevealForBroadcast(nick, localKey);
+                if ("*".equals(localKey) || "*".equals(sigB64)) {
+                    containTableFailure(new IllegalStateException(
+                            "cannot produce mandatory POTCARDS proof for " + nick));
+                    return;
                 }
+                nick2key.put(nick, localKey);
+                nick2sig.put(nick, sigB64);
             }
         }
 
@@ -16322,30 +16361,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     ArrayList<String> rejected = new ArrayList<>();
                     while (!pendientes.isEmpty() && !this.getReceived_commands().isEmpty()) {
                         String comando = this.received_commands.poll();
-                        String[] partes = comando.split("#");
+                        String[] partes = comando.split("#", -1);
 
-                        if (partes.length == 6 && partes[2].equals("RESP_SHOWDOWN_KEY")) {
+                        if (partes.length >= 3 && partes[2].equals("RESP_SHOWDOWN_KEY")) {
                             try {
-                                String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                                if (pendientes.contains(nick)) {
-                                    String keyB64 = partes[4];
-                                    String sigB64 = partes[5];
-                                    if (verifyAndStoreShowdownKey(nick, keyB64, sigB64)) {
-                                        nick2key.put(nick, keyB64);
-                                        nick2sig.put(nick, sigB64);
-                                        // Only removed from pendientes once VERIFIED: a
-                                        // RESP_SHOWDOWN_KEY with an invalid signature does not
-                                        // consume the peer's slot. We keep waiting for a valid
-                                        // RESP or the timeout. With nick-binding (F1) the RESP
-                                        // can only come from the peer itself, so a bad one is at
-                                        // most self-harm.
-                                        pendientes.remove(nick);
-                                    }
-                                } else {
-                                    rejected.add(comando);
+                                if (partes.length != 6) {
+                                    throw new IllegalArgumentException("RESP_SHOWDOWN_KEY requires exactly 6 fields");
                                 }
+                                String nick = decodeStrictUtf8(Base64.getDecoder().decode(partes[3]));
+                                if (!pendientes.contains(nick)) {
+                                    throw new IllegalArgumentException("unexpected or duplicate RESP_SHOWDOWN_KEY");
+                                }
+                                String keyB64 = partes[4];
+                                String sigB64 = partes[5];
+                                if (!verifyAndStoreShowdownKey(nick, keyB64, sigB64)) {
+                                    throw new IllegalArgumentException("invalid RESP_SHOWDOWN_KEY proof");
+                                }
+                                nick2key.put(nick, keyB64);
+                                nick2sig.put(nick, sigB64);
+                                pendientes.remove(nick);
                             } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Error processing RESP_SHOWDOWN_KEY", e);
+                                LOGGER.log(Level.SEVERE,
+                                        "Invalid critical RESP_SHOWDOWN_KEY; closing its authenticated source", e);
+                                this.received_commands.reject(comando);
                             }
                         } else {
                             rejected.add(comando);
@@ -16360,6 +16398,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return;
                 }
 
+                pendientes.removeIf(nick -> {
+                    Participant participant = GameFrame.getInstance().getParticipantes().get(nick);
+                    return participant == null || participant.isExit();
+                });
+
                 if (!pendientes.isEmpty()) {
                     // Time spent PAUSED doesn't count against the timeout, same as every
                     // other wait in this file: without this reset, a pause longer than
@@ -16367,10 +16410,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // alive opponents with their cards stuck face-down.
                     if (GameFrame.getInstance().checkPause()) {
                         start_time = System.currentTimeMillis();
-                    } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                        LOGGER.log(Level.WARNING,
-                                "REQ_SHOWDOWN_KEY timeout — {0} peers did not respond. Their cards stay face-down; the host resolves the pot from the action log.",
+                    } else if (System.currentTimeMillis() - start_time > SHOWDOWN_DELIVERY_TIMEOUT_MS) {
+                        LOGGER.log(Level.SEVERE,
+                                "REQ_SHOWDOWN_KEY timeout — expelling non-responders before deterministic showdown: {0}",
                                 pendientes);
+                        for (String nick : new ArrayList<>(pendientes)) {
+                            Participant participant = GameFrame.getInstance().getParticipantes().get(nick);
+                            if (participant != null && !participant.isExit()) {
+                                participant.markExitAndNotify("withheld showdown key");
+                                try {
+                                    participant.socketClose();
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        }
+                        pendientes.clear();
                         break;
                     }
                     synchronized (this.getReceived_commands()) {
@@ -16386,8 +16440,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // Build the atomic POTCARDS. Per-entry format (5 fields):
         //   #nickB64#c1#c2#sraKeyB64#sigB64
-        // A nick with no verified (sraKey, sig) is omitted — its cards won't appear
-        // in POTCARDS and showdown leaves them face-down.
+        // Every active contender is mandatory. A partial envelope would let a host
+        // suppress an inconvenient hand, so inability to build any entry preserves
+        // the open hand for recovery instead of broadcasting or settling a subset.
         if (!Crupier.SECURITY_LOCKDOWN) {
             StringBuilder potcards = new StringBuilder("POTCARDS");
             boolean anyCard = false;
@@ -16399,13 +16454,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 String keyB64 = nick2key.get(nick);
                 String sigB64 = nick2sig.get(nick);
                 if (keyB64 == null || sigB64 == null) {
-                    continue;
+                    containTableFailure(new IllegalStateException(
+                            "missing mandatory POTCARDS proof for " + nick));
+                    return;
                 }
                 try {
                     String c1 = jugador.getHoleCard1().toShortString();
                     String c2 = jugador.getHoleCard2().toShortString();
                     if (c1 == null || c1.isEmpty() || c2 == null || c2.isEmpty()) {
-                        continue;
+                        throw new IllegalStateException("missing mandatory POTCARDS cards for " + nick);
                     }
                     potcards.append("#")
                             .append(Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")))
@@ -16415,7 +16472,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             .append("#").append(sigB64);
                     anyCard = true;
                 } catch (Exception ex) {
-                    LOGGER.log(Level.WARNING, "Error encoding POTCARDS entry for " + nick, ex);
+                    containTableFailure(new IllegalStateException(
+                            "error encoding mandatory POTCARDS entry for " + nick, ex));
+                    return;
                 }
             }
             if (anyCard) {
@@ -16433,9 +16492,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     //   2. SRA math: apply the key to single_locked_pocket_cards[nick] and check
     //      resolveCardIndex returns 0-51 for both cards.
     //
-    // Returns true only on full verification (the entry is then included in
-    // POTCARDS). Any failure -> false (their cards are omitted -> stay face-down
-    // in the UI; the pot is resolved from the action log).
+    // Returns true only on full verification. Any invalid proof closes that
+    // authenticated peer; only an explicit exit may remove it from the mandatory
+    // POTCARDS roster before settlement.
     private boolean verifyAndStoreShowdownKey(String nick, String keyB64, String sigB64) {
         if (keyB64 == null || keyB64.equals("*")) {
             return false;
@@ -16468,49 +16527,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         nick);
                 return false;
             }
-            if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, key, sig)) {
+            int[] cards = resolvePocketCardIndices(nick, key);
+            if (cards == null) {
                 LOGGER.log(Level.SEVERE,
-                        "verifyAndStoreShowdownKey: Ed25519 sig FAILED for {0} — host may be substituting key or peer fabricated sig.",
+                        "ZERO-TRUST: RESP_SHOWDOWN_KEY from {0} does not resolve to two distinct cards; forfeit",
                         nick);
-                return false;
-            }
-            byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
-            if (pocketCards == null || pocketCards.length != 64) {
-                LOGGER.log(Level.WARNING,
-                        "verifyAndStoreShowdownKey: no single_locked_pocket_cards for {0} — skipping",
-                        nick);
-                return false;
-            }
-            byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, key);
-            byte[] c1 = Arrays.copyOfRange(unlocked, 0, 32);
-            byte[] c2 = Arrays.copyOfRange(unlocked, 32, 64);
-            int id1 = RistrettoSRA.resolveCardIndex(c1);
-            int id2 = RistrettoSRA.resolveCardIndex(c2);
-            if (id1 < 0 || id2 < 0) {
-                // Sig OK but the signed key does NOT resolve to a genesis card: the peer
-                // signed a bad key (bug/corrupt client) or is attempting something — we
-                // can't tell which. This is the HOST catching ONE peer -> FORFEIT (return
-                // false -> their cards aren't revealed, showdown mucks them), not ending
-                // the game for everyone. Visibility per §8: red log entry + popup naming
-                // the suspect PLAYER (warnMaliciousPeer — the host-side symmetric of
-                // warnSuspiciousHost, which would have mis-framed the host instead).
-                LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY from {0} — sig OK but SRA does not resolve (ids={1},{2}). Malicious peer or bug -> FORFEIT (their cards are not revealed).",
-                        new Object[]{nick, id1, id2});
                 warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
+                return false;
+            }
+            if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id,
+                    nick, key, cards[0], cards[1], sig)) {
+                LOGGER.log(Level.SEVERE,
+                        "verifyAndStoreShowdownKey: card-bound Ed25519 signature FAILED for {0}.",
+                        nick);
                 return false;
             }
 
             // Persist the verified key to the Participant + update the host's local UI.
-            // Only if it's a USABLE scalar — an unusable one would blow up on inversion.
             Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-            if (p != null && RistrettoSRA.isValidScalar(key)) {
+            if (p != null) {
                 p.setSra_unlock(key);
             }
             Player jugador = nick2player.get(nick);
             if (jugador != null) {
-                jugador.getHoleCard1().iniciarConValorNumerico(id1 + 1);
-                jugador.getHoleCard2().iniciarConValorNumerico(id2 + 1);
+                jugador.getHoleCard1().iniciarConValorNumerico(cards[0] + 1);
+                jugador.getHoleCard2().iniciarConValorNumerico(cards[1] + 1);
             }
             return true;
         } catch (Exception e) {
@@ -19956,26 +19997,125 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         GameFrame.getInstance().getRegistro().print("RIVER -> " + Card.collection2String(com));
     }
 
+    private void rejectCriticalShowdownMessage(String command, String detail, Exception error) {
+        if (error == null) {
+            LOGGER.log(Level.SEVERE, detail);
+        } else {
+            LOGGER.log(Level.SEVERE, detail, error);
+        }
+        try {
+            triggerSecurityLockdown(Translator.translate("zero_trust.host_potcards_mismatch"));
+        } catch (RuntimeException lockdownFailure) {
+            LOGGER.log(Level.SEVERE, "Unable to display critical showdown lockdown", lockdownFailure);
+        } finally {
+            this.received_commands.reject(command);
+            closeHostAfterCriticalShowdownFailure();
+        }
+    }
+
+    private void closeHostAfterCriticalShowdownFailure() {
+        setFin_de_la_transmision(true);
+        WaitingRoomFrame waitingRoom = WaitingRoomFrame.getInstance();
+        if (waitingRoom != null) {
+            waitingRoom.closeClientSocket();
+        }
+    }
+
+    private LinkedHashMap<String, int[]> verifyPotCardsEnvelope(PotCardsEnvelope envelope,
+            Set<String> eligibleNicks, String localNick, boolean observer) {
+        if (envelope == null || eligibleNicks == null || this.current_hand_id == null) {
+            throw new IllegalArgumentException("showdown context is incomplete");
+        }
+        LinkedHashMap<String, int[]> verified = new LinkedHashMap<>();
+        HashSet<Integer> occupied = new HashSet<>();
+        for (Card boardCard : GameFrame.getInstance().getCartas_comunes()) {
+            if (boardCard != null && !boardCard.isTapada()) {
+                int id = boardCard.getCartaComoEntero();
+                if (id >= 0 && id <= 51) {
+                    occupied.add(id);
+                }
+            }
+        }
+        boolean localEntrySeen = false;
+        for (PotCardsEnvelope.Entry entry : envelope.entries()) {
+            byte[] key = entry.pocketKey();
+            byte[] sig = entry.signature();
+            if (!RistrettoSRA.isValidScalar(key)) {
+                throw new IllegalArgumentException("POTCARDS contains an unusable pocket key");
+            }
+            byte[] signerPubkey = resolveShowdownSignerPubkey(entry.nick());
+            if (signerPubkey == null || !IdentityManager.verifyShowdownReveal(signerPubkey,
+                    this.current_hand_id, entry.nick(), key,
+                    entry.firstCard(), entry.secondCard(), sig)) {
+                throw new IllegalArgumentException("POTCARDS card-bound signature is invalid");
+            }
+            int[] resolved;
+            if (observer) {
+                resolved = new int[]{entry.firstCard(), entry.secondCard()};
+            } else {
+                resolved = resolvePocketCardIndices(entry.nick(), key);
+                if (resolved == null
+                        || !sameUnorderedCards(resolved[0], resolved[1],
+                                entry.firstCard(), entry.secondCard())) {
+                    throw new IllegalArgumentException("POTCARDS plaintext disagrees with encrypted pocket");
+                }
+            }
+            if (!occupied.add(resolved[0]) || !occupied.add(resolved[1])) {
+                throw new IllegalArgumentException("POTCARDS repeats a board or pocket card");
+            }
+            verified.put(entry.nick(), resolved);
+            localEntrySeen |= entry.nick().equals(localNick);
+        }
+        if (!observer && eligibleNicks.contains(localNick) && !localEntrySeen) {
+            throw new IllegalArgumentException("host omitted this contender's acknowledged reveal");
+        }
+        return verified;
+    }
+
+    private static boolean sameUnorderedCards(int firstA, int secondA, int firstB, int secondB) {
+        return (firstA == firstB && secondA == secondB)
+                || (firstA == secondB && secondA == firstB);
+    }
+
+    private void applyVerifiedPotCards(PotCardsEnvelope envelope,
+            Map<String, int[]> verified, String localNick) {
+        LinkedHashMap<String, Player> targets = new LinkedHashMap<>();
+        for (PotCardsEnvelope.Entry entry : envelope.entries()) {
+            if (!entry.nick().equals(localNick)) {
+                Player target = this.nick2player.get(entry.nick());
+                if (target == null || verified.get(entry.nick()) == null) {
+                    throw new IllegalStateException("verified POTCARDS target disappeared");
+                }
+                targets.put(entry.nick(), target);
+            }
+        }
+        for (PotCardsEnvelope.Entry entry : envelope.entries()) {
+            Participant participant = GameFrame.getInstance().getParticipantes().get(entry.nick());
+            if (participant != null) {
+                participant.setSra_unlock(entry.pocketKey());
+            }
+            if (entry.nick().equals(localNick)) {
+                continue;
+            }
+            Player player = targets.get(entry.nick());
+            int[] cards = verified.get(entry.nick());
+            player.getHoleCard1().iniciarConValorNumerico(cards[0] + 1);
+            player.getHoleCard2().iniciarConValorNumerico(cards[1] + 1);
+            player.ordenarCartas();
+        }
+    }
+
     // PHASE A.1 (showdown zero-trust): client-side showdown behavior.
     //
-    // Crypto-ring clients receive SHOWCARDS#nick#key from the host for each peer at
-    // showdown — WaitingRoomFrame:SHOWCARDS's async handler calls showPlayerCards,
-    // which applies the key to single_locked_pocket_cards[nick] and verifies
-    // resolveCardIndex (lockdown if resolveCardIndex==-1).
-    //
-    // SPECTATORS (isCalentando / isSpectator) are NOT in the crypto-ring and have
-    // no single_locked_pocket_cards. For them the host also emits plaintext
-    // POTCARDS, which is only sent after SRA-verifying every peer (if anyone lied,
-    // lockdown already fired and POTCARDS never goes out).
+        // Every client receives one atomic POTCARDS covering the exact active showdown
+        // roster. Crypto-ring members compare each signed plaintext pocket with their
+        // encrypted residue; observers without that residue still verify the player's
+        // card-bound Ed25519 signature.
     //
     // This function:
     //   (a) responds to REQ_SHOWDOWN_KEY by sending local_sra_unlock.
-    //   (b) processes POTCARDS (plaintext fallback for spectators and for
-    //       crypto-ring clients whose SHOWCARDS cards are still face-down).
-    //   (c) blocks until its exit condition is met, per role:
-    //         - warming up: POTCARDS has arrived (the only way to see cards).
-    //         - crypto-ring: every non-self peer has an uncovered HoleCard (via
-    //           SHOWCARDS) or plaintext POTCARDS was applied as a fallback.
+        //   (b) verifies and atomically applies POTCARDS.
+        //   (c) blocks until POTCARDS arrives, unless no remote contender exists.
     private void recibirCartasResistencia(ArrayList<Player> resistencia) {
         long start_time = System.currentTimeMillis();
         String localNick = GameFrame.getInstance().getNick_local();
@@ -19986,7 +20126,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         do {
             synchronized (this.getReceived_commands()) {
                 ArrayList<String> rejected = new ArrayList<>();
-                while (!this.getReceived_commands().isEmpty()) {
+                while (!potcardsApplied && !this.getReceived_commands().isEmpty()) {
+                    if (GameFrame.getInstance().isTimba_pausada()) {
+                        break;
+                    }
+                    if (System.currentTimeMillis() - start_time >= SHOWDOWN_DELIVERY_TIMEOUT_MS) {
+                        LOGGER.log(Level.SEVERE,
+                                "Critical showdown delivery timed out while draining messages; closing host channel");
+                        closeHostAfterCriticalShowdownFailure();
+                        return;
+                    }
                     String comando = this.received_commands.poll();
                     String[] partes = comando.split("#", -1);
 
@@ -20000,9 +20149,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // (an unsolicited REQ_SHOWDOWN_KEY) and unmask its MUCKED cards.
                                 // Checked against MY state, not the host's.
                                 if (!resistencia.contains(GameFrame.getInstance().getLocalPlayer())) {
-                                    LOGGER.log(Level.WARNING,
-                                            "Ignoring REQ_SHOWDOWN_KEY: local player is not a showdown contender (folded/watcher) — not revealing pocket key");
-                                    break;
+                                    rejectCriticalShowdownMessage(comando,
+                                            "ZERO-TRUST: host requested a folded/watcher pocket key; closing host channel", null);
+                                    return;
                                 }
                                 // PHASE A.1: respond with our pocket-unlock + Ed25519 sig. The sig
                                 // proves to the host (and everyone else via rebroadcast) that the
@@ -20022,189 +20171,53 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 ? Base64.getEncoder().encodeToString(myKey)
                                                 : "*";
                                         String sigB64 = signShowdownRevealForBroadcast(localNick, keyB64);
+                                        if ("*".equals(keyB64) || "*".equals(sigB64)) {
+                                            rejectCriticalShowdownMessage(comando,
+                                                    "Cannot produce the required card-bound showdown proof; closing host channel", null);
+                                            return;
+                                        }
                                         sendGAMECommandToServer("RESP_SHOWDOWN_KEY#" + myNickB64 + "#" + keyB64 + "#" + sigB64, false);
                                     } catch (Exception e) {
-                                        LOGGER.log(Level.SEVERE, "Error responding to REQ_SHOWDOWN_KEY", e);
+                                        rejectCriticalShowdownMessage(comando,
+                                                "Error responding to critical REQ_SHOWDOWN_KEY; closing host channel", e);
                                     }
                                 });
                                 break;
 
-                            case "POTCARDS": // Atomic showdown. Per-entry format (5 fields):
-                            //   #nickB64#c1#c2#sraKeyB64#sigB64
-                            //
-                            // Spectators/warming up: apply plaintext (c1/c2) unverified —
-                            // they have no single_locked_pocket_cards. If a crypto-ring
-                            // member detects cheating, lockdown fires and everyone stops.
-                            //
-                            // Crypto-ring: verifies the Ed25519 sig (lockdown on fail ->
-                            // hostile host), then decrypts single_locked_pocket_cards with
-                            // the sraKey and compares against plaintext. Match: applied.
-                            // Mismatch: that peer FORFEITs (its cards aren't applied ->
-                            // showdown leaves them face-down).
-                            {
-                                int total = (partes.length - 3) / 5;
-                                boolean lockdownTriggered = false;
-                                for (int i = 0; i < total && !lockdownTriggered; i++) {
-                                    try {
-                                        int base = 3 + 5 * i;
-                                        String nick = new String(Base64.getDecoder().decode(partes[base]), "UTF-8");
-                                        Player jugador = nick2player.get(nick);
-                                        if (jugador == null
-                                                || jugador.getNickname().equals(localNick)
-                                                || jugador.isExit()) {
-                                            continue;
+                            case "POTCARDS": {
+                                try {
+                                    LinkedHashSet<String> eligible = new LinkedHashSet<>();
+                                    for (Player contender : resistencia) {
+                                        if (contender != null && !contender.isExit()) {
+                                            eligible.add(contender.getNickname());
                                         }
-                                        String c1_str = partes[base + 1];
-                                        String c2_str = partes[base + 2];
-                                        String sraKeyB64 = partes[base + 3];
-                                        String sigB64 = partes[base + 4];
-                                        if (c1_str == null || c1_str.length() < 3 || !c1_str.contains("_")
-                                                || c2_str == null || c2_str.length() < 3 || !c2_str.contains("_")) {
-                                            continue;
-                                        }
-
-                                        if (iAmCalentando) {
-                                            // Spectator: apply plaintext directly.
-                                            String[] carta1 = c1_str.split("_");
-                                            String[] carta2 = c2_str.split("_");
-                                            jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
-                                            jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
-                                            continue;
-                                        }
-
-                                        // Zero-trust violation mapping:
-                                        //   sig/key missing, bad lengths, sig verify FAILED,
-                                        //   Set mismatch (different cards) -> LOCKDOWN (we stop).
-                                        //   sig OK but SRA doesn't resolve -> peer FORFEIT + popup.
-                                        //   Order swap (same cards) -> silent (benign bug).
-                                        boolean keyProvided = (sraKeyB64 != null && !sraKeyB64.equals("*"));
-                                        boolean sigProvided = (sigB64 != null && !sigB64.equals("*"));
-                                        if (!keyProvided || !sigProvided) {
-                                            LOGGER.log(Level.SEVERE,
-                                                    "ZERO-TRUST: POTCARDS for {0} arrived WITHOUT sig/key — host stripped. Lockdown.",
-                                                    nick);
-                                            triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
-                                            lockdownTriggered = true;
-                                            break;
-                                        }
-
-                                        byte[] sraKey = Base64.getDecoder().decode(sraKeyB64);
-                                        byte[] sig = Base64.getDecoder().decode(sigB64);
-                                        if (sraKey.length != 32 || sig.length != 64) {
-                                            LOGGER.log(Level.SEVERE,
-                                                    "ZERO-TRUST: POTCARDS for {0} has bad lengths — malformed host wire. Lockdown.",
-                                                    nick);
-                                            triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
-                                            lockdownTriggered = true;
-                                            break;
-                                        }
-                                        byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
-                                        if (signerPubkey == null || this.current_hand_id == null) {
-                                            LOGGER.log(Level.WARNING,
-                                                    "POTCARDS for {0}: signer pubkey or hand_id not resolved yet — entry skipped (no lockdown, possible TOFU race)",
-                                                    nick);
-                                            continue;
-                                        }
-                                        if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, sraKey, sig)) {
-                                            LOGGER.log(Level.SEVERE,
-                                                    "ZERO-TRUST: POTCARDS sig verify FAILED for {0} — host substituting key. Lockdown.",
-                                                    nick);
-                                            triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
-                                            lockdownTriggered = true;
-                                            break;
-                                        }
-
-                                        // Sig OK. Decrypt and populate holeCards from the SRA. SRA
-                                        // decryption is the ONLY source of truth for peers with a
-                                        // local cipher (active ones). Plaintext is compared as a
-                                        // Set (not a tuple) to tolerate the host's UI reordering.
-                                        // Only a USABLE scalar is stored (see the SHOWCARDS twin):
-                                        // an unusable one blows up on inversion.
-                                        Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
-                                        if (pp != null && RistrettoSRA.isValidScalar(sraKey)) {
-                                            pp.setSra_unlock(sraKey);
-                                        }
-                                        byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
-                                        if (pocketCards == null || pocketCards.length != 64) {
-                                            // Spectator (warming up, no local cipher) -> trust the
-                                            // host's signed plaintext.
-                                            String[] carta1 = c1_str.split("_");
-                                            String[] carta2 = c2_str.split("_");
-                                            jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
-                                            jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
-                                            continue;
-                                        }
-                                        byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, sraKey);
-                                        byte[] cb1 = Arrays.copyOfRange(unlocked, 0, 32);
-                                        byte[] cb2 = Arrays.copyOfRange(unlocked, 32, 64);
-                                        int id1 = RistrettoSRA.resolveCardIndex(cb1);
-                                        int id2 = RistrettoSRA.resolveCardIndex(cb2);
-                                        if (id1 < 0 || id2 < 0) {
-                                            // §8 policy + the intent documented above ("peer FORFEIT"): sig OK
-                                            // but SRA doesn't resolve = an anomaly isolated to ONE peer (it
-                                            // signed a bad key: bug/corrupt client, indistinguishable from
-                                            // malice). Its cards are NOT applied (continue -> showdown leaves
-                                            // them face-down = forfeit) and we warn, instead of ending the game
-                                            // for EVERYONE. (The set-mismatch below, host LYING about the
-                                            // cards, is a lockdown.)
-                                            LOGGER.log(Level.SEVERE,
-                                                    "ZERO-TRUST: POTCARDS for {0} — sig OK but SRA does not resolve (ids={1},{2}). Malicious peer or bug -> FORFEIT (cards not applied) + warning.",
-                                                    new Object[]{nick, id1, id2});
-                                            try {
-                                                GameFrame.getInstance().getRegistro().print(
-                                                        nick + " " + Translator.translate("zero_trust.peer_sra_corrupt_registro"));
-                                            } catch (Exception ignored) {
-                                            }
-                                            // §8 visibility with the right SUSPECT named: on the HOST it
-                                            // names the PEER (red + popup); on a client the host relayed
-                                            // the bad key.
-                                            if (GameFrame.getInstance().isPartida_local()) {
-                                                warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
-                                            } else {
-                                                warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
-                                            }
-                                            continue;
-                                        }
-
-                                        // Validate plaintext vs SRA-decrypt as a SET (not a tuple):
-                                        // pockets are interchangeable in Hold'em, so the host can
-                                        // legitimately reorder them for display. But if the CARDS
-                                        // are DIFFERENT -> real cheating -> LOCKDOWN.
-                                        String expected1 = Card.shortStringFromIndex(id1);
-                                        String expected2 = Card.shortStringFromIndex(id2);
-                                        java.util.Set<String> received = new java.util.HashSet<>(
-                                                java.util.Arrays.asList(c1_str, c2_str));
-                                        java.util.Set<String> expected = new java.util.HashSet<>(
-                                                java.util.Arrays.asList(expected1, expected2));
-                                        if (!received.equals(expected)) {
-                                            LOGGER.log(Level.SEVERE,
-                                                    "ZERO-TRUST: POTCARDS plaintext for {0} ({1},{2}) disagrees with SRA-decrypt ({3},{4}). Host is lying. Lockdown.",
-                                                    new Object[]{nick, c1_str, c2_str, expected1, expected2});
-                                            triggerSecurityLockdown(Translator.translate("zero_trust.host_potcards_mismatch"));
-                                            lockdownTriggered = true;
-                                            break;
-                                        }
-
-                                        jugador.getHoleCard1().iniciarConValorNumerico(id1 + 1);
-                                        jugador.getHoleCard2().iniciarConValorNumerico(id2 + 1);
-                                        // Same reordering as the host (higher card on the left) for
-                                        // display consistency across peers.
-                                        jugador.ordenarCartas();
-                                    } catch (Exception ex) {
-                                        LOGGER.log(Level.WARNING, "Error processing POTCARDS entry " + i, ex);
                                     }
+                                    PotCardsEnvelope envelope = PotCardsEnvelope.parse(partes, eligible);
+                                    LinkedHashMap<String, int[]> verified = verifyPotCardsEnvelope(
+                                            envelope, eligible, localNick, iAmCalentando);
+                                    // Atomicity: no Participant or Card mutates until every entry,
+                                    // signature, encrypted residue and cross-card uniqueness check passed.
+                                    applyVerifiedPotCards(envelope, verified, localNick);
+                                    potcardsApplied = true;
+                                } catch (Exception ex) {
+                                    rejectCriticalShowdownMessage(comando,
+                                            "ZERO-TRUST: invalid atomic POTCARDS; closing host channel", ex);
+                                    return;
                                 }
+                                break;
                             }
-                            potcardsApplied = true;
-                            break;
 
                             case "MISDEAL":
-                                String motivo = "";
                                 try {
-                                    motivo = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                                    if (partes.length != 4) {
+                                        throw new IllegalArgumentException("MISDEAL requires exactly 4 fields");
+                                    }
+                                    String motivo = decodeStrictUtf8(Base64.getDecoder().decode(partes[3]));
+                                    cancelarManoYDevolverApuestas(motivo, false);
                                 } catch (Exception e) {
+                                    rejectCriticalShowdownMessage(comando,
+                                            "Malformed critical MISDEAL during showdown; closing host channel", e);
                                 }
-                                cancelarManoYDevolverApuestas(motivo, false);
                                 return;
 
                             default:
@@ -20241,20 +20254,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (Crupier.SECURITY_LOCKDOWN) {
-                break;
+                closeHostAfterCriticalShowdownFailure();
+                return;
             }
 
             if (GameFrame.getInstance().checkPause()) {
                 start_time = System.currentTimeMillis();
-            } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                LOGGER.log(Level.WARNING, "recibirCartasResistencia timeout — showdown reveals incomplete. UI shows face-down cards; the host resolves the pot from the action log.");
-                break;
+            } else if (System.currentTimeMillis() - start_time > SHOWDOWN_DELIVERY_TIMEOUT_MS) {
+                LOGGER.log(Level.SEVERE,
+                        "Critical POTCARDS delivery timed out; closing host channel for recovery");
+                closeHostAfterCriticalShowdownFailure();
+                return;
             } else {
                 synchronized (this.getReceived_commands()) {
                     try {
                         this.received_commands.wait(WAIT_QUEUES);
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
+                        closeHostAfterCriticalShowdownFailure();
+                        return;
                     }
                 }
             }
@@ -20305,12 +20323,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Optimistic UI: request cards from remote clients up front.
                 solicitarYRecibirCartasVisuales(resisten);
 
-                // PHASE A.1 (showdown zero-trust): the plaintext POTCARDS broadcast is
-                // gone. Cards reach showdown via SHOWCARDS#nick#k_pocket_unlock inside
-                // solicitarYRecibirCartasVisuales (above), with cryptographic
-                // verification via resolveCardIndex on the receiver. A peer lying
-                // about its pocket key triggers lockdown — there's no plaintext to
-                // blindly accept.
+                if (isFin_de_la_transmision() || this.termination_pending
+                        || Crupier.SECURITY_LOCKDOWN) {
+                    return;
+                }
+
+                // The atomic POTCARDS broadcast above contains plaintext only together
+                // with its card-bound proof and, for ring members, must match the SRA
+                // residue before any player state is changed.
                 if (destapar) {
                     // No batch uncover.wav here: each player's flip already plays its
                     // own uncover sound (both the animated and plain paths ALWAYS play
@@ -20339,6 +20359,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Receive the cards of the players involved in bote_total (skipping
                 // our own, which we already know).
                 recibirCartasResistencia(resisten);
+
+                if (isFin_de_la_transmision() || this.termination_pending
+                        || Crupier.SECURITY_LOCKDOWN) {
+                    return;
+                }
 
                 if (destapar) {
                     // No batch uncover.wav here: each player's flip already plays its
@@ -21303,6 +21328,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     default:
                                         // Everyone shows their cards and GUI updates
                                         procesarCartasResistencia(resisten, false);
+                                        if (isFin_de_la_transmision() || this.termination_pending
+                                                || Crupier.SECURITY_LOCKDOWN) {
+                                            continue;
+                                        }
                                         if (!this.destapar_resistencia) {
                                             Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
                                         }

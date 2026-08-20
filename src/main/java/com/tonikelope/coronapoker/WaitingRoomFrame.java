@@ -2708,7 +2708,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 String deckHashB64 = Base64.getEncoder().encodeToString(
                                                                                         java.security.MessageDigest.getInstance("SHA-256").digest(shuffled));
                                                                                 int proofId = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                                writeCommandToServer(Helpers.encryptCommand("GAME#" + proofId + "#DECK_CASCADE_PROOF#" + deckHashB64 + "#" + Base64.getEncoder().encodeToString(cascadeProof), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                                writeCommandToServer(Helpers.encryptCommand("GAME#" + proofId + "#DECK_CASCADE_PROOF#" + myNickB64 + "#" + deckHashB64 + "#" + Base64.getEncoder().encodeToString(cascadeProof), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                             }
                                                                         } catch (Exception proofEx) {
                                                                             LOGGER.log(Level.WARNING, "Failed to generate/send async cascade proof (host treats as proofless)", proofEx);

@@ -103,6 +103,24 @@ public final class GameCommandMailbox {
     public synchronized boolean isEmpty() { return queue.isEmpty(); }
     public synchronized int size() { return queue.size(); }
 
+    /**
+     * Rejects an already-polled critical occurrence and closes exactly the source that
+     * supplied it. Returns false when that occurrence no longer has live metadata.
+     */
+    public boolean reject(String command) {
+        if (command == null) return false;
+        Runnable close = null;
+        boolean found;
+        synchronized (this) {
+            purgeCollectedMetadata();
+            Metadata meta = metadata.remove(new CommandRef(command));
+            found = meta != null;
+            if (meta != null) close = meta.closeAction;
+        }
+        runClose(close);
+        return found;
+    }
+
     public synchronized void clear() {
         queue.clear();
         metadata.clear();

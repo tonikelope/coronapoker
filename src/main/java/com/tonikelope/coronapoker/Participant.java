@@ -80,7 +80,7 @@ public class Participant implements Runnable {
     // HANDVERIFY and STRADDLE_RESP already had this guard inline; it's generalized here.
     private static final java.util.Set<String> NICK_BOUND_SUBCOMMANDS = java.util.Set.of(
             "ACTION", "REBUY", "BUYIN", "RESP_SHOWDOWN_KEY",
-            "DECK_CASCADE_RESP", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP",
+            "DECK_CASCADE_RESP", "DECK_CASCADE_PROOF", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP",
             "SEAT_COMMIT", "SEAT_REVEAL");
 
     // F2 ANTI-DoS: per-peer size cap + frequency token-bucket for non-critical text commands. Thresholds

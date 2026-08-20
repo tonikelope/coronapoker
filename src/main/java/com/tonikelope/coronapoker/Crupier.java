@@ -1349,12 +1349,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Cascade chain log (no proofs generated here -> zero CPU cost during the deal).
     // cascade_chain_decks = genesis + one deck per step. Per step: host/bots store (perm, k) to
-    // generate the proof later in background; remote steps store the proof the client already sent.
+    // generate the proof later in background; remote steps are matched to their authenticated owner.
     // Lets everyone verify the cascade was an honest shuffle (a tampered host can't slip in cards) —
     // generation+verification runs in background after the deal.
     public volatile java.util.List<byte[]> cascade_chain_decks = null;
     public volatile java.util.List<int[]> cascade_step_perm = null;          // host/bot: perm; remote: null
     public volatile java.util.List<byte[]> cascade_step_k = null;            // host/bot: k; remote: null
+    public volatile java.util.List<String> cascade_step_owner = null;         // authenticated contributor per step
     // Rotation side (dual-lock) of the chain: community state after each rotation step + one
     // RotationProof (batch-DLEQ) per step. Together with the cascade this closes genesis->MEGAPACKET
     // (DualLockCascade). host/bot: proof generated inline (batch-DLEQ is cheap, ~ms); remote: the
@@ -1709,18 +1710,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     //  - VERIFIES each proof (verifyStepWire) against the step's (deckIn, deckOut) before accepting
     //    it, OUTSIDE the lock (it's expensive). A peer's deckOut is known by the next one in the
     //    cascade (it's their input), so without this a peer could OVERWRITE another's honest proof
-    //    with garbage (first-wins) -> unverified deck / false "dishonest host". Garbage is discarded
-    //    and we keep waiting for the real one.
+    //    with garbage (first-wins) -> unverified deck / false "dishonest host". A wrong sender is
+    //    closed; an invalid proof from the expected contributor closes it and aborts collection.
     private java.util.Map<String, byte[]> collectAsyncCascadeProofs(
-            java.util.List<byte[]> decks, java.util.List<int[]> perms) {
+            java.util.List<byte[]> decks, java.util.List<int[]> perms,
+            java.util.List<String> owners) {
         java.util.Map<String, byte[]> collected = new java.util.HashMap<>();
         java.util.Map<String, Integer> hashToStep = new java.util.HashMap<>();
+        java.util.Map<String, String> hashToOwner = new java.util.HashMap<>();
+        if (owners == null || owners.size() != perms.size()) {
+            throw new IllegalArgumentException("cascade proof owners must match steps");
+        }
         for (int s = 0; s < perms.size(); s++) {
             // Remote step (perm null): its shuffle proof arrives async.
             if (perms.get(s) == null) {
                 String h = cascadeDeckHash(decks.get(s + 1));
                 if (h != null) {
                     hashToStep.put(h, s);
+                    hashToOwner.put(h, owners.get(s));
                 }
             }
         }
@@ -1740,9 +1747,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 while (!this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
-                    if (partes.length == 5 && "DECK_CASCADE_PROOF".equals(partes[2])
-                            && hashToStep.containsKey(partes[3]) && !collected.containsKey(partes[3])) {
-                        candidates.add(new String[]{partes[3], partes[4]});
+                    if (partes.length == 6 && "DECK_CASCADE_PROOF".equals(partes[2])
+                            && hashToStep.containsKey(partes[4]) && !collected.containsKey(partes[4])) {
+                        candidates.add(new String[]{partes[3], partes[4], partes[5], cmd});
                     } else {
                         rejected.add(cmd); // not OUR proof -> re-queue (another builder / another command)
                     }
@@ -1753,18 +1760,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             // Outside the lock: verify each candidate and accept ONLY the valid ones.
             for (String[] c : candidates) {
-                if (collected.containsKey(c[0])) {
+                if (collected.containsKey(c[1])) {
                     continue;
                 }
                 try {
-                    byte[] proof = Base64.getDecoder().decode(c[1]);
-                    int step = hashToStep.get(c[0]);
+                    String sender = new String(Base64.getDecoder().decode(c[0]), "UTF-8");
+                    String hash = c[1];
+                    if (!java.util.Objects.equals(sender, hashToOwner.get(hash))) {
+                        this.received_commands.reject(c[3]);
+                        LOGGER.log(Level.SEVERE,
+                                "ZERO-TRUST: DECK_CASCADE_PROOF source mismatch; connection closed");
+                        continue;
+                    }
+                    byte[] proof = Base64.getDecoder().decode(c[2]);
+                    int step = hashToStep.get(hash);
                     if (com.tonikelope.coronapoker.crypto.ShuffleCascade.verifyStepWire(
                             decks.get(step), decks.get(step + 1), proof)) {
-                        collected.put(c[0], proof);
+                        collected.put(hash, proof);
+                    } else {
+                        this.received_commands.reject(c[3]);
+                        LOGGER.log(Level.SEVERE,
+                                "ZERO-TRUST: invalid DECK_CASCADE_PROOF; source connection closed");
+                        return collected;
                     }
                 } catch (Exception ex) {
-                    // Malformed or invalid proof: discarded (we keep waiting for the real one).
+                    // A cryptographically invalid proof is a critical protocol violation. Close
+                    // exactly its authenticated source; never accept a later retry silently.
+                    this.received_commands.reject(c[3]);
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST: invalid DECK_CASCADE_PROOF; source connection closed", ex);
+                    return collected;
                 }
             }
             if (collected.size() < hashToStep.size()) {
@@ -2283,6 +2308,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.List<byte[]> chainDecks = new java.util.ArrayList<>();
             java.util.List<int[]> chainStepPerm = new java.util.ArrayList<>();   // host/bot: perm; remote: null
             java.util.List<byte[]> chainStepK = new java.util.ArrayList<>();      // host/bot: k; remote: null
+            java.util.List<String> chainStepOwners = new java.util.ArrayList<>();
             chainDecks.add(cascadeGenesis);
 
             workingDeck = RistrettoSRA.applyCommutativeLock(cascadeGenesis, this.local_sra_lock);
@@ -2290,6 +2316,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Host's step: log (perm, k) to generate its proof later in background.
             chainStepPerm.add(DeterministicShuffle.shufflePermutation(cascadeGenesis.length / 32, this.local_hand_seed));
             chainStepK.add(this.local_sra_lock);
+            chainStepOwners.add(hostNickForCommit);
             chainDecks.add(workingDeck);
 
             boolean restart = false;
@@ -2324,6 +2351,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Log the bot's step (perm, k); its proof happens in background.
                         chainStepPerm.add(DeterministicShuffle.shufflePermutation(workingDeck.length / 32, botSeed));
                         chainStepK.add(botLock);
+                        chainStepOwners.add(currNick);
                         chainDecks.add(workingDeck);
                     } else if (p != null && !p.isExit()) {
                         // Reconnection count BEFORE requesting its step. If it's higher on failure,
@@ -2340,6 +2368,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // (DECK_CASCADE_PROOF) and is matched by hash(deckOut) in background.
                             chainStepPerm.add(null);
                             chainStepK.add(null);
+                            chainStepOwners.add(currNick);
                             chainDecks.add(workingDeck);
                         } else if (p.isExit()) {
                             // The peer was marked exit during the cascade. Two causes, same handling:
@@ -2401,6 +2430,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.cascade_chain_decks = chainDecks;
                 this.cascade_step_perm = chainStepPerm;
                 this.cascade_step_k = chainStepK;
+                this.cascade_step_owner = chainStepOwners;
                 break;
             }
         }
@@ -2777,6 +2807,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
         final java.util.List<int[]> bgPerm = this.cascade_step_perm;
         final java.util.List<byte[]> bgK = this.cascade_step_k;
+        final java.util.List<String> bgOwners = this.cascade_step_owner;
         final int bgPocketCount = numPlayersFinal * 2;
         final byte[] bgMega = this.local_mega_packet;
         final java.util.List<byte[]> bgRotStates = this.cascade_rotation_states;
@@ -2797,7 +2828,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // (DECK_CASCADE_PROOF) so the deal isn't blocked on its prove (132/377/8900
                     // ms). Here, off the dealing path, we wait (bounded) matching them by deckOut
                     // hash.
-                    java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(bgDecks, bgPerm);
+                    java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(bgDecks, bgPerm, bgOwners);
                     java.util.List<byte[]> proofs = new java.util.ArrayList<>();
                     for (int s = 0; s < bgPerm.size(); s++) {
                         byte[] stepProof;

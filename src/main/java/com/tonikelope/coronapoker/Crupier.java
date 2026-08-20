@@ -9581,7 +9581,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             ArrayList<HandCreateTransaction.BalanceRow> balances = new ArrayList<>();
             for (HandCloseTransaction.BalanceUpdate row : collectHandBalanceSnapshot(true)) {
                 balances.add(new HandCreateTransaction.BalanceRow(
-                        row.nick, row.stack, row.buyin, row.rebuyCount));
+                        row.nick, row.stack.toDecimal().doubleValue(),
+                        Math.toIntExact(row.buyin.cents() / 100L), row.rebuyCount.value()));
             }
             try {
                 HandCreateTransaction.HandRow hand = new HandCreateTransaction.HandRow(
@@ -9617,7 +9618,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0
                         || jugador.isExit())) {
                     double stack = jugador.getStack() + (includeCurrentBet ? jugador.getBet() : 0d);
-                    rows.add(new HandCloseTransaction.BalanceUpdate(jugador.getNickname(), stack,
+                    rows.add(handCloseBalance(jugador.getNickname(), stack,
                             jugador.getBuyin(), getRebuyCount(jugador.getNickname())));
                 }
             }
@@ -9629,17 +9630,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0
                             || jugador.isExit()) {
                         double stack = jugador.getStack() + (includeCurrentBet ? jugador.getBet() : 0d);
-                        rows.add(new HandCloseTransaction.BalanceUpdate(jugador.getNickname(), stack,
+                        rows.add(handCloseBalance(jugador.getNickname(), stack,
                                 jugador.getBuyin(), getRebuyCount(jugador.getNickname())));
                     }
                 } else {
                     Double[] pasta = entry.getValue();
-                    rows.add(new HandCloseTransaction.BalanceUpdate(entry.getKey(), pasta[0],
-                            (int) Math.round(pasta[1]), getRebuyCount(entry.getKey())));
+                    rows.add(handCloseBalance(entry.getKey(), pasta[0],
+                            MoneyCents.fromDouble(pasta[1]).toDecimal().intValueExact(),
+                            getRebuyCount(entry.getKey())));
                 }
             }
         }
         return rows;
+    }
+
+    private static HandCloseTransaction.BalanceUpdate handCloseBalance(String nick,
+            double stack, int buyin, int rebuyCount) {
+        return new HandCloseTransaction.BalanceUpdate(nick,
+                MoneyCents.fromDouble(Helpers.doubleClean(stack)),
+                MoneyCents.fromDouble(buyin), BuyinCount.of(rebuyCount));
     }
 
     private void sqlNewAction(Player current_player, byte[] actionRecord, byte[] actionSig) {
@@ -9957,8 +9966,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (jugador.isActivo()
                                     || Helpers.doubleSecureCompare(0f, jugador.getStack()) == 0
                                     || jugador.isExit()) {
-                                balance_updates.add(new HandCloseTransaction.BalanceUpdate(
-                                        jugador.getNickname(), finalStack, jugador.getBuyin(),
+                                balance_updates.add(handCloseBalance(jugador.getNickname(),
+                                        finalStack, jugador.getBuyin(),
                                         getRebuyCount(jugador.getNickname())));
                             }
                             balance_float.add(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
@@ -9971,11 +9980,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         } else {
 
                             Double[] pasta = entry.getValue();
-                            balance_updates.add(new HandCloseTransaction.BalanceUpdate(
-                                    entry.getKey(), pasta[0], (int) Math.round(pasta[1]),
-                                    getRebuyCount(entry.getKey())));
+                            int auditedBuyin = MoneyCents.fromDouble(pasta[1])
+                                    .toDecimal().intValueExact();
+                            balance_updates.add(handCloseBalance(entry.getKey(), pasta[0],
+                                    auditedBuyin, getRebuyCount(entry.getKey())));
                             balance_float.add(Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")) + "|"
-                                    + String.valueOf(Helpers.doubleClean(pasta[0])) + "|" + String.valueOf(Math.round(pasta[1]))
+                                    + String.valueOf(Helpers.doubleClean(pasta[0])) + "|" + String.valueOf(auditedBuyin)
                                     + "|" + String.valueOf(getRebuyCount(entry.getKey())));
                         }
                     } catch (UnsupportedEncodingException ex) {
@@ -9984,7 +9994,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 HandCloseTransaction.close(con, this.sqlite_id_hand,
-                        System.currentTimeMillis(), bote_tot, balance_updates);
+                        System.currentTimeMillis(), HandPotCents.fromDouble(bote_tot),
+                        balance_updates);
                 con.commit();
                 committed = true;
             } catch (Exception ex) {

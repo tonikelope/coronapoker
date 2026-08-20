@@ -5646,7 +5646,9 @@ public class Helpers {
     }
 
     public static double doubleClean(double val, int decs) {
-
+        if (!Double.isFinite(val)) {
+            throw new IllegalArgumentException("money value must be finite");
+        }
         return new BigDecimal(val).setScale(decs, RoundingMode.HALF_UP).doubleValue();
     }
 

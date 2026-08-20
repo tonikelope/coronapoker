@@ -17613,8 +17613,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private String sqlRecoverHandActions() {
         synchronized (GameFrame.SQL_LOCK) {
             String ret = null;
-            // Recovery: pull record_b64 / sig_b64 alongside the
-            // legacy fields so recovery replays each action with the exact bytes
+            // Recovery: pull record_b64 / sig_b64 and emit the strict V1 codec
+            // so recovery replays each action with the exact bytes
             // that were absorbed into H_t pre-crash. Both columns are nullable;
             // missing values map to "*" on the wire so the receiver falls back to
             // a no-op absorb for that step (chain stays at the previous H_t).
@@ -17628,16 +17628,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 while (rs.next()) {
                     String recordB64 = rs.getString("record_b64");
                     String sigB64 = rs.getString("sig_b64");
-                    actions += java.util.Base64.getEncoder().encodeToString(rs.getString("player").getBytes("UTF-8")) + "#"
-                            + String.valueOf(rs.getInt("action")) + "#"
-                            + String.valueOf(rs.getDouble("bet")) + "#"
-                            + (recordB64 != null && !recordB64.isEmpty() ? recordB64 : "*") + "#"
-                            + (sigB64 != null && !sigB64.isEmpty() ? sigB64 : "*") + "@";
+                    try {
+                        actions += RecoveredActionCodec.encodeV1(rs.getString("player"),
+                                rs.getInt("action"), rs.getDouble("bet"), recordB64, sigB64) + "@";
+                    } catch (RuntimeException corruptRow) {
+                        // Preserve the row position with an intentionally invalid token.
+                        // Every receiver's total codec rejects the whole ACTIONDATA
+                        // atomically instead of silently omitting a critical action.
+                        LOGGER.log(Level.SEVERE, "Corrupt recovery action row encoded as rejection marker", corruptRow);
+                        actions += "INVALID_RECOVERY_ACTION@";
+                    }
                 }
                 ret = actions;
             } catch (java.sql.SQLException ex) {
-                java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-            } catch (java.io.UnsupportedEncodingException ex) {
                 java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
             }
             java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, actions);
@@ -17891,6 +17894,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    static boolean recoveredActionSignatureIsValid(byte[] publicKey, byte[] record, byte[] signature) {
+        if (publicKey == null || record == null || signature == null) {
+            return false;
+        }
+        try {
+            return IdentityManager.verifyAction(publicKey, record, signature);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     private Object[] siguienteAccionLocalRecuperada(String nick) {
 
         Object[] res = null;
@@ -17898,10 +17912,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         while (!this.acciones_locales_recuperadas.isEmpty()) {
             try {
                 String accion = this.acciones_locales_recuperadas.poll();
-
-                String[] accion_partes = accion.split("#");
-
-                String name = new String(Base64.getDecoder().decode(accion_partes[0]), "UTF-8");
+                RecoveredActionCodec.Result decoded = RecoveredActionCodec.decode(accion);
+                if (!decoded.isOk()) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST RECOVER: malformed recovered action rejected ({0})",
+                            decoded.error());
+                    res = new Object[]{Player.FOLD, 0d, null, null, null,
+                        Boolean.FALSE, Boolean.TRUE};
+                    synthesizeUnverifiedFoldAction(res);
+                    this.saw_invalid_action_sig = true;
+                    break;
+                }
+                RecoveredActionCodec.Wire recoveredWire = decoded.value();
+                String name = recoveredWire.actor();
 
                 if (name.equals(nick)) {
 
@@ -17923,23 +17946,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // the SAME fold, which goes out on the wire.
                     res = new Object[7];
 
-                    res[0] = Integer.parseInt(accion_partes[1]);
-
-                    if ((int) res[0] == Player.BET) {
-                        res[1] = Helpers.doubleClean(Double.parseDouble(accion_partes[2]));
-                    } else {
-                        res[1] = 0d;
-                    }
+                    res[0] = recoveredWire.decision();
+                    res[1] = recoveredWire.amount();
                     res[2] = null;
                     res[3] = null;
                     res[4] = null;
                     res[5] = Boolean.TRUE;
-                    if (accion_partes.length >= 5
-                            && !"*".equals(accion_partes[3]) && !"*".equals(accion_partes[4])) {
+                    if (recoveredWire.record() != null && recoveredWire.signature() != null) {
                         boolean recoverForged = false;
                         try {
-                            byte[] recordBytes = Base64.getDecoder().decode(accion_partes[3]);
-                            byte[] sigBytes = Base64.getDecoder().decode(accion_partes[4]);
+                            byte[] recordBytes = recoveredWire.record();
+                            byte[] sigBytes = recoveredWire.signature();
                             res[3] = recordBytes;
                             res[4] = sigBytes;
                             if (isVerifiableWireRecord(recordBytes)) {
@@ -17984,8 +18001,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         "ZERO-TRUST RECOVER: recovered action for {0} claims is_voluntary=0, which no genuine action ever does — host forging",
                                         name);
                                 recoverForged = true;
-                            } else if (!recoverForged && recoverSignerPubkey != null
-                                    && !IdentityManager.verifyAction(recoverSignerPubkey, recordBytes, sigBytes)) {
+                            } else if (!recoverForged
+                                    && !recoveredActionSignatureIsValid(recoverSignerPubkey, recordBytes, sigBytes)) {
                                 LOGGER.log(Level.SEVERE,
                                         "ZERO-TRUST RECOVER: recovered action for {0} FAILED signature verify — host forging",
                                         name);
@@ -18054,8 +18071,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     break;
                 }
 
-            } catch (UnsupportedEncodingException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
+            } catch (RuntimeException ex) {
+                // Last-resort containment: the codec itself is total, but no
+                // malformed recovery row may escape into the dealer loop.
+                LOGGER.log(Level.SEVERE, "Recovered action rejected without escaping dealer loop", ex);
+                res = new Object[]{Player.FOLD, 0d, null, null, null,
+                    Boolean.FALSE, Boolean.TRUE};
+                synthesizeUnverifiedFoldAction(res);
+                this.saw_invalid_action_sig = true;
+                break;
             }
         }
 
@@ -18103,6 +18127,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.recover_persisted_count.clear();
             this.recover_absence_warned = false;
             this.recover_action_order = new java.util.ArrayList<>();
+            this.acciones_locales_recuperadas.clear();
 
             if (GameFrame.getInstance().isPartida_local()) {
                 datos = sqlRecoverHandActions();
@@ -18120,11 +18145,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.tot_acciones_recuperadas = 0;
             if (datos != null && !datos.isEmpty() && !datos.equals("*")) {
-                String[] rec = datos.split("@");
+                String[] rec = datos.split("@", -1);
+                java.util.List<RecoveredActionCodec.Wire> decodedActions = new java.util.ArrayList<>();
+                java.util.List<String> encodedActions = new java.util.ArrayList<>();
                 for (String r : rec) {
-                    if (!"".equals(r)) {
-                        String[] parts = r.split("#");
-                        String nick = new String(Base64.getDecoder().decode(parts[0]), "UTF-8");
+                    if (!r.isEmpty()) {
+                        RecoveredActionCodec.Result decoded = RecoveredActionCodec.decode(r);
+                        if (!decoded.isOk()) {
+                            LOGGER.log(Level.SEVERE,
+                                    "ZERO-TRUST RECOVER: ACTIONDATA rejected atomically ({0})",
+                                    decoded.error());
+                            cancelarManoYDevolverApuestas(
+                                    "zero_trust.host_recover_action_forged",
+                                    GameFrame.getInstance().isPartida_local());
+                            return;
+                        }
+                        decodedActions.add(decoded.value());
+                        encodedActions.add(r);
+                    }
+                }
+                for (int actionIndex = 0; actionIndex < decodedActions.size(); actionIndex++) {
+                    RecoveredActionCodec.Wire decoded = decodedActions.get(actionIndex);
+                    String r = encodedActions.get(actionIndex);
+                    String nick = decoded.actor();
 
                         // Ordered sequence (by counter, as served by sqlRecoverHandActions) of
                         // ALL nicks: the reference used to detect seats skipped by mutual
@@ -18132,15 +18175,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // so tot_acciones_recuperadas == recover_action_order.size() ALWAYS (a
                         // malformed entry that blows up the decode doesn't inflate the counter
                         // relative to the list).
-                        this.recover_action_order.add(nick);
-                        this.tot_acciones_recuperadas++;
+                    this.recover_action_order.add(nick);
+                    this.tot_acciones_recuperadas++;
 
-                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)
-                                || (GameFrame.getInstance().isPartida_local()
-                                && GameFrame.getInstance().getParticipantes().containsKey(nick)
-                                && GameFrame.getInstance().getParticipantes().get(nick).isCpu())) {
-                            acciones_locales_recuperadas.add(r);
-                        }
+                    if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(nick)
+                            || (GameFrame.getInstance().isPartida_local()
+                            && GameFrame.getInstance().getParticipantes().containsKey(nick)
+                            && GameFrame.getInstance().getParticipantes().get(nick).isCpu())) {
+                        acciones_locales_recuperadas.add(r);
                     }
                 }
             }

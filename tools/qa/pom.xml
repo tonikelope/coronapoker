@@ -35,17 +35,16 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope.qa</groupId>
     <artifactId>coronapoker-bot-tests</artifactId>
-    <version>23.57</version>
+    <version>23.58</version>
     <packaging>jar</packaging>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
         <!-- Override with -Dcoronapoker.version=X.Y if you have a different
         local install. Bump this property in sync with the root pom version
         so `mvn -o test` resolves against the just-installed jar. -->
-        <coronapoker.version>23.57</coronapoker.version>
+        <coronapoker.version>23.58</coronapoker.version>
 
         <!-- Test lane selection (JUnit 5 tags). Defaults give the FAST lane:
         run everything EXCEPT tests tagged @Tag("slow"). The `qa-heavy`

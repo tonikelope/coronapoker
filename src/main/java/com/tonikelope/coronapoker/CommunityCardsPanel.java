@@ -1421,7 +1421,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     private void notifyZoomCompletion(ConcurrentLinkedQueue<Long> notifier) {
         if (notifier != null) {
-            notifier.add(Thread.currentThread().threadId());
+            notifier.add(Thread.currentThread().getId());
 
             synchronized (notifier) {
                 notifier.notifyAll();

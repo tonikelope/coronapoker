@@ -711,7 +711,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                 } else {
                     Helpers.GUIRunAndWait(guiUpdate);
                     synchronized (notifier) {
-                        notifier.add(Thread.currentThread().threadId());
+                        notifier.add(Thread.currentThread().getId());
                         notifier.notifyAll();
                     }
                 }
@@ -1171,7 +1171,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
             if (notifier != null) {
 
-                notifier.add(Thread.currentThread().threadId());
+                notifier.add(Thread.currentThread().getId());
 
                 synchronized (notifier) {
 

@@ -4197,7 +4197,7 @@ public class WaitingRoomFrame extends JFrame {
             try {
 
                 LOGGER.log(Level.INFO, "A client is trying to connect...");
-                net_server.getClient_threads().add(Thread.currentThread().threadId());
+                net_server.getClient_threads().add(Thread.currentThread().getId());
                 String recibido;
                 String[] partes;
                 try {
@@ -4264,7 +4264,7 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                             } catch (Exception ex) {
                             }
-                            net_server.getClient_threads().remove(Thread.currentThread().threadId());
+                            net_server.getClient_threads().remove(Thread.currentThread().getId());
                             return;
                         }
 
@@ -4284,7 +4284,7 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                             } catch (Exception ex) {
                             }
-                            net_server.getClient_threads().remove(Thread.currentThread().threadId());
+                            net_server.getClient_threads().remove(Thread.currentThread().getId());
                             return;
                         }
 
@@ -4721,7 +4721,7 @@ public class WaitingRoomFrame extends JFrame {
                 // forever. With even one stuck, closing the room sees live threads remaining
                 // and skips its whole shutdown handler: the X stops responding for the rest of
                 // the session.
-                net_server.getClient_threads().remove(Thread.currentThread().threadId());
+                net_server.getClient_threads().remove(Thread.currentThread().getId());
             }
         }, client_socket, handshake_slots);
 

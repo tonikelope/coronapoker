@@ -5311,7 +5311,7 @@ public class Helpers {
 
             if (notifier != null) {
 
-                notifier.add(Thread.currentThread().threadId());
+                notifier.add(Thread.currentThread().getId());
 
                 synchronized (notifier) {
 
@@ -5477,7 +5477,7 @@ public class Helpers {
 
             if (notifier != null) {
 
-                notifier.add(Thread.currentThread().threadId());
+                notifier.add(Thread.currentThread().getId());
 
                 synchronized (notifier) {
 

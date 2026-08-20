@@ -421,7 +421,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 synchronized (getChat_notify_label()) {
 
-                    chat_notify_thread = Thread.currentThread().threadId();
+                    chat_notify_thread = Thread.currentThread().getId();
 
                     getChat_notify_label().notifyAll();
 
@@ -489,7 +489,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 } else {
                     synchronized (getChat_notify_label()) {
-                        if (Thread.currentThread().threadId() == chat_notify_thread) {
+                        if (Thread.currentThread().getId() == chat_notify_thread) {
                             try {
                                 getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
                             } catch (InterruptedException ex) {
@@ -504,7 +504,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 synchronized (getChat_notify_label()) {
 
-                    if (Thread.currentThread().threadId() == chat_notify_thread) {
+                    if (Thread.currentThread().getId() == chat_notify_thread) {
                         Helpers.GUIRunAndWait(() -> {
                             getChat_notify_label().setVisible(false);
                         });
@@ -2650,7 +2650,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().threadId());
+            notifier.add(Thread.currentThread().getId());
 
             synchronized (notifier) {
 

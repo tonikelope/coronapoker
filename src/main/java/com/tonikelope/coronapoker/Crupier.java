@@ -6401,25 +6401,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // body a no-op and the notice to the rest of the table — which is only ever sent from
     // here — never went out, leaving everyone waiting on the turn of someone already gone.
     //
-    // The notice is sent WITHOUT waiting for confirmation. Waiting used to hang the host:
-    // confirmations are dispatched by each peer's consumer thread, so anyone leaving at the
-    // same time would be stuck waiting on this very lock while their own confirmation never
-    // arrived — a multi-minute stall, a false accusation in the log, and a kick of an
-    // innocent peer. Moving the send outside the lock wouldn't fix that: exitSpectatorBots
-    // already reenters this method with the lock held (Java monitors are reentrant) and runs
-    // on every hand close.
-    //
-    // Trade-off: without a confirmation wait there's also no retry. A peer whose network just
-    // dropped (but isn't marked gone yet) gets the notice written to a doomed socket and loses
-    // it; if they reconnect within their window they rejoin without knowing, and wait on the
-    // departed player's turn — reconnection only resends the ack, not table state. Still
-    // strictly better than before (nobody heard about kicks at all). Fully closing this gap
-    // means resending state on reconnect, a separate piece of work.
-    //
+    // EXIT is an ordering-critical transition: every remaining peer must acknowledge it or
+    // have its channel closed before play advances. The confirmed broadcast is safe here
+    // because this method and exitSpectatorBots no longer hold the Crupier monitor. The atomic
+    // add on the concurrent quit_anunciado set remains the exactly-once gate.
     // Two waits remain inside the write path, unrelated to this: the reconnecting peer's
     // (bounded by the forced-reconnect watchdog) and the socket's outbound-queue wait
     // (bounded by the heartbeat stall detector) — unchanged from before.
-    public synchronized void remotePlayerQuit(String nick, String testamento) {
+    public void remotePlayerQuit(String nick, String testamento) {
         Player jugador = nick2player.get(nick);
         if (jugador != null && quit_anunciado.add(nick)) {
             if (!jugador.isExit()) {
@@ -6438,10 +6427,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     // The departing player contributes no action to their upcoming turn; each
                     // receiver marks the exit on receipt and synthesizes a fold when the round
-                    // reaches that seat, so the chain converges by mutual omission — no need
-                    // to hold, order-queue, or wait for confirmation (see method header).
-                    broadcastGAMECommandFromServer(cmd, nick, false);
-                } catch (UnsupportedEncodingException ex) {
+                    // reaches that seat. The confirmed barrier makes that omission converge.
+                    broadcastGAMECommandFromServer(cmd, nick, true);
+                } catch (UnsupportedEncodingException | RuntimeException ex) {
+                    LOGGER.log(Level.SEVERE, "EXIT delivery failed; aborting hand", ex);
+                    cancelarManoYDevolverApuestas("peer.broadcast_failed");
                 }
 
                 if (this.isFin_de_la_transmision() || !WaitingRoomFrame.getInstance().isPartida_empezada()) {
@@ -6469,7 +6459,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // Convenience overload for callers without a pre-resolved participant.
-    public synchronized void remotePlayerQuit(String nick) {
+    public void remotePlayerQuit(String nick) {
         remotePlayerQuit(nick, null);
     }
 
@@ -20615,7 +20605,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private synchronized void exitSpectatorBots() {
+    private void exitSpectatorBots() {
 
         if (GameFrame.getInstance().isPartida_local()) {
 

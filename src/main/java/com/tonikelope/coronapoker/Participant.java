@@ -80,7 +80,7 @@ public class Participant implements Runnable {
     // HANDVERIFY and STRADDLE_RESP already had this guard inline; it's generalized here.
     private static final java.util.Set<String> NICK_BOUND_SUBCOMMANDS = java.util.Set.of(
             "ACTION", "REBUY", "BUYIN", "RESP_SHOWDOWN_KEY",
-            "DECK_CASCADE_RESP", "DECK_CASCADE_PROOF", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP",
+            "DECK_CASCADE_RESP", "DECK_CASCADE_PROOF", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN",
             "SEAT_COMMIT", "SEAT_REVEAL");
 
     // F2 ANTI-DoS: per-peer size cap + frequency token-bucket for non-critical text commands. Thresholds
@@ -2108,14 +2108,36 @@ public class Participant implements Runnable {
                                                 }
                                             }
                                             break;
+                                        case "RIT_VOTE_RESP":
+                                            try {
+                                                CriticalVoteEnvelope vote
+                                                        = CriticalVoteEnvelope.parseRitResponse(partes_comando);
+                                                if (!vote.nick().equals(this.nick)) {
+                                                    throw new IllegalArgumentException(
+                                                            "RIT_VOTE_RESP nick does not match authenticated connection");
+                                                }
+                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                    GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
+                                                            () -> Helpers.threadRun(this::exitAndCloseSocket));
+                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                }
+                                            } catch (Exception ex) {
+                                                LOGGER.log(Level.SEVERE,
+                                                        "Malformed critical RIT_VOTE_RESP; closing connection", ex);
+                                                if (game_command_gate.rejectCriticalViolation().closeConnection()) {
+                                                    exitAndCloseSocket();
+                                                }
+                                            }
+                                            break;
                                         case "STRADDLE_RESP":
                                             // ZERO-TRUST: a voluntary straddle response must belong to the nick
                                             // owning THIS authenticated connection. Otherwise a peer could forge
                                             // the UTG's RESP and force them to post a straddle (2x the big blind,
                                             // out of THEIR stack) they never accepted. Same guard as HANDVERIFY.
                                             try {
-                                                if (partes_comando.length >= 5
-                                                        && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
+                                                CriticalVoteEnvelope response
+                                                        = CriticalVoteEnvelope.parseStraddleResponse(partes_comando);
+                                                if (response.nick().equals(this.nick)) {
                                                     synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                         GameFrame.getInstance().getCrupier().enqueueReceivedCommand(recibido,
                                                                 () -> Helpers.threadRun(this::exitAndCloseSocket));

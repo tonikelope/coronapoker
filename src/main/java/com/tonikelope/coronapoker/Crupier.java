@@ -6990,12 +6990,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Each peer, after verifying the straddler's SIGNED decision, records it under
     // protocol_state_lock + notifyAll to wake awaitStreetForUnlockPhase (same pattern as
     // setStreetLocal for the street). From this point it will serve UNLOCK_PHASE_POCKET_STRADDLE
-    // for THAT straddler only (and only their slot). Idempotent.
-    public void recordVerifiedStraddleDecision(String straddlerNick, int decision) {
+    // for THAT straddler only (and only their slot). A second admission is rejected.
+    public boolean recordVerifiedStraddleDecision(String straddlerNick, int decision) {
         synchronized (protocol_state_lock) {
+            if (this.straddle_decision_verified_nick != null) {
+                return false;
+            }
             this.straddle_decision_verified_nick = straddlerNick;
             this.straddle_decision_verified_value = decision;
             protocol_state_lock.notifyAll();
+            return true;
         }
     }
 
@@ -12887,17 +12891,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 while (!this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
-                    if (partes.length == 5 && partes[2].equals("RIT_VOTE_RESP")) {
+                    if (partes.length >= 3 && partes[2].equals("RIT_VOTE_RESP")) {
                         try {
-                            String voterNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            int v = Integer.parseInt(partes[4]);
-                            if (remoteVoterNicks.contains(voterNick) && !votes.containsKey(voterNick)
-                                    && (v == RunItTwiceDialog.VOTE_NORMAL || v == RunItTwiceDialog.VOTE_RUN_IT_TWICE)) {
-                                votes.put(voterNick, v);
-                                changed = true;
+                            CriticalVoteEnvelope vote = CriticalVoteEnvelope.parseRitResponse(partes);
+                            if (!remoteVoterNicks.contains(vote.nick()) || votes.containsKey(vote.nick())) {
+                                throw new IllegalArgumentException("unexpected or duplicate RIT voter");
                             }
+                            votes.put(vote.nick(), vote.decision());
+                            changed = true;
                         } catch (Exception e) {
-                            // Malformed vote: ignored.
+                            rejectCriticalVoteCommand(cmd,
+                                    "Invalid critical RIT_VOTE_RESP; closing source connection", e);
                         }
                     } else {
                         rejected.add(cmd);
@@ -12974,7 +12978,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String myNickB64 = Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
                     sendGAMECommandToServer("RIT_VOTE_RESP#" + myNickB64 + "#" + v, false);
                 } catch (Exception e) {
-                    LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_RESP", e);
+                    LOGGER.log(Level.SEVERE, "Failed to send RIT_VOTE_RESP; closing host channel", e);
+                    setFin_de_la_transmision(true);
+                    WaitingRoomFrame.getInstance().closeClientSocket();
                 }
             }));
             this.rit_client_dialog = d;
@@ -13140,25 +13146,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // Client: processes the STRADDLE_DECISION#nickB64#decision#sigB64 the host broadcasts.
-    // Verifies the straddler's signature and, if valid, records the flag (enables the
-    // deferred unlock of THEIR slot). Invalid or malformed signature -> ignored (the
-    // responder's gate keeps rejecting the unlock, so a host forging "the straddler
-    // decided" can't extract those cards).
+    // Verifies the expected straddler's signature and admits it exactly once. Invalid,
+    // malformed, unexpected or duplicate proof closes the host channel before any unlock.
     public void onStraddleDecisionCommand(String[] partes) {
-        if (partes == null || partes.length < 6) {
-            return;
-        }
         try {
-            String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-            int decision = Integer.parseInt(partes[4]);
-            byte[] sig = Base64.getDecoder().decode(partes[5]);
-            if (verifyStraddleDecisionWire(nick, decision, sig)) {
-                recordVerifiedStraddleDecision(nick, decision);
-            } else {
-                LOGGER.log(Level.SEVERE, "ZERO-TRUST: invalid STRADDLE_DECISION signature for {0} — not enabling deferred unlock", nick);
+            CriticalVoteEnvelope decision = CriticalVoteEnvelope.parseStraddleDecision(partes);
+            String expectedNick = blindStraddlerNickThisHand();
+            if (!decision.nick().equals(expectedNick)
+                    || !verifyStraddleDecisionWire(decision.nick(), decision.decision(), decision.signature())
+                    || !recordVerifiedStraddleDecision(decision.nick(), decision.decision())) {
+                throw new IllegalArgumentException(
+                        "invalid, duplicate or unexpected STRADDLE_DECISION");
             }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Malformed STRADDLE_DECISION", e);
+            LOGGER.log(Level.SEVERE,
+                    "Invalid critical STRADDLE_DECISION; closing host channel", e);
+            setFin_de_la_transmision(true);
+            WaitingRoomFrame waitingRoom = WaitingRoomFrame.getInstance();
+            if (waitingRoom != null) {
+                waitingRoom.closeClientSocket();
+            }
         }
     }
 
@@ -13235,7 +13242,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (fresh && local_is_straddler) {
                     int myDecision = promptStraddleLocal(straddler_f);
                     this.local_signed_straddle_decision = myDecision; // governs my own amount via my own signature, not the host's RESULT
-                    sendStraddleResp(myDecision, signLocalStraddleDecision(myDecision));
+                    if (!sendStraddleResp(myDecision, signLocalStraddleDecision(myDecision))) {
+                        return;
+                    }
                 }
                 decision = waitStraddleResult();
                 if (decision < 0 || isFin_de_la_transmision()) {
@@ -13450,21 +13459,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 while (!this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
-                    if (partes.length == 6 && partes[2].equals("STRADDLE_RESP")) {
+                    if (partes.length >= 3 && partes[2].equals("STRADDLE_RESP")) {
                         try {
-                            String voter = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            int v = Integer.parseInt(partes[4]);
-                            if (voter.equals(nick) && (v == VoluntaryStraddleDialog.NO_STRADDLE || v == VoluntaryStraddleDialog.POST_STRADDLE)) {
-                                answer = v;
-                                // The fixed current wire always includes the signature slot; "*"
-                                // represents a decision that did not require deferred blinding.
-                                this.pending_remote_straddle_sig = !"*".equals(partes[5])
-                                        ? Base64.getDecoder().decode(partes[5]) : null;
-                            } else {
-                                rejected.add(cmd);
+                            CriticalVoteEnvelope response
+                                    = CriticalVoteEnvelope.parseStraddleResponse(partes);
+                            if (!response.nick().equals(nick)) {
+                                throw new IllegalArgumentException("unexpected straddle responder");
                             }
+                            answer = response.decision();
+                            this.pending_remote_straddle_sig = response.signature();
                         } catch (Exception e) {
-                            // Malformed RESP: ignored.
+                            rejectCriticalVoteCommand(cmd,
+                                    "Invalid critical STRADDLE_RESP; closing source connection", e);
                         }
                     } else {
                         rejected.add(cmd);
@@ -13576,17 +13582,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private void rejectCriticalVoteCommand(String cmd, String detail, Exception error) {
+        LOGGER.log(Level.SEVERE, detail, error);
+        if (!this.received_commands.reject(cmd)) {
+            // A queued remote vote must retain its authenticated-source callback. If that
+            // invariant is broken, abort the hand instead of treating the invalid vote as a
+            // timeout/default and continuing with an unverifiable consensus input.
+            cancelarManoYDevolverApuestas("peer.state_inconsistent");
+        }
+    }
+
     // Straddler client -> host: their decision + the SIGNATURE of that decision (STRADDLE
     // domain). The host broadcasts it as STRADDLE_DECISION and runs the deferred cascade.
-    // sig may be null if this hand didn't require blinding (heads-up/<=2), in which case
-    // it travels empty.
-    private void sendStraddleResp(int v, byte[] sig) {
+    // The current protocol requires the 64-byte signature; an unsigned response closes the
+    // host channel locally instead of emitting an ambiguous legacy-shaped frame.
+    private boolean sendStraddleResp(int v, byte[] sig) {
         try {
+            if (sig == null || sig.length != 64) {
+                throw new IllegalArgumentException("missing current-protocol straddle signature");
+            }
             String myNickB64 = Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
-            String sigB64 = (sig != null) ? Base64.getEncoder().encodeToString(sig) : "";
+            String sigB64 = Base64.getEncoder().encodeToString(sig);
             sendGAMECommandToServer("STRADDLE_RESP#" + myNickB64 + "#" + v + "#" + sigB64, false);
+            return true;
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to send STRADDLE_RESP", e);
+            LOGGER.log(Level.SEVERE, "Failed to send STRADDLE_RESP; closing host channel", e);
+            setFin_de_la_transmision(true);
+            WaitingRoomFrame.getInstance().closeClientSocket();
+            return false;
         }
     }
 
@@ -13898,7 +13921,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE, "Failed to broadcast STRADDLE_DECISION", e);
             return false;
         }
-        recordVerifiedStraddleDecision(straddlerNick, decision);
+        if (!recordVerifiedStraddleDecision(straddlerNick, decision)) {
+            LOGGER.log(Level.SEVERE, "Duplicate local STRADDLE_DECISION admission");
+            return false;
+        }
         // Deferred cascade (blocks; clients already saw STRADDLE_DECISION and serve the
         // unlock).
         byte[] residue = resolveDeferredStraddlerResidue(straddlerSlot);

@@ -5089,8 +5089,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return fin_de_la_transmision;
     }
 
+    static boolean shouldAbortAfterBettingRound(boolean transmissionFinished,
+            boolean terminationPending) {
+        return transmissionFinished || terminationPending;
+    }
+
+    static boolean shouldAdvanceBettingStreet(boolean transmissionFinished,
+            boolean terminationPending, int resistingPlayers, int street,
+            int activePlayers) {
+        return !shouldAbortAfterBettingRound(transmissionFinished, terminationPending)
+                && resistingPlayers > 1 && street < RIVER && activePlayers > 1;
+    }
+
     public void setFin_de_la_transmision(boolean fin) {
         fin_de_la_transmision = fin;
+    }
+
+    private void awaitCommittedTermination() {
+        boolean interrupted = false;
+        synchronized (lock_apuestas) {
+            while (termination_pending && !fin_de_la_transmision) {
+                try {
+                    lock_apuestas.wait(100);
+                } catch (InterruptedException ex) {
+                    // The finTransmision thread owns the teardown decision. Do not let an
+                    // interrupt send this dealer back through NUEVA_MANO before that decision
+                    // has been committed; restore the flag after the short hand-off wait.
+                    interrupted = true;
+                }
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     public boolean isSincronizando_mano() {
@@ -16408,7 +16439,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        return (resisten.size() > 1 && street < RIVER && getJugadoresActivos() > 1)
+        return shouldAdvanceBettingStreet(isFin_de_la_transmision(), this.termination_pending,
+                resisten.size(), street, getJugadoresActivos())
                 ? rondaApuestas(street + 1, resisten)
                 : resisten;
     }
@@ -21551,6 +21583,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
 
                         ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
+
+                        if (this.termination_pending && !isFin_de_la_transmision()) {
+                            awaitCommittedTermination();
+                        }
+                        if (shouldAbortAfterBettingRound(isFin_de_la_transmision(),
+                                this.termination_pending)) {
+                            continue;
+                        }
 
                         GameFrame.getInstance().hideTapeteApuestas();
                         GameFrame.getInstance().getLocalPlayer().desactivarControles();

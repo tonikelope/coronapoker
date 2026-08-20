@@ -10,7 +10,7 @@ public class ApplicationTaskIsolationTest {
 
     @Test
     public void startupTasksCannotHoldThePerTableExecutorOpen() throws Exception {
-        String init = Files.readString(sourceRoot().resolve("Init.java"));
+        String init = Files.readString(sourceRoot().resolve("Init.java")).replace("\r\n", "\n");
 
         assertTrue(init.contains("Helpers.applicationTask(Helpers::purgeOldVoiceNotes"),
                 "voice-note startup cleanup belongs to the application lifecycle");

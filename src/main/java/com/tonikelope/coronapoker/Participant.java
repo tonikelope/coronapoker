@@ -500,6 +500,8 @@ public class Participant implements Runnable {
                                 try {
                                     ping_pong_lock.wait(remaining);
                                 } catch (InterruptedException ignored) {
+                                    Thread.currentThread().interrupt();
+                                    return;
                                 }
                             }
                         }
@@ -751,7 +753,9 @@ public class Participant implements Runnable {
                                         }
                                         try {
                                             getParticipant_socket_lock().wait(remaining);
-                                        } catch (Exception ex) {
+                                        } catch (InterruptedException ex) {
+                                            Thread.currentThread().interrupt();
+                                            return;
                                         }
                                     }
                                     // If we exit the grace because the reconnect ARRIVED
@@ -833,7 +837,9 @@ public class Participant implements Runnable {
                     synchronized (getPre_game_socket_writer_queue()) {
                         try {
                             getPre_game_socket_writer_queue().wait(ASYNC_COMMAND_QUEUE_WAIT);
-                        } catch (Exception ex) {
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            return;
                         }
                     }
                 }
@@ -927,7 +933,9 @@ public class Participant implements Runnable {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (Exception ex) {
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
         }
@@ -939,7 +947,9 @@ public class Participant implements Runnable {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (Exception ex) {
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
         }
@@ -951,7 +961,9 @@ public class Participant implements Runnable {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (Exception ex) {
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
             }
         }
@@ -1154,7 +1166,9 @@ public class Participant implements Runnable {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (Exception ex) {
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return true;
                 }
             }
         }
@@ -1209,7 +1223,9 @@ public class Participant implements Runnable {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (Exception ex) {
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return true;
                 }
             }
         }
@@ -1328,7 +1344,9 @@ public class Participant implements Runnable {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (Exception ex) {
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return null;
                 }
             }
         }
@@ -1422,6 +1440,32 @@ public class Participant implements Runnable {
                     this.socket.close();
                 } catch (Exception ex) {
                 }
+            }
+        }
+    }
+
+    /**
+     * Definitive table-teardown close. It deliberately does not acquire
+     * {@code participant_socket_lock}: a stalled pre-game/reconnect transport
+     * may own that lock while blocked in native socket I/O, and closing the
+     * socket is what releases it. The caller marks this Participant exited
+     * first, preventing a new reconnect from being accepted.
+     */
+    public void socketCloseForTeardown() {
+        closeSocketQuietly(this.socket);
+        Socket reconnecting = this.recon_socket;
+        if (reconnecting != this.socket) {
+            closeSocketQuietly(reconnecting);
+        }
+        // Cover a resetSocket assignment racing the first snapshot.
+        closeSocketQuietly(this.socket);
+    }
+
+    private static void closeSocketQuietly(Socket candidate) {
+        if (candidate != null && !candidate.isClosed()) {
+            try {
+                candidate.close();
+            } catch (Exception ignored) {
             }
         }
     }
@@ -1701,7 +1745,9 @@ public class Participant implements Runnable {
                     } else if (!pending.isEmpty()) {
                         try {
                             tracker.wait(WAIT_QUEUES);
-                        } catch (Exception ex) {
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            return true;
                         }
                     }
                 }
@@ -2195,6 +2241,9 @@ public class Participant implements Runnable {
                                 break;
                         }
                     }
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
                 } catch (Exception ex) {
                     if (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isExit()) {
                         Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, nick + " -> exception while processing a command from this client", ex);

@@ -2705,7 +2705,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 try {
                     mynotifier.wait(1000);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                    Thread.currentThread().interrupt();
+                    return;
                 }
             }
         }

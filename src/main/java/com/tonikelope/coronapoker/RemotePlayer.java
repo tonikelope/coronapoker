@@ -2367,7 +2367,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         mynotifier.wait(1000);
 
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                        Thread.currentThread().interrupt();
+                        return;
                     }
                 }
             }

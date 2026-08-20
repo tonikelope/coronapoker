@@ -410,11 +410,34 @@ public class WaitingRoomFrame extends JFrame {
         if (net_server != null) {
             net_server.closeServerSocket();
         }
+        ArrayList<Participant> snapshot;
+        synchronized (participantes) {
+            snapshot = new ArrayList<>(participantes.values());
+        }
+        closeAcceptedClientSockets(snapshot);
+    }
+
+    static void closeAcceptedClientSockets(Iterable<Participant> connectedParticipants) {
+        if (connectedParticipants == null) {
+            return;
+        }
+        for (Participant participant : connectedParticipants) {
+            if (participant != null) {
+                participant.setExit(true);
+                participant.socketCloseForTeardown();
+            }
+        }
     }
 
     public void closeClientSocket() {
         if (net_client != null) {
             net_client.closeClientSocket();
+        }
+    }
+
+    public void closeClientSocketForTeardown() {
+        if (net_client != null) {
+            net_client.closeClientSocketForTeardown();
         }
     }
 
@@ -1480,8 +1503,15 @@ public class WaitingRoomFrame extends JFrame {
 
                         String[] server_address = server_ip_port.split(":");
 
-                        Socket newSock = new Socket(server_address[0], Integer.parseInt(server_address[1]));
+                        // Publish the unconnected socket before connect(): definitive teardown can
+                        // then close it and release a connect in progress. The bounded connect also
+                        // fits inside the executor's termination window if the OS does not react to
+                        // close immediately.
+                        Socket newSock = new Socket();
                         net_client.setLocal_client_socket(newSock);
+                        newSock.connect(new InetSocketAddress(server_address[0],
+                                Integer.parseInt(server_address[1])),
+                                Helpers.COOPERATIVE_SESSION_IO_TIMEOUT_MS);
 
                         newSock.setTcpNoDelay(true);
                         newSock.setKeepAlive(true);
@@ -2123,6 +2153,8 @@ public class WaitingRoomFrame extends JFrame {
                                 try {
                                     ping_pong_lock.wait(remaining);
                                 } catch (InterruptedException ignored) {
+                                    Thread.currentThread().interrupt();
+                                    return;
                                 }
                             }
                         }
@@ -4037,6 +4069,9 @@ public class WaitingRoomFrame extends JFrame {
                         default:
                             break;
                     }
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return;
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
                 }
@@ -4065,6 +4100,8 @@ public class WaitingRoomFrame extends JFrame {
                                     try {
                                         net_client.getLock_client_reconnect().wait(1000);
                                     } catch (InterruptedException ex) {
+                                        Thread.currentThread().interrupt();
+                                        break;
                                     }
                                 }
                             }
@@ -4193,7 +4230,11 @@ public class WaitingRoomFrame extends JFrame {
         // The accept loop already reserved a handshake slot (handshake_slots). This try/finally
         // guarantees it's released no matter what (success, rejection, exception, or any of the
         // body's early returns).
-        return HandshakeAdmission.submit(Helpers::threadRun, () -> {
+        if (!net_server.trackPendingHandshake(client_socket)) {
+            handshake_slots.release();
+            return false;
+        }
+        boolean submitted = HandshakeAdmission.submit(Helpers::threadRun, () -> {
             try {
 
                 LOGGER.log(Level.INFO, "A client is trying to connect...");
@@ -4716,6 +4757,7 @@ public class WaitingRoomFrame extends JFrame {
                 // how the handshake ended. Without this, a handshake exiting via return/exception
                 // would leak the permit.
                 handshake_slots.release();
+                net_server.untrackPendingHandshake(client_socket);
                 // The thread is also deregistered here, for the same reason: it used to be
                 // outside, so any exit via return skipped it and the thread stayed registered
                 // forever. With even one stuck, closing the room sees live threads remaining
@@ -4724,6 +4766,10 @@ public class WaitingRoomFrame extends JFrame {
                 net_server.getClient_threads().remove(Thread.currentThread().getId());
             }
         }, client_socket, handshake_slots);
+        if (!submitted) {
+            net_server.untrackPendingHandshake(client_socket);
+        }
+        return submitted;
 
     }
 
@@ -6274,6 +6320,9 @@ public class WaitingRoomFrame extends JFrame {
                         try {
                             net_server.getLock_client_pre_game_commands_wait().wait(PRE_GAME_COMMANDS_LOCK);
                         } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            throw new java.util.concurrent.CancellationException(
+                                    "waiting-room start cancelled during table teardown");
                         }
                     }
                 }

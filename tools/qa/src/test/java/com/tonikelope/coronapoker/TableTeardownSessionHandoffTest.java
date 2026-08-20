@@ -25,25 +25,23 @@ public class TableTeardownSessionHandoffTest {
         SessionGuard.Generation oldSession = guard.beginSession();
         ThreadPoolExecutor workers = (ThreadPoolExecutor) Executors.newCachedThreadPool();
         CountDownLatch bettingRound = new CountDownLatch(1);
+        Object turnLock = new Object();
+        AtomicBoolean playerStillHasTurn = new AtomicBoolean(true);
         AtomicBoolean transmissionFinished = new AtomicBoolean();
+        AtomicBoolean terminationPending = new AtomicBoolean();
         AtomicBoolean advancedAfterStop = new AtomicBoolean();
 
         workers.submit(() -> guard.runIfCurrent(oldSession, () -> {
             bettingRound.countDown();
-            while (!transmissionFinished.get()) {
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
+            Crupier.awaitPlayerTurnCompletion(turnLock, playerStillHasTurn::get,
+                    transmissionFinished::get, terminationPending::get, 10_000);
             advancedAfterStop.set(Crupier.shouldAdvanceBettingStreet(
-                    transmissionFinished.get(), false, 3, Crupier.PREFLOP, 3));
+                    transmissionFinished.get(), terminationPending.get(),
+                    3, Crupier.PREFLOP, 3));
         }));
 
         assertTrue(bettingRound.await(1, TimeUnit.SECONDS));
-        transmissionFinished.set(true);
+        terminationPending.set(true);
         workers.shutdownNow();
         assertTrue(workers.awaitTermination(1, TimeUnit.SECONDS),
                 "Old dealer must release the session guard for recover=" + recover);

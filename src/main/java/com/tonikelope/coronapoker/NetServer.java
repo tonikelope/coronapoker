@@ -39,6 +39,8 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -62,7 +64,9 @@ public class NetServer {
     private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
     private final Object lock_client_pre_game_commands_wait = new Object();
+    private final Set<Socket> pending_handshake_sockets = ConcurrentHashMap.newKeySet();
     private volatile ServerSocket server_socket = null;
+    private volatile boolean server_teardown_started = false;
 
     public NetServer(WaitingRoomFrame waiting_room) {
         this.waiting_room = waiting_room;
@@ -93,15 +97,52 @@ public class NetServer {
     }
 
     public void setServer_socket(ServerSocket server_socket) {
+        if (server_socket != null && server_teardown_started) {
+            closeQuietly(server_socket);
+            return;
+        }
         this.server_socket = server_socket;
+        if (server_socket != null && server_teardown_started) {
+            closeQuietly(server_socket);
+        }
     }
 
     public void closeServerSocket() {
-        if (server_socket != null) {
+        server_teardown_started = true;
+        closeQuietly(server_socket);
+        for (Socket pending : pending_handshake_sockets) {
+            closeQuietly(pending);
+        }
+        // Covers sockets added between the first snapshot and their post-add
+        // teardown check.
+        for (Socket pending : pending_handshake_sockets) {
+            closeQuietly(pending);
+        }
+    }
+
+    boolean trackPendingHandshake(Socket socket) {
+        if (socket == null || server_teardown_started) {
+            closeQuietly(socket);
+            return false;
+        }
+        pending_handshake_sockets.add(socket);
+        if (server_teardown_started) {
+            pending_handshake_sockets.remove(socket);
+            closeQuietly(socket);
+            return false;
+        }
+        return true;
+    }
+
+    void untrackPendingHandshake(Socket socket) {
+        pending_handshake_sockets.remove(socket);
+    }
+
+    private static void closeQuietly(java.io.Closeable closeable) {
+        if (closeable != null) {
             try {
-                server_socket.close();
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
+                closeable.close();
+            } catch (Exception ignored) {
             }
         }
     }

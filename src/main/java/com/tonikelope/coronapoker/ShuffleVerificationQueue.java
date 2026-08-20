@@ -196,6 +196,7 @@ public final class ShuffleVerificationQueue {
      */
     public synchronized void shutdown() {
         running = false;
+        queue.clear();
         if (worker != null) {
             worker.interrupt();
         }
@@ -218,12 +219,22 @@ public final class ShuffleVerificationQueue {
                 break;
             }
             try {
-                if (verifier.verify(job)) {
+                boolean verified = verifier.verify(job);
+                // Verification can be CPU/native work that does not honor an
+                // interrupt. If teardown happened while it was running, never
+                // deliver its late verdict into a replacement GameFrame.
+                if (!running) {
+                    break;
+                }
+                if (verified) {
                     sink.onVerified(job.megapacket, job.handId);
                 } else {
                     sink.onDishonest(job.megapacket, job.handId);
                 }
             } catch (Exception e) {
+                if (!running) {
+                    break;
+                }
                 // A verifier that throws (malformed bundle, decode error) is ambiguous, not proof of
                 // cheating: report it as malformed so the Sink treats it as "not verified", never as a
                 // confirmed dishonest deck.

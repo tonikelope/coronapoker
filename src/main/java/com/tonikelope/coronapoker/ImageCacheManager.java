@@ -96,8 +96,8 @@ public class ImageCacheManager {
     // Topes de la descarga de una imagen de chat. La URL la elige quien manda el
     // mensaje, asi que sin ellos un servidor que no responde deja el hilo esperando
     // para siempre y uno que sirve sin parar llena el disco.
-    private static final int CONNECT_TIMEOUT_MS = 10000;
-    private static final int READ_TIMEOUT_MS = 20000;
+    private static final int CONNECT_TIMEOUT_MS = Helpers.COOPERATIVE_SESSION_IO_TIMEOUT_MS;
+    private static final int READ_TIMEOUT_MS = Helpers.COOPERATIVE_SESSION_IO_TIMEOUT_MS;
     private static final long MAX_IMAGE_BYTES = 16L * 1024 * 1024;
 
     // Tope del directorio de imagenes cacheadas. Se purga por antiguedad al arrancar (ver
@@ -173,6 +173,9 @@ public class ImageCacheManager {
                 byte[] buffer = new byte[8192];
                 int bytesRead;
                 while ((bytesRead = in.read(buffer)) != -1) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new java.io.InterruptedIOException("table teardown");
+                    }
                     total += bytesRead;
                     if (total > MAX_IMAGE_BYTES) {
                         throw new IOException("chat image exceeds " + MAX_IMAGE_BYTES + " bytes");
@@ -186,8 +189,10 @@ public class ImageCacheManager {
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             return true;
         } catch (IOException e) {
-            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE,
-                    "Critical: Failed to cache image from " + url, e);
+            if (!Thread.currentThread().isInterrupted()) {
+                Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE,
+                        "Critical: Failed to cache image from " + url, e);
+            }
             tmp.delete();
             return false;
         }

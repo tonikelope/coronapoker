@@ -6,6 +6,8 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -135,5 +137,46 @@ public class ShuffleVerificationQueueTest {
         assertTrue(sink.latch.await(10, TimeUnit.SECONDS), "procesado");
         q.shutdown();
         q.shutdown(); // idempotente, no lanza
+    }
+
+    @Test
+    public void shutdownDuringVerificationCannotDeliverVerdictToNextSession() throws InterruptedException {
+        RecordingSink sink = new RecordingSink(1);
+        CountDownLatch verifierStarted = new CountDownLatch(1);
+        CountDownLatch releaseVerifier = new CountDownLatch(1);
+        ShuffleVerificationQueue q = new ShuffleVerificationQueue(sink, j -> {
+            verifierStarted.countDown();
+            while (true) {
+                try {
+                    releaseVerifier.await();
+                    return true;
+                } catch (InterruptedException ignored) {
+                    // Models CPU/native verification that does not stop on interrupt.
+                }
+            }
+        }, 8);
+        q.start();
+        assertTrue(q.enqueue(job(9)));
+        assertTrue(verifierStarted.await(1, TimeUnit.SECONDS));
+
+        q.shutdown();
+        releaseVerifier.countDown();
+
+        assertFalse(sink.latch.await(300, TimeUnit.MILLISECONDS),
+                "a verdict completed after teardown must not mutate the replacement session");
+    }
+
+    @Test
+    public void tableResetShutsDownTheIndependentVerificationWorker() throws Exception {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        while (current != null && !Files.isRegularFile(current.resolve(
+                "src/main/java/com/tonikelope/coronapoker/GameFrame.java"))) {
+            current = current.getParent();
+        }
+        assertTrue(current != null, "repository root found");
+        String gameFrame = Files.readString(current.resolve(
+                "src/main/java/com/tonikelope/coronapoker/GameFrame.java"));
+        assertTrue(gameFrame.contains("shutdownShuffleVerifyQueue()"),
+                "RESET_GAME must stop the verifier worker that lives outside Helpers.THREAD_POOL");
     }
 }

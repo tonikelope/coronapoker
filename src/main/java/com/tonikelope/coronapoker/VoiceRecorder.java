@@ -91,6 +91,7 @@ public class VoiceRecorder {
     private volatile TargetDataLine line = null;
     private volatile boolean recording = false;
     private volatile boolean stop_requested = false;
+    private volatile boolean teardown_aborted = false;
     private volatile boolean got_audio = false;
     private volatile boolean device_ended = false;
     private volatile Outcome outcome = Outcome.ABORTED;
@@ -336,6 +337,11 @@ public class VoiceRecorder {
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+            return null;
+        }
+
+        if (teardown_aborted) {
+            return null;
         }
 
         // The mic was never captured with: keep the original outcome, there is
@@ -395,6 +401,19 @@ public class VoiceRecorder {
             finish(Outcome.ENCODE_ERROR);
             return null;
         }
+    }
+
+    /**
+     * Definitive session teardown: discard the note and close the native input
+     * line immediately. TargetDataLine.read is not required to react to a Java
+     * thread interrupt, whereas closing the line releases the capture thread.
+     */
+    void abortForTableTeardown() {
+        teardown_aborted = true;
+        stop_requested = true;
+        recording = false;
+        closeLine();
+        finished.countDown();
     }
 
     // Loudest sample of the note (16 bit little endian mono)

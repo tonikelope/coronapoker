@@ -1532,6 +1532,7 @@ public class AudioSettingsPanel extends JPanel {
                 }
             } catch (InterruptedException stopped) {
                 // Settings closed: exit quietly.
+                Thread.currentThread().interrupt();
             }
         }, "CoronaPoker-AudioDeviceWatcher");
         t.setDaemon(true);

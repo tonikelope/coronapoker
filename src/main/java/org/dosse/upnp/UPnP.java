@@ -46,9 +46,14 @@ public class UPnP {
      */
     public static void waitInit() {
         while (finder.isSearching()) {
+            if (Thread.currentThread().isInterrupted()) {
+                return;
+            }
             try {
                 Thread.sleep(1);
             } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return;
             }
         }
     }
@@ -62,7 +67,7 @@ public class UPnP {
      */
     public static boolean isUPnPAvailable() {
         waitInit();
-        return defaultGW != null;
+        return !Thread.currentThread().isInterrupted() && defaultGW != null;
     }
 
     /**

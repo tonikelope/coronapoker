@@ -79,6 +79,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.InterruptedIOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
@@ -241,6 +242,7 @@ public class Helpers {
     // leaking threads or carrying prints over between games.
     public static volatile ExecutorService LOG_POOL;
     public static final int THREAD_POOL_SHUTDOWN_TIMEOUT = 5;
+    public static final int COOPERATIVE_SESSION_IO_TIMEOUT_MS = 3000;
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
     // Used by the version check (CoronaPoker and MOD) and the updater downloader's
@@ -760,23 +762,8 @@ public class Helpers {
         if (nanos > 0L) {
             long end = System.nanoTime() + nanos;
 
-            boolean interrupted = false;
-
-            while (System.nanoTime() < end) {
-
-                // parkNanos returns immediately while the interrupt flag is set,
-                // turning this loop into a busy-spin (e.g. pool shutdownNow during
-                // a clip wait). Clear the flag so the park is effective and restore
-                // it afterwards so callers still observe the cancellation.
-                if (Thread.interrupted()) {
-                    interrupted = true;
-                }
-
+            while (System.nanoTime() < end && !Thread.currentThread().isInterrupted()) {
                 LockSupport.parkNanos(end - System.nanoTime());
-            }
-
-            if (interrupted) {
-                Thread.currentThread().interrupt();
             }
         }
     }
@@ -937,7 +924,7 @@ public class Helpers {
         // close the stream it's given. Each call (one per chat GIF or allin animation)
         // was leaking the handle until GC.
         Metadata metadata;
-        try (InputStream s = url.openStream()) {
+        try (InputStream s = openCooperativeUrlStream(url)) {
             metadata = ImageMetadataReader.readMetadata(s);
         }
         List<GifControlDirectory> gifControlDirectories
@@ -966,7 +953,7 @@ public class Helpers {
     public static int getGIFFramesCount(URL url) throws IOException, ImageProcessingException {
 
         Metadata metadata;
-        try (InputStream s = url.openStream()) {
+        try (InputStream s = openCooperativeUrlStream(url)) {
             metadata = ImageMetadataReader.readMetadata(s);
         }
 
@@ -979,7 +966,7 @@ public class Helpers {
 
     public static boolean isImageGIF(URL url) {
 
-        try (InputStream stream = url.openStream(); ImageInputStream iis = ImageIO.createImageInputStream(stream)) {
+        try (InputStream stream = openCooperativeUrlStream(url); ImageInputStream iis = ImageIO.createImageInputStream(stream)) {
 
             Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
 
@@ -1005,6 +992,17 @@ public class Helpers {
         }
 
         return false;
+    }
+
+    private static InputStream openCooperativeUrlStream(URL url) throws IOException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedIOException("URL read cancelled during table teardown");
+        }
+
+        URLConnection connection = url.openConnection();
+        connection.setConnectTimeout(COOPERATIVE_SESSION_IO_TIMEOUT_MS);
+        connection.setReadTimeout(COOPERATIVE_SESSION_IO_TIMEOUT_MS);
+        return connection.getInputStream();
     }
 
     public static void updateCoronaDialogsFont() {
@@ -4287,6 +4285,9 @@ public class Helpers {
 
             con.setUseCaches(false);
 
+            con.setConnectTimeout(COOPERATIVE_SESSION_IO_TIMEOUT_MS);
+            con.setReadTimeout(COOPERATIVE_SESSION_IO_TIMEOUT_MS);
+
             try (InputStream is = con.getInputStream(); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
 
                 byte[] buffer = new byte[1024];
@@ -4294,6 +4295,10 @@ public class Helpers {
                 int reads;
 
                 while ((reads = is.read(buffer)) != -1) {
+
+                    if (Thread.currentThread().isInterrupted()) {
+                        return null;
+                    }
 
                     byte_res.write(buffer, 0, reads);
                 }
@@ -5167,6 +5172,24 @@ public class Helpers {
 
     }
 
+    /**
+     * Starts work whose lifetime belongs to the application, not to one poker
+     * table. The per-table executor is deliberately destroyed and recreated by
+     * RESET_GAME; startup maintenance and updater network I/O must therefore not
+     * participate in that handoff. Daemon status also prevents best-effort
+     * maintenance from pinning process shutdown.
+     */
+    public static Thread applicationTask(Runnable task, String name) {
+        if (task == null) {
+            throw new IllegalArgumentException("application task is required");
+        }
+        Thread thread = new Thread(task,
+                name == null || name.isBlank() ? "CoronaPoker-application-task" : name);
+        thread.setDaemon(true);
+        thread.start();
+        return thread;
+    }
+
     // Enqueues a log task on the single-thread FIFO consumer (LOG_POOL): guarantees
     // print() calls are applied in call order. Defensive against the pool being shut
     // down between games (that game's log has already ended).
@@ -5303,8 +5326,8 @@ public class Helpers {
                         mynotifier.wait(1000);
 
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(Helpers.class
-                                .getName()).log(Level.SEVERE, null, ex);
+                        Thread.currentThread().interrupt();
+                        return;
                     }
                 }
             }
@@ -5469,8 +5492,8 @@ public class Helpers {
                         mynotifier.wait(1000);
 
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(Helpers.class
-                                .getName()).log(Level.SEVERE, null, ex);
+                        Thread.currentThread().interrupt();
+                        return;
                     }
                 }
             }

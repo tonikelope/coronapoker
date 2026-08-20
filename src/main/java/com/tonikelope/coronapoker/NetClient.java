@@ -69,6 +69,10 @@ public class NetClient {
     private final Object lock_client_reconnect = new Object();
 
     private volatile Socket local_client_socket = null;
+    // One-way lifecycle fence for a discarded waiting-room/game session. Once
+    // teardown starts, no reconnect racing in the old executor may publish a
+    // replacement socket and keep that executor alive past the session handoff.
+    private volatile boolean client_socket_teardown_started = false;
     private volatile BufferedInputStream local_client_buffer_read_is = null;
     private volatile SecretKeySpec local_client_aes_key = null;
     private volatile SecretKeySpec local_client_hmac_key = null;
@@ -186,7 +190,17 @@ public class NetClient {
     }
 
     public void setLocal_client_socket(Socket s) {
+        if (s != null && client_socket_teardown_started) {
+            closeStalledSocket(s);
+            return;
+        }
         this.local_client_socket = s;
+        // Covers the inverse interleaving: the first check observed false,
+        // teardown set the fence and closed the previous socket, then this
+        // thread published s. Never leave that late socket open.
+        if (s != null && client_socket_teardown_started) {
+            closeStalledSocket(s);
+        }
     }
 
     public BufferedInputStream getLocal_client_buffer_read_is() {
@@ -332,6 +346,23 @@ public class NetClient {
     }
 
     /**
+     * Closes the current socket during definitive table teardown without taking
+     * {@code local_client_socket_lock}. A stalled writer may own that lock while
+     * blocked in the operating system; closing the socket is what releases it.
+     * The one-way fence also rejects and closes sockets published by a reconnect
+     * racing teardown.
+     */
+    public void closeClientSocketForTeardown() {
+        client_socket_teardown_started = true;
+        Socket before = local_client_socket;
+        closeStalledSocket(before);
+        Socket after = local_client_socket;
+        if (after != before) {
+            closeStalledSocket(after);
+        }
+    }
+
+    /**
      * Closes a SPECIFIC socket whose write is stuck because the server stopped
      * reading. Deliberately does NOT take {@code local_client_socket_lock}:
      * that lock is exactly what the blocked write holds
@@ -425,7 +456,7 @@ public class NetClient {
                     local_client_socket_lock.wait(1000);
                 } catch (InterruptedException ex) {
                     Helpers.logCooperativeCancellation(LOGGER, "reconnect wait", ex);
-                    break;
+                    return null;
                 }
             }
         }

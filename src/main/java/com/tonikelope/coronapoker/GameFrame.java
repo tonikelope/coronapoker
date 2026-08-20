@@ -4670,7 +4670,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (WaitingRoomFrame.getInstance().isServer()) {
                         WaitingRoomFrame.getInstance().closeServerSocket();
                     } else {
-                        WaitingRoomFrame.getInstance().closeClientSocket();
+                        WaitingRoomFrame.getInstance().closeClientSocketForTeardown();
                     }
 
                     if (isPartida_local() && getSala_espera().isUpnp()) {
@@ -4844,6 +4844,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameFrame.PASSWORD_RECOVER = recover ? WaitingRoomFrame.getInstance().getPassword() : null;
 
+            // TargetDataLine.read may ignore Thread.interrupt(). Close the native
+            // microphone resource before shutdownNow so an in-flight voice note
+            // cannot keep the old table executor alive and block recover/menu.
+            VoiceMessageManager.abortForTableTeardown();
+
             Audio.stopAllCurrentLoopMp3Resource();
 
             Audio.stopAllWavResources();
@@ -4996,6 +5001,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     if (crupier != null && !crupier.isFin_de_la_transmision()) {
                         crupier.broadcastTelemetryFrame();
                     }
+                } catch (Helpers.CooperativeCancellationException ex) {
+                    return;
                 } catch (Exception ex) {
                     Logger.getLogger(GameFrame.class.getName()).log(
                             Level.WARNING,

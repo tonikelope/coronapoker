@@ -134,6 +134,31 @@ public class VoiceMessageManager {
         keyReleased();
     }
 
+    /**
+     * Discards any in-flight recording before the table executor is shut down.
+     * This is deliberately synchronous and does not submit back into that
+     * executor: closing the native capture line is what releases its worker.
+     */
+    public static void abortForTableTeardown() {
+        VoiceRecorder recorder = RECORDER;
+        RECORDER = null;
+        WAIT_KEY_RELEASE = false;
+        RECORD_START_NANOS = 0L;
+        KEY_PRESS_NANOS = 0L;
+
+        javax.swing.Timer autoSend = AUTO_SEND_TIMER;
+        AUTO_SEND_TIMER = null;
+        if (autoSend != null) {
+            autoSend.stop();
+        }
+
+        if (recorder != null) {
+            recorder.abortForTableTeardown();
+            Audio.setVoiceRecording(false);
+        }
+        closeRecordDialog();
+    }
+
     private static void keyPressed() {
 
         // Key auto-repeat fires PRESSED again while held, and after an

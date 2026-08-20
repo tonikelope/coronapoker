@@ -18,10 +18,13 @@
  */
 package org.dosse.upnp;
 
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringTokenizer;
@@ -38,6 +41,8 @@ import org.w3c.dom.traversal.NodeIterator;
  * @author Federico
  */
 class Gateway {
+
+    private static final int NETWORK_TIMEOUT_MS = 3000;
 
     private Inet4Address iface;
     private InetAddress routerip;
@@ -62,8 +67,13 @@ class Gateway {
         if (location == null) {
             throw new Exception("Unsupported Gateway");
         }
+        URLConnection descriptionConnection = new URL(location).openConnection();
+        descriptionConnection.setConnectTimeout(NETWORK_TIMEOUT_MS);
+        descriptionConnection.setReadTimeout(NETWORK_TIMEOUT_MS);
         Document d;
-        d = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(location);
+        try (InputStream description = descriptionConnection.getInputStream()) {
+            d = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(description);
+        }
         NodeList services = d.getElementsByTagName("service");
         for (int i = 0; i < services.getLength(); i++) {
             Node service = services.item(i);
@@ -118,19 +128,29 @@ class Gateway {
         conn.setRequestProperty("SOAPAction", "\"" + serviceType + "#" + action + "\"");
         conn.setRequestProperty("Connection", "Close");
         conn.setRequestProperty("Content-Length", "" + req.length);
-        conn.getOutputStream().write(req);
-        Document d = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(conn.getInputStream());
-        NodeIterator iter = ((DocumentTraversal) d).createNodeIterator(d.getDocumentElement(), NodeFilter.SHOW_ELEMENT, null, true);
-        Node n;
-        while ((n = iter.nextNode()) != null) {
-            try {
-                if (n.getFirstChild().getNodeType() == Node.TEXT_NODE) {
-                    ret.put(n.getNodeName(), n.getTextContent());
-                }
-            } catch (Throwable t) {
+        conn.setConnectTimeout(NETWORK_TIMEOUT_MS);
+        conn.setReadTimeout(NETWORK_TIMEOUT_MS);
+        try {
+            try (OutputStream output = conn.getOutputStream()) {
+                output.write(req);
             }
+            Document d;
+            try (InputStream response = conn.getInputStream()) {
+                d = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(response);
+            }
+            NodeIterator iter = ((DocumentTraversal) d).createNodeIterator(d.getDocumentElement(), NodeFilter.SHOW_ELEMENT, null, true);
+            Node n;
+            while ((n = iter.nextNode()) != null) {
+                try {
+                    if (n.getFirstChild().getNodeType() == Node.TEXT_NODE) {
+                        ret.put(n.getNodeName(), n.getTextContent());
+                    }
+                } catch (Throwable t) {
+                }
+            }
+        } finally {
+            conn.disconnect();
         }
-        conn.disconnect();
         return ret;
     }
 

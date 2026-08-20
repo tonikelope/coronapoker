@@ -67,6 +67,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -2338,6 +2339,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
+                        return null;
                     }
                 }
             }
@@ -2450,6 +2452,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
+                        return null;
                     }
                 }
             }
@@ -2535,6 +2538,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
+                        return null;
                     }
                 }
             }
@@ -5101,6 +5105,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && resistingPlayers > 1 && street < RIVER && activePlayers > 1;
     }
 
+    static boolean shouldCancelTableWait(boolean transmissionFinished,
+            boolean terminationPending, boolean interrupted) {
+        return transmissionFinished || terminationPending || interrupted;
+    }
+
+    private boolean tableWaitCancelled() {
+        return shouldCancelTableWait(isFin_de_la_transmision(), this.termination_pending,
+                Thread.currentThread().isInterrupted());
+    }
+
+    static boolean awaitPlayerTurnCompletion(Object turnLock, BooleanSupplier playerHasTurn,
+            BooleanSupplier transmissionFinished, BooleanSupplier terminationPending,
+            long waitMillis) {
+        synchronized (turnLock) {
+            while (playerHasTurn.getAsBoolean()
+                    && !shouldCancelTableWait(transmissionFinished.getAsBoolean(),
+                            terminationPending.getAsBoolean(), Thread.currentThread().isInterrupted())) {
+                try {
+                    turnLock.wait(waitMillis);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        return !shouldCancelTableWait(transmissionFinished.getAsBoolean(),
+                terminationPending.getAsBoolean(), Thread.currentThread().isInterrupted());
+    }
+
     public void setFin_de_la_transmision(boolean fin) {
         fin_de_la_transmision = fin;
     }
@@ -6114,7 +6147,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean barra_indeterminada = false;
         boolean timeout = false;
 
-        while (!pending.isEmpty() && !timeout) {
+        while (!pending.isEmpty() && !timeout && !tableWaitCancelled()) {
 
             synchronized (this.getReceived_commands()) {
                 ArrayList<String> rejected = new ArrayList<>();
@@ -6264,6 +6297,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             this.getReceived_commands().wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            return;
                         }
                     }
                 }
@@ -6326,8 +6361,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.GUIRun(() -> dlg[0].setVisible(true));
 
             // Wait for the local choice (OK, or auto-accept after 15s).
-            while (!dlg[0].isRebuy() && !fin_de_la_transmision) {
+            while (!dlg[0].isRebuy() && !tableWaitCancelled()) {
                 Helpers.pausar(GameFrame.WAIT_QUEUES);
+            }
+
+            if (tableWaitCancelled()) {
+                return;
             }
 
             // The spinner already clamps to the configured range; this clamp is defensive.
@@ -6404,7 +6443,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         long start_time = System.currentTimeMillis();
         boolean timeout = false;
 
-        while (!pending.isEmpty() && !timeout) {
+        while (!pending.isEmpty() && !timeout && !tableWaitCancelled()) {
 
             synchronized (this.getReceived_commands()) {
                 ArrayList<String> rejected = new ArrayList<>();
@@ -6483,6 +6522,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             this.getReceived_commands().wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            return;
                         }
                     }
                 }
@@ -8890,6 +8931,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             lock_nueva_mano.wait(Math.min(NEW_HAND_READY_WAIT, Math.max(1, remaining)));
                         } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            return;
                         }
                     }
                 }
@@ -8948,6 +8991,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             this.getReceived_commands().wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            return;
                         }
                     }
                 }
@@ -11215,6 +11260,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     try {
                         this.received_commands.wait(WAIT_QUEUES);
                     } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        return false;
                     }
                 }
             }
@@ -11568,6 +11615,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             try {
                                 this.received_commands.wait(WAIT_QUEUES);
                             } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                                setFin_de_la_transmision(true);
+                                return false;
                             }
                         }
                     }
@@ -12858,11 +12908,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     : WAIT_QUEUES;
                             this.received_commands.wait(waitMs);
                         } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            break;
                         }
                     }
                 }
             }
-        } while (!ok && !jugador.isExit());
+        } while (!ok && !jugador.isExit() && !tableWaitCancelled());
+
+        if (tableWaitCancelled()) {
+            return null;
+        }
 
         if (jugador.isExit()) {
             // Peer left. Local synth FOLD for UI + finTurno (so the betting loop
@@ -15961,13 +16017,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
 
-                    synchronized (getLock_apuestas()) {
-                        while (current_player.isTurno()) {
-                            try {
-                                getLock_apuestas().wait(WAIT_QUEUES);
-                            } catch (InterruptedException ex) {
-                            }
-                        }
+                    final Player awaitedLocalPlayer = current_player;
+                    if (!awaitPlayerTurnCompletion(getLock_apuestas(), awaitedLocalPlayer::isTurno,
+                            this::isFin_de_la_transmision, () -> this.termination_pending,
+                            WAIT_QUEUES)) {
+                        return resisten;
                     }
 
                     decision = current_player.getDecision();
@@ -16068,6 +16122,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     } else {
                         action = this.readActionFromRemotePlayer(current_player);
                     }
+                }
+
+                if (tableWaitCancelled()) {
+                    return resisten;
                 }
 
                 // Safety net for the betting round: without a usable decision, the unpacking
@@ -16214,13 +16272,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                synchronized (getLock_apuestas()) {
-                    while (current_player.isTurno()) {
-                        try {
-                            getLock_apuestas().wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
-                    }
+                final Player awaitedPlayer = current_player;
+                if (!awaitPlayerTurnCompletion(getLock_apuestas(), awaitedPlayer::isTurno,
+                        this::isFin_de_la_transmision, () -> this.termination_pending,
+                        WAIT_QUEUES)) {
+                    return resisten;
                 }
 
                 // Identity: absorb the (record || sig) bytes into H_t.
@@ -16814,6 +16870,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
                             Thread.currentThread().interrupt();
+                            return;
                         }
                     }
                 }
@@ -19934,6 +19991,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     && decoded.top_half == (GameFrame.VISTA_COMPACTA > 0 && carta.isCompactable())) {
                 return decoded;
             }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new Helpers.CooperativeCancellationException(ex);
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Prefetched card flip GIF unavailable (decoding inline)", ex);
         }
@@ -20025,6 +20085,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 try {
                     anim2 = (FlipAnim) decode2.get();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new Helpers.CooperativeCancellationException(ex);
                 } catch (Exception ex) {
                     LOGGER.log(Level.WARNING, "Card flip GIF pre-decode failed (classic uncover fallback)", ex);
                 }
@@ -20206,6 +20269,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     && decoded.top_half == (GameFrame.VISTA_COMPACTA > 0 && carta.isCompactable())) {
                 return decoded;
             }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new Helpers.CooperativeCancellationException(ex);
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Prefetched hole-card flip unavailable (decoding inline)", ex);
         }
@@ -22071,10 +22137,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             try {
                                                 lock_iwtsth.wait(IWTSTH_TIMEOUT);
                                             } catch (InterruptedException ex) {
+                                                Thread.currentThread().interrupt();
                                             }
                                             this.iwtsthing = false;
                                         }
                                     }
+                                }
+
+                                if (tableWaitCancelled()) {
+                                    return;
                                 }
 
                                 /*

@@ -794,9 +794,9 @@ public class Audio {
 
             // TTS_LOCK is held while downloading: without timeouts a hung
             // connection would block TTS (and pool threads) forever.
-            con.setConnectTimeout(5000);
+            con.setConnectTimeout(Helpers.COOPERATIVE_SESSION_IO_TIMEOUT_MS);
 
-            con.setReadTimeout(10000);
+            con.setReadTimeout(Helpers.COOPERATIVE_SESSION_IO_TIMEOUT_MS);
 
             try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"))) {
 
@@ -806,14 +806,25 @@ public class Audio {
 
                 while ((reads = is.read(buffer)) != -1) {
 
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new java.io.InterruptedIOException("table teardown");
+                    }
+
                     bfos.write(buffer, 0, reads);
                 }
 
             } catch (Exception ex) {
 
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS API Error: {0}", ex.getMessage());
-                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+                error = true;
+                if (!Thread.currentThread().isInterrupted()) {
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS API Error: {0}", ex.getMessage());
+                    Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+                }
 
+            }
+
+            if (error) {
+                return false;
             }
 
             String mp3_b64 = new String(Files.readAllBytes(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt")), StandardCharsets.UTF_8);
@@ -830,8 +841,10 @@ public class Audio {
 
         } catch (Exception ex) {
             error = true;
-            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Base64 processing error: {0}", ex.getMessage());
-            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+            if (!Thread.currentThread().isInterrupted()) {
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Base64 processing error: {0}", ex.getMessage());
+                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
+            }
 
         } finally {
 
@@ -901,9 +914,9 @@ public class Audio {
 
                             // TTS_LOCK is held while downloading: without timeouts a hung
                             // connection would block TTS (and pool threads) forever.
-                            con.setConnectTimeout(5000);
+                            con.setConnectTimeout(Helpers.COOPERATIVE_SESSION_IO_TIMEOUT_MS);
 
-                            con.setReadTimeout(10000);
+                            con.setReadTimeout(Helpers.COOPERATIVE_SESSION_IO_TIMEOUT_MS);
 
                             filename = Helpers.genRandomString(30);
 
@@ -915,21 +928,29 @@ public class Audio {
 
                                 while ((reads = is.read(buffer)) != -1) {
 
+                                    if (Thread.currentThread().isInterrupted()) {
+                                        throw new java.io.InterruptedIOException("table teardown");
+                                    }
+
                                     bfos.write(buffer, 0, reads);
                                 }
 
                             } catch (Exception ex) {
 
-                                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS download error: {0}", ex.getMessage());
-                                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE ({0}) ERROR!", String.valueOf(conta_service));
+                                if (!Thread.currentThread().isInterrupted()) {
+                                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS download error: {0}", ex.getMessage());
+                                    Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE ({0}) ERROR!", String.valueOf(conta_service));
+                                }
                                 error = true;
                                 conta_service++;
                             }
 
                         } catch (Exception ex) {
 
-                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS connection error: {0}", ex.getMessage());
-                            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE ({0}) ERROR!", String.valueOf(conta_service));
+                            if (!Thread.currentThread().isInterrupted()) {
+                                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS connection error: {0}", ex.getMessage());
+                                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE ({0}) ERROR!", String.valueOf(conta_service));
+                            }
                             error = true;
                             conta_service++;
 
@@ -940,14 +961,15 @@ public class Audio {
                             }
                         }
 
-                    } while (error && conta_service < tts_mp3bin_services.length);
+                    } while (error && conta_service < tts_mp3bin_services.length
+                            && !Thread.currentThread().isInterrupted());
 
-                    if (error) {
+                    if (error && !Thread.currentThread().isInterrupted()) {
                         // FALLBACK
                         error = !googleTranslatorTTSBASE64(limpio, GameFrame.DEFAULT_LANGUAGE.toLowerCase(), filename);
                     }
 
-                    if (!error) {
+                    if (!error && !Thread.currentThread().isInterrupted()) {
 
                         muteAllExceptMp3Loops();
 

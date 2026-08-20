@@ -1120,7 +1120,7 @@ public class Init extends JFrame {
             update_button.setVisible(false);
             update_label.setText(Translator.translate("update.preparando_actualizacion"));
             update_label.setVisible(true);
-            Helpers.threadRun(() -> {
+            Helpers.applicationTask(() -> {
                 try {
                     performUpdate(target);
                 } finally {
@@ -1131,7 +1131,7 @@ public class Init extends JFrame {
                         update_button.setVisible(true);
                     });
                 }
-            });
+            }, "CoronaPoker-updater-download");
         } else {
             UPDATE();
         }
@@ -1812,7 +1812,8 @@ public class Init extends JFrame {
         // (tens-to-hundreds of ms on Windows). Not in loadPropertiesFile because
         // the configurable retention lives in AudioDeviceManager, whose static
         // init reads Helpers.PROPERTIES (still null during that early phase).
-        Helpers.threadRun(Helpers::purgeOldVoiceNotes);
+        Helpers.applicationTask(Helpers::purgeOldVoiceNotes,
+                "CoronaPoker-voice-note-maintenance");
 
         startDeadlockDetector();
 
@@ -1978,7 +1979,7 @@ public class Init extends JFrame {
         // sometimes: it played while the OS was still waking up the audio endpoint.
         // Warm the device with a silent line and ONLY THEN play init.wav, on a
         // separate thread so the window isn't delayed.
-        Helpers.threadRun(() -> {
+        Helpers.applicationTask(() -> {
             Audio.warmAudioDevice();
             Audio.playWavResourceAndWait("misc/init.wav", true, false, !GameFrame.arranqueSonidoOn());
             // uncover.wav (card reveal) is deck-independent (misc/) and plays on every
@@ -1986,7 +1987,7 @@ public class Init extends JFrame {
             // reveal starts instantly (clip pre-opened and reused, no per-reveal line
             // open lagging behind the flip animation). Never invalidated.
             Audio.preloadWav("misc/uncover.wav");
-        });
+        }, "CoronaPoker-audio-warmup");
 
         Audio.playLoopMp3Resource("misc/background_music.mp3");
 
@@ -2062,7 +2063,7 @@ public class Init extends JFrame {
     }
 
     private static void UPDATE() {
-        Helpers.threadRun(() -> {
+        Helpers.applicationTask(() -> {
             // Only the "checking for update..." label: the action buttons stay free
             // during the check (with a slow GitHub, retries can take several seconds
             // and shouldn't block the user; the panel's setEnabled(false) that used
@@ -2131,7 +2132,7 @@ public class Init extends JFrame {
                     }
                 });
             }
-        });
+        }, "CoronaPoker-update-check");
     }
 
     private static void antiScreensaver() {

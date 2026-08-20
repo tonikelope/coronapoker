@@ -213,7 +213,7 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 
 ## 🧱 Stack
 
-- **Java** (builds on JDK 11+, but needs **JDK 15+ to run** for the built-in Ed25519 provider, with current development on JDK 25)
+- **Java 17+** for both building and running
 - **Swing** UI with NetBeans Matisse forms
 - **Maven** build, single self-contained shaded jar
 - **Alberta** poker hand evaluator for true equity computation
@@ -236,7 +236,7 @@ The **bot AI**, covering its architecture, hand-evaluation maths, personality mo
 
 ## Build from source
 
-Requirements: JDK 11+ to build, JDK 15+ to run (the built-in Ed25519 signature provider arrived in JDK 15), Apache Maven 3.x.
+Requirements: JDK 17 or newer for both building and running, and Apache Maven 3.x. Maven compiles against the Java 17 API baseline, and CI builds and tests on JDK 17.
 
 ```bash
 git clone https://github.com/tonikelope/coronapoker.git

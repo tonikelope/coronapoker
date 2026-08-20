@@ -40,7 +40,7 @@ Source: [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/Ide
 
 An Ed25519 keypair is generated on first use of a given nick on a given machine.
 
-- **Algorithm**: `Ed25519` (RFC 8032), via `KeyPairGenerator.getInstance("Ed25519")` (native in JDK 15+).
+- **Algorithm**: `Ed25519` (RFC 8032), via `KeyPairGenerator.getInstance("Ed25519")` (provided by the supported JDK 17+ runtime).
 - **Binding**: **per-nick**, not per-install. The keypair is bound to the canonicalized nick (`IdentityManager.canonicalNick`: surrounding whitespace trimmed, then NFC-normalized). A `playerIdHex` slug = the first 16 hex chars (8 bytes / 64 bits) of `SHA-256(NFC(trim(nick)) UTF-8)`.
 - **Storage** under `<user.home>/.coronapoker/`:
   - Private key: `identity_<player_id_hex>.ed25519`, PKCS#8 encoded.

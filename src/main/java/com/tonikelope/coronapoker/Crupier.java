@@ -11245,6 +11245,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         try {
             entries = collectSettlementEntries();
             closingRemainderCents = settlementAmountToCents(this.bote_sobrante);
+            if (entries.isEmpty()) {
+                LOGGER.log(Level.SEVERE,
+                        "Empty settlement table; refusing receipt and SQL close");
+                setFin_de_la_transmision(true);
+                return false;
+            }
             if (this.settlement_accounting_invalid || !SettlementRecord.amountsBalance(
                     entries, this.opening_remainder_cents, closingRemainderCents)) {
                 LOGGER.log(Level.SEVERE,
@@ -11277,9 +11283,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // settlement, so honest peers converge; a divergent payout diverges H_final.
             // Defensive: never absorb twice for the same hand.
             if (!chainSnap.isSettlementAbsorbed()) {
-                if (entries.isEmpty()) {
-                    return true;
-                }
                 byte[] table = SettlementRecord.encode(chainSnap.getHandId(), entries,
                         this.opening_remainder_cents, closingRemainderCents);
                 chainSnap.absorbSettlement(table);

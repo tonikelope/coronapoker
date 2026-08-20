@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -77,5 +78,14 @@ public class MegaPacketEnvelopeStrictValidationTest {
         String[] shortDeck = validWire();
         shortDeck[4] = b64(new byte[32]);
         assertThrows(IllegalArgumentException.class, () -> Crupier.parseMegaPacketWire(shortDeck));
+    }
+
+    @Test
+    public void aSecondValidMegaPacketCannotReplaceTheFirst() {
+        Crupier.ParsedMegaPacket parsed = Crupier.parseMegaPacketWire(validWire());
+        AtomicReference<Crupier.ParsedMegaPacket> accepted = new AtomicReference<>();
+        Crupier.acceptMegaPacketOnce(accepted, parsed);
+        assertThrows(IllegalArgumentException.class,
+                () -> Crupier.acceptMegaPacketOnce(accepted, parsed));
     }
 }

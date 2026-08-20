@@ -1447,7 +1447,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return aggregate == 0;
     }
 
-    synchronized void installMegaPacket(ParsedMegaPacket parsed) {
+    private synchronized void installMegaPacket(ParsedMegaPacket parsed) {
         if (parsed == null) throw new IllegalArgumentException("parsed MEGAPACKET required");
         String localNick = GameFrame.getInstance().getNick_local();
         if (!java.util.Arrays.asList(parsed.ring).contains(localNick)) {
@@ -1461,6 +1461,47 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.peer_k_community.clear();
         parsed.pocketCommitments.forEach((nick, key) -> this.peer_k_pocket.put(nick, key.clone()));
         parsed.communityCommitments.forEach((nick, key) -> this.peer_k_community.put(nick, key.clone()));
+    }
+
+    static void acceptMegaPacketOnce(java.util.concurrent.atomic.AtomicReference<ParsedMegaPacket> accepted,
+            ParsedMegaPacket parsed) {
+        if (accepted == null || parsed == null || !accepted.compareAndSet(null, parsed)) {
+            throw new IllegalArgumentException("duplicate MEGAPACKET delivery");
+        }
+    }
+
+    void installMegaPacketFromHost(ParsedMegaPacket parsed) {
+        acceptMegaPacketOnce(this.accepted_mega_packet, parsed);
+        installMegaPacket(parsed);
+    }
+
+    void confirmInstalledMegaPacket(ParsedMegaPacket parsed) {
+        ParsedMegaPacket installed = this.accepted_mega_packet.get();
+        if (!sameMegaPacket(installed, parsed)) {
+            throw new IllegalArgumentException("queued MEGAPACKET differs from the installed envelope");
+        }
+    }
+
+    private static boolean sameMegaPacket(ParsedMegaPacket left, ParsedMegaPacket right) {
+        return left != null && right != null
+                && java.util.Arrays.equals(left.ring, right.ring)
+                && java.util.Arrays.equals(left.deck, right.deck)
+                && java.util.Arrays.equals(left.handId, right.handId)
+                && sameByteMap(left.pocketCommitments, right.pocketCommitments)
+                && sameByteMap(left.communityCommitments, right.communityCommitments);
+    }
+
+    private static boolean sameByteMap(java.util.Map<String, byte[]> left,
+            java.util.Map<String, byte[]> right) {
+        if (left == null || right == null || left.size() != right.size()) {
+            return false;
+        }
+        for (java.util.Map.Entry<String, byte[]> entry : left.entrySet()) {
+            if (!java.util.Arrays.equals(entry.getValue(), right.get(entry.getKey()))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     static final class ParsedPocketCards {
@@ -1547,6 +1588,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         acceptPocketDeferredOnce(this.pocket_deferred_received);
     }
 
+    private final java.util.concurrent.atomic.AtomicReference<ParsedMegaPacket> accepted_mega_packet
+            = new java.util.concurrent.atomic.AtomicReference<>();
     public volatile byte[] local_mega_packet = null;
 
     // Cascade chain log (no proofs generated here -> zero CPU cost during the deal).
@@ -3178,7 +3221,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         if (partes[2].equals("MEGAPACKET") && partes.length == 7) {
                             try {
-                                installMegaPacket(parseMegaPacketWire(partes));
+                                confirmInstalledMegaPacket(parseMegaPacketWire(partes));
                             } catch (Exception invalidMegaPacket) {
                                 LOGGER.log(Level.SEVERE,
                                         "Invalid critical MEGAPACKET; closing host channel", invalidMegaPacket);
@@ -8446,6 +8489,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // messages in an inconsistent state.
         single_locked_pocket_cards.clear();
         pocket_deferred_received.set(false);
+        accepted_mega_packet.set(null);
 
         synchronized (received_commands) {
             received_commands.clear();

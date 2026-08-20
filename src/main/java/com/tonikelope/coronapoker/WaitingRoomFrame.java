@@ -3318,7 +3318,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                  // as before.
                                                                  try {
                                                                      Crupier crupierMP = GameFrame.getInstance().getCrupier();
-                                                                     crupierMP.installMegaPacket(Crupier.parseMegaPacketWire(partes_comando));
+                                                                     crupierMP.installMegaPacketFromHost(Crupier.parseMegaPacketWire(partes_comando));
                                                                  } catch (Exception e) {
                                                                      LOGGER.log(Level.SEVERE, "Invalid critical MEGAPACKET; closing host connection", e);
                                                                      exit = true;

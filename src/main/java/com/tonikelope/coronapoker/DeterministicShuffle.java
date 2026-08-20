@@ -51,7 +51,7 @@ public class DeterministicShuffle {
      * AES-256-CTR.
      *
      * @param deck The deck to be shuffled
-     * @param seed The deterministic seed (32-byte key, optionally + 16-byte IV)
+     * @param seed The deterministic seed (32-byte key + 16-byte IV)
      * @return The shuffled deck
      */
     public static byte[] shuffleDeck(byte[] deck, byte[] seed) {
@@ -124,14 +124,14 @@ public class DeterministicShuffle {
         private int index = 0;
 
         public DeterministicStream(byte[] seed) throws Exception {
-            // First 32 bytes: AES-256 key. Bytes 32..48: IV. Falls back to a zero IV
-            // when the caller supplies a 32-byte legacy seed.
+            if (seed == null || seed.length != 48) {
+                throw new IllegalArgumentException("shuffle seed must be exactly 48 bytes");
+            }
+            // First 32 bytes: AES-256 key. Bytes 32..48: IV.
             byte[] key = new byte[32];
             byte[] iv = new byte[16];
-            System.arraycopy(seed, 0, key, 0, Math.min(seed.length, 32));
-            if (seed.length >= 48) {
-                System.arraycopy(seed, 32, iv, 0, 16);
-            }
+            System.arraycopy(seed, 0, key, 0, 32);
+            System.arraycopy(seed, 32, iv, 0, 16);
 
             SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
             IvParameterSpec ivSpec = new IvParameterSpec(iv);

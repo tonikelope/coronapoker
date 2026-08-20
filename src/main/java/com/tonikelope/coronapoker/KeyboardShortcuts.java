@@ -201,22 +201,6 @@ public final class KeyboardShortcuts {
             cur.put(d.id, override != null ? override : d.def);
         }
 
-        // Migrate the old voice-note key property ("voice_message_key", a bare keyCode that
-        // VoiceMessageManager used to manage) into the registry, if the user had customized it and
-        // no new-style override exists yet.
-        if (Helpers.PROPERTIES.getProperty(PROPERTY_PREFIX + VOICE_RECORD) == null) {
-            String legacy = Helpers.PROPERTIES.getProperty("voice_message_key");
-            if (legacy != null) {
-                try {
-                    int code = Integer.parseInt(legacy.trim());
-                    if (code != KeyEvent.VK_UNDEFINED) {
-                        cur.put(VOICE_RECORD, ks(code, 0));
-                    }
-                } catch (NumberFormatException ignore) {
-                }
-            }
-        }
-
         current = cur;
         reverse = buildReverse(cur);
     }
@@ -423,11 +407,6 @@ public final class KeyboardShortcuts {
                 Helpers.PROPERTIES.remove(PROPERTY_PREFIX + d.id);
             }
         }
-
-        // Purge the legacy voice-key property now that it's migrated into the registry: otherwise
-        // resetting VOICE_RECORD to factory from the Shortcuts tab would revert to the old key on
-        // restart (load() would reapply it, seeing shortcut.VOICE-RECORD absent).
-        Helpers.PROPERTIES.remove("voice_message_key");
 
         Helpers.savePropertiesFile();
         snapshot = null;

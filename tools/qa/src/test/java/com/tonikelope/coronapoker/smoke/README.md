@@ -43,8 +43,7 @@ Los 17 smoke actuales. El lane `qa-fast` corre por defecto con `mvn test`; `Game
 |---|---|---|
 | `GameFlowSmoke` | Bot engine + flujo de juego en 3/6/9 seats y las 3 difficulties (vía `MultiwaySimulator`): chip conservation, sin NaN/Inf, stack ≥ 0, contador de mano monotónico, winners válidos. 4 métodos `@Test` | qa-bots |
 | `HandEvaluatorSmoke` | Evaluador `Hand.calcularMejorJugada`: los 10 rankings + edge cases (wheel A-5, kickers, full vs trío+pareja, escalera de color). Se salta si el JVM es headless | rápido |
-| `AnteStraddleRecoverCompatSmoke` | Persistencia ANTE/STRADDLE: round-trip por `GameFrame` serialize/apply; un save previo a la feature deja ambos flags en OFF | rápido |
-| `DifficultyRecoverCompatSmoke` | Persistencia de dificultad tras el merge 4→3: los 3 niveles hacen round-trip; el token legacy `EXPERT` resuelve a `HARD` | rápido |
+| `RecoverSettingsSchemaSmoke` | Esquema único de recovery: round-trip ANTE/STRADDLE y rechazo de filas parciales | rápido |
 | `GamePresetRoundTripSmoke` | Contrato `GamePreset`: round-trip de cada ajuste de nueva partida (incl. estructura de ciegas), el registro persiste renombrados/borrados, entradas corruptas se saltan | rápido |
 | `I18nBundleIntegritySmoke` | Chequeos estructurales de los bundles de traducción (claves usadas sin bundle, forma de los ficheros) | rápido |
 | `IdentityKeypairAclSmoke` | `IdentityManager.writeKeypair` deja el privkey con ACL owner-only (0600 POSIX / una sola ACE en Windows); el pubkey existe | rápido |

@@ -28,7 +28,7 @@ import java.nio.charset.StandardCharsets;
  * binary payloads share a single socket stream without ambiguity.
  *
  * <p>
- * The legacy wire is a text line: {@code *<base64(HMAC||IV||ciphertext)>\n}.
+ * The current TEXT wire is a line: {@code *<base64(HMAC||IV||ciphertext)>\n}.
  * Those lines always start with a printable ASCII byte (the {@code '*'}
  * encrypted prefix, or an uppercase verb letter for the rare plaintext
  * command), never with {@code 0x00}. A binary frame is therefore introduced
@@ -47,7 +47,7 @@ import java.nio.charset.StandardCharsets;
  * {@link Helpers#readBoundedLine(java.io.BufferedReader, int)} (CR skipped, LF
  * terminates, {@code cap} bounds the accumulated length, clean EOF with no
  * bytes returns {@code null}). Text bodies are decoded ISO-8859-1, which is a
- * lossless byte→char map and identical to the legacy UTF-8/default decode for
+ * lossless byte→char map and identical to the prior UTF-8/default decode for
  * the ASCII-only wire.
  *
  * <p>
@@ -148,7 +148,7 @@ public final class WireFrame {
     }
 
     /**
-     * Reads the next frame from {@code in}. Returns a TEXT result for a legacy
+     * Reads the next frame from {@code in}. Returns a TEXT result for a text
      * line, a BINARY result for a {@code 0x00}-prefixed frame, or {@code null}
      * on clean EOF before any byte (matching {@link Helpers#readBoundedLine}'s
      * null contract).

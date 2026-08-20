@@ -11,28 +11,25 @@ package com.tonikelope.coronapoker.smoke;
 import com.tonikelope.coronapoker.GameFrame;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Guards the ANTE / STRADDLE persistence contract added in the ante+straddle
- * sprint (config plumbing phase). Both flags must round-trip through null {@link GameFrame#serializeRecoverSettings()} /
- * {@link GameFrame#applyRecoverSettings(String)}, and a recover row saved
- * before the feature (no ANTE/STRADDLE keys) must leave them at their OFF
- * default rather than inheriting a stale value from another game in the same
- * session.
- */
-class AnteStraddleRecoverCompatSmoke {
+/** Guards the single current recovery-settings schema and its ANTE/STRADDLE fields. */
+class RecoverSettingsSchemaSmoke {
 
     @Test
     @DisplayName("ANTE/STRADDLE keys round-trip on and off")
     void keysRoundTrip() {
-        GameFrame.applyRecoverSettings("ANTE=1#STRADDLE=1");
+        GameFrame.ANTE = true;
+        GameFrame.STRADDLE = true;
+        GameFrame.applyRecoverSettings(GameFrame.serializeRecoverSettings());
         assertTrue(GameFrame.ANTE, "ANTE=1 must enable the ante");
         assertTrue(GameFrame.STRADDLE, "STRADDLE=1 must enable the straddle");
 
-        GameFrame.applyRecoverSettings("ANTE=0#STRADDLE=0");
+        GameFrame.ANTE = false;
+        GameFrame.STRADDLE = false;
+        GameFrame.applyRecoverSettings(GameFrame.serializeRecoverSettings());
         assertFalse(GameFrame.ANTE, "ANTE=0 must disable the ante");
         assertFalse(GameFrame.STRADDLE, "STRADDLE=0 must disable the straddle");
     }
@@ -44,7 +41,6 @@ class AnteStraddleRecoverCompatSmoke {
         GameFrame.STRADDLE = false;
         String serialized = GameFrame.serializeRecoverSettings();
 
-        // Flip both, then prove the restore brings back the serialized state.
         GameFrame.ANTE = false;
         GameFrame.STRADDLE = true;
         GameFrame.applyRecoverSettings(serialized);
@@ -54,13 +50,13 @@ class AnteStraddleRecoverCompatSmoke {
     }
 
     @Test
-    @DisplayName("A pre-feature recover row resets ANTE/STRADDLE to OFF (no stale carry-over)")
-    void missingKeysResetToOff() {
+    @DisplayName("A partial recover row is rejected")
+    void missingCurrentKeysAreRejected() {
         GameFrame.ANTE = true;
         GameFrame.STRADDLE = true;
-        // A row from before the feature: no ANTE/STRADDLE keys.
-        GameFrame.applyRecoverSettings("DIFFICULTY=HARD");
-        assertFalse(GameFrame.ANTE, "missing ANTE key must reset to OFF, not stay stale-on");
-        assertFalse(GameFrame.STRADDLE, "missing STRADDLE key must reset to OFF, not stay stale-on");
+        assertThrows(IllegalArgumentException.class,
+                () -> GameFrame.applyRecoverSettings("DIFFICULTY=HARD"));
+        assertTrue(GameFrame.ANTE, "rejected settings must not mutate current state");
+        assertTrue(GameFrame.STRADDLE, "rejected settings must not mutate current state");
     }
 }

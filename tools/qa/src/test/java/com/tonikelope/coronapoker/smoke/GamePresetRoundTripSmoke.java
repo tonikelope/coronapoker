@@ -109,13 +109,6 @@ class GamePresetRoundTripSmoke {
     }
 
     @Test
-    @DisplayName("the legacy EXPERT difficulty maps to HARD")
-    void legacyExpertDifficultyMapsToHard() {
-        assertEquals(Bot.Difficulty.HARD, GamePreset.Settings.parse("DIFF=EXPERT").difficulty,
-                "legacy EXPERT must fold into HARD");
-    }
-
-    @Test
     @DisplayName("the registry preserves names, settings and order across write -> read")
     void registryRoundTrips() {
         List<GamePreset> presets = new ArrayList<>();

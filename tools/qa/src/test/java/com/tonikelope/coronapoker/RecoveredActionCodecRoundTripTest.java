@@ -18,7 +18,7 @@ public class RecoveredActionCodecRoundTripTest {
     }
 
     @Test
-    public void legacyFormatIsRejectedBecauseMixedVersionsCannotConnect() {
+    public void unsupportedFormatIsRejectedBecauseMixedVersionsCannotConnect() {
         RecoveredActionCodec.Result decoded = RecoveredActionCodec.decode("YWxpY2U=#3#12.34#*#*");
         assertFalse(decoded.isOk());
     }

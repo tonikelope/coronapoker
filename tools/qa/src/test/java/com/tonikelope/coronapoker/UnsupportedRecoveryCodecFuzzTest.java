@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
 
-public class RecoveryLegacyCodecFuzzTest {
+public class UnsupportedRecoveryCodecFuzzTest {
     @Test
     public void arbitraryAndJavaSerializationBytesAreTotalAndRejected() {
         assertFalse(RecoverySnapshotV1.decode(new byte[]{(byte) 0xac, (byte) 0xed, 0, 5}, "session-a").isOk());

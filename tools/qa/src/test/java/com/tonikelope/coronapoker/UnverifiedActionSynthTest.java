@@ -132,9 +132,9 @@ class UnverifiedActionSynthTest {
 
     @Test
     @DisplayName("An action[] without the seventh slot is never an unverified synth")
-    void legacyActionArraysDefaultToSilent() {
-        // The bot path builds a 3-slot action[]; older shapes may reach here too.
-        // None of them can ask for a rebroadcast: the safe default is silence.
+    void nonWireActionArraysDefaultToSilent() {
+        // The current bot path builds a 3-slot action[]. It cannot ask for a
+        // rebroadcast: the safe default is silence.
         assertFalse(Crupier.isUnverifiedSynthFold(new Object[]{Player.CHECK, 0d, null}));
 
         Object[] recovered = new Object[6];
@@ -273,6 +273,8 @@ class UnverifiedActionSynthTest {
         assertFalse(Crupier.wireCarriesRecordAndSig("GAME#1#ACTION#bm9iaQ==#0#0#*#*#c2ln".split("#")));
         assertFalse(Crupier.wireCarriesRecordAndSig("GAME#1#ACTION#bm9iaQ==#0#0#*#cmVj#*".split("#")));
         assertTrue(Crupier.wireCarriesRecordAndSig("GAME#1#ACTION#bm9iaQ==#0#0#*#cmVj#c2ln".split("#")));
+        assertFalse(Crupier.wireCarriesRecordAndSig(
+                "GAME#1#ACTION#bm9iaQ==#0#0#*#cmVj#c2ln#extra".split("#")));
     }
 
     @Test

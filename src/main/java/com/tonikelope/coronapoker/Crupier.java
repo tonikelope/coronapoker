@@ -2217,9 +2217,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
                     if (partes.length == 7 && partes[2].equals("DECK_CASCADE_RESP")) {
+                        String senderNick;
                         try {
-                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (senderNick.equals(nick)) {
+                            senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                        } catch (Exception e) {
+                            this.received_commands.reject(cmd);
+                            continue;
+                        }
+                        if (senderNick.equals(nick)) {
+                            try {
                                 byte[] candidate = Base64.getDecoder().decode(partes[4]);
                                 // ZERO-TRUST host-side: the peer responds with a deck we're about to propagate
                                 // to the next step in the cascade and, eventually, to EVERYONE via MEGAPACKET.
@@ -2273,10 +2279,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 candidate.length == 1664 ? RistrettoSRA.arePointsValid(candidate) : false});
                                     fatalError = true;
                                 }
-                            } else {
-                                rejected.add(cmd);
+                                if (fatalError) {
+                                    this.received_commands.reject(cmd);
+                                }
+                            } catch (Exception e) {
+                                this.received_commands.reject(cmd);
+                                fatalError = true;
                             }
-                        } catch (Exception e) {
+                        } else {
                             rejected.add(cmd);
                         }
                     } else {
@@ -2383,9 +2393,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
                     if (partes.length == 6 && partes[2].equals("DECK_ROTATION_RESP")) {
+                        String senderNick;
                         try {
-                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (senderNick.equals(nick)) {
+                            senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                        } catch (Exception e) {
+                            this.received_commands.reject(cmd);
+                            continue;
+                        }
+                        if (senderNick.equals(nick)) {
+                            try {
                                 byte[] candidate = Base64.getDecoder().decode(partes[4]);
                                 // The rotated block must keep exactly the same length (same N
                                 // positions) and remain valid curve points.
@@ -2400,10 +2416,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 candidate.length == expectedLength ? RistrettoSRA.arePointsValid(candidate) : false});
                                     fatalError = true;
                                 }
-                            } else {
-                                rejected.add(cmd);
+                                if (fatalError) {
+                                    this.received_commands.reject(cmd);
+                                }
+                            } catch (Exception e) {
+                                this.received_commands.reject(cmd);
+                                fatalError = true;
                             }
-                        } catch (Exception e) {
+                        } else {
                             rejected.add(cmd);
                         }
                     } else {
@@ -2472,20 +2492,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
                     if (partes.length == 5 && partes[2].equals("RESP_SRA_UNLOCK_CHAIN")) {
+                        String senderNick;
                         try {
-                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (senderNick.equals(nick)) {
+                            senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                        } catch (Exception e) {
+                            this.received_commands.reject(cmd);
+                            continue;
+                        }
+                        if (senderNick.equals(nick)) {
+                            try {
                                 java.util.List<UnlockChainWire.RespItem> parsed = UnlockChainWire.parseResp(partes[4]);
                                 if (parsed != null) {
                                     result = parsed;
                                     ok = true;
                                 } else {
-                                    rejected.add(cmd);
+                                    this.received_commands.reject(cmd);
                                 }
-                            } else {
-                                rejected.add(cmd);
+                            } catch (Exception e) {
+                                this.received_commands.reject(cmd);
                             }
-                        } catch (Exception e) {
+                        } else {
                             rejected.add(cmd);
                         }
                     } else {

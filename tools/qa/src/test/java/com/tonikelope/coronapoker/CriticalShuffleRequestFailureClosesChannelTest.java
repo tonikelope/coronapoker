@@ -43,6 +43,15 @@ public class CriticalShuffleRequestFailureClosesChannelTest {
                 () -> Crupier.acceptCriticalDealPhaseOnce(accepted, "DECK_CASCADE_REQ"));
     }
 
+    @Test
+    public void invalidCriticalResponsesCloseTheirExactAuthenticatedSource() throws Exception {
+        String source = Files.readString(locateRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"));
+        assertResponseWaitRejects(source, "requestRemoteCascade", "requestRemoteRotation");
+        assertResponseWaitRejects(source, "requestRemoteRotation", "requestRemoteUnlockChain");
+        assertResponseWaitRejects(source, "requestRemoteUnlockChain", "sendGAMECommandToParticipant");
+    }
+
     private static void assertHandlerCloses(String source, String name, String next, int minimumAborts) {
         int start = source.indexOf("case \"" + name + "\":");
         int end = source.indexOf("case \"" + next + "\":", start);
@@ -68,6 +77,14 @@ public class CriticalShuffleRequestFailureClosesChannelTest {
         int count = 0;
         for (int at = 0; (at = text.indexOf(token, at)) >= 0; at += token.length()) count++;
         return count;
+    }
+
+    private static void assertResponseWaitRejects(String source, String method, String nextMethod) {
+        int start = source.indexOf(method + "(");
+        int end = source.indexOf(nextMethod + "(", start + 1);
+        assertTrue(start >= 0 && end > start, method + " source not found");
+        assertTrue(source.substring(start, end).contains("this.received_commands.reject(cmd);"),
+                method + " must close the exact source of an invalid critical response");
     }
 
     private static Path locateRoot() {

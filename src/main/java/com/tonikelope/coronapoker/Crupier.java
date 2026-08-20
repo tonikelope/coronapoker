@@ -7764,12 +7764,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (getJugadoresActivos() == 2) {
                         this.utg_nick = this.dealer_nick;
                     } else {
-                        int utg_pos = bb_pos + 1;
-                        String new_utg = permutadoPos2Nick(utg_pos);
-                        while (!this.nick2player.containsKey(new_utg) || !this.nick2player.get(new_utg).isActivo()) {
-                            new_utg = permutadoPos2Nick(++utg_pos);
-                        }
-                        this.utg_nick = new_utg;
+                        int utg_pos = requireNextActivePermutedSeat(bb_pos + 1,
+                                "INVALID_ROSTER_STATE: recovery has no active UTG");
+                        this.utg_nick = permutadoPos2Nick(utg_pos);
                     }
                     for (Player jugador : GameFrame.getInstance().getJugadores()) {
                         jugador.refreshPos();
@@ -17292,11 +17289,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 new_big_blind = permutadoPos2Nick(big_blind_pos);
             }
 
-            while (!this.nick2player.containsKey(new_big_blind) || !this.nick2player.get(new_big_blind).isActivo()) {
-
-                new_big_blind = permutadoPos2Nick(++big_blind_pos);
-
-            }
+            big_blind_pos = requireNextActivePermutedSeat(big_blind_pos,
+                    "INVALID_ROSTER_STATE: no active big blind");
+            new_big_blind = permutadoPos2Nick(big_blind_pos);
 
             this.big_blind_nick = new_big_blind;
         }
@@ -17319,17 +17314,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } else {
 
             // UTG
-            int utg_pos = big_blind_pos + 1;
-
-            String new_utg = permutadoPos2Nick(utg_pos);
-
-            while (!this.nick2player.containsKey(new_utg) || !this.nick2player.get(new_utg).isActivo()) {
-
-                new_utg = permutadoPos2Nick(++utg_pos);
-
-            }
-
-            this.utg_nick = new_utg;
+            int utg_pos = requireNextActivePermutedSeat(big_blind_pos + 1,
+                    "INVALID_ROSTER_STATE: no active UTG");
+            this.utg_nick = permutadoPos2Nick(utg_pos);
 
             // DEALER
             int dealer_pos;
@@ -17366,11 +17353,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             }
 
-            while (!this.nick2player.containsKey(new_dealer) || !this.nick2player.get(new_dealer).isActivo()) {
-
-                new_dealer = permutadoPos2Nick(--dealer_pos);
-
-            }
+            dealer_pos = requirePreviousActivePermutedSeat(dealer_pos,
+                    "INVALID_ROSTER_STATE: no active dealer");
+            new_dealer = permutadoPos2Nick(dealer_pos);
 
             this.dealer_nick = new_dealer;
 
@@ -17387,6 +17372,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         this.dead_dealer = (this.dealer_nick.equals(old_dealer_nick));
+    }
+
+    private int requireNextActivePermutedSeat(int startInclusive, String failure) {
+        int ringSize = this.nicks_permutados == null ? 0 : this.nicks_permutados.length;
+        return SeatRing.nextActiveSeat(ringSize, startInclusive, seat -> {
+            String nick = permutadoPos2Nick(seat);
+            Player player = this.nick2player.get(nick);
+            return player != null && player.isActivo();
+        }).orElseThrow(() -> new IllegalStateException(failure));
+    }
+
+    private int requirePreviousActivePermutedSeat(int startInclusive, String failure) {
+        int ringSize = this.nicks_permutados == null ? 0 : this.nicks_permutados.length;
+        java.util.OptionalInt offset = SeatRing.nextActiveSeat(ringSize, 0, step -> {
+            int seat = Math.floorMod(startInclusive - step, ringSize);
+            String nick = permutadoPos2Nick(seat);
+            Player player = this.nick2player.get(nick);
+            return player != null && player.isActivo();
+        });
+        if (!offset.isPresent()) {
+            throw new IllegalStateException(failure);
+        }
+        return Math.floorMod(startInclusive - offset.getAsInt(), ringSize);
     }
 
     private void setPositions() {

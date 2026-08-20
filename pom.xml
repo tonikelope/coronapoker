@@ -128,8 +128,7 @@
     </dependencies>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
     </properties>
     <description>Érase una plandemia y unos amigos que querían echarse su partida de los sábados.</description>
     <name>CoronaPoker</name>

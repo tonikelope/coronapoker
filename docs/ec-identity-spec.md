@@ -299,7 +299,7 @@ HAND_ID(16) || VERSION(0x02) || N(uint8)
   || closing_remainder_cents(int64)
 ```
 
-`bote_cents` is the player's total contribution and `pagar_cents` the amount paid. The two remainder fields distinguish carry entering and leaving the hand. `Crupier.settlementAmountToCents` rejects non-finite, negative or out-of-range floating-point inputs. A recovered negative carry separately latches `settlement_accounting_invalid`. Once values are integer cents, `SettlementRecord.amountsBalance` enforces with overflow-safe arithmetic: `Σ pagar + closing_remainder = Σ bote + opening_remainder`. Participants are sorted by `PLAYER_ID`; duplicate ids are rejected. The legacy three-argument encoder with only a closing remainder remains solely for historical fixtures/records; production consensus must use v2.
+`bote_cents` is the player's total contribution and `pagar_cents` the amount paid. The two remainder fields distinguish carry entering and leaving the hand. `Crupier.settlementAmountToCents` rejects non-finite, negative or out-of-range floating-point inputs. A recovered negative carry separately latches `settlement_accounting_invalid`. Once values are integer cents, `SettlementRecord.amountsBalance` enforces with overflow-safe arithmetic: `Σ pagar + closing_remainder = Σ bote + opening_remainder`. Participants are sorted by `PLAYER_ID`; duplicate ids are rejected. Settlement v2 is the only supported settlement encoding.
 
 Absorb (a distinct domain separator keeps a settlement table from ever being parsed as an action record):
 

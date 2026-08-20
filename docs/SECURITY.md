@@ -276,7 +276,7 @@ Amounts are finite, non-negative integer cents (chip precision, host-independent
     = Σ bote_cents + opening_remainder_cents
 ```
 
-Invalid, negative, out-of-range or unbalanced money fails closed. The legacy three-argument encoder (`HAND_ID || N || entries || closing_remainder`) is retained only for historical fixtures/records; production consensus must use v2. The v2 record carries no separate signature: it rides the closing receipt, whose Ed25519 signature already covers `H_final`.
+Invalid, negative, out-of-range or unbalanced money fails closed. The current protocol has a single settlement encoding: v2. The record carries no separate signature; it rides the closing receipt, whose Ed25519 signature already covers `H_final`.
 
 ---
 

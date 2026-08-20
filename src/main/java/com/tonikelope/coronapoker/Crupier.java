@@ -1647,6 +1647,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean ante_straddle_update = false;
     private volatile boolean dead_dealer = false;
     private volatile boolean force_recover = false;
+    private volatile TableFailure table_failure;
     // Set the moment finTransmision starts (BEFORE it snapshots the auditor under
     // lock_contabilidad), so the community-card network waits (recibirCartasComunitarias,
     // requestRemoteUnlockChain) can bail WITHOUT needing that lock. Without it, a stop or a
@@ -3341,6 +3342,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void setForce_recover(boolean force_recover) {
         this.force_recover = force_recover;
+    }
+
+    public TableFailure getTableFailure() {
+        return table_failure;
     }
 
     // Called at the very start of finTransmision (before it takes lock_contabilidad) so the
@@ -21328,9 +21333,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } catch (Exception ex) {
                 if (!fin_de_la_transmision) {
-                    LOGGER.log(Level.SEVERE, "Crupier fatal error", ex);
-                    Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.crupier_fatal"));
-                    System.exit(1);
+                    containTableFailure(ex);
                 }
             }
         }
@@ -21341,6 +21344,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         GameFrame.getInstance().finTransmision(fin_de_la_transmision);
+    }
+
+    private void containTableFailure(Exception cause) {
+        table_failure = TableFailure.capture(cause, conta_mano, true);
+        LOGGER.log(Level.SEVERE, table_failure.diagnosticBundle(), cause);
+
+        setForce_recover(true);
+        setTerminationPending();
+        setFin_de_la_transmision(true);
+
+        if (GameFrame.getInstance().isPartida_local()) {
+            try {
+                String passSuffix = "";
+                WaitingRoomFrame waitingRoom = WaitingRoomFrame.getInstance();
+                if (waitingRoom != null && waitingRoom.getPassword() != null) {
+                    passSuffix = "#" + Base64.getEncoder().encodeToString(
+                            waitingRoom.getPassword().getBytes("UTF-8"));
+                }
+                broadcastGAMECommandFromServer("SERVEREXITRECOVER" + passSuffix, null, false);
+            } catch (Exception broadcastFailure) {
+                LOGGER.log(Level.WARNING,
+                        "Unable to broadcast SERVEREXITRECOVER after table failure", broadcastFailure);
+            }
+        }
+
+        Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.crupier_fatal"));
     }
 
     static boolean shouldRemoveExitedPlayerFromShowdown(boolean exited, int decision) {

@@ -5080,8 +5080,8 @@ public class Helpers {
      * <p>
      * Extends {@link Error} ON PURPOSE so the dozens of existing
      * {@code catch (Exception)} blocks (some of which trigger destructive side
-     * effects like {@code cancelarManoYDevolverApuestas} or
-     * {@code System.exit(1)} on a fatal Crupier error) do NOT swallow it: the
+     * effects like {@code cancelarManoYDevolverApuestas} or the Crupier's
+     * fail-closed recovery transition) do NOT swallow it: the
      * throwable must propagate to the top of the worker's {@code Runnable} and
      * be absorbed silently by the {@code Future}. The interrupt flag is
      * restored before the throw, so any catch site that explicitly wants to

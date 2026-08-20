@@ -14128,11 +14128,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Visual board update (reveal/highlight) with the main pot's winners+losers,
-        // BEFORE emptying 'jugadas'. Null for the deferred param: run-it-twice keeps
-        // its own dimming flow (already dimmed above in this settleRunItTwiceBoard),
-        // it isn't deferred to a second pass.
-        this.showdown(new HashMap<>(jugadas), ganadores, null);
+        // Compute every contested side pot BEFORE presenting the board. Otherwise a
+        // player who loses the main pot but wins a side pot is painted as a loser and
+        // can be auto-mucked before their actual winning result is known.
+        java.util.ArrayList<HashMap<Player, Hand>> sideHands = new java.util.ArrayList<>();
+        java.util.ArrayList<HashMap<Player, Hand>> sideWinners = new java.util.ArrayList<>();
+        for (HandPot side = this.bote.getSidePot(); side != null; side = side.getSidePot()) {
+            if (side.getPlayers().size() > 1) {
+                HashMap<Player, Hand> hands = this.calcularJugadas(side.getPlayers());
+                sideHands.add(hands);
+                sideWinners.add(this.calcularGanadores(new HashMap<>(hands)));
+            } else {
+                sideHands.add(new HashMap<>());
+                sideWinners.add(new HashMap<>());
+            }
+        }
+        SettlementPresentation.Plan<Player, Hand> presentation = SettlementPresentation.plan(
+                jugadas, ganadores, sideHands, sideWinners);
+
+        // Visual board update uses the complete immutable result. Null for the
+        // deferred param: run-it-twice keeps its own dimming flow.
+        this.showdown(new HashMap<>(presentation.losers()),
+                new HashMap<>(presentation.winners()), null);
 
         // Main pot's "#1" tag: after the showdown (not before), and only if there are
         // side pots. marcarBotePot deduplicates between SIDE-A and SIDE-B.
@@ -14159,6 +14176,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // ---- Side pots ----
         HandPot current_pot = this.bote.getSidePot();
         int sec = 2;
+        int sideIndex = 0;
         while (current_pot != null) {
             if (current_pot.getPlayers().size() == 1) {
                 // Undisputed side pot: full refund, ONCE only (SIDE-A); not split
@@ -14174,8 +14192,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.sqlUpdateShowdownPay(only);
                 }
             } else {
-                HashMap<Player, Hand> sjugadas = this.calcularJugadas(current_pot.getPlayers());
-                HashMap<Player, Hand> sganadores = this.calcularGanadores(new HashMap<>(sjugadas));
+                HashMap<Player, Hand> sjugadas = sideHands.get(sideIndex);
+                HashMap<Player, Hand> sganadores = sideWinners.get(sideIndex);
                 double sHalf = splitPotForRunItTwice(current_pot.getTotal())[board];
                 double[] sCantidad = this.calcularBoteParaGanador(sHalf, sganadores.size());
                 bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + Helpers.money2String(sHalf) + "}";
@@ -14199,6 +14217,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             current_pot = current_pot.getSidePot();
             sec++;
+            sideIndex++;
         }
 
         // This board's pot label, centered (like the normal showdown):

@@ -59,6 +59,11 @@ public final class GameCommandGate {
         return new Decision(false, false, true);
     }
 
+    /** A known critical command with an invalid payload or sender is fatal. */
+    public synchronized Decision rejectCriticalViolation() {
+        return new Decision(false, false, true);
+    }
+
     public synchronized int dedupSize() {
         return seenCommands.size();
     }

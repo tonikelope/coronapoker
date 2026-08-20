@@ -2542,20 +2542,46 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return ok ? result : null;
     }
 
-    // Unicasts a GAME command to ONE specific participant (no broadcast, no ACK wait — like the
-    // cascade REQs). Used by the blind straddle for POCKET_DEFERRED (telling the straddler to go
-    // blind) and for the deferred delivery of its POCKET_CARDS after the cascade.
-    private void sendGAMECommandToParticipant(Participant p, String command) {
-        if (p == null) {
-            return;
+    // Unicasts a critical GAME command to ONE participant and requires its ACK.
+    // Used by the blind straddle for POCKET_DEFERRED and for the later delivery
+    // of its POCKET_CARDS. Missing delivery closes that peer and aborts safely.
+    private boolean sendGAMECommandToParticipant(Participant p, String command) {
+        if (p == null || p.isExit()) {
+            return false;
         }
+        ArrayList<String> pending = new ArrayList<>();
+        pending.add(p.getNick());
+        ConfirmationTracker tracker = WaitingRoomFrame.getInstance().getReceived_confirmations();
+        ConfirmationTracker.Request request = null;
         try {
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            request = tracker.register(id + 1, pending);
             p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#" + command, p.getAes_key(), iv, p.getHmac_key()));
+            waitSyncConfirmations(pending, request);
+            if (pending.isEmpty()) {
+                return true;
+            }
+            LOGGER.log(Level.SEVERE, "Missing ACK for critical unicast from {0}; closing connection", p.getNick());
+            p.markExitAndNotify("withheld critical unicast ACK");
+            try {
+                p.socketClose();
+            } catch (Exception ignored) {
+            }
+            return false;
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to unicast GAME command to a participant", e);
+            LOGGER.log(Level.SEVERE, "Failed to unicast critical GAME command to a participant", e);
+            p.markExitAndNotify("critical unicast delivery failed");
+            try {
+                p.socketClose();
+            } catch (Exception ignored) {
+            }
+            return false;
+        } finally {
+            if (request != null) {
+                tracker.close(request);
+            }
         }
     }
 
@@ -3144,8 +3170,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // recibirMisCartas) and resolves its cards locally after deciding.
                 if (!targetNick.equals(hostNick)) {
                     Participant sp = GameFrame.getInstance().getParticipantes().get(targetNick);
-                    sendGAMECommandToParticipant(sp, "POCKET_DEFERRED#"
-                            + Base64.getEncoder().encodeToString(targetNick.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                    if (!sendGAMECommandToParticipant(sp, "POCKET_DEFERRED#"
+                            + Base64.getEncoder().encodeToString(targetNick.getBytes(java.nio.charset.StandardCharsets.UTF_8)))) {
+                        LOGGER.log(Level.SEVERE, "Failed to deliver POCKET_DEFERRED to {0}", targetNick);
+                        cancelarManoYDevolverApuestas("peer.broadcast_failed");
+                        return false;
+                    }
                 } else {
                     // Host is the straddler: mark pending so its fossil snapshot (below) skips
                     // VISUAL@; its cards resolve in resolveVoluntaryStraddle after deciding.
@@ -13972,9 +14002,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.straddle_cards_pending = false;
         } else {
             Participant sp = GameFrame.getInstance().getParticipantes().get(straddlerNick);
-            sendGAMECommandToParticipant(sp, "POCKET_CARDS#"
+            if (!sendGAMECommandToParticipant(sp, "POCKET_CARDS#"
                     + Base64.getEncoder().encodeToString(straddlerNick.getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                    + "#" + Base64.getEncoder().encodeToString(residue));
+                    + "#" + Base64.getEncoder().encodeToString(residue))) {
+                LOGGER.log(Level.SEVERE, "Failed to deliver deferred POCKET_CARDS to {0}", straddlerNick);
+                return false;
+            }
         }
         // Persists the fossil NOW that the straddler's residue is in
         // single_locked_pocket_cards (POCKETS@) and, if the host is the straddler, their

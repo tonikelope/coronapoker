@@ -54,6 +54,40 @@ public class CriticalCommunityDeliveryFailureTest {
                 "the transport failure must remain diagnosable");
     }
 
+    @Test
+    public void deferredPocketDeliveryFailureCannotBeReportedAsSuccess() throws Exception {
+        String source = Files.readString(locateRoot().resolve(
+                "src/main/java/com/tonikelope/coronapoker/Crupier.java"))
+                .replace("\r\n", "\n");
+        int sendStart = source.indexOf("private boolean sendGAMECommandToParticipant");
+        int sendEnd = source.indexOf("private boolean extendPocketChainsForSigner", sendStart);
+        assertTrue(sendStart >= 0 && sendEnd > sendStart,
+                "the critical participant unicast must expose delivery success");
+        String send = source.substring(sendStart, sendEnd);
+        assertTrue(send.contains("return false;") && send.contains("return true;"),
+                "critical unicast must report both transport failure and successful delivery");
+        assertTrue(send.contains("tracker.register")
+                        && send.contains("waitSyncConfirmations")
+                        && send.contains("p.socketClose()"),
+                "critical unicast must require an ACK or explicitly close its recipient");
+
+        int releaseStart = source.indexOf("private boolean releaseDeferredStraddlerCardsHost");
+        int releaseEnd = source.indexOf("private boolean awaitDeferredStraddlerCardsClient", releaseStart);
+        assertTrue(releaseStart >= 0 && releaseEnd > releaseStart,
+                "deferred straddler release source not found");
+        String release = source.substring(releaseStart, releaseEnd);
+        assertTrue(release.contains("if (!sendGAMECommandToParticipant"),
+                "the host must not clear deferred state after a failed POCKET_CARDS delivery");
+
+        int dealStart = source.indexOf("private boolean enviarCartasJugadoresRemotos");
+        int dealEnd = source.indexOf("private ArrayList<String> recibirMisCartas", dealStart);
+        assertTrue(dealStart >= 0 && dealEnd > dealStart,
+                "initial pocket delivery source not found");
+        assertTrue(source.substring(dealStart, dealEnd)
+                        .contains("if (!sendGAMECommandToParticipant"),
+                "a failed POCKET_DEFERRED notice must abort the deal explicitly");
+    }
+
     private static String receiveCommunitySource() throws Exception {
         Path root = locateRoot();
         String source = Files.readString(root.resolve(
